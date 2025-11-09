@@ -5,6 +5,8 @@
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
 
+> **DocOps Reminder**: prepend the metadata + Version History blocks described in `docs/Document_Standards.md` when this spec graduates beyond scaffolding.
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
@@ -75,6 +77,19 @@
 - What happens when [boundary condition]?
 - How does system handle [error scenario]?
 
+## Knowledge Graph Blueprint *(mandatory)*
+
+- **Graph Scope**: Describe the nodes/edges this feature adds or mutates.
+- **Identifiers & Provenance**: Define ID strategy, labels, and metadata recorded for AI traversals.
+- **Storage & Sync**: Specify the graph store (e.g., Neo4j) and how JSON-LD exports remain in sync.
+- **Validation**: Outline automated checks (schema tests, contract tests) required before merge.
+
+## AI & Automation Interfaces *(mandatory)*
+
+- **Agent Touchpoints**: List AI agents/tools, prompts, and evaluation harnesses impacted.
+- **Deterministic APIs**: Describe CLI/API entry points AI relies on and how to replay results.
+- **Safety & Review**: Define human-in-the-loop steps for AI-generated assets.
+
 ## Requirements *(mandatory)*
 
 <!--
@@ -113,3 +128,8 @@
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+
+## Documentation & Ops Updates *(mandatory)*
+
+- List the files (README, quickstart, runbooks, prompts) that must change alongside this feature.
+- Describe how CI/CD will verify docs, graph exports, and AI evaluation artifacts (`pnpm lint`, `pnpm test`, docs build).

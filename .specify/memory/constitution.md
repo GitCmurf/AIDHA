@@ -1,50 +1,93 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+Version change: 0.0.0 → 1.0.0
+Modified principles:
+- Graph-Native Knowledge Fabric
+- AI-Augmented Co-Design
+- Test-Driven Delivery
+- DevOps & DocOps as Product Work
+- Modular pnpm Monorepo Stewardship
+Added sections:
+- Architecture & Stack Guardrails
+- Workflow, Review & Quality Gates
+Removed sections:
+- None
+Templates requiring updates:
+- ✅ .specify/templates/plan-template.md
+- ✅ .specify/templates/spec-template.md
+- ✅ .specify/templates/tasks-template.md
+Follow-up TODOs:
+- None
+-->
+# AIDHA Workspace Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Graph-Native Knowledge Fabric
+Every feature MUST extend a single shared, graph-based personal knowledge management (PKM) model.
+Specifications SHALL document new nodes, relationships, and ontology changes before code exists.
+All persisted data uses immutable IDs, human-readable labels, and provenance metadata so AI agents
+can traverse, explain, and refactor knowledge safely.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. AI-Augmented Co-Design
+All components MUST expose deterministic interfaces (CLI or API) plus structured prompts so AI
+agents can plan, test, and document outcomes. Prompt files live beside the code they influence
+(e.g., `packages/<pkg>/prompts/`), include rationale, and ship with automated evaluations. Human
+reviewers verify that AI-generated outputs are reproducible from version-controlled artifacts.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Test-Driven Delivery (Non-Negotiable)
+Work begins with failing automated tests. Red–green–refactor cycles are enforced per package, and
+no code merges without: unit tests, graph-contract tests, and DocOps verification (quickstart or
+README updates). Minimum coverage targets start at 80% per workspace and increase with maturity;
+exceptions require a written waiver in the spec.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. DevOps & DocOps as Product Work
+CI/CD pipelines MUST mirror local commands (`pnpm lint`, `pnpm test`, `pnpm build`). Every change
+updates corresponding docs in the same PR: specs, plans, runbooks, and AGENT summaries. Operational
+insights (metrics, alerts, runbooks) live under `packages/<pkg>/ops/` and are versioned alongside
+code. Deployments are “documentation deploys”: pipeline fails if docs or quickstarts fall behind the
+implemented behavior.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Modular pnpm Monorepo Stewardship
+The repository is a pnpm workspace-first monorepo. Each package publishes a clear API surface,
+Typedoc/Storybook-like docs, and uses semantic version ranges internally. Shared utilities start as
+packages under `packages/` with explicit ownership. Cross-package imports MUST respect dependency
+rules defined in the workspace manifest; circular graphs are forbidden.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Architecture & Stack Guardrails
+- **Stack**: Node.js LTS + pnpm, TypeScript preferred; additional languages require RFC approval.
+- **Knowledge graph storage**: Model schemas in `docs/graph/` (Typescript interfaces + Mermaid
+  diagrams). Implementations MUST support graph queries (e.g., Neo4j, Memgraph, RDF stores) and a
+  JSON-LD export for AI ingestion.
+- **AI integration**: Provide adapters in `packages/agents/` that describe IO contracts, test
+  doubles, and guardrails for every AI tool used in delivery.
+- **Observability**: Structured logs (JSON), trace IDs propagated through graph operations, and
+  metrics describing node/edge mutations per release.
+- **Security**: Secrets managed via `.env.example` templates plus Vault-compatible loaders; no
+  inline credentials.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Workflow, Review & Quality Gates
+1. **Phase 0 – Constitution Check**: Feature plans must confirm graph impact, AI touchpoints, test
+   strategy, DocOps updates, and pnpm workspace changes before research proceeds.
+2. **Phase 1 – Research & Design**: Produce graph schemas, workspace impact matrix (package adds,
+   renames, or removals), and DocOps outline (files to update, automation to regenerate).
+3. **Phase 2 – Implementation**: Follow TDD; each commit runs `pnpm lint:test` locally before push.
+4. **Phase 3 – Review**: PR template links specs, lists executed commands, includes coverage report,
+   pnpm workspace diff, and documentation diff screenshots when relevant.
+5. **Phase 4 – Release**: Tag packages via `pnpm changeset` (or equivalent) and attach doc deploy
+   proof (rendered quickstart or Storybook link). Production incidents trigger a retro that references
+   this constitution.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+- This constitution supersedes conflicting docs. Amendments require RFC, approval from two maintainers,
+  and updates to affected templates (plan/spec/tasks/checklists/agents).
+- `docs/Document_Standards.md` defines operational DocOps policy; any new document lacking the
+  metadata + Version History block fails review.
+- Semantic versioning governs constitutional updates: MAJOR for breaking principle changes, MINOR for
+  new principles/sections, PATCH for clarifications.
+- Compliance is checked during plan reviews and CI; violations block merge until resolved or waived by
+  maintainers with documented mitigation.
+- Any feature touching AI orchestration or the knowledge graph must appoint a steward responsible for
+  monitoring production metrics and documentation freshness until the next release.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-11-09 | **Last Amended**: 2025-11-09

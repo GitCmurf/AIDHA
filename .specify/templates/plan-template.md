@@ -1,6 +1,7 @@
 # Implementation Plan: [FEATURE]
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**DocOps**: Include the metadata + Version History blocks defined in `docs/Document_Standards.md` when publishing this plan externally.
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
@@ -29,9 +30,17 @@
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+*GATE: Complete before Phase 0 research. Re-validate after Phase 1 design.*
 
-[Gates determined based on constitution file]
+1. **Graph-Native Scope** – Document new/updated nodes, relationships, IDs, and provenance required
+   by the shared PKM graph. Provide schema diagrams or JSON-LD snippets.
+2. **AI-Augmented Touchpoints** – List the AI agents/tools involved, their prompts, deterministic
+   interfaces, and evaluation plan.
+3. **TDD Strategy** – Identify the failing tests you will write first (unit, graph-contract, DocOps).
+4. **DevOps & DocOps Impacts** – Enumerate docs/runbooks to update and the CI pipeline stages affected
+   (`pnpm lint`, `pnpm test`, `pnpm build`, docs deploy).
+5. **pnpm Workspace Changes** – Describe new/modified packages, dependency edges, and any tooling
+   changes (scripts, workspace configs).
 
 ## Project Structure
 
