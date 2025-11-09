@@ -1,0 +1,69 @@
+# OS junk
+.DS_Store
+Thumbs.db
+Icon?
+
+# Editors & tooling
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*.orig
+
+# Logs & runtime traces
+*.log
+logs/
+nohup.out
+
+# Environment & secrets
+.env
+.env.*
+*.local
+*.secret
+*.key
+
+# Dependency directories
+node_modules/
+bower_components/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.cache/
+.pdm-build/
+
+# Build artifacts
+build/
+bin/
+dist/
+out/
+coverage/
+.coverage*
+*.lcov
+reports/
+target/
+*.egg-info/
+*.pyc
+
+# Testing fixtures
+.junit/
+pytestdebug.log
+
+# Repo-specific
+specs/**/node_modules/
+specs/**/dist/
+specs/**/coverage/
+specs/**/.pytest_cache/
+specs/**/tmp/
+specs/**/.DS_Store
+
+# Generated specification data
+.specify/memory/*.json
+specs/**/PLAN.auto.md
+specs/**/TASKS.auto.md
+
+# Local tooling state
+.qodo/cache/
+.qodo/sessions/
