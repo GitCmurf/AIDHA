@@ -1,0 +1,26 @@
+[
+  {
+    "package": "aidha-config",
+    "path": "packages/aidha-config/README.md",
+    "title": "@aidha/config",
+    "front_matter": {}
+  },
+  {
+    "package": "phyla",
+    "path": "packages/phyla/README.md",
+    "title": "@aidha/taxonomy",
+    "front_matter": {}
+  },
+  {
+    "package": "praecis/youtube",
+    "path": "packages/praecis/youtube/README.md",
+    "title": "@aidha/ingestion-youtube",
+    "front_matter": {}
+  },
+  {
+    "package": "reconditum",
+    "path": "packages/reconditum/README.md",
+    "title": "@aidha/graph-backend",
+    "front_matter": {}
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "name": "aidha",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.12.0",
+  "license": "Apache-2.0",
+  "scripts": {
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "docs:serve": "./scripts/python -m mkdocs serve",
+    "docs:catalog": "./scripts/python docs/_scripts/gen_catalog.py",
+    "docs:linkcheck": "./scripts/python docs/_scripts/linkcheck.py",
+    "docs:build": "./scripts/python docs/_scripts/gen_catalog.py && ./scripts/python docs/_scripts/validate_docs.py && ./scripts/python -m mkdocs build --strict"
+  }
+}

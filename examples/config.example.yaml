@@ -1,0 +1,43 @@
+# AIDHA Configuration Example
+# Copy this to .aidha/config.yaml or ~/.config/aidha/config.yaml
+# DO NOT COMMIT SECRETS. Use ${VAR} interpolation.
+
+config_version: 1
+
+# Optional: Load environment variables from .env files
+# env:
+#   dotenv_files:
+#     - .env
+
+default_profile: local
+
+profiles:
+    # Local development profile
+    local:
+        llm:
+            model: gpt-3.5-turbo
+            # api_key: ${AIDHA_LLM_API_KEY} # Best practice: use env var
+            timeout_ms: 30000
+        # youtube:
+        #     cookie: ${YOUTUBE_COOKIE}
+        ytdlp:
+            keep_files: true
+
+    # Production/High-Quality profile
+    production:
+        llm:
+            model: gpt-4
+            timeout_ms: 60000
+        db: ./prod.sqlite
+        editor:
+            min_chars: 100
+
+# Top-level sources defaults (Tier 3)
+# Note: SourceDefaults have the same shape as Profile, so configs are nested.
+sources:
+    rss:
+        rss:
+            poll_interval_minutes: 60
+    youtube:
+        youtube:
+            cookie: ${YOUTUBE_COOKIE}

@@ -1,0 +1,650 @@
+[
+  {
+    "path": "index.md",
+    "title": "AIDHA Workspace Documentation",
+    "front_matter": {
+      "document_id": "AIDHA-OVERVIEW-001",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "AIDHA Workspace Documentation",
+      "type": "OVERVIEW",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/graph-quickstart.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-GUIDE-001",
+      "owner": "Graph Backend Team",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Graph Backend Quickstart",
+      "type": "GUIDE",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/taxonomy-quickstart.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-GUIDE-002",
+      "owner": "Taxonomy Team",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Taxonomy Quickstart",
+      "type": "GUIDE",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/packages.md",
+    "title": "Package Readmes",
+    "front_matter": {
+      "document_id": "AIDHA-REF-001",
+      "owner": "Developer Experience Lead",
+      "status": "Draft",
+      "last_updated": "2026-01-27",
+      "version": "0.4",
+      "title": "Package READMEs",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/config-guide.md",
+    "title": "AIDHA Configuration Guide",
+    "front_matter": {
+      "document_id": "AIDHA-GUIDE-005",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "last_updated": "2026-02-15",
+      "version": "1.4",
+      "title": "AIDHA Configuration Guide",
+      "type": "GUIDE",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/ingest-quickstart.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-GUIDE-003",
+      "owner": "Ingestion Team",
+      "status": "Draft",
+      "last_updated": "2026-02-23",
+      "version": "0.25",
+      "title": "Ingestion Quickstart",
+      "type": "GUIDE",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/design-tokens-guide.md",
+    "title": "Design Tokens Guide (Placeholder)",
+    "front_matter": {
+      "document_id": "AIDHA-REF-004",
+      "owner": "Design Systems",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Design Tokens Guide",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/repo-structure.md",
+    "title": "Repository Structure",
+    "front_matter": {
+      "document_id": "AIDHA-REF-003",
+      "owner": "DocOps Working Group",
+      "approvers": "CMF",
+      "status": "Draft",
+      "last_updated": "2026-02-24",
+      "version": "0.3",
+      "title": "Repository Structure",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/docops-checklist-aidha.md",
+    "title": "DocOps Checklist — AIDHA Status",
+    "front_matter": {
+      "document_id": "AIDHA-REF-002",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "DocOps Checklist — AIDHA",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/changelog.md",
+    "title": "Repository Changelog",
+    "front_matter": {
+      "document_id": "AIDHA-REF-006",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2026-02-20",
+      "version": "0.3",
+      "title": "Repository Changelog",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/llm-claim-extraction.md",
+    "title": "LLM Claim Extraction Guide",
+    "front_matter": {
+      "document_id": "AIDHA-GUIDE-004",
+      "owner": "Ingestion Team",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-02-23",
+      "title": "LLM Claim Extraction Guide",
+      "type": "GUIDE",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/release-notes-001-mvp-baseline-20260220.md",
+    "title": "MVP Baseline Release Notes 20260220",
+    "front_matter": {
+      "document_id": "AIDHA-REF-007",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "last_updated": "2026-02-20",
+      "version": "0.1",
+      "title": "MVP Baseline Release Notes 20260220",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/initial-tools-roadmap.md",
+    "title": "Initial Tools Roadmap",
+    "front_matter": {
+      "document_id": "AIDHA-REF-005",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Initial Tools Roadmap",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "30-fdd/fdd-001-ingestion-engine.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-FDD-001",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "last_updated": "2026-02-10",
+      "version": "0.3",
+      "title": "Ingestion Engine Design",
+      "type": "FDD",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "30-fdd/fdd-003-second-pass-editorial-selection.md",
+    "title": "FDD: Second-Pass Editorial Claim Selection",
+    "front_matter": {
+      "document_id": "AIDHA-FDD-003",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-02-08",
+      "title": "Second-Pass Editorial Claim Selection",
+      "type": "FDD",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "30-fdd/fdd-004-user-configuration.md",
+    "title": "FDD 004: User Configuration Profiles",
+    "front_matter": {
+      "document_id": "AIDHA-FDD-004",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-02-12",
+      "title": "User Configuration Profiles",
+      "type": "FDD",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "30-fdd/fdd-002-first-pass-youtube-claim-mining.md",
+    "title": "FDD: First-Pass YouTube Claim Mining",
+    "front_matter": {
+      "document_id": "AIDHA-FDD-002",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-02-06",
+      "title": "First-Pass YouTube Claim Mining",
+      "type": "FDD",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "55-testing/testing-001-mvp-tests.md",
+    "title": "MVP Test Suite Map and Hardening Coverage",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-001",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.15",
+      "last_updated": "2026-02-09",
+      "title": "MVP Test Suite Map and Hardening Coverage",
+      "type": "TESTING",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "10-prd/prd-003-taxonomy.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-PRD-003",
+      "owner": "Taxonomy Product Lead",
+      "status": "Draft",
+      "last_updated": "2026-01-24",
+      "version": "0.3",
+      "title": "Taxonomy",
+      "type": "PRD",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "10-prd/prd-002-ingest-to-graph-database.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-PRD-002",
+      "owner": "Ingestion Product Lead",
+      "status": "Draft",
+      "last_updated": "2026-01-24",
+      "version": "0.3",
+      "title": "Ingest to Graph Database",
+      "type": "PRD",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "10-prd/prd-001-graph-database.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-PRD-001",
+      "owner": "Graph Backend Product Lead",
+      "status": "Draft",
+      "last_updated": "2026-02-05",
+      "version": "0.8",
+      "title": "Graph Database",
+      "type": "PRD",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-001-graph-backend.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-001",
+      "owner": "Graph Backend SRE",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "Graph Backend Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-003-youtube-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-003",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-02-23",
+      "version": "1.17",
+      "title": "YouTube Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-002-taxonomy.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-002",
+      "owner": "Taxonomy Stewards",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "Taxonomy Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/plan-004-improve-claims-quality-editorial-ranking.md",
+    "title": "Improve Claim Quality and Editorial Ranking (Plan)",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-004",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.6",
+      "last_updated": "2026-02-08",
+      "title": "Improve Claim Quality and Editorial Ranking",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/plan-005-user-configuration-profiles.md",
+    "title": "User Configuration Profiles",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-005",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "0.9",
+      "last_updated": "2026-02-19",
+      "title": "User Configuration Profiles",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/plan-002-mvp-delivery-and-documentation-reconciliation.md",
+    "title": "MVP Delivery Plan and Documentation Reconciliation",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-002",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.4",
+      "last_updated": "2026-02-22",
+      "title": "MVP Delivery Plan and Documentation Reconciliation",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/plan-001-docops-migration.md",
+    "title": "DocOps Brownfield Migration Plan",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-001",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-02-24",
+      "title": "DocOps Brownfield Migration Plan",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-003-taxonomy-storage-and-governance.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-ADR-003",
+      "owner": "Taxonomy Architecture Lead",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Taxonomy Storage and Governance",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-004-ingestion-architecture.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-ADR-004",
+      "owner": "Ingestion Architecture Lead",
+      "status": "Draft",
+      "last_updated": "2026-02-10",
+      "version": "0.3",
+      "title": "Ingestion Architecture and Summarization Strategy",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-007-two-pass-llm-extraction-architecture.md",
+    "title": "ADR: Two-Pass LLM Extraction Architecture",
+    "front_matter": {
+      "document_id": "AIDHA-ADR-007",
+      "owner": "Ingestion Architecture Lead",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-02-06",
+      "title": "Two-Pass LLM Extraction Architecture",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-002-graph-storage-engine.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-ADR-002",
+      "owner": "Graph Architecture Lead",
+      "status": "Draft",
+      "last_updated": "2026-01-29",
+      "version": "0.4",
+      "title": "Graph Storage Engine Selection",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-001-adopt-meminit-docops.md",
+    "title": "ADR: Adopt Meminit DocOps Constitution v2.0",
+    "front_matter": {
+      "document_id": "AIDHA-ADR-001",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2025-12-27",
+      "title": "Adopt Meminit DocOps Constitution v2.0",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-005-graph-db-rationale.md",
+    "title": "ADR: Graph DB Rationale",
+    "front_matter": {
+      "document_id": "AIDHA-ADR-005",
+      "type": "ADR",
+      "title": "Graph DB Rationale",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-01-29",
+      "owner": "Graph Architecture Lead",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-006-claim-lifecycle-review-workflow.md",
+    "title": "ADR: Claim Lifecycle and Review Workflow",
+    "front_matter": {
+      "document_id": "AIDHA-ADR-006",
+      "owner": "Ingestion Architecture Lead",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-02-06",
+      "title": "Claim Lifecycle and Review Workflow",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-008-configuration-management.md",
+    "title": "ADR 008: Configuration Management System",
+    "front_matter": {
+      "document_id": "AIDHA-ADR-008",
+      "owner": "Repo Maintainers",
+      "status": "Approved",
+      "version": "0.1",
+      "last_updated": "2026-02-12",
+      "title": "Configuration Management System",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "02-strategy/strategy-002-vision.md",
+    "title": "STRATEGY: AIDHA Product Vision",
+    "front_matter": {
+      "document_id": "AIDHA-STRATEGY-002",
+      "type": "STRATEGY",
+      "title": "AIDHA Product Vision",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-02-07",
+      "owner": "CMF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "02-strategy/strategy-001-minimum-vertical-slice.md",
+    "title": "Strategy: Minimum End-to-End Vertical Slice",
+    "front_matter": {
+      "document_id": "AIDHA-STRAT-001",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "1.1",
+      "last_updated": "2026-01-29",
+      "title": "Minimum End-to-End Vertical Slice",
+      "type": "STRAT",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "00-governance/gov-001-document-standards.md",
+    "title": "Repository Document Standards (v1.3)",
+    "front_matter": {
+      "document_id": "AIDHA-GOV-001",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "1.3",
+      "last_updated": "2026-02-24",
+      "title": "Repository Document Standards",
+      "type": "GOV",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "00-governance/gov-005-third-party-notices.md",
+    "title": "Third-Party Notices",
+    "front_matter": {
+      "document_id": "AIDHA-GOV-005",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-02-24",
+      "title": "Third-Party Notices",
+      "type": "GOV",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "00-governance/gov-002-versioning-practices.md",
+    "title": "Versioning Practices (Operational Guide)",
+    "front_matter": {
+      "document_id": "AIDHA-GOV-002",
+      "owner": "DocOps Working Group",
+      "approvers": "CMF",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Versioning Practices (Operational Guide)",
+      "type": "GOV",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "00-governance/gov-003-security-practices.md",
+    "title": "Public Repository Security Practices",
+    "front_matter": {
+      "document_id": "AIDHA-GOV-003",
+      "owner": "Security Team",
+      "approvers": "GitCmurf",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2025-12-27",
+      "title": "Public Repository Security Practices",
+      "type": "GOV",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "00-governance/gov-004-writing-style-guide.md",
+    "title": "Writing Style Guide",
+    "front_matter": {
+      "document_id": "AIDHA-GOV-004",
+      "owner": "DocOps Working Group",
+      "approvers": "GitCmurf",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2025-12-27",
+      "title": "Writing Style Guide",
+      "type": "GOV",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "55-testing/acceptance-run-20260220/testing-002-acceptance-run-20260220.md",
+    "title": "Acceptance Run 20260220",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-002",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-02-20",
+      "title": "Acceptance Run 20260220",
+      "type": "TESTING",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/tasks/task-001-public-repo.md",
+    "title": "Public Repository Readiness — Task List & Strategy",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-001",
+      "owner": "GitCmurf",
+      "status": "Draft",
+      "version": "1.10",
+      "last_updated": "2026-02-27",
+      "title": "Public Repository Readiness — Task List & Strategy",
+      "type": "TASK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/tasks/task-002-mvp-completion.md",
+    "title": "MVP Vertical Slice Completion Task List",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-002",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-02-27",
+      "title": "MVP Vertical Slice Completion Task List",
+      "type": "TASK",
+      "docops_version": "2.0"
+    }
+  }
+]

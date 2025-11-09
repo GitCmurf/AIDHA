@@ -1,0 +1,129 @@
+# OS junk
+.DS_Store
+Thumbs.db
+Icon?
+
+# Editors & tooling
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*.orig
+.antigravity/
+
+# Logs & runtime traces
+*.log
+logs/
+nohup.out
+
+# Environment & secrets
+.env
+.env.*
+*.local
+*.secret
+*.key
+
+# Dependency directories
+node_modules/
+bower_components/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.cache/
+.pdm-build/
+
+# Build artifacts
+build/
+bin/
+dist/
+out/
+coverage/
+.coverage*
+*.lcov
+reports/
+target/
+*.egg-info/
+*.pyc
+site/
+
+# Testing fixtures
+.junit/
+pytestdebug.log
+
+# Repo-specific
+specs/**/node_modules/
+specs/**/dist/
+specs/**/coverage/
+specs/**/.pytest_cache/
+specs/**/tmp/
+specs/**/.DS_Store
+.aidha/config.yaml
+
+# Generated specification data
+.specify/memory/*.json
+specs/**/PLAN.auto.md
+specs/**/TASKS.auto.md
+
+# Local tooling state
+.qodo/cache/
+.qodo/sessions/
+
+# Temporary files and directories
+temp-*
+temp_*
+WIP-*
+NoCommit-*
+*-temp.*
+*_temp.*
+*.temp
+*.temp.*
+*.tmp
+*.tmp.*
+
+temp/
+tmp/
+scratch/
+WIP/
+WIP-*/
+docs/**/WIP-*
+WIP-initial-specs/
+*:Zone.Identifier
+__Local__Do_Not_Commit/
+coderabbit-review-*.txt
+coderabbit_*review*.txt
+testdata/youtube_golden/raw/
+
+# Secrets
+.env
+.env.local
+.env*
+!.env.example
+env/
+ENV/
+env.bak/
+# Personal (GitCmurf)
+CMF/
+CMF-*/
+Personal/
+personal/
+Secrets/
+secrets/
+Secret/
+
+# Workflow-specific
+*_commit/
+*_local/
+.aws/
+.ssh/
+credentials/
+creds/*/
+
+# Lockfiles (repo uses pnpm workspaces; commit root pnpm-lock.yaml)
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+telemetry-id
+pnpm-lock.yaml

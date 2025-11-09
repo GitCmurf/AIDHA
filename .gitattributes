@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.sh linguist-language=Shell
+*.sh text eol=lf
+
+*.md text eol=lf diff=markdown
+*.json text eol=lf
+
+# Keep generated prompts readable
+.codex/prompts/* text eol=lf diff

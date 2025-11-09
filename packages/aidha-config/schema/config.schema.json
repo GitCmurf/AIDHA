@@ -1,0 +1,209 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/GitCmurf/AIDHA/blob/main/packages/aidha-config/schema/config.schema.json",
+  "title": "AIDHA Configuration",
+  "description": "Schema for AIDHA config files (~/.config/aidha/config.yaml or .aidha/config.yaml). See AIDHA-PLAN-005.",
+  "type": "object",
+  "required": ["config_version", "default_profile", "profiles"],
+  "additionalProperties": false,
+  "properties": {
+    "config_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version. Must match or be lower than the binary's SUPPORTED_CONFIG_VERSION."
+    },
+    "base_dir": {
+      "type": "string",
+      "description": "Override computed base directory for resolving relative paths.",
+      "x-aidha-path": true
+    },
+    "env": {
+      "type": "object",
+      "description": "Optional dotenv loading configuration (loaded before interpolation).",
+      "additionalProperties": false,
+      "properties": {
+        "dotenv_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Dotenv files to load in-order. Paths relative to base_dir_prelim."
+        },
+        "override_existing": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, dotenv values override existing process.env values."
+        },
+        "dotenv_required": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, missing dotenv files cause an error instead of a warning."
+        }
+      }
+    },
+    "default_profile": {
+      "type": "string",
+      "description": "Name of the default profile to use when none is specified."
+    },
+    "profiles": {
+      "type": "object",
+      "description": "Named configuration profiles. The 'default' profile should be complete.",
+      "additionalProperties": { "$ref": "#/$defs/Profile" }
+    },
+    "sources": {
+      "type": "object",
+      "description": "Ingestion-source defaults. Keys are source IDs (e.g., 'youtube').",
+      "additionalProperties": { "$ref": "#/$defs/SourceDefaults" }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Explicit extension point for custom/private keys. Not validated beyond being a JSON object.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "LlmConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": { "type": "string", "description": "LLM model identifier." },
+        "api_key": {
+          "type": "string",
+          "description": "LLM API key. Use ${VAR} interpolation for secrets.",
+          "x-aidha-secret": true
+        },
+        "base_url": { "type": "string", "description": "LLM API base URL." },
+        "timeout_ms": { "type": "integer", "minimum": 0, "description": "LLM request timeout in milliseconds." },
+        "cache_dir": {
+          "type": "string",
+          "description": "Directory for LLM response caching.",
+          "x-aidha-path": true
+        }
+      }
+    },
+    "EditorConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "description": "Editor version (v1 or v2)." },
+        "window_minutes": { "type": "integer", "minimum": 1, "description": "Sliding window size in minutes." },
+        "max_per_window": { "type": "integer", "minimum": 1, "description": "Maximum claims per window." },
+        "min_windows": { "type": "integer", "minimum": 1, "description": "Minimum number of windows required." },
+        "min_words": { "type": "integer", "minimum": 0, "description": "Minimum words per claim." },
+        "min_chars": { "type": "integer", "minimum": 0, "description": "Minimum characters per claim." },
+        "editor_llm": { "type": "boolean", "description": "Whether to use LLM for editor refinement." }
+      }
+    },
+    "ExtractionConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_claims": { "type": "integer", "minimum": 0, "description": "Maximum claims to extract (0 = unlimited)." },
+        "chunk_minutes": { "type": "integer", "minimum": 1, "description": "Transcript chunk size in minutes." },
+        "max_chunks": { "type": "integer", "minimum": 0, "description": "Maximum chunks to process (0 = unlimited)." },
+        "prompt_version": { "type": "string", "description": "Prompt version for claim extraction." }
+      }
+    },
+    "ExportConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_prefix": { "type": "string", "description": "Prefix for exported claim IDs." },
+        "out_dir": {
+          "type": "string",
+          "description": "Output directory for exports.",
+          "x-aidha-path": true
+        }
+      }
+    },
+    "YtdlpConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bin": {
+          "type": "string",
+          "description": "Path to yt-dlp binary, or bare command name for PATH resolution.",
+          "x-aidha-path": true
+        },
+        "cookies_file": {
+          "type": "string",
+          "description": "Path to cookies file for yt-dlp.",
+          "x-aidha-path": true
+        },
+        "timeout_ms": { "type": "integer", "minimum": 0, "description": "yt-dlp process timeout in milliseconds." },
+        "js_runtimes": { "type": "string", "description": "Comma-separated list of JS runtimes for yt-dlp." },
+        "keep_files": { "type": "boolean", "description": "Whether to keep intermediate yt-dlp files." }
+      }
+    },
+    "YoutubeConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cookie": {
+          "type": "string",
+          "description": "YouTube cookie string. Use ${VAR} interpolation.",
+          "x-aidha-secret": true
+        },
+        "innertube_api_key": {
+          "type": "string",
+          "description": "YouTube InnerTube API key.",
+          "x-aidha-secret": true
+        },
+        "debug_transcript": { "type": "boolean", "description": "Enable transcript debugging output." }
+      }
+    },
+    "Profile": {
+      "type": "object",
+      "description": "A configuration profile. Named profiles only need keys they want to override.",
+      "additionalProperties": false,
+      "properties": {
+        "db": {
+          "type": "string",
+          "description": "Path to the SQLite database.",
+          "x-aidha-path": true
+        },
+        "llm": { "$ref": "#/$defs/LlmConfig" },
+        "editor": { "$ref": "#/$defs/EditorConfig" },
+        "extraction": { "$ref": "#/$defs/ExtractionConfig" },
+        "export": { "$ref": "#/$defs/ExportConfig" },
+        "ytdlp": { "$ref": "#/$defs/YtdlpConfig" },
+        "youtube": { "$ref": "#/$defs/YoutubeConfig" },
+        "extensions": {
+          "type": "object",
+          "description": "Per-profile extension point.",
+          "additionalProperties": true
+        },
+        "rss": { "$ref": "#/$defs/RssConfig" }
+      }
+    },
+    "SourceDefaults": {
+      "type": "object",
+      "description": "Ingestion-source defaults. Same shape as Profile.",
+      "additionalProperties": false,
+      "properties": {
+        "db": {
+          "type": "string",
+          "description": "Path to the SQLite database.",
+          "x-aidha-path": true
+        },
+        "llm": { "$ref": "#/$defs/LlmConfig" },
+        "editor": { "$ref": "#/$defs/EditorConfig" },
+        "extraction": { "$ref": "#/$defs/ExtractionConfig" },
+        "export": { "$ref": "#/$defs/ExportConfig" },
+        "ytdlp": { "$ref": "#/$defs/YtdlpConfig" },
+        "youtube": { "$ref": "#/$defs/YoutubeConfig" },
+        "rss": { "$ref": "#/$defs/RssConfig" },
+        "extensions": {
+          "type": "object",
+          "description": "Per-source extension point.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "RssConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "poll_interval_minutes": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

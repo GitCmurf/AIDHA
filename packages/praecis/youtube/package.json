@@ -1,0 +1,43 @@
+{
+  "name": "@aidha/ingestion-youtube",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "aidha-youtube": "./dist/cli.js"
+  },
+  "author": "Colin Farmer (GitCmurf) (https://github.com/GitCmurf)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GitCmurf/AIDHA.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "cli": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@aidha/config": "workspace:*",
+    "@aidha/graph-backend": "file:../../reconditum",
+    "@aidha/taxonomy": "file:../../phyla",
+    "js-yaml": "^4.1.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.19.7",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ -x "${root_dir}/.venv/bin/python" ]]; then
+    exec "${root_dir}/.venv/bin/python" "$@"
+fi
+
+if command -v python3 >/dev/null 2>&1; then
+    exec python3 "$@"
+fi
+
+if command -v python >/dev/null 2>&1; then
+    exec python "$@"
+fi
+
+echo "python not found. Install Python 3.12+ or create .venv." >&2
+exit 1

@@ -1,0 +1,79 @@
+site_name: AIDHA Workspace Docs
+site_url: https://example.com/docs
+repo_url: https://github.com/GitCmurf/AIDHA
+repo_name: GitCmurf/AIDHA
+edit_uri: ''
+nav:
+  - Overview: index.md
+  - Governance:
+      - Document Standards: 00-governance/gov-001-document-standards.md
+      - Versioning Practices: 00-governance/gov-002-versioning-practices.md
+      - Security Practices: 00-governance/gov-003-security-practices.md
+      - Writing Style Guide: 00-governance/gov-004-writing-style-guide.md
+  - Product Requirements:
+      - Graph Database: 10-prd/prd-001-graph-database.md
+      - Ingest to Graph Database: 10-prd/prd-002-ingest-to-graph-database.md
+      - Taxonomy: 10-prd/prd-003-taxonomy.md
+  - Architecture Decisions:
+      - Adopt Meminit DocOps: 20-adr/adr-001-adopt-meminit-docops.md
+      - Graph Storage Engine: 20-adr/adr-002-graph-storage-engine.md
+      - Taxonomy Storage and Governance: 20-adr/adr-003-taxonomy-storage-and-governance.md
+      - Ingestion Architecture: 20-adr/adr-004-ingestion-architecture.md
+      - Claim Lifecycle Review Workflow: 20-adr/adr-006-claim-lifecycle-review-workflow.md
+      - Two-Pass LLM Extraction: 20-adr/adr-007-two-pass-llm-extraction-architecture.md
+  - Feature Designs:
+      - Ingestion Engine Design: 30-fdd/fdd-001-ingestion-engine.md
+      - First-Pass Claim Mining: 30-fdd/fdd-002-first-pass-youtube-claim-mining.md
+      - Second-Pass Editorial Selection: 30-fdd/fdd-003-second-pass-editorial-selection.md
+  - Runbooks:
+      - Graph Backend Runbook: 50-runbooks/runbook-001-graph-backend.md
+      - Taxonomy Runbook: 50-runbooks/runbook-002-taxonomy.md
+      - Ingestion Runbook: 50-runbooks/runbook-003-youtube-ingestion.md
+  - Testing:
+      - MVP Test Suite: 55-testing/testing-001-mvp-tests.md
+  - DevEx & Tooling:
+      - Initial Tools Roadmap: 60-devex/initial-tools-roadmap.md
+      - Repository Structure: 60-devex/repo-structure.md
+      - Changelog: 60-devex/changelog.md
+      - Graph Quickstart: 60-devex/graph-quickstart.md
+      - Taxonomy Quickstart: 60-devex/taxonomy-quickstart.md
+      - Ingestion Quickstart: 60-devex/ingest-quickstart.md
+      - LLM Claim Extraction: 60-devex/llm-claim-extraction.md
+      - Design Tokens: 60-devex/design-tokens-guide.md
+      - DocOps Checklist — AIDHA Status: 60-devex/docops-checklist-aidha.md
+  - Package Notes: 60-devex/packages.md
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.instant
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - scheme: default
+      primary: teal
+      accent: orange
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - def_list
+  - attr_list
+  - tables
+  - codehilite
+plugins:
+  - search
+  - macros
+  - git-revision-date-localized:
+      enable_creation_date: true
+      fallback_to_build_date: true
+      strict: false
+exclude_docs: |
+  **/WIP-*.md
+extra:
+  version:
+    provider: false
+watch:
+  - docs

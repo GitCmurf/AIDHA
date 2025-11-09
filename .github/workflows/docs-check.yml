@@ -1,0 +1,48 @@
+name: Docs Check
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r docs/requirements-docs.txt
+
+      - name: Generate catalog
+        run: python docs/_scripts/gen_catalog.py
+
+      - name: Validate docs
+        run: python docs/_scripts/validate_docs.py
+
+      - name: Linkcheck
+        run: python docs/_scripts/linkcheck.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install markdownlint-cli
+        run: npm i -g markdownlint-cli@0.41.0
+
+      - name: Markdownlint
+        run: |
+          markdownlint "README.md" "docs/**/*.md" -c .markdownlint.json \
+            --disable MD060 \
+            --ignore "docs/_templates/**"
+
+      - name: MkDocs build
+        run: mkdocs build --strict

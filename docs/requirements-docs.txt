@@ -1,0 +1,7 @@
+mkdocs==1.5.3
+mkdocs-material==9.5.10
+mkdocs-literate-nav==0.6.1
+mkdocs-macros-plugin==1.0.5
+PyYAML==6.0.2
+mkdocs-git-revision-date-localized-plugin==1.2.4
+jsonschema==4.23.0

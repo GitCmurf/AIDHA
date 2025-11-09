@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025-2026 Colin Farmer (GitCmurf)
+
+/**
+ * Store module - exports store types and implementations.
+ */
+export type {
+  GraphStore,
+  Result,
+  QueryNodesOptions,
+  QueryEdgesOptions,
+  QueryResult,
+  SortDirection,
+  SortOption,
+  NodeSortField,
+  EdgeSortField,
+  NodeDataInput,
+  EdgeDataInput,
+  UpsertNodeOptions,
+  UpsertEdgeOptions,
+  UpsertNodeResult,
+  UpsertEdgeResult,
+  DeleteNodeOptions,
+  ExportSnapshotOptions,
+  ExportScope,
+  GraphSnapshot,
+  TransactionCapableStore,
+  GephiNode,
+  GephiEdge,
+  ExportGephiOptions,
+  GephiExport,
+  GraphStats,
+  GetGraphStatsOptions,
+} from './types.js';
+
+export { LevelGraphStore } from './levelgraph.js';
+export { InMemoryStore } from './memory.js';
+export { SQLiteStore } from './sqlite.js';

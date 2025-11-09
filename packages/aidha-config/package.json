@@ -1,0 +1,36 @@
+{
+  "name": "@aidha/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "author": "Colin Farmer (GitCmurf) (https://github.com/GitCmurf)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GitCmurf/AIDHA.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "verify:manual": "pnpm run build && node scripts/manual-verify.mjs",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "yaml": "^2.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.7",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

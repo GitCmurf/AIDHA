@@ -1,0 +1,31 @@
+{
+  "lane": "llm-offline-acceptance",
+  "ingest": {
+    "nodeId": "youtube-test-video",
+    "tagsAssigned": 0,
+    "created": true
+  },
+  "claims": {
+    "resourceId": "youtube-test-video",
+    "claimsCreated": 2,
+    "claimsUpdated": 0,
+    "claimsNoop": 0,
+    "edgesCreated": 2,
+    "edgesUpdated": 0,
+    "edgesNoop": 0
+  },
+  "refs": {
+    "resourceId": "youtube-test-video",
+    "referencesCreated": 1,
+    "referencesUpdated": 0,
+    "referencesNoop": 0,
+    "edgesCreated": 1,
+    "edgesUpdated": 0,
+    "edgesNoop": 0
+  },
+  "queryHits": 2,
+  "hitIds": [
+    "claim-a38fbfa623bb9bba",
+    "claim-268df97ae68306f8"
+  ]
+}
