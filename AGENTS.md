@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `.specify/scripts/bash/` holds scaffolding, plan sync, and guardrails; keep scripts Bash-only so beginners can audit them quickly.
 - `.specify/templates/` is the DocOps source—edit templates first, then regenerate plans, tasks, or summaries.
-- `docs/Document_Standards.md` captures metadata + Version History rules; every doc you touch must comply before review.
+- `docs/00-governance/Document_Standards.md` captures metadata + Version History rules; every doc you touch must comply before review.
 - `.codex/prompts/` stores conversational modules; document purpose inline so trainees learn by example.
 - Feature work lives in `specs/<number>-<short-name>/` with `src/`, `tests/`, and `README.md`; promote reusable code/tests into top-level `src/` and `tests/` after review.
 
@@ -12,6 +12,7 @@
 - `bash .specify/scripts/bash/create-new-feature.sh "Add payments" --short-name payments` — spins up the numbered spec folder plus matching branch.
 - `bash .specify/scripts/bash/setup-plan.sh specs/101-payments` — seeds PLAN/TASK docs so requirements and test ideas exist before coding.
 - `bash .specify/scripts/bash/update-agent-context.sh` — refreshes AGENT summaries; run before every PR to deploy documentation with the code.
+- `pnpm docs:serve` / `pnpm docs:build` — preview and validate the MkDocs site before opening a PR.
 
 ## Coding Style & Naming Conventions
 - Bash scripts use 4-space indentation, `set -euo pipefail`, and descriptive function names; prefer long-form flags for readability.
@@ -27,7 +28,8 @@
 - Keep branches small (≈2 days) and push frequently so CI, code review, and preview docs stay current.
 - Store deployment manifests, Dockerfiles, and runbooks next to the feature they support, updating the spec README in the same PR.
 - After each merge train, rerun `update-agent-context`, prune stale specs, and re-sync templates—DocOps deserves the same cadence as CI/CD.
-- For any PRD/ADR/FDD/runbook, copy the metadata + Version History blocks from `docs/Document_Standards.md` and update them in the same PR as the code change.
+- For any PRD/ADR/FDD/runbook, copy the metadata + Version History blocks from `docs/00-governance/Document_Standards.md` and update them in the same PR as the code change.
+- Never merge without `pnpm docs:build` succeeding; the MkDocs site is the canonical artifact reviewers use.
 
 ## Initial Toolchain Targets
 - **Graph Knowledge Backend (`packages/graph-backend/`)**: exposes cognition graph APIs, JSON-LD export, and graph contract tests.

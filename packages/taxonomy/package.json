@@ -1,0 +1,12 @@
+{
+  "name": "@aidha/taxonomy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "lint": "echo 'lint taxonomy'",
+    "test": "echo 'test taxonomy'",
+    "build": "echo 'build taxonomy'"
+  }
+}

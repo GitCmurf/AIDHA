@@ -81,7 +81,7 @@ rules defined in the workspace manifest; circular graphs are forbidden.
 ## Governance
 - This constitution supersedes conflicting docs. Amendments require RFC, approval from two maintainers,
   and updates to affected templates (plan/spec/tasks/checklists/agents).
-- `docs/Document_Standards.md` defines operational DocOps policy; any new document lacking the
+- `docs/00-governance/Document_Standards.md` defines operational DocOps policy; any new document lacking the
   metadata + Version History block fails review.
 - Semantic versioning governs constitutional updates: MAJOR for breaking principle changes, MINOR for
   new principles/sections, PATCH for clarifications.

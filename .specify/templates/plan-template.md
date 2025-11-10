@@ -1,7 +1,7 @@
 # Implementation Plan: [FEATURE]
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**DocOps**: Include the metadata + Version History blocks defined in `docs/Document_Standards.md` when publishing this plan externally.
+**DocOps**: Include the metadata + Version History blocks defined in `docs/00-governance/Document_Standards.md` when publishing this plan externally.
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.

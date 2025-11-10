@@ -1,0 +1,32 @@
+nav:
+  - Overview: index.md
+  - Governance:
+      - Document Standards: 00-governance/Document_Standards.md
+      - Style Guide: 00-governance/Style_Guide.md
+      - Writing Style: 00-governance/Writing_Style_Guide.md
+      - Repository Taxonomy: 00-governance/Taxonomy.md
+      - DocOps Checklist (Canonical): 00-governance/DocOps_Checklist.md
+  - Product Requirements:
+      - Graph Backend: 10-prd/GRAPH-PRD.md
+      - Taxonomy Service: 10-prd/TAX-PRD.md
+      - Ingestion Engine: 10-prd/INGEST-PRD.md
+  - Architecture Decisions:
+      - Graph Storage Decision: 20-adr/GRAPH-ADR-001.md
+      - Taxonomy Governance: 20-adr/TAX-ADR-001.md
+      - Ingestion Architecture: 20-adr/INGEST-ADR-001.md
+  - Feature Designs:
+      - Ingestion Engine Design: 30-fdd/INGEST-FDD-001.md
+  - Runbooks:
+      - Graph Backend Runbook: 50-runbooks/GRAPH-RUNBOOK.md
+      - Taxonomy Runbook: 50-runbooks/TAX-RUNBOOK.md
+      - Ingestion Runbook: 50-runbooks/INGEST-RUNBOOK.md
+  - DevEx & Tooling:
+      - Initial Tools Roadmap: 60-devex/Initial_Tools_Roadmap.md
+      - Graph Quickstart: 60-devex/GRAPH-QUICKSTART.md
+      - Taxonomy Quickstart: 60-devex/TAX-QUICKSTART.md
+      - Ingestion Quickstart: 60-devex/INGEST-QUICKSTART.md
+      - Design Tokens: 60-devex/Design_Tokens_Guide.md
+      - DocOps Checklist — AIDHA Status: 60-devex/DocOps_Checklist_AIDHA.md
+  - Package Notes: 60-devex/packages.md
+  - Decisions Archive: 80-decisions/
+  - Archived Docs: 99-archive/

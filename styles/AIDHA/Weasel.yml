@@ -1,0 +1,11 @@
+extends: existence
+message: "Avoid weak filler ('%s'); prefer precise phrasing."
+ignorecase: true
+level: warning
+tokens:
+  - simply
+  - clearly
+  - obviously
+  - just
+  - basically
+  - easily

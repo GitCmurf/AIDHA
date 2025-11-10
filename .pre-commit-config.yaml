@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+  - repo: local
+    hooks:
+      - id: docs-catalog
+        name: Generate docs catalog
+        entry: python docs/_scripts/gen_catalog.py
+        language: system
+        files: ^docs/.*\.md$
+        pass_filenames: false
+      - id: docs-validate
+        name: Validate docs front matter + version tables + catalog schema
+        entry: python docs/_scripts/validate_docs.py
+        language: system
+        files: ^docs/.*\.md$
+        pass_filenames: false
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.41.0
+    hooks:
+      - id: markdownlint
+        args: ["-c", ".markdownlint.json"]
+  # Vale is optional; enable if installed on developer machines
+  - repo: local
+    hooks:
+      - id: vale
+        name: Vale prose lint (optional)
+        entry: vale
+        language: system
+        types: [markdown]
+        stages: [commit]
+        additional_dependencies: []
+        pass_filenames: true

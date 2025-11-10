@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/catalog.schema.json",
+  "title": "Doc Catalog Entry",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["path", "front_matter"],
+    "properties": {
+      "path": {"type": "string"},
+      "title": {"type": ["string", "null"]},
+      "front_matter": {
+        "type": "object",
+        "properties": {
+          "document_id": {"type": ["string", "null"]},
+          "owner": {"type": ["string", "null"]},
+          "status": {"enum": ["Draft", "In Review", "Approved", "Published", "Superseded", null]},
+          "last_updated": {"type": ["string", "null"]},
+          "version": {"type": ["string", "null"]},
+          "type": {"type": ["string", "null"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "additionalProperties": true
+  }
+}

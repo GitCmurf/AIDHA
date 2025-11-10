@@ -1,7 +1,17 @@
+---
+document_id: DEVEX-ROADMAP-FOUNDATIONAL-TOOLS
+owner: DocOps Working Group
+status: Draft
+last_updated: 2025-11-09
+version: 0.1
+type: devex
+---
+
 # Initial Tools Roadmap
 
 > **Document ID:** ROADMAP-FOUNDATIONAL-TOOLS
 > **Owner:** DocOps Working Group
+> **Approvers:** —
 > **Status:** Draft
 > **Last Updated:** 2025-11-09
 

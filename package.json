@@ -1,0 +1,14 @@
+{
+  "name": "aidha",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "docs:serve": "mkdocs serve",
+    "docs:catalog": "python docs/_scripts/gen_catalog.py",
+    "docs:build": "python docs/_scripts/gen_catalog.py && mkdocs build"
+  }
+}

@@ -1,0 +1,39 @@
+site_name: AIDHA Workspace Docs
+site_url: https://example.com/docs
+repo_url: https://github.com/USERNAME/AIDHA
+repo_name: AIDHA
+edit_uri: ''
+nav: []
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.instant
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - scheme: default
+      primary: teal
+      accent: orange
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - def_list
+  - attr_list
+  - tables
+  - codehilite
+plugins:
+  - search
+  - literate-nav:
+      nav_file: docs/_nav.yml
+  - section-index
+  - macros
+  - git-revision-date-localized:
+      enable_creation_date: true
+extra:
+  version:
+    provider: false
+watch:
+  - docs

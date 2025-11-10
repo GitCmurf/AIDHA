@@ -5,7 +5,7 @@
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
 
-> **DocOps Reminder**: prepend the metadata + Version History blocks described in `docs/Document_Standards.md` when this spec graduates beyond scaffolding.
+> **DocOps Reminder**: prepend the metadata + Version History blocks described in `docs/00-governance/Document_Standards.md` when this spec graduates beyond scaffolding.
 
 ## User Scenarios & Testing *(mandatory)*
 
