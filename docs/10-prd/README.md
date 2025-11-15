@@ -16,4 +16,5 @@ type: guidance
 > **Last Updated:** 2025-11-09
 
 Use this directory for Product Requirements Documents. Each file must include the metadata + version history blocks defined in
-`../00-governance/Document_Standards.md`. Superseded documents move to `../99-archive/` once replaced.
+`../00-governance/Document_Standards.md` and follow the template in `../_templates/PRD.md`. 
+Superseded documents move to `../99-archive/` once replaced.

@@ -1,9 +1,10 @@
 ---
 document_id: DOC-STANDARDS
 owner: DocOps Working Group
+approvers: CMF
 status: Draft
-last_updated: 2025-11-09
-version: 0.3
+last_updated: 2025-11-12
+version: 0.4
 type: governance
 ---
 
@@ -11,14 +12,16 @@ type: governance
 
 > **Document ID:** DOC-STANDARDS
 > **Owner:** DocOps Working Group
-> **Approvers:** —
+> **Approvers:** CMF
 > **Status:** Draft
-> **Last Updated:** 2025-11-09
+> **Last Updated:** 2025-11-12
+> **Version:** 0.4  
 
 ## Version History
 
 | Version | Date       | Author        | Description                                  |
 |---------|------------|---------------|----------------------------------------------|
+| 0.4     | 2025-11-12 | CMF           | Aligned YAML and visible frontmatter         |
 | 0.3     | 2025-11-09 | DocOps Agent  | Documented MkDocs workflow + tooling         |
 | 0.2     | 2025-11-09 | DocOps Agent  | Added YAML front matter + numbered doc tree  |
 | 0.1     | 2025-11-09 | DocOps Agent  | Initial standards for AIDHA workspace docs   |

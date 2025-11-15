@@ -1,56 +1,75 @@
 # AIDHA Workspace
 
-This repository hosts automation templates and prompts for Specify-style feature development. Start by reading `AGENTS.md` for workflow guidance, `docs/00-governance/Document_Standards.md` for DocOps conventions, and the `.specify/templates/` directory for SpecKit source files.
+This repository hosts a pnpm monorepo plus DocOps infrastructure for graph-native personal knowledge tooling. Read `AGENTS.md` for day-to-day workflow guidance and `docs/00-governance/Document_Standards.md` for documentation rules.
 
 ## Quick Start
-1. Run `bash .specify/scripts/bash/check-prerequisites.sh` to verify tooling.
-2. Create a spec branch with `bash .specify/scripts/bash/create-new-feature.sh "Describe feature" --short-name feature-name`.
-3. Populate the generated `specs/<number>-<short-name>/` folder before implementing code.
+1. **Clone & prerequisites**
+   - Install [pnpm](https://pnpm.io/) and Python 3.12+
+   - `git clone <repo>`
+2. **Install dependencies**
+   - `pnpm install` (workspace metadata/scripts)
+   - `python3 -m venv .venv && source .venv/bin/activate`
+   - `python -m pip install -r docs/requirements-docs.txt`
+3. **Set up tooling**
+   - `pip install pre-commit && pre-commit install`
+4. **Develop**
+   - `pnpm lint` / `pnpm test` for packages (currently placeholders)
+   - `pnpm docs:serve` to preview the MkDocs site locally
+5. **Before pushing**
+   - `pnpm docs:build` (runs catalog + validation + mkdocs)
+   - ensure all docs follow the metadata + Version History format
 
-## Repository Structure & DocOps
+## Repository Structure
+A full description lives in `docs/60-devex/Repo_Structure.md`. Summary:
 
 ```
 docs/
-  00-governance/        # standards, style, taxonomy
-  01-indices/           # generated catalogs for RAG
-  10-prd/               # Product Requirements Docs
-  20-adr/               # Architecture Decision Records
-  30-fdd/               # Feature Design Documents
-  40-design/            # Design explorations
-  50-runbooks/          # Operational guides
-  60-devex/             # Developer experience / tooling docs
-  70-specs/             # High-level specs
-  80-decisions/         # Non-architectural decisions
-  99-archive/           # Superseded docs
-packages/               # pnpm workspace packages (graph-backend, taxonomy, ingestion, ...)
-specs/<id>-<slug>/      # SpecKit plans/tasks for in-flight work
+  00-governance/  # standards, style, taxonomy, schemas, checklists
+  01-indices/     # catalog.json, linkcheck artifacts
+  10-prd/         # Product Requirements Docs
+  20-adr/         # Architecture Decision Records
+  30-fdd/         # Feature Design Documents
+  40-design/
+  50-runbooks/
+  60-devex/       # DevEx/tooling docs, quickstarts, roadmap
+  70-specs/
+  80-decisions/
+  99-archive/
+packages/          # pnpm workspace packages (graph-backend, taxonomy, ingestion-youtube)
+specs/<id>-<slug>/ # SpecKit plans/tasks for in-flight work
+styles/            # Vale/Markdownlint styles
 ```
 
-- All documents under `docs/` must include the YAML front matter + metadata + version history described in `docs/00-governance/Document_Standards.md`.
-- `.gitignore` tracks common build artifacts, language dependencies, and spec-specific outputs.
-- `.gitattributes` enforces LF line endings and provides better diffs for Markdown and shell scripts.
-- CI should run `pnpm lint`, `pnpm test`, and docs/quickstart verification to mirror the DevOps + DocOps coupling defined in `AGENTS.md` and the Constitution.
-- `.gitignore` tracks common build artifacts, language dependencies, and spec-specific outputs.
-- `.gitattributes` enforces LF line endings and provides better diffs for Markdown and shell scripts.
-- `docs/Document_Standards.md` defines required metadata blocks, version tables, and document IDs; every PRD/ADR/FDD/runbook must follow it.
-- CI should run `pnpm lint`, `pnpm test`, and docs/quickstart verification to mirror the DevOps + DocOps coupling defined in `AGENTS.md` and the Constitution.
+- All documents under `docs/` must include the YAML front matter + metadata + Version History described in `docs/00-governance/Document_Standards.md`.
+- `docs/_templates/` contains skeleton PRD/ADR/FDD files; copy them when creating new documents.
+- `docs/_scripts/` houses catalog + validation scripts used by pre-commit/CI.
+
+## Working Agreements
+- **DocOps**: `docs/00-governance/Document_Standards.md`, `Writing_Style_Guide.md`, `Taxonomy.md`.
+- **Governance**: `.specify/memory/constitution.md` defines TDD + DocOps gates.
+- **Operational checklists**: canonical list in `docs/00-governance/DocOps_Checklist.md`; repo status in `docs/60-devex/DocOps_Checklist_AIDHA.md`.
+- **Changelog**: maintained in `docs/60-devex/CHANGELOG.md` (link from root if needed).
+- **SpecKit**: use `.specify/scripts/bash/create-new-feature.sh` to scaffold specs; move stable assets into `packages/` + `docs/` when complete.
 
 ## Initial Toolchain Focus
-The first three interdependent tools share the same DocOps gates:
+Three packages evolve together (see `docs/60-devex/Initial_Tools_Roadmap.md`):
 
-1. **Graph Knowledge Backend (`packages/graph-backend/`)** – a pnpm workspace package exposing the personal cognition graph API plus JSON-LD export and contract tests.
-2. **Knowledge Taxonomy & Metadata (`packages/taxonomy/`)** – classification schemas, ontology definitions, and governance for responsibilities/projects with AI-friendly metadata.
-3. **Ingestion Engine (`packages/ingestion-youtube/`)** – pipeline that processes YouTube playlists, captures transcripts, classifies against the taxonomy, enriches metadata, summarizes insights, and emits editorial commentary.
+1. **Graph Knowledge Backend (`packages/reconditum/`)** – cognition graph APIs, JSON-LD export, graph-contract tests.
+2. **Knowledge Taxonomy (`packages/phyla/`)** – classification schemas, metadata validation, governance tooling.
+3. **YouTube Ingestion Engine (`packages/praecis/`)** – playlist ingestion, transcript classification, metadata enrichment, editorial output.
 
-See `docs/60-devex/Initial_Tools_Roadmap.md` for the detailed DocOps and implementation tasks for these packages.
+Each package must deliver: PRD/ADR/FDD as applicable, ≥80% coverage with TDD, DocOps assets (quickstart, runbook, prompts), and observability hooks.
 
-## MkDocs Documentation Site
-1. Install dependencies: `pip install -r docs/requirements-docs.txt`.
-2. Preview locally: `pnpm docs:serve` (opens http://127.0.0.1:8000).
-3. Build for CI/CD: `pnpm docs:build` (fails on missing metadata or broken links).
+## Documentation Site (MkDocs)
+- `pnpm docs:serve` → http://127.0.0.1:8000 (Material theme, literate nav).
+- `pnpm docs:build` → generates catalog, validates docs, and runs `mkdocs build --strict`.
+- Navigation lives in `docs/_nav.yml`; update it when adding new top-level docs.
 
-Navigation is defined in `docs/_nav.yml` (used by `mkdocs-literate-nav`). All documents surfaced on the
-site must live in the numeric `docs/` tree or within package directories and include the mandated YAML
-front matter + metadata blocks.
+## Automation & CI
+- Pre-commit (see `.pre-commit-config.yaml`) enforces formatting, DocOps catalog generation, metadata validation, Markdownlint, and optional Vale.
+- GitHub Actions workflow `.github/workflows/docs-check.yml` runs catalog generation, validation, Markdownlint, and MkDocs build for every PR/push.
 
-Each package requires: (a) PRD + ADR using the metadata/Version History template, (b) TDD-first implementation with coverage ≥80%, (c) DocOps artifacts (quickstart, runbook, prompts) tracked alongside code.
+## Need Help?
+- Review `AGENTS.md` for workflows, commands, and DevOps/DocOps expectations.
+- Use the DocOps checklists to ensure new repos or branches follow the same structure.
+- When in doubt, add content under the numbered `docs/` tree and regenerate the catalog before opening a PR.

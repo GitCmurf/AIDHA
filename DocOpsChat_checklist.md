@@ -13,6 +13,7 @@
 - [ ] Add Markdown lint config (.markdownlint.json); configure IDE integration
 - [ ] Add prose linter (Vale) with minimal style (optional)
 - [ ] (optional) Add spell-checker integration (cSpell / codespell)
+- [ ] Provide Markdown templates for PRD/ADR/FDD under `docs/_templates/`
 
 ## 2) MkDocs Site (local-first)
 - [ ] Add `mkdocs.yml` using Material theme + extensions
@@ -58,7 +59,8 @@
 - [ ] Tagging convention for docs (e.g., `doc-vX.Y`) and release notes linking
 - [ ] (optional) Generate CHANGELOG.md from doc version tables for top-level visibility
 - [ ] (optional) CI summary: doc coverage stats (how many docs have version metadata)
- - [ ] (optional) Pre-commit framework: `.pre-commit-config.yaml`, developer onboarding instructions
+- [ ] (optional) Pre-commit framework: `.pre-commit-config.yaml`, developer onboarding instructions
+- [ ] Maintain DocOps-aware changelog in `docs/<xx>/CHANGELOG.md` (root file may link to it)
 
 ## 7) Authoring Ergonomics
 - [ ] VS Code: Markdown All in One, Markdown Table Prettify/Formatter, Vale integration, YAML schema validation
@@ -71,3 +73,4 @@
 - [ ] DevEx roadmap capturing phases, gates, and handoffs
 - [ ] Observability guidance (structured logs, metrics, tracing) referenced by runbooks
 - [ ] RAG alignment: stable paths, predictable headings, consistent metadata; ensure all docs expose embeddings or semantic summary; predictable heading hierarchy
+- [ ] Repo structure document describing directory responsibilities + pnpm/app evolution

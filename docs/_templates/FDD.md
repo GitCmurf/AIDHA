@@ -1,6 +1,7 @@
 ---
 document_id: [AREA]-FDD-001
 owner: [Engineering Lead]
+approvers: [list or "—"]
 status: Draft
 last_updated: YYYY-MM-DD
 version: 0.1
@@ -12,6 +13,7 @@ type: fdd
 > **Approvers:** —  
 > **Status:** Draft  
 > **Last Updated:** YYYY-MM-DD  
+> **Version:** 0.1  
 
 ## Version History
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |

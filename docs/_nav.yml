@@ -22,6 +22,8 @@ nav:
       - Ingestion Runbook: 50-runbooks/INGEST-RUNBOOK.md
   - DevEx & Tooling:
       - Initial Tools Roadmap: 60-devex/Initial_Tools_Roadmap.md
+      - Repository Structure: 60-devex/Repo_Structure.md
+      - Changelog: 60-devex/CHANGELOG.md
       - Graph Quickstart: 60-devex/GRAPH-QUICKSTART.md
       - Taxonomy Quickstart: 60-devex/TAX-QUICKSTART.md
       - Ingestion Quickstart: 60-devex/INGEST-QUICKSTART.md

@@ -13,6 +13,7 @@
 - [x] Markdown lint config (.markdownlint.json)
 - [x] Prose linter (Vale) baseline style
 - [ ] (optional) Spell-check integration (cSpell/codespell)
+- [x] Markdown templates for PRD/ADR/FDD under `docs/_templates/`
 
 ## 2) MkDocs Site (local-first)
 - [x] `mkdocs.yml` (Material theme + recommended features)
@@ -53,7 +54,8 @@
 - [ ] Deploy step (skipped; private repo) — local-only accepted
 - [ ] Tagging convention for docs (`doc-vX.Y`) (pending)
 - [ ] (optional) Generate top-level CHANGELOG from doc version tables
- - [x] (optional) Pre-commit framework: `.pre-commit-config.yaml`, developer onboarding instructions pending
+- [x] (optional) Pre-commit framework: `.pre-commit-config.yaml`, developer onboarding instructions pending
+- [x] Canonical DocOps-aware changelog (`docs/60-devex/CHANGELOG.md`) with root link
 
 ## 7) Authoring Ergonomics
 - [x] VS Code extension assumptions documented in standards
@@ -67,6 +69,7 @@
 - [x] Observability/runbook placeholders created
 - [x] RAG alignment: stable paths + metadata; catalog generator in place
 - [ ] Ensure embeddings/semantic summaries are available for key docs (deferred)
+- [x] Repo structure doc (`docs/60-devex/Repo_Structure.md`)
 
 ### Notes
 - We explicitly deferred GitHub Pages; local MkDocs remains the default.
