@@ -1,126 +1,155 @@
 ---
-document_id: DOC-STANDARDS
-owner: DocOps Working Group
-approvers: CMF
+document_id: AIDHA-GOV-STANDARDS
+owner: Repo Maintainers
+approvers: GitCmurf
 status: Draft
-last_updated: 2025-11-12
-version: 0.4
+version: 1.0
+last_updated: 2025-11-18
 type: governance
+docops_version: 1.3
+---
+> **Document ID:** AIDHA-GOV-STANDARDS  
+> **Owner:** Repo Maintainers  
+> **Approvers:** GitCmurf
+> **Status:** Draft  
+> **Version:** 1.0  
+> **Last Updated:** YYYY-MM-DD  
+
+# Repository Document Standards (v1.0)
+
+These standards implement the organisation-wide DocOps Constitution v1.3 for this repository.
+
 ---
 
-# Document Standards
+# 1. Repository Prefix
 
-> **Document ID:** DOC-STANDARDS
-> **Owner:** DocOps Working Group
-> **Approvers:** CMF
-> **Status:** Draft
-> **Last Updated:** 2025-11-12
-> **Version:** 0.4  
-
-## Version History
-
-| Version | Date       | Author        | Description                                  |
-|---------|------------|---------------|----------------------------------------------|
-| 0.4     | 2025-11-12 | CMF           | Aligned YAML and visible frontmatter         |
-| 0.3     | 2025-11-09 | DocOps Agent  | Documented MkDocs workflow + tooling         |
-| 0.2     | 2025-11-09 | DocOps Agent  | Added YAML front matter + numbered doc tree  |
-| 0.1     | 2025-11-09 | DocOps Agent  | Initial standards for AIDHA workspace docs   |
-
-## Purpose
-These standards apply to every human-readable artifact (PRD, ADR, FDD, runbook, quickstart).
-They ensure AI agents and humans can reason about document state, provenance, and workflow.
-
-## Core Principles
-1. **Metadata First** – Each document starts with YAML front matter plus a visible metadata block
-   listing Document ID, Owner, Approvers (if any), Status, and Last Updated.
-2. **Version Table** – Maintain a Markdown table capturing Version, Date, Author, Change Summary,
-   Reviewers, Status, and optional links to commits/tags. Use past tense in descriptions.
-3. **Semantic Versioning** – Use `major.minor` (e.g., `1.0`, `1.1`). Increment MAJOR when scope or
-   approvals change. Increment MINOR for additive edits. Patch-level detail belongs in the commit log.
-4. **Traceable IDs** – Document IDs follow `<AREA>-<TYPE>-<SEQ?>` (e.g., `GRAPH-PRD`, `INGEST-ADR-001`).
-5. **DocOps Coupling** – Every code change affecting behavior must update the corresponding doc and
-   version table within the same pull request.
-
-## YAML Front Matter + Metadata Block Templates
+All document IDs in this repository MUST begin with:
 ```
+AIDHA
+```
+
+Example:
+```
+AIDHA-INGEST-ADR-001
+```
+
 ---
-document_id: [ID]
-owner: [Person/Role]
-approvers: [list]
-status: [Draft|In Review|Approved|Published|Superseded]
-last_updated: [YYYY-MM-DD]
-version: [X.Y]
-type: [governance|prd|adr|fdd|runbook|design|decision|spec]
+
+# 2. AREA Registry
+
+Valid AREA identifiers for this repository (from YAML `areas:`):
+
+- `GOV`  
+- `PLAN`  
+- `<AREA_3>`  
+(Extend as necessary.)
+
+Rules:
+- Uppercase  
+- ASCII only  
+- Stable over time  
+- Coarse-grained domains
+
 ---
-```
 
-Then add the visible metadata block directly below the front matter:
-````markdown
-> **Document ID:** [ID]
-> **Owner:** [Person/Role]
-> **Approvers:** [Names or “—”]
-> **Status:** [Draft | In Review | Approved | Published | Superseded]
-> **Last Updated:** [YYYY-MM-DD]
-````
+# 3. Allowed Document Types
 
-## Version History Template
-````markdown
-| Version | Date       | Author  | Change Summary                      | Reviewers | Status     | Reference |
-|---------|------------|---------|-------------------------------------|-----------|------------|-----------|
-| 0.1     | 2025-11-09 | A. Doe | Initial draft                       | —         | Draft      | —         |
-````
-*Reference column* may hold commit hashes, tags, or URLs. Populate after merge or leave `—`.
+This repository supports the document types defined in the Constitution.  
+Common types expected here:
 
-## Document Types
-| Type | Document ID Example | Notes |
-|------|---------------------|-------|
-| Product Requirements Document (PRD) | `GRAPH-PRD` | Must link to active ADR/FDD. |
-| Architecture Decision Record (ADR) | `GRAPH-ADR-001` | Follows MADR structure plus metadata. |
-| Feature Design Document (FDD) | `INGEST-FDD-001` | Includes API/graph schema outlines. |
-| Runbook / Ops Guide | `OPS-RUNBOOK-<pkg>` | Include monitoring & rollback steps. |
-| Knowledge Graph Schema | `GRAPH-SCHEMA` | Mirrors JSON-LD exports and tests. |
+- `adr`  
+- `design`  
+- `spec`  
+- `runbook`  
+- `testing`  
+- `decision`  
+- `planning`  
+- `strategy`  
+- `governance`  
+- `index`
 
-## Tooling & Workflow
-- **Editing:** Use VS Code with `Markdown All in One`, `Markdown Table Prettify`, and `Markdownlint`.
-- **Automation:** Add tables via CSV snippets; run `npm exec markdown-table-prettify` (future script TBD).
-- **Site Builds:** Use MkDocs (Material theme) with `docs/requirements-docs.txt`. Commands:
-  - `pnpm docs:serve` (local preview)
-  - `pnpm docs:build` (CI gate)
-- **Validation:** Pre-commit hook (planned) ensures metadata + version table exist.
-- **RAG Readiness:** Keep headings predictable; avoid inline HTML except for metadata block.
+Additional types MUST be documented and justified.
 
-## Repository Document Tree
-```
+---
+
+# 4. Directory Structure for This Repository
+
+This repository MUST contain:
+
+
+
 docs/
-  00-governance/
-  01-indices/
-  10-prd/
-  20-adr/
-  30-fdd/
-  40-design/
-  50-runbooks/
-  60-devex/
-  70-specs/
-  80-decisions/
-  99-archive/
-```
-Maintain numeric prefixes so documents stay discoverable and sort predictably. Place superseded files
-in `99-archive/` with Status `Superseded`.
+00-governance/
+01-indices/
+<other-used-directories>
+99-archive/
 
-## Status Vocabulary
-| Status     | Definition |
-|------------|------------|
-| Draft      | WIP, not yet shared widely. |
-| In Review  | Awaiting feedback/approval. |
-| Approved   | Accepted by approvers. |
-| Published  | Released to target audience. |
-| Superseded | Replaced by a newer document. |
 
-## Linking & References
-- Reference other documents via relative links and Document ID mention.
-- When superseding, add a sentence at the top: `Superseded by [DOC-ID vX.Y](../path.md)`.
-- Include commit/tag references only when unique traceability is necessary (security, compliance).
+This repository MAY include any additional directories from the full Constitution structure:
 
-## Maintenance
-- Review this standards file quarterly; log updates in the Version History above.
-- Questions or proposals go through the DocOps Working Group via RFC referenced in the Constitution.
+
+
+02-strategy/
+05-planning/
+10-prd/
+20-specs/
+30-design/
+40-decisions/
+45-adr/
+50-fdd/
+55-testing/
+60-runbooks/
+70-devex/
+
+
+Only directories that are used need to exist.
+
+---
+
+# 5. Metadata Requirements
+
+All governed documents MUST include:
+
+- Required YAML metadata (Constitution I.1)  
+- An auto-generated visible metadata block  
+- A unique Document ID  
+- Updated version and last_updated fields whenever content changes  
+
+Sidecar metadata MUST be used for non-Markdown artefacts.
+
+---
+
+# 6. Linking Rules
+
+Documents MUST:
+
+- Reference other docs by Document ID  
+- Use relative links within the repository  
+- Use absolute GitHub links across repositories  
+
+Example:
+
+
+See <REPO_PREFIX>-INGEST-ADR-003.
+Link
+
+
+---
+
+# 7. Workflow Expectations
+
+- Any PR modifying APIs, config, operational behaviour, or user-facing system aspects MUST update docs.  
+- Documents MUST be created/updated via PR.  
+- Superseded documents MUST be moved to `99-archive/`.
+
+---
+
+# 8. Local Extensions (Optional)
+
+Local rules may be defined here if needed.  
+They MUST NOT contradict the DocOps Constitution (ORG-DOCOPS-CONSTITUTION).
+
+## 8.1 Orthography
+- This repository prefers British spelling in document content.  
+
+---

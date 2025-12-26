@@ -24,6 +24,13 @@ repos:
     hooks:
       - id: markdownlint
         args: ["-c", ".markdownlint.json"]
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        args:
+          - "--ignore-words=styles/codespell_ignore.txt"
+          - "--skip=docs/01-indices/catalog.json,docs/01-indices/linkcheck-report.json,docs/01-indices/package-docs.json"
   # Vale is optional; enable if installed on developer machines
   - repo: local
     hooks:
@@ -32,6 +39,5 @@ repos:
         entry: vale
         language: system
         types: [markdown]
-        stages: [commit]
         additional_dependencies: []
         pass_filenames: true

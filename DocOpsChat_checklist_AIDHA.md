@@ -5,14 +5,14 @@
 ## 1) Repository-wide DocOps Foundations
 - [x] Establish numeric docs tree under `docs/` (00–99)
   - [x] 00-governance (standards, style, taxonomy, versioning rubric)
-  - [x] 01-indices (catalog.json; linkcheck reports; search indices) — catalog present; linkcheck/search indices pending
+  - [x] 01-indices (catalog.json; linkcheck reports; search indices) — catalog + linkcheck present; search index pending
   - [x] 10-prd, 20-adr, 30-fdd, 40-design, 50-runbooks, 60-devex, 70-specs, 80-decisions, 99-archive
 - [x] Document Standards file with YAML front matter, visible metadata block, Version History, status vocabulary, Document ID scheme, controlled vocabulary
 - [x] Writing Style Guide (prose rules, accessibility)
 - [x] Taxonomy doc (stub with cross-ref intent)
 - [x] Markdown lint config (.markdownlint.json)
 - [x] Prose linter (Vale) baseline style
-- [ ] (optional) Spell-check integration (cSpell/codespell)
+- [x] (optional) Spell-check integration (codespell)
 - [x] Markdown templates for PRD/ADR/FDD under `docs/_templates/`
 
 ## 2) MkDocs Site (local-first)
@@ -29,8 +29,8 @@
 
 ## 3) Doc Indexing & Agent Readiness
 - [x] `01-indices/catalog.json` generator script and build integration
-- [ ] Validate catalog.json against JSON schema (schema file added)
-- [ ] Linkcheck report into `01-indices/` (pending)
+- [x] Validate catalog.json against JSON schema (schema file added)
+- [x] Linkcheck report into `01-indices/` (generated via `pnpm docs:linkcheck`)
 
 ## 4) Product/Architecture Artifacts
 - [x] PRDs for GRAPH, TAX, INGEST (skeletons)
@@ -45,12 +45,12 @@
 - [x] Three packages scaffolded with consistent structure
 - [x] Canonical docs in `docs/` with package pointers
 - [x] Package READMEs link to canonical docs
-- [ ] Include internal package docs index in `docs/01-indices/` via build script
+- [x] Include internal package docs index in `docs/01-indices/` via build script
 
 ## 6) Governance, CI and Enforcements
 - [x] Constitution updated to reference DocOps standards
-- [ ] Pre-commit: validate YAML front matter, schema conformance, Version History; auto-regenerate catalog
-- [ ] CI: docs build + markdownlint + Vale (+ optional doc coverage stats)
+- [x] Pre-commit: validate YAML front matter, schema conformance, Version History; auto-regenerate catalog
+- [x] CI: docs build + markdownlint + (optionally) Vale; doc coverage stats pending
 - [ ] Deploy step (skipped; private repo) — local-only accepted
 - [ ] Tagging convention for docs (`doc-vX.Y`) (pending)
 - [ ] (optional) Generate top-level CHANGELOG from doc version tables

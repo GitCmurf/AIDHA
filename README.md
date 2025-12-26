@@ -35,7 +35,7 @@ docs/
   70-specs/
   80-decisions/
   99-archive/
-packages/          # pnpm workspace packages (graph-backend, taxonomy, ingestion-youtube)
+packages/          # pnpm workspace packages (reconditum, phyla, praecis)
 specs/<id>-<slug>/ # SpecKit plans/tasks for in-flight work
 styles/            # Vale/Markdownlint styles
 ```
@@ -62,6 +62,7 @@ Each package must deliver: PRD/ADR/FDD as applicable, ≥80% coverage with TDD, 
 
 ## Documentation Site (MkDocs)
 - `pnpm docs:serve` → http://127.0.0.1:8000 (Material theme, literate nav).
+- `pnpm docs:linkcheck` → checks external links and writes `docs/01-indices/linkcheck-report.json`.
 - `pnpm docs:build` → generates catalog, validates docs, and runs `mkdocs build --strict`.
 - Navigation lives in `docs/_nav.yml`; update it when adding new top-level docs.
 

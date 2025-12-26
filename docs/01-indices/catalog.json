@@ -1,1 +1,455 @@
-[]
+[
+  {
+    "path": "README.md",
+    "title": "Documentation Tree",
+    "front_matter": {
+      "document_id": "DOCS-ROOT",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "overview"
+    }
+  },
+  {
+    "path": "index.md",
+    "title": "AIDHA Workspace Documentation",
+    "front_matter": {
+      "document_id": "DOCS-INDEX",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "overview"
+    }
+  },
+  {
+    "path": "knowledge.md",
+    "title": null,
+    "front_matter": {}
+  },
+  {
+    "path": "60-devex/Repo_Structure.md",
+    "title": "Repository Structure",
+    "front_matter": {
+      "document_id": "DEVEX-REPO-STRUCTURE",
+      "owner": "DocOps Working Group",
+      "approvers": "CMF",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "devex"
+    }
+  },
+  {
+    "path": "60-devex/INGEST-QUICKSTART.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "INGEST-QUICKSTART",
+      "owner": "Ingestion Team",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "quickstart"
+    }
+  },
+  {
+    "path": "60-devex/DocOps_Checklist_AIDHA.md",
+    "title": "DocOps Checklist — AIDHA Status",
+    "front_matter": {
+      "document_id": "DEVEX-DOCOPS-CHECKLIST-AIDHA",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "devex"
+    }
+  },
+  {
+    "path": "60-devex/TAXONOMY-QUICKSTART.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "TAX-QUICKSTART",
+      "owner": "Taxonomy Team",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "quickstart"
+    }
+  },
+  {
+    "path": "60-devex/README.md",
+    "title": "Developer Experience & Tooling Docs Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-DEVEX",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "60-devex/packages.md",
+    "title": "Package Readmes",
+    "front_matter": {
+      "document_id": "DEVEX-PACKAGES",
+      "owner": "Developer Experience Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "devex"
+    }
+  },
+  {
+    "path": "60-devex/CHANGELOG.md",
+    "title": "Repository Changelog",
+    "front_matter": {
+      "document_id": "DEVEX-CHANGELOG",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "devex"
+    }
+  },
+  {
+    "path": "60-devex/Design_Tokens_Guide.md",
+    "title": "Design Tokens Guide (Placeholder)",
+    "front_matter": {
+      "document_id": "DEVEX-DESIGN-TOKENS",
+      "owner": "Design Systems",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "devex"
+    }
+  },
+  {
+    "path": "60-devex/Initial_Tools_Roadmap.md",
+    "title": "Initial Tools Roadmap",
+    "front_matter": {
+      "document_id": "DEVEX-ROADMAP-FOUNDATIONAL-TOOLS",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "devex"
+    }
+  },
+  {
+    "path": "60-devex/GRAPH-QUICKSTART.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "GRAPH-QUICKSTART",
+      "owner": "Graph Backend Team",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "quickstart"
+    }
+  },
+  {
+    "path": "30-fdd/INGEST-FDD-001.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "INGEST-FDD-001",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "fdd"
+    }
+  },
+  {
+    "path": "30-fdd/README.md",
+    "title": "Feature Design Documents Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-FDD",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "80-decisions/README.md",
+    "title": "Non-architectural Decision Logs Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-DEC",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "99-archive/README.md",
+    "title": "Archived Documents Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-ARCHIVE",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "10-prd/README.md",
+    "title": "Product Requirements Documents Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-PRD",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "10-prd/INGEST-PRD.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "INGEST-PRD",
+      "owner": "Ingestion Product Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "prd"
+    }
+  },
+  {
+    "path": "10-prd/GRAPH-PRD.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "GRAPH-PRD",
+      "owner": "Graph Backend Product Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "prd"
+    }
+  },
+  {
+    "path": "10-prd/TAX-PRD.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "TAX-PRD",
+      "owner": "Taxonomy Product Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "prd"
+    }
+  },
+  {
+    "path": "40-design/README.md",
+    "title": "Design Documents & Explorations Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-DESIGN",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "50-runbooks/README.md",
+    "title": "Runbooks & Operational Guides Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-RUN",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "50-runbooks/INGEST-RUNBOOK.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "RUN-INGESTION-YT",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "runbook"
+    }
+  },
+  {
+    "path": "50-runbooks/TAXONOMY-RUNBOOK.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "RUN-TAXONOMY",
+      "owner": "Taxonomy Stewards",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "runbook"
+    }
+  },
+  {
+    "path": "50-runbooks/GRAPH-RUNBOOK.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "RUN-GRAPH-BACKEND",
+      "owner": "Graph Backend SRE",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "runbook"
+    }
+  },
+  {
+    "path": "70-specs/README.md",
+    "title": "High-Level Specifications Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-SPEC",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "20-adr/INGEST-ADR-001.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "INGEST-ADR-001",
+      "owner": "Ingestion Architecture Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "adr"
+    }
+  },
+  {
+    "path": "20-adr/GRAPH-ADR-001.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "GRAPH-ADR-001",
+      "owner": "Graph Architecture Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "adr"
+    }
+  },
+  {
+    "path": "20-adr/TAX-ADR-001.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "TAX-ADR-001",
+      "owner": "Taxonomy Architecture Lead",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "adr"
+    }
+  },
+  {
+    "path": "20-adr/README.md",
+    "title": "Architecture Decision Records Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-ADR",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "01-indices/README.md",
+    "title": "Index & Catalog Artifacts Library",
+    "front_matter": {
+      "document_id": "DOC-STRUCTURE-INDICES",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "guidance"
+    }
+  },
+  {
+    "path": "00-governance/Style_Guide.md",
+    "title": "Style Guide",
+    "front_matter": {
+      "document_id": "DOC-STYLE-GUIDE",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "governance"
+    }
+  },
+  {
+    "path": "00-governance/Taxonomy.md",
+    "title": "Repository Taxonomy",
+    "front_matter": {
+      "document_id": "DOC-TAXONOMY",
+      "owner": "Knowledge Graph Working Group",
+      "approvers": "CMF",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "governance"
+    }
+  },
+  {
+    "path": "00-governance/Writing_Style_Guide.md",
+    "title": "Writing Style Guide",
+    "front_matter": {
+      "document_id": "DOC-WRITING-STYLE",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "governance"
+    }
+  },
+  {
+    "path": "00-governance/Versioning_Practices.md",
+    "title": "Versioning Practices (Operational Guide)",
+    "front_matter": {
+      "document_id": "VERSIONING-PRACTICES",
+      "owner": "DocOps Working Group",
+      "approvers": "CMF",
+      "status": "Draft",
+      "last_updated": "2025-11-12",
+      "version": 0.1,
+      "type": "governance"
+    }
+  },
+  {
+    "path": "00-governance/Document_Standards.md",
+    "title": "Document Standards",
+    "front_matter": {
+      "document_id": "DOC-STANDARDS",
+      "owner": "DocOps Working Group",
+      "approvers": "CMF",
+      "status": "Draft",
+      "last_updated": "2025-11-15",
+      "version": 0.5,
+      "type": "governance"
+    }
+  },
+  {
+    "path": "00-governance/DocOps_Checklist.md",
+    "title": "DocOps Checklist (Canonical)",
+    "front_matter": {
+      "document_id": "DOCOPS-CHECKLIST",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-11-09",
+      "version": 0.1,
+      "type": "governance"
+    }
+  }
+]

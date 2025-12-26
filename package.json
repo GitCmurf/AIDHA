@@ -9,6 +9,7 @@
     "build": "pnpm -r build",
     "docs:serve": "mkdocs serve",
     "docs:catalog": "python docs/_scripts/gen_catalog.py",
+    "docs:linkcheck": "python docs/_scripts/linkcheck.py",
     "docs:build": "python docs/_scripts/gen_catalog.py && mkdocs build"
   }
 }

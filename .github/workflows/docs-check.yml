@@ -27,6 +27,9 @@ jobs:
       - name: Validate docs
         run: python docs/_scripts/validate_docs.py
 
+      - name: Linkcheck
+        run: python docs/_scripts/linkcheck.py
+
       - name: Install markdownlint-cli
         run: |
           npm --version || (curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)
@@ -37,4 +40,3 @@ jobs:
 
       - name: MkDocs build
         run: mkdocs build --strict
-
