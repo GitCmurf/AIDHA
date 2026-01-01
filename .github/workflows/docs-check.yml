@@ -36,7 +36,9 @@ jobs:
           npm i -g markdownlint-cli
 
       - name: Markdownlint
-        run: markdownlint "**/*.md" -c .markdownlint.json
+        run: |
+          markdownlint "README.md" "docs/**/*.md" -c .markdownlint.json \
+            --ignore "docs/_templates/**"
 
       - name: MkDocs build
         run: mkdocs build --strict

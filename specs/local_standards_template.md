@@ -4,13 +4,13 @@
 
 ---
 
-**Document ID:** [repo]-doc-standards  
-**Owner:** Repo Maintainers  
-**Status:** approved  
-**Version:** 1.0  
-**Last Updated:** 2025-01-15  
-**Type:** governance  
-**DocOps Version:** 2.0  
+**Document ID:** [repo]-doc-standards
+**Owner:** Repo Maintainers
+**Status:** approved
+**Version:** 1.0
+**Last Updated:** 2025-01-15
+**Type:** governance
+**DocOps Version:** 2.0
 
 ---
 
@@ -38,8 +38,8 @@ Example document IDs:
 - `[repo-prefix]-runbook-deployment`
 
 ### Repository Name
-**Full name:** [Full Repository Name]  
-**Short name:** [repo-prefix]  
+**Full name:** [Full Repository Name]
+**Short name:** [repo-prefix]
 **Primary language:** [e.g., Python, TypeScript, Go]
 
 ---
@@ -93,7 +93,7 @@ docs/
   README.md                  ← Index of all docs
 ```
 
-**Tier 1 repos:** Just use `docs/` and `docs/archive/`  
+**Tier 1 repos:** Just use `docs/` and `docs/archive/`
 **Tier 3 repos:** Add subdirectories as needed (see Constitution Article V)
 
 ---
@@ -125,7 +125,7 @@ related: [doc-id-1, doc-id-2]    # Links to related docs
 
 ### Metadata Validation
 
-**Tier 1:** Manual review during PR  
+**Tier 1:** Manual review during PR
 **Tier 2+:** Automated via CI (see scripts/ directory)
 
 ---
@@ -208,16 +208,16 @@ related: [doc-id-1, doc-id-2]    # Links to related docs
 
 PRs **must** update docs when changing:
 
-✅ API endpoints, parameters, or responses  
-✅ Configuration options or environment variables  
-✅ User-facing behavior or UI  
-✅ Deployment procedures  
-✅ Security assumptions or threat model  
-✅ Performance characteristics or SLOs  
+✅ API endpoints, parameters, or responses
+✅ Configuration options or environment variables
+✅ User-facing behavior or UI
+✅ Deployment procedures
+✅ Security assumptions or threat model
+✅ Performance characteristics or SLOs
 
-❌ Internal refactors (no external impact)  
-❌ Test changes only  
-❌ Dependency version bumps  
+❌ Internal refactors (no external impact)
+❌ Test changes only
+❌ Dependency version bumps
 
 ### PR Checklist
 
@@ -232,7 +232,7 @@ PRs **must** update docs when changing:
 
 ### Enforcement
 
-**Tier 1:** Manual review  
+**Tier 1:** Manual review
 **Tier 2+:** CI fails if code/ changes but docs/ unchanged (with escape hatch)
 
 ---
@@ -247,8 +247,8 @@ When replacing a document:
    - Add `superseded_by: new-document-id`
    - Add note at top:
      ```markdown
-     > ⚠️ **SUPERSEDED**  
-     > This document has been replaced by [`new-doc-id`](../path/to/new-doc.md).  
+     > ⚠️ **SUPERSEDED**
+     > This document has been replaced by [`new-doc-id`](../path/to/new-doc.md).
      > Kept for historical reference only.
      ```
 3. **Move to archive:**
@@ -271,11 +271,11 @@ When replacing a document:
 - Include sidecar metadata: `diagram.drawio.meta.yaml`
 
 ### Examples
-✅ `api-authentication-flow.md`  
-✅ `adr-use-postgres-over-mysql.md`  
-✅ `deployment-runbook.md`  
-❌ `2025-01-15-new-feature-doc.md` (date in name)  
-❌ `Architecture_Document_Final_v2_UPDATED.md` (chaos)  
+✅ `api-authentication-flow.md`
+✅ `adr-use-postgres-over-mysql.md`
+✅ `deployment-runbook.md`
+❌ `2025-01-15-new-feature-doc.md` (date in name)
+❌ `Architecture_Document_Final_v2_UPDATED.md` (chaos)
 
 ---
 
@@ -361,8 +361,8 @@ cp .github/templates/ADR_TEMPLATE.md docs/10-decisions/adr-my-decision.md
 *List any necessary deviations from the Constitution with rationale:*
 
 Example:
-> **Exception:** We don't version our weekly meeting notes in `docs/meetings/`.  
-> **Rationale:** These are ephemeral records, not authoritative documentation.  
+> **Exception:** We don't version our weekly meeting notes in `docs/meetings/`.
+> **Rationale:** These are ephemeral records, not authoritative documentation.
 > **Applies to:** Files in `docs/meetings/*.md`
 
 ### Custom Extensions
@@ -370,8 +370,8 @@ Example:
 *Project-specific additions:*
 
 Example:
-> **Extension:** All `spec` documents must include an OpenAPI schema.  
-> **Rationale:** We auto-generate client libraries from these specs.  
+> **Extension:** All `spec` documents must include an OpenAPI schema.
+> **Rationale:** We auto-generate client libraries from these specs.
 > **Validation:** CI checks for `openapi.yaml` alongside spec docs.
 
 ---

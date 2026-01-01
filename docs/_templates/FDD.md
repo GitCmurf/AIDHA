@@ -8,12 +8,12 @@ version: 0.1
 type: fdd
 ---
 
-> **Document ID:** [AREA]-FDD-001  
-> **Owner:** [Engineering Lead]  
-> **Approvers:** —  
-> **Status:** Draft  
-> **Last Updated:** YYYY-MM-DD  
-> **Version:** 0.1  
+> **Document ID:** [AREA]-FDD-001
+> **Owner:** [Engineering Lead]
+> **Approvers:** —
+> **Status:** Draft
+> **Last Updated:** YYYY-MM-DD
+> **Version:** 0.1
 
 ## Version History
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
@@ -28,4 +28,3 @@ type: fdd
 
 ## Testing
 [Test plan and fixtures]
-

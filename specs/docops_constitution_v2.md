@@ -4,11 +4,11 @@
 
 ---
 
-**Document ID:** ORG-DOCOPS-CONSTITUTION  
-**Owner:** DocOps Working Group  
-**Status:** Draft  
-**Version:** 2.0  
-**Last Updated:** 2025-01-15  
+**Document ID:** ORG-DOCOPS-CONSTITUTION
+**Owner:** DocOps Working Group
+**Status:** Draft
+**Version:** 2.0
+**Last Updated:** 2025-01-15
 
 ---
 
@@ -69,17 +69,17 @@ docops_version: "2.0"
   - Example: `billing-adr-payment-gateway`, `auth-spec-oauth2`
   - Keep it short, memorable, kebab-case
   - No need for sequential numbers unless truly needed
-  
+
 - **owner**: Person responsible for keeping this current (GitHub handle or role)
 
 - **status**: Lifecycle stage
   - `draft` → `review` → `approved` → `superseded`
   - Use `superseded` when replaced (note replacement in doc body)
-  
+
 - **version**: Semantic versioning (MAJOR.MINOR)
   - Bump MAJOR for breaking changes (scope, structure, decisions)
   - Bump MINOR for clarifications, additions, fixes
-  
+
 - **type**: Document category (lowercase)
   - Common: `prd`, `adr`, `spec`, `design`, `runbook`, `strategy`, `index`
   - Define project-specific types in LOCAL_STANDARDS.md
@@ -375,7 +375,7 @@ def validate_frontmatter(file_path):
     content = Path(file_path).read_text()
     if not content.startswith('---'):
         return f"Missing front matter: {file_path}"
-    
+
     try:
         _, fm, _ = content.split('---', 2)
         meta = yaml.safe_load(fm)
@@ -385,7 +385,7 @@ def validate_frontmatter(file_path):
             return f"Missing fields {missing}: {file_path}"
     except Exception as e:
         return f"Invalid YAML: {file_path}: {e}"
-    
+
     return None
 
 # Usage: python validate_docops.py docs/**/*.md

@@ -55,8 +55,8 @@ The approvers field in the YAML frontmatter (line 4) uses the placeholder format
 
 Align line 13 with the YAML placeholder for consistency:
 
--> Approvers: —  
-+> Approvers: [list or "—"]  
+-> Approvers: —
++> Approvers: [list or "—"]
 
 
 

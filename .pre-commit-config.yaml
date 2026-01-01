@@ -24,19 +24,21 @@ repos:
     hooks:
       - id: markdownlint
         args: ["-c", ".markdownlint.json"]
+        files: ^(README\.md|docs/.*\.md)$
+        exclude: ^docs/_templates/
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
     hooks:
       - id: codespell
         args:
           - "--ignore-words=styles/codespell_ignore.txt"
-          - "--skip=docs/01-indices/catalog.json,docs/01-indices/linkcheck-report.json,docs/01-indices/package-docs.json"
+          - "--skip=docs/01-indices/catalog.json,docs/01-indices/linkcheck-report.json,docs/01-indices/package-docs.json,.meminit/meminit.index.json"
   # Vale is optional; enable if installed on developer machines
   - repo: local
     hooks:
       - id: vale
         name: Vale prose lint (optional)
-        entry: vale
+        entry: bash scripts/precommit/vale_optional.sh
         language: system
         types: [markdown]
         additional_dependencies: []

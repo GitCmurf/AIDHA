@@ -1,34 +1,34 @@
 nav:
   - Overview: index.md
   - Governance:
-      - Document Standards: 00-governance/Document_Standards.md
-      - Style Guide: 00-governance/Style_Guide.md
-      - Writing Style: 00-governance/Writing_Style_Guide.md
-      - Repository Taxonomy: 00-governance/Taxonomy.md
-      - DocOps Checklist (Canonical): 00-governance/DocOps_Checklist.md
+      - Document Standards: 00-governance/gov-001-document-standards.md
+      - Versioning Practices: 00-governance/gov-002-versioning-practices.md
+      - Security Practices: 00-governance/gov-003-security-practices.md
+      - Writing Style Guide: 00-governance/gov-004-writing-style-guide.md
   - Product Requirements:
-      - Graph Backend: 10-prd/GRAPH-PRD.md
-      - Taxonomy Service: 10-prd/TAX-PRD.md
-      - Ingestion Engine: 10-prd/INGEST-PRD.md
+      - Graph Database: 10-prd/prd-001-graph-database.md
+      - Ingest to Graph Database: 10-prd/prd-002-ingest-to-graph-database.md
+      - Taxonomy: 10-prd/prd-003-taxonomy.md
   - Architecture Decisions:
-      - Graph Storage Decision: 20-adr/GRAPH-ADR-001.md
-      - Taxonomy Governance: 20-adr/TAX-ADR-001.md
-      - Ingestion Architecture: 20-adr/INGEST-ADR-001.md
+      - Adopt Meminit DocOps: 20-adr/adr-001-adopt-meminit-docops.md
+      - Graph Storage Engine: 20-adr/adr-002-graph-storage-engine.md
+      - Taxonomy Storage and Governance: 20-adr/adr-003-taxonomy-storage-and-governance.md
+      - Ingestion Architecture: 20-adr/adr-004-ingestion-architecture.md
   - Feature Designs:
-      - Ingestion Engine Design: 30-fdd/INGEST-FDD-001.md
+      - Ingestion Engine Design: 30-fdd/fdd-001-ingestion-engine.md
   - Runbooks:
-      - Graph Backend Runbook: 50-runbooks/GRAPH-RUNBOOK.md
-      - Taxonomy Runbook: 50-runbooks/TAX-RUNBOOK.md
-      - Ingestion Runbook: 50-runbooks/INGEST-RUNBOOK.md
+      - Graph Backend Runbook: 50-runbooks/runbook-001-graph-backend.md
+      - Taxonomy Runbook: 50-runbooks/runbook-002-taxonomy.md
+      - Ingestion Runbook: 50-runbooks/runbook-003-youtube-ingestion.md
   - DevEx & Tooling:
-      - Initial Tools Roadmap: 60-devex/Initial_Tools_Roadmap.md
-      - Repository Structure: 60-devex/Repo_Structure.md
-      - Changelog: 60-devex/CHANGELOG.md
-      - Graph Quickstart: 60-devex/GRAPH-QUICKSTART.md
-      - Taxonomy Quickstart: 60-devex/TAX-QUICKSTART.md
-      - Ingestion Quickstart: 60-devex/INGEST-QUICKSTART.md
-      - Design Tokens: 60-devex/Design_Tokens_Guide.md
-      - DocOps Checklist — AIDHA Status: 60-devex/DocOps_Checklist_AIDHA.md
+      - Initial Tools Roadmap: 60-devex/initial-tools-roadmap.md
+      - Repository Structure: 60-devex/repo-structure.md
+      - Changelog: 60-devex/changelog.md
+      - Graph Quickstart: 60-devex/graph-quickstart.md
+      - Taxonomy Quickstart: 60-devex/taxonomy-quickstart.md
+      - Ingestion Quickstart: 60-devex/ingest-quickstart.md
+      - Design Tokens: 60-devex/design-tokens-guide.md
+      - DocOps Checklist — AIDHA Status: 60-devex/docops-checklist-aidha.md
   - Package Notes: 60-devex/packages.md
   - Decisions Archive: 80-decisions/
   - Archived Docs: 99-archive/

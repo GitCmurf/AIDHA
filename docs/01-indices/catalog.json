@@ -1,455 +1,370 @@
 [
   {
-    "path": "README.md",
-    "title": "Documentation Tree",
-    "front_matter": {
-      "document_id": "DOCS-ROOT",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "overview"
-    }
-  },
-  {
     "path": "index.md",
     "title": "AIDHA Workspace Documentation",
     "front_matter": {
-      "document_id": "DOCS-INDEX",
-      "owner": "DocOps Working Group",
+      "document_id": "AIDHA-OVERVIEW-001",
+      "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "overview"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "AIDHA Workspace Documentation",
+      "type": "OVERVIEW",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "knowledge.md",
-    "title": null,
-    "front_matter": {}
-  },
-  {
-    "path": "60-devex/Repo_Structure.md",
-    "title": "Repository Structure",
-    "front_matter": {
-      "document_id": "DEVEX-REPO-STRUCTURE",
-      "owner": "DocOps Working Group",
-      "approvers": "CMF",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "devex"
-    }
-  },
-  {
-    "path": "60-devex/INGEST-QUICKSTART.md",
+    "path": "60-devex/graph-quickstart.md",
     "title": null,
     "front_matter": {
-      "document_id": "INGEST-QUICKSTART",
-      "owner": "Ingestion Team",
+      "document_id": "AIDHA-GUIDE-001",
+      "owner": "Graph Backend Team",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "quickstart"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Graph Backend Quickstart",
+      "type": "GUIDE",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "60-devex/DocOps_Checklist_AIDHA.md",
-    "title": "DocOps Checklist — AIDHA Status",
-    "front_matter": {
-      "document_id": "DEVEX-DOCOPS-CHECKLIST-AIDHA",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "devex"
-    }
-  },
-  {
-    "path": "60-devex/TAXONOMY-QUICKSTART.md",
+    "path": "60-devex/taxonomy-quickstart.md",
     "title": null,
     "front_matter": {
-      "document_id": "TAX-QUICKSTART",
+      "document_id": "AIDHA-GUIDE-002",
       "owner": "Taxonomy Team",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "quickstart"
-    }
-  },
-  {
-    "path": "60-devex/README.md",
-    "title": "Developer Experience & Tooling Docs Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-DEVEX",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Taxonomy Quickstart",
+      "type": "GUIDE",
+      "docops_version": "2.0"
     }
   },
   {
     "path": "60-devex/packages.md",
     "title": "Package Readmes",
     "front_matter": {
-      "document_id": "DEVEX-PACKAGES",
+      "document_id": "AIDHA-REF-001",
       "owner": "Developer Experience Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "devex"
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "Package READMEs",
+      "type": "REF",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "60-devex/CHANGELOG.md",
-    "title": "Repository Changelog",
+    "path": "60-devex/ingest-quickstart.md",
+    "title": null,
     "front_matter": {
-      "document_id": "DEVEX-CHANGELOG",
-      "owner": "DocOps Working Group",
+      "document_id": "AIDHA-GUIDE-003",
+      "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "devex"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Ingestion Quickstart",
+      "type": "GUIDE",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "60-devex/Design_Tokens_Guide.md",
+    "path": "60-devex/design-tokens-guide.md",
     "title": "Design Tokens Guide (Placeholder)",
     "front_matter": {
-      "document_id": "DEVEX-DESIGN-TOKENS",
+      "document_id": "AIDHA-REF-004",
       "owner": "Design Systems",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "devex"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Design Tokens Guide",
+      "type": "REF",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "60-devex/Initial_Tools_Roadmap.md",
+    "path": "60-devex/repo-structure.md",
+    "title": "Repository Structure",
+    "front_matter": {
+      "document_id": "AIDHA-REF-003",
+      "owner": "DocOps Working Group",
+      "approvers": "CMF",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Repository Structure",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/docops-checklist-aidha.md",
+    "title": "DocOps Checklist — AIDHA Status",
+    "front_matter": {
+      "document_id": "AIDHA-REF-002",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "DocOps Checklist — AIDHA",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/changelog.md",
+    "title": "Repository Changelog",
+    "front_matter": {
+      "document_id": "AIDHA-REF-006",
+      "owner": "DocOps Working Group",
+      "status": "Draft",
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Repository Changelog",
+      "type": "REF",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "60-devex/initial-tools-roadmap.md",
     "title": "Initial Tools Roadmap",
     "front_matter": {
-      "document_id": "DEVEX-ROADMAP-FOUNDATIONAL-TOOLS",
+      "document_id": "AIDHA-REF-005",
       "owner": "DocOps Working Group",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "devex"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Initial Tools Roadmap",
+      "type": "REF",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "60-devex/GRAPH-QUICKSTART.md",
+    "path": "30-fdd/fdd-001-ingestion-engine.md",
     "title": null,
     "front_matter": {
-      "document_id": "GRAPH-QUICKSTART",
-      "owner": "Graph Backend Team",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "quickstart"
-    }
-  },
-  {
-    "path": "30-fdd/INGEST-FDD-001.md",
-    "title": null,
-    "front_matter": {
-      "document_id": "INGEST-FDD-001",
+      "document_id": "AIDHA-FDD-001",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "fdd"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Ingestion Engine Design",
+      "type": "FDD",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "30-fdd/README.md",
-    "title": "Feature Design Documents Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-FDD",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
-    }
-  },
-  {
-    "path": "80-decisions/README.md",
-    "title": "Non-architectural Decision Logs Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-DEC",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
-    }
-  },
-  {
-    "path": "99-archive/README.md",
-    "title": "Archived Documents Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-ARCHIVE",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
-    }
-  },
-  {
-    "path": "10-prd/README.md",
-    "title": "Product Requirements Documents Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-PRD",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
-    }
-  },
-  {
-    "path": "10-prd/INGEST-PRD.md",
+    "path": "10-prd/prd-003-taxonomy.md",
     "title": null,
     "front_matter": {
-      "document_id": "INGEST-PRD",
-      "owner": "Ingestion Product Lead",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "prd"
-    }
-  },
-  {
-    "path": "10-prd/GRAPH-PRD.md",
-    "title": null,
-    "front_matter": {
-      "document_id": "GRAPH-PRD",
-      "owner": "Graph Backend Product Lead",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "prd"
-    }
-  },
-  {
-    "path": "10-prd/TAX-PRD.md",
-    "title": null,
-    "front_matter": {
-      "document_id": "TAX-PRD",
+      "document_id": "AIDHA-PRD-003",
       "owner": "Taxonomy Product Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "prd"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Taxonomy",
+      "type": "PRD",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "40-design/README.md",
-    "title": "Design Documents & Explorations Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-DESIGN",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
-    }
-  },
-  {
-    "path": "50-runbooks/README.md",
-    "title": "Runbooks & Operational Guides Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-RUN",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
-    }
-  },
-  {
-    "path": "50-runbooks/INGEST-RUNBOOK.md",
+    "path": "10-prd/prd-002-ingest-to-graph-database.md",
     "title": null,
     "front_matter": {
-      "document_id": "RUN-INGESTION-YT",
-      "owner": "Ingestion Oncall",
+      "document_id": "AIDHA-PRD-002",
+      "owner": "Ingestion Product Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "runbook"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Ingest to Graph Database",
+      "type": "PRD",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "50-runbooks/TAXONOMY-RUNBOOK.md",
+    "path": "10-prd/prd-001-graph-database.md",
     "title": null,
     "front_matter": {
-      "document_id": "RUN-TAXONOMY",
-      "owner": "Taxonomy Stewards",
+      "document_id": "AIDHA-PRD-001",
+      "owner": "Graph Backend Product Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "runbook"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Graph Database",
+      "type": "PRD",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "50-runbooks/GRAPH-RUNBOOK.md",
+    "path": "50-runbooks/runbook-001-graph-backend.md",
     "title": null,
     "front_matter": {
-      "document_id": "RUN-GRAPH-BACKEND",
+      "document_id": "AIDHA-RUNBOOK-001",
       "owner": "Graph Backend SRE",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "runbook"
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "Graph Backend Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "70-specs/README.md",
-    "title": "High-Level Specifications Library",
-    "front_matter": {
-      "document_id": "DOC-STRUCTURE-SPEC",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
-    }
-  },
-  {
-    "path": "20-adr/INGEST-ADR-001.md",
+    "path": "50-runbooks/runbook-003-youtube-ingestion.md",
     "title": null,
     "front_matter": {
-      "document_id": "INGEST-ADR-001",
-      "owner": "Ingestion Architecture Lead",
+      "document_id": "AIDHA-RUNBOOK-003",
+      "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "adr"
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "YouTube Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "20-adr/GRAPH-ADR-001.md",
+    "path": "50-runbooks/runbook-002-taxonomy.md",
     "title": null,
     "front_matter": {
-      "document_id": "GRAPH-ADR-001",
-      "owner": "Graph Architecture Lead",
+      "document_id": "AIDHA-RUNBOOK-002",
+      "owner": "Taxonomy Stewards",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "adr"
+      "last_updated": "2025-12-27",
+      "version": "0.3",
+      "title": "Taxonomy Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "20-adr/TAX-ADR-001.md",
+    "path": "05-planning/plan-001-docops-migration.md",
+    "title": "DocOps Brownfield Migration Plan",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-001",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2025-12-27",
+      "title": "DocOps Brownfield Migration Plan",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-003-taxonomy-storage-and-governance.md",
     "title": null,
     "front_matter": {
-      "document_id": "TAX-ADR-001",
+      "document_id": "AIDHA-ADR-003",
       "owner": "Taxonomy Architecture Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "adr"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Taxonomy Storage and Governance",
+      "type": "ADR",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "20-adr/README.md",
-    "title": "Architecture Decision Records Library",
+    "path": "20-adr/adr-004-ingestion-architecture.md",
+    "title": null,
     "front_matter": {
-      "document_id": "DOC-STRUCTURE-ADR",
-      "owner": "DocOps Working Group",
+      "document_id": "AIDHA-ADR-004",
+      "owner": "Ingestion Architecture Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Ingestion Architecture and Summarization Strategy",
+      "type": "ADR",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "01-indices/README.md",
-    "title": "Index & Catalog Artifacts Library",
+    "path": "20-adr/adr-002-graph-storage-engine.md",
+    "title": null,
     "front_matter": {
-      "document_id": "DOC-STRUCTURE-INDICES",
-      "owner": "DocOps Working Group",
+      "document_id": "AIDHA-ADR-002",
+      "owner": "Graph Architecture Lead",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "guidance"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Graph Storage Engine Selection",
+      "type": "ADR",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "00-governance/Style_Guide.md",
-    "title": "Style Guide",
+    "path": "20-adr/adr-001-adopt-meminit-docops.md",
+    "title": "ADR: Adopt Meminit DocOps Constitution v2.0",
     "front_matter": {
-      "document_id": "DOC-STYLE-GUIDE",
-      "owner": "DocOps Working Group",
+      "document_id": "AIDHA-ADR-001",
+      "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "governance"
+      "version": "0.1",
+      "last_updated": "2025-12-27",
+      "title": "Adopt Meminit DocOps Constitution v2.0",
+      "type": "ADR",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "00-governance/Taxonomy.md",
-    "title": "Repository Taxonomy",
+    "path": "00-governance/gov-001-document-standards.md",
+    "title": "Repository Document Standards (v1.0)",
     "front_matter": {
-      "document_id": "DOC-TAXONOMY",
-      "owner": "Knowledge Graph Working Group",
-      "approvers": "CMF",
+      "document_id": "AIDHA-GOV-001",
+      "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "governance"
+      "version": "1.1",
+      "last_updated": "2025-12-27",
+      "title": "Repository Document Standards",
+      "type": "GOV",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "00-governance/Writing_Style_Guide.md",
-    "title": "Writing Style Guide",
-    "front_matter": {
-      "document_id": "DOC-WRITING-STYLE",
-      "owner": "DocOps Working Group",
-      "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "governance"
-    }
-  },
-  {
-    "path": "00-governance/Versioning_Practices.md",
+    "path": "00-governance/gov-002-versioning-practices.md",
     "title": "Versioning Practices (Operational Guide)",
     "front_matter": {
-      "document_id": "VERSIONING-PRACTICES",
+      "document_id": "AIDHA-GOV-002",
       "owner": "DocOps Working Group",
       "approvers": "CMF",
       "status": "Draft",
-      "last_updated": "2025-11-12",
-      "version": 0.1,
-      "type": "governance"
+      "last_updated": "2025-12-27",
+      "version": "0.2",
+      "title": "Versioning Practices (Operational Guide)",
+      "type": "GOV",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "00-governance/Document_Standards.md",
-    "title": "Document Standards",
+    "path": "00-governance/gov-003-security-practices.md",
+    "title": "Public Repository Security Practices",
     "front_matter": {
-      "document_id": "DOC-STANDARDS",
-      "owner": "DocOps Working Group",
-      "approvers": "CMF",
+      "document_id": "AIDHA-GOV-003",
+      "owner": "Security Team",
+      "approvers": "GitCmurf",
       "status": "Draft",
-      "last_updated": "2025-11-15",
-      "version": 0.5,
-      "type": "governance"
+      "version": "0.3",
+      "last_updated": "2025-12-27",
+      "title": "Public Repository Security Practices",
+      "type": "GOV",
+      "docops_version": "2.0"
     }
   },
   {
-    "path": "00-governance/DocOps_Checklist.md",
-    "title": "DocOps Checklist (Canonical)",
+    "path": "00-governance/gov-004-writing-style-guide.md",
+    "title": "Writing Style Guide",
     "front_matter": {
-      "document_id": "DOCOPS-CHECKLIST",
+      "document_id": "AIDHA-GOV-004",
       "owner": "DocOps Working Group",
+      "approvers": "GitCmurf",
       "status": "Draft",
-      "last_updated": "2025-11-09",
-      "version": 0.1,
-      "type": "governance"
+      "version": "0.2",
+      "last_updated": "2025-12-27",
+      "title": "Writing Style Guide",
+      "type": "GOV",
+      "docops_version": "2.0"
     }
   }
 ]

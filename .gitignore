@@ -67,3 +67,50 @@ specs/**/TASKS.auto.md
 # Local tooling state
 .qodo/cache/
 .qodo/sessions/
+
+# Temporary files and directories
+temp-*
+temp_*
+WIP-*
+NoCommit-*
+*-temp.*
+*_temp.*
+*.temp
+*.temp.*
+*.tmp
+*.tmp.*
+
+temp/
+tmp/
+scratch/
+WIP/
+WIP-*/
+docs/**/WIP-*
+__Local__Do_Not_Commit/
+coderabbit-review-*.txt
+coderabbit_*review*.txt
+
+# Secrets
+.env
+.env.local
+.env*
+!.env.example
+env/
+ENV/
+env.bak/
+# Personal (GitCmurf)
+CMF/
+CMF-*/
+Personal/
+personal/
+Secrets/
+secrets/
+Secret/
+
+# Workflow-specific
+*_commit/
+*_local/
+.aws/
+.ssh/
+credentials/
+creds/*/

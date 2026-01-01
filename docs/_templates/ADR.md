@@ -8,12 +8,12 @@ version: 0.1
 type: adr
 ---
 
-> **Document ID:** [AREA]-ADR-001  
-> **Owner:** [Architecture Lead]  
-> **Approvers:** —  
-> **Status:** Draft  
-> **Last Updated:** YYYY-MM-DD  
-> **Version:** 0.1  
+> **Document ID:** [AREA]-ADR-001
+> **Owner:** [Architecture Lead]
+> **Approvers:** —
+> **Status:** Draft
+> **Last Updated:** YYYY-MM-DD
+> **Version:** 0.1
 
 ## Version History
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
@@ -31,4 +31,3 @@ type: adr
 
 ## Consequences
 [Consequences]
-
