@@ -46,6 +46,7 @@ reports/
 target/
 *.egg-info/
 *.pyc
+site/
 
 # Testing fixtures
 .junit/
@@ -119,3 +120,4 @@ creds/*/
 package-lock.json
 npm-shrinkwrap.json
 yarn.lock
+pnpm-lock.yaml
