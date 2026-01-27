@@ -24,7 +24,7 @@ This plan tracks the repo’s migration onto Meminit DocOps 2.0 compliance gates
 ## Version History
 
 | Version | Date       | Author | Change Summary               | Reviewers | Status | Reference |
-|---------|------------|--------|------------------------------|-----------|--------|-----------|
+| ------- | ---------- | ------ | ---------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-12-27 | CMF    | Create migration plan record | —         | Draft  | —         |
 
 ## Goals

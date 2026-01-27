@@ -22,10 +22,10 @@ These standards implement the organisation-wide **DocOps Constitution v2.0** for
 
 ## Version History
 
-| Version | Date       | Author | Change Summary                             | Reviewers | Status | Reference |
-|---------|------------|--------|--------------------------------------------|-----------|--------|-----------|
-| 1.0     | 2025-12-27 | CMF    | Adopt Meminit governance baseline          | —         | Draft  | —         |
-| 1.1     | 2025-12-27 | CMF    | Add required Version History for validation | —        | Draft  | —         |
+| Version | Date       | Author | Change Summary                              | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ------------------------------------------- | --------- | ------ | --------- |
+| 1.0     | 2025-12-27 | CMF    | Adopt Meminit governance baseline           | —         | Draft  | —         |
+| 1.1     | 2025-12-27 | CMF    | Add required Version History for validation | —         | Draft  | —         |
 
 ---
 

@@ -20,9 +20,9 @@ docops_version: '2.0'
 
 ## Version History
 
-| Version | Date       | Author | Change Summary                             | Reviewers | Status | Reference |
-|---------|------------|--------|--------------------------------------------|-----------|--------|-----------|
-| 0.1     | 2025-11-09 | TBD    | Seed placeholder quickstart                 | —         | Draft  | —         |
+| Version | Date       | Author | Change Summary                            | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ----------------------------------------- | --------- | ------ | --------- |
+| 0.1     | 2025-11-09 | TBD    | Seed placeholder quickstart               | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History | —         | Draft  | —         |
 
 ## Purpose

@@ -23,21 +23,21 @@ docops_version: '2.0'
 
 ## Version History
 
-| Version | Date       | Author | Change Summary                             | Reviewers | Status | Reference |
-|---------|------------|--------|--------------------------------------------|-----------|--------|-----------|
-| 0.1     | 2025-11-09 | TBD    | Seed repository structure overview          | —         | Draft  | —         |
+| Version | Date       | Author | Change Summary                            | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ----------------------------------------- | --------- | ------ | --------- |
+| 0.1     | 2025-11-09 | TBD    | Seed repository structure overview        | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History | —         | Draft  | —         |
 
 ## Top-Level Directories
 
-| Path | Purpose |
-|------|---------|
-| `docs/` | Numeric DocOps tree (00–99) + nav/templates/scripts |
-| `specs/<id>-<slug>/` | SpecKit-generated artifacts for in-flight work |
-| `packages/` | pnpm workspace packages (reconditum, phyla, praecis) |
-| `.specify/` | SpecKit CLI templates/scripts (do not modify structure) |
-| `.codex/prompts/` | Prompt experiments, agent guidance |
-| `styles/` | Vale rules, Markdownlint config, future design tokens |
+| Path                 | Purpose                                                 |
+| -------------------- | ------------------------------------------------------- |
+| `docs/`              | Numeric DocOps tree (00–99) + nav/templates/scripts     |
+| `specs/<id>-<slug>/` | SpecKit-generated artifacts for in-flight work          |
+| `packages/`          | pnpm workspace packages (reconditum, phyla, praecis)    |
+| `.specify/`          | SpecKit CLI templates/scripts (do not modify structure) |
+| `.codex/prompts/`    | Prompt experiments, agent guidance                      |
+| `styles/`            | Vale rules, Markdownlint config, future design tokens   |
 
 ## Packages
 

@@ -23,7 +23,7 @@ docops_version: '2.0'
 ## Version History
 
 | Version | Date       | Author       | Change Summary                     | Reviewers | Status | Reference |
-|--------:|------------|--------------|------------------------------------|-----------|--------|-----------|
+| ------: | ---------- | ------------ | ---------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-11-09 | DocOps Agent | Initialized DocOps-aware changelog | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF          | Adopt DocOps 2.0 ID + metadata     | —         | Draft  | —         |
 

@@ -20,10 +20,10 @@ docops_version: '2.0'
 
 ## Version History
 
-| Version | Date       | Author | Change Summary         | Reviewers | Status | Reference |
-|---------|------------|--------|------------------------|-----------|--------|-----------|
-| 0.1     | 2025-11-09 | TBD    | Placeholder FDD created | —         | Draft  | —         |
-| 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename) | — | Draft | — |
+| Version | Date       | Author | Change Summary                                           | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | -------------------------------------------------------- | --------- | ------ | --------- |
+| 0.1     | 2025-11-09 | TBD    | Placeholder FDD created                                  | —         | Draft  | —         |
+| 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename) | —         | Draft  | —         |
 
 ## Overview
 

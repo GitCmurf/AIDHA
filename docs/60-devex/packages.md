@@ -22,11 +22,11 @@ docops_version: '2.0'
 
 ## Version History
 
-| Version | Date       | Author | Change Summary                             | Reviewers | Status | Reference |
-|---------|------------|--------|--------------------------------------------|-----------|--------|-----------|
-| 0.2     | 2025-12-27 | CMF    | Seed package README index                  | —         | Draft  | —         |
-| 0.3     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History | —         | Draft  | —         |
-| 0.4     | 2026-01-27 | Codex  | Link to in-docs quickstarts (MkDocs strict-safe) | — | Draft | — |
+| Version | Date       | Author | Change Summary                                   | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ------------------------------------------------ | --------- | ------ | --------- |
+| 0.2     | 2025-12-27 | CMF    | Seed package README index                        | —         | Draft  | —         |
+| 0.3     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History        | —         | Draft  | —         |
+| 0.4     | 2026-01-27 | Codex  | Link to in-docs quickstarts (MkDocs strict-safe) | —         | Draft  | —         |
 
 Each pnpm workspace package maintains a README under `packages/<name>/README.md` for local context.
 

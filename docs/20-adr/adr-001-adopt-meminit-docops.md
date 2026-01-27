@@ -47,6 +47,6 @@ the Meminit project and are copied here only when needed for local contributor e
 
 ## Version History
 
-| Version | Date       | Author | Change Summary                              | Reviewers | Status | Reference |
-|---------|------------|--------|---------------------------------------------|-----------|--------|-----------|
-| 0.1     | 2025-12-27 | CMF    | Adopt Meminit DocOps Constitution v2.0       | —         | Draft  | —         |
+| Version | Date       | Author | Change Summary                         | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | -------------------------------------- | --------- | ------ | --------- |
+| 0.1     | 2025-12-27 | CMF    | Adopt Meminit DocOps Constitution v2.0 | —         | Draft  | —         |

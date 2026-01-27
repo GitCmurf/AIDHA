@@ -22,10 +22,10 @@ docops_version: '2.0'
 
 ## Version History
 
-| Version | Date       | Author        | Description                           |
-|---------|------------|---------------|---------------------------------------|
-| 0.1     | 2025-11-09 | DocOps Agent  | Seed roadmap for graph/taxonomy/ingest |
-| 0.2     | 2025-12-27 | CMF           | Adopt DocOps 2.0 ID + metadata        |
+| Version | Date       | Author       | Description                            |
+| ------- | ---------- | ------------ | -------------------------------------- |
+| 0.1     | 2025-11-09 | DocOps Agent | Seed roadmap for graph/taxonomy/ingest |
+| 0.2     | 2025-12-27 | CMF          | Adopt DocOps 2.0 ID + metadata         |
 
 ## Overview
 

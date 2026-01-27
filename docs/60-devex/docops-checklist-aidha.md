@@ -24,9 +24,9 @@ This file tracks AIDHA’s DocOps gating and migration status.
 
 ## Version History
 
-| Version | Date       | Author | Change Summary                             | Reviewers | Status | Reference |
-|---------|------------|--------|--------------------------------------------|-----------|--------|-----------|
-| 0.2     | 2025-12-27 | CMF    | Seed checklist stub                        | —         | Draft  | —         |
+| Version | Date       | Author | Change Summary                            | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ----------------------------------------- | --------- | ------ | --------- |
+| 0.2     | 2025-12-27 | CMF    | Seed checklist stub                       | —         | Draft  | —         |
 | 0.3     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History | —         | Draft  | —         |
 
 See AIDHA-PLAN-001 for the current migration worklist.

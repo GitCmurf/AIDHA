@@ -31,7 +31,7 @@ Welcome to the MkDocs-powered documentation portal. Content mirrors the numeric 
 ## Version History
 
 | Version | Date       | Author | Change Summary                   | Reviewers | Status | Reference |
-|---------|------------|--------|----------------------------------|-----------|--------|-----------|
+| ------- | ---------- | ------ | -------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-11-09 | TBD    | Initial docs portal landing page | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0    | —         | Draft  | —         |
 

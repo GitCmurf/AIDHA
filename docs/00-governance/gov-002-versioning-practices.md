@@ -25,7 +25,7 @@ docops_version: '2.0'
 ## Version History
 
 | Version | Date       | Author | Change Summary                           | Reviewers | Status | Reference |
-|---------|------------|--------|------------------------------------------|-----------|--------|-----------|
+| ------- | ---------- | ------ | ---------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-12-27 | CMF    | Seed versioning guidelines               | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Normalize metadata + add Version History | —         | Draft  | —         |
 

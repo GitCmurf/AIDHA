@@ -21,7 +21,7 @@ docops_version: '2.0'
 ## Version History
 
 | Version | Date       | Author | Change Summary                              | Reviewers | Status | Reference |
-|---------|------------|--------|---------------------------------------------|-----------|--------|-----------|
+| ------- | ---------- | ------ | ------------------------------------------- | --------- | ------ | --------- |
 | 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0               | —         | Draft  | —         |
 | 0.3     | 2025-12-27 | CMF    | Add required Version History for validation | —         | Draft  | —         |
 
