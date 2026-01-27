@@ -87,6 +87,9 @@ def build_package_entries() -> List[Dict[str, Any]]:
         return entries
     package_jsons = sorted(PACKAGES_DIR.rglob("package.json"))
     for pkg_file in package_jsons:
+        # Ignore dependency trees inside packages. We only want workspace packages.
+        if "node_modules" in pkg_file.parts:
+            continue
         pkg_dir = pkg_file.parent
         readme = pkg_dir / "README.md"
         if not readme.exists():

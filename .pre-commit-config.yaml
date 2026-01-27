@@ -9,13 +9,13 @@ repos:
     hooks:
       - id: docs-catalog
         name: Generate docs catalog
-        entry: python docs/_scripts/gen_catalog.py
+        entry: python3 docs/_scripts/gen_catalog.py
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false
       - id: docs-validate
         name: Validate docs front matter + version tables + catalog schema
-        entry: python docs/_scripts/validate_docs.py
+        entry: python3 docs/_scripts/validate_docs.py
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false

@@ -114,3 +114,8 @@ Secret/
 .ssh/
 credentials/
 creds/*/
+
+# Lockfiles (repo uses pnpm workspaces; avoid per-package npm locks)
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
