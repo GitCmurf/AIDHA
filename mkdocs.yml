@@ -8,6 +8,7 @@ theme:
   name: material
   features:
     - navigation.sections
+    - navigation.indexes
     - navigation.instant
     - navigation.top
     - content.code.copy
@@ -28,7 +29,6 @@ plugins:
   - search
   - literate-nav:
       nav_file: docs/_nav.yml
-  - section-index
   - macros
   - git-revision-date-localized:
       enable_creation_date: true
