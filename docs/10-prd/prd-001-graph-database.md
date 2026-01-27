@@ -3,13 +3,14 @@ document_id: AIDHA-PRD-001
 owner: Graph Backend Product Lead
 status: Draft
 last_updated: 2026-01-24
-version: '0.3'
+version: "0.3"
 title: Graph Database
 type: PRD
-docops_version: '2.0'
+docops_version: "2.0"
 ---
 
 <!-- MEMINIT_METADATA_BLOCK -->
+
 > **Document ID:** AIDHA-PRD-001
 > **Owner:** Graph Backend Product Lead
 > **Approvers:** —
@@ -20,11 +21,11 @@ docops_version: '2.0'
 
 ## Version History
 
-| Version | Date       | Author | Change Summary       | Reviewers | Status | Reference |
-|---------|------------|--------|----------------------|-----------|--------|-----------|
-| 0.1     | 2025-11-09 | TBD    | Skeleton PRD created | —         | Draft  | —         |
-| 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename) | — | Draft | — |
-| 0.3     | 2026-01-24 | Codex  | Flesh out requirements, contracts, and acceptance criteria | — | Draft | — |
+| Version | Date       | Author | Change Summary                                             | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ---------------------------------------------------------- | --------- | ------ | --------- |
+| 0.1     | 2025-11-09 | TBD    | Skeleton PRD created                                       | —         | Draft  | —         |
+| 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename)   | —         | Draft  | —         |
+| 0.3     | 2026-01-24 | Codex  | Flesh out requirements, contracts, and acceptance criteria | —         | Draft  | —         |
 
 ---
 
@@ -42,7 +43,7 @@ query expectations, export requirements, and the tests that must protect these b
 Today we can extract information (e.g., from transcripts) but lack a stable, queryable, and
 exportable graph store that:
 
-- keeps data *locally* (personal knowledge base),
+- keeps data locally (first tests) or safely in the cloud (e.g., neo4j) (personal knowledge base),
 - preserves provenance (where a claim came from),
 - represents relationships (references/derivations/tags),
 - exports deterministically (so diffs and CI checks are meaningful),
@@ -54,7 +55,8 @@ exportable graph store that:
 
 1. Provide a **GraphStore** contract with at least two implementations:
    - in-memory (tests/dev),
-   - embedded persistent store (local disk).
+   - embedded persistent store (local disk)
+   - extensible to support other stores (e.g., neo4j).
 2. Provide **schema-first validation** (reject invalid nodes/edges at boundaries).
 3. Provide a **deterministic JSON-LD export** suitable for downstream indexing and diffs.
 4. Provide a **contract test suite** that any GraphStore implementation must pass.
@@ -247,5 +249,5 @@ Suggested test placement (can evolve):
 ## Appendix
 
 - Package implementation lives in `packages/reconditum/`.
-- This PRD defines *minimum contracts*; feature designs (HTTP API, import/merge strategies) belong in
+- This PRD defines _minimum contracts_; feature designs (HTTP API, import/merge strategies) belong in
   ADRs/FDDs once the MVP stabilizes.
