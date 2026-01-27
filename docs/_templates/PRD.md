@@ -8,12 +8,12 @@ version: 0.1
 type: prd
 ---
 
-> **Document ID:** [AREA]-PRD  
-> **Owner:** [Owner/Role]  
-> **Approvers:** —  
-> **Status:** Draft  
-> **Last Updated:** YYYY-MM-DD  
-> **Version:** 0.1  
+> **Document ID:** [AREA]-PRD
+> **Owner:** [Owner/Role]
+> **Approvers:** —
+> **Status:** Draft
+> **Last Updated:** YYYY-MM-DD
+> **Version:** 0.1
 
 ## Version History
 
@@ -27,22 +27,22 @@ type: prd
 <!-- 2–4 sentences: goals, problem framing, who benefits, expected outcome. -->
 
 ## Problem Statement
-<!-- What user or business problem does this aim to solve?  
+<!-- What user or business problem does this aim to solve?
 Avoid solutions here; define the pain, not the remedy. -->
 
 ## Objectives & Success Metrics
-<!-- Quantitative success criteria.  
+<!-- Quantitative success criteria.
 Examples: latency targets, adoption %, reduction in manual effort, error rate changes. -->
 
 ## Users & Use Cases
-<!-- User roles / personas.  
+<!-- User roles / personas.
 Primary workflows and specific scenarios that the feature must support. -->
 
 ## Scope
 <!-- In-scope features, constraints, MVP boundaries. -->
 
 ## Out of Scope
-<!-- Explicitly list expectations that will not be met.  
+<!-- Explicitly list expectations that will not be met.
 This prevents scope creep and misalignment. -->
 
 ## Requirements
@@ -60,11 +60,11 @@ This prevents scope creep and misalignment. -->
 <!-- If applicable, link to wireframes or provide behaviour descriptions. -->
 
 ## Dependencies
-<!-- Other PRDs, ADRs, FDDs, or platform components this relies on.  
+<!-- Other PRDs, ADRs, FDDs, or platform components this relies on.
 Use Document IDs for traceable linking. -->
 
 ## Risks & Mitigations
-<!-- Known unknowns, technical uncertainties, product risks.  
+<!-- Known unknowns, technical uncertainties, product risks.
 Add notes on investigation paths. -->
 
 ## Open Questions

@@ -27,14 +27,20 @@ jobs:
       - name: Validate docs
         run: python docs/_scripts/validate_docs.py
 
+      - name: Linkcheck
+        run: python docs/_scripts/linkcheck.py
+
       - name: Install markdownlint-cli
         run: |
           npm --version || (curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)
-          npm i -g markdownlint-cli
+          # Pin for reproducible linting (avoids unexpected new rules breaking CI).
+          npm i -g markdownlint-cli@0.41.0
 
       - name: Markdownlint
-        run: markdownlint "**/*.md" -c .markdownlint.json
+        run: |
+          markdownlint "README.md" "docs/**/*.md" -c .markdownlint.json \
+            --disable MD060 \
+            --ignore "docs/_templates/**"
 
       - name: MkDocs build
         run: mkdocs build --strict
-

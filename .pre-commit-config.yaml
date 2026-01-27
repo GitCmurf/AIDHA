@@ -9,13 +9,13 @@ repos:
     hooks:
       - id: docs-catalog
         name: Generate docs catalog
-        entry: python docs/_scripts/gen_catalog.py
+        entry: python3 docs/_scripts/gen_catalog.py
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false
       - id: docs-validate
         name: Validate docs front matter + version tables + catalog schema
-        entry: python docs/_scripts/validate_docs.py
+        entry: python3 docs/_scripts/validate_docs.py
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false
@@ -24,14 +24,22 @@ repos:
     hooks:
       - id: markdownlint
         args: ["-c", ".markdownlint.json"]
+        files: ^(README\.md|docs/.*\.md)$
+        exclude: ^docs/_templates/
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        args:
+          - "--ignore-words=styles/codespell_ignore.txt"
+          - "--skip=docs/01-indices/catalog.json,docs/01-indices/linkcheck-report.json,docs/01-indices/package-docs.json,.meminit/meminit.index.json"
   # Vale is optional; enable if installed on developer machines
   - repo: local
     hooks:
       - id: vale
         name: Vale prose lint (optional)
-        entry: vale
+        entry: bash scripts/precommit/vale_optional.sh
         language: system
         types: [markdown]
-        stages: [commit]
         additional_dependencies: []
         pass_filenames: true

@@ -1,17 +1,22 @@
 ---
-document_id: DOCS-INDEX
-owner: DocOps Working Group
+document_id: AIDHA-OVERVIEW-001
+owner: Repo Maintainers
 status: Draft
-last_updated: 2025-11-09
-version: 0.1
-type: overview
+last_updated: 2025-12-27
+version: '0.2'
+title: AIDHA Workspace Documentation
+type: OVERVIEW
+docops_version: '2.0'
 ---
 
-> **Document ID:** DOCS-INDEX
-> **Owner:** DocOps Working Group
+<!-- MEMINIT_METADATA_BLOCK -->
+> **Document ID:** AIDHA-OVERVIEW-001
+> **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Last Updated:** 2025-11-09
+> **Version:** 0.2
+> **Last Updated:** 2025-12-27
+> **Type:** OVERVIEW
 
 # AIDHA Workspace Documentation
 
@@ -23,13 +28,22 @@ Welcome to the MkDocs-powered documentation portal. Content mirrors the numeric 
 - Package-specific quickstarts/runbooks reside next to their code but are surfaced through navigation
   for convenience.
 
+## Version History
+
+| Version | Date       | Author | Change Summary                   | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | -------------------------------- | --------- | ------ | --------- |
+| 0.1     | 2025-11-09 | TBD    | Initial docs portal landing page | —         | Draft  | —         |
+| 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0    | —         | Draft  | —         |
+
 ## Editing Workflow
-1. Install documentation dependencies: `pip install -r docs/requirements-docs.txt`.
-2. Run `mkdocs serve` (or `pnpm docs:serve`) to preview at `http://127.0.0.1:8000`.
-3. Every change must include YAML front matter + metadata block per `docs/00-governance/Document_Standards.md`.
-4. Before merging, run `mkdocs build` (or `pnpm docs:build`) to ensure the site compiles.
+
+1. Run `pnpm docs:serve` to preview the site locally.
+2. Every governed change under `docs/` follows Meminit DocOps 2.0; see
+   `00-governance/gov-001-document-standards.md`.
+3. Before merging, run `pnpm docs:build` to ensure the site compiles.
 
 ## Next Steps
+
 - Flesh out PRDs/ADRs/FDDs with real content.
 - Add search enhancements (Material built-in) and versioning via `mike` when needed.
 - Automate catalog generation into `docs/01-indices/catalog.json` for agent/RAG consumption.

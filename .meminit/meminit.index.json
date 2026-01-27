@@ -1,0 +1,290 @@
+{
+  "output_schema_version": "1.0",
+  "index_version": "0.1",
+  "generated_at": "2025-12-30T17:27:19.250724+00:00",
+  "namespaces": [
+    {
+      "namespace": "root",
+      "docs_root": "docs",
+      "repo_prefix": "AIDHA"
+    },
+    {
+      "namespace": "phyla",
+      "docs_root": "packages/phyla/docs",
+      "repo_prefix": "PHYLA"
+    },
+    {
+      "namespace": "reconditum",
+      "docs_root": "packages/reconditum/docs",
+      "repo_prefix": "RECON"
+    },
+    {
+      "namespace": "praecis",
+      "docs_root": "packages/praecis/youtube/docs",
+      "repo_prefix": "PRAECIS"
+    }
+  ],
+  "documents": [
+    {
+      "document_id": "AIDHA-ADR-001",
+      "path": "docs/20-adr/adr-001-adopt-meminit-docops.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Adopt Meminit DocOps Constitution v2.0",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-ADR-002",
+      "path": "docs/20-adr/adr-002-graph-storage-engine.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Graph Storage Engine Selection",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-ADR-003",
+      "path": "docs/20-adr/adr-003-taxonomy-storage-and-governance.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Taxonomy Storage and Governance",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-ADR-004",
+      "path": "docs/20-adr/adr-004-ingestion-architecture.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Ingestion Architecture and Summarization Strategy",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-FDD-001",
+      "path": "docs/30-fdd/fdd-001-ingestion-engine.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "FDD",
+      "title": "Ingestion Engine Design",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GOV-001",
+      "path": "docs/00-governance/gov-001-document-standards.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GOV",
+      "title": "Repository Document Standards",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GOV-002",
+      "path": "docs/00-governance/gov-002-versioning-practices.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GOV",
+      "title": "Versioning Practices (Operational Guide)",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GOV-003",
+      "path": "docs/00-governance/gov-003-security-practices.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GOV",
+      "title": "Public Repository Security Practices",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GOV-004",
+      "path": "docs/00-governance/gov-004-writing-style-guide.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GOV",
+      "title": "Writing Style Guide",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GUIDE-001",
+      "path": "docs/60-devex/graph-quickstart.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GUIDE",
+      "title": "Graph Backend Quickstart",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GUIDE-002",
+      "path": "docs/60-devex/taxonomy-quickstart.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GUIDE",
+      "title": "Taxonomy Quickstart",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GUIDE-003",
+      "path": "docs/60-devex/ingest-quickstart.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GUIDE",
+      "title": "Ingestion Quickstart",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-OVERVIEW-001",
+      "path": "docs/index.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "OVERVIEW",
+      "title": "AIDHA Workspace Documentation",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-PLAN-001",
+      "path": "docs/05-planning/plan-001-docops-migration.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PLAN",
+      "title": "DocOps Brownfield Migration Plan",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-PRD-001",
+      "path": "docs/10-prd/prd-001-graph-database.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PRD",
+      "title": "Graph Database",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-PRD-002",
+      "path": "docs/10-prd/prd-002-ingest-to-graph-database.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PRD",
+      "title": "Ingest to Graph Database",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-PRD-003",
+      "path": "docs/10-prd/prd-003-taxonomy.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PRD",
+      "title": "Taxonomy",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-REF-001",
+      "path": "docs/60-devex/packages.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "REF",
+      "title": "Package READMEs",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-REF-002",
+      "path": "docs/60-devex/docops-checklist-aidha.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "REF",
+      "title": "DocOps Checklist \u2014 AIDHA",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-REF-003",
+      "path": "docs/60-devex/repo-structure.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "REF",
+      "title": "Repository Structure",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-REF-004",
+      "path": "docs/60-devex/design-tokens-guide.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "REF",
+      "title": "Design Tokens Guide",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-REF-005",
+      "path": "docs/60-devex/initial-tools-roadmap.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "REF",
+      "title": "Initial Tools Roadmap",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-REF-006",
+      "path": "docs/60-devex/changelog.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "REF",
+      "title": "Repository Changelog",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-RUNBOOK-001",
+      "path": "docs/50-runbooks/runbook-001-graph-backend.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "RUNBOOK",
+      "title": "Graph Backend Operations",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-RUNBOOK-002",
+      "path": "docs/50-runbooks/runbook-002-taxonomy.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "RUNBOOK",
+      "title": "Taxonomy Operations",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-RUNBOOK-003",
+      "path": "docs/50-runbooks/runbook-003-youtube-ingestion.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "RUNBOOK",
+      "title": "YouTube Ingestion Operations",
+      "status": "Draft"
+    },
+    {
+      "document_id": "PHYLA-REF-001",
+      "path": "packages/phyla/docs/70-devex/README.md",
+      "namespace": "phyla",
+      "repo_prefix": "PHYLA",
+      "type": "REF",
+      "title": "Phyla Package Docs (Pointers)",
+      "status": "Draft"
+    },
+    {
+      "document_id": "PRAECIS-REF-001",
+      "path": "packages/praecis/youtube/docs/70-devex/README.md",
+      "namespace": "praecis",
+      "repo_prefix": "PRAECIS",
+      "type": "REF",
+      "title": "Praecis YouTube Package Docs (Pointers)",
+      "status": "Draft"
+    },
+    {
+      "document_id": "RECON-REF-001",
+      "path": "packages/reconditum/docs/70-devex/README.md",
+      "namespace": "reconditum",
+      "repo_prefix": "RECON",
+      "type": "REF",
+      "title": "Reconditum Package Docs (Pointers)",
+      "status": "Draft"
+    }
+  ]
+}

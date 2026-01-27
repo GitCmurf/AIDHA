@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `docs/00-governance/Document_Standards.md` captures metadata + Version History rules; every doc you touch must comply before review.
+- `docs/00-governance/gov-001-document-standards.md` captures metadata + Version History rules; every doc you touch must comply before review.
 
 ## Dev Workflow & Commands
 - `pnpm docs:serve` / `pnpm docs:build` — preview and validate the MkDocs site before opening a PR.
@@ -20,7 +20,7 @@
 - Keep branches small (≈2 days) and push frequently so CI, code review, and preview docs stay current.
 - Store deployment manifests, Dockerfiles, and runbooks next to the feature they support, updating the README in the same PR.
 - After each merge train, rerun `update-agent-context`, prune stale specs, and re-sync templates—DocOps deserves the same cadence as CI/CD.
-- For any PRD/ADR/FDD/runbook/devex/README/etc., copy the metadata + Version History blocks from `docs/00-governance/Document_Standards.md` and update them in the same PR as the code change.
+- For any PRD/ADR/FDD/runbook/devex/README/etc., copy the metadata + Version History blocks from `docs/00-governance/gov-001-document-standards.md` and update them in the same PR as the code change.
 - Never merge without `pnpm docs:build` succeeding; the MkDocs site is the canonical artifact reviewers use.
 
 ## Initial Toolchain Targets

@@ -1,0 +1,8 @@
+DocOps
+SpecKit
+pnpm
+mkdocs
+neo4j
+jsonld
+STRAT
+strat
