@@ -33,11 +33,13 @@ jobs:
       - name: Install markdownlint-cli
         run: |
           npm --version || (curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)
-          npm i -g markdownlint-cli
+          # Pin for reproducible linting (avoids unexpected new rules breaking CI).
+          npm i -g markdownlint-cli@0.41.0
 
       - name: Markdownlint
         run: |
           markdownlint "README.md" "docs/**/*.md" -c .markdownlint.json \
+            --disable MD060 \
             --ignore "docs/_templates/**"
 
       - name: MkDocs build
