@@ -52,8 +52,17 @@ export function nodeMatchesFilters(node: GraphNode, filters?: Record<string, unk
 
 function compareValues(a: unknown, b: unknown): number {
   if (a === b) return 0;
-  if (a === undefined || a === null) return -1;
-  if (b === undefined || b === null) return 1;
+  const aIsNull = a === null;
+  const bIsNull = b === null;
+  const aIsUndefined = a === undefined;
+  const bIsUndefined = b === undefined;
+  if (aIsNull || aIsUndefined || bIsNull || bIsUndefined) {
+    if ((aIsNull && bIsNull) || (aIsUndefined && bIsUndefined)) return 0;
+    if (aIsNull && bIsUndefined) return -1;
+    if (aIsUndefined && bIsNull) return 1;
+    if (aIsNull || aIsUndefined) return -1;
+    if (bIsNull || bIsUndefined) return 1;
+  }
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   return String(a).localeCompare(String(b));
 }

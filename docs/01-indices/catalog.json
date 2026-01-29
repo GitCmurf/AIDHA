@@ -302,7 +302,7 @@
       "owner": "Graph Architecture Lead",
       "status": "Draft",
       "last_updated": "2026-01-29",
-      "version": "0.3",
+      "version": "0.4",
       "title": "Graph Storage Engine Selection",
       "type": "ADR",
       "docops_version": "2.0"
@@ -330,9 +330,9 @@
       "type": "ADR",
       "title": "Graph DB Rationale",
       "status": "Draft",
-      "version": "0.2",
+      "version": "0.3",
       "last_updated": "2026-01-29",
-      "owner": "__TBD__",
+      "owner": "Graph Architecture Lead",
       "docops_version": "2.0"
     }
   },

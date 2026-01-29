@@ -10,6 +10,7 @@ Icon?
 *.swp
 *.swo
 *.orig
+.antigravity/
 
 # Logs & runtime traces
 *.log
