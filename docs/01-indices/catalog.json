@@ -189,8 +189,8 @@
       "document_id": "AIDHA-PRD-001",
       "owner": "Graph Backend Product Lead",
       "status": "Draft",
-      "last_updated": "2026-01-24",
-      "version": "0.3",
+      "last_updated": "2026-01-28",
+      "version": "0.4",
       "title": "Graph Database",
       "type": "PRD",
       "docops_version": "2.0"
@@ -235,6 +235,20 @@
       "version": "0.3",
       "title": "Taxonomy Operations",
       "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/WIP-mvp.md",
+    "title": "MVP Objective and Work Plan",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-002",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-01-29",
+      "title": "MVP Objective and Work Plan",
+      "type": "PLAN",
       "docops_version": "2.0"
     }
   },
@@ -305,6 +319,34 @@
       "last_updated": "2025-12-27",
       "title": "Adopt Meminit DocOps Constitution v2.0",
       "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-005-graph-db-rationale.md",
+    "title": "ADR: Graph DB Rationale",
+    "front_matter": {
+      "document_id": "AIDHA-ADR-005",
+      "type": "ADR",
+      "title": "Graph DB Rationale",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-01-29",
+      "owner": "__TBD__",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "02-strategy/strategy-001-minimum-vertical-slice.md",
+    "title": "Strategy: Minimum End-to-End Vertical Slice",
+    "front_matter": {
+      "document_id": "AIDHA-STRAT-001",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "1.1",
+      "last_updated": "2026-01-29",
+      "title": "Minimum End-to-End Vertical Slice",
+      "type": "STRAT",
       "docops_version": "2.0"
     }
   },

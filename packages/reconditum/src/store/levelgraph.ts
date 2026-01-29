@@ -13,16 +13,35 @@ import type {
   Result,
   QueryNodesOptions,
   QueryEdgesOptions,
+  NodeDataInput,
+  EdgeDataInput,
+  UpsertNodeOptions,
+  UpsertEdgeOptions,
+  UpsertNodeResult,
+  UpsertEdgeResult,
+  DeleteNodeOptions,
+  ExportSnapshotOptions,
+  GraphSnapshot,
+  QueryResult,
 } from './types.js';
 import type {
   GraphNode,
   GraphEdge,
-  CreateNodeInput,
-  CreateEdgeInput,
-  UpdateNodeInput,
+  NodeType,
+  Predicate,
   LevelGraphTriple,
 } from '../schema/index.js';
 import { GraphNode as GraphNodeSchema, GraphEdge as GraphEdgeSchema } from '../schema/index.js';
+import {
+  nowIso,
+  deepEqual,
+  nodeMatchesFilters,
+  sortNodes,
+  sortEdges,
+  nodeCursorKey,
+  edgeCursorKey,
+  applyCursorAndLimit,
+} from './utils.js';
 
 // LevelGraph type declarations (library lacks proper TS types)
 interface LevelGraphDB {
@@ -54,13 +73,6 @@ function tripleToEdge(triple: LevelGraphTriple): GraphEdge | null {
   });
 
   return result.success ? result.data : null;
-}
-
-/**
- * Get current ISO timestamp.
- */
-function now(): string {
-  return new Date().toISOString();
 }
 
 /**
@@ -119,29 +131,82 @@ export class LevelGraphStore implements GraphStore {
   }
 
 
-  async createNode(input: CreateNodeInput): Promise<Result<GraphNode>> {
+  private async deleteNodeTriple(id: string): Promise<void> {
+    const triple: LevelGraphTriple = {
+      subject: id,
+      predicate: NODE_PREDICATE,
+      object: NODE_OBJECT,
+    };
+    await promisifyVoid((cb) => this.db.del(triple, cb));
+  }
+
+  async upsertNode(
+    type: NodeType,
+    id: string,
+    data: NodeDataInput,
+    options?: UpsertNodeOptions
+  ): Promise<Result<UpsertNodeResult>> {
     try {
-      const timestamp = now();
-      const node: GraphNode = {
-        ...input,
-        metadata: input.metadata ?? {},
-        createdAt: timestamp,
-        updatedAt: timestamp,
+      const existingResult = await this.getNode(id);
+      if (!existingResult.ok) {
+        return existingResult;
+      }
+      const existing = existingResult.value;
+      const metadata = data.metadata ?? {};
+
+      if (!existing) {
+        const timestamp = nowIso();
+        const node: GraphNode = {
+          id,
+          type,
+          label: data.label,
+          content: data.content,
+          metadata,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        const validated = GraphNodeSchema.parse(node);
+        const triple: LevelGraphTriple = {
+          subject: validated.id,
+          predicate: NODE_PREDICATE,
+          object: NODE_OBJECT,
+          ...validated,
+        };
+        await promisifyVoid((cb) => this.db.put(triple, cb));
+        return { ok: true, value: { node: validated, created: true, updated: false, noop: false } };
+      }
+
+      const shouldDetectNoop = options?.detectNoop ?? true;
+      if (
+        shouldDetectNoop &&
+        existing.type === type &&
+        existing.label === data.label &&
+        existing.content === data.content &&
+        deepEqual(existing.metadata ?? {}, metadata)
+      ) {
+        return { ok: true, value: { node: existing, created: false, updated: false, noop: true } };
+      }
+
+      const updated: GraphNode = {
+        ...existing,
+        id: existing.id,
+        type,
+        label: data.label,
+        content: data.content,
+        metadata,
+        createdAt: existing.createdAt,
+        updatedAt: nowIso(),
       };
-
-      // Validate the complete node
-      const validated = GraphNodeSchema.parse(node);
-
-      // Store node as a special triple
+      const validated = GraphNodeSchema.parse(updated);
+      await this.deleteNodeTriple(id);
       const triple: LevelGraphTriple = {
         subject: validated.id,
         predicate: NODE_PREDICATE,
         object: NODE_OBJECT,
         ...validated,
       };
-
       await promisifyVoid((cb) => this.db.put(triple, cb));
-      return { ok: true, value: validated };
+      return { ok: true, value: { node: validated, created: false, updated: true, noop: false } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
@@ -178,65 +243,34 @@ export class LevelGraphStore implements GraphStore {
     }
   }
 
-  async updateNode(id: string, input: UpdateNodeInput): Promise<Result<GraphNode>> {
+  async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
     try {
-      // Get existing node
-      const existing = await this.getNode(id);
-      if (!existing.ok) {
-        return existing;
+      await this.deleteNodeTriple(id);
+      if (options?.cascade) {
+        const subjectTriples = await promisify<LevelGraphTriple[]>((cb) =>
+          this.db.get({ subject: id }, cb)
+        );
+        const objectTriples = await promisify<LevelGraphTriple[]>((cb) =>
+          this.db.get({ object: id }, cb)
+        );
+        const triples = [...subjectTriples, ...objectTriples].filter(triple => triple.predicate !== NODE_PREDICATE);
+        for (const triple of triples) {
+          await promisifyVoid((cb) => this.db.del(triple, cb));
+        }
       }
-      if (!existing.value) {
-        return { ok: false, error: new Error(`Node not found: ${id}`) };
-      }
-
-      // Merge updates
-      const updated: GraphNode = {
-        ...existing.value,
-        ...input,
-        id: existing.value.id, // Prevent ID change
-        createdAt: existing.value.createdAt, // Preserve creation time
-        updatedAt: now(),
-      };
-
-      // Delete old triple
-      await this.deleteNode(id);
-
-      // Store updated node
-      const triple: LevelGraphTriple = {
-        subject: updated.id,
-        predicate: NODE_PREDICATE,
-        object: NODE_OBJECT,
-        ...updated,
-      };
-
-      await promisifyVoid((cb) => this.db.put(triple, cb));
-      return { ok: true, value: updated };
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
-    }
-  }
-
-  async deleteNode(id: string): Promise<Result<void>> {
-    try {
-      const triple: LevelGraphTriple = {
-        subject: id,
-        predicate: NODE_PREDICATE,
-        object: NODE_OBJECT,
-      };
-      await promisifyVoid((cb) => this.db.del(triple, cb));
       return { ok: true, value: undefined };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async queryNodes(options: QueryNodesOptions = {}): Promise<Result<GraphNode[]>> {
+  async queryNodes(options: QueryNodesOptions = {}): Promise<Result<QueryResult<GraphNode>>> {
     try {
       const triples = await promisify<LevelGraphTriple[]>((cb) =>
         this.db.get({ predicate: NODE_PREDICATE }, cb)
       );
 
-      let nodes: GraphNode[] = [];
+      const nodes: GraphNode[] = [];
 
       for (const triple of triples) {
         try {
@@ -249,39 +283,77 @@ export class LevelGraphStore implements GraphStore {
             createdAt: triple['createdAt'],
             updatedAt: triple['updatedAt'],
           });
-
-          // Apply type filter
           if (options.type && node.type !== options.type) {
             continue;
           }
-
+          if (!nodeMatchesFilters(node, options.filters)) {
+            continue;
+          }
           nodes.push(node);
         } catch {
-          // Skip malformed entries
+          continue;
         }
       }
 
-      // Apply pagination
-      const offset = options.offset ?? 0;
-      const limit = options.limit ?? nodes.length;
-      nodes = nodes.slice(offset, offset + limit);
+      const sorted = sortNodes(nodes, options.sort);
+      const paged = applyCursorAndLimit(sorted, options.cursor, options.limit, nodeCursorKey);
 
-      return { ok: true, value: nodes };
+      return { ok: true, value: paged };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async createEdge(input: CreateEdgeInput): Promise<Result<GraphEdge>> {
+  async upsertEdge(
+    subject: string,
+    predicate: Predicate,
+    object: string,
+    data: EdgeDataInput,
+    options?: UpsertEdgeOptions
+  ): Promise<Result<UpsertEdgeResult>> {
     try {
-      const edge: GraphEdge = {
-        ...input,
-        metadata: input.metadata ?? {},
-        createdAt: now(),
+      const pattern: Partial<LevelGraphTriple> = { subject, predicate, object };
+      const existingTriples = await promisify<LevelGraphTriple[]>((cb) =>
+        this.db.get(pattern, cb)
+      );
+      const existingEdge = existingTriples.map(tripleToEdge).find(edge => edge !== null) ?? null;
+      const metadata = data.metadata ?? {};
+
+      if (!existingEdge) {
+        const edge: GraphEdge = {
+          subject,
+          predicate,
+          object,
+          metadata,
+          createdAt: nowIso(),
+        };
+        const validated = GraphEdgeSchema.parse(edge);
+        const triple: LevelGraphTriple = {
+          subject: validated.subject,
+          predicate: validated.predicate,
+          object: validated.object,
+          metadata: validated.metadata,
+          createdAt: validated.createdAt,
+        };
+        await promisifyVoid((cb) => this.db.put(triple, cb));
+        return { ok: true, value: { edge: validated, created: true, updated: false, noop: false } };
+      }
+
+      const shouldDetectNoop = options?.detectNoop ?? true;
+      if (shouldDetectNoop && deepEqual(existingEdge.metadata ?? {}, metadata)) {
+        return { ok: true, value: { edge: existingEdge, created: false, updated: false, noop: true } };
+      }
+
+      const updated: GraphEdge = {
+        ...existingEdge,
+        subject,
+        predicate,
+        object,
+        metadata,
+        createdAt: existingEdge.createdAt,
       };
-
-      const validated = GraphEdgeSchema.parse(edge);
-
+      const validated = GraphEdgeSchema.parse(updated);
+      await promisifyVoid((cb) => this.db.del({ subject, predicate, object }, cb));
       const triple: LevelGraphTriple = {
         subject: validated.subject,
         predicate: validated.predicate,
@@ -289,15 +361,14 @@ export class LevelGraphStore implements GraphStore {
         metadata: validated.metadata,
         createdAt: validated.createdAt,
       };
-
       await promisifyVoid((cb) => this.db.put(triple, cb));
-      return { ok: true, value: validated };
+      return { ok: true, value: { edge: validated, created: false, updated: true, noop: false } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async getEdges(options: QueryEdgesOptions = {}): Promise<Result<GraphEdge[]>> {
+  async getEdges(options: QueryEdgesOptions = {}): Promise<Result<QueryResult<GraphEdge>>> {
     try {
       const pattern: Partial<LevelGraphTriple> = {};
       if (options.subject) pattern.subject = options.subject;
@@ -308,7 +379,7 @@ export class LevelGraphStore implements GraphStore {
         this.db.get(pattern, cb)
       );
 
-      let edges: GraphEdge[] = [];
+      const edges: GraphEdge[] = [];
       for (const triple of triples) {
         const edge = tripleToEdge(triple);
         if (edge) {
@@ -316,22 +387,30 @@ export class LevelGraphStore implements GraphStore {
         }
       }
 
-      // Apply limit
-      if (options.limit) {
-        edges = edges.slice(0, options.limit);
-      }
+      const sorted = sortEdges(edges, options.sort);
+      const paged = applyCursorAndLimit(sorted, options.cursor, options.limit, edgeCursorKey);
 
-      return { ok: true, value: edges };
+      return { ok: true, value: paged };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async deleteEdge(subject: string, predicate: string, object: string): Promise<Result<void>> {
+  async exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
     try {
-      const triple: LevelGraphTriple = { subject, predicate, object };
-      await promisifyVoid((cb) => this.db.del(triple, cb));
-      return { ok: true, value: undefined };
+      const nodesResult = await this.queryNodes({});
+      if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
+      let nodes = nodesResult.value.items;
+      if (options?.scope === 'knowledge') {
+        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.scope !== 'operational');
+      }
+      const sortedNodes = sortNodes(nodes);
+      const nodeIds = new Set(sortedNodes.map(node => node.id));
+      const edgesResult = await this.getEdges({});
+      if (!edgesResult.ok) return { ok: false, error: edgesResult.error };
+      let edges = edgesResult.value.items.filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
+      edges = sortEdges(edges);
+      return { ok: true, value: { nodes: sortedNodes, edges } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

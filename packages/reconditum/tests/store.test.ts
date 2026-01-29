@@ -27,13 +27,22 @@ describe('InMemoryStore', () => {
     };
 
     it('creates and retrieves a node', async () => {
-      const createResult = await store.createNode(testNode);
+      const createResult = await store.upsertNode(
+        testNode.type,
+        testNode.id,
+        {
+          label: testNode.label,
+          content: testNode.content,
+          metadata: testNode.metadata,
+        },
+        { detectNoop: true }
+      );
       expect(createResult.ok).toBe(true);
       if (!createResult.ok) return;
 
-      expect(createResult.value.id).toBe(testNode.id);
-      expect(createResult.value.label).toBe(testNode.label);
-      expect(createResult.value.createdAt).toBeDefined();
+      expect(createResult.value.node.id).toBe(testNode.id);
+      expect(createResult.value.node.label).toBe(testNode.label);
+      expect(createResult.value.node.createdAt).toBeDefined();
 
       const getResult = await store.getNode(testNode.id);
       expect(getResult.ok).toBe(true);
@@ -51,23 +60,37 @@ describe('InMemoryStore', () => {
     });
 
     it('updates a node', async () => {
-      await store.createNode(testNode);
-
-      const updateResult = await store.updateNode(testNode.id, {
-        label: 'Updated Label',
-        content: 'Updated content',
+      await store.upsertNode(testNode.type, testNode.id, {
+        label: testNode.label,
+        content: testNode.content,
+        metadata: testNode.metadata,
       });
+
+      const updateResult = await store.upsertNode(
+        testNode.type,
+        testNode.id,
+        {
+          label: 'Updated Label',
+          content: 'Updated content',
+          metadata: testNode.metadata,
+        },
+        { detectNoop: true }
+      );
 
       expect(updateResult.ok).toBe(true);
       if (!updateResult.ok) return;
 
-      expect(updateResult.value.label).toBe('Updated Label');
-      expect(updateResult.value.content).toBe('Updated content');
-      expect(updateResult.value.id).toBe(testNode.id); // ID preserved
+      expect(updateResult.value.node.label).toBe('Updated Label');
+      expect(updateResult.value.node.content).toBe('Updated content');
+      expect(updateResult.value.node.id).toBe(testNode.id);
     });
 
     it('deletes a node', async () => {
-      await store.createNode(testNode);
+      await store.upsertNode(testNode.type, testNode.id, {
+        label: testNode.label,
+        content: testNode.content,
+        metadata: testNode.metadata,
+      });
 
       const deleteResult = await store.deleteNode(testNode.id);
       expect(deleteResult.ok).toBe(true);
@@ -79,28 +102,28 @@ describe('InMemoryStore', () => {
     });
 
     it('queries nodes by type', async () => {
-      await store.createNode({ ...testNode, id: 'k1', type: 'Knowledge' });
-      await store.createNode({ ...testNode, id: 'c1', type: 'Concept', label: 'Concept' });
-      await store.createNode({ ...testNode, id: 'k2', type: 'Knowledge', label: 'Knowledge 2' });
+      await store.upsertNode('Knowledge', 'k1', { label: testNode.label, content: testNode.content, metadata: testNode.metadata });
+      await store.upsertNode('Concept', 'c1', { label: 'Concept', content: testNode.content, metadata: testNode.metadata });
+      await store.upsertNode('Knowledge', 'k2', { label: 'Knowledge 2', content: testNode.content, metadata: testNode.metadata });
 
       const result = await store.queryNodes({ type: 'Knowledge' });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
-      expect(result.value.length).toBe(2);
-      expect(result.value.every(n => n.type === 'Knowledge')).toBe(true);
+      expect(result.value.items.length).toBe(2);
+      expect(result.value.items.every(n => n.type === 'Knowledge')).toBe(true);
     });
 
     it('applies pagination to query', async () => {
       for (let i = 0; i < 5; i++) {
-        await store.createNode({ ...testNode, id: `node-${i}`, label: `Node ${i}` });
+        await store.upsertNode(testNode.type, `node-${i}`, { label: `Node ${i}`, content: testNode.content, metadata: testNode.metadata });
       }
 
-      const result = await store.queryNodes({ limit: 2, offset: 1 });
+      const result = await store.queryNodes({ limit: 2, cursor: '1' });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
-      expect(result.value.length).toBe(2);
+      expect(result.value.items.length).toBe(2);
     });
   });
 
@@ -109,8 +132,8 @@ describe('InMemoryStore', () => {
     const node2 = { id: 'n2', type: 'Knowledge' as const, label: 'Node 2' };
 
     beforeEach(async () => {
-      await store.createNode(node1);
-      await store.createNode(node2);
+      await store.upsertNode(node1.type, node1.id, { label: node1.label });
+      await store.upsertNode(node2.type, node2.id, { label: node2.label });
     });
 
     it('creates and retrieves an edge', async () => {
@@ -121,44 +144,32 @@ describe('InMemoryStore', () => {
         metadata: { weight: 0.8 },
       };
 
-      const createResult = await store.createEdge(edge);
+      const createResult = await store.upsertEdge(edge.subject, edge.predicate, edge.object, { metadata: edge.metadata }, { detectNoop: true });
       expect(createResult.ok).toBe(true);
       if (!createResult.ok) return;
 
-      expect(createResult.value.subject).toBe('n1');
-      expect(createResult.value.predicate).toBe('relatedTo');
-      expect(createResult.value.createdAt).toBeDefined();
+      expect(createResult.value.edge.subject).toBe('n1');
+      expect(createResult.value.edge.predicate).toBe('relatedTo');
+      expect(createResult.value.edge.createdAt).toBeDefined();
 
       const getResult = await store.getEdges({ subject: 'n1' });
       expect(getResult.ok).toBe(true);
       if (!getResult.ok) return;
 
-      expect(getResult.value.length).toBe(1);
-      expect(getResult.value[0]?.object).toBe('n2');
+      expect(getResult.value.items.length).toBe(1);
+      expect(getResult.value.items[0]?.object).toBe('n2');
     });
 
     it('queries edges by predicate', async () => {
-      await store.createEdge({ subject: 'n1', predicate: 'relatedTo', object: 'n2' });
-      await store.createEdge({ subject: 'n1', predicate: 'partOf', object: 'n2' });
+      await store.upsertEdge('n1', 'relatedTo', 'n2', {});
+      await store.upsertEdge('n1', 'partOf', 'n2', {});
 
       const result = await store.getEdges({ predicate: 'relatedTo' });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
-      expect(result.value.length).toBe(1);
-      expect(result.value[0]?.predicate).toBe('relatedTo');
-    });
-
-    it('deletes an edge', async () => {
-      await store.createEdge({ subject: 'n1', predicate: 'relatedTo', object: 'n2' });
-
-      const deleteResult = await store.deleteEdge('n1', 'relatedTo', 'n2');
-      expect(deleteResult.ok).toBe(true);
-
-      const getResult = await store.getEdges({ subject: 'n1', predicate: 'relatedTo' });
-      expect(getResult.ok).toBe(true);
-      if (!getResult.ok) return;
-      expect(getResult.value.length).toBe(0);
+      expect(result.value.items.length).toBe(1);
+      expect(result.value.items[0]?.predicate).toBe('relatedTo');
     });
   });
 });

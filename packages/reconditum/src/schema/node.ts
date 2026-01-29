@@ -12,6 +12,14 @@ export const NodeType = z.enum([
   'Resource',     // External resource (URL, file, etc.)
   'Person',       // Person entity
   'Topic',        // Topic/category
+  'Excerpt',
+  'Claim',
+  'Reference',
+  'Area',
+  'Goal',
+  'Project',
+  'Task',
+  'TopicTag',
 ]);
 
 export type NodeType = z.infer<typeof NodeType>;

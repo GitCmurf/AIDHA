@@ -3,7 +3,14 @@
  *
  * Enables swapping LevelGraph for Neo4j/ArangoDB later.
  */
-import type { GraphNode, GraphEdge, CreateNodeInput, CreateEdgeInput, UpdateNodeInput } from '../schema/index.js';
+import type {
+  GraphNode,
+  GraphEdge,
+  CreateNodeInput,
+  CreateEdgeInput,
+  NodeType,
+  Predicate,
+} from '../schema/index.js';
 
 /**
  * Result wrapper for operations that may fail.
@@ -15,27 +22,81 @@ export type Result<T, E = Error> =
 /**
  * Query options for node retrieval.
  */
+export type SortDirection = 'asc' | 'desc';
+
+export type NodeSortField = 'type' | 'id' | 'label' | 'createdAt' | 'updatedAt';
+
+export type EdgeSortField = 'subject' | 'predicate' | 'object' | 'createdAt';
+
+export interface SortOption<TField extends string> {
+  field: TField;
+  direction?: SortDirection;
+}
+
 export interface QueryNodesOptions {
-  /** Filter by node type */
-  type?: string;
-  /** Maximum results to return */
+  type?: NodeType;
+  filters?: Record<string, unknown>;
+  sort?: SortOption<NodeSortField>;
   limit?: number;
-  /** Offset for pagination */
-  offset?: number;
+  cursor?: string;
 }
 
 /**
  * Query options for edge retrieval.
  */
 export interface QueryEdgesOptions {
-  /** Filter by subject node ID */
   subject?: string;
-  /** Filter by predicate type */
-  predicate?: string;
-  /** Filter by object node ID */
+  predicate?: Predicate;
   object?: string;
-  /** Maximum results to return */
+  sort?: SortOption<EdgeSortField>;
   limit?: number;
+  cursor?: string;
+}
+
+export interface QueryResult<T> {
+  items: T[];
+  nextCursor?: string;
+}
+
+export type NodeDataInput = Omit<CreateNodeInput, 'id' | 'type'>;
+
+export type EdgeDataInput = Omit<CreateEdgeInput, 'subject' | 'predicate' | 'object'>;
+
+export interface UpsertNodeOptions {
+  detectNoop?: boolean;
+}
+
+export interface UpsertEdgeOptions {
+  detectNoop?: boolean;
+}
+
+export interface UpsertNodeResult {
+  node: GraphNode;
+  created: boolean;
+  updated: boolean;
+  noop: boolean;
+}
+
+export interface UpsertEdgeResult {
+  edge: GraphEdge;
+  created: boolean;
+  updated: boolean;
+  noop: boolean;
+}
+
+export interface DeleteNodeOptions {
+  cascade?: boolean;
+}
+
+export type ExportScope = 'knowledge' | 'full';
+
+export interface ExportSnapshotOptions {
+  scope?: ExportScope;
+}
+
+export interface GraphSnapshot {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
 }
 
 /**
@@ -44,18 +105,23 @@ export interface QueryEdgesOptions {
  * Implementations must handle node and edge CRUD operations.
  */
 export interface GraphStore {
-  // Node operations
-  createNode(input: CreateNodeInput): Promise<Result<GraphNode>>;
+  upsertNode(
+    type: NodeType,
+    id: string,
+    data: NodeDataInput,
+    options?: UpsertNodeOptions
+  ): Promise<Result<UpsertNodeResult>>;
   getNode(id: string): Promise<Result<GraphNode | null>>;
-  updateNode(id: string, input: UpdateNodeInput): Promise<Result<GraphNode>>;
-  deleteNode(id: string): Promise<Result<void>>;
-  queryNodes(options?: QueryNodesOptions): Promise<Result<GraphNode[]>>;
-
-  // Edge operations
-  createEdge(input: CreateEdgeInput): Promise<Result<GraphEdge>>;
-  getEdges(options?: QueryEdgesOptions): Promise<Result<GraphEdge[]>>;
-  deleteEdge(subject: string, predicate: string, object: string): Promise<Result<void>>;
-
-  // Lifecycle
+  queryNodes(options?: QueryNodesOptions): Promise<Result<QueryResult<GraphNode>>>;
+  upsertEdge(
+    subject: string,
+    predicate: Predicate,
+    object: string,
+    data: EdgeDataInput,
+    options?: UpsertEdgeOptions
+  ): Promise<Result<UpsertEdgeResult>>;
+  getEdges(options?: QueryEdgesOptions): Promise<Result<QueryResult<GraphEdge>>>;
+  deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>>;
+  exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>>;
   close(): Promise<void>;
 }

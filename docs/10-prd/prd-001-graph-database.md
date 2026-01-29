@@ -2,8 +2,8 @@
 document_id: AIDHA-PRD-001
 owner: Graph Backend Product Lead
 status: Draft
-last_updated: 2026-01-24
-version: "0.3"
+last_updated: 2026-01-28
+version: "0.4"
 title: Graph Database
 type: PRD
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Graph Backend Product Lead
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.3
-> **Last Updated:** 2026-01-24
+> **Version:** 0.4
+> **Last Updated:** 2026-01-28
 > **Type:** PRD
 
 ## Version History
@@ -26,6 +26,7 @@ docops_version: "2.0"
 | 0.1     | 2025-11-09 | TBD    | Skeleton PRD created                                       | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename)   | —         | Draft  | —         |
 | 0.3     | 2026-01-24 | Codex  | Flesh out requirements, contracts, and acceptance criteria | —         | Draft  | —         |
+| 0.4     | 2026-01-28 | CMF    | Tasks graph requirements (future)                          | —         | Draft  | —         |
 
 ---
 
@@ -245,6 +246,15 @@ Suggested test placement (can evolve):
 1. Do we enforce edge uniqueness at create time (recommended) or allow duplicates?
 2. Should deleting a node cascade delete referencing edges (recommended) or leave dangling edges?
 3. Should tags/topics live as graph nodes (exportable) or remain external (taxonomy registry only)?
+
+## Tasks graph requirements (future)
+
+- Edge type constraints: dependsOn edges can only connect Task -> Task
+- Cycle detection: inserting dependsOn must reject cycles (or mark plan invalid)
+- Scheduling semantics: edge metadata includes dependency type + lag; tasks include
+  duration/effort/earliest start constraints
+- Versioning: snapshots or “plans” as first-class (otherwise fluid discovery becomes “everything is
+  always changing” and you can’t reason about it)
 
 ## Appendix
 

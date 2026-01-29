@@ -1,7 +1,7 @@
 /**
  * Ingestion pipeline - orchestrates YouTube ingestion.
  */
-import type { GraphStore, CreateNodeInput } from '@aidha/graph-backend';
+import type { GraphStore, NodeDataInput, NodeType } from '@aidha/graph-backend';
 import type { TaxonomyRegistry } from '@aidha/taxonomy';
 import type { YouTubeClient } from '../client/types.js';
 import type { PipelineConfig, IngestionResult, Result } from './types.js';
@@ -119,21 +119,17 @@ export class IngestionPipeline {
   private async processVideo(videoId: string): Promise<
     Result<{ nodeId: string; tagsAssigned: number; created: boolean }>
   > {
-    // Idempotency check
-    if (this.processedVideos.has(videoId)) {
-      // Already processed - return success but mark as not created
-      const existingResult = await this.graphStore.queryNodes();
-      if (existingResult.ok) {
-        const existing = existingResult.value.find(n =>
-          n.metadata && (n.metadata as Record<string, unknown>)['videoId'] === videoId
-        );
-        if (existing) {
-          return {
-            ok: true,
-            value: { nodeId: existing.id, tagsAssigned: 0, created: false }
-          };
-        }
-      }
+    const nodeId = `youtube-${videoId}`;
+    const existingNode = await this.graphStore.getNode(nodeId);
+    if (!existingNode.ok) {
+      return { ok: false, error: existingNode.error };
+    }
+    if (existingNode.value) {
+      this.processedVideos.add(videoId);
+      return {
+        ok: true,
+        value: { nodeId, tagsAssigned: 0, created: false }
+      };
     }
 
     // Fetch video metadata
@@ -149,10 +145,8 @@ export class IngestionPipeline {
     const transcript = transcriptResult.ok ? transcriptResult.value : null;
 
     // Create graph node
-    const nodeId = `youtube-${videoId}`;
-    const nodeInput: CreateNodeInput = {
-      id: nodeId,
-      type: 'Resource',
+    const nodeType: NodeType = 'Resource';
+    const nodeData: NodeDataInput = {
       label: video.title,
       content: transcript?.fullText,
       metadata: {
@@ -166,9 +160,9 @@ export class IngestionPipeline {
       },
     };
 
-    const createResult = await this.graphStore.createNode(nodeInput);
-    if (!createResult.ok) {
-      return { ok: false, error: createResult.error };
+    const upsertResult = await this.graphStore.upsertNode(nodeType, nodeId, nodeData, { detectNoop: true });
+    if (!upsertResult.ok) {
+      return { ok: false, error: upsertResult.error };
     }
 
     // Mark as processed
@@ -183,7 +177,7 @@ export class IngestionPipeline {
 
     return {
       ok: true,
-      value: { nodeId, tagsAssigned, created: true },
+      value: { nodeId, tagsAssigned, created: upsertResult.value.created },
     };
   }
 

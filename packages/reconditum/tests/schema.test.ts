@@ -132,12 +132,16 @@ describe('Enum schemas', () => {
     expect(NodeType.options).toContain('Knowledge');
     expect(NodeType.options).toContain('Concept');
     expect(NodeType.options).toContain('Resource');
+    expect(NodeType.options).toContain('Claim');
+    expect(NodeType.options).toContain('Task');
   });
 
   it('Predicate contains expected values', () => {
     expect(Predicate.options).toContain('relatedTo');
     expect(Predicate.options).toContain('partOf');
     expect(Predicate.options).toContain('derivedFrom');
+    expect(Predicate.options).toContain('taskMotivatedBy');
+    expect(Predicate.options).toContain('claimDerivedFrom');
   });
 
   it('SourceType contains expected values', () => {

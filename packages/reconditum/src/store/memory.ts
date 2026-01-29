@@ -9,22 +9,34 @@ import type {
   Result,
   QueryNodesOptions,
   QueryEdgesOptions,
+  NodeDataInput,
+  EdgeDataInput,
+  UpsertNodeOptions,
+  UpsertEdgeOptions,
+  UpsertNodeResult,
+  UpsertEdgeResult,
+  DeleteNodeOptions,
+  ExportSnapshotOptions,
+  GraphSnapshot,
+  QueryResult,
 } from './types.js';
 import type {
   GraphNode,
   GraphEdge,
-  CreateNodeInput,
-  CreateEdgeInput,
-  UpdateNodeInput,
+  NodeType,
+  Predicate,
 } from '../schema/index.js';
 import { GraphNode as GraphNodeSchema, GraphEdge as GraphEdgeSchema } from '../schema/index.js';
-
-/**
- * Get current ISO timestamp.
- */
-function now(): string {
-  return new Date().toISOString();
-}
+import {
+  nowIso,
+  deepEqual,
+  nodeMatchesFilters,
+  sortNodes,
+  sortEdges,
+  nodeCursorKey,
+  edgeCursorKey,
+  applyCursorAndLimit,
+} from './utils.js';
 
 /**
  * Edge storage key.
@@ -40,21 +52,58 @@ export class InMemoryStore implements GraphStore {
   private nodes = new Map<string, GraphNode>();
   private edges = new Map<string, GraphEdge>();
 
-  async createNode(input: CreateNodeInput): Promise<Result<GraphNode>> {
+  async upsertNode(
+    type: NodeType,
+    id: string,
+    data: NodeDataInput,
+    options?: UpsertNodeOptions
+  ): Promise<Result<UpsertNodeResult>> {
     try {
-      const timestamp = now();
-      const node: GraphNode = {
-        ...input,
-        metadata: input.metadata ?? {},
-        createdAt: timestamp,
-        updatedAt: timestamp,
+      const existing = this.nodes.get(id);
+      const metadata = data.metadata ?? {};
+
+      if (!existing) {
+        const timestamp = nowIso();
+        const node: GraphNode = {
+          id,
+          type,
+          label: data.label,
+          content: data.content,
+          metadata,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        const validated = GraphNodeSchema.parse(node);
+        this.nodes.set(validated.id, validated);
+        return { ok: true, value: { node: validated, created: true, updated: false, noop: false } };
+      }
+
+      const shouldDetectNoop = options?.detectNoop ?? true;
+      if (
+        shouldDetectNoop &&
+        existing.type === type &&
+        existing.label === data.label &&
+        existing.content === data.content &&
+        deepEqual(existing.metadata ?? {}, metadata)
+      ) {
+        return { ok: true, value: { node: existing, created: false, updated: false, noop: true } };
+      }
+
+      const updated: GraphNode = {
+        ...existing,
+        id: existing.id,
+        type,
+        label: data.label,
+        content: data.content,
+        metadata,
+        createdAt: existing.createdAt,
+        updatedAt: nowIso(),
       };
 
-      // Validate the complete node
-      const validated = GraphNodeSchema.parse(node);
-      this.nodes.set(validated.id, validated);
+      const validated = GraphNodeSchema.parse(updated);
+      this.nodes.set(id, validated);
 
-      return { ok: true, value: validated };
+      return { ok: true, value: { node: validated, created: false, updated: true, noop: false } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
@@ -69,108 +118,120 @@ export class InMemoryStore implements GraphStore {
     }
   }
 
-  async updateNode(id: string, input: UpdateNodeInput): Promise<Result<GraphNode>> {
-    try {
-      const existing = this.nodes.get(id);
-      if (!existing) {
-        return { ok: false, error: new Error(`Node not found: ${id}`) };
-      }
-
-      const updated: GraphNode = {
-        ...existing,
-        ...input,
-        id: existing.id,
-        createdAt: existing.createdAt,
-        updatedAt: now(),
-      };
-
-      const validated = GraphNodeSchema.parse(updated);
-      this.nodes.set(id, validated);
-
-      return { ok: true, value: validated };
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
-    }
-  }
-
-  async deleteNode(id: string): Promise<Result<void>> {
+  async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
     try {
       this.nodes.delete(id);
+      if (options?.cascade) {
+        for (const [key, edge] of this.edges.entries()) {
+          if (edge.subject === id || edge.object === id) {
+            this.edges.delete(key);
+          }
+        }
+      }
       return { ok: true, value: undefined };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async queryNodes(options: QueryNodesOptions = {}): Promise<Result<GraphNode[]>> {
+  async queryNodes(options: QueryNodesOptions = {}): Promise<Result<QueryResult<GraphNode>>> {
     try {
       let nodes = Array.from(this.nodes.values());
 
-      // Apply type filter
       if (options.type) {
-        nodes = nodes.filter(n => n.type === options.type);
+        nodes = nodes.filter(node => node.type === options.type);
       }
 
-      // Apply pagination
-      const offset = options.offset ?? 0;
-      const limit = options.limit ?? nodes.length;
-      nodes = nodes.slice(offset, offset + limit);
+      nodes = nodes.filter(node => nodeMatchesFilters(node, options.filters));
+      const sorted = sortNodes(nodes, options.sort);
+      const paged = applyCursorAndLimit(sorted, options.cursor, options.limit, nodeCursorKey);
 
-      return { ok: true, value: nodes };
+      return { ok: true, value: paged };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async createEdge(input: CreateEdgeInput): Promise<Result<GraphEdge>> {
+  async upsertEdge(
+    subject: string,
+    predicate: Predicate,
+    object: string,
+    data: EdgeDataInput,
+    options?: UpsertEdgeOptions
+  ): Promise<Result<UpsertEdgeResult>> {
     try {
-      const edge: GraphEdge = {
-        ...input,
-        metadata: input.metadata ?? {},
-        createdAt: now(),
-      };
+      const key = edgeKey(subject, predicate, object);
+      const existing = this.edges.get(key);
+      const metadata = data.metadata ?? {};
 
-      const validated = GraphEdgeSchema.parse(edge);
-      const key = edgeKey(validated.subject, validated.predicate, validated.object);
+      if (!existing) {
+        const edge: GraphEdge = {
+          subject,
+          predicate,
+          object,
+          metadata,
+          createdAt: nowIso(),
+        };
+        const validated = GraphEdgeSchema.parse(edge);
+        this.edges.set(key, validated);
+        return { ok: true, value: { edge: validated, created: true, updated: false, noop: false } };
+      }
+
+      const shouldDetectNoop = options?.detectNoop ?? true;
+      if (shouldDetectNoop && deepEqual(existing.metadata ?? {}, metadata)) {
+        return { ok: true, value: { edge: existing, created: false, updated: false, noop: true } };
+      }
+
+      const updated: GraphEdge = {
+        ...existing,
+        subject,
+        predicate,
+        object,
+        metadata,
+        createdAt: existing.createdAt,
+      };
+      const validated = GraphEdgeSchema.parse(updated);
       this.edges.set(key, validated);
 
-      return { ok: true, value: validated };
+      return { ok: true, value: { edge: validated, created: false, updated: true, noop: false } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async getEdges(options: QueryEdgesOptions = {}): Promise<Result<GraphEdge[]>> {
+  async getEdges(options: QueryEdgesOptions = {}): Promise<Result<QueryResult<GraphEdge>>> {
     try {
       let edges = Array.from(this.edges.values());
 
-      // Apply filters
       if (options.subject) {
-        edges = edges.filter(e => e.subject === options.subject);
+        edges = edges.filter(edge => edge.subject === options.subject);
       }
       if (options.predicate) {
-        edges = edges.filter(e => e.predicate === options.predicate);
+        edges = edges.filter(edge => edge.predicate === options.predicate);
       }
       if (options.object) {
-        edges = edges.filter(e => e.object === options.object);
+        edges = edges.filter(edge => edge.object === options.object);
       }
 
-      // Apply limit (allow limit=0)
-      if (options.limit !== undefined) {
-        edges = edges.slice(0, options.limit);
-      }
-
-      return { ok: true, value: edges };
+      const sorted = sortEdges(edges, options.sort);
+      const paged = applyCursorAndLimit(sorted, options.cursor, options.limit, edgeCursorKey);
+      return { ok: true, value: paged };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
 
-  async deleteEdge(subject: string, predicate: string, object: string): Promise<Result<void>> {
+  async exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
     try {
-      const key = edgeKey(subject, predicate, object);
-      this.edges.delete(key);
-      return { ok: true, value: undefined };
+      let nodes = Array.from(this.nodes.values());
+      if (options?.scope === 'knowledge') {
+        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.scope !== 'operational');
+      }
+      const sortedNodes = sortNodes(nodes);
+      const nodeIds = new Set(sortedNodes.map(node => node.id));
+      let edges = Array.from(this.edges.values()).filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
+      edges = sortEdges(edges);
+      return { ok: true, value: { nodes: sortedNodes, edges } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

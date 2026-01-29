@@ -4,6 +4,7 @@
  * Converts graph data to JSON-LD format for interoperability.
  */
 import type { GraphNode, GraphEdge } from '../schema/index.js';
+import { Predicate } from '../schema/index.js';
 
 /**
  * JSON-LD context for AIDHA graph exports.
@@ -31,6 +32,15 @@ export const JSONLD_CONTEXT = {
     'createdBy': { '@type': '@id' },
     'taggedWith': { '@type': '@id' },
     'supersedes': { '@type': '@id' },
+    'resourceHasExcerpt': { '@type': '@id' },
+    'claimDerivedFrom': { '@type': '@id' },
+    'claimMentionsReference': { '@type': '@id' },
+    'aboutTag': { '@type': '@id' },
+    'taskMotivatedBy': { '@type': '@id' },
+    'taskPartOfProject': { '@type': '@id' },
+    'projectServesGoal': { '@type': '@id' },
+    'projectInArea': { '@type': '@id' },
+    'taskDependsOn': { '@type': '@id' },
   },
 } as const;
 
@@ -95,6 +105,18 @@ function applyEdgesToNodes(
   }
 }
 
+function sortPredicateArrays(nodes: Map<string, JsonLdNode>): void {
+  const predicateKeys = new Set(Predicate.options);
+  for (const node of nodes.values()) {
+    for (const key of predicateKeys) {
+      const value = node[key];
+      if (Array.isArray(value)) {
+        value.sort((a, b) => String(a).localeCompare(String(b)));
+      }
+    }
+  }
+}
+
 /**
  * Export graph data to JSON-LD format.
  *
@@ -103,15 +125,23 @@ function applyEdgesToNodes(
  * @returns JSON-LD document
  */
 export function toJsonLd(nodes: GraphNode[], edges: GraphEdge[] = []): JsonLdDocument {
-  // Convert nodes to JSON-LD format
   const nodeMap = new Map<string, JsonLdNode>();
-  for (const node of nodes) {
+  const sortedNodes = nodes.slice().sort((a, b) => a.id.localeCompare(b.id));
+  for (const node of sortedNodes) {
     const jsonLdNode = nodeToJsonLd(node);
     nodeMap.set(node.id, jsonLdNode);
   }
 
-  // Apply edges as relationships
-  applyEdgesToNodes(nodeMap, edges);
+  const sortedEdges = edges.slice().sort((a, b) => {
+    const subjectCompare = a.subject.localeCompare(b.subject);
+    if (subjectCompare !== 0) return subjectCompare;
+    const predicateCompare = a.predicate.localeCompare(b.predicate);
+    if (predicateCompare !== 0) return predicateCompare;
+    return a.object.localeCompare(b.object);
+  });
+
+  applyEdgesToNodes(nodeMap, sortedEdges);
+  sortPredicateArrays(nodeMap);
 
   return {
     '@context': JSONLD_CONTEXT['@context'],

@@ -29,9 +29,24 @@ export type {
   Result,
   QueryNodesOptions,
   QueryEdgesOptions,
+  QueryResult,
+  SortDirection,
+  SortOption,
+  NodeSortField,
+  EdgeSortField,
+  NodeDataInput,
+  EdgeDataInput,
+  UpsertNodeOptions,
+  UpsertEdgeOptions,
+  UpsertNodeResult,
+  UpsertEdgeResult,
+  DeleteNodeOptions,
+  ExportSnapshotOptions,
+  ExportScope,
+  GraphSnapshot,
 } from './store/index.js';
 
-export { LevelGraphStore, InMemoryStore } from './store/index.js';
+export { LevelGraphStore, InMemoryStore, SQLiteStore } from './store/index.js';
 
 // Export functionality
 export {

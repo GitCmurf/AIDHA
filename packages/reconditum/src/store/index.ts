@@ -6,7 +6,23 @@ export type {
   Result,
   QueryNodesOptions,
   QueryEdgesOptions,
+  QueryResult,
+  SortDirection,
+  SortOption,
+  NodeSortField,
+  EdgeSortField,
+  NodeDataInput,
+  EdgeDataInput,
+  UpsertNodeOptions,
+  UpsertEdgeOptions,
+  UpsertNodeResult,
+  UpsertEdgeResult,
+  DeleteNodeOptions,
+  ExportSnapshotOptions,
+  ExportScope,
+  GraphSnapshot,
 } from './types.js';
 
 export { LevelGraphStore } from './levelgraph.js';
 export { InMemoryStore } from './memory.js';
+export { SQLiteStore } from './sqlite.js';

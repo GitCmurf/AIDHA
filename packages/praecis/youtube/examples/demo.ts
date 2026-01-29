@@ -98,25 +98,28 @@ async function demo() {
   const graphStore = new InMemoryStore();
 
   // Manually ingest the video (since we already have it)
-  const nodeResult = await graphStore.createNode({
-    id: `youtube-${video.id}`,
-    type: 'Resource',
-    label: video.title,
-    content: transcript?.fullText,
-    metadata: {
-      videoId: video.id,
-      channelName: video.channelName,
-      source: 'youtube',
-      thumbnailUrl: video.thumbnailUrl,
+  const nodeResult = await graphStore.upsertNode(
+    'Resource',
+    `youtube-${video.id}`,
+    {
+      label: video.title,
+      content: transcript?.fullText,
+      metadata: {
+        videoId: video.id,
+        channelName: video.channelName,
+        source: 'youtube',
+        thumbnailUrl: video.thumbnailUrl,
+      },
     },
-  });
+    { detectNoop: true }
+  );
 
   if (!nodeResult.ok) {
     console.error('Failed to create node:', nodeResult.error.message);
     return;
   }
 
-  console.log('Created graph node:', nodeResult.value.id);
+  console.log('Created graph node:', nodeResult.value.node.id);
 
   // 5. Map to taxonomy (keyword matching)
   console.log('\n🏷️  STEP 5: Mapping to taxonomy tags...\n');
@@ -133,7 +136,7 @@ async function demo() {
 
       if (matches) {
         await taxonomy.assignTag({
-          nodeId: nodeResult.value.id,
+          nodeId: nodeResult.value.node.id,
           tagId: tag.id,
           confidence: 0.8,
           source: 'automatic',
@@ -150,7 +153,7 @@ async function demo() {
 
   const storedNodes = await graphStore.queryNodes();
   if (storedNodes.ok) {
-    for (const node of storedNodes.value) {
+    for (const node of storedNodes.value.items) {
       console.log('Node:');
       console.log(`  ID: ${node.id}`);
       console.log(`  Type: ${node.type}`);

@@ -1,42 +1,43 @@
 project_name: AIDHA
-docops_version: '2.0'
+docops_version: "2.0"
 schema_path: docs/00-governance/metadata.schema.json
 
 # Put the index outside docs to avoid duplicating it across namespaces.
 index_path: .meminit/meminit.index.json
 
 excluded_filename_prefixes:
-  - WIP-
+    - WIP-
 
 namespaces:
-  - name: root
-    repo_prefix: AIDHA
-    docs_root: docs
-    excluded_paths:
-      - docs/_templates
-    type_directories:
-      GOV: 00-governance
-      INDEX: 01-indices
-      PLAN: 05-planning
-      PRD: 10-prd
-      ADR: 20-adr
-      FDD: 30-fdd
-      DESIGN: 40-design
-      RUNBOOK: 50-runbooks
-      GUIDE: 60-devex
-      REF: 60-devex
-      SPEC: 70-specs
-      DECISION: 80-decisions
-      LOG: 99-archive
+    - name: root
+      repo_prefix: AIDHA
+      docs_root: docs
+      excluded_paths:
+          - docs/_templates
+      type_directories:
+          GOV: 00-governance
+          INDEX: 01-indices
+          PLAN: 05-planning
+          STRATEGY: 02-strategy
+          PRD: 10-prd
+          ADR: 20-adr
+          FDD: 30-fdd
+          DESIGN: 40-design
+          RUNBOOK: 50-runbooks
+          GUIDE: 60-devex
+          REF: 60-devex
+          SPEC: 70-specs
+          DECISION: 80-decisions
+          LOG: 99-archive
 
-  - name: phyla
-    repo_prefix: PHYLA
-    docs_root: packages/phyla/docs
+    - name: phyla
+      repo_prefix: PHYLA
+      docs_root: packages/phyla/docs
 
-  - name: reconditum
-    repo_prefix: RECON
-    docs_root: packages/reconditum/docs
+    - name: reconditum
+      repo_prefix: RECON
+      docs_root: packages/reconditum/docs
 
-  - name: praecis
-    repo_prefix: PRAECIS
-    docs_root: packages/praecis/youtube/docs
+    - name: praecis
+      repo_prefix: PRAECIS
+      docs_root: packages/praecis/youtube/docs

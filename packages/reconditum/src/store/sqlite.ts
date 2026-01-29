@@ -1,0 +1,417 @@
+import { createRequire } from 'node:module';
+import type {
+  GraphStore,
+  Result,
+  QueryNodesOptions,
+  QueryEdgesOptions,
+  NodeDataInput,
+  EdgeDataInput,
+  UpsertNodeOptions,
+  UpsertEdgeOptions,
+  UpsertNodeResult,
+  UpsertEdgeResult,
+  DeleteNodeOptions,
+  ExportSnapshotOptions,
+  GraphSnapshot,
+  QueryResult,
+} from './types.js';
+import type { GraphNode, GraphEdge, NodeType, Predicate } from '../schema/index.js';
+import { GraphNode as GraphNodeSchema, GraphEdge as GraphEdgeSchema } from '../schema/index.js';
+import {
+  nowIso,
+  deepEqual,
+  nodeMatchesFilters,
+  sortNodes,
+  sortEdges,
+  nodeCursorKey,
+  edgeCursorKey,
+  applyCursorAndLimit,
+  stableStringify,
+} from './utils.js';
+
+type StatementSync = {
+  run: (...args: unknown[]) => void;
+  get: (...args: unknown[]) => unknown;
+  all: (...args: unknown[]) => unknown[];
+};
+
+type DatabaseSyncLike = {
+  exec: (sql: string) => void;
+  prepare: (sql: string) => StatementSync;
+  close: () => void;
+};
+
+type DatabaseSyncCtor = new (path: string) => DatabaseSyncLike;
+
+let cachedCtor: DatabaseSyncCtor | null = null;
+
+function getDatabaseSyncCtor(): DatabaseSyncCtor {
+  if (!cachedCtor) {
+    const require = createRequire(import.meta.url);
+    const mod = require('node:sqlite') as { DatabaseSync: DatabaseSyncCtor };
+    cachedCtor = mod.DatabaseSync;
+  }
+  return cachedCtor;
+}
+
+type NodeRow = {
+  id: string;
+  type: string;
+  label: string;
+  content: string | null;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type EdgeRow = {
+  subject: string;
+  predicate: string;
+  object: string;
+  metadata: string | null;
+  created_at: string;
+};
+
+function parseMetadata(raw: string | null): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function serializeMetadata(metadata: Record<string, unknown>): string {
+  return stableStringify(metadata);
+}
+
+export class SQLiteStore implements GraphStore {
+  private db: DatabaseSyncLike;
+
+  constructor(db: DatabaseSyncLike) {
+    this.db = db;
+    this.initialize();
+  }
+
+  static open(path: string): SQLiteStore {
+    const DatabaseSync = getDatabaseSyncCtor();
+    const db = new DatabaseSync(path);
+    return new SQLiteStore(db);
+  }
+
+  static createInMemory(): SQLiteStore {
+    const DatabaseSync = getDatabaseSyncCtor();
+    const db = new DatabaseSync(':memory:');
+    return new SQLiteStore(db);
+  }
+
+  private initialize(): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS nodes (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        label TEXT NOT NULL,
+        content TEXT,
+        metadata TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS edges (
+        subject TEXT NOT NULL,
+        predicate TEXT NOT NULL,
+        object TEXT NOT NULL,
+        metadata TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (subject, predicate, object)
+      )
+    `);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS nodes_type_idx ON nodes (type)`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_predicate_idx ON edges (subject, predicate)`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS edges_predicate_object_idx ON edges (predicate, object)`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_object_idx ON edges (subject, object)`);
+  }
+
+  async upsertNode(
+    type: NodeType,
+    id: string,
+    data: NodeDataInput,
+    options?: UpsertNodeOptions
+  ): Promise<Result<UpsertNodeResult>> {
+    try {
+      const existingResult = await this.getNode(id);
+      if (!existingResult.ok) return existingResult;
+      const existing = existingResult.value;
+      const metadata = data.metadata ?? {};
+
+      if (!existing) {
+        const timestamp = nowIso();
+        const node: GraphNode = {
+          id,
+          type,
+          label: data.label,
+          content: data.content,
+          metadata,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        const validated = GraphNodeSchema.parse(node);
+        this.db.prepare(
+          'INSERT INTO nodes (id, type, label, content, metadata, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).run(
+          validated.id,
+          validated.type,
+          validated.label,
+          validated.content ?? null,
+          serializeMetadata(validated.metadata ?? {}),
+          validated.createdAt,
+          validated.updatedAt
+        );
+        return { ok: true, value: { node: validated, created: true, updated: false, noop: false } };
+      }
+
+      const shouldDetectNoop = options?.detectNoop ?? true;
+      if (
+        shouldDetectNoop &&
+        existing.type === type &&
+        existing.label === data.label &&
+        existing.content === data.content &&
+        deepEqual(existing.metadata ?? {}, metadata)
+      ) {
+        return { ok: true, value: { node: existing, created: false, updated: false, noop: true } };
+      }
+
+      const updated: GraphNode = {
+        ...existing,
+        id: existing.id,
+        type,
+        label: data.label,
+        content: data.content,
+        metadata,
+        createdAt: existing.createdAt,
+        updatedAt: nowIso(),
+      };
+      const validated = GraphNodeSchema.parse(updated);
+      this.db.prepare(
+        'UPDATE nodes SET type = ?, label = ?, content = ?, metadata = ?, updated_at = ? WHERE id = ?'
+      ).run(
+        validated.type,
+        validated.label,
+        validated.content ?? null,
+        serializeMetadata(validated.metadata ?? {}),
+        validated.updatedAt,
+        validated.id
+      );
+      return { ok: true, value: { node: validated, created: false, updated: true, noop: false } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async getNode(id: string): Promise<Result<GraphNode | null>> {
+    try {
+      const row = this.db.prepare(
+        'SELECT id, type, label, content, metadata, created_at, updated_at FROM nodes WHERE id = ?'
+      ).get(id) as NodeRow | undefined;
+      if (!row) return { ok: true, value: null };
+      const node = GraphNodeSchema.parse({
+        id: row.id,
+        type: row.type,
+        label: row.label,
+        content: row.content ?? undefined,
+        metadata: parseMetadata(row.metadata),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      });
+      return { ok: true, value: node };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async queryNodes(options: QueryNodesOptions = {}): Promise<Result<QueryResult<GraphNode>>> {
+    try {
+      const clauses: string[] = [];
+      const params: unknown[] = [];
+      if (options.type) {
+        clauses.push('type = ?');
+        params.push(options.type);
+      }
+      const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+      const rows = this.db.prepare(
+        `SELECT id, type, label, content, metadata, created_at, updated_at FROM nodes ${where}`
+      ).all(...params) as NodeRow[];
+      const nodes: GraphNode[] = [];
+      for (const row of rows) {
+        const parsed = GraphNodeSchema.safeParse({
+          id: row.id,
+          type: row.type,
+          label: row.label,
+          content: row.content ?? undefined,
+          metadata: parseMetadata(row.metadata),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        });
+        if (!parsed.success) continue;
+        if (!nodeMatchesFilters(parsed.data, options.filters)) continue;
+        nodes.push(parsed.data);
+      }
+      const sorted = sortNodes(nodes, options.sort);
+      const paged = applyCursorAndLimit(sorted, options.cursor, options.limit, nodeCursorKey);
+      return { ok: true, value: paged };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async upsertEdge(
+    subject: string,
+    predicate: Predicate,
+    object: string,
+    data: EdgeDataInput,
+    options?: UpsertEdgeOptions
+  ): Promise<Result<UpsertEdgeResult>> {
+    try {
+      const row = this.db.prepare(
+        'SELECT subject, predicate, object, metadata, created_at FROM edges WHERE subject = ? AND predicate = ? AND object = ?'
+      ).get(subject, predicate, object) as EdgeRow | undefined;
+      const metadata = data.metadata ?? {};
+
+      if (!row) {
+        const edge: GraphEdge = {
+          subject,
+          predicate,
+          object,
+          metadata,
+          createdAt: nowIso(),
+        };
+        const validated = GraphEdgeSchema.parse(edge);
+        this.db.prepare(
+          'INSERT INTO edges (subject, predicate, object, metadata, created_at) VALUES (?, ?, ?, ?, ?)'
+        ).run(
+          validated.subject,
+          validated.predicate,
+          validated.object,
+          serializeMetadata(validated.metadata ?? {}),
+          validated.createdAt
+        );
+        return { ok: true, value: { edge: validated, created: true, updated: false, noop: false } };
+      }
+
+      const existingEdge = GraphEdgeSchema.parse({
+        subject: row.subject,
+        predicate: row.predicate,
+        object: row.object,
+        metadata: parseMetadata(row.metadata),
+        createdAt: row.created_at,
+      });
+
+      const shouldDetectNoop = options?.detectNoop ?? true;
+      if (shouldDetectNoop && deepEqual(existingEdge.metadata ?? {}, metadata)) {
+        return { ok: true, value: { edge: existingEdge, created: false, updated: false, noop: true } };
+      }
+
+      const updated: GraphEdge = {
+        ...existingEdge,
+        subject,
+        predicate,
+        object,
+        metadata,
+        createdAt: existingEdge.createdAt,
+      };
+      const validated = GraphEdgeSchema.parse(updated);
+      this.db.prepare(
+        'UPDATE edges SET metadata = ? WHERE subject = ? AND predicate = ? AND object = ?'
+      ).run(
+        serializeMetadata(validated.metadata ?? {}),
+        validated.subject,
+        validated.predicate,
+        validated.object
+      );
+      return { ok: true, value: { edge: validated, created: false, updated: true, noop: false } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async getEdges(options: QueryEdgesOptions = {}): Promise<Result<QueryResult<GraphEdge>>> {
+    try {
+      const clauses: string[] = [];
+      const params: unknown[] = [];
+      if (options.subject) {
+        clauses.push('subject = ?');
+        params.push(options.subject);
+      }
+      if (options.predicate) {
+        clauses.push('predicate = ?');
+        params.push(options.predicate);
+      }
+      if (options.object) {
+        clauses.push('object = ?');
+        params.push(options.object);
+      }
+      const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+      const rows = this.db.prepare(
+        `SELECT subject, predicate, object, metadata, created_at FROM edges ${where}`
+      ).all(...params) as EdgeRow[];
+      const edges: GraphEdge[] = [];
+      for (const row of rows) {
+        const parsed = GraphEdgeSchema.safeParse({
+          subject: row.subject,
+          predicate: row.predicate,
+          object: row.object,
+          metadata: parseMetadata(row.metadata),
+          createdAt: row.created_at,
+        });
+        if (!parsed.success) continue;
+        edges.push(parsed.data);
+      }
+      const sorted = sortEdges(edges, options.sort);
+      const paged = applyCursorAndLimit(sorted, options.cursor, options.limit, edgeCursorKey);
+      return { ok: true, value: paged };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
+    try {
+      this.db.prepare('DELETE FROM nodes WHERE id = ?').run(id);
+      if (options?.cascade) {
+        this.db.prepare('DELETE FROM edges WHERE subject = ? OR object = ?').run(id, id);
+      }
+      return { ok: true, value: undefined };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
+    try {
+      const nodesResult = await this.queryNodes({});
+      if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
+      let nodes = nodesResult.value.items;
+      if (options?.scope === 'knowledge') {
+        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.scope !== 'operational');
+      }
+      const sortedNodes = sortNodes(nodes);
+      const nodeIds = new Set(sortedNodes.map(node => node.id));
+      const edgesResult = await this.getEdges({});
+      if (!edgesResult.ok) return { ok: false, error: edgesResult.error };
+      let edges = edgesResult.value.items.filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
+      edges = sortEdges(edges);
+      return { ok: true, value: { nodes: sortedNodes, edges } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async close(): Promise<void> {
+    this.db.close();
+  }
+}

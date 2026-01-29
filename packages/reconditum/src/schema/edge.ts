@@ -16,6 +16,15 @@ export const Predicate = z.enum([
   'createdBy',      // Authorship
   'taggedWith',     // Topic tagging
   'supersedes',     // Version relationship
+  'resourceHasExcerpt',
+  'claimDerivedFrom',
+  'claimMentionsReference',
+  'aboutTag',
+  'taskMotivatedBy',
+  'taskPartOfProject',
+  'projectServesGoal',
+  'projectInArea',
+  'taskDependsOn',
 ]);
 
 export type Predicate = z.infer<typeof Predicate>;

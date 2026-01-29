@@ -50,7 +50,7 @@ describe('IngestionPipeline', () => {
       const nodesResult = await graphStore.queryNodes({ type: 'Resource' });
       expect(nodesResult.ok).toBe(true);
       if (!nodesResult.ok) return;
-      expect(nodesResult.value.length).toBeGreaterThan(0);
+      expect(nodesResult.value.items.length).toBeGreaterThan(0);
     });
 
     it('returns job status with progress', async () => {
@@ -85,14 +85,14 @@ describe('IngestionPipeline', () => {
       await pipeline.ingestPlaylist('test-playlist');
 
       const firstCount = (await graphStore.queryNodes()).ok
-        ? (await graphStore.queryNodes()).value?.length ?? 0
+        ? (await graphStore.queryNodes()).value?.items.length ?? 0
         : 0;
 
       // Second ingestion of same playlist
       await pipeline.ingestPlaylist('test-playlist');
 
       const secondCount = (await graphStore.queryNodes()).ok
-        ? (await graphStore.queryNodes()).value?.length ?? 0
+        ? (await graphStore.queryNodes()).value?.items.length ?? 0
         : 0;
 
       expect(secondCount).toBe(firstCount);
