@@ -189,8 +189,8 @@
       "document_id": "AIDHA-PRD-001",
       "owner": "Graph Backend Product Lead",
       "status": "Draft",
-      "last_updated": "2026-01-28",
-      "version": "0.4",
+      "last_updated": "2026-01-29",
+      "version": "0.5",
       "title": "Graph Database",
       "type": "PRD",
       "docops_version": "2.0"
@@ -301,8 +301,8 @@
       "document_id": "AIDHA-ADR-002",
       "owner": "Graph Architecture Lead",
       "status": "Draft",
-      "last_updated": "2025-12-27",
-      "version": "0.2",
+      "last_updated": "2026-01-29",
+      "version": "0.3",
       "title": "Graph Storage Engine Selection",
       "type": "ADR",
       "docops_version": "2.0"

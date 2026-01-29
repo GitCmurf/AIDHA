@@ -7,9 +7,9 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
-    "docs:serve": "mkdocs serve",
-    "docs:catalog": "python docs/_scripts/gen_catalog.py",
-    "docs:linkcheck": "python docs/_scripts/linkcheck.py",
-    "docs:build": "python docs/_scripts/gen_catalog.py && python docs/_scripts/validate_docs.py && mkdocs build --strict"
+    "docs:serve": "./scripts/python -m mkdocs serve",
+    "docs:catalog": "./scripts/python docs/_scripts/gen_catalog.py",
+    "docs:linkcheck": "./scripts/python docs/_scripts/linkcheck.py",
+    "docs:build": "./scripts/python docs/_scripts/gen_catalog.py && ./scripts/python docs/_scripts/validate_docs.py && ./scripts/python -m mkdocs build --strict"
   }
 }

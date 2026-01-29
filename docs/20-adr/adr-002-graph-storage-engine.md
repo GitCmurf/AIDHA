@@ -2,8 +2,8 @@
 document_id: AIDHA-ADR-002
 owner: Graph Architecture Lead
 status: Draft
-last_updated: 2025-12-27
-version: '0.2'
+last_updated: 2026-01-29
+version: '0.3'
 title: Graph Storage Engine Selection
 type: ADR
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Graph Architecture Lead
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2025-12-27
+> **Version:** 0.3
+> **Last Updated:** 2026-01-29
 > **Type:** ADR
 
 ## Version History
@@ -24,15 +24,21 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | -------------------------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-11-09 | TBD    | Placeholder ADR created                                  | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename) | —         | Draft  | —         |
+| 0.3     | 2026-01-29 | AI     | Select SQLite for MVP persistence                        | —         | Draft  | —         |
 
 ## Context
 
-Describe tradeoffs between Neo4j, Memgraph, RDF solutions, etc.
+We need an embedded, local-first persistence option that is deterministic,
+testable without network access, and simple to ship in the TypeScript toolchain.
 
 ## Decision
 
-TBD.
+Use SQLite as the MVP embedded persistence engine for `GraphStore`, implemented
+via Node.js `node:sqlite` (Node 22.5+). Keep `InMemoryStore` as the reference
+implementation. `LevelGraphStore` remains optional for legacy comparison.
 
 ## Consequences
 
-TBD.
+- Requires Node 22.5+ for the built-in SQLite bindings.
+- Keeps operational complexity low (single-file DB, no external services).
+- Enables deterministic ordering and indexing without extra dependencies.

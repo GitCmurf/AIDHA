@@ -2,8 +2,8 @@
 document_id: AIDHA-PRD-001
 owner: Graph Backend Product Lead
 status: Draft
-last_updated: 2026-01-28
-version: "0.4"
+last_updated: 2026-01-29
+version: "0.5"
 title: Graph Database
 type: PRD
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Graph Backend Product Lead
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.4
-> **Last Updated:** 2026-01-28
+> **Version:** 0.5
+> **Last Updated:** 2026-01-29
 > **Type:** PRD
 
 ## Version History
@@ -27,17 +27,19 @@ docops_version: "2.0"
 | 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename)   | —         | Draft  | —         |
 | 0.3     | 2026-01-24 | Codex  | Flesh out requirements, contracts, and acceptance criteria | —         | Draft  | —         |
 | 0.4     | 2026-01-28 | CMF    | Tasks graph requirements (future)                          | —         | Draft  | —         |
+| 0.5     | 2026-01-29 | AI     | Align contract to upserts + SQLite backend                 | —         | Draft  | —         |
 
 ---
 
 ## Executive Summary
 
-AIDHA needs a local-first, deterministic cognition graph backend to store knowledge items and their
-relationships, power ingestion pipelines, and export interoperable graph snapshots (JSON-LD) for
-downstream tools and AI retrieval.
+AIDHA needs a local-first, deterministic cognition graph backend to store knowledge
+items and their relationships, power ingestion pipelines, and export interoperable
+graph snapshots (JSON-LD) for downstream tools and AI retrieval.
 
-This PRD defines the **public contracts** for the graph backend: node/edge schemas, storage behavior,
-query expectations, export requirements, and the tests that must protect these behaviors.
+This PRD defines the **public contracts** for the graph backend: node/edge schemas,
+storage behavior, query expectations, export requirements, and the tests that must
+protect these behaviors.
 
 ## Problem Statement
 
@@ -56,7 +58,7 @@ exportable graph store that:
 
 1. Provide a **GraphStore** contract with at least two implementations:
    - in-memory (tests/dev),
-   - embedded persistent store (local disk)
+   - embedded persistent store (local disk, SQLite)
    - extensible to support other stores (e.g., neo4j).
 2. Provide **schema-first validation** (reject invalid nodes/edges at boundaries).
 3. Provide a **deterministic JSON-LD export** suitable for downstream indexing and diffs.
@@ -75,8 +77,8 @@ exportable graph store that:
 
 ### Primary Users
 
-- **Ingestion pipeline** (AIDHA-PRD-002): writes Resource/Knowledge nodes and edges, queries by type,
-  exports snapshots.
+- **Ingestion pipeline** (AIDHA-PRD-002): writes Resource/Knowledge nodes and edges,
+  queries by type, exports snapshots.
 - **Taxonomy + classification** (AIDHA-PRD-003): writes tagging relationships and/or metadata.
 - **Human operator / developer**: runs local commands to inspect/export/validate.
 
@@ -94,12 +96,13 @@ exportable graph store that:
 - TypeScript package: `packages/reconditum/` (published as a workspace dependency).
 - Node schema + edge schema with explicit enums for `NodeType` and `Predicate`.
 - GraphStore interface supporting:
-  - `createNode`, `getNode`, `updateNode`, `deleteNode`, `queryNodes`
-  - `createEdge`, `getEdges`, `deleteEdge`
+  - `upsertNode`, `getNode`, `queryNodes`, `deleteNode`
+  - `upsertEdge`, `getEdges`
+  - `exportSnapshot`
   - `close`
 - Two stores:
   - in-memory (reference implementation; simplest semantics),
-  - embedded persistence (single-process local store).
+  - embedded persistence (single-process local store, SQLite).
 - JSON-LD export:
   - deterministic serialization rules (see Requirements).
 - Contract tests:
@@ -152,20 +155,27 @@ FR-4. **Edge semantics**
 FR-5. **Query behavior**
 
 - `queryNodes({ type })` MUST return only nodes of that type.
-- `queryNodes({ limit, offset })` MUST apply pagination deterministically.
+- `queryNodes({ limit, cursor })` MUST apply pagination deterministically.
+- `queryNodes({ sort })` MUST apply stable ordering for pagination.
 - `getEdges({ subject, predicate, object, limit })` MUST filter and limit results.
 
 FR-6. **Deletion behavior**
 
-- `deleteNode(id)` MUST remove the node.
-- MVP decision: deleting a node MAY leave dangling edges; contract tests MUST make this explicit.
-  - Preferred next: cascade delete edges that reference the node OR provide `deleteNodeCascade`.
+- `deleteNode(id, { cascade })` MUST remove the node.
+- When `cascade: true`, edges referencing the node MUST be removed.
+- When `cascade` is omitted or false, dangling edges MAY remain.
 
 FR-7. **JSON-LD export**
 
 - The export MUST include a stable `@context` and `@graph` array of nodes.
 - Node `metadata` fields MUST be included in JSON-LD output (namespaced by the export rules).
 - Edges MUST be represented as relationship properties on source nodes (per predicate).
+
+FR-8. **Idempotent upserts**
+
+- `upsertNode(..., { detectNoop: true })` MUST no-op when input matches stored data.
+- When no-op, `updatedAt` MUST NOT change.
+- `upsertEdge(..., { detectNoop: true })` MUST no-op when metadata is unchanged.
 
 ### Non-Functional Requirements
 
@@ -198,13 +208,17 @@ NFR-4. **Interoperability**
 
 ### Data Model (MVP)
 
-- Node types: `Knowledge`, `Concept`, `Resource`, `Person`, `Topic`
-- Predicates: `relatedTo`, `partOf`, `references`, `derivedFrom`, `createdBy`, `taggedWith`, `supersedes`
+- Node types: `Knowledge`, `Concept`, `Resource`, `Person`, `Topic`, `Excerpt`, `Claim`,
+  `Reference`, `Area`, `Goal`, `Project`, `Task`, `TopicTag`
+- Predicates: `relatedTo`, `partOf`, `references`, `derivedFrom`, `createdBy`, `taggedWith`,
+  `supersedes`, `resourceHasExcerpt`, `claimDerivedFrom`, `claimMentionsReference`, `aboutTag`,
+  `taskMotivatedBy`, `taskPartOfProject`, `projectServesGoal`, `projectInArea`, `taskDependsOn`
 
 ### Required Store Implementations
 
 - `InMemoryStore`: reference semantics; used by tests and other packages.
-- `LevelGraphStore` (or equivalent): persists to local disk; must pass the same contract tests.
+- `SQLiteStore`: persists to local disk; must pass the same contract tests.
+- `LevelGraphStore` is optional and must also pass the contract suite if kept.
 
 ### Export Contract
 
@@ -253,11 +267,11 @@ Suggested test placement (can evolve):
 - Cycle detection: inserting dependsOn must reject cycles (or mark plan invalid)
 - Scheduling semantics: edge metadata includes dependency type + lag; tasks include
   duration/effort/earliest start constraints
-- Versioning: snapshots or “plans” as first-class (otherwise fluid discovery becomes “everything is
-  always changing” and you can’t reason about it)
+- Versioning: snapshots or “plans” as first-class (otherwise fluid discovery becomes
+  “everything is always changing” and you can’t reason about it)
 
 ## Appendix
 
 - Package implementation lives in `packages/reconditum/`.
-- This PRD defines _minimum contracts_; feature designs (HTTP API, import/merge strategies) belong in
-  ADRs/FDDs once the MVP stabilizes.
+- This PRD defines _minimum contracts_; feature designs (HTTP API, import/merge
+  strategies) belong in ADRs/FDDs once the MVP stabilizes.

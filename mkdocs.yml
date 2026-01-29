@@ -32,6 +32,8 @@ plugins:
   - macros
   - git-revision-date-localized:
       enable_creation_date: true
+exclude_docs: |
+  **/WIP-*.md
 extra:
   version:
     provider: false
