@@ -1,4 +1,5 @@
 import type { GraphNode } from '@aidha/graph-backend';
+import type { ClaimState } from '../utils/claim-state.js';
 
 export interface ClaimCandidate {
   text: string;
@@ -11,6 +12,7 @@ export interface ClaimCandidate {
   chunkIndex?: number;
   model?: string;
   promptVersion?: string;
+  state?: ClaimState;
 }
 
 export interface ClaimExtractionInput {

@@ -174,4 +174,213 @@ describe('LLM claim extraction', () => {
     expect(claim?.metadata?.model).toBe('test-model');
     expect(claim?.metadata?.promptVersion).toBe('v1');
   });
+
+  it('invalidates cache when prompt version or model changes', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-video-3');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Deterministic IDs avoid duplicate nodes across repeated ingestion runs.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            confidence: 0.8,
+            type: 'insight',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Prompt changes should trigger a fresh extraction call.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            confidence: 0.8,
+            type: 'insight',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Model changes should also bypass existing cache entries.',
+            excerptIds: ['excerpt-4'],
+            startSeconds: 120,
+            confidence: 0.8,
+            type: 'insight',
+          },
+        ],
+      }),
+    ]);
+
+    const extractorV1ModelA = new LlmClaimExtractor({
+      client,
+      model: 'model-a',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+
+    await extractorV1ModelA.extractClaims({ resource, excerpts, maxClaims: 5 });
+    await extractorV1ModelA.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    const extractorV2ModelA = new LlmClaimExtractor({
+      client,
+      model: 'model-a',
+      promptVersion: 'v2',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+    await extractorV2ModelA.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    const extractorV2ModelB = new LlmClaimExtractor({
+      client,
+      model: 'model-b',
+      promptVersion: 'v2',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+    await extractorV2ModelB.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(3);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('invalidates cache when transcript hash changes', async () => {
+    const seeded = await seedVideo(store, 'llm-video-4');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Hash transcript content to make cache keys deterministic.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            confidence: 0.85,
+            type: 'instruction',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Modified transcript content should trigger a fresh extraction.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            confidence: 0.86,
+            type: 'instruction',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+
+    await extractor.extractClaims({ resource: seeded.resource, excerpts: seeded.excerpts, maxClaims: 5 });
+
+    const excerptNode = await store.getNode('excerpt-1');
+    expect(excerptNode.ok).toBe(true);
+    if (!excerptNode.ok || !excerptNode.value) return;
+    await store.upsertNode(
+      'Excerpt',
+      excerptNode.value.id,
+      {
+        label: excerptNode.value.label,
+        content: `${excerptNode.value.content ?? ''} Additional detail for hash change.`,
+        metadata: excerptNode.value.metadata,
+      },
+      { detectNoop: true }
+    );
+
+    const updatedExcerpts = await store.queryNodes({
+      type: 'Excerpt',
+      filters: { resourceId: 'youtube-llm-video-4' },
+    });
+    expect(updatedExcerpts.ok).toBe(true);
+    if (!updatedExcerpts.ok) return;
+
+    await extractor.extractClaims({
+      resource: seeded.resource,
+      excerpts: updatedExcerpts.value.items,
+      maxClaims: 5,
+    });
+
+    expect(client.calls).toBe(2);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('deterministically edits and deduplicates candidates', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-video-5');
+    const cacheDirA = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const cacheDirB = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+
+    const claimsSet = [
+      {
+        text: 'Deterministic IDs prevent duplicate knowledge items during repeated ingestion runs.',
+        excerptIds: ['excerpt-2'],
+        startSeconds: 30,
+        type: 'insight',
+        confidence: 0.55,
+      },
+      {
+        text: 'Repeated ingestion stays idempotent when deterministic IDs are used for knowledge items.',
+        excerptIds: ['excerpt-2'],
+        startSeconds: 30,
+        type: 'insight',
+        confidence: 0.92,
+      },
+      {
+        text: 'Hashing stable fields with SHA-256 gives repeatable identifiers across sessions.',
+        excerptIds: ['excerpt-3'],
+        startSeconds: 70,
+        type: 'instruction',
+        confidence: 0.75,
+      },
+      {
+        text: 'Capture only actionable points and keep evidence snippets concise for clean dossiers.',
+        excerptIds: ['excerpt-4'],
+        startSeconds: 120,
+        type: 'instruction',
+        confidence: 0.74,
+      },
+    ];
+
+    const clientA = new StubLlmClient([JSON.stringify({ claims: claimsSet })]);
+    const clientB = new StubLlmClient([JSON.stringify({ claims: [...claimsSet].reverse() })]);
+
+    const extractorA = new LlmClaimExtractor({
+      client: clientA,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir: cacheDirA,
+      chunkMinutes: 10,
+      maxClaims: 10,
+    });
+    const extractorB = new LlmClaimExtractor({
+      client: clientB,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir: cacheDirB,
+      chunkMinutes: 10,
+      maxClaims: 10,
+    });
+
+    const resultA = await extractorA.extractClaims({ resource, excerpts, maxClaims: 10 });
+    const resultB = await extractorB.extractClaims({ resource, excerpts, maxClaims: 10 });
+
+    expect(resultA.length).toBe(3);
+    expect(resultA.map(claim => claim.text)).toEqual(resultB.map(claim => claim.text));
+    expect(resultA[0]?.text).toContain('idempotent');
+    expect(resultA[1]?.text).toContain('SHA-256');
+
+    await rm(cacheDirA, { recursive: true, force: true });
+    await rm(cacheDirB, { recursive: true, force: true });
+  });
 });

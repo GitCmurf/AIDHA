@@ -1,6 +1,7 @@
 import type { GraphNode, GraphStore } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
 import type { DossierClaim, VideoDossier, PlaylistDossier, PlaylistDossierInput } from './types.js';
+import { isClaimAccepted } from '../utils/claim-state.js';
 
 export interface DossierExporterConfig {
   graphStore: GraphStore;
@@ -215,6 +216,7 @@ export class DossierExporter {
 
     const claims: DossierClaim[] = [];
     for (const claim of claimsResult.value.items) {
+      if (!isClaimAccepted(claim)) continue;
       const derivedEdges = await this.graphStore.getEdges({
         predicate: 'claimDerivedFrom',
         subject: claim.id,

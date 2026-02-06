@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-02-05
-version: '1.3'
+last_updated: 2026-02-06
+version: '1.5'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.3
-> **Last Updated:** 2026-02-05
+> **Version:** 1.5
+> **Last Updated:** 2026-02-06
 > **Type:** RUNBOOK
 
 ## Version History
@@ -34,6 +34,8 @@ docops_version: '2.0'
 | 1.1     | 2026-02-05 | CMF    | Note SQLite FTS search                      | —         | Draft  | —         |
 | 1.2     | 2026-02-05 | CMF    | Wrap long lines                             | —         | Draft  | —         |
 | 1.3     | 2026-02-05 | CMF    | Add code fence languages                    | —         | Draft  | —         |
+| 1.4     | 2026-02-06 | AI     | Note claim state default                    | —         | Draft  | —         |
+| 1.5     | 2026-02-06 | AI     | Document two-pass claim extraction          | —         | Draft  | —         |
 
 ## Purpose
 
@@ -73,6 +75,9 @@ auditing steps.
    pnpm -C packages/praecis/youtube cli extract claims <url>
    ```
 
+   Note: new claims default to `state=accepted`. Query and dossier export include
+   accepted claims only.
+
 5. **Create a task**
 
    ```bash
@@ -108,6 +113,13 @@ auditing steps.
      --chunk-minutes 5 \
      --max-chunks 20
    ```
+
+   LLM extraction uses two passes:
+   1. chunk-level candidate mining (3-8 claims/chunk target)
+   2. deterministic editor merge/selection to produce final claims
+
+   Cache keys include transcript hash + prompt version + model, so prompt/model/transcript changes
+   correctly bypass stale cache.
 
 ## Transcript Troubleshooting
 

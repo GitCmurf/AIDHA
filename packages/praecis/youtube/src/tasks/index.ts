@@ -206,7 +206,9 @@ export async function getTaskContext(store: GraphStore, taskId: string): Promise
   const projectEdge = await store.getEdges({ predicate: 'taskPartOfProject', subject: taskId });
   if (!projectEdge.ok) return projectEdge;
   const projectId = projectEdge.value.items[0]?.object;
-  const projectResult = projectId ? await store.getNode(projectId) : { ok: true, value: null };
+  const projectResult: Result<GraphNode | null> = projectId
+    ? await store.getNode(projectId)
+    : { ok: true, value: null };
   if (!projectResult.ok) return projectResult;
 
   const tagEdges = await store.getEdges({ predicate: 'aboutTag', subject: taskId });
@@ -244,7 +246,9 @@ export async function getTaskContext(store: GraphStore, taskId: string): Promise
     })[0];
 
     const resourceId = claim.metadata?.['resourceId'] as string | undefined;
-    const resourceResult = resourceId ? await store.getNode(resourceId) : { ok: true, value: null };
+    const resourceResult: Result<GraphNode | null> = resourceId
+      ? await store.getNode(resourceId)
+      : { ok: true, value: null };
     if (!resourceResult.ok) return resourceResult;
     const resource = resourceResult.value ?? undefined;
 

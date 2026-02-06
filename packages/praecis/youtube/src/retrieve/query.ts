@@ -1,6 +1,7 @@
-import { SQLiteStore } from '@aidha/graph-backend';
 import type { GraphNode, GraphStore } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
+import type { ClaimState } from '../utils/claim-state.js';
+import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
 
 export interface SearchOptions {
   query: string;
@@ -8,6 +9,7 @@ export interface SearchOptions {
   projectId?: string;
   areaId?: string;
   goalId?: string;
+  states?: ClaimState[];
 }
 
 export interface ClaimSearchHit {
@@ -21,6 +23,11 @@ export interface ClaimSearchHit {
   timestampUrl: string;
   excerptText: string;
   score: number;
+}
+
+interface FtsCapableGraphStore extends GraphStore {
+  supportsFts(): boolean;
+  searchText(query: string, types?: string[]): Result<Set<string>>;
 }
 
 function normalize(text: string | undefined): string {
@@ -144,10 +151,11 @@ async function resolveFilteredClaims(
   }
 
   const resolved = await Promise.all(filters);
+  const taskSets: Set<string>[] = [];
   for (const result of resolved) {
     if (!result.ok) return result;
+    taskSets.push(result.value);
   }
-  const taskSets = resolved.map(result => result.value);
   let intersection = new Set(taskSets[0]);
   for (const set of taskSets.slice(1)) {
     intersection = new Set([...intersection].filter(taskId => set.has(taskId)));
@@ -172,14 +180,19 @@ async function resolveFtsMatches(
   graphStore: GraphStore,
   query: string
 ): Promise<Result<{ claimIds: Set<string>; resourceIds: Set<string>; excerptIds: Set<string> } | null>> {
-  if (!(graphStore instanceof SQLiteStore) || !graphStore.supportsFts()) {
+  const maybeFtsStore = graphStore as Partial<FtsCapableGraphStore>;
+  if (typeof maybeFtsStore.supportsFts !== 'function' || typeof maybeFtsStore.searchText !== 'function') {
     return { ok: true, value: null };
   }
-  const claimsResult = graphStore.searchText(query, ['Claim']);
+  if (!maybeFtsStore.supportsFts()) {
+    return { ok: true, value: null };
+  }
+  const ftsStore = maybeFtsStore as FtsCapableGraphStore;
+  const claimsResult = ftsStore.searchText(query, ['Claim']);
   if (!claimsResult.ok) return { ok: true, value: null };
-  const resourcesResult = graphStore.searchText(query, ['Resource']);
+  const resourcesResult = ftsStore.searchText(query, ['Resource']);
   if (!resourcesResult.ok) return { ok: true, value: null };
-  const excerptsResult = graphStore.searchText(query, ['Excerpt']);
+  const excerptsResult = ftsStore.searchText(query, ['Excerpt']);
   if (!excerptsResult.ok) return { ok: true, value: null };
 
   return {
@@ -204,6 +217,7 @@ export async function searchClaims(
   const filteredClaims = await resolveFilteredClaims(graphStore, options);
   if (!filteredClaims.ok) return filteredClaims;
   const claimFilter = filteredClaims.value;
+  const allowedStates = new Set(options.states ?? [DEFAULT_CLAIM_STATE]);
 
   const ftsMatches = await resolveFtsMatches(graphStore, options.query);
   if (!ftsMatches.ok) return ftsMatches;
@@ -245,6 +259,8 @@ export async function searchClaims(
   const hits: ClaimSearchHit[] = [];
   for (const claim of claimsResult.value.items) {
     if (claimFilter && !claimFilter.has(claim.id)) continue;
+    const state = normalizeClaimState(claim.metadata?.['state']) ?? DEFAULT_CLAIM_STATE;
+    if (!allowedStates.has(state)) continue;
     const resourceId = claim.metadata?.['resourceId'] as string | undefined;
     if (!resourceId) continue;
     const resource = resourceMap.get(resourceId);

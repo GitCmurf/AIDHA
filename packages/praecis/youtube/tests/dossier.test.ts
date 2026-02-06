@@ -32,6 +32,23 @@ describe('DossierExporter', () => {
     await taxonomyRegistry.close();
   });
 
+  async function setClaimState(claimId: string, state: 'draft' | 'accepted' | 'rejected') {
+    const current = await graphStore.getNode(claimId);
+    expect(current.ok).toBe(true);
+    if (!current.ok || !current.value) return;
+    const metadata = { ...(current.value.metadata ?? {}), state };
+    await graphStore.upsertNode(
+      'Claim',
+      claimId,
+      {
+        label: current.value.label,
+        content: current.value.content,
+        metadata,
+      },
+      { detectNoop: true }
+    );
+  }
+
   it('renders a markdown dossier with claims and references', async () => {
     await ingestion.ingestPlaylist('test-playlist');
 
@@ -72,5 +89,29 @@ describe('DossierExporter', () => {
     expect(claimLines.length).toBeGreaterThan(0);
     const excerptLines = md.split('\n').filter(line => line.trim().startsWith('- Excerpt:'));
     expect(excerptLines.length).toBeGreaterThan(0);
+  });
+
+  it('excludes rejected claims from the dossier', async () => {
+    await ingestion.ingestPlaylist('test-playlist');
+
+    const claimPipeline = new ClaimExtractionPipeline({ graphStore });
+    await claimPipeline.extractClaimsForVideo('test-video');
+
+    const claims = await graphStore.queryNodes({ type: 'Claim' });
+    expect(claims.ok).toBe(true);
+    if (!claims.ok) return;
+    const rejected = claims.value.items[0];
+    expect(rejected).toBeTruthy();
+    if (!rejected) return;
+
+    await setClaimState(rejected.id, 'rejected');
+
+    const exporter = new DossierExporter({ graphStore });
+    const result = await exporter.renderVideoDossier('test-video');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const md = result.value;
+    expect(md).not.toContain(rejected.content ?? rejected.label);
   });
 });

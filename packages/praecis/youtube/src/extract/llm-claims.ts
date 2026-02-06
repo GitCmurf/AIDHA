@@ -33,7 +33,17 @@ const ResponseSchema = z.object({
   claims: z.array(ClaimSchema),
 });
 
+const CacheMetadataSchema = z.object({
+  transcriptHash: z.string().min(1),
+  model: z.string().min(1),
+  promptVersion: z.string().min(1),
+  chunkIndex: z.number().int().nonnegative(),
+  chunkStart: z.number().nonnegative(),
+  chunkEnd: z.number().nonnegative(),
+});
+
 const CacheSchema = z.object({
+  metadata: CacheMetadataSchema,
   claims: z.array(ClaimSchema),
 });
 
@@ -43,6 +53,8 @@ interface ClaimChunk {
   end: number;
   excerpts: GraphNode[];
 }
+
+type CacheMetadata = z.infer<typeof CacheMetadataSchema>;
 
 export interface LlmClaimExtractorConfig {
   client: LlmClient;
@@ -190,20 +202,63 @@ function scoreCandidate(candidate: ClaimCandidate): number {
   return confidence * 0.7 + lengthScore * 0.3;
 }
 
+function stableExcerptKey(candidate: ClaimCandidate): string {
+  return Array.from(new Set(candidate.excerptIds)).sort((a, b) => a.localeCompare(b)).join('|');
+}
+
+function compareCandidatePriority(a: ClaimCandidate, b: ClaimCandidate): number {
+  const scoreDiff = scoreCandidate(b) - scoreCandidate(a);
+  if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
+  const startDiff = candidateStart(a) - candidateStart(b);
+  if (startDiff !== 0) return startDiff;
+  const textDiff = a.text.localeCompare(b.text);
+  if (textDiff !== 0) return textDiff;
+  return stableExcerptKey(a).localeCompare(stableExcerptKey(b));
+}
+
+function excerptOverlapRatio(a: ClaimCandidate, b: ClaimCandidate): number {
+  const aSet = new Set(a.excerptIds);
+  const bSet = new Set(b.excerptIds);
+  if (aSet.size === 0 || bSet.size === 0) return 0;
+  let intersection = 0;
+  for (const id of aSet) {
+    if (bSet.has(id)) intersection += 1;
+  }
+  const denominator = Math.min(aSet.size, bSet.size);
+  if (denominator === 0) return 0;
+  return intersection / denominator;
+}
+
+function shouldMergeCandidates(a: ClaimCandidate, b: ClaimCandidate): boolean {
+  if (normalizeKey(a.text) === normalizeKey(b.text)) return true;
+  return excerptOverlapRatio(a, b) >= 0.8;
+}
+
 function dedupeCandidates(candidates: ClaimCandidate[]): ClaimCandidate[] {
-  const seen = new Map<string, ClaimCandidate>();
-  for (const candidate of candidates) {
-    const key = normalizeKey(candidate.text);
-    const existing = seen.get(key);
-    if (!existing) {
-      seen.set(key, candidate);
+  const ranked = candidates.slice().sort(compareCandidatePriority);
+  const deduped: ClaimCandidate[] = [];
+
+  for (const candidate of ranked) {
+    const existingIndex = deduped.findIndex(existing => shouldMergeCandidates(existing, candidate));
+    if (existingIndex === -1) {
+      deduped.push(candidate);
       continue;
     }
-    if (scoreCandidate(candidate) > scoreCandidate(existing)) {
-      seen.set(key, candidate);
+
+    const existing = deduped[existingIndex];
+    if (existing && compareCandidatePriority(candidate, existing) < 0) {
+      deduped[existingIndex] = candidate;
     }
   }
-  return Array.from(seen.values());
+
+  return deduped.sort((a, b) => {
+    const aStart = candidateStart(a);
+    const bStart = candidateStart(b);
+    if (aStart !== bStart) return aStart - bStart;
+    const textDiff = a.text.localeCompare(b.text);
+    if (textDiff !== 0) return textDiff;
+    return stableExcerptKey(a).localeCompare(stableExcerptKey(b));
+  });
 }
 
 function selectDiverseCandidates(
@@ -214,11 +269,14 @@ function selectDiverseCandidates(
   const scored = candidates
     .map(candidate => ({ candidate, score: scoreCandidate(candidate) }))
     .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
+      const scoreDiff = b.score - a.score;
+      if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
       const aStart = candidateStart(a.candidate);
       const bStart = candidateStart(b.candidate);
       if (aStart !== bStart) return aStart - bStart;
-      return a.candidate.text.localeCompare(b.candidate.text);
+      const textDiff = a.candidate.text.localeCompare(b.candidate.text);
+      if (textDiff !== 0) return textDiff;
+      return stableExcerptKey(a.candidate).localeCompare(stableExcerptKey(b.candidate));
     });
 
   const byChunk = new Map<number, { candidate: ClaimCandidate; score: number }[]>();
@@ -246,7 +304,9 @@ function selectDiverseCandidates(
     const aStart = candidateStart(a);
     const bStart = candidateStart(b);
     if (aStart !== bStart) return aStart - bStart;
-    return a.text.localeCompare(b.text);
+    const textDiff = a.text.localeCompare(b.text);
+    if (textDiff !== 0) return textDiff;
+    return stableExcerptKey(a).localeCompare(stableExcerptKey(b));
   });
 }
 
@@ -254,20 +314,49 @@ function candidateStart(candidate: ClaimCandidate): number {
   return typeof candidate.startSeconds === 'number' ? candidate.startSeconds : Number.MAX_SAFE_INTEGER;
 }
 
-async function readCache(path: string): Promise<ClaimCandidate[] | null> {
+function runEditorPass(
+  candidates: ClaimCandidate[],
+  maxClaims: number,
+  chunkCount: number
+): ClaimCandidate[] {
+  const filtered = candidates.filter(candidate => {
+    const text = normalizeText(candidate.text);
+    if (text.length === 0) return false;
+    if (isLowValue(text)) return false;
+    if (isTooShort(text)) return false;
+    return true;
+  });
+
+  const deduped = dedupeCandidates(filtered);
+  return selectDiverseCandidates(deduped, maxClaims, chunkCount);
+}
+
+async function readCache(path: string, metadata: CacheMetadata): Promise<ClaimCandidate[] | null> {
   try {
     const raw = await readFile(path, 'utf-8');
     const parsed = CacheSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) return null;
+    const cachedMeta = parsed.data.metadata;
+    if (
+      cachedMeta.transcriptHash !== metadata.transcriptHash ||
+      cachedMeta.model !== metadata.model ||
+      cachedMeta.promptVersion !== metadata.promptVersion ||
+      cachedMeta.chunkIndex !== metadata.chunkIndex ||
+      cachedMeta.chunkStart !== metadata.chunkStart ||
+      cachedMeta.chunkEnd !== metadata.chunkEnd
+    ) {
+      return null;
+    }
     return parsed.data.claims;
   } catch {
     return null;
   }
 }
 
-async function writeCache(path: string, claims: ClaimCandidate[]): Promise<void> {
+async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCandidate[]): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const payload = {
+    metadata,
     claims: claims.map(claim => ({
       text: claim.text,
       excerptIds: claim.excerptIds,
@@ -326,16 +415,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       allCandidates.push(...chunkCandidates);
     }
 
-    const filtered = allCandidates.filter(candidate => {
-      const text = normalizeText(candidate.text);
-      if (text.length === 0) return false;
-      if (isLowValue(text)) return false;
-      if (isTooShort(text)) return false;
-      return true;
-    });
-
-    const deduped = dedupeCandidates(filtered);
-    return selectDiverseCandidates(deduped, maxClaims, chunked.length);
+    return runEditorPass(allCandidates, maxClaims, chunked.length);
   }
 
   private async extractChunkClaims(input: {
@@ -359,7 +439,15 @@ export class LlmClaimExtractor implements ClaimExtractor {
       this.promptVersion,
     ]);
     const cachePath = join(this.cacheDir, `${cacheKey}.json`);
-    const cached = await readCache(cachePath);
+    const cacheMetadata: CacheMetadata = {
+      transcriptHash,
+      model: this.model,
+      promptVersion: this.promptVersion,
+      chunkIndex: chunk.index,
+      chunkStart: chunk.start,
+      chunkEnd: chunk.end,
+    };
+    const cached = await readCache(cachePath, cacheMetadata);
     if (cached) {
       return cached.map(claim => ({
         ...claim,
@@ -399,7 +487,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     });
 
     if (parsed.length > 0) {
-      await writeCache(cachePath, parsed);
+      await writeCache(cachePath, cacheMetadata, parsed);
       return parsed;
     }
 

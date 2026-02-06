@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-02-05
-version: '0.11'
+last_updated: 2026-02-06
+version: '0.13'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.11
-> **Last Updated:** 2026-02-05
+> **Version:** 0.13
+> **Last Updated:** 2026-02-06
 > **Type:** GUIDE
 
 ## Version History
@@ -33,6 +33,8 @@ docops_version: '2.0'
 | 0.9     | 2026-02-05 | CMF    | Add task show command                     | —         | Draft  | —         |
 | 0.10    | 2026-02-05 | AI     | Align version + clarify prerequisites     | —         | Draft  | —         |
 | 0.11    | 2026-02-05 | AI     | Add code fence languages                  | —         | Draft  | —         |
+| 0.12    | 2026-02-06 | AI     | Note claim state default                  | —         | Draft  | —         |
+| 0.13    | 2026-02-06 | AI     | Document two-pass claim extraction        | —         | Draft  | —         |
 
 ## Purpose
 
@@ -81,6 +83,9 @@ Optional:
    pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id>
    ```
 
+   Claims default to `state=accepted`. Query and dossier export only include
+   accepted claims.
+
    LLM-backed extraction (optional):
 
    ```bash
@@ -93,6 +98,9 @@ Optional:
      --chunk-minutes 5 \
      --max-chunks 20
    ```
+
+   LLM extraction runs in two passes: chunk-level candidate mining followed by deterministic
+   editor merge/selection. Cache keys include transcript hash + prompt version + model.
 
 4. **Export dossier**
 

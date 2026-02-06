@@ -2,6 +2,7 @@ import type { GraphNode, GraphStore, NodeDataInput } from '@aidha/graph-backend'
 import type { Result } from '../pipeline/types.js';
 import type { ClaimExtractionResult, ClaimExtractor, ClaimExtractionInput, ClaimCandidate } from './types.js';
 import { hashId } from '../utils/ids.js';
+import { DEFAULT_CLAIM_STATE } from '../utils/claim-state.js';
 
 export interface ClaimExtractionConfig {
   graphStore: GraphStore;
@@ -98,6 +99,7 @@ export class ClaimExtractionPipeline {
         videoId,
         method: claim.method ?? 'heuristic',
         confidence: claim.confidence ?? 0.4,
+        state: claim.state ?? DEFAULT_CLAIM_STATE,
       };
       if (typeof claim.startSeconds === 'number') metadata['startSeconds'] = claim.startSeconds;
       if (claim.type) metadata['type'] = claim.type;

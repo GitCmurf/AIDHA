@@ -32,6 +32,23 @@ describe('searchClaims', () => {
     await taxonomyRegistry.close();
   });
 
+  async function setClaimState(claimId: string, state: 'draft' | 'accepted' | 'rejected') {
+    const current = await graphStore.getNode(claimId);
+    expect(current.ok).toBe(true);
+    if (!current.ok || !current.value) return;
+    const metadata = { ...(current.value.metadata ?? {}), state };
+    await graphStore.upsertNode(
+      'Claim',
+      claimId,
+      {
+        label: current.value.label,
+        content: current.value.content,
+        metadata,
+      },
+      { detectNoop: true }
+    );
+  }
+
   it('returns matching claim results with timestamps', async () => {
     await ingestion.ingestPlaylist('test-playlist');
 
@@ -95,5 +112,32 @@ describe('searchClaims', () => {
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.value.length).toBeGreaterThan(0);
+  });
+
+  it('filters out draft and rejected claims by default', async () => {
+    await ingestion.ingestPlaylist('test-playlist');
+
+    const claimPipeline = new ClaimExtractionPipeline({ graphStore });
+    await claimPipeline.extractClaimsForVideo('test-video');
+
+    const claims = await graphStore.queryNodes({ type: 'Claim' });
+    expect(claims.ok).toBe(true);
+    if (!claims.ok) return;
+    const items = claims.value.items;
+    expect(items.length).toBeGreaterThan(0);
+    const target =
+      items.find(item => (item.content ?? '').includes('TypeScript')) ?? items[0];
+    if (!target) return;
+
+    for (const claim of items) {
+      await setClaimState(claim.id, 'rejected');
+    }
+    await setClaimState(target.id, 'accepted');
+
+    const result = await searchClaims(graphStore, { query: 'TypeScript' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.length).toBe(1);
+    expect(result.value[0]?.claimId).toBe(target.id);
   });
 });
