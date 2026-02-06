@@ -42,6 +42,9 @@ export type Topic = z.infer<typeof Topic>;
 export const CreateTopicInput = Topic.omit({
   createdAt: true,
   updatedAt: true,
+}).partial({
+  keywords: true,
+  sortOrder: true,
 });
 
 export type CreateTopicInput = z.input<typeof CreateTopicInput>;

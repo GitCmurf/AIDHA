@@ -39,6 +39,8 @@ export type Category = z.infer<typeof Category>;
 export const CreateCategoryInput = Category.omit({
   createdAt: true,
   updatedAt: true,
+}).partial({
+  sortOrder: true,
 });
 
 export type CreateCategoryInput = z.input<typeof CreateCategoryInput>;
