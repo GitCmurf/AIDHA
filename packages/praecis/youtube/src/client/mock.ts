@@ -38,7 +38,7 @@ const MOCK_VIDEOS: Record<string, Video> = {
     channelName: 'Test Channel',
     duration: 300,
     publishedAt: '2025-01-01T00:00:00.000Z',
-    description: 'A test video about programming',
+    description: 'A test video about programming. Docs: https://example.com/docs',
     thumbnailUrl: 'https://example.com/thumb.jpg',
   },
   'test-video-2': {
@@ -58,9 +58,13 @@ const MOCK_TRANSCRIPTS: Record<string, Transcript> = {
     language: 'en',
     segments: [
       { start: 0, duration: 5, text: 'Hello and welcome to this tutorial.' },
-      { start: 5, duration: 5, text: 'Today we will learn about TypeScript.' },
+      {
+        start: 5,
+        duration: 5,
+        text: 'Today we will learn about TypeScript. Docs: https://example.com/docs',
+      },
     ],
-    fullText: 'Hello and welcome to this tutorial. Today we will learn about TypeScript.',
+    fullText: 'Hello and welcome to this tutorial. Today we will learn about TypeScript. Docs: https://example.com/docs',
   },
   'test-video-2': {
     videoId: 'test-video-2',

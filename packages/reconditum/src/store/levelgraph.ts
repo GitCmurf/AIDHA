@@ -198,7 +198,6 @@ export class LevelGraphStore implements GraphStore {
         updatedAt: nowIso(),
       };
       const validated = GraphNodeSchema.parse(updated);
-      await this.deleteNodeTriple(id);
       const triple: LevelGraphTriple = {
         subject: validated.id,
         predicate: NODE_PREDICATE,
@@ -402,7 +401,7 @@ export class LevelGraphStore implements GraphStore {
       if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
       let nodes = nodesResult.value.items;
       if (options?.scope === 'knowledge') {
-        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.scope !== 'operational');
+        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.['scope'] !== 'operational');
       }
       const sortedNodes = sortNodes(nodes);
       const nodeIds = new Set(sortedNodes.map(node => node.id));

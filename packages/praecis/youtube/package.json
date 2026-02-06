@@ -11,11 +11,15 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "bin": {
+    "aidha-youtube": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "cli": "node dist/cli.js"
   },
   "dependencies": {
     "@aidha/graph-backend": "file:../../reconditum",

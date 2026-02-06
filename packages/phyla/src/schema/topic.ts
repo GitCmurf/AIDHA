@@ -44,7 +44,7 @@ export const CreateTopicInput = Topic.omit({
   updatedAt: true,
 });
 
-export type CreateTopicInput = z.infer<typeof CreateTopicInput>;
+export type CreateTopicInput = z.input<typeof CreateTopicInput>;
 
 /**
  * Input for updating a topic.

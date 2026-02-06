@@ -43,7 +43,6 @@ describe('IngestionPipeline', () => {
       const result = await pipeline.ingestPlaylist('test-playlist');
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-
       expect(result.value.videosProcessed).toBeGreaterThan(0);
 
       // Verify nodes were created
@@ -51,6 +50,28 @@ describe('IngestionPipeline', () => {
       expect(nodesResult.ok).toBe(true);
       if (!nodesResult.ok) return;
       expect(nodesResult.value.items.length).toBeGreaterThan(0);
+    });
+
+    it('creates transcript excerpts and edges', async () => {
+      const result = await pipeline.ingestPlaylist('test-playlist');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const excerptResult = await graphStore.queryNodes({ type: 'Excerpt' });
+      expect(excerptResult.ok).toBe(true);
+      if (!excerptResult.ok) return;
+      expect(excerptResult.value.items.length).toBe(3);
+
+      const edgeResult = await graphStore.getEdges({ predicate: 'resourceHasExcerpt' });
+      expect(edgeResult.ok).toBe(true);
+      if (!edgeResult.ok) return;
+      expect(edgeResult.value.items.length).toBe(3);
+
+      const firstExcerpt = excerptResult.value.items[0];
+      expect(firstExcerpt.metadata).toMatchObject({
+        videoId: 'test-video',
+        resourceId: 'youtube-test-video',
+      });
     });
 
     it('returns job status with progress', async () => {
@@ -76,6 +97,47 @@ describe('IngestionPipeline', () => {
       expect(result.value.job.progress.total).toBe(0);
       expect(result.value.job.progress.completed).toBe(0);
       expect(result.value.job.progress.failed).toBe(0);
+    });
+  });
+
+  describe('ingestVideo', () => {
+    it('ingests a single video by id', async () => {
+      const result = await pipeline.ingestVideo('test-video');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const nodeResult = await graphStore.getNode('youtube-test-video');
+      expect(nodeResult.ok).toBe(true);
+      if (!nodeResult.ok) return;
+      expect(nodeResult.value).not.toBeNull();
+    });
+
+    it('retries transcript fetch for existing resources without excerpts', async () => {
+      await graphStore.upsertNode(
+        'Resource',
+        'youtube-test-video',
+        {
+          label: 'Test Video',
+          content: undefined,
+          metadata: {
+            videoId: 'test-video',
+            transcriptStatus: 'missing',
+          },
+        },
+        { detectNoop: true }
+      );
+
+      const result = await pipeline.ingestVideo('test-video');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const excerpts = await graphStore.queryNodes({
+        type: 'Excerpt',
+        filters: { resourceId: 'youtube-test-video' },
+      });
+      expect(excerpts.ok).toBe(true);
+      if (!excerpts.ok) return;
+      expect(excerpts.value.items.length).toBeGreaterThan(0);
     });
   });
 

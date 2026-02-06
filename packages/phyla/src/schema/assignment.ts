@@ -52,4 +52,4 @@ export const CreateAssignmentInput = TagAssignment.omit({
   assignedAt: true,
 });
 
-export type CreateAssignmentInput = z.infer<typeof CreateAssignmentInput>;
+export type CreateAssignmentInput = z.input<typeof CreateAssignmentInput>;

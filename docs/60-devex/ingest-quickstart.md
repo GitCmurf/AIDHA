@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2025-12-27
-version: '0.2'
+last_updated: 2026-02-05
+version: '0.11'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2025-12-27
+> **Version:** 0.11
+> **Last Updated:** 2026-02-05
 > **Type:** GUIDE
 
 ## Version History
@@ -24,8 +24,130 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | ----------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-11-09 | TBD    | Seed placeholder quickstart               | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History | —         | Draft  | —         |
+| 0.3     | 2026-02-04 | CMF    | Document CLI usage + yt-dlp fallback      | —         | Draft  | —         |
+| 0.4     | 2026-02-04 | CMF    | Add yt-dlp timeout flag                   | —         | Draft  | —         |
+| 0.5     | 2026-02-04 | CMF    | Add ingest status check                   | —         | Draft  | —         |
+| 0.6     | 2026-02-05 | CMF    | Add JSON status output                    | —         | Draft  | —         |
+| 0.7     | 2026-02-05 | CMF    | Document LLM claim extraction             | —         | Draft  | —         |
+| 0.8     | 2026-02-05 | CMF    | Document task creation + query filters    | —         | Draft  | —         |
+| 0.9     | 2026-02-05 | CMF    | Add task show command                     | —         | Draft  | —         |
+| 0.10    | 2026-02-05 | AI     | Align version + clarify prerequisites     | —         | Draft  | —         |
+| 0.11    | 2026-02-05 | AI     | Add code fence languages                  | —         | Draft  | —         |
 
 ## Purpose
 
-Outline how to configure API keys, run local ingestion (`pnpm ingest dev --playlist <id>`), and
-inspect outputs once the pipeline exists.
+Outline how to use API keys, run local ingestion via the YouTube CLI, and inspect outputs.
+
+## Prerequisites
+
+- `pnpm install`
+- `pnpm -C packages/reconditum build`
+- `pnpm -C packages/praecis/youtube build`
+- `yt-dlp` installed (optional; used as a fallback when direct YouTube transcript fetch fails)
+
+Optional:
+
+- `AIDHA_YTDLP_COOKIES_FILE=/path/to/cookies.txt` for gated transcripts
+- `AIDHA_DEBUG_TRANSCRIPT=1` to print transcript diagnostics
+- `AIDHA_LLM_BASE_URL` and `AIDHA_LLM_API_KEY` for LLM claim extraction
+- `AIDHA_LLM_MODEL` default model name
+- `AIDHA_LLM_CACHE_DIR` override cache path (default `./out/cache/claims`)
+- `AIDHA_LLM_TIMEOUT_MS` override LLM request timeout
+- `AIDHA_CLAIMS_PROMPT_VERSION` override prompt version (default `v1`)
+
+## Quickstart (Video)
+
+1. **Ingest**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli ingest video https://youtu.be/<id>
+   ```
+
+2. **Check ingestion status**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli ingest status https://youtu.be/<id>
+   ```
+
+   Add `--json` for machine-readable output:
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli ingest status https://youtu.be/<id> --json
+   ```
+
+3. **Extract claims**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id>
+   ```
+
+   LLM-backed extraction (optional):
+
+   ```bash
+   AIDHA_LLM_BASE_URL=https://your-llm-endpoint/v1 \
+   AIDHA_LLM_API_KEY=... \
+   pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id> \
+     --llm \
+     --model your-model \
+     --claims 15 \
+     --chunk-minutes 5 \
+     --max-chunks 20
+   ```
+
+4. **Export dossier**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli export dossier video https://youtu.be/<id>
+   ```
+
+5. **Create a task from a claim**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli task create \
+     --from-claim <claimId> \
+     --title "Follow up on this claim" \
+     --project inbox
+   ```
+
+   Optional tags:
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli task create \
+     --from-claim <claimId> \
+     --title "Follow up on this claim" \
+     --tag "research,backend"
+   ```
+
+6. **Query with filters**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli query "TypeScript" --project inbox
+   ```
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli query "TypeScript" --area <areaId> --goal <goalId>
+   ```
+
+   Note: SQLite backends use FTS5 indexing for faster claim/transcript search when available.
+
+7. **Show task context**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli task show <taskId>
+   ```
+
+## Transcript Fallbacks
+
+When direct YouTube transcript fetches fail, ingestion falls back to `yt-dlp`. You can control it
+per run:
+
+```bash
+pnpm -C packages/praecis/youtube cli ingest video https://youtu.be/<id> \
+  --ytdlp-cookies /path/to/cookies.txt \
+  --ytdlp-keep
+```
+
+- `--ytdlp-cookies`: path to Netscape cookie file
+- `--ytdlp-keep`: keep temporary subtitle files for inspection
+- `--ytdlp-bin`: custom `yt-dlp` binary path
+- `--ytdlp-timeout`: override `yt-dlp` timeout in milliseconds

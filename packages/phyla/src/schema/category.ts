@@ -41,7 +41,7 @@ export const CreateCategoryInput = Category.omit({
   updatedAt: true,
 });
 
-export type CreateCategoryInput = z.infer<typeof CreateCategoryInput>;
+export type CreateCategoryInput = z.input<typeof CreateCategoryInput>;
 
 /**
  * Input for updating a category.

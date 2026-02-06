@@ -225,7 +225,7 @@ export class InMemoryStore implements GraphStore {
     try {
       let nodes = Array.from(this.nodes.values());
       if (options?.scope === 'knowledge') {
-        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.scope !== 'operational');
+        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.['scope'] !== 'operational');
       }
       const sortedNodes = sortNodes(nodes);
       const nodeIds = new Set(sortedNodes.map(node => node.id));

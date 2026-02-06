@@ -91,6 +91,8 @@ function serializeMetadata(metadata: Record<string, unknown>): string {
 
 export class SQLiteStore implements GraphStore {
   private db: DatabaseSyncLike;
+  private ftsEnabled = false;
+  private ftsTypes = new Set<NodeType>(['Claim', 'Excerpt', 'Resource']);
 
   constructor(db: DatabaseSyncLike) {
     this.db = db;
@@ -135,6 +137,80 @@ export class SQLiteStore implements GraphStore {
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_predicate_idx ON edges (subject, predicate)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_predicate_object_idx ON edges (predicate, object)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_object_idx ON edges (subject, object)`);
+    this.initializeFts();
+  }
+
+  private initializeFts(): void {
+    try {
+      this.db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts
+        USING fts5(id, type, label, content, tokenize = 'porter');
+      `);
+      this.ftsEnabled = true;
+      this.rebuildFtsIfNeeded();
+    } catch {
+      this.ftsEnabled = false;
+    }
+  }
+
+  private rebuildFtsIfNeeded(): void {
+    if (!this.ftsEnabled) return;
+    try {
+      const nodeCount = this.db.prepare('SELECT COUNT(*) as count FROM nodes').get() as { count: number };
+      const ftsCount = this.db.prepare('SELECT COUNT(*) as count FROM nodes_fts').get() as { count: number };
+      if (ftsCount.count >= nodeCount.count) return;
+      this.db.exec('DELETE FROM nodes_fts');
+      this.db.exec(
+        `INSERT INTO nodes_fts (id, type, label, content)
+         SELECT id, type, label, COALESCE(content, '')
+         FROM nodes
+         WHERE type IN ('Claim', 'Excerpt', 'Resource')`
+      );
+    } catch {
+      this.ftsEnabled = false;
+    }
+  }
+
+  private syncFtsNode(node: GraphNode): void {
+    if (!this.ftsEnabled) return;
+    try {
+      this.db.prepare('DELETE FROM nodes_fts WHERE id = ?').run(node.id);
+      if (!this.ftsTypes.has(node.type)) return;
+      this.db.prepare(
+        'INSERT INTO nodes_fts (id, type, label, content) VALUES (?, ?, ?, ?)'
+      ).run(
+        node.id,
+        node.type,
+        node.label,
+        node.content ?? ''
+      );
+    } catch {
+      this.ftsEnabled = false;
+    }
+  }
+
+  supportsFts(): boolean {
+    return this.ftsEnabled;
+  }
+
+  searchText(query: string, types?: NodeType[]): Result<Set<string>> {
+    if (!this.ftsEnabled) {
+      return { ok: false, error: new Error('FTS not enabled') };
+    }
+    const sanitized = query.replace(/["']/g, ' ').trim();
+    if (!sanitized) {
+      return { ok: true, value: new Set() };
+    }
+    const params: unknown[] = [sanitized];
+    let typeClause = '';
+    if (types && types.length > 0) {
+      typeClause = `AND type IN (${types.map(() => '?').join(', ')})`;
+      params.push(...types);
+    }
+    const rows = this.db.prepare(
+      `SELECT id FROM nodes_fts WHERE nodes_fts MATCH ? ${typeClause}`
+    ).all(...params) as Array<{ id: string }>;
+    return { ok: true, value: new Set(rows.map(row => row.id)) };
   }
 
   async upsertNode(
@@ -172,6 +248,7 @@ export class SQLiteStore implements GraphStore {
           validated.createdAt,
           validated.updatedAt
         );
+        this.syncFtsNode(validated);
         return { ok: true, value: { node: validated, created: true, updated: false, noop: false } };
       }
 
@@ -207,6 +284,7 @@ export class SQLiteStore implements GraphStore {
         validated.updatedAt,
         validated.id
       );
+      this.syncFtsNode(validated);
       return { ok: true, value: { node: validated, created: false, updated: true, noop: false } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
@@ -381,6 +459,9 @@ export class SQLiteStore implements GraphStore {
 
   async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
     try {
+      if (this.ftsEnabled) {
+        this.db.prepare('DELETE FROM nodes_fts WHERE id = ?').run(id);
+      }
       this.db.prepare('DELETE FROM nodes WHERE id = ?').run(id);
       if (options?.cascade) {
         this.db.prepare('DELETE FROM edges WHERE subject = ? OR object = ?').run(id, id);
@@ -397,7 +478,7 @@ export class SQLiteStore implements GraphStore {
       if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
       let nodes = nodesResult.value.items;
       if (options?.scope === 'knowledge') {
-        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.scope !== 'operational');
+        nodes = nodes.filter(node => (node.metadata as Record<string, unknown>)?.['scope'] !== 'operational');
       }
       const sortedNodes = sortNodes(nodes);
       const nodeIds = new Set(sortedNodes.map(node => node.id));

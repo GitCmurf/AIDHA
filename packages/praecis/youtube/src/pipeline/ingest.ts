@@ -1,11 +1,12 @@
 /**
  * Ingestion pipeline - orchestrates YouTube ingestion.
  */
-import type { GraphStore, NodeDataInput, NodeType } from '@aidha/graph-backend';
+import type { GraphStore, NodeDataInput, NodeType, GraphNode } from '@aidha/graph-backend';
 import type { TaxonomyRegistry } from '@aidha/taxonomy';
 import type { YouTubeClient } from '../client/types.js';
 import type { PipelineConfig, IngestionResult, Result } from './types.js';
-import type { IngestionJob, JobError } from '../schema/index.js';
+import type { IngestionJob, JobError, Transcript } from '../schema/index.js';
+import { hashId } from '../utils/ids.js';
 
 /**
  * Generate unique ID.
@@ -114,6 +115,13 @@ export class IngestionPipeline {
   }
 
   /**
+   * Ingest a single YouTube video.
+   */
+  async ingestVideo(videoId: string): Promise<Result<{ nodeId: string; tagsAssigned: number; created: boolean }>> {
+    return this.processVideo(videoId);
+  }
+
+  /**
    * Process a single video.
    */
   private async processVideo(videoId: string): Promise<
@@ -126,9 +134,54 @@ export class IngestionPipeline {
     }
     if (existingNode.value) {
       this.processedVideos.add(videoId);
+      let tagsAssigned = 0;
+      const resource = existingNode.value;
+      const excerptsResult = await this.graphStore.queryNodes({
+        type: 'Excerpt',
+        filters: { resourceId: nodeId },
+      });
+      if (!excerptsResult.ok) {
+        return { ok: false, error: excerptsResult.error };
+      }
+      const hasExcerpts = excerptsResult.value.items.length > 0;
+      const transcriptStatus = resource.metadata?.['transcriptStatus'];
+
+      if (!hasExcerpts || transcriptStatus !== 'available') {
+        const transcriptResult = await this.youtubeClient.fetchTranscript(videoId);
+        const transcript = transcriptResult.ok ? transcriptResult.value : null;
+
+        if (transcript) {
+          const excerptResult = await this.storeTranscriptExcerpts(nodeId, videoId, transcript);
+          if (!excerptResult.ok) {
+            return { ok: false, error: excerptResult.error };
+          }
+          if (transcript.fullText) {
+            tagsAssigned = await this.assignTags(nodeId, transcript.fullText);
+          }
+        }
+
+        const updatedMetadata: Record<string, unknown> = {
+          ...(resource.metadata as Record<string, unknown>),
+          transcriptStatus: transcriptResult.ok ? 'available' : 'missing',
+          transcriptError: transcriptResult.ok ? undefined : transcriptResult.error.message,
+          transcriptLanguage: transcript?.language,
+        };
+
+        const updateData: NodeDataInput = {
+          label: resource.label,
+          content: transcript?.fullText ?? resource.content,
+          metadata: updatedMetadata,
+        };
+
+        const updateResult = await this.graphStore.upsertNode('Resource', nodeId, updateData, { detectNoop: true });
+        if (!updateResult.ok) {
+          return { ok: false, error: updateResult.error };
+        }
+      }
+
       return {
         ok: true,
-        value: { nodeId, tagsAssigned: 0, created: false }
+        value: { nodeId, tagsAssigned, created: false }
       };
     }
 
@@ -143,6 +196,8 @@ export class IngestionPipeline {
     // Fetch transcript (optional, don't fail if unavailable)
     const transcriptResult = await this.youtubeClient.fetchTranscript(videoId);
     const transcript = transcriptResult.ok ? transcriptResult.value : null;
+    const transcriptStatus = transcriptResult.ok ? 'available' : 'missing';
+    const transcriptError = transcriptResult.ok ? undefined : transcriptResult.error.message;
 
     // Create graph node
     const nodeType: NodeType = 'Resource';
@@ -155,8 +210,13 @@ export class IngestionPipeline {
         channelName: video.channelName,
         duration: video.duration,
         publishedAt: video.publishedAt,
+        description: video.description,
+        url: `https://www.youtube.com/watch?v=${video.id}`,
         source: 'youtube',
         thumbnailUrl: video.thumbnailUrl,
+        transcriptStatus,
+        transcriptError,
+        transcriptLanguage: transcript?.language,
       },
     };
 
@@ -167,6 +227,14 @@ export class IngestionPipeline {
 
     // Mark as processed
     this.processedVideos.add(videoId);
+
+    // Store transcript excerpts when available
+    if (transcript) {
+      const excerptResult = await this.storeTranscriptExcerpts(nodeId, video.id, transcript);
+      if (!excerptResult.ok) {
+        return { ok: false, error: excerptResult.error };
+      }
+    }
 
     // Assign tags based on content (simple keyword matching for MVP)
     let tagsAssigned = 0;
@@ -211,5 +279,50 @@ export class IngestionPipeline {
     }
 
     return assigned;
+  }
+
+  private async storeTranscriptExcerpts(
+    resourceId: string,
+    videoId: string,
+    transcript: Transcript
+  ): Promise<Result<{ created: number }>> {
+    let created = 0;
+    for (const [index, segment] of transcript.segments.entries()) {
+      const excerptId = hashId('excerpt', [
+        videoId,
+        index,
+        segment.start,
+        segment.duration,
+        segment.text,
+      ]);
+      const label = `Excerpt ${videoId} @${segment.start}s`;
+      const data: NodeDataInput = {
+        label,
+        content: segment.text,
+        metadata: {
+          videoId,
+          resourceId,
+          start: segment.start,
+          duration: segment.duration,
+          end: segment.start + segment.duration,
+          sequence: index,
+          source: 'youtube',
+        },
+      };
+      const upsert = await this.graphStore.upsertNode('Excerpt', excerptId, data, { detectNoop: true });
+      if (!upsert.ok) return upsert;
+      if (upsert.value.created) created++;
+
+      const edge = await this.graphStore.upsertEdge(
+        resourceId,
+        'resourceHasExcerpt',
+        excerptId,
+        { metadata: { sequence: index, start: segment.start, duration: segment.duration } },
+        { detectNoop: true }
+      );
+      if (!edge.ok) return edge;
+    }
+
+    return { ok: true, value: { created } };
   }
 }

@@ -44,7 +44,7 @@ export const CreateTagInput = Tag.omit({
   updatedAt: true,
 });
 
-export type CreateTagInput = z.infer<typeof CreateTagInput>;
+export type CreateTagInput = z.input<typeof CreateTagInput>;
 
 /**
  * Input for updating a tag.
