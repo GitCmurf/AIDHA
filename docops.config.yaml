@@ -24,6 +24,7 @@ namespaces:
           FDD: 30-fdd
           DESIGN: 40-design
           RUNBOOK: 50-runbooks
+          TESTING: 55-testing
           GUIDE: 60-devex
           REF: 60-devex
           SPEC: 70-specs

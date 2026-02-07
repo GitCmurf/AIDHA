@@ -7,3 +7,4 @@ jsonld
 STRAT
 strat
 clientA
+allEdges

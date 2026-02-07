@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-02-06
-version: '0.13'
+last_updated: 2026-02-07
+version: '0.16'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.13
-> **Last Updated:** 2026-02-06
+> **Version:** 0.16
+> **Last Updated:** 2026-02-07
 > **Type:** GUIDE
 
 ## Version History
@@ -35,6 +35,9 @@ docops_version: '2.0'
 | 0.11    | 2026-02-05 | AI     | Add code fence languages                  | —         | Draft  | —         |
 | 0.12    | 2026-02-06 | AI     | Note claim state default                  | —         | Draft  | —         |
 | 0.13    | 2026-02-06 | AI     | Document two-pass claim extraction        | —         | Draft  | —         |
+| 0.14    | 2026-02-06 | AI     | Add review, related, and diagnose usage  | —         | Draft  | —         |
+| 0.15    | 2026-02-07 | AI     | Add project create helper usage          | —         | Draft  | —         |
+| 0.16    | 2026-02-07 | AI     | Add split dossier and transcript export usage | —      | Draft  | —         |
 
 ## Purpose
 
@@ -108,7 +111,26 @@ Optional:
    pnpm -C packages/praecis/youtube cli export dossier video https://youtu.be/<id>
    ```
 
-5. **Create a task from a claim**
+   Split accepted vs draft-inclusive outputs:
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli export dossier video https://youtu.be/<id> \
+     --split-states \
+     --out ./out/dossier-<id>.md
+   ```
+
+   This writes:
+
+   - `./out/dossier-<id>.md` (accepted/default states)
+   - `./out/dossier-<id>.draft.md` (accepted + draft)
+
+5. **Export transcript JSON**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli export transcript video https://youtu.be/<id>
+   ```
+
+6. **Create a task from a claim**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task create \
@@ -126,7 +148,7 @@ Optional:
      --tag "research,backend"
    ```
 
-6. **Query with filters**
+7. **Query with filters**
 
    ```bash
    pnpm -C packages/praecis/youtube cli query "TypeScript" --project inbox
@@ -138,10 +160,47 @@ Optional:
 
    Note: SQLite backends use FTS5 indexing for faster claim/transcript search when available.
 
-7. **Show task context**
+8. **Show task context**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task show <taskId>
+   ```
+
+9. **Find related claims**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli related --claim <claimId> --limit 5
+   ```
+
+10. **Review drafts in batches**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli review next https://youtu.be/<id> --state draft --limit 10
+   ```
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli review apply \
+     --claims <id1,id2> \
+     --accept \
+     --tag "research,backend"
+   ```
+
+1. **Run diagnostics**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli diagnose transcript https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli diagnose extract https://youtu.be/<id>
+   ```
+
+1. **Create area/goal/project links**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli area create --name "Health"
+   pnpm -C packages/praecis/youtube cli goal create --name "Lower BP" --area area-health
+   pnpm -C packages/praecis/youtube cli project create \
+     --name "Meditation Habit" \
+     --area area-health \
+     --goal goal-lower-bp
    ```
 
 ## Transcript Fallbacks

@@ -3,7 +3,12 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { createTaskFromClaim, getTaskContext, DEFAULT_INBOX_PROJECT_ID } from '../src/tasks/index.js';
+import {
+  createTaskFromClaim,
+  createTaskStandalone,
+  getTaskContext,
+  DEFAULT_INBOX_PROJECT_ID,
+} from '../src/tasks/index.js';
 
 describe('Task workflow', () => {
   let store: InMemoryStore;
@@ -77,5 +82,28 @@ describe('Task workflow', () => {
     const claim = context.value.claims[0];
     expect(claim.excerptText).toContain('Use hashing');
     expect(claim.timestampUrl).toContain('t=90s');
+  });
+
+  it('creates standalone task without claim linkage', async () => {
+    const created = await createTaskStandalone(store, {
+      title: 'Explore ingestion diagnostics',
+      projectId: 'inbox',
+      tags: ['ops'],
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const taskNode = await store.getNode(created.value.taskId);
+    expect(taskNode.ok).toBe(true);
+    if (!taskNode.ok) return;
+    expect(taskNode.value?.type).toBe('Task');
+
+    const motivationEdges = await store.getEdges({
+      subject: created.value.taskId,
+      predicate: 'taskMotivatedBy',
+    });
+    expect(motivationEdges.ok).toBe(true);
+    if (!motivationEdges.ok) return;
+    expect(motivationEdges.value.items.length).toBe(0);
   });
 });

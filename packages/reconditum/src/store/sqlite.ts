@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createRequire } from 'node:module';
 import type {
   GraphStore,
@@ -93,6 +94,10 @@ export class SQLiteStore implements GraphStore {
   private db: DatabaseSyncLike;
   private ftsEnabled = false;
   private ftsTypes = new Set<NodeType>(['Claim', 'Excerpt', 'Resource']);
+  private transactionDepth = 0;
+  private transactionQueue: Promise<void> = Promise.resolve();
+  private transactionOwner?: symbol;
+  private readonly transactionContext = new AsyncLocalStorage<symbol>();
 
   constructor(db: DatabaseSyncLike) {
     this.db = db;
@@ -109,6 +114,86 @@ export class SQLiteStore implements GraphStore {
     const DatabaseSync = getDatabaseSyncCtor();
     const db = new DatabaseSync(':memory:');
     return new SQLiteStore(db);
+  }
+
+  private async withTransactionLock<T>(work: () => Promise<T>): Promise<T> {
+    const previous = this.transactionQueue;
+    let release: (() => void) | undefined;
+    this.transactionQueue = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release?.();
+    }
+  }
+
+  async runInTransaction<T>(work: () => Promise<Result<T>>): Promise<Result<T>> {
+    const contextOwner = this.transactionContext.getStore();
+    if (contextOwner && contextOwner === this.transactionOwner) {
+      this.transactionDepth += 1;
+      try {
+        return await work();
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      } finally {
+        this.transactionDepth -= 1;
+      }
+    }
+
+    return this.withTransactionLock(async () => {
+      const ownerToken = Symbol('sqlite-store-transaction');
+      this.transactionOwner = ownerToken;
+      try {
+        this.db.exec('BEGIN IMMEDIATE');
+      } catch (error) {
+        this.transactionOwner = undefined;
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      }
+
+      this.transactionDepth += 1;
+      try {
+        const result = await this.transactionContext.run(ownerToken, async () => work());
+        if (!result.ok) {
+          try {
+            this.db.exec('ROLLBACK');
+          } catch {
+            // Preserve the original operation error when rollback also fails.
+          }
+          return result;
+        }
+        try {
+          this.db.exec('COMMIT');
+        } catch (commitError) {
+          try {
+            this.db.exec('ROLLBACK');
+          } catch {
+            // Ignore rollback failure after commit failure.
+          }
+          return {
+            ok: false,
+            error: commitError instanceof Error
+              ? new Error(`Transaction commit failed: ${commitError.message}`)
+              : new Error(`Transaction commit failed: ${String(commitError)}`),
+          };
+        }
+        return result;
+      } catch (error) {
+        try {
+          this.db.exec('ROLLBACK');
+        } catch {
+          // Ignore rollback failure so we can return the original error.
+        }
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      } finally {
+        this.transactionDepth -= 1;
+        if (this.transactionDepth === 0) {
+          this.transactionOwner = undefined;
+        }
+      }
+    });
   }
 
   private initialize(): void {

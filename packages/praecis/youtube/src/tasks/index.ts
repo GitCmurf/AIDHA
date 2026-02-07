@@ -18,6 +18,12 @@ export interface TaskCreateResult {
   createdTask: boolean;
 }
 
+export interface StandaloneTaskCreateInput {
+  title: string;
+  projectId?: string;
+  tags?: string[];
+}
+
 export interface TaskClaimContext {
   claimId: string;
   claimText: string;
@@ -183,6 +189,65 @@ export async function createTaskFromClaim(
       { detectNoop: true }
     );
     if (!edge.ok) return edge;
+  }
+
+  return {
+    ok: true,
+    value: {
+      taskId,
+      projectId,
+      createdProject: projectResult.value.created,
+      createdTask: taskUpsert.value.created,
+    },
+  };
+}
+
+export async function createTaskStandalone(
+  store: GraphStore,
+  input: StandaloneTaskCreateInput
+): Promise<Result<TaskCreateResult>> {
+  const title = input.title.trim();
+  if (!title) {
+    return { ok: false, error: new Error('Task title is required.') };
+  }
+  const projectId = normalizeProjectId(input.projectId);
+  const projectResult = await ensureProject(store, projectId);
+  if (!projectResult.ok) return projectResult;
+
+  const taskId = hashId('task', [projectId, title]);
+  const taskData: NodeDataInput = {
+    label: title,
+    content: title,
+    metadata: {
+      projectId,
+      status: 'open',
+      source: 'manual',
+    },
+  };
+  const taskUpsert = await store.upsertNode('Task', taskId, taskData, { detectNoop: true });
+  if (!taskUpsert.ok) return taskUpsert;
+
+  const edge = await store.upsertEdge(
+    taskId,
+    'taskPartOfProject',
+    projectId,
+    { metadata: {} },
+    { detectNoop: true }
+  );
+  if (!edge.ok) return edge;
+
+  for (const tag of input.tags ?? []) {
+    if (!tag.trim()) continue;
+    const tagResult = await ensureTag(store, tag);
+    if (!tagResult.ok) return tagResult;
+    const about = await store.upsertEdge(
+      taskId,
+      'aboutTag',
+      tagResult.value.id,
+      { metadata: {} },
+      { detectNoop: true }
+    );
+    if (!about.ok) return about;
   }
 
   return {

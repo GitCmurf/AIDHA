@@ -9,6 +9,39 @@ import { IngestionPipeline } from '../src/pipeline/ingest.js';
 import { ClaimExtractionPipeline } from '../src/extract/claims.js';
 import { ReferenceExtractionPipeline } from '../src/extract/references.js';
 
+class ConcurrentResourceMetadataStore extends InMemoryStore {
+  private didUpdateResource = false;
+
+  override async upsertNode(
+    type: Parameters<InMemoryStore['upsertNode']>[0],
+    id: Parameters<InMemoryStore['upsertNode']>[1],
+    data: Parameters<InMemoryStore['upsertNode']>[2],
+    options?: Parameters<InMemoryStore['upsertNode']>[3]
+  ): ReturnType<InMemoryStore['upsertNode']> {
+    if (!this.didUpdateResource && type === 'Claim') {
+      this.didUpdateResource = true;
+      const resource = await this.getNode('youtube-test-video');
+      if (resource.ok && resource.value) {
+        const metadata = {
+          ...(resource.value.metadata as Record<string, unknown>),
+          concurrentMetadata: 'keep-me',
+        };
+        await super.upsertNode(
+          'Resource',
+          resource.value.id,
+          {
+            label: resource.value.label,
+            content: resource.value.content,
+            metadata,
+          },
+          { detectNoop: true }
+        );
+      }
+    }
+    return super.upsertNode(type, id, data, options);
+  }
+}
+
 describe('Extraction pipelines', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
@@ -75,5 +108,28 @@ describe('Extraction pipelines', () => {
     expect(edges.ok).toBe(true);
     if (!edges.ok) return;
     expect(edges.value.items.length).toBeGreaterThan(0);
+  });
+
+  it('preserves concurrent resource metadata while writing claim run stats', async () => {
+    const concurrentStore = new ConcurrentResourceMetadataStore();
+    const concurrentIngestion = new IngestionPipeline({
+      graphStore: concurrentStore,
+      taxonomyRegistry,
+      youtubeClient,
+    });
+
+    await concurrentIngestion.ingestPlaylist('test-playlist');
+    const claimPipeline = new ClaimExtractionPipeline({ graphStore: concurrentStore });
+    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const resource = await concurrentStore.getNode('youtube-test-video');
+    expect(resource.ok).toBe(true);
+    if (!resource.ok) return;
+    expect(resource.value?.metadata?.['concurrentMetadata']).toBe('keep-me');
+    expect(resource.value?.metadata?.['lastClaimRunAt']).toBeTypeOf('string');
+
+    await concurrentStore.close();
   });
 });

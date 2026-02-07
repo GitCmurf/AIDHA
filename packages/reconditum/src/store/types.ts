@@ -99,6 +99,10 @@ export interface GraphSnapshot {
   edges: GraphEdge[];
 }
 
+export interface TransactionCapableStore {
+  runInTransaction<T>(work: () => Promise<Result<T>>): Promise<Result<T>>;
+}
+
 /**
  * GraphStore interface - abstraction over graph storage backends.
  *
@@ -123,5 +127,6 @@ export interface GraphStore {
   getEdges(options?: QueryEdgesOptions): Promise<Result<QueryResult<GraphEdge>>>;
   deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>>;
   exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>>;
+  runInTransaction?<T>(work: () => Promise<Result<T>>): Promise<Result<T>>;
   close(): Promise<void>;
 }

@@ -1,33 +1,39 @@
 # AIDHA Workspace
 
 This repository hosts a pnpm monorepo plus DocOps infrastructure for graph-native personal knowledge
-tooling. Read `AGENTS.md` for day-to-day workflow guidance and
+tooling to create an AI-assistant-friendly 'personal cognition graph manager'.
+
+Read `AGENTS.md` for day-to-day workflow guidance and
 `docs/00-governance/gov-001-document-standards.md` for documentation rules.
+
+The MVP seeks to prove the concept using YouTube video transcripts as the first ingestion vector,
+before moving on to:
+
+1. other ingestion vectors
+   - personal voice notes, web pages, PDFs, office docs, etc.
+2. expanding out taxonomy and tagging
+3. task and project management
+   - aiming for AI-assisted 'next action' advice
 
 ## Quick Start
 
 1. **Clone & prerequisites**
-
    - Install [pnpm](https://pnpm.io/) and Python 3.12+
    - `git clone <repo>`
 
 2. **Install dependencies**
-
    - `pnpm install` (workspace metadata/scripts)
    - `python3 -m venv .venv && source .venv/bin/activate`
    - `python -m pip install -r docs/requirements-docs.txt` (if used)
 
 3. **Set up tooling**
-
    - `pip install pre-commit && pre-commit install`
 
 4. **Develop**
-
    - `pnpm lint` / `pnpm test` for packages (currently placeholders)
    - `pnpm docs:serve` to preview the MkDocs site locally
 
 5. **Before pushing**
-
    - `pnpm docs:build` (runs catalog + validation + mkdocs)
    - ensure all docs follow the metadata + Version History format
 

@@ -21,6 +21,7 @@ export type {
   ExportSnapshotOptions,
   ExportScope,
   GraphSnapshot,
+  TransactionCapableStore,
 } from './types.js';
 
 export { LevelGraphStore } from './levelgraph.js';

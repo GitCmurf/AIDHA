@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { SQLiteStore } from '@aidha/graph-backend';
 import {
@@ -13,13 +14,27 @@ import {
   ReferenceExtractionPipeline,
   DossierExporter,
   searchClaims,
+  findRelatedClaims,
   createTaskFromClaim,
+  createTaskStandalone,
   getTaskContext,
   formatTaskContext,
+  createArea,
+  createGoal,
+  createProject,
   normalizeProjectIdForCli,
+  getReviewQueue,
+  applyReviewAction,
+  diagnoseTranscript,
+  diagnoseExtraction,
+  formatTranscriptDiagnosis,
+  formatExtractionDiagnosis,
 } from './index.js';
 import { parseArgs } from './cli/parse.js';
+import { CLI_USAGE_TEXT } from './cli/help.js';
 import { formatIngestionStatus } from './cli/status.js';
+import type { ClaimState } from './utils/claim-state.js';
+import type { Result } from './pipeline/types.js';
 
 type CliOptions = Record<string, string | boolean>;
 
@@ -72,29 +87,52 @@ function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
+function parseClaimStates(options: CliOptions): ClaimState[] {
+  const statesOption = options['states'];
+  const includeDrafts = optionBool(options, 'include-drafts');
+  const includeRejected = optionBool(options, 'include-rejected');
+  const allowed = new Set<ClaimState>();
+
+  if (typeof statesOption === 'string' && statesOption.trim().length > 0) {
+    const parts = statesOption.split(',').map(part => part.trim().toLowerCase());
+    for (const part of parts) {
+      if (part === 'draft' || part === 'accepted' || part === 'rejected') {
+        allowed.add(part);
+      }
+    }
+  } else {
+    allowed.add('accepted');
+    if (includeDrafts) allowed.add('draft');
+    if (includeRejected) allowed.add('rejected');
+  }
+
+  if (allowed.size === 0) {
+    allowed.add('accepted');
+    if (includeDrafts) allowed.add('draft');
+    if (includeRejected) allowed.add('rejected');
+  }
+
+  return Array.from(allowed.values());
+}
+
+function parseCsvList(options: CliOptions, key: string): string[] {
+  const value = options[key];
+  if (typeof value !== 'string' || value.trim().length === 0) return [];
+  return value.split(',').map(item => item.trim()).filter(Boolean);
+}
+
 async function ensureDir(path: string): Promise<void> {
   await mkdir(path, { recursive: true });
 }
 
+function deriveDraftPath(path: string): string {
+  if (path.endsWith('.draft.md')) return path;
+  if (path.endsWith('.md')) return path.slice(0, -3) + '.draft.md';
+  return `${path}.draft.md`;
+}
+
 function printHelp(): void {
-  console.log(`AIDHA YouTube CLI
-
-Usage:
-  aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>]
-  aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>]
-  aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]
-  aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>]
-  aidha-youtube extract refs <videoIdOrUrl> [--db <path>]
-  aidha-youtube export dossier video <videoIdOrUrl> [--db <path>] [--out <path>]
-  aidha-youtube export dossier playlist <playlistIdOrUrl> [--db <path>] [--out <path>] [--videos <id1,id2>]
-  aidha-youtube query <text...> [--db <path>] [--limit <n>] [--project <id>] [--area <id>] [--goal <id>]
-  aidha-youtube task create --from-claim <claimId> --title "<title>" [--project <id>] [--tag <a,b>] [--db <path>]
-  aidha-youtube task show <taskId> [--db <path>]
-
-Defaults:
-  --db ./out/aidha.sqlite
-  --out ./out/dossier-<id>.md
-`);
+  console.log(CLI_USAGE_TEXT);
 }
 
 async function openStore(options: CliOptions): Promise<SQLiteStore> {
@@ -262,19 +300,49 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
 }
 
 async function runExport(positionals: string[], options: CliOptions): Promise<number> {
+  const kind = positionals[1];
   const entity = positionals[2];
   const target = positionals[3];
-  if (!entity || !target) {
-    console.error('Usage: export dossier <video|playlist> <idOrUrl>');
+  if (!kind || !entity || !target) {
+    console.error('Usage: export <dossier|transcript> <video|playlist> <idOrUrl>');
     return 1;
   }
 
   const store = await openStore(options);
   const exporter = new DossierExporter({ graphStore: store });
+  const splitStates = optionBool(options, 'split-states');
+  const states = parseClaimStates(options);
+  const pretty = optionBool(options, 'pretty');
 
-  if (entity === 'video') {
+  const resolvePlaylistInput = async (): Promise<Result<{
+    playlistId: string;
+    url: string;
+    videoIds: string[];
+  }>> => {
+    const playlistId = parsePlaylistId(target);
+    let videoIds: string[] = [];
+    const videosOption = options['videos'];
+    if (typeof videosOption === 'string' && videosOption.length > 0) {
+      videoIds = videosOption.split(',').map(v => v.trim()).filter(Boolean);
+    } else {
+      const client = optionBool(options, 'mock') ? new MockYouTubeClient() : new RealYouTubeClient();
+      const playlistResult = await client.fetchPlaylist(playlistId);
+      if (!playlistResult.ok) return playlistResult;
+      videoIds = playlistResult.value.videoIds;
+    }
+    return {
+      ok: true,
+      value: {
+        playlistId,
+        url: `https://www.youtube.com/playlist?list=${playlistId}`,
+        videoIds,
+      },
+    };
+  };
+
+  if (kind === 'dossier' && entity === 'video') {
     const videoId = parseVideoId(target);
-    const result = await exporter.renderVideoDossier(videoId);
+    const result = await exporter.renderVideoDossier(videoId, { states });
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
@@ -284,40 +352,104 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
     console.log(`Wrote dossier: ${resolve(outPath)}`);
-  } else if (entity === 'playlist') {
-    const playlistId = parsePlaylistId(target);
-    let videoIds: string[] = [];
-    const videosOption = options['videos'];
-    if (typeof videosOption === 'string' && videosOption.length > 0) {
-      videoIds = videosOption.split(',').map(v => v.trim()).filter(Boolean);
-    } else {
-      const client = optionBool(options, 'mock') ? new MockYouTubeClient() : new RealYouTubeClient();
-      const playlistResult = await client.fetchPlaylist(playlistId);
-      if (!playlistResult.ok) {
-        console.error(playlistResult.error.message);
+    if (splitStates) {
+      const draftResult = await exporter.renderVideoDossier(videoId, { states: ['accepted', 'draft'] });
+      if (!draftResult.ok) {
+        console.error(draftResult.error.message);
         await store.close();
         return 1;
       }
-      videoIds = playlistResult.value.videoIds;
+      const draftPath = deriveDraftPath(outPath);
+      await writeFile(draftPath, draftResult.value, 'utf-8');
+      console.log(`Wrote draft dossier: ${resolve(draftPath)}`);
     }
-
-    const result = await exporter.renderPlaylistDossier({
-      playlistId,
-      title: undefined,
-      url: `https://www.youtube.com/playlist?list=${playlistId}`,
-      videoIds,
-    });
+  } else if (kind === 'dossier' && entity === 'playlist') {
+    const playlistInput = await resolvePlaylistInput();
+    if (!playlistInput.ok) {
+      console.error(playlistInput.error.message);
+      await store.close();
+      return 1;
+    }
+    const result = await exporter.renderPlaylistDossier(
+      {
+        playlistId: playlistInput.value.playlistId,
+        title: undefined,
+        url: playlistInput.value.url,
+        videoIds: playlistInput.value.videoIds,
+      },
+      { states }
+    );
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
       return 1;
     }
-    const outPath = optionString(options, 'out', `./out/dossier-playlist-${playlistId}.md`);
+    const outPath = optionString(options, 'out', `./out/dossier-playlist-${playlistInput.value.playlistId}.md`);
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
     console.log(`Wrote dossier: ${resolve(outPath)}`);
+    if (splitStates) {
+      const draftResult = await exporter.renderPlaylistDossier(
+        {
+          playlistId: playlistInput.value.playlistId,
+          title: undefined,
+          url: playlistInput.value.url,
+          videoIds: playlistInput.value.videoIds,
+        },
+        { states: ['accepted', 'draft'] }
+      );
+      if (!draftResult.ok) {
+        console.error(draftResult.error.message);
+        await store.close();
+        return 1;
+      }
+      const draftPath = deriveDraftPath(outPath);
+      await writeFile(draftPath, draftResult.value, 'utf-8');
+      console.log(`Wrote draft dossier: ${resolve(draftPath)}`);
+    }
+  } else if (kind === 'transcript' && entity === 'video') {
+    const videoId = parseVideoId(target);
+    const result = await exporter.exportTranscriptJson(videoId, { pretty });
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+    const outPath = optionString(options, 'out', `./out/transcript-${videoId}.json`);
+    await ensureDir(dirname(outPath));
+    await writeFile(outPath, result.value, 'utf-8');
+    console.log(`Wrote transcript: ${resolve(outPath)}`);
+  } else if (kind === 'transcript' && entity === 'playlist') {
+    const playlistInput = await resolvePlaylistInput();
+    if (!playlistInput.ok) {
+      console.error(playlistInput.error.message);
+      await store.close();
+      return 1;
+    }
+    const result = await exporter.exportPlaylistTranscriptJson(
+      {
+        playlistId: playlistInput.value.playlistId,
+        title: undefined,
+        url: playlistInput.value.url,
+        videoIds: playlistInput.value.videoIds,
+      },
+      { pretty }
+    );
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+    const outPath = optionString(
+      options,
+      'out',
+      `./out/transcript-playlist-${playlistInput.value.playlistId}.json`
+    );
+    await ensureDir(dirname(outPath));
+    await writeFile(outPath, result.value, 'utf-8');
+    console.log(`Wrote transcript: ${resolve(outPath)}`);
   } else {
-    console.error('Unknown export target. Use video or playlist.');
+    console.error('Unknown export target. Use dossier/transcript with video/playlist.');
     await store.close();
     return 1;
   }
@@ -337,12 +469,14 @@ async function runQuery(positionals: string[], options: CliOptions): Promise<num
   const project = optionString(options, 'project', '');
   const area = optionString(options, 'area', '');
   const goal = optionString(options, 'goal', '');
+  const states = parseClaimStates(options);
   const result = await searchClaims(store, {
     query: queryText,
     limit,
     projectId: project ? normalizeProjectIdForCli(project) : undefined,
     areaId: area || undefined,
     goalId: goal || undefined,
+    states,
   });
   if (!result.ok) {
     console.error(result.error.message);
@@ -366,6 +500,170 @@ async function runQuery(positionals: string[], options: CliOptions): Promise<num
   return 0;
 }
 
+async function runRelated(positionals: string[], options: CliOptions): Promise<number> {
+  const claimId = optionString(options, 'claim', '');
+  if (!claimId) {
+    console.error('Usage: related --claim <claimId>');
+    return 1;
+  }
+  const store = await openStore(options);
+  const limit = optionNumber(options, 'limit', 10);
+  const includeDrafts = optionBool(options, 'include-drafts');
+  const result = await findRelatedClaims(store, {
+    claimId,
+    limit,
+    includeDrafts,
+  });
+  if (!result.ok) {
+    console.error(result.error.message);
+    await store.close();
+    return 1;
+  }
+  if (result.value.length === 0) {
+    console.log('No related claims found.');
+  } else {
+    for (const hit of result.value) {
+      console.log(`- [${hit.timestampLabel}] ${hit.claimText}`);
+      if (hit.timestampUrl) console.log(`  ${hit.timestampUrl}`);
+      console.log(
+        `  score=${hit.score.toFixed(2)} refs=${hit.sharedReferenceCount} tags=${hit.sharedTagCount} token=${hit.tokenSimilarity.toFixed(2)}`
+      );
+      console.log(`  Source: ${hit.resourceTitle}`);
+    }
+  }
+  await store.close();
+  return 0;
+}
+
+async function runReview(positionals: string[], options: CliOptions): Promise<number> {
+  const action = positionals[1];
+  if (!action) {
+    console.error('Usage: review <next|apply> ...');
+    return 1;
+  }
+  const store = await openStore(options);
+
+  if (action === 'next') {
+    const target = positionals[2];
+    const state = optionString(options, 'state', 'draft').toLowerCase();
+    const states: ClaimState[] = [];
+    if (state === 'all') {
+      states.push('draft', 'accepted', 'rejected');
+    } else if (state === 'accepted' || state === 'draft' || state === 'rejected') {
+      states.push(state);
+    } else {
+      states.push('draft');
+    }
+    const limit = optionNumber(options, 'limit', 10);
+    const result = await getReviewQueue(store, {
+      videoId: target ? parseVideoId(target) : undefined,
+      limit,
+      states,
+    });
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+    if (optionBool(options, 'json')) {
+      console.log(JSON.stringify(result.value, null, 2));
+    } else if (result.value.length === 0) {
+      console.log('Review queue is empty for the selected scope.');
+    } else {
+      for (const item of result.value) {
+        console.log(`- ${item.claimId} [${item.claimState}] [${item.timestampLabel}] ${item.claimText}`);
+        if (item.timestampUrl) console.log(`  ${item.timestampUrl}`);
+        if (item.excerptText) console.log(`  Excerpt: ${item.excerptText}`);
+        console.log(`  Source: ${item.resourceTitle}`);
+      }
+    }
+  } else if (action === 'apply') {
+    const claimIds = parseCsvList(options, 'claims');
+    if (claimIds.length === 0) {
+      console.error('Missing --claims <id1,id2>.');
+      await store.close();
+      return 1;
+    }
+    const explicitState = optionString(options, 'state', '').toLowerCase();
+    let state: ClaimState | undefined;
+    if (optionBool(options, 'accept')) state = 'accepted';
+    else if (optionBool(options, 'reject')) state = 'rejected';
+    else if (optionBool(options, 'draft')) state = 'draft';
+    else if (explicitState === 'accepted' || explicitState === 'draft' || explicitState === 'rejected') {
+      state = explicitState;
+    }
+    const text = optionString(options, 'text', '');
+    const tags = parseTags(options);
+    const taskTitle = optionString(options, 'task-title', '');
+    const project = optionString(options, 'project', '');
+
+    const result = await applyReviewAction(store, {
+      claimIds,
+      state,
+      text: text || undefined,
+      tags,
+      createTask: taskTitle
+        ? {
+            title: taskTitle,
+            projectId: project || undefined,
+          }
+        : undefined,
+    });
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+    console.log(
+      `Review applied: claims=${result.value.updatedClaims} tags=${result.value.updatedTags} tasks=${result.value.createdTasks}`
+    );
+  } else {
+    console.error('Unknown review action. Use next or apply.');
+    await store.close();
+    return 1;
+  }
+
+  await store.close();
+  return 0;
+}
+
+async function runDiagnose(positionals: string[], options: CliOptions): Promise<number> {
+  const mode = positionals[1];
+  const target = positionals[2];
+  if (!mode || !target) {
+    console.error('Usage: diagnose <transcript|extract> <videoIdOrUrl>');
+    return 1;
+  }
+  const videoId = parseVideoId(target);
+
+  if (mode === 'transcript') {
+    const client = optionBool(options, 'mock') ? new MockYouTubeClient() : new RealYouTubeClient();
+    const result = await diagnoseTranscript(client, videoId);
+    if (!result.ok) {
+      console.error(result.error.message);
+      return 1;
+    }
+    console.log(formatTranscriptDiagnosis(result.value, optionBool(options, 'json')));
+    return 0;
+  }
+
+  if (mode === 'extract') {
+    const store = await openStore(options);
+    const result = await diagnoseExtraction(store, videoId);
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+    console.log(formatExtractionDiagnosis(result.value, optionBool(options, 'json')));
+    await store.close();
+    return 0;
+  }
+
+  console.error('Unknown diagnose mode. Use transcript or extract.');
+  return 1;
+}
+
 function parseTags(options: CliOptions): string[] {
   const raw = optionString(options, 'tag', optionString(options, 'tags', ''));
   if (!raw) return [];
@@ -382,11 +680,6 @@ async function runTask(positionals: string[], options: CliOptions): Promise<numb
 
   if (action === 'create') {
     const claimId = optionString(options, 'from-claim', '');
-    if (!claimId) {
-      console.error('Missing --from-claim <claimId>.');
-      await store.close();
-      return 1;
-    }
     const title = optionString(options, 'title', '');
     if (!title) {
       console.error('Missing --title "<title>".');
@@ -395,12 +688,45 @@ async function runTask(positionals: string[], options: CliOptions): Promise<numb
     }
     const projectId = optionString(options, 'project', '');
     const tags = parseTags(options);
-    const result = await createTaskFromClaim(store, {
-      claimId,
-      title,
-      projectId: projectId || undefined,
-      tags,
-    });
+    let result:
+      | Awaited<ReturnType<typeof createTaskFromClaim>>
+      | Awaited<ReturnType<typeof createTaskStandalone>>;
+    if (claimId) {
+      result = await createTaskFromClaim(store, {
+        claimId,
+        title,
+        projectId: projectId || undefined,
+        tags,
+      });
+    } else {
+      const suggestions = await searchClaims(store, {
+        query: title,
+        limit: 5,
+        states: ['accepted', 'draft'],
+      });
+      if (!suggestions.ok) {
+        console.error(suggestions.error.message);
+        await store.close();
+        return 1;
+      }
+
+      if (suggestions.value.length > 0 && !optionBool(options, 'allow-empty')) {
+        console.log('Related claims found. Create from claim to avoid duplicate tasks:');
+        for (const hit of suggestions.value) {
+          console.log(`- ${hit.claimId} [${hit.timestampLabel}] ${hit.claimText}`);
+          if (hit.timestampUrl) console.log(`  ${hit.timestampUrl}`);
+        }
+        console.log('Re-run with --from-claim <id> or add --allow-empty to create anyway.');
+        await store.close();
+        return 1;
+      }
+
+      result = await createTaskStandalone(store, {
+        title,
+        projectId: projectId || undefined,
+        tags,
+      });
+    }
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
@@ -434,13 +760,102 @@ async function runTask(positionals: string[], options: CliOptions): Promise<numb
   return 0;
 }
 
-async function main() {
-  const parsed = parseArgs(process.argv.slice(2));
+async function runArea(positionals: string[], options: CliOptions): Promise<number> {
+  const action = positionals[1];
+  if (action !== 'create') {
+    console.error('Unknown area action. Use create.');
+    return 1;
+  }
+  const name = optionString(options, 'name', '').trim();
+  if (!name) {
+    console.error('Usage: area create --name "<name>" [--id <id>] [--description "<text>"]');
+    return 1;
+  }
+
+  const store = await openStore(options);
+  const result = await createArea(store, {
+    id: optionString(options, 'id', '').trim() || undefined,
+    name,
+    description: optionString(options, 'description', '').trim() || undefined,
+  });
+  if (!result.ok) {
+    console.error(result.error.message);
+    await store.close();
+    return 1;
+  }
+  console.log(`Area created: ${result.value.areaId}`);
+  await store.close();
+  return 0;
+}
+
+async function runGoal(positionals: string[], options: CliOptions): Promise<number> {
+  const action = positionals[1];
+  if (action !== 'create') {
+    console.error('Unknown goal action. Use create.');
+    return 1;
+  }
+  const name = optionString(options, 'name', '').trim();
+  if (!name) {
+    console.error('Usage: goal create --name "<name>" [--id <id>] [--description "<text>"] [--area <areaId>]');
+    return 1;
+  }
+
+  const store = await openStore(options);
+  const result = await createGoal(store, {
+    id: optionString(options, 'id', '').trim() || undefined,
+    name,
+    description: optionString(options, 'description', '').trim() || undefined,
+    areaId: optionString(options, 'area', '').trim() || undefined,
+  });
+  if (!result.ok) {
+    console.error(result.error.message);
+    await store.close();
+    return 1;
+  }
+  console.log(`Goal created: ${result.value.goalId}`);
+  await store.close();
+  return 0;
+}
+
+async function runProject(positionals: string[], options: CliOptions): Promise<number> {
+  const action = positionals[1];
+  if (action !== 'create') {
+    console.error('Unknown project action. Use create.');
+    return 1;
+  }
+  const name = optionString(options, 'name', '').trim();
+  if (!name) {
+    console.error(
+      'Usage: project create --name "<name>" [--id <id>] [--description "<text>"] [--area <areaId>] [--goal <goalId>]'
+    );
+    return 1;
+  }
+
+  const store = await openStore(options);
+  const result = await createProject(store, {
+    id: optionString(options, 'id', '').trim() || undefined,
+    name,
+    description: optionString(options, 'description', '').trim() || undefined,
+    areaId: optionString(options, 'area', '').trim() || undefined,
+    goalId: optionString(options, 'goal', '').trim() || undefined,
+  });
+  if (!result.ok) {
+    console.error(result.error.message);
+    await store.close();
+    return 1;
+  }
+  console.log(`Project created: ${result.value.projectId}`);
+  await store.close();
+  return 0;
+}
+
+export async function runCli(argv: string[] = process.argv.slice(2)): Promise<number> {
+  const parsed = parseArgs(argv);
   const [command] = parsed.positionals;
 
   if (!command || command === 'help' || command === '--help') {
     printHelp();
-    process.exit(0);
+    return 0;
   }
 
   let exitCode = 0;
@@ -452,18 +867,31 @@ async function main() {
       exitCode = await runExtract(parsed.positionals, parsed.options);
       break;
     case 'export':
-      if (parsed.positionals[1] !== 'dossier') {
-        console.error('Usage: export dossier <video|playlist> <idOrUrl>');
-        exitCode = 1;
-      } else {
-        exitCode = await runExport(parsed.positionals, parsed.options);
-      }
+      exitCode = await runExport(parsed.positionals, parsed.options);
       break;
     case 'query':
       exitCode = await runQuery(parsed.positionals, parsed.options);
       break;
+    case 'related':
+      exitCode = await runRelated(parsed.positionals, parsed.options);
+      break;
+    case 'review':
+      exitCode = await runReview(parsed.positionals, parsed.options);
+      break;
     case 'task':
       exitCode = await runTask(parsed.positionals, parsed.options);
+      break;
+    case 'area':
+      exitCode = await runArea(parsed.positionals, parsed.options);
+      break;
+    case 'goal':
+      exitCode = await runGoal(parsed.positionals, parsed.options);
+      break;
+    case 'project':
+      exitCode = await runProject(parsed.positionals, parsed.options);
+      break;
+    case 'diagnose':
+      exitCode = await runDiagnose(parsed.positionals, parsed.options);
       break;
     default:
       console.error(`Unknown command: ${command}`);
@@ -471,10 +899,15 @@ async function main() {
       exitCode = 1;
   }
 
-  process.exit(exitCode);
+  return exitCode;
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  runCli().then(
+    code => process.exit(code),
+    err => {
+      console.error(err);
+      process.exit(1);
+    }
+  );
+}

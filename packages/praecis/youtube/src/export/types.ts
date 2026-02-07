@@ -1,6 +1,7 @@
 export interface DossierClaim {
   id: string;
   text: string;
+  state: 'draft' | 'accepted' | 'rejected';
   timestampSeconds: number;
   timestampLabel: string;
   timestampUrl: string;
@@ -34,4 +35,27 @@ export interface PlaylistDossierInput {
   videoIds: string[];
   title?: string;
   url?: string;
+}
+
+export interface TranscriptSegmentExport {
+  id: string;
+  start: number;
+  end: number;
+  duration: number;
+  text: string;
+}
+
+export interface TranscriptExport {
+  videoId: string;
+  resourceId: string;
+  title: string;
+  url: string;
+  segments: TranscriptSegmentExport[];
+}
+
+export interface PlaylistTranscriptExport {
+  playlistId: string;
+  title?: string;
+  url?: string;
+  videos: TranscriptExport[];
 }

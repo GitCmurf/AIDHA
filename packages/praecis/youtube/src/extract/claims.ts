@@ -134,6 +134,37 @@ export class ClaimExtractionPipeline {
       }
     }
 
+    const latestResourceResult = await this.graphStore.getNode(resourceId);
+    if (!latestResourceResult.ok) return latestResourceResult;
+    if (!latestResourceResult.value) {
+      return { ok: false, error: new Error(`Resource not found: ${resourceId}`) };
+    }
+
+    const existingMetadata = (latestResourceResult.value.metadata ?? {}) as Record<string, unknown>;
+    const runMetadata: Record<string, unknown> = {
+      ...existingMetadata,
+      lastClaimRunAt: new Date().toISOString(),
+      lastClaimRunCandidates: candidates.length,
+      lastClaimRunCreated: claimsCreated,
+      lastClaimRunUpdated: claimsUpdated,
+      lastClaimRunNoop: claimsNoop,
+      lastClaimRunEdgesCreated: edgesCreated,
+      lastClaimRunEdgesUpdated: edgesUpdated,
+      lastClaimRunEdgesNoop: edgesNoop,
+      lastClaimRunExtractor: this.extractor.constructor.name,
+    };
+    const resourceUpdate = await this.graphStore.upsertNode(
+      'Resource',
+      resourceId,
+      {
+        label: latestResourceResult.value.label,
+        content: latestResourceResult.value.content,
+        metadata: runMetadata,
+      },
+      { detectNoop: true }
+    );
+    if (!resourceUpdate.ok) return resourceUpdate;
+
     return {
       ok: true,
       value: {

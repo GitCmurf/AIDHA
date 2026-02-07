@@ -44,6 +44,7 @@ export type {
   ExportSnapshotOptions,
   ExportScope,
   GraphSnapshot,
+  TransactionCapableStore,
 } from './store/index.js';
 
 export { LevelGraphStore, InMemoryStore, SQLiteStore } from './store/index.js';

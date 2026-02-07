@@ -4,6 +4,7 @@
  * Simple Map-based storage for MVP and testing.
  * Can be replaced with LevelGraph/Neo4j later via the adapter pattern.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type {
   GraphStore,
   Result,
@@ -45,12 +46,95 @@ function edgeKey(subject: string, predicate: string, object: string): string {
   return `${subject}|${predicate}|${object}`;
 }
 
+function cloneMetadata(metadata: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!metadata) return {};
+  return JSON.parse(JSON.stringify(metadata)) as Record<string, unknown>;
+}
+
+function cloneNode(node: GraphNode): GraphNode {
+  return {
+    ...node,
+    metadata: cloneMetadata(node.metadata),
+  };
+}
+
+function cloneEdge(edge: GraphEdge): GraphEdge {
+  return {
+    ...edge,
+    metadata: cloneMetadata(edge.metadata),
+  };
+}
+
 /**
  * In-memory graph store for MVP and testing.
  */
 export class InMemoryStore implements GraphStore {
   private nodes = new Map<string, GraphNode>();
   private edges = new Map<string, GraphEdge>();
+  private transactionDepth = 0;
+  private transactionQueue: Promise<void> = Promise.resolve();
+  private transactionOwner?: symbol;
+  private readonly transactionContext = new AsyncLocalStorage<symbol>();
+
+  private async withTransactionLock<T>(work: () => Promise<T>): Promise<T> {
+    const previous = this.transactionQueue;
+    let release: (() => void) | undefined;
+    this.transactionQueue = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release?.();
+    }
+  }
+
+  async runInTransaction<T>(work: () => Promise<Result<T>>): Promise<Result<T>> {
+    const contextOwner = this.transactionContext.getStore();
+    if (contextOwner && contextOwner === this.transactionOwner) {
+      this.transactionDepth += 1;
+      try {
+        return await work();
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      } finally {
+        this.transactionDepth -= 1;
+      }
+    }
+
+    return this.withTransactionLock(async () => {
+      const nodeSnapshot = new Map<string, GraphNode>();
+      const edgeSnapshot = new Map<string, GraphEdge>();
+      for (const [id, node] of this.nodes.entries()) {
+        nodeSnapshot.set(id, cloneNode(node));
+      }
+      for (const [id, edge] of this.edges.entries()) {
+        edgeSnapshot.set(id, cloneEdge(edge));
+      }
+
+      const ownerToken = Symbol('memory-store-transaction');
+      this.transactionOwner = ownerToken;
+      this.transactionDepth += 1;
+      try {
+        const result = await this.transactionContext.run(ownerToken, async () => work());
+        if (!result.ok) {
+          this.nodes = nodeSnapshot;
+          this.edges = edgeSnapshot;
+        }
+        return result;
+      } catch (error) {
+        this.nodes = nodeSnapshot;
+        this.edges = edgeSnapshot;
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      } finally {
+        this.transactionDepth -= 1;
+        if (this.transactionDepth === 0) {
+          this.transactionOwner = undefined;
+        }
+      }
+    });
+  }
 
   async upsertNode(
     type: NodeType,

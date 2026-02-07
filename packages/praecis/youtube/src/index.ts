@@ -45,13 +45,63 @@ export {
 } from './extract/index.js';
 
 // Export (Markdown dossier)
-export type { DossierClaim, VideoDossier, PlaylistDossier, PlaylistDossierInput } from './export/index.js';
+export type {
+  DossierClaim,
+  VideoDossier,
+  PlaylistDossier,
+  PlaylistDossierInput,
+  TranscriptSegmentExport,
+  TranscriptExport,
+  PlaylistTranscriptExport,
+} from './export/index.js';
 export { DossierExporter } from './export/index.js';
 
 // Retrieval exports
 export type { SearchOptions, ClaimSearchHit } from './retrieve/index.js';
-export { searchClaims } from './retrieve/index.js';
+export type { RelatedClaimsOptions, RelatedClaimHit } from './retrieve/index.js';
+export { searchClaims, findRelatedClaims } from './retrieve/index.js';
+
+// Review queue exports
+export type {
+  ReviewQueueOptions,
+  ReviewQueueItem,
+  ReviewActionInput,
+  ReviewActionResult,
+} from './review/index.js';
+export { getReviewQueue, applyReviewAction } from './review/index.js';
+
+// Diagnostic exports
+export type { TranscriptDiagnosis, ExtractionDiagnosis } from './diagnose/index.js';
+export {
+  diagnoseTranscript,
+  diagnoseExtraction,
+  formatTranscriptDiagnosis,
+  formatExtractionDiagnosis,
+} from './diagnose/index.js';
 
 // Task exports
-export type { TaskCreateInput, TaskCreateResult, TaskContext, TaskClaimContext } from './tasks/index.js';
-export { createTaskFromClaim, getTaskContext, formatTaskContext, normalizeProjectIdForCli } from './tasks/index.js';
+export type {
+  TaskCreateInput,
+  TaskCreateResult,
+  StandaloneTaskCreateInput,
+  TaskContext,
+  TaskClaimContext,
+} from './tasks/index.js';
+export {
+  createTaskFromClaim,
+  createTaskStandalone,
+  getTaskContext,
+  formatTaskContext,
+  normalizeProjectIdForCli,
+} from './tasks/index.js';
+
+// Planning exports
+export type {
+  AreaCreateInput,
+  AreaCreateResult,
+  GoalCreateInput,
+  GoalCreateResult,
+  ProjectCreateInput,
+  ProjectCreateResult,
+} from './planning/index.js';
+export { createArea, createGoal, createProject } from './planning/index.js';

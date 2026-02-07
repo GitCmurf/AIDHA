@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-02-06
-version: '1.5'
+last_updated: 2026-02-07
+version: '1.8'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.5
-> **Last Updated:** 2026-02-06
+> **Version:** 1.8
+> **Last Updated:** 2026-02-07
 > **Type:** RUNBOOK
 
 ## Version History
@@ -36,6 +36,9 @@ docops_version: '2.0'
 | 1.3     | 2026-02-05 | CMF    | Add code fence languages                    | —         | Draft  | —         |
 | 1.4     | 2026-02-06 | AI     | Note claim state default                    | —         | Draft  | —         |
 | 1.5     | 2026-02-06 | AI     | Document two-pass claim extraction          | —         | Draft  | —         |
+| 1.6     | 2026-02-06 | AI     | Add review, related, and diagnose commands  | —         | Draft  | —         |
+| 1.7     | 2026-02-07 | AI     | Add project create helper operations        | —         | Draft  | —         |
+| 1.8     | 2026-02-07 | AI     | Add split dossier and transcript export operations | —     | Draft  | —         |
 
 ## Purpose
 
@@ -95,10 +98,70 @@ auditing steps.
 
    Note: SQLite backends use FTS5 indexing for faster claim/transcript search when available.
 
-7. **Show task context**
+7. **Find related claims**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli related --claim <claimId> --limit 5
+   ```
+
+8. **Run review queue**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli review next <url> --state draft --limit 10
+   ```
+
+   Apply batch actions:
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli review apply \
+     --claims <id1,id2> \
+     --accept \
+     --tag research,backend \
+     --task-title "Follow up"
+   ```
+
+9. **Show task context**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task show <taskId>
+   ```
+
+10. **Run diagnostics**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli diagnose transcript <url>
+   pnpm -C packages/praecis/youtube cli diagnose extract <url>
+   ```
+
+1. **Export accepted + draft dossiers**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli export dossier video <url> \
+     --split-states \
+     --out ./out/dossier-<id>.md
+   ```
+
+   Output files:
+
+   - `./out/dossier-<id>.md`
+   - `./out/dossier-<id>.draft.md`
+
+1. **Export transcript JSON audit artifact**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli export transcript video <url> \
+     --out ./out/transcript-<id>.json
+   ```
+
+1. **Create area/goal/project planning nodes**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli area create --name "Health"
+   pnpm -C packages/praecis/youtube cli goal create --name "Lower BP" --area area-health
+   pnpm -C packages/praecis/youtube cli project create \
+     --name "Meditation Habit" \
+     --area area-health \
+     --goal goal-lower-bp
    ```
 
    For LLM-backed claims:
@@ -115,6 +178,7 @@ auditing steps.
    ```
 
    LLM extraction uses two passes:
+
    1. chunk-level candidate mining (3-8 claims/chunk target)
    2. deterministic editor merge/selection to produce final claims
 
