@@ -14,6 +14,8 @@ describe('parseArgs', () => {
       './out/aidha.sqlite',
       '--ytdlp-timeout',
       '180000',
+      '--ytdlp-js-runtimes',
+      'node',
       '--json',
       '--mock',
     ]);
@@ -21,6 +23,7 @@ describe('parseArgs', () => {
     expect(result.positionals).toEqual(['ingest', 'playlist', 'PL123']);
     expect(result.options.db).toBe('./out/aidha.sqlite');
     expect(result.options['ytdlp-timeout']).toBe('180000');
+    expect(result.options['ytdlp-js-runtimes']).toBe('node');
     expect(result.options.json).toBe(true);
     expect(result.options.mock).toBe(true);
   });

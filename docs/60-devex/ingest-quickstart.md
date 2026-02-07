@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-02-07
-version: '0.16'
+version: '0.17'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.16
+> **Version:** 0.17
 > **Last Updated:** 2026-02-07
 > **Type:** GUIDE
 
@@ -38,6 +38,7 @@ docops_version: '2.0'
 | 0.14    | 2026-02-06 | AI     | Add review, related, and diagnose usage  | —         | Draft  | —         |
 | 0.15    | 2026-02-07 | AI     | Add project create helper usage          | —         | Draft  | —         |
 | 0.16    | 2026-02-07 | AI     | Add split dossier and transcript export usage | —      | Draft  | —         |
+| 0.17    | 2026-02-07 | AI     | Add yt-dlp JS runtime option + diagnose behavior | —   | Draft  | —         |
 
 ## Purpose
 
@@ -192,6 +193,9 @@ Optional:
    pnpm -C packages/praecis/youtube cli diagnose extract https://youtu.be/<id>
    ```
 
+   Note: `diagnose transcript` exits with code `2` when JS runtime support for `yt-dlp`
+   is missing.
+
 1. **Create area/goal/project links**
 
    ```bash
@@ -218,3 +222,4 @@ pnpm -C packages/praecis/youtube cli ingest video https://youtu.be/<id> \
 - `--ytdlp-keep`: keep temporary subtitle files for inspection
 - `--ytdlp-bin`: custom `yt-dlp` binary path
 - `--ytdlp-timeout`: override `yt-dlp` timeout in milliseconds
+- `--ytdlp-js-runtimes`: set JS runtime list (default: `node`)

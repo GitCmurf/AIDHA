@@ -19,4 +19,8 @@ describe('CLI usage help text', () => {
     expect(CLI_USAGE_TEXT).toContain('--split-states');
     expect(CLI_USAGE_TEXT).toContain('export transcript video <videoIdOrUrl>');
   });
+
+  it('documents yt-dlp JS runtime ingest option', () => {
+    expect(CLI_USAGE_TEXT).toContain('--ytdlp-js-runtimes <list>');
+  });
 });

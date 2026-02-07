@@ -21,6 +21,14 @@ function getYtDlpBin(): string {
   );
 }
 
+function getJsRuntimes(): string {
+  const configured =
+    process.env['AIDHA_YTDLP_JS_RUNTIMES'] ??
+    process.env['YTDLP_JS_RUNTIMES'] ??
+    'node';
+  return configured.trim() || 'node';
+}
+
 function getCookiesFile(): string | undefined {
   return (
     process.env['AIDHA_YTDLP_COOKIES_FILE'] ??
@@ -43,6 +51,80 @@ function isDebug(): boolean {
 }
 
 const FORMAT_PRIORITY = ['.vtt', '.ttml', '.json3', '.json'];
+
+export interface ToolingCheck {
+  executable: string;
+  available: boolean;
+  status: 'ok' | 'warn' | 'error';
+  message?: string;
+}
+
+export interface YtDlpEnvironmentDiagnosis {
+  ytdlp: Omit<ToolingCheck, 'status'> & { status: 'ok' | 'error' };
+  jsRuntime: ToolingCheck & { configured: string };
+  ffmpeg: ToolingCheck;
+}
+
+function parseRuntimeExecutable(configured: string): string {
+  const first = configured.split(',')[0]?.trim() ?? '';
+  if (!first) return 'node';
+  const pathCandidate = first.split(':')[1]?.trim();
+  if (pathCandidate) return pathCandidate;
+  return first;
+}
+
+async function checkExecutable(executable: string): Promise<boolean> {
+  try {
+    await execFileAsync(executable, ['--version'], {
+      timeout: 5000,
+      maxBuffer: 512 * 1024,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function diagnoseYtDlpEnvironment(): Promise<Result<YtDlpEnvironmentDiagnosis>> {
+  const ytdlpExecutable = getYtDlpBin();
+  const jsConfigured = getJsRuntimes();
+  const jsExecutable = parseRuntimeExecutable(jsConfigured);
+
+  const [ytdlpAvailable, jsAvailable, ffmpegAvailable] = await Promise.all([
+    checkExecutable(ytdlpExecutable),
+    checkExecutable(jsExecutable),
+    checkExecutable('ffmpeg'),
+  ]);
+
+  return {
+    ok: true,
+    value: {
+      ytdlp: {
+        executable: ytdlpExecutable,
+        available: ytdlpAvailable,
+        status: ytdlpAvailable ? 'ok' : 'error',
+        message: ytdlpAvailable ? undefined : 'yt-dlp binary not found or not executable.',
+      },
+      jsRuntime: {
+        configured: jsConfigured,
+        executable: jsExecutable,
+        available: jsAvailable,
+        status: jsAvailable ? 'ok' : 'error',
+        message: jsAvailable
+          ? undefined
+          : 'No supported JavaScript runtime found for yt-dlp; set --ytdlp-js-runtimes or AIDHA_YTDLP_JS_RUNTIMES.',
+      },
+      ffmpeg: {
+        executable: 'ffmpeg',
+        available: ffmpegAvailable,
+        status: ffmpegAvailable ? 'ok' : 'warn',
+        message: ffmpegAvailable
+          ? undefined
+          : 'ffmpeg not found; the downloaded format may not be the best available.',
+      },
+    },
+  };
+}
 
 function detectLanguageFromFilename(filePath: string): string | undefined {
   const name = basename(filePath);
@@ -127,6 +209,8 @@ export async function fetchTranscriptWithYtDlp(
     '--output',
     outputTemplate,
   ];
+
+  args.push('--js-runtimes', getJsRuntimes());
 
   const cookiesFile = getCookiesFile();
   if (cookiesFile) {

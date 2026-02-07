@@ -1,8 +1,8 @@
 export const CLI_USAGE_TEXT = `AIDHA YouTube CLI
 
 Usage:
-  aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>]
-  aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>]
+  aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
+  aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]
   aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>]
   aidha-youtube extract refs <videoIdOrUrl> [--db <path>]

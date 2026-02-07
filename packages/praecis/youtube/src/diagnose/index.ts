@@ -2,6 +2,8 @@ import type { GraphStore } from '@aidha/graph-backend';
 import type { YouTubeClient } from '../client/types.js';
 import type { Result } from '../pipeline/types.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
+import type { YtDlpEnvironmentDiagnosis } from '../client/yt-dlp.js';
+import { diagnoseYtDlpEnvironment } from '../client/yt-dlp.js';
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;
@@ -21,6 +23,15 @@ export interface TranscriptDiagnosis {
   firstSegmentStart?: number;
   lastSegmentEnd?: number;
   error?: string;
+  ytdlp?: YtDlpEnvironmentDiagnosis['ytdlp'];
+  jsRuntime?: YtDlpEnvironmentDiagnosis['jsRuntime'];
+  ffmpeg?: YtDlpEnvironmentDiagnosis['ffmpeg'];
+  issues: string[];
+}
+
+export interface TranscriptDiagnoseOptions {
+  checkTooling?: boolean;
+  toolingProbe?: () => Promise<Result<YtDlpEnvironmentDiagnosis>>;
 }
 
 export interface ExtractionDiagnosis {
@@ -46,10 +57,31 @@ export interface ExtractionDiagnosis {
 
 export async function diagnoseTranscript(
   client: YouTubeClient,
-  videoId: string
+  videoId: string,
+  options: TranscriptDiagnoseOptions = {}
 ): Promise<Result<TranscriptDiagnosis>> {
+  const issues: string[] = [];
+  let tooling: YtDlpEnvironmentDiagnosis | undefined;
+  if (options.checkTooling) {
+    const probe = options.toolingProbe ?? diagnoseYtDlpEnvironment;
+    const toolingResult = await probe();
+    if (toolingResult.ok) {
+      tooling = toolingResult.value;
+      if (tooling.ytdlp.status === 'error') {
+        issues.push(tooling.ytdlp.message ?? 'yt-dlp is not available.');
+      }
+      if (tooling.jsRuntime.status === 'error') {
+        issues.push(tooling.jsRuntime.message ?? 'No supported JavaScript runtime found for yt-dlp.');
+      }
+      if (tooling.ffmpeg.status !== 'ok') {
+        issues.push(tooling.ffmpeg.message ?? 'ffmpeg not found.');
+      }
+    }
+  }
+
   const transcript = await client.fetchTranscript(videoId);
   if (!transcript.ok) {
+    issues.push(transcript.error.message);
     return {
       ok: true,
       value: {
@@ -58,6 +90,10 @@ export async function diagnoseTranscript(
         segmentCount: 0,
         coverageSeconds: 0,
         error: transcript.error.message,
+        ytdlp: tooling?.ytdlp,
+        jsRuntime: tooling?.jsRuntime,
+        ffmpeg: tooling?.ffmpeg,
+        issues,
       },
     };
   }
@@ -77,6 +113,10 @@ export async function diagnoseTranscript(
       coverageSeconds,
       firstSegmentStart: first?.start,
       lastSegmentEnd: last ? last.start + last.duration : undefined,
+      ytdlp: tooling?.ytdlp,
+      jsRuntime: tooling?.jsRuntime,
+      ffmpeg: tooling?.ffmpeg,
+      issues,
     },
   };
 }
@@ -166,9 +206,23 @@ export function formatTranscriptDiagnosis(diagnosis: TranscriptDiagnosis, asJson
     `Segments: ${diagnosis.segmentCount}`,
     `Coverage seconds: ${toNumber(diagnosis.coverageSeconds, 0)}`,
   ];
+  if (diagnosis.jsRuntime) {
+    lines.push(
+      `JS runtime: status=${diagnosis.jsRuntime.status} configured=${diagnosis.jsRuntime.configured} executable=${diagnosis.jsRuntime.executable}`
+    );
+  }
+  if (diagnosis.ffmpeg) {
+    lines.push(`ffmpeg: status=${diagnosis.ffmpeg.status} executable=${diagnosis.ffmpeg.executable}`);
+  }
   if (typeof diagnosis.firstSegmentStart === 'number') lines.push(`First segment start: ${diagnosis.firstSegmentStart}`);
   if (typeof diagnosis.lastSegmentEnd === 'number') lines.push(`Last segment end: ${diagnosis.lastSegmentEnd}`);
   if (diagnosis.error) lines.push(`Error: ${diagnosis.error}`);
+  if (diagnosis.issues.length > 0) {
+    lines.push('Issues:');
+    for (const issue of diagnosis.issues) {
+      lines.push(`- ${issue}`);
+    }
+  }
   return lines.join('\n');
 }
 

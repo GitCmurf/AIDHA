@@ -7,19 +7,24 @@ import { fetchTranscriptWithYtDlp } from '../src/client/yt-dlp.js';
 describe('yt-dlp fallback', () => {
   let scriptPath: string;
   let scriptDir: string;
+  let argsPath: string;
   const originalEnv = {
     AIDHA_YTDLP_BIN: process.env['AIDHA_YTDLP_BIN'],
     AIDHA_YTDLP_KEEP_FILES: process.env['AIDHA_YTDLP_KEEP_FILES'],
+    AIDHA_YTDLP_JS_RUNTIMES: process.env['AIDHA_YTDLP_JS_RUNTIMES'],
   };
 
   beforeEach(async () => {
     scriptDir = await fs.mkdtemp(join(tmpdir(), 'aidha-ytdlp-test-'));
     scriptPath = join(scriptDir, 'yt-dlp');
+    argsPath = join(scriptDir, 'args.txt');
     const script = [
       '#!/usr/bin/env bash',
       'set -euo pipefail',
       '',
       'output_template=""',
+      'args_file="' + argsPath + '"',
+      'printf "%s\\n" "$@" > "$args_file"',
       'while [[ $# -gt 0 ]]; do',
       '    case "$1" in',
       '        --output)',
@@ -52,6 +57,7 @@ describe('yt-dlp fallback', () => {
     await fs.chmod(scriptPath, 0o755);
     process.env['AIDHA_YTDLP_BIN'] = scriptPath;
     process.env['AIDHA_YTDLP_KEEP_FILES'] = '0';
+    process.env['AIDHA_YTDLP_JS_RUNTIMES'] = 'node';
   });
 
   afterEach(async () => {
@@ -64,6 +70,11 @@ describe('yt-dlp fallback', () => {
       delete process.env['AIDHA_YTDLP_KEEP_FILES'];
     } else {
       process.env['AIDHA_YTDLP_KEEP_FILES'] = originalEnv.AIDHA_YTDLP_KEEP_FILES;
+    }
+    if (originalEnv.AIDHA_YTDLP_JS_RUNTIMES === undefined) {
+      delete process.env['AIDHA_YTDLP_JS_RUNTIMES'];
+    } else {
+      process.env['AIDHA_YTDLP_JS_RUNTIMES'] = originalEnv.AIDHA_YTDLP_JS_RUNTIMES;
     }
     if (scriptDir) {
       await fs.rm(scriptDir, { recursive: true, force: true });
@@ -83,5 +94,14 @@ describe('yt-dlp fallback', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.videoId).toBe('test-video');
+  });
+
+  it('passes configured JS runtimes to yt-dlp', async () => {
+    process.env['AIDHA_YTDLP_JS_RUNTIMES'] = 'node';
+    const result = await fetchTranscriptWithYtDlp('test-video');
+    expect(result.ok).toBe(true);
+    const args = await fs.readFile(argsPath, 'utf-8');
+    expect(args).toContain('--js-runtimes');
+    expect(args).toContain('node');
   });
 });

@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-001
 owner: Engineering
 status: Draft
-version: '0.7'
+version: '0.8'
 last_updated: 2026-02-07
 title: MVP Test Suite Map and Hardening Coverage
 type: TESTING
@@ -13,7 +13,7 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.7
+> **Version:** 0.8
 > **Last Updated:** 2026-02-07
 > **Type:** TESTING
 
@@ -30,6 +30,7 @@ docops_version: '2.0'
 | 0.5     | 2026-02-07 | AI     | Refresh full-suite baseline after project helper tests | — | Draft | — |
 | 0.6     | 2026-02-07 | AI     | Refresh full-suite baseline after slug hardening test | — | Draft | — |
 | 0.7     | 2026-02-07 | AI     | Add split dossier/transcript export coverage and refresh baseline | — | Draft | — |
+| 0.8     | 2026-02-07 | AI     | Add yt-dlp runtime + diagnose coverage and refresh baseline | — | Draft | — |
 
 ## Purpose
 
@@ -60,6 +61,7 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
 - `tests/cli-review-atomicity.test.ts`: process-level CLI atomicity checks with DB snapshot
   comparison.
 - `tests/cli-export.test.ts`: CLI split dossier and transcript JSON export coverage.
+- `tests/yt-dlp.test.ts`: yt-dlp runtime argument wiring and subtitle fallback behavior.
 - `tests/planning.test.ts`, `tests/cli-area-goal.test.ts`: area/goal/project helper behavior and
   CLI command coverage.
 - `tests/retrieval.test.ts`, `tests/related.test.ts`: query and related-claim ranking behavior.
@@ -119,7 +121,7 @@ pnpm -C packages/praecis/youtube test -- extraction.test.ts
 ## Current Baseline (2026-02-07)
 
 - `@aidha/graph-backend`: 61 tests passing.
-- `@aidha/ingestion-youtube`: 90 tests passing, 6 tests skipped (`real-client` network-dependent).
+- `@aidha/ingestion-youtube`: 92 tests passing, 6 tests skipped (`real-client` network-dependent).
 
 ## Remaining Coverage Gaps
 

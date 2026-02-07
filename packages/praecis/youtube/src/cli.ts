@@ -163,6 +163,10 @@ async function runIngest(positionals: string[], options: CliOptions): Promise<nu
   if (ytdlpTimeout > 0) {
     process.env['AIDHA_YTDLP_TIMEOUT_MS'] = String(ytdlpTimeout);
   }
+  const ytdlpJsRuntimes = optionString(options, 'ytdlp-js-runtimes', '');
+  if (ytdlpJsRuntimes) {
+    process.env['AIDHA_YTDLP_JS_RUNTIMES'] = ytdlpJsRuntimes;
+  }
   const store = await openStore(options);
   const taxonomyRegistry = new InMemoryRegistry();
   const client = optionBool(options, 'mock') ? new MockYouTubeClient() : new RealYouTubeClient();
@@ -637,13 +641,19 @@ async function runDiagnose(positionals: string[], options: CliOptions): Promise<
   const videoId = parseVideoId(target);
 
   if (mode === 'transcript') {
-    const client = optionBool(options, 'mock') ? new MockYouTubeClient() : new RealYouTubeClient();
-    const result = await diagnoseTranscript(client, videoId);
+    const useMock = optionBool(options, 'mock');
+    const client = useMock ? new MockYouTubeClient() : new RealYouTubeClient();
+    const result = await diagnoseTranscript(client, videoId, {
+      checkTooling: !useMock,
+    });
     if (!result.ok) {
       console.error(result.error.message);
       return 1;
     }
     console.log(formatTranscriptDiagnosis(result.value, optionBool(options, 'json')));
+    if (result.value.jsRuntime?.status === 'error') {
+      return 2;
+    }
     return 0;
   }
 

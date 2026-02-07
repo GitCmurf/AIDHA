@@ -3,7 +3,7 @@ document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
 last_updated: 2026-02-07
-version: '1.8'
+version: '1.9'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.8
+> **Version:** 1.9
 > **Last Updated:** 2026-02-07
 > **Type:** RUNBOOK
 
@@ -39,6 +39,7 @@ docops_version: '2.0'
 | 1.6     | 2026-02-06 | AI     | Add review, related, and diagnose commands  | —         | Draft  | —         |
 | 1.7     | 2026-02-07 | AI     | Add project create helper operations        | —         | Draft  | —         |
 | 1.8     | 2026-02-07 | AI     | Add split dossier and transcript export operations | —     | Draft  | —         |
+| 1.9     | 2026-02-07 | AI     | Add yt-dlp JS runtime option and diagnose severity | —    | Draft  | —         |
 
 ## Purpose
 
@@ -133,6 +134,8 @@ auditing steps.
    pnpm -C packages/praecis/youtube cli diagnose extract <url>
    ```
 
+   `diagnose transcript` returns exit code `2` if JS runtime support for `yt-dlp` is missing.
+
 1. **Export accepted + draft dossiers**
 
    ```bash
@@ -221,6 +224,12 @@ If ingestion reports missing transcripts:
 
    ```bash
    pnpm -C packages/praecis/youtube cli ingest video <url> --ytdlp-timeout 180000
+   ```
+
+7. **Override `yt-dlp` JS runtime (optional)**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli ingest video <url> --ytdlp-js-runtimes node
    ```
 
 Inspect the temporary subtitle files to confirm formats (`.vtt`, `.ttml`, `.json3`).

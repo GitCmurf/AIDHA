@@ -16,12 +16,39 @@ describe('diagnostics', () => {
 
   it('diagnoses transcript availability with segment stats', async () => {
     const client = new MockYouTubeClient();
-    const result = await diagnoseTranscript(client, 'test-video');
+    const result = await diagnoseTranscript(client, 'test-video', {
+      checkTooling: true,
+      toolingProbe: async () => ({
+        ok: true,
+        value: {
+          jsRuntime: {
+            configured: 'node',
+            executable: 'node',
+            available: false,
+            status: 'error',
+            message: 'No supported JavaScript runtime found for yt-dlp.',
+          },
+          ffmpeg: {
+            executable: 'ffmpeg',
+            available: false,
+            status: 'warn',
+            message: 'ffmpeg not found; merged/best formats may be unavailable.',
+          },
+          ytdlp: {
+            executable: 'yt-dlp',
+            available: true,
+          },
+        },
+      }),
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.transcriptAvailable).toBe(true);
     expect(result.value.segmentCount).toBeGreaterThan(0);
     expect(result.value.coverageSeconds).toBeGreaterThan(0);
+    expect(result.value.jsRuntime?.status).toBe('error');
+    expect(result.value.ffmpeg?.status).toBe('warn');
+    expect(result.value.issues.length).toBeGreaterThan(0);
   });
 
   it('diagnoses extraction quality and provenance gaps', async () => {
