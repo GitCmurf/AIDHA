@@ -10,6 +10,16 @@ import { ClaimExtractionPipeline } from '../src/extract/claims.js';
 import { searchClaims } from '../src/retrieve/query.js';
 import { createTaskFromClaim, DEFAULT_INBOX_PROJECT_ID } from '../src/tasks/index.js';
 
+class ThrowingFtsStore extends InMemoryStore {
+  supportsFts(): boolean {
+    return true;
+  }
+
+  searchText(): { ok: true; value: Set<string> } {
+    throw new Error('fts explode');
+  }
+}
+
 describe('searchClaims', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
@@ -139,5 +149,24 @@ describe('searchClaims', () => {
     if (!result.ok) return;
     expect(result.value.length).toBe(1);
     expect(result.value[0]?.claimId).toBe(target.id);
+  });
+
+  it('gracefully falls back when FTS store throws', async () => {
+    const throwingStore = new ThrowingFtsStore();
+    const localIngestion = new IngestionPipeline({
+      graphStore: throwingStore,
+      taxonomyRegistry,
+      youtubeClient,
+    });
+    await localIngestion.ingestPlaylist('test-playlist');
+
+    const claimPipeline = new ClaimExtractionPipeline({ graphStore: throwingStore });
+    await claimPipeline.extractClaimsForVideo('test-video');
+
+    const result = await searchClaims(throwingStore, { query: 'TypeScript' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.length).toBeGreaterThan(0);
+    await throwingStore.close();
   });
 });

@@ -188,12 +188,19 @@ async function resolveFtsMatches(
     return { ok: true, value: null };
   }
   const ftsStore = maybeFtsStore as FtsCapableGraphStore;
-  const claimsResult = ftsStore.searchText(query, ['Claim']);
-  if (!claimsResult.ok) return { ok: true, value: null };
-  const resourcesResult = ftsStore.searchText(query, ['Resource']);
-  if (!resourcesResult.ok) return { ok: true, value: null };
-  const excerptsResult = ftsStore.searchText(query, ['Excerpt']);
-  if (!excerptsResult.ok) return { ok: true, value: null };
+  let claimsResult: Result<Set<string>>;
+  let resourcesResult: Result<Set<string>>;
+  let excerptsResult: Result<Set<string>>;
+  try {
+    claimsResult = ftsStore.searchText(query, ['Claim']);
+    resourcesResult = ftsStore.searchText(query, ['Resource']);
+    excerptsResult = ftsStore.searchText(query, ['Excerpt']);
+  } catch {
+    return { ok: true, value: null };
+  }
+  if (!claimsResult.ok || !resourcesResult.ok || !excerptsResult.ok) {
+    return { ok: true, value: null };
+  }
 
   return {
     ok: true,

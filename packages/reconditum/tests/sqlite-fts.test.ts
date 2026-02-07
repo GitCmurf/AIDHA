@@ -71,4 +71,21 @@ describe('SQLiteStore FTS', () => {
     if (!claims.ok) return;
     expect(claims.value.has('claim-2')).toBe(false);
   });
+
+  it('returns an error result for malformed FTS syntax', async () => {
+    if (!store.supportsFts()) {
+      expect(store.supportsFts()).toBe(false);
+      return;
+    }
+
+    await store.upsertNode('Claim', 'claim-3', {
+      label: 'FTS syntax test',
+      content: 'Query behavior should not throw.',
+    });
+
+    const result = store.searchText('(', ['Claim']);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBeInstanceOf(Error);
+  });
 });

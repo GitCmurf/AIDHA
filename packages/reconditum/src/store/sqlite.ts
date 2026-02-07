@@ -292,10 +292,17 @@ export class SQLiteStore implements GraphStore {
       typeClause = `AND type IN (${types.map(() => '?').join(', ')})`;
       params.push(...types);
     }
-    const rows = this.db.prepare(
-      `SELECT id FROM nodes_fts WHERE nodes_fts MATCH ? ${typeClause}`
-    ).all(...params) as Array<{ id: string }>;
-    return { ok: true, value: new Set(rows.map(row => row.id)) };
+    try {
+      const rows = this.db.prepare(
+        `SELECT id FROM nodes_fts WHERE nodes_fts MATCH ? ${typeClause}`
+      ).all(...params) as Array<{ id: string }>;
+      return { ok: true, value: new Set(rows.map(row => row.id)) };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
   }
 
   async upsertNode(
