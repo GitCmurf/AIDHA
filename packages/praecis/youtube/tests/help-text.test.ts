@@ -22,6 +22,8 @@ describe('CLI usage help text', () => {
 
   it('documents yt-dlp JS runtime ingest option', () => {
     expect(CLI_USAGE_TEXT).toContain('--ytdlp-js-runtimes <list>');
+    expect(CLI_USAGE_TEXT).toContain('preflight youtube');
+    expect(CLI_USAGE_TEXT).toContain('--probe-url <url>');
   });
 
   it('documents editorial extraction and diagnose flags', () => {

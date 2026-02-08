@@ -23,6 +23,7 @@ Usage:
   aidha-youtube diagnose transcript <videoIdOrUrl> [--mock] [--json]
   aidha-youtube diagnose extract <videoIdOrUrl> [--db <path>] [--json] [--include-editor] [--model <id>] [--prompt-version <id>] [--chunk-minutes <n>] [--max-chunks <n>] [--cache-dir <path>] [--editor-version <v1|v2>] [--claims <n>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>]
   aidha-youtube diagnose editor <videoIdOrUrl> [--db <path>] [--json] [--model <id>] [--prompt-version <id>] [--chunk-minutes <n>] [--max-chunks <n>] [--cache-dir <path>] [--editor-version <v1|v2>] [--claims <n>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>]
+  aidha-youtube preflight youtube [--json] [--probe-url <url>]
 
 Defaults:
   --db ./out/aidha.sqlite

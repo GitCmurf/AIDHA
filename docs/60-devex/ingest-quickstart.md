@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-02-08
-version: '0.19'
+version: '0.20'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.19
+> **Version:** 0.20
 > **Last Updated:** 2026-02-08
 > **Type:** GUIDE
 
@@ -41,6 +41,7 @@ docops_version: '2.0'
 | 0.17    | 2026-02-07 | AI     | Add yt-dlp JS runtime option + diagnose behavior | —   | Draft  | —         |
 | 0.18    | 2026-02-08 | AI     | Add editor v2 extraction flags + diagnose editor mode | — | Draft | — |
 | 0.19    | 2026-02-08 | AI     | Add optional editor rewrite flag and guardrail notes | — | Draft | — |
+| 0.20    | 2026-02-08 | AI     | Add preflight command and subcommand help usage | — | Draft | — |
 
 ## Purpose
 
@@ -83,7 +84,21 @@ Optional:
    pnpm -C packages/praecis/youtube cli ingest status https://youtu.be/<id> --json
    ```
 
-3. **Extract claims**
+3. **Run environment preflight**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli preflight youtube
+   ```
+
+   Optional network probe (runs only when explicitly requested):
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli preflight youtube \
+     --probe-url https://www.youtube.com/watch?v=<id> \
+     --json
+   ```
+
+4. **Extract claims**
 
    ```bash
    pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id>
@@ -119,7 +134,7 @@ Optional:
    keeping numeric values and excerpt-grounded keywords. Rewrite cache keys include transcript
    hash + candidate-set hash + model + rewrite prompt version.
 
-4. **Export dossier**
+5. **Export dossier**
 
    ```bash
    pnpm -C packages/praecis/youtube cli export dossier video https://youtu.be/<id>
@@ -138,13 +153,13 @@ Optional:
    - `./out/dossier-<id>.md` (accepted/default states)
    - `./out/dossier-<id>.draft.md` (accepted + draft)
 
-5. **Export transcript JSON**
+6. **Export transcript JSON**
 
    ```bash
    pnpm -C packages/praecis/youtube cli export transcript video https://youtu.be/<id>
    ```
 
-6. **Create a task from a claim**
+7. **Create a task from a claim**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task create \
@@ -162,7 +177,7 @@ Optional:
      --tag "research,backend"
    ```
 
-7. **Query with filters**
+8. **Query with filters**
 
    ```bash
    pnpm -C packages/praecis/youtube cli query "TypeScript" --project inbox
@@ -174,19 +189,19 @@ Optional:
 
    Note: SQLite backends use FTS5 indexing for faster claim/transcript search when available.
 
-8. **Show task context**
+9. **Show task context**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task show <taskId>
    ```
 
-9. **Find related claims**
+10. **Find related claims**
 
    ```bash
    pnpm -C packages/praecis/youtube cli related --claim <claimId> --limit 5
    ```
 
-10. **Review drafts in batches**
+1. **Review drafts in batches**
 
    ```bash
    pnpm -C packages/praecis/youtube cli review next https://youtu.be/<id> --state draft --limit 10
@@ -239,3 +254,8 @@ pnpm -C packages/praecis/youtube cli ingest video https://youtu.be/<id> \
 - `--ytdlp-bin`: custom `yt-dlp` binary path
 - `--ytdlp-timeout`: override `yt-dlp` timeout in milliseconds
 - `--ytdlp-js-runtimes`: set JS runtime list (default: `node`)
+
+## Help Retrieval
+
+- Global help: `pnpm -C packages/praecis/youtube cli help`
+- Subcommand help: `pnpm -C packages/praecis/youtube cli <command> --help`

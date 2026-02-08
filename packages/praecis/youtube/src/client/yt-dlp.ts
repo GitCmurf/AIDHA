@@ -65,6 +65,37 @@ export interface YtDlpEnvironmentDiagnosis {
   ffmpeg: ToolingCheck;
 }
 
+export interface YtDlpPreflightProbe {
+  attempted: boolean;
+  url?: string;
+  ok: boolean;
+  message?: string;
+}
+
+export interface YtDlpPreflightRuntime {
+  label: string;
+  executable: string;
+  available: boolean;
+  version?: string;
+}
+
+export interface YtDlpPreflightReport {
+  ytdlp: {
+    executable: string;
+    available: boolean;
+    version?: string;
+    status: 'ok' | 'error';
+    message?: string;
+  };
+  jsRuntime: {
+    configured: string;
+    availableAny: boolean;
+    runtimes: YtDlpPreflightRuntime[];
+  };
+  ffmpeg: ToolingCheck;
+  probe: YtDlpPreflightProbe;
+}
+
 function parseRuntimeExecutable(configured: string): string {
   const first = configured.split(',')[0]?.trim() ?? '';
   if (!first) return 'node';
@@ -83,6 +114,43 @@ async function checkExecutable(executable: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function readVersion(executable: string): Promise<string | undefined> {
+  try {
+    const { stdout } = await execFileAsync(executable, ['--version'], {
+      timeout: 5000,
+      maxBuffer: 512 * 1024,
+    });
+    const firstLine = stdout.split('\n').map(line => line.trim()).find(Boolean);
+    return firstLine || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseConfiguredRuntimes(configured: string): YtDlpPreflightRuntime[] {
+  const parts = configured
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean);
+  const entries = parts.map(part => {
+    const split = part.split(':');
+    const label = split[0]?.trim() || part;
+    const executable = split[1]?.trim() || label;
+    return {
+      label,
+      executable,
+      available: false,
+    };
+  });
+
+  for (const common of ['node', 'deno', 'bun']) {
+    if (!entries.some(entry => entry.label === common || entry.executable === common)) {
+      entries.push({ label: common, executable: common, available: false });
+    }
+  }
+  return entries;
 }
 
 export async function diagnoseYtDlpEnvironment(): Promise<Result<YtDlpEnvironmentDiagnosis>> {
@@ -122,6 +190,86 @@ export async function diagnoseYtDlpEnvironment(): Promise<Result<YtDlpEnvironmen
           ? undefined
           : 'ffmpeg not found; the downloaded format may not be the best available.',
       },
+    },
+  };
+}
+
+export interface YtDlpPreflightOptions {
+  probeUrl?: string;
+}
+
+export async function runYtDlpPreflight(
+  options: YtDlpPreflightOptions = {}
+): Promise<Result<YtDlpPreflightReport>> {
+  const envResult = await diagnoseYtDlpEnvironment();
+  if (!envResult.ok) return envResult;
+
+  const env = envResult.value;
+  const runtimeCandidates = parseConfiguredRuntimes(env.jsRuntime.configured);
+  const runtimeChecks = await Promise.all(runtimeCandidates.map(async runtime => {
+    const available = await checkExecutable(runtime.executable);
+    const version = available ? await readVersion(runtime.executable) : undefined;
+    return {
+      ...runtime,
+      available,
+      version,
+    };
+  }));
+
+  const ytdlpVersion = env.ytdlp.available
+    ? await readVersion(env.ytdlp.executable)
+    : undefined;
+
+  let probe: YtDlpPreflightProbe = {
+    attempted: false,
+    ok: false,
+  };
+  if (options.probeUrl) {
+    probe = {
+      attempted: true,
+      url: options.probeUrl,
+      ok: false,
+    };
+    if (!env.ytdlp.available) {
+      probe.message = 'yt-dlp is unavailable; skipping probe.';
+    } else {
+      try {
+        await execFileAsync(env.ytdlp.executable, [
+          '--skip-download',
+          '--dump-single-json',
+          '--no-warnings',
+          '--js-runtimes',
+          env.jsRuntime.configured,
+          options.probeUrl,
+        ], {
+          timeout: getTimeoutMs(),
+          maxBuffer: 8 * 1024 * 1024,
+        });
+        probe.ok = true;
+      } catch (error) {
+        probe.ok = false;
+        probe.message = error instanceof Error ? error.message : String(error);
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    value: {
+      ytdlp: {
+        executable: env.ytdlp.executable,
+        available: env.ytdlp.available,
+        version: ytdlpVersion,
+        status: env.ytdlp.status,
+        message: env.ytdlp.message,
+      },
+      jsRuntime: {
+        configured: env.jsRuntime.configured,
+        availableAny: runtimeChecks.some(runtime => runtime.available),
+        runtimes: runtimeChecks,
+      },
+      ffmpeg: env.ffmpeg,
+      probe,
     },
   };
 }

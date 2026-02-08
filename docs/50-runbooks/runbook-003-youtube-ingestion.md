@@ -3,7 +3,7 @@ document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
 last_updated: 2026-02-08
-version: '1.11'
+version: '1.12'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.11
+> **Version:** 1.12
 > **Last Updated:** 2026-02-08
 > **Type:** RUNBOOK
 
@@ -42,6 +42,7 @@ docops_version: '2.0'
 | 1.9     | 2026-02-07 | AI     | Add yt-dlp JS runtime option and diagnose severity | —    | Draft  | —         |
 | 1.10    | 2026-02-08 | AI     | Add editor v2 flags and cache-based diagnose editor mode | — | Draft | — |
 | 1.11    | 2026-02-08 | AI     | Add optional editor rewrite flag and guardrail guidance | — | Draft | — |
+| 1.12    | 2026-02-08 | AI     | Add preflight command and subcommand help guidance | — | Draft | — |
 
 ## Purpose
 
@@ -75,7 +76,21 @@ auditing steps.
    pnpm -C packages/praecis/youtube cli ingest status <url> --json
    ```
 
-4. **Verify claims**
+4. **Run environment preflight**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli preflight youtube
+   ```
+
+   Optional explicit probe:
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli preflight youtube \
+     --probe-url https://www.youtube.com/watch?v=<id> \
+     --json
+   ```
+
+5. **Verify claims**
 
    ```bash
    pnpm -C packages/praecis/youtube cli extract claims <url>
@@ -84,7 +99,7 @@ auditing steps.
    Note: new claims default to `state=accepted`. Query and dossier export include
    accepted claims only.
 
-5. **Create a task**
+6. **Create a task**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task create \
@@ -93,7 +108,7 @@ auditing steps.
      --project inbox
    ```
 
-6. **Query with filters**
+7. **Query with filters**
 
    ```bash
    pnpm -C packages/praecis/youtube cli query "TypeScript" --project inbox
@@ -101,13 +116,13 @@ auditing steps.
 
    Note: SQLite backends use FTS5 indexing for faster claim/transcript search when available.
 
-7. **Find related claims**
+8. **Find related claims**
 
    ```bash
    pnpm -C packages/praecis/youtube cli related --claim <claimId> --limit 5
    ```
 
-8. **Run review queue**
+9. **Run review queue**
 
    ```bash
    pnpm -C packages/praecis/youtube cli review next <url> --state draft --limit 10
@@ -123,13 +138,13 @@ auditing steps.
      --task-title "Follow up"
    ```
 
-9. **Show task context**
+10. **Show task context**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task show <taskId>
    ```
 
-10. **Run diagnostics**
+1. **Run diagnostics**
 
    ```bash
    pnpm -C packages/praecis/youtube cli diagnose transcript <url>
@@ -250,3 +265,8 @@ If ingestion reports missing transcripts:
    ```
 
 Inspect the temporary subtitle files to confirm formats (`.vtt`, `.ttml`, `.json3`).
+
+## Help Retrieval
+
+- Global help: `pnpm -C packages/praecis/youtube cli help`
+- Subcommand help: `pnpm -C packages/praecis/youtube cli <command> --help`

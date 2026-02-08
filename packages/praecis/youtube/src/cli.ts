@@ -35,6 +35,7 @@ import { CLI_USAGE_TEXT } from './cli/help.js';
 import { formatIngestionStatus } from './cli/status.js';
 import type { ClaimState } from './utils/claim-state.js';
 import type { Result } from './pipeline/types.js';
+import { runYtDlpPreflight } from './client/yt-dlp.js';
 
 type CliOptions = Record<string, string | boolean>;
 
@@ -948,9 +949,54 @@ async function runProject(positionals: string[], options: CliOptions): Promise<n
   return 0;
 }
 
+async function runPreflight(positionals: string[], options: CliOptions): Promise<number> {
+  const mode = positionals[1];
+  if (mode !== 'youtube') {
+    console.error('Usage: preflight youtube [--json] [--probe-url <url>]');
+    return 1;
+  }
+
+  const probeUrl = optionString(options, 'probe-url', '');
+  const result = await runYtDlpPreflight({
+    probeUrl: probeUrl || undefined,
+  });
+  if (!result.ok) {
+    console.error(result.error.message);
+    return 1;
+  }
+
+  if (optionBool(options, 'json')) {
+    console.log(JSON.stringify(result.value, null, 2));
+    return probeUrl && !result.value.probe.ok ? 1 : 0;
+  }
+
+  const lines = [
+    'YouTube preflight',
+    `yt-dlp: status=${result.value.ytdlp.status} executable=${result.value.ytdlp.executable} version=${result.value.ytdlp.version ?? 'unknown'}`,
+    `JS runtimes configured: ${result.value.jsRuntime.configured}`,
+    ...result.value.jsRuntime.runtimes.map(runtime =>
+      `- ${runtime.label}: ${runtime.available ? 'ok' : 'missing'} (${runtime.executable}${runtime.version ? ` ${runtime.version}` : ''})`
+    ),
+    `ffmpeg: status=${result.value.ffmpeg.status} executable=${result.value.ffmpeg.executable}`,
+  ];
+  if (result.value.probe.attempted) {
+    lines.push(
+      `probe: ${result.value.probe.ok ? 'ok' : 'failed'} url=${result.value.probe.url ?? ''}${result.value.probe.message ? ` message=${result.value.probe.message}` : ''}`
+    );
+  } else {
+    lines.push('probe: skipped (use --probe-url <url> to run network probe)');
+  }
+  console.log(lines.join('\n'));
+  return probeUrl && !result.value.probe.ok ? 1 : 0;
+}
+
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<number> {
   const parsed = parseArgs(argv);
   const [command] = parsed.positionals;
+  if (parsed.options['help'] === true) {
+    printHelp();
+    return 0;
+  }
 
   if (!command || command === 'help' || command === '--help') {
     printHelp();
@@ -991,6 +1037,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       break;
     case 'diagnose':
       exitCode = await runDiagnose(parsed.positionals, parsed.options);
+      break;
+    case 'preflight':
+      exitCode = await runPreflight(parsed.positionals, parsed.options);
       break;
     default:
       console.error(`Unknown command: ${command}`);
