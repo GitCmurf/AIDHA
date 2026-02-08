@@ -83,6 +83,11 @@ export class ClaimExtractionPipeline {
       excerpts,
       maxClaims: options.maxClaims,
     });
+    const extractorEditorVersion = this.getExtractorEditorVersion();
+    const firstModel = candidates.find(candidate => typeof candidate.model === 'string')?.model;
+    const firstPromptVersion = candidates.find(
+      candidate => typeof candidate.promptVersion === 'string'
+    )?.promptVersion;
 
     let claimsCreated = 0;
     let claimsUpdated = 0;
@@ -101,6 +106,7 @@ export class ClaimExtractionPipeline {
         confidence: claim.confidence ?? 0.4,
         state: claim.state ?? DEFAULT_CLAIM_STATE,
       };
+      if (extractorEditorVersion) metadata['editorVersion'] = extractorEditorVersion;
       if (typeof claim.startSeconds === 'number') metadata['startSeconds'] = claim.startSeconds;
       if (claim.type) metadata['type'] = claim.type;
       if (claim.why) metadata['why'] = claim.why;
@@ -153,6 +159,15 @@ export class ClaimExtractionPipeline {
       lastClaimRunEdgesNoop: edgesNoop,
       lastClaimRunExtractor: this.extractor.constructor.name,
     };
+    if (extractorEditorVersion) {
+      runMetadata['lastClaimRunEditorVersion'] = extractorEditorVersion;
+    }
+    if (firstModel) {
+      runMetadata['lastClaimRunModel'] = firstModel;
+    }
+    if (firstPromptVersion) {
+      runMetadata['lastClaimRunPromptVersion'] = firstPromptVersion;
+    }
     const resourceUpdate = await this.graphStore.upsertNode(
       'Resource',
       resourceId,
@@ -177,6 +192,12 @@ export class ClaimExtractionPipeline {
         edgesNoop,
       },
     };
+  }
+
+  private getExtractorEditorVersion(): 'v1' | 'v2' | undefined {
+    const maybeVersioned = this.extractor as Partial<{ getEditorVersion: () => 'v1' | 'v2' }>;
+    if (typeof maybeVersioned.getEditorVersion !== 'function') return undefined;
+    return maybeVersioned.getEditorVersion();
   }
 }
 

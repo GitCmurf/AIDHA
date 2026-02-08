@@ -23,4 +23,15 @@ describe('CLI usage help text', () => {
   it('documents yt-dlp JS runtime ingest option', () => {
     expect(CLI_USAGE_TEXT).toContain('--ytdlp-js-runtimes <list>');
   });
+
+  it('documents editorial extraction and diagnose flags', () => {
+    expect(CLI_USAGE_TEXT).toContain('--editor-version <v1|v2>');
+    expect(CLI_USAGE_TEXT).toContain('--window-minutes <n>');
+    expect(CLI_USAGE_TEXT).toContain('--max-per-window <n>');
+    expect(CLI_USAGE_TEXT).toContain('--min-windows <n>');
+    expect(CLI_USAGE_TEXT).toContain('--min-words <n>');
+    expect(CLI_USAGE_TEXT).toContain('--min-chars <n>');
+    expect(CLI_USAGE_TEXT).toContain('diagnose editor <videoIdOrUrl>');
+    expect(CLI_USAGE_TEXT).toContain('--include-editor');
+  });
 });

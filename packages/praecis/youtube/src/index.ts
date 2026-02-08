@@ -33,12 +33,29 @@ export type {
   ClaimExtractionInput,
   ClaimExtractionResult,
   ReferenceExtractionResult,
+  EditorialDiagnostics,
+  EditorialDropReason,
+  EditorialPassV1Options,
+  EditorialPassV2Options,
+  CachedClaimsLoadOptions,
+  CachedClaimsLoadResult,
+  FragmentRules,
+  CoverageSummary,
 } from './extract/index.js';
 export type { LlmClient, LlmCompletionRequest } from './extract/index.js';
 export {
   ClaimExtractionPipeline,
   HeuristicClaimExtractor,
   LlmClaimExtractor,
+  loadCachedClaimCandidates,
+  runEditorPassV1,
+  runEditorPassV1WithDiagnostics,
+  runEditorPassV2,
+  runEditorPassV2WithDiagnostics,
+  countFragments,
+  countBoilerplate,
+  timelineCoverage,
+  dropCounts,
   OpenAiCompatibleClient,
   createDefaultLlmClient,
   ReferenceExtractionPipeline,
@@ -71,7 +88,7 @@ export type {
 export { getReviewQueue, applyReviewAction } from './review/index.js';
 
 // Diagnostic exports
-export type { TranscriptDiagnosis, ExtractionDiagnosis } from './diagnose/index.js';
+export type { TranscriptDiagnosis, ExtractionDiagnosis, EditorialDiagnosis } from './diagnose/index.js';
 export {
   diagnoseTranscript,
   diagnoseExtraction,

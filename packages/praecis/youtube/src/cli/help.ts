@@ -4,7 +4,7 @@ Usage:
   aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]
-  aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>]
+  aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>] [--editor-version <v1|v2>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>]
   aidha-youtube extract refs <videoIdOrUrl> [--db <path>]
   aidha-youtube export dossier video <videoIdOrUrl> [--db <path>] [--out <path>] [--states <accepted|draft|rejected>] [--include-drafts] [--include-rejected] [--split-states]
   aidha-youtube export dossier playlist <playlistIdOrUrl> [--db <path>] [--out <path>] [--videos <id1,id2>] [--states <accepted|draft|rejected>] [--include-drafts] [--include-rejected] [--split-states]
@@ -21,7 +21,8 @@ Usage:
   aidha-youtube task create --title "<title>" [--project <id>] [--tag <a,b>] [--allow-empty] [--db <path>]
   aidha-youtube task show <taskId> [--db <path>]
   aidha-youtube diagnose transcript <videoIdOrUrl> [--mock] [--json]
-  aidha-youtube diagnose extract <videoIdOrUrl> [--db <path>] [--json]
+  aidha-youtube diagnose extract <videoIdOrUrl> [--db <path>] [--json] [--include-editor] [--model <id>] [--prompt-version <id>] [--chunk-minutes <n>] [--max-chunks <n>] [--cache-dir <path>] [--editor-version <v1|v2>] [--claims <n>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>]
+  aidha-youtube diagnose editor <videoIdOrUrl> [--db <path>] [--json] [--model <id>] [--prompt-version <id>] [--chunk-minutes <n>] [--max-chunks <n>] [--cache-dir <path>] [--editor-version <v1|v2>] [--claims <n>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>]
 
 Defaults:
   --db ./out/aidha.sqlite

@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-02-07",
-      "version": "0.17",
+      "last_updated": "2026-02-08",
+      "version": "0.18",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -175,8 +175,8 @@
       "document_id": "AIDHA-FDD-003",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-02-06",
+      "version": "0.2",
+      "last_updated": "2026-02-08",
       "title": "Second-Pass Editorial Claim Selection",
       "type": "FDD",
       "docops_version": "2.0"
@@ -203,8 +203,8 @@
       "document_id": "AIDHA-TESTING-001",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.8",
-      "last_updated": "2026-02-07",
+      "version": "0.9",
+      "last_updated": "2026-02-08",
       "title": "MVP Test Suite Map and Hardening Coverage",
       "type": "TESTING",
       "docops_version": "2.0"
@@ -273,8 +273,8 @@
       "document_id": "AIDHA-RUNBOOK-003",
       "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2026-02-07",
-      "version": "1.9",
+      "last_updated": "2026-02-08",
+      "version": "1.10",
       "title": "YouTube Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
@@ -315,7 +315,7 @@
       "document_id": "AIDHA-PLAN-004",
       "owner": "Product",
       "status": "Draft",
-      "version": "0.1",
+      "version": "0.5",
       "last_updated": "2026-02-07",
       "title": "Improve Claim Quality and Editorial Ranking (Plan)",
       "type": "PLAN",
@@ -332,6 +332,20 @@
       "version": "0.8",
       "last_updated": "2026-02-07",
       "title": "MVP Strengthening Notes",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/WIP-roadmap.md",
+    "title": "WIP Roadmap Notes",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-WIP-ROADMAP",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-02-08",
+      "title": "WIP Roadmap Notes",
       "type": "PLAN",
       "docops_version": "2.0"
     }

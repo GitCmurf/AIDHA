@@ -4,6 +4,8 @@ import type { Result } from '../pipeline/types.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
 import type { YtDlpEnvironmentDiagnosis } from '../client/yt-dlp.js';
 import { diagnoseYtDlpEnvironment } from '../client/yt-dlp.js';
+import { loadCachedClaimCandidates } from '../extract/llm-claims.js';
+import { runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics } from '../extract/editorial-ranking.js';
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;
@@ -52,7 +54,42 @@ export interface ExtractionDiagnosis {
     updated?: number;
     noop?: number;
   };
+  editorial?: EditorialDiagnosis;
   issues: string[];
+}
+
+export interface EditorialDiagnosis {
+  available: boolean;
+  editorVersion: 'v1' | 'v2';
+  cacheDir: string;
+  model?: string;
+  promptVersion?: string;
+  transcriptHash?: string;
+  chunkCount: number;
+  cacheHits: number;
+  cacheMisses: number;
+  totalCandidates: number;
+  selectedCount: number;
+  droppedCounts: Record<string, number>;
+  windowCoverage: Array<{ windowIndex: number; selectedCount: number }>;
+  consistencyOk?: boolean;
+  message?: string;
+}
+
+export interface ExtractionDiagnoseOptions {
+  includeEditor?: boolean;
+  model?: string;
+  promptVersion?: string;
+  chunkMinutes?: number;
+  maxChunks?: number;
+  cacheDir?: string;
+  editorVersion?: 'v1' | 'v2';
+  maxClaims?: number;
+  windowMinutes?: number;
+  maxPerWindow?: number;
+  minWindows?: number;
+  minWords?: number;
+  minChars?: number;
 }
 
 export async function diagnoseTranscript(
@@ -123,7 +160,8 @@ export async function diagnoseTranscript(
 
 export async function diagnoseExtraction(
   store: GraphStore,
-  videoId: string
+  videoId: string,
+  options: ExtractionDiagnoseOptions = {}
 ): Promise<Result<ExtractionDiagnosis>> {
   const resourceId = `youtube-${videoId}`;
   const resource = await store.getNode(resourceId);
@@ -179,6 +217,149 @@ export async function diagnoseExtraction(
     issues.push('No claims extracted yet. Run extract claims first.');
   }
 
+  let editorial: EditorialDiagnosis | undefined;
+  if (options.includeEditor) {
+    const cacheDir = options.cacheDir ?? process.env['AIDHA_LLM_CACHE_DIR'] ?? './out/cache/claims';
+    const modelFromClaims = claimResult.value.items.find(
+      claim => typeof claim.metadata?.['model'] === 'string'
+    )?.metadata?.['model'] as string | undefined;
+    const promptFromClaims = claimResult.value.items.find(
+      claim => typeof claim.metadata?.['promptVersion'] === 'string'
+    )?.metadata?.['promptVersion'] as string | undefined;
+    const model = options.model
+      ?? (resource.value.metadata?.['lastClaimRunModel'] as string | undefined)
+      ?? modelFromClaims;
+    const promptVersion = options.promptVersion
+      ?? (resource.value.metadata?.['lastClaimRunPromptVersion'] as string | undefined)
+      ?? promptFromClaims
+      ?? 'v1';
+    const editorVersion = options.editorVersion
+      ?? ((resource.value.metadata?.['lastClaimRunEditorVersion'] as 'v1' | 'v2' | undefined) ?? 'v1');
+
+    if (!model) {
+      editorial = {
+        available: false,
+        editorVersion,
+        cacheDir,
+        promptVersion,
+        chunkCount: 0,
+        cacheHits: 0,
+        cacheMisses: 0,
+        totalCandidates: 0,
+        selectedCount: 0,
+        droppedCounts: {},
+        windowCoverage: [],
+        message: 'No model available for cache lookup; run extraction with --llm first.',
+      };
+      if (editorial.message) issues.push(editorial.message);
+    } else {
+      const excerptsResult = await store.queryNodes({
+        type: 'Excerpt',
+        filters: { resourceId },
+      });
+      if (!excerptsResult.ok) return excerptsResult;
+      const excerpts = excerptsResult.value.items;
+      if (excerpts.length === 0) {
+        editorial = {
+          available: false,
+          editorVersion,
+          cacheDir,
+          model,
+          promptVersion,
+          chunkCount: 0,
+          cacheHits: 0,
+          cacheMisses: 0,
+          totalCandidates: 0,
+          selectedCount: 0,
+          droppedCounts: {},
+          windowCoverage: [],
+          message: `No excerpts found for ${resourceId}.`,
+        };
+        if (editorial.message) issues.push(editorial.message);
+      } else {
+        const cached = await loadCachedClaimCandidates({
+          resource: resource.value,
+          excerpts,
+          model,
+          promptVersion,
+          chunkMinutes: options.chunkMinutes,
+          maxChunks: options.maxChunks,
+          cacheDir,
+        });
+
+        if (cached.cacheHits === 0) {
+          editorial = {
+            available: false,
+            editorVersion,
+            cacheDir,
+            model,
+            promptVersion,
+            transcriptHash: cached.transcriptHash,
+            chunkCount: cached.chunkCount,
+            cacheHits: cached.cacheHits,
+            cacheMisses: cached.cacheMisses,
+            totalCandidates: 0,
+            selectedCount: 0,
+            droppedCounts: {},
+            windowCoverage: [],
+            message: 'No cache found; run extraction first.',
+          };
+          if (editorial.message) issues.push(editorial.message);
+        } else {
+          const maxClaims = options.maxClaims ?? 15;
+          const editorialResult = editorVersion === 'v2'
+            ? runEditorPassV2WithDiagnostics(cached.candidates, {
+                maxClaims,
+                chunkCount: cached.chunkCount,
+                windowMinutes: options.windowMinutes,
+                maxPerWindow: options.maxPerWindow,
+                minWindows: options.minWindows,
+                minWords: options.minWords,
+                minChars: options.minChars,
+                excerptTextLengthById: new Map(
+                  excerpts.map(excerpt => [excerpt.id, excerpt.content?.length ?? 0])
+                ),
+              })
+            : runEditorPassV1WithDiagnostics(cached.candidates, {
+                maxClaims,
+                chunkCount: cached.chunkCount,
+              });
+          const droppedTotal = Object.values(editorialResult.diagnostics.droppedCounts).reduce(
+            (sum, count) => sum + count,
+            0
+          );
+          const consistencyOk =
+            editorialResult.selected.length + droppedTotal === editorialResult.diagnostics.totalCandidates;
+          editorial = {
+            available: true,
+            editorVersion,
+            cacheDir,
+            model,
+            promptVersion,
+            transcriptHash: cached.transcriptHash,
+            chunkCount: cached.chunkCount,
+            cacheHits: cached.cacheHits,
+            cacheMisses: cached.cacheMisses,
+            totalCandidates: editorialResult.diagnostics.totalCandidates,
+            selectedCount: editorialResult.selected.length,
+            droppedCounts: editorialResult.diagnostics.droppedCounts,
+            windowCoverage: editorialResult.diagnostics.windowCoverage,
+            consistencyOk,
+            message: cached.cacheMisses > 0
+              ? `${cached.cacheMisses} chunk(s) missing cache entries.`
+              : undefined,
+          };
+          if (!consistencyOk) {
+            issues.push('Editorial diagnostics consistency invariant failed.');
+          }
+          if (cached.cacheMisses > 0) {
+            issues.push(`${cached.cacheMisses} chunk(s) are missing cached LLM candidates.`);
+          }
+        }
+      }
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -192,6 +373,7 @@ export async function diagnoseExtraction(
       byState,
       byMethod,
       lastClaimRun,
+      editorial,
       issues,
     },
   };
@@ -246,6 +428,28 @@ export function formatExtractionDiagnosis(diagnosis: ExtractionDiagnosis, asJson
     lines.push(
       `Last claim run: at=${diagnosis.lastClaimRun.at} extractor=${diagnosis.lastClaimRun.extractor ?? 'unknown'} created=${diagnosis.lastClaimRun.created ?? 0} updated=${diagnosis.lastClaimRun.updated ?? 0} noop=${diagnosis.lastClaimRun.noop ?? 0}`
     );
+  }
+  if (diagnosis.editorial) {
+    lines.push(
+      `Editorial diagnose: available=${diagnosis.editorial.available ? 'yes' : 'no'} editor=${diagnosis.editorial.editorVersion} cacheHits=${diagnosis.editorial.cacheHits} cacheMisses=${diagnosis.editorial.cacheMisses}`
+    );
+    if (diagnosis.editorial.available) {
+      lines.push(
+        `Editorial selection: candidates=${diagnosis.editorial.totalCandidates} selected=${diagnosis.editorial.selectedCount}`
+      );
+      lines.push(
+        `Editorial dropped: ${Object.entries(diagnosis.editorial.droppedCounts)
+          .sort((left, right) => left[0].localeCompare(right[0]))
+          .map(([reason, count]) => `${reason}=${count}`)
+          .join(', ')}`
+      );
+      lines.push(
+        `Editorial consistency: ${diagnosis.editorial.consistencyOk ? 'ok' : 'failed'}`
+      );
+    }
+    if (diagnosis.editorial.message) {
+      lines.push(`Editorial note: ${diagnosis.editorial.message}`);
+    }
   }
   if (diagnosis.issues.length > 0) {
     lines.push('Issues:');

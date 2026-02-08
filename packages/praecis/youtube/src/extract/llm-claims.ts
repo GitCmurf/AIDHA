@@ -6,7 +6,9 @@ import type { GraphNode } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
 import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from './types.js';
 import { HeuristicClaimExtractor } from './claims.js';
+import { runEditorPassV1, runEditorPassV2 } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
+import { clamp, normalizeText, toNumber } from './utils.js';
 import { hashId } from '../utils/ids.js';
 
 const CLAIM_TYPES = [
@@ -64,7 +66,31 @@ export interface LlmClaimExtractorConfig {
   maxChunks?: number;
   maxClaims?: number;
   cacheDir?: string;
+  editorVersion?: 'v1' | 'v2';
+  editorWindowMinutes?: number;
+  editorMaxPerWindow?: number;
+  editorMinWindows?: number;
+  editorMinWords?: number;
+  editorMinChars?: number;
   fallback?: ClaimExtractor;
+}
+
+export interface CachedClaimsLoadOptions {
+  resource: GraphNode;
+  excerpts: GraphNode[];
+  model: string;
+  promptVersion: string;
+  chunkMinutes?: number;
+  maxChunks?: number;
+  cacheDir?: string;
+}
+
+export interface CachedClaimsLoadResult {
+  transcriptHash: string;
+  chunkCount: number;
+  cacheHits: number;
+  cacheMisses: number;
+  candidates: ClaimCandidate[];
 }
 
 const DEFAULT_CHUNK_MINUTES = 5;
@@ -72,49 +98,6 @@ const DEFAULT_MAX_CLAIMS = 15;
 const DEFAULT_CACHE_DIR = './out/cache/claims';
 const DEFAULT_MIN_CLAIMS_PER_CHUNK = 3;
 const DEFAULT_MAX_CLAIMS_PER_CHUNK = 8;
-
-const LOW_VALUE_PATTERNS = [
-  /subscribe/i,
-  /like and subscribe/i,
-  /smash that (like|subscribe)/i,
-  /sponsor/i,
-  /patreon/i,
-  /thanks for watching/i,
-  /welcome back/i,
-  /intro/i,
-  /outro/i,
-];
-
-function normalizeText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-function normalizeKey(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? fallback : parsed;
-  }
-  return fallback;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function isLowValue(text: string): boolean {
-  return LOW_VALUE_PATTERNS.some(pattern => pattern.test(text));
-}
-
-function isTooShort(text: string): boolean {
-  const trimmed = text.trim();
-  const words = trimmed.split(/\s+/).filter(Boolean).length;
-  return trimmed.length < 40 || words < 6;
-}
 
 function hashTranscript(excerpts: GraphNode[]): string {
   const hash = createHash('sha256');
@@ -196,141 +179,6 @@ function normalizeType(value?: string): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function scoreCandidate(candidate: ClaimCandidate): number {
-  const confidence = clamp(candidate.confidence ?? 0.6, 0, 1);
-  const lengthScore = clamp((candidate.text.length ?? 0) / 180, 0, 1);
-  return confidence * 0.7 + lengthScore * 0.3;
-}
-
-function stableExcerptKey(candidate: ClaimCandidate): string {
-  return Array.from(new Set(candidate.excerptIds)).sort((a, b) => a.localeCompare(b)).join('|');
-}
-
-function compareCandidatePriority(a: ClaimCandidate, b: ClaimCandidate): number {
-  const scoreDiff = scoreCandidate(b) - scoreCandidate(a);
-  if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
-  const startDiff = candidateStart(a) - candidateStart(b);
-  if (startDiff !== 0) return startDiff;
-  const textDiff = a.text.localeCompare(b.text);
-  if (textDiff !== 0) return textDiff;
-  return stableExcerptKey(a).localeCompare(stableExcerptKey(b));
-}
-
-function excerptOverlapRatio(a: ClaimCandidate, b: ClaimCandidate): number {
-  const aSet = new Set(a.excerptIds);
-  const bSet = new Set(b.excerptIds);
-  if (aSet.size === 0 || bSet.size === 0) return 0;
-  let intersection = 0;
-  for (const id of aSet) {
-    if (bSet.has(id)) intersection += 1;
-  }
-  const denominator = Math.min(aSet.size, bSet.size);
-  if (denominator === 0) return 0;
-  return intersection / denominator;
-}
-
-function shouldMergeCandidates(a: ClaimCandidate, b: ClaimCandidate): boolean {
-  if (normalizeKey(a.text) === normalizeKey(b.text)) return true;
-  return excerptOverlapRatio(a, b) >= 0.8;
-}
-
-function dedupeCandidates(candidates: ClaimCandidate[]): ClaimCandidate[] {
-  const ranked = candidates.slice().sort(compareCandidatePriority);
-  const deduped: ClaimCandidate[] = [];
-
-  for (const candidate of ranked) {
-    const existingIndex = deduped.findIndex(existing => shouldMergeCandidates(existing, candidate));
-    if (existingIndex === -1) {
-      deduped.push(candidate);
-      continue;
-    }
-
-    const existing = deduped[existingIndex];
-    if (existing && compareCandidatePriority(candidate, existing) < 0) {
-      deduped[existingIndex] = candidate;
-    }
-  }
-
-  return deduped.sort((a, b) => {
-    const aStart = candidateStart(a);
-    const bStart = candidateStart(b);
-    if (aStart !== bStart) return aStart - bStart;
-    const textDiff = a.text.localeCompare(b.text);
-    if (textDiff !== 0) return textDiff;
-    return stableExcerptKey(a).localeCompare(stableExcerptKey(b));
-  });
-}
-
-function selectDiverseCandidates(
-  candidates: ClaimCandidate[],
-  maxClaims: number,
-  chunkCount: number
-): ClaimCandidate[] {
-  const scored = candidates
-    .map(candidate => ({ candidate, score: scoreCandidate(candidate) }))
-    .sort((a, b) => {
-      const scoreDiff = b.score - a.score;
-      if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
-      const aStart = candidateStart(a.candidate);
-      const bStart = candidateStart(b.candidate);
-      if (aStart !== bStart) return aStart - bStart;
-      const textDiff = a.candidate.text.localeCompare(b.candidate.text);
-      if (textDiff !== 0) return textDiff;
-      return stableExcerptKey(a.candidate).localeCompare(stableExcerptKey(b.candidate));
-    });
-
-  const byChunk = new Map<number, { candidate: ClaimCandidate; score: number }[]>();
-  for (const entry of scored) {
-    const chunkIndex = entry.candidate.chunkIndex ?? -1;
-    if (!byChunk.has(chunkIndex)) byChunk.set(chunkIndex, []);
-    byChunk.get(chunkIndex)?.push(entry);
-  }
-
-  const selected: ClaimCandidate[] = [];
-  for (let index = 0; index < chunkCount && selected.length < maxClaims; index++) {
-    const bucket = byChunk.get(index);
-    if (!bucket || bucket.length === 0) continue;
-    const best = bucket.sort((a, b) => b.score - a.score)[0];
-    if (best) selected.push(best.candidate);
-  }
-
-  for (const entry of scored) {
-    if (selected.length >= maxClaims) break;
-    if (selected.includes(entry.candidate)) continue;
-    selected.push(entry.candidate);
-  }
-
-  return selected.slice(0, maxClaims).sort((a, b) => {
-    const aStart = candidateStart(a);
-    const bStart = candidateStart(b);
-    if (aStart !== bStart) return aStart - bStart;
-    const textDiff = a.text.localeCompare(b.text);
-    if (textDiff !== 0) return textDiff;
-    return stableExcerptKey(a).localeCompare(stableExcerptKey(b));
-  });
-}
-
-function candidateStart(candidate: ClaimCandidate): number {
-  return typeof candidate.startSeconds === 'number' ? candidate.startSeconds : Number.MAX_SAFE_INTEGER;
-}
-
-function runEditorPass(
-  candidates: ClaimCandidate[],
-  maxClaims: number,
-  chunkCount: number
-): ClaimCandidate[] {
-  const filtered = candidates.filter(candidate => {
-    const text = normalizeText(candidate.text);
-    if (text.length === 0) return false;
-    if (isLowValue(text)) return false;
-    if (isTooShort(text)) return false;
-    return true;
-  });
-
-  const deduped = dedupeCandidates(filtered);
-  return selectDiverseCandidates(deduped, maxClaims, chunkCount);
-}
-
 async function readCache(path: string, metadata: CacheMetadata): Promise<ClaimCandidate[] | null> {
   try {
     const raw = await readFile(path, 'utf-8');
@@ -369,6 +217,96 @@ async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCa
   await writeFile(path, JSON.stringify(payload, null, 2), 'utf-8');
 }
 
+function cacheKeyForChunk(input: {
+  videoId: string;
+  chunk: ClaimChunk;
+  transcriptHash: string;
+  model: string;
+  promptVersion: string;
+}): string {
+  return hashId('llm-claims', [
+    input.videoId,
+    input.chunk.index,
+    input.chunk.start,
+    input.chunk.end,
+    input.transcriptHash,
+    input.model,
+    input.promptVersion,
+  ]);
+}
+
+function cacheMetadataForChunk(input: {
+  transcriptHash: string;
+  model: string;
+  promptVersion: string;
+  chunk: ClaimChunk;
+}): CacheMetadata {
+  return {
+    transcriptHash: input.transcriptHash,
+    model: input.model,
+    promptVersion: input.promptVersion,
+    chunkIndex: input.chunk.index,
+    chunkStart: input.chunk.start,
+    chunkEnd: input.chunk.end,
+  };
+}
+
+export async function loadCachedClaimCandidates(
+  input: CachedClaimsLoadOptions
+): Promise<CachedClaimsLoadResult> {
+  const chunkMinutes = input.chunkMinutes ?? DEFAULT_CHUNK_MINUTES;
+  const cacheDir = input.cacheDir ?? DEFAULT_CACHE_DIR;
+  const transcriptHash = hashTranscript(input.excerpts);
+  const chunked = buildChunks(input.excerpts, chunkMinutes, input.maxChunks);
+  const videoId = typeof input.resource.metadata?.['videoId'] === 'string'
+    ? (input.resource.metadata?.['videoId'] as string)
+    : input.resource.id;
+
+  const candidates: ClaimCandidate[] = [];
+  let cacheHits = 0;
+  let cacheMisses = 0;
+
+  for (const chunk of chunked) {
+    const cacheKey = cacheKeyForChunk({
+      videoId,
+      chunk,
+      transcriptHash,
+      model: input.model,
+      promptVersion: input.promptVersion,
+    });
+    const cachePath = join(cacheDir, `${cacheKey}.json`);
+    const metadata = cacheMetadataForChunk({
+      transcriptHash,
+      model: input.model,
+      promptVersion: input.promptVersion,
+      chunk,
+    });
+    const cached = await readCache(cachePath, metadata);
+    if (!cached) {
+      cacheMisses += 1;
+      continue;
+    }
+    cacheHits += 1;
+    candidates.push(
+      ...cached.map(claim => ({
+        ...claim,
+        method: 'llm' as const,
+        model: input.model,
+        promptVersion: input.promptVersion,
+        chunkIndex: chunk.index,
+      }))
+    );
+  }
+
+  return {
+    transcriptHash,
+    chunkCount: chunked.length,
+    cacheHits,
+    cacheMisses,
+    candidates,
+  };
+}
+
 export class LlmClaimExtractor implements ClaimExtractor {
   private client: LlmClient;
   private model: string;
@@ -377,6 +315,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private maxChunks?: number;
   private maxClaims: number;
   private cacheDir: string;
+  private editorVersion: 'v1' | 'v2';
+  private editorWindowMinutes?: number;
+  private editorMaxPerWindow?: number;
+  private editorMinWindows?: number;
+  private editorMinWords?: number;
+  private editorMinChars?: number;
   private fallback?: ClaimExtractor;
 
   constructor(config: LlmClaimExtractorConfig) {
@@ -387,7 +331,17 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.maxChunks = config.maxChunks;
     this.maxClaims = config.maxClaims ?? DEFAULT_MAX_CLAIMS;
     this.cacheDir = config.cacheDir ?? DEFAULT_CACHE_DIR;
+    this.editorVersion = config.editorVersion ?? 'v1';
+    this.editorWindowMinutes = config.editorWindowMinutes;
+    this.editorMaxPerWindow = config.editorMaxPerWindow;
+    this.editorMinWindows = config.editorMinWindows;
+    this.editorMinWords = config.editorMinWords;
+    this.editorMinChars = config.editorMinChars;
     this.fallback = config.fallback ?? new HeuristicClaimExtractor();
+  }
+
+  getEditorVersion(): 'v1' | 'v2' {
+    return this.editorVersion;
   }
 
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
@@ -415,7 +369,27 @@ export class LlmClaimExtractor implements ClaimExtractor {
       allCandidates.push(...chunkCandidates);
     }
 
-    return runEditorPass(allCandidates, maxClaims, chunked.length);
+    if (this.editorVersion === 'v2') {
+      const excerptTextLengthById = new Map<string, number>();
+      for (const excerpt of excerpts) {
+        excerptTextLengthById.set(excerpt.id, excerpt.content?.length ?? 0);
+      }
+      return runEditorPassV2(allCandidates, {
+        maxClaims,
+        chunkCount: chunked.length,
+        windowMinutes: this.editorWindowMinutes,
+        maxPerWindow: this.editorMaxPerWindow,
+        minWindows: this.editorMinWindows,
+        minWords: this.editorMinWords,
+        minChars: this.editorMinChars,
+        excerptTextLengthById,
+      });
+    }
+
+    return runEditorPassV1(allCandidates, {
+      maxClaims,
+      chunkCount: chunked.length,
+    });
   }
 
   private async extractChunkClaims(input: {
@@ -429,29 +403,25 @@ export class LlmClaimExtractor implements ClaimExtractor {
     const videoId = typeof resource.metadata?.['videoId'] === 'string'
       ? (resource.metadata?.['videoId'] as string)
       : resource.id;
-    const cacheKey = hashId('llm-claims', [
+    const cacheKey = cacheKeyForChunk({
       videoId,
-      chunk.index,
-      chunk.start,
-      chunk.end,
-      transcriptHash,
-      this.model,
-      this.promptVersion,
-    ]);
-    const cachePath = join(this.cacheDir, `${cacheKey}.json`);
-    const cacheMetadata: CacheMetadata = {
+      chunk,
       transcriptHash,
       model: this.model,
       promptVersion: this.promptVersion,
-      chunkIndex: chunk.index,
-      chunkStart: chunk.start,
-      chunkEnd: chunk.end,
-    };
+    });
+    const cachePath = join(this.cacheDir, `${cacheKey}.json`);
+    const cacheMetadata = cacheMetadataForChunk({
+      transcriptHash,
+      model: this.model,
+      promptVersion: this.promptVersion,
+      chunk,
+    });
     const cached = await readCache(cachePath, cacheMetadata);
     if (cached) {
       return cached.map(claim => ({
         ...claim,
-        method: 'llm',
+        method: 'llm' as const,
         model: this.model,
         promptVersion: this.promptVersion,
         chunkIndex: chunk.index,

@@ -248,6 +248,17 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
     const maxClaims = optionNumber(options, 'claims', 0);
     const chunkMinutes = optionNumber(options, 'chunk-minutes', 0);
     const maxChunks = optionNumber(options, 'max-chunks', 0);
+    const editorVersionOption = optionString(
+      options,
+      'editor-version',
+      process.env['AIDHA_EDITOR_VERSION'] ?? 'v1'
+    ).toLowerCase();
+    const editorVersion = editorVersionOption === 'v2' ? 'v2' : 'v1';
+    const editorWindowMinutes = optionNumber(options, 'window-minutes', 0);
+    const editorMaxPerWindow = optionNumber(options, 'max-per-window', 0);
+    const editorMinWindows = optionNumber(options, 'min-windows', 0);
+    const editorMinWords = optionNumber(options, 'min-words', 0);
+    const editorMinChars = optionNumber(options, 'min-chars', 0);
     let extractor: LlmClaimExtractor | undefined;
     if (useLlm) {
       const model = optionString(options, 'model', process.env['AIDHA_LLM_MODEL'] ?? '');
@@ -269,6 +280,12 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
         chunkMinutes: chunkMinutes > 0 ? chunkMinutes : undefined,
         maxChunks: maxChunks > 0 ? maxChunks : undefined,
         cacheDir: process.env['AIDHA_LLM_CACHE_DIR'],
+        editorVersion,
+        editorWindowMinutes: editorWindowMinutes > 0 ? editorWindowMinutes : undefined,
+        editorMaxPerWindow: editorMaxPerWindow > 0 ? editorMaxPerWindow : undefined,
+        editorMinWindows: editorMinWindows > 0 ? editorMinWindows : undefined,
+        editorMinWords: editorMinWords > 0 ? editorMinWords : undefined,
+        editorMinChars: editorMinChars > 0 ? editorMinChars : undefined,
       });
     }
 
@@ -659,18 +676,88 @@ async function runDiagnose(positionals: string[], options: CliOptions): Promise<
 
   if (mode === 'extract') {
     const store = await openStore(options);
-    const result = await diagnoseExtraction(store, videoId);
+    const includeEditor = optionBool(options, 'include-editor');
+    const editorVersionOption = optionString(
+      options,
+      'editor-version',
+      process.env['AIDHA_EDITOR_VERSION'] ?? 'v1'
+    ).toLowerCase();
+    const editorVersion = editorVersionOption === 'v2' ? 'v2' : 'v1';
+    const result = await diagnoseExtraction(store, videoId, {
+      includeEditor,
+      model: optionString(options, 'model', process.env['AIDHA_LLM_MODEL'] ?? '') || undefined,
+      promptVersion: optionString(
+        options,
+        'prompt-version',
+        process.env['AIDHA_CLAIMS_PROMPT_VERSION'] ?? ''
+      ) || undefined,
+      chunkMinutes: optionNumber(options, 'chunk-minutes', 0) || undefined,
+      maxChunks: optionNumber(options, 'max-chunks', 0) || undefined,
+      cacheDir: optionString(options, 'cache-dir', process.env['AIDHA_LLM_CACHE_DIR'] ?? '') || undefined,
+      editorVersion,
+      maxClaims: optionNumber(options, 'claims', 0) || undefined,
+      windowMinutes: optionNumber(options, 'window-minutes', 0) || undefined,
+      maxPerWindow: optionNumber(options, 'max-per-window', 0) || undefined,
+      minWindows: optionNumber(options, 'min-windows', 0) || undefined,
+      minWords: optionNumber(options, 'min-words', 0) || undefined,
+      minChars: optionNumber(options, 'min-chars', 0) || undefined,
+    });
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
       return 1;
     }
     console.log(formatExtractionDiagnosis(result.value, optionBool(options, 'json')));
+    if (includeEditor && result.value.editorial && !result.value.editorial.available) {
+      await store.close();
+      return 2;
+    }
     await store.close();
     return 0;
   }
 
-  console.error('Unknown diagnose mode. Use transcript or extract.');
+  if (mode === 'editor') {
+    const store = await openStore(options);
+    const editorVersionOption = optionString(
+      options,
+      'editor-version',
+      process.env['AIDHA_EDITOR_VERSION'] ?? 'v1'
+    ).toLowerCase();
+    const editorVersion = editorVersionOption === 'v2' ? 'v2' : 'v1';
+    const result = await diagnoseExtraction(store, videoId, {
+      includeEditor: true,
+      model: optionString(options, 'model', process.env['AIDHA_LLM_MODEL'] ?? '') || undefined,
+      promptVersion: optionString(
+        options,
+        'prompt-version',
+        process.env['AIDHA_CLAIMS_PROMPT_VERSION'] ?? ''
+      ) || undefined,
+      chunkMinutes: optionNumber(options, 'chunk-minutes', 0) || undefined,
+      maxChunks: optionNumber(options, 'max-chunks', 0) || undefined,
+      cacheDir: optionString(options, 'cache-dir', process.env['AIDHA_LLM_CACHE_DIR'] ?? '') || undefined,
+      editorVersion,
+      maxClaims: optionNumber(options, 'claims', 0) || undefined,
+      windowMinutes: optionNumber(options, 'window-minutes', 0) || undefined,
+      maxPerWindow: optionNumber(options, 'max-per-window', 0) || undefined,
+      minWindows: optionNumber(options, 'min-windows', 0) || undefined,
+      minWords: optionNumber(options, 'min-words', 0) || undefined,
+      minChars: optionNumber(options, 'min-chars', 0) || undefined,
+    });
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+    console.log(formatExtractionDiagnosis(result.value, optionBool(options, 'json')));
+    if (!result.value.editorial?.available) {
+      await store.close();
+      return 2;
+    }
+    await store.close();
+    return 0;
+  }
+
+  console.error('Unknown diagnose mode. Use transcript, extract, or editor.');
   return 1;
 }
 

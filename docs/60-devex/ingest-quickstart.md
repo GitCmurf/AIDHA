@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-02-07
-version: '0.17'
+last_updated: 2026-02-08
+version: '0.18'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.17
-> **Last Updated:** 2026-02-07
+> **Version:** 0.18
+> **Last Updated:** 2026-02-08
 > **Type:** GUIDE
 
 ## Version History
@@ -39,6 +39,7 @@ docops_version: '2.0'
 | 0.15    | 2026-02-07 | AI     | Add project create helper usage          | —         | Draft  | —         |
 | 0.16    | 2026-02-07 | AI     | Add split dossier and transcript export usage | —      | Draft  | —         |
 | 0.17    | 2026-02-07 | AI     | Add yt-dlp JS runtime option + diagnose behavior | —   | Draft  | —         |
+| 0.18    | 2026-02-08 | AI     | Add editor v2 extraction flags + diagnose editor mode | — | Draft | — |
 
 ## Purpose
 
@@ -98,9 +99,15 @@ Optional:
    pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id> \
      --llm \
      --model your-model \
+     --editor-version v2 \
      --claims 15 \
      --chunk-minutes 5 \
-     --max-chunks 20
+     --max-chunks 20 \
+     --window-minutes 5 \
+     --max-per-window 3 \
+     --min-windows 4 \
+     --min-words 8 \
+     --min-chars 50
    ```
 
    LLM extraction runs in two passes: chunk-level candidate mining followed by deterministic
@@ -191,10 +198,13 @@ Optional:
    ```bash
    pnpm -C packages/praecis/youtube cli diagnose transcript https://youtu.be/<id>
    pnpm -C packages/praecis/youtube cli diagnose extract https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli diagnose editor https://youtu.be/<id>
    ```
 
    Note: `diagnose transcript` exits with code `2` when JS runtime support for `yt-dlp`
    is missing.
+   `diagnose editor` uses cached LLM candidates only and exits with code `2` when cache
+   is unavailable. It does not trigger new LLM calls.
 
 1. **Create area/goal/project links**
 

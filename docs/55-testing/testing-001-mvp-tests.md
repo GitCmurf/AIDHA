@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-001
 owner: Engineering
 status: Draft
-version: '0.8'
-last_updated: 2026-02-07
+version: '0.9'
+last_updated: 2026-02-08
 title: MVP Test Suite Map and Hardening Coverage
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.8
-> **Last Updated:** 2026-02-07
+> **Version:** 0.9
+> **Last Updated:** 2026-02-08
 > **Type:** TESTING
 
 # MVP Test Suite Map and Hardening Coverage
@@ -31,6 +31,7 @@ docops_version: '2.0'
 | 0.6     | 2026-02-07 | AI     | Refresh full-suite baseline after slug hardening test | — | Draft | — |
 | 0.7     | 2026-02-07 | AI     | Add split dossier/transcript export coverage and refresh baseline | — | Draft | — |
 | 0.8     | 2026-02-07 | AI     | Add yt-dlp runtime + diagnose coverage and refresh baseline | — | Draft | — |
+| 0.9     | 2026-02-08 | AI     | Add editorial ranking modules/tests and diagnose editor coverage | — | Draft | — |
 
 ## Purpose
 
@@ -55,6 +56,9 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
 - `tests/pipeline.test.ts`: ingestion flow coverage.
 - `tests/extraction.test.ts`: claim/reference extraction invariants and metadata handling.
 - `tests/llm-claims.test.ts`: two-pass LLM extraction behavior and cache invalidation.
+- `tests/editorial-ranking.v1.test.ts`: v1 editorial characterization and deterministic ordering.
+- `tests/editorial-ranking.v2.test.ts`: v2 scoring/diversity behavior and diagnostics invariants.
+- `tests/editorial-metrics.test.ts`: deterministic fragment/boilerplate/coverage helper checks.
 - `tests/review.test.ts`: review queue and review-apply behavior, including rollback and
   concurrency metadata preservation.
 - `tests/review-atomicity.sqlite.test.ts`: SQLite-backed review batch atomicity checks.
@@ -66,7 +70,7 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
   CLI command coverage.
 - `tests/retrieval.test.ts`, `tests/related.test.ts`: query and related-claim ranking behavior.
 - `tests/dossier.test.ts`: markdown dossier export checks.
-- `tests/diagnose.test.ts`: transcript and extraction diagnostics behavior.
+- `tests/diagnose.test.ts`: transcript, extraction, and cache-based editor diagnostics behavior.
 - `tests/help-text.test.ts`: CLI self-documentation guardrails for query state flags.
 - `tests/claims-coverage.test.ts`: extraction timeline and count-range coverage.
 - `tests/client.test.ts`, `tests/yt-dlp.test.ts`, `tests/transcript-parse.test.ts`,
@@ -118,10 +122,10 @@ pnpm -C packages/praecis/youtube test -- cli-review-atomicity.test.ts
 pnpm -C packages/praecis/youtube test -- extraction.test.ts
 ```
 
-## Current Baseline (2026-02-07)
+## Current Baseline (2026-02-08)
 
-- `@aidha/graph-backend`: 61 tests passing.
-- `@aidha/ingestion-youtube`: 92 tests passing, 6 tests skipped (`real-client` network-dependent).
+- `@aidha/graph-backend`: 62 tests passing.
+- `@aidha/ingestion-youtube`: 107 tests passing, 6 tests skipped (`real-client` network-dependent).
 
 ## Remaining Coverage Gaps
 

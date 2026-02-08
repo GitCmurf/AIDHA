@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-02-07
-version: '1.9'
+last_updated: 2026-02-08
+version: '1.10'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.9
-> **Last Updated:** 2026-02-07
+> **Version:** 1.10
+> **Last Updated:** 2026-02-08
 > **Type:** RUNBOOK
 
 ## Version History
@@ -40,6 +40,7 @@ docops_version: '2.0'
 | 1.7     | 2026-02-07 | AI     | Add project create helper operations        | —         | Draft  | —         |
 | 1.8     | 2026-02-07 | AI     | Add split dossier and transcript export operations | —     | Draft  | —         |
 | 1.9     | 2026-02-07 | AI     | Add yt-dlp JS runtime option and diagnose severity | —    | Draft  | —         |
+| 1.10    | 2026-02-08 | AI     | Add editor v2 flags and cache-based diagnose editor mode | — | Draft | — |
 
 ## Purpose
 
@@ -132,9 +133,11 @@ auditing steps.
    ```bash
    pnpm -C packages/praecis/youtube cli diagnose transcript <url>
    pnpm -C packages/praecis/youtube cli diagnose extract <url>
+   pnpm -C packages/praecis/youtube cli diagnose editor <url>
    ```
 
    `diagnose transcript` returns exit code `2` if JS runtime support for `yt-dlp` is missing.
+   `diagnose editor` returns exit code `2` when LLM cache is missing and does not run LLM.
 
 1. **Export accepted + draft dossiers**
 
@@ -175,9 +178,15 @@ auditing steps.
    pnpm -C packages/praecis/youtube cli extract claims <url> \
      --llm \
      --model your-model \
+     --editor-version v2 \
      --claims 15 \
      --chunk-minutes 5 \
-     --max-chunks 20
+     --max-chunks 20 \
+     --window-minutes 5 \
+     --max-per-window 3 \
+     --min-windows 4 \
+     --min-words 8 \
+     --min-chars 50
    ```
 
    LLM extraction uses two passes:
