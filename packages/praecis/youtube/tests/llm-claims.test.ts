@@ -383,4 +383,178 @@ describe('LLM claim extraction', () => {
     await rm(cacheDirA, { recursive: true, force: true });
     await rm(cacheDirB, { recursive: true, force: true });
   });
+
+  it('rewrites selected claims with cache and guardrails', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-video-6');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Use SHA-256 with 3 stable fields to generate deterministic IDs across reruns.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            type: 'instruction',
+            confidence: 0.88,
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            index: 0,
+            text: 'Use SHA-256 on 3 stable fields to produce deterministic IDs across reruns.',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      maxClaims: 10,
+      editorLlm: true,
+    });
+
+    const first = await extractor.extractClaims({ resource, excerpts, maxClaims: 10 });
+    const second = await extractor.extractClaims({ resource, excerpts, maxClaims: 10 });
+
+    expect(first.length).toBe(1);
+    expect(first[0]?.text).toContain('on 3 stable fields');
+    expect(second[0]?.text).toBe(first[0]?.text);
+    expect(client.calls).toBe(2);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('keeps original claim when rewrite violates numeric preservation guard', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-video-7');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Use SHA-256 with 3 stable fields to generate deterministic IDs across reruns.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            type: 'instruction',
+            confidence: 0.88,
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            index: 0,
+            text: 'Use SHA-256 on stable fields to produce deterministic IDs.',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      maxClaims: 10,
+      editorLlm: true,
+    });
+
+    const selected = await extractor.extractClaims({ resource, excerpts, maxClaims: 10 });
+    expect(selected.length).toBe(1);
+    expect(selected[0]?.text).toContain('with 3 stable fields');
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('keeps original claim when rewrite violates keyword overlap guard', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-video-8');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Use SHA-256 with 3 stable fields to generate deterministic IDs across reruns.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            type: 'instruction',
+            confidence: 0.88,
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            index: 0,
+            text: 'Completely unrelated meteorology commentary with no overlap at all.',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      maxClaims: 10,
+      editorLlm: true,
+      editorRewriteMinKeywordOverlap: 0.3,
+    });
+
+    const selected = await extractor.extractClaims({ resource, excerpts, maxClaims: 10 });
+    expect(selected.length).toBe(1);
+    expect(selected[0]?.text).toContain('with 3 stable fields');
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('keeps original claim when rewrite exceeds edit ratio guard', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-video-9');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Use SHA-256 with 3 stable fields to generate deterministic IDs across reruns.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            type: 'instruction',
+            confidence: 0.88,
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            index: 0,
+            text: 'IDs across reruns need deterministic hashing while also adding extra details now.',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      maxClaims: 10,
+      editorLlm: true,
+      editorRewriteMaxEditRatio: 0.4,
+    });
+
+    const selected = await extractor.extractClaims({ resource, excerpts, maxClaims: 10 });
+    expect(selected.length).toBe(1);
+    expect(selected[0]?.text).toContain('with 3 stable fields');
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
 });

@@ -28,6 +28,7 @@ describe('parseArgs', () => {
       '8',
       '--min-chars',
       '50',
+      '--editor-llm',
       '--json',
       '--mock',
     ]);
@@ -42,6 +43,7 @@ describe('parseArgs', () => {
     expect(result.options['min-windows']).toBe('3');
     expect(result.options['min-words']).toBe('8');
     expect(result.options['min-chars']).toBe('50');
+    expect(result.options['editor-llm']).toBe(true);
     expect(result.options.json).toBe(true);
     expect(result.options.mock).toBe(true);
   });

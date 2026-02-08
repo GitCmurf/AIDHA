@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-02-08
-version: '0.18'
+version: '0.19'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.18
+> **Version:** 0.19
 > **Last Updated:** 2026-02-08
 > **Type:** GUIDE
 
@@ -40,6 +40,7 @@ docops_version: '2.0'
 | 0.16    | 2026-02-07 | AI     | Add split dossier and transcript export usage | —      | Draft  | —         |
 | 0.17    | 2026-02-07 | AI     | Add yt-dlp JS runtime option + diagnose behavior | —   | Draft  | —         |
 | 0.18    | 2026-02-08 | AI     | Add editor v2 extraction flags + diagnose editor mode | — | Draft | — |
+| 0.19    | 2026-02-08 | AI     | Add optional editor rewrite flag and guardrail notes | — | Draft | — |
 
 ## Purpose
 
@@ -100,6 +101,7 @@ Optional:
      --llm \
      --model your-model \
      --editor-version v2 \
+     --editor-llm \
      --claims 15 \
      --chunk-minutes 5 \
      --max-chunks 20 \
@@ -112,6 +114,10 @@ Optional:
 
    LLM extraction runs in two passes: chunk-level candidate mining followed by deterministic
    editor merge/selection. Cache keys include transcript hash + prompt version + model.
+
+   Optional rewrite pass (`--editor-llm`): rewrites selected claims for readability while
+   keeping numeric values and excerpt-grounded keywords. Rewrite cache keys include transcript
+   hash + candidate-set hash + model + rewrite prompt version.
 
 4. **Export dossier**
 

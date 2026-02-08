@@ -31,6 +31,7 @@ describe('CLI usage help text', () => {
     expect(CLI_USAGE_TEXT).toContain('--min-windows <n>');
     expect(CLI_USAGE_TEXT).toContain('--min-words <n>');
     expect(CLI_USAGE_TEXT).toContain('--min-chars <n>');
+    expect(CLI_USAGE_TEXT).toContain('--editor-llm');
     expect(CLI_USAGE_TEXT).toContain('diagnose editor <videoIdOrUrl>');
     expect(CLI_USAGE_TEXT).toContain('--include-editor');
   });

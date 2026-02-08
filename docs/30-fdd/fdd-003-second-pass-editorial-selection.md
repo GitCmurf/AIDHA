@@ -2,7 +2,7 @@
 document_id: AIDHA-FDD-003
 owner: Ingestion Engineering Lead
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-02-08
 title: Second-Pass Editorial Claim Selection
 type: FDD
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-02-08
 > **Type:** FDD
 
@@ -26,6 +26,7 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | ------------------------------------------ | --------- | ------ | --------- |
 | 0.1     | 2026-02-06 | AI     | Initial FDD for editorial second pass      | —         | Draft  | —         |
 | 0.2     | 2026-02-08 | AI     | Add modular v1/v2 editor and diagnostics contract | —   | Draft  | —         |
+| 0.3     | 2026-02-08 | AI     | Add optional rewrite pass guardrails and cache model | — | Draft | —         |
 
 ## Overview
 
@@ -43,6 +44,10 @@ This pass is designed to be reusable across transcript sources, not only YouTube
   - Uses deterministic heuristic scoring for actionability, specificity, and evidence density.
   - Uses time-window diversity selection with max-per-window limits.
   - Keeps dedupe rules equivalent to `v1` by default for migration safety.
+- Optional rewrite behavior (opt-in via `--editor-llm`):
+  - Applies only after deterministic pass 2 selection.
+  - Uses strict JSON schema (`index`, `text`) and deterministic cache keying.
+  - Enforces provenance guardrails (numeric preservation, keyword overlap, edit-ratio cap).
 - Final selected claims are always sorted deterministically by timestamp + text + excerpt key.
 
 ## Reusability Contract
@@ -62,6 +67,7 @@ Any source that yields candidates with provenance can reuse this editor implemen
   - dropped counts by reason
   - window coverage summary
   - consistency invariant checks
+- Optional rewrite cache artifacts keyed by transcript + selected-candidate hash.
 - Candidate metadata preserved for downstream review:
   - method
   - model
@@ -87,3 +93,5 @@ Any source that yields candidates with provenance can reuse this editor implemen
   - v2 filtering, diversity, and diagnostics invariants
 - `packages/praecis/youtube/tests/editorial-metrics.test.ts`
   - fragment/boilerplate counting and timeline coverage metrics
+- `packages/praecis/youtube/tests/llm-claims.test.ts`
+  - rewrite cache behavior and rewrite guardrail checks

@@ -49,6 +49,27 @@ const CacheSchema = z.object({
   claims: z.array(ClaimSchema),
 });
 
+const RewriteClaimSchema = z.object({
+  index: z.number().int().nonnegative(),
+  text: z.string().min(1),
+});
+
+const RewriteResponseSchema = z.object({
+  claims: z.array(RewriteClaimSchema),
+});
+
+const RewriteCacheMetadataSchema = z.object({
+  transcriptHash: z.string().min(1),
+  candidateSetHash: z.string().min(1),
+  model: z.string().min(1),
+  promptVersion: z.string().min(1),
+});
+
+const RewriteCacheSchema = z.object({
+  metadata: RewriteCacheMetadataSchema,
+  claims: z.array(RewriteClaimSchema),
+});
+
 interface ClaimChunk {
   index: number;
   start: number;
@@ -57,6 +78,7 @@ interface ClaimChunk {
 }
 
 type CacheMetadata = z.infer<typeof CacheMetadataSchema>;
+type RewriteCacheMetadata = z.infer<typeof RewriteCacheMetadataSchema>;
 
 export interface LlmClaimExtractorConfig {
   client: LlmClient;
@@ -72,6 +94,10 @@ export interface LlmClaimExtractorConfig {
   editorMinWindows?: number;
   editorMinWords?: number;
   editorMinChars?: number;
+  editorLlm?: boolean;
+  editorRewritePromptVersion?: string;
+  editorRewriteMinKeywordOverlap?: number;
+  editorRewriteMaxEditRatio?: number;
   fallback?: ClaimExtractor;
 }
 
@@ -98,6 +124,9 @@ const DEFAULT_MAX_CLAIMS = 15;
 const DEFAULT_CACHE_DIR = './out/cache/claims';
 const DEFAULT_MIN_CLAIMS_PER_CHUNK = 3;
 const DEFAULT_MAX_CLAIMS_PER_CHUNK = 8;
+const DEFAULT_EDITOR_REWRITE_PROMPT_VERSION = 'editor-rewrite-v1';
+const DEFAULT_EDITOR_REWRITE_MIN_KEYWORD_OVERLAP = 0.3;
+const DEFAULT_EDITOR_REWRITE_MAX_EDIT_RATIO = 0.5;
 
 function hashTranscript(excerpts: GraphNode[]): string {
   const hash = createHash('sha256');
@@ -217,6 +246,109 @@ async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCa
   await writeFile(path, JSON.stringify(payload, null, 2), 'utf-8');
 }
 
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .map(token => token.trim())
+    .filter(Boolean);
+}
+
+function numericTokens(text: string): string[] {
+  return (text.match(/\d+(?:\.\d+)?/g) ?? []).map(token => token.trim());
+}
+
+function keywordOverlapRatio(rewrittenText: string, sourceTexts: string[]): number {
+  const rewrittenTokens = new Set(tokenize(rewrittenText));
+  if (rewrittenTokens.size === 0) return 0;
+  const sourceTokenSet = new Set(sourceTexts.flatMap(text => tokenize(text)));
+  if (sourceTokenSet.size === 0) return 0;
+  let overlap = 0;
+  for (const token of rewrittenTokens) {
+    if (sourceTokenSet.has(token)) overlap += 1;
+  }
+  return overlap / rewrittenTokens.size;
+}
+
+function editRatio(originalText: string, rewrittenText: string): number {
+  const originalTokens = tokenize(originalText);
+  const rewrittenTokens = tokenize(rewrittenText);
+  const maxLength = Math.max(1, Math.max(originalTokens.length, rewrittenTokens.length));
+  const minLength = Math.min(originalTokens.length, rewrittenTokens.length);
+  let equal = 0;
+  for (let index = 0; index < minLength; index++) {
+    if (originalTokens[index] === rewrittenTokens[index]) {
+      equal += 1;
+    }
+  }
+  return 1 - (equal / maxLength);
+}
+
+function hasNumericTokenLoss(originalText: string, rewrittenText: string): boolean {
+  const original = new Set(numericTokens(originalText));
+  if (original.size === 0) return false;
+  const rewritten = new Set(numericTokens(rewrittenText));
+  for (const token of original) {
+    if (!rewritten.has(token)) return true;
+  }
+  return false;
+}
+
+function candidateSetHash(candidates: ClaimCandidate[]): string {
+  const hash = createHash('sha256');
+  const sorted = candidates
+    .slice()
+    .sort((left, right) => {
+      const leftStart = typeof left.startSeconds === 'number' ? left.startSeconds : Number.MAX_SAFE_INTEGER;
+      const rightStart = typeof right.startSeconds === 'number' ? right.startSeconds : Number.MAX_SAFE_INTEGER;
+      if (leftStart !== rightStart) return leftStart - rightStart;
+      const textDiff = left.text.localeCompare(right.text);
+      if (textDiff !== 0) return textDiff;
+      const leftExcerptKey = Array.from(new Set(left.excerptIds)).sort((a, b) => a.localeCompare(b)).join('|');
+      const rightExcerptKey = Array.from(new Set(right.excerptIds)).sort((a, b) => a.localeCompare(b)).join('|');
+      return leftExcerptKey.localeCompare(rightExcerptKey);
+    });
+  for (const candidate of sorted) {
+    hash.update(normalizeText(candidate.text));
+    hash.update(String(candidate.startSeconds ?? -1));
+    hash.update(Array.from(new Set(candidate.excerptIds)).sort((a, b) => a.localeCompare(b)).join('|'));
+  }
+  return hash.digest('hex').slice(0, 16);
+}
+
+async function readRewriteCache(
+  path: string,
+  metadata: RewriteCacheMetadata
+): Promise<Array<{ index: number; text: string }> | null> {
+  try {
+    const raw = await readFile(path, 'utf-8');
+    const parsed = RewriteCacheSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return null;
+    const cachedMeta = parsed.data.metadata;
+    if (
+      cachedMeta.transcriptHash !== metadata.transcriptHash ||
+      cachedMeta.candidateSetHash !== metadata.candidateSetHash ||
+      cachedMeta.model !== metadata.model ||
+      cachedMeta.promptVersion !== metadata.promptVersion
+    ) {
+      return null;
+    }
+    return parsed.data.claims;
+  } catch {
+    return null;
+  }
+}
+
+async function writeRewriteCache(
+  path: string,
+  metadata: RewriteCacheMetadata,
+  claims: Array<{ index: number; text: string }>
+): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify({ metadata, claims }, null, 2), 'utf-8');
+}
+
 function cacheKeyForChunk(input: {
   videoId: string;
   chunk: ClaimChunk;
@@ -321,6 +453,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private editorMinWindows?: number;
   private editorMinWords?: number;
   private editorMinChars?: number;
+  private editorLlm: boolean;
+  private editorRewritePromptVersion: string;
+  private editorRewriteMinKeywordOverlap: number;
+  private editorRewriteMaxEditRatio: number;
   private fallback?: ClaimExtractor;
 
   constructor(config: LlmClaimExtractorConfig) {
@@ -337,6 +473,19 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.editorMinWindows = config.editorMinWindows;
     this.editorMinWords = config.editorMinWords;
     this.editorMinChars = config.editorMinChars;
+    this.editorLlm = config.editorLlm ?? false;
+    this.editorRewritePromptVersion =
+      config.editorRewritePromptVersion ?? DEFAULT_EDITOR_REWRITE_PROMPT_VERSION;
+    this.editorRewriteMinKeywordOverlap = clamp(
+      config.editorRewriteMinKeywordOverlap ?? DEFAULT_EDITOR_REWRITE_MIN_KEYWORD_OVERLAP,
+      0,
+      1
+    );
+    this.editorRewriteMaxEditRatio = clamp(
+      config.editorRewriteMaxEditRatio ?? DEFAULT_EDITOR_REWRITE_MAX_EDIT_RATIO,
+      0,
+      1
+    );
     this.fallback = config.fallback ?? new HeuristicClaimExtractor();
   }
 
@@ -369,12 +518,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
       allCandidates.push(...chunkCandidates);
     }
 
+    let selected: ClaimCandidate[];
     if (this.editorVersion === 'v2') {
       const excerptTextLengthById = new Map<string, number>();
       for (const excerpt of excerpts) {
         excerptTextLengthById.set(excerpt.id, excerpt.content?.length ?? 0);
       }
-      return runEditorPassV2(allCandidates, {
+      selected = runEditorPassV2(allCandidates, {
         maxClaims,
         chunkCount: chunked.length,
         windowMinutes: this.editorWindowMinutes,
@@ -384,12 +534,151 @@ export class LlmClaimExtractor implements ClaimExtractor {
         minChars: this.editorMinChars,
         excerptTextLengthById,
       });
+    } else {
+      selected = runEditorPassV1(allCandidates, {
+        maxClaims,
+        chunkCount: chunked.length,
+      });
     }
 
-    return runEditorPassV1(allCandidates, {
-      maxClaims,
-      chunkCount: chunked.length,
+    if (this.editorLlm && selected.length > 0) {
+      return this.rewriteSelectedClaims({
+        resource,
+        excerpts,
+        transcriptHash,
+        selected,
+      });
+    }
+
+    return selected;
+  }
+
+  private async rewriteSelectedClaims(input: {
+    resource: GraphNode;
+    excerpts: GraphNode[];
+    transcriptHash: string;
+    selected: ClaimCandidate[];
+  }): Promise<ClaimCandidate[]> {
+    const { resource, excerpts, transcriptHash, selected } = input;
+    const videoId = typeof resource.metadata?.['videoId'] === 'string'
+      ? (resource.metadata?.['videoId'] as string)
+      : resource.id;
+    const setHash = candidateSetHash(selected);
+    const cacheKey = hashId('llm-editor-rewrite', [
+      videoId,
+      transcriptHash,
+      setHash,
+      this.model,
+      this.editorRewritePromptVersion,
+    ]);
+    const cachePath = join(this.cacheDir, `${cacheKey}.rewrite.json`);
+    const metadata: RewriteCacheMetadata = {
+      transcriptHash,
+      candidateSetHash: setHash,
+      model: this.model,
+      promptVersion: this.editorRewritePromptVersion,
+    };
+
+    let rewrites = await readRewriteCache(cachePath, metadata);
+    if (!rewrites) {
+      rewrites = await this.fetchRewriteCandidates({ resource, excerpts, selected });
+      if (rewrites && rewrites.length > 0) {
+        await writeRewriteCache(cachePath, metadata, rewrites);
+      }
+    }
+    if (!rewrites || rewrites.length === 0) return selected;
+
+    const rewriteByIndex = new Map<number, string>();
+    for (const rewrite of rewrites) {
+      if (!rewriteByIndex.has(rewrite.index)) {
+        rewriteByIndex.set(rewrite.index, rewrite.text);
+      }
+    }
+
+    const excerptTextById = new Map(excerpts.map(excerpt => [excerpt.id, excerpt.content ?? '']));
+    return selected.map((candidate, index) => {
+      const rewriteText = rewriteByIndex.get(index);
+      if (!rewriteText) return candidate;
+      const normalizedRewrite = normalizeText(rewriteText);
+      if (normalizedRewrite.length === 0) return candidate;
+      if (hasNumericTokenLoss(candidate.text, normalizedRewrite)) return candidate;
+      const sourceTexts = [
+        candidate.text,
+        ...candidate.excerptIds.map(excerptId => excerptTextById.get(excerptId) ?? ''),
+      ];
+      if (keywordOverlapRatio(normalizedRewrite, sourceTexts) < this.editorRewriteMinKeywordOverlap) {
+        return candidate;
+      }
+      if (editRatio(candidate.text, normalizedRewrite) > this.editorRewriteMaxEditRatio) {
+        return candidate;
+      }
+      return {
+        ...candidate,
+        text: normalizedRewrite,
+      };
     });
+  }
+
+  private async fetchRewriteCandidates(input: {
+    resource: GraphNode;
+    excerpts: GraphNode[];
+    selected: ClaimCandidate[];
+  }): Promise<Array<{ index: number; text: string }> | null> {
+    const excerptTextById = new Map(input.excerpts.map(excerpt => [excerpt.id, excerpt.content ?? '']));
+    const claimsPayload = input.selected.map((candidate, index) => ({
+      index,
+      text: candidate.text,
+      excerptIds: candidate.excerptIds,
+      excerptText: candidate.excerptIds
+        .map(excerptId => excerptTextById.get(excerptId) ?? '')
+        .join(' '),
+      startSeconds: candidate.startSeconds ?? 0,
+    }));
+    const system = [
+      'You revise claim text for clarity while preserving provenance constraints.',
+      'Return only JSON matching the schema with claim indexes and revised text.',
+      'Do not add new facts. Keep numeric values. Keep meaning consistent with evidence excerpts.',
+    ].join(' ');
+    const user = [
+      `Video: ${input.resource.label}`,
+      `Schema: {"claims":[{"index":number,"text":string}]}`,
+      'Revise each claim to improve readability only.',
+      'Preserve meaning, numbers, and cited evidence.',
+      `CLAIMS:\n${JSON.stringify(claimsPayload, null, 2)}`,
+    ].join('\n');
+
+    const request = {
+      model: this.model,
+      system,
+      user,
+      temperature: 0,
+      maxTokens: 1200,
+    };
+    const response = await this.client.generate(request);
+    if (!response.ok) return null;
+    const parsed = this.parseRewriteResponse(response.value);
+    if (parsed) return parsed;
+
+    const retry = await this.client.generate({
+      ...request,
+      user: `${user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
+    });
+    if (!retry.ok) return null;
+    return this.parseRewriteResponse(retry.value);
+  }
+
+  private parseRewriteResponse(content: string): Array<{ index: number; text: string }> | null {
+    const jsonBlock = extractJsonBlock(content);
+    if (!jsonBlock) return null;
+    try {
+      const parsed = RewriteResponseSchema.parse(JSON.parse(jsonBlock));
+      return parsed.claims.map(claim => ({
+        index: claim.index,
+        text: normalizeText(claim.text),
+      }));
+    } catch {
+      return null;
+    }
   }
 
   private async extractChunkClaims(input: {

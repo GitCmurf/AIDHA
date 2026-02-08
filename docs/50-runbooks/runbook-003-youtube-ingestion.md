@@ -3,7 +3,7 @@ document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
 last_updated: 2026-02-08
-version: '1.10'
+version: '1.11'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.10
+> **Version:** 1.11
 > **Last Updated:** 2026-02-08
 > **Type:** RUNBOOK
 
@@ -41,6 +41,7 @@ docops_version: '2.0'
 | 1.8     | 2026-02-07 | AI     | Add split dossier and transcript export operations | —     | Draft  | —         |
 | 1.9     | 2026-02-07 | AI     | Add yt-dlp JS runtime option and diagnose severity | —    | Draft  | —         |
 | 1.10    | 2026-02-08 | AI     | Add editor v2 flags and cache-based diagnose editor mode | — | Draft | — |
+| 1.11    | 2026-02-08 | AI     | Add optional editor rewrite flag and guardrail guidance | — | Draft | — |
 
 ## Purpose
 
@@ -179,6 +180,7 @@ auditing steps.
      --llm \
      --model your-model \
      --editor-version v2 \
+     --editor-llm \
      --claims 15 \
      --chunk-minutes 5 \
      --max-chunks 20 \
@@ -196,6 +198,12 @@ auditing steps.
 
    Cache keys include transcript hash + prompt version + model, so prompt/model/transcript changes
    correctly bypass stale cache.
+
+   Optional rewrite pass (`--editor-llm`):
+
+   - rewrites selected claims only (no new claim generation)
+   - preserves numeric tokens and requires keyword overlap with excerpt evidence
+   - rejects rewrites above edit-ratio guardrails
 
 ## Transcript Troubleshooting
 

@@ -259,6 +259,7 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
     const editorMinWindows = optionNumber(options, 'min-windows', 0);
     const editorMinWords = optionNumber(options, 'min-words', 0);
     const editorMinChars = optionNumber(options, 'min-chars', 0);
+    const editorLlm = optionBool(options, 'editor-llm');
     let extractor: LlmClaimExtractor | undefined;
     if (useLlm) {
       const model = optionString(options, 'model', process.env['AIDHA_LLM_MODEL'] ?? '');
@@ -286,6 +287,7 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
         editorMinWindows: editorMinWindows > 0 ? editorMinWindows : undefined,
         editorMinWords: editorMinWords > 0 ? editorMinWords : undefined,
         editorMinChars: editorMinChars > 0 ? editorMinChars : undefined,
+        editorLlm,
       });
     }
 

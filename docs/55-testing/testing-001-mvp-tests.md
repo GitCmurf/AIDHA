@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-001
 owner: Engineering
 status: Draft
-version: '0.9'
+version: '0.10'
 last_updated: 2026-02-08
 title: MVP Test Suite Map and Hardening Coverage
 type: TESTING
@@ -13,7 +13,7 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.9
+> **Version:** 0.10
 > **Last Updated:** 2026-02-08
 > **Type:** TESTING
 
@@ -32,6 +32,7 @@ docops_version: '2.0'
 | 0.7     | 2026-02-07 | AI     | Add split dossier/transcript export coverage and refresh baseline | — | Draft | — |
 | 0.8     | 2026-02-07 | AI     | Add yt-dlp runtime + diagnose coverage and refresh baseline | — | Draft | — |
 | 0.9     | 2026-02-08 | AI     | Add editorial ranking modules/tests and diagnose editor coverage | — | Draft | — |
+| 0.10    | 2026-02-08 | AI     | Add editor rewrite guardrail coverage and refresh baseline | — | Draft | — |
 
 ## Purpose
 
@@ -55,7 +56,8 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
 
 - `tests/pipeline.test.ts`: ingestion flow coverage.
 - `tests/extraction.test.ts`: claim/reference extraction invariants and metadata handling.
-- `tests/llm-claims.test.ts`: two-pass LLM extraction behavior and cache invalidation.
+- `tests/llm-claims.test.ts`: two-pass extraction, cache invalidation, rewrite-cache behavior,
+  and rewrite guardrails (numeric preservation, keyword overlap, edit ratio).
 - `tests/editorial-ranking.v1.test.ts`: v1 editorial characterization and deterministic ordering.
 - `tests/editorial-ranking.v2.test.ts`: v2 scoring/diversity behavior and diagnostics invariants.
 - `tests/editorial-metrics.test.ts`: deterministic fragment/boilerplate/coverage helper checks.
@@ -125,7 +127,7 @@ pnpm -C packages/praecis/youtube test -- extraction.test.ts
 ## Current Baseline (2026-02-08)
 
 - `@aidha/graph-backend`: 62 tests passing.
-- `@aidha/ingestion-youtube`: 107 tests passing, 6 tests skipped (`real-client` network-dependent).
+- `@aidha/ingestion-youtube`: 111 tests passing, 6 tests skipped (`real-client` network-dependent).
 
 ## Remaining Coverage Gaps
 
