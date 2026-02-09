@@ -63,7 +63,7 @@
       "owner": "Ingestion Team",
       "status": "Draft",
       "last_updated": "2026-02-09",
-      "version": "0.22",
+      "version": "0.23",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -203,7 +203,7 @@
       "document_id": "AIDHA-TESTING-001",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.13",
+      "version": "0.14",
       "last_updated": "2026-02-09",
       "title": "MVP Test Suite Map and Hardening Coverage",
       "type": "TESTING",
@@ -274,7 +274,7 @@
       "owner": "Ingestion Oncall",
       "status": "Draft",
       "last_updated": "2026-02-09",
-      "version": "1.13",
+      "version": "1.14",
       "title": "YouTube Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"

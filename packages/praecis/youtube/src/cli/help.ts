@@ -6,6 +6,7 @@ Usage:
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]
   aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>] [--editor-version <v1|v2>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>] [--editor-llm]
   aidha-youtube extract refs <videoIdOrUrl> [--db <path>]
+  aidha-youtube claims purge <videoIdOrUrl> [--db <path>]
   aidha-youtube export dossier video <videoIdOrUrl> [--db <path>] [--out <path>] [--states <accepted|draft|rejected>] [--include-drafts] [--include-rejected] [--split-states]
   aidha-youtube export dossier playlist <playlistIdOrUrl> [--db <path>] [--out <path>] [--videos <id1,id2>] [--states <accepted|draft|rejected>] [--include-drafts] [--include-rejected] [--split-states]
   aidha-youtube export transcript video <videoIdOrUrl> [--db <path>] [--out <path>] [--pretty]

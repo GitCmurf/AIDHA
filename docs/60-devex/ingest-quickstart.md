@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-02-09
-version: '0.22'
+version: '0.23'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.22
+> **Version:** 0.23
 > **Last Updated:** 2026-02-09
 > **Type:** GUIDE
 
@@ -44,6 +44,7 @@ docops_version: '2.0'
 | 0.20    | 2026-02-08 | AI     | Add preflight command and subcommand help usage | — | Draft | — |
 | 0.21    | 2026-02-08 | AI     | Add fixtures import command and query regression notes | — | Draft | — |
 | 0.22    | 2026-02-09 | AI     | Refresh fixture workflow details and timestamp metadata | — | Draft | — |
+| 0.23    | 2026-02-09 | AI     | Add claims purge command for clean extraction reruns | — | Draft | — |
 
 ## Purpose
 
@@ -203,7 +204,16 @@ Optional:
    pnpm -C packages/praecis/youtube cli related --claim <claimId> --limit 5
    ```
 
-1. **Review drafts in batches**
+- **Purge existing claims for a clean rerun (optional)**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli claims purge https://youtu.be/<id>
+   ```
+
+   This removes `Claim` nodes for the video and cascades related claim edges.
+   It does not delete the `Resource` or `Excerpt` nodes.
+
+- **Review drafts in batches**
 
    ```bash
    pnpm -C packages/praecis/youtube cli review next https://youtu.be/<id> --state draft --limit 10
@@ -216,7 +226,7 @@ Optional:
      --tag "research,backend"
    ```
 
-1. **Run diagnostics**
+- **Run diagnostics**
 
    ```bash
    pnpm -C packages/praecis/youtube cli diagnose transcript https://youtu.be/<id>
@@ -229,7 +239,7 @@ Optional:
    `diagnose editor` uses cached LLM candidates only and exits with code `2` when cache
    is unavailable. It does not trigger new LLM calls.
 
-1. **Create area/goal/project links**
+- **Create area/goal/project links**
 
    ```bash
    pnpm -C packages/praecis/youtube cli area create --name "Health"
@@ -240,11 +250,11 @@ Optional:
      --goal goal-lower-bp
    ```
 
-1. **Import TTML as deterministic fixture JSON**
+- **Import TTML as deterministic fixture JSON**
 
    ```bash
    pnpm -C packages/praecis/youtube cli fixtures import-ttml \
-     ./testdata/youtube_golden/raw/<video>.en-orig.ttml \
+     ./testdata/youtube_golden/raw/<videoId>.en-orig.ttml \
      --video-id <videoId> \
      --source-url https://www.youtube.com/watch?v=<videoId> \
      --out ./testdata/youtube_golden/<videoId>.excerpts.json \

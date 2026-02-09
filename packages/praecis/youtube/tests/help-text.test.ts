@@ -25,6 +25,7 @@ describe('CLI usage help text', () => {
     expect(CLI_USAGE_TEXT).toContain('preflight youtube');
     expect(CLI_USAGE_TEXT).toContain('--probe-url <url>');
     expect(CLI_USAGE_TEXT).toContain('fixtures import-ttml <path>');
+    expect(CLI_USAGE_TEXT).toContain('claims purge <videoIdOrUrl>');
   });
 
   it('documents editorial extraction and diagnose flags', () => {

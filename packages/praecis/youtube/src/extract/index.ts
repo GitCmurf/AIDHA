@@ -4,7 +4,9 @@ export type {
   ClaimExtractionResult,
   ReferenceExtractionResult,
 } from './types.js';
+export type { PurgeClaimsResult } from './purge.js';
 export { ClaimExtractionPipeline, HeuristicClaimExtractor } from './claims.js';
+export { purgeClaimsForVideo } from './purge.js';
 export { LlmClaimExtractor, loadCachedClaimCandidates } from './llm-claims.js';
 export type { CachedClaimsLoadOptions, CachedClaimsLoadResult } from './llm-claims.js';
 export type {

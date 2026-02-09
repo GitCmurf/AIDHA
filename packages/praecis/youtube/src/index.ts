@@ -33,6 +33,7 @@ export type {
   ClaimExtractionInput,
   ClaimExtractionResult,
   ReferenceExtractionResult,
+  PurgeClaimsResult,
   EditorialDiagnostics,
   EditorialDropReason,
   EditorialPassV1Options,
@@ -46,6 +47,7 @@ export type { LlmClient, LlmCompletionRequest } from './extract/index.js';
 export {
   ClaimExtractionPipeline,
   HeuristicClaimExtractor,
+  purgeClaimsForVideo,
   LlmClaimExtractor,
   loadCachedClaimCandidates,
   runEditorPassV1,

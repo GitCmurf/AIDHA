@@ -13,6 +13,7 @@ import {
   LlmClaimExtractor,
   createDefaultLlmClient,
   ReferenceExtractionPipeline,
+  purgeClaimsForVideo,
   DossierExporter,
   searchClaims,
   findRelatedClaims,
@@ -321,6 +322,30 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
     return 1;
   }
 
+  await store.close();
+  return 0;
+}
+
+async function runClaims(positionals: string[], options: CliOptions): Promise<number> {
+  const action = positionals[1];
+  const target = positionals[2];
+  if (action !== 'purge' || !target) {
+    console.error('Usage: claims purge <videoIdOrUrl>');
+    return 1;
+  }
+
+  const videoId = parseVideoId(target);
+  const store = await openStore(options);
+  const result = await purgeClaimsForVideo(store, videoId);
+  if (!result.ok) {
+    console.error(result.error.message);
+    await store.close();
+    return 1;
+  }
+
+  console.log(
+    `Claims purged for ${videoId}: deleted=${result.value.deletedClaims} metadataCleared=${result.value.clearedRunMetadata ? 'yes' : 'no'}`
+  );
   await store.close();
   return 0;
 }
@@ -1085,6 +1110,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       break;
     case 'extract':
       exitCode = await runExtract(parsed.positionals, parsed.options);
+      break;
+    case 'claims':
+      exitCode = await runClaims(parsed.positionals, parsed.options);
       break;
     case 'export':
       exitCode = await runExport(parsed.positionals, parsed.options);

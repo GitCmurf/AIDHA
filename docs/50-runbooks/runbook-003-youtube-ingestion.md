@@ -3,7 +3,7 @@ document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
 last_updated: 2026-02-09
-version: '1.13'
+version: '1.14'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.13
+> **Version:** 1.14
 > **Last Updated:** 2026-02-09
 > **Type:** RUNBOOK
 
@@ -44,6 +44,7 @@ docops_version: '2.0'
 | 1.11    | 2026-02-08 | AI     | Add optional editor rewrite flag and guardrail guidance | — | Draft | — |
 | 1.12    | 2026-02-08 | AI     | Add preflight command and subcommand help guidance | — | Draft | — |
 | 1.13    | 2026-02-09 | AI     | Add fixture import operation and golden test data guidance | — | Draft | — |
+| 1.14    | 2026-02-09 | AI     | Add claims purge operation for clean reruns | — | Draft | — |
 
 ## Purpose
 
@@ -110,6 +111,15 @@ auditing steps.
 
    Note: new claims default to `state=accepted`. Query and dossier export include
    accepted claims only.
+
+- **Purge claims for a clean rerun (optional)**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli claims purge <url>
+   ```
+
+   This removes claims and claim-linked edges for the resource while keeping
+   resource and excerpt nodes intact.
 
 - **Create a task**
 
