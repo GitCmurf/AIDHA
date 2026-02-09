@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-001
 owner: Engineering
 status: Draft
-version: '0.12'
-last_updated: 2026-02-08
+version: '0.13'
+last_updated: 2026-02-09
 title: MVP Test Suite Map and Hardening Coverage
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.12
-> **Last Updated:** 2026-02-08
+> **Version:** 0.13
+> **Last Updated:** 2026-02-09
 > **Type:** TESTING
 
 # MVP Test Suite Map and Hardening Coverage
@@ -35,6 +35,7 @@ docops_version: '2.0'
 | 0.10    | 2026-02-08 | AI     | Add editor rewrite guardrail coverage and refresh baseline | — | Draft | — |
 | 0.11    | 2026-02-08 | AI     | Add preflight and subcommand help routing coverage | — | Draft | — |
 | 0.12    | 2026-02-08 | AI     | Add offline YouTube golden fixture invariant coverage | — | Draft | — |
+| 0.13    | 2026-02-09 | AI     | Add fixture import and query regression coverage notes | — | Draft | — |
 
 ## Purpose
 
@@ -70,7 +71,9 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
   comparison.
 - `tests/cli-export.test.ts`: CLI split dossier and transcript JSON export coverage.
 - `tests/cli-preflight.test.ts`: preflight command output and `--help` subcommand routing.
+- `tests/cli-fixtures.test.ts`: fixture import command behavior and usage failures.
 - `tests/golden-fixtures.test.ts`: offline golden fixture invariants and determinism checks.
+- `tests/query-regression.test.ts`: deterministic accepted-first query regression checks.
 - `tests/yt-dlp.test.ts`: yt-dlp runtime argument wiring and subtitle fallback behavior.
 - `tests/planning.test.ts`, `tests/cli-area-goal.test.ts`: area/goal/project helper behavior and
   CLI command coverage.
@@ -128,10 +131,10 @@ pnpm -C packages/praecis/youtube test -- cli-review-atomicity.test.ts
 pnpm -C packages/praecis/youtube test -- extraction.test.ts
 ```
 
-## Current Baseline (2026-02-08)
+## Current Baseline (2026-02-09)
 
 - `@aidha/graph-backend`: 62 tests passing.
-- `@aidha/ingestion-youtube`: 115 tests passing, 6 tests skipped (`real-client` network-dependent).
+- `@aidha/ingestion-youtube`: 118 tests passing, 6 tests skipped (`real-client` network-dependent).
 
 ## Remaining Coverage Gaps
 

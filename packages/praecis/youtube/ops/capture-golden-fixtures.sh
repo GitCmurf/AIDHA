@@ -35,6 +35,7 @@ fi
 
 if [[ "${NORMALIZE}" -eq 1 ]]; then
     mkdir -p "${OUT_DIR}"
+    cd "${ROOT_DIR}"
     node --input-type=module <<'NODE'
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';

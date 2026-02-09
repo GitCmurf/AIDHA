@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-02-08",
-      "version": "0.20",
+      "last_updated": "2026-02-09",
+      "version": "0.22",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -203,8 +203,8 @@
       "document_id": "AIDHA-TESTING-001",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.12",
-      "last_updated": "2026-02-08",
+      "version": "0.13",
+      "last_updated": "2026-02-09",
       "title": "MVP Test Suite Map and Hardening Coverage",
       "type": "TESTING",
       "docops_version": "2.0"
@@ -273,8 +273,8 @@
       "document_id": "AIDHA-RUNBOOK-003",
       "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2026-02-08",
-      "version": "1.12",
+      "last_updated": "2026-02-09",
+      "version": "1.13",
       "title": "YouTube Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
@@ -500,6 +500,20 @@
       "version": "1.1",
       "last_updated": "2025-12-27",
       "title": "Repository Document Standards",
+      "type": "GOV",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "00-governance/gov-005-third-party-notices.md",
+    "title": "Third-Party Notices",
+    "front_matter": {
+      "document_id": "AIDHA-GOV-005",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-02-09",
+      "title": "Third-Party Notices",
       "type": "GOV",
       "docops_version": "2.0"
     }

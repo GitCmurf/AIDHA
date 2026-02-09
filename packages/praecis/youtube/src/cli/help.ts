@@ -24,6 +24,7 @@ Usage:
   aidha-youtube diagnose extract <videoIdOrUrl> [--db <path>] [--json] [--include-editor] [--model <id>] [--prompt-version <id>] [--chunk-minutes <n>] [--max-chunks <n>] [--cache-dir <path>] [--editor-version <v1|v2>] [--claims <n>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>]
   aidha-youtube diagnose editor <videoIdOrUrl> [--db <path>] [--json] [--model <id>] [--prompt-version <id>] [--chunk-minutes <n>] [--max-chunks <n>] [--cache-dir <path>] [--editor-version <v1|v2>] [--claims <n>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>]
   aidha-youtube preflight youtube [--json] [--probe-url <url>]
+  aidha-youtube fixtures import-ttml <path> [--video-id <id>] [--source-url <url>] [--track <name>] [--out <path>] [--pretty]
 
 Defaults:
   --db ./out/aidha.sqlite

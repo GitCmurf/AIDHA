@@ -30,6 +30,10 @@ docops_version: '2.0'
 
 Provide deterministic offline transcript fixtures for golden extraction tests.
 
+Repository-level notice register:
+
+- `docs/00-governance/gov-005-third-party-notices.md`
+
 ## Source Videos
 
 - `https://www.youtube.com/watch?v=IN6w6GnN-Ic`

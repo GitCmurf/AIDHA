@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { SQLiteStore } from '@aidha/graph-backend';
@@ -36,6 +37,7 @@ import { formatIngestionStatus } from './cli/status.js';
 import type { ClaimState } from './utils/claim-state.js';
 import type { Result } from './pipeline/types.js';
 import { runYtDlpPreflight } from './client/yt-dlp.js';
+import { parseTranscriptTtml } from './client/transcript.js';
 
 type CliOptions = Record<string, string | boolean>;
 
@@ -990,6 +992,79 @@ async function runPreflight(positionals: string[], options: CliOptions): Promise
   return probeUrl && !result.value.probe.ok ? 1 : 0;
 }
 
+function inferVideoIdFromPath(path: string): string | undefined {
+  const base = basename(path);
+  const match = base.match(/^([A-Za-z0-9_-]{6,})\./);
+  return match?.[1];
+}
+
+async function runFixtures(positionals: string[], options: CliOptions): Promise<number> {
+  const mode = positionals[1];
+  if (mode !== 'import-ttml') {
+    console.error('Usage: fixtures import-ttml <path> [--video-id <id>] [--source-url <url>] [--track <name>] [--out <path>] [--pretty]');
+    return 1;
+  }
+  const inputPath = positionals[2];
+  if (!inputPath) {
+    console.error('Usage: fixtures import-ttml <path> [--video-id <id>] [--source-url <url>] [--track <name>] [--out <path>] [--pretty]');
+    return 1;
+  }
+
+  const inferredVideoId = inferVideoIdFromPath(inputPath);
+  const videoId = optionString(options, 'video-id', inferredVideoId ?? '');
+  if (!videoId) {
+    console.error('Missing video id. Provide --video-id or use a file named <videoId>.*.ttml');
+    return 1;
+  }
+
+  const sourceUrl = optionString(options, 'source-url', `https://www.youtube.com/watch?v=${videoId}`);
+  const track = optionString(options, 'track', 'en-orig');
+  const pretty = optionBool(options, 'pretty');
+  const defaultOut = `./testdata/youtube_golden/${videoId}.excerpts.json`;
+  const outPath = optionString(options, 'out', defaultOut);
+
+  try {
+    const ttml = await readFile(inputPath, 'utf-8');
+    const parsed = parseTranscriptTtml(ttml);
+    if (parsed.length === 0) {
+      console.error(`No transcript segments parsed from ${inputPath}`);
+      return 1;
+    }
+
+    const segments = parsed.map((segment, index) => ({
+      id: `fixture-${videoId}-${index}`,
+      sequence: index,
+      start: Number(segment.start.toFixed(3)),
+      duration: Number(segment.duration.toFixed(3)),
+      text: segment.text,
+    }));
+
+    const hash = createHash('sha256');
+    for (const segment of segments) {
+      hash.update(`${segment.start}|${segment.duration}|${segment.text}`);
+    }
+
+    const payload = {
+      fixtureVersion: 1,
+      videoId,
+      sourceUrl,
+      transcriptTrack: track,
+      parser: 'parseTranscriptTtml',
+      transcriptHash: hash.digest('hex'),
+      segmentCount: segments.length,
+      segments,
+    };
+
+    await ensureDir(dirname(outPath));
+    await writeFile(outPath, JSON.stringify(payload, null, pretty ? 2 : undefined) + '\n', 'utf-8');
+    console.log(`Wrote fixture: ${resolve(outPath)}`);
+    return 0;
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
+}
+
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<number> {
   const parsed = parseArgs(argv);
   const [command] = parsed.positionals;
@@ -1040,6 +1115,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       break;
     case 'preflight':
       exitCode = await runPreflight(parsed.positionals, parsed.options);
+      break;
+    case 'fixtures':
+      exitCode = await runFixtures(parsed.positionals, parsed.options);
       break;
     default:
       console.error(`Unknown command: ${command}`);

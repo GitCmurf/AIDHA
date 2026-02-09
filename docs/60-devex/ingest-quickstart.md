@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-02-08
-version: '0.20'
+last_updated: 2026-02-09
+version: '0.22'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.20
-> **Last Updated:** 2026-02-08
+> **Version:** 0.22
+> **Last Updated:** 2026-02-09
 > **Type:** GUIDE
 
 ## Version History
@@ -42,6 +42,8 @@ docops_version: '2.0'
 | 0.18    | 2026-02-08 | AI     | Add editor v2 extraction flags + diagnose editor mode | — | Draft | — |
 | 0.19    | 2026-02-08 | AI     | Add optional editor rewrite flag and guardrail notes | — | Draft | — |
 | 0.20    | 2026-02-08 | AI     | Add preflight command and subcommand help usage | — | Draft | — |
+| 0.21    | 2026-02-08 | AI     | Add fixtures import command and query regression notes | — | Draft | — |
+| 0.22    | 2026-02-09 | AI     | Refresh fixture workflow details and timestamp metadata | — | Draft | — |
 
 ## Purpose
 
@@ -236,6 +238,17 @@ Optional:
      --name "Meditation Habit" \
      --area area-health \
      --goal goal-lower-bp
+   ```
+
+1. **Import TTML as deterministic fixture JSON**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli fixtures import-ttml \
+     ./testdata/youtube_golden/raw/<video>.en-orig.ttml \
+     --video-id <videoId> \
+     --source-url https://www.youtube.com/watch?v=<videoId> \
+     --out ./testdata/youtube_golden/<videoId>.excerpts.json \
+     --pretty
    ```
 
 ## Transcript Fallbacks

@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-02-08
-version: '1.12'
+last_updated: 2026-02-09
+version: '1.13'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.12
-> **Last Updated:** 2026-02-08
+> **Version:** 1.13
+> **Last Updated:** 2026-02-09
 > **Type:** RUNBOOK
 
 ## Version History
@@ -43,6 +43,7 @@ docops_version: '2.0'
 | 1.10    | 2026-02-08 | AI     | Add editor v2 flags and cache-based diagnose editor mode | — | Draft | — |
 | 1.11    | 2026-02-08 | AI     | Add optional editor rewrite flag and guardrail guidance | — | Draft | — |
 | 1.12    | 2026-02-08 | AI     | Add preflight command and subcommand help guidance | — | Draft | — |
+| 1.13    | 2026-02-09 | AI     | Add fixture import operation and golden test data guidance | — | Draft | — |
 
 ## Purpose
 
@@ -51,20 +52,20 @@ auditing steps.
 
 ## Operational Checklist
 
-1. **Build dependencies**
+- **Build dependencies**
 
    ```bash
    pnpm -C packages/reconditum build
    pnpm -C packages/praecis/youtube build
    ```
 
-2. **Run ingestion**
+- **Run ingestion**
 
    ```bash
    pnpm -C packages/praecis/youtube cli ingest video <url>
    ```
 
-3. **Check ingestion status**
+- **Check ingestion status**
 
    ```bash
    pnpm -C packages/praecis/youtube cli ingest status <url>
@@ -76,7 +77,7 @@ auditing steps.
    pnpm -C packages/praecis/youtube cli ingest status <url> --json
    ```
 
-4. **Run environment preflight**
+- **Run environment preflight**
 
    ```bash
    pnpm -C packages/praecis/youtube cli preflight youtube
@@ -90,7 +91,18 @@ auditing steps.
      --json
    ```
 
-5. **Verify claims**
+- **Import deterministic fixture data from TTML (testing/development only)**
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli fixtures import-ttml \
+     ./testdata/youtube_golden/raw/<videoId>.en-orig.ttml \
+     --video-id <videoId> \
+     --source-url https://www.youtube.com/watch?v=<videoId> \
+     --out ./testdata/youtube_golden/<videoId>.excerpts.json \
+     --pretty
+   ```
+
+- **Verify claims**
 
    ```bash
    pnpm -C packages/praecis/youtube cli extract claims <url>
@@ -99,7 +111,7 @@ auditing steps.
    Note: new claims default to `state=accepted`. Query and dossier export include
    accepted claims only.
 
-6. **Create a task**
+- **Create a task**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task create \
@@ -108,7 +120,7 @@ auditing steps.
      --project inbox
    ```
 
-7. **Query with filters**
+- **Query with filters**
 
    ```bash
    pnpm -C packages/praecis/youtube cli query "TypeScript" --project inbox
@@ -116,13 +128,13 @@ auditing steps.
 
    Note: SQLite backends use FTS5 indexing for faster claim/transcript search when available.
 
-8. **Find related claims**
+- **Find related claims**
 
    ```bash
    pnpm -C packages/praecis/youtube cli related --claim <claimId> --limit 5
    ```
 
-9. **Run review queue**
+- **Run review queue**
 
    ```bash
    pnpm -C packages/praecis/youtube cli review next <url> --state draft --limit 10
@@ -138,13 +150,13 @@ auditing steps.
      --task-title "Follow up"
    ```
 
-10. **Show task context**
+- **Show task context**
 
    ```bash
    pnpm -C packages/praecis/youtube cli task show <taskId>
    ```
 
-1. **Run diagnostics**
+- **Run diagnostics**
 
    ```bash
    pnpm -C packages/praecis/youtube cli diagnose transcript <url>
@@ -155,7 +167,7 @@ auditing steps.
    `diagnose transcript` returns exit code `2` if JS runtime support for `yt-dlp` is missing.
    `diagnose editor` returns exit code `2` when LLM cache is missing and does not run LLM.
 
-1. **Export accepted + draft dossiers**
+- **Export accepted + draft dossiers**
 
    ```bash
    pnpm -C packages/praecis/youtube cli export dossier video <url> \
@@ -165,17 +177,17 @@ auditing steps.
 
    Output files:
 
-   - `./out/dossier-<id>.md`
-   - `./out/dossier-<id>.draft.md`
+- `./out/dossier-<id>.md`
+- `./out/dossier-<id>.draft.md`
 
-1. **Export transcript JSON audit artifact**
+- **Export transcript JSON audit artifact**
 
    ```bash
    pnpm -C packages/praecis/youtube cli export transcript video <url> \
      --out ./out/transcript-<id>.json
    ```
 
-1. **Create area/goal/project planning nodes**
+- **Create area/goal/project planning nodes**
 
    ```bash
    pnpm -C packages/praecis/youtube cli area create --name "Health"
@@ -216,9 +228,9 @@ auditing steps.
 
    Optional rewrite pass (`--editor-llm`):
 
-   - rewrites selected claims only (no new claim generation)
-   - preserves numeric tokens and requires keyword overlap with excerpt evidence
-   - rejects rewrites above edit-ratio guardrails
+- rewrites selected claims only (no new claim generation)
+- preserves numeric tokens and requires keyword overlap with excerpt evidence
+- rejects rewrites above edit-ratio guardrails
 
 ## Transcript Troubleshooting
 
