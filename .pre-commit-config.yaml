@@ -32,7 +32,7 @@ repos:
       - id: codespell
         args:
           - "--ignore-words=styles/codespell_ignore.txt"
-          - "--skip=docs/01-indices/catalog.json,docs/01-indices/linkcheck-report.json,docs/01-indices/package-docs.json,.meminit/meminit.index.json"
+          - "--skip=docs/01-indices/catalog.json,docs/01-indices/linkcheck-report.json,docs/01-indices/package-docs.json,.meminit/meminit.index.json,testdata/youtube_golden/*.json"
   # Vale is optional; enable if installed on developer machines
   - repo: local
     hooks:

@@ -91,6 +91,7 @@ docs/**/WIP-*
 __Local__Do_Not_Commit/
 coderabbit-review-*.txt
 coderabbit_*review*.txt
+testdata/youtube_golden/raw/
 
 # Secrets
 .env

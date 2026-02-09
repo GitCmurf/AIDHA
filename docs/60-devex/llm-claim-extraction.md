@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-004
 owner: Ingestion Team
 status: Draft
-version: '0.1'
-last_updated: 2026-02-06
+version: '0.2'
+last_updated: 2026-02-08
 title: LLM Claim Extraction Guide
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-02-06
+> **Version:** 0.2
+> **Last Updated:** 2026-02-08
 > **Type:** GUIDE
 
 # LLM Claim Extraction Guide
@@ -25,6 +25,7 @@ docops_version: '2.0'
 | Version | Date       | Author | Change Summary                          | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | --------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2026-02-06 | AI     | Initial LLM extraction guide            | —         | Draft  | —         |
+| 0.2     | 2026-02-08 | AI     | Add offline golden fixture workflow and invariant checks | — | Draft | — |
 
 ## Purpose
 
@@ -92,3 +93,24 @@ pnpm -C packages/praecis/youtube cli diagnose extract https://youtu.be/<id>
 ```
 
 `diagnose extract` reports claim state distribution, method counts, and provenance gaps.
+
+## Offline Golden Fixture Mode
+
+Use deterministic transcript fixtures for CI and local regression checks.
+
+Fixtures live in:
+
+- `testdata/youtube_golden/IN6w6GnN-Ic.excerpts.json`
+- `testdata/youtube_golden/UepWRYgBpv0.excerpts.json`
+
+Run fixture-only tests (no network, no model calls):
+
+```bash
+pnpm -C packages/praecis/youtube test -- tests/golden-fixtures.test.ts
+```
+
+Refresh fixtures (manual capture + normalize):
+
+```bash
+bash packages/praecis/youtube/ops/capture-golden-fixtures.sh
+```
