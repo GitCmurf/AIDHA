@@ -20,6 +20,12 @@ import type {
   ExportSnapshotOptions,
   GraphSnapshot,
   QueryResult,
+  ExportGephiOptions,
+  GephiExport,
+  GephiNode,
+  GephiEdge,
+  GetGraphStatsOptions,
+  GraphStats,
 } from './types.js';
 import type {
   GraphNode,
@@ -316,6 +322,111 @@ export class InMemoryStore implements GraphStore {
       let edges = Array.from(this.edges.values()).filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
       edges = sortEdges(edges);
       return { ok: true, value: { nodes: sortedNodes, edges } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async exportGephi(options: ExportGephiOptions = {}): Promise<Result<GephiExport>> {
+    try {
+      let edges = Array.from(this.edges.values());
+      if (options.predicates && options.predicates.length > 0) {
+        const predicateSet = new Set(options.predicates);
+        edges = edges.filter(e => predicateSet.has(e.predicate));
+      }
+
+      const referencedIds = new Set<string>();
+      for (const edge of edges) {
+        referencedIds.add(edge.subject);
+        referencedIds.add(edge.object);
+      }
+
+      let nodes = Array.from(this.nodes.values());
+      if (options.nodeTypes && options.nodeTypes.length > 0) {
+        const typeSet = new Set(options.nodeTypes);
+        nodes = nodes.filter(n => typeSet.has(n.type));
+      }
+      // Include only nodes referenced by filtered edges, or all matching type filter if no predicates
+      if (options.predicates && options.predicates.length > 0) {
+        nodes = nodes.filter(n => referencedIds.has(n.id));
+      }
+
+      const gephiNodes: GephiNode[] = sortNodes(nodes).map(n => ({
+        id: n.id,
+        ...(options.includeLabels ? { label: n.label } : {}),
+        type: n.type,
+        createdAt: n.createdAt,
+      }));
+
+      // Filter edges to only those where both endpoints exist in the filtered node set
+      const includedNodeIds = new Set(nodes.map(n => n.id));
+      edges = edges.filter(e => includedNodeIds.has(e.subject) && includedNodeIds.has(e.object));
+
+      const gephiEdges: GephiEdge[] = sortEdges(edges).map(e => ({
+        source: e.subject,
+        target: e.object,
+        predicate: e.predicate,
+        weight: 1,
+        createdAt: e.createdAt,
+      }));
+
+      return { ok: true, value: { nodes: gephiNodes, edges: gephiEdges } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async getGraphStats(options: GetGraphStatsOptions = {}): Promise<Result<GraphStats>> {
+    try {
+      const topN = options.topN ?? 10;
+      const nodeCounts: Record<string, number> = {};
+      const claimStateCounts: Record<string, number> = {};
+      for (const node of this.nodes.values()) {
+        nodeCounts[node.type] = (nodeCounts[node.type] ?? 0) + 1;
+        if (node.type === 'Claim') {
+          const state = (node.metadata as Record<string, unknown>)?.['state'];
+          const stateStr = typeof state === 'string' ? state : 'unknown';
+          claimStateCounts[stateStr] = (claimStateCounts[stateStr] ?? 0) + 1;
+        }
+      }
+
+      const edgeCounts: Record<string, number> = {};
+      const inDeg = new Map<string, number>();
+      const outDeg = new Map<string, number>();
+      for (const edge of this.edges.values()) {
+        edgeCounts[edge.predicate] = (edgeCounts[edge.predicate] ?? 0) + 1;
+        inDeg.set(edge.object, (inDeg.get(edge.object) ?? 0) + 1);
+        outDeg.set(edge.subject, (outDeg.get(edge.subject) ?? 0) + 1);
+      }
+
+      const allIds = new Set<string>([...inDeg.keys(), ...outDeg.keys()]);
+      const degreeEntries = Array.from(allIds).map(id => ({
+        id,
+        inDegree: inDeg.get(id) ?? 0,
+        outDegree: outDeg.get(id) ?? 0,
+        total: (inDeg.get(id) ?? 0) + (outDeg.get(id) ?? 0),
+      }));
+      degreeEntries.sort((a, b) => b.total - a.total || a.id.localeCompare(b.id));
+
+      const topDegreeNodes = degreeEntries.slice(0, topN).map(entry => {
+        const node = this.nodes.get(entry.id);
+        return {
+          id: entry.id,
+          type: node?.type ?? 'unknown',
+          inDegree: entry.inDegree,
+          outDegree: entry.outDegree,
+        };
+      });
+
+      return {
+        ok: true,
+        value: {
+          nodeCounts,
+          edgeCounts,
+          topDegreeNodes,
+          ...(Object.keys(claimStateCounts).length > 0 ? { claimStateCounts } : {}),
+        },
+      };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

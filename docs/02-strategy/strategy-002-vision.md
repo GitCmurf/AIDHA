@@ -45,6 +45,8 @@ docops_version: "2.0"
   - inner “Directed” = graph topology and flow of reasoning
 - The orthographic similarity to ADHD is a deliberate nod to the user profile that AIDHA is
   designed to scaffold and facilitate AI assistance for.
+- The name is also, of course, a nod to Ada, Countess of Lovelace, generally regarded as the
+  world's first computer programmer.
 
 ---
 

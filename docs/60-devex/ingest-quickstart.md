@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-02-09
-version: '0.23'
+version: '0.24'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.23
+> **Version:** 0.24
 > **Last Updated:** 2026-02-09
 > **Type:** GUIDE
 
@@ -45,6 +45,7 @@ docops_version: '2.0'
 | 0.21    | 2026-02-08 | AI     | Add fixtures import command and query regression notes | — | Draft | — |
 | 0.22    | 2026-02-09 | AI     | Refresh fixture workflow details and timestamp metadata | — | Draft | — |
 | 0.23    | 2026-02-09 | AI     | Add claims purge command for clean extraction reruns | — | Draft | — |
+| 0.24    | 2026-02-09 | AI     | Add source-prefixed default export filenames | — | Draft | — |
 
 ## Purpose
 
@@ -143,6 +144,8 @@ Optional:
    pnpm -C packages/praecis/youtube cli export dossier video https://youtu.be/<id>
    ```
 
+   Default output path: `./out/dossier-youtube-<id>.md`
+
    Split accepted vs draft-inclusive outputs:
 
    ```bash
@@ -160,6 +163,15 @@ Optional:
 
    ```bash
    pnpm -C packages/praecis/youtube cli export transcript video https://youtu.be/<id>
+   ```
+
+   Default output path: `./out/transcript-youtube-<id>.json`
+
+   Override prefix if needed:
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli export transcript video https://youtu.be/<id> \
+     --source-prefix yt
    ```
 
 7. **Create a task from a claim**

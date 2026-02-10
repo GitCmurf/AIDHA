@@ -30,7 +30,8 @@ before moving on to:
    - `pip install pre-commit && pre-commit install`
 
 4. **Develop**
-   - `pnpm lint` / `pnpm test` for packages (currently placeholders)
+   - `pnpm -C packages/reconditum test && pnpm -C packages/reconditum build`
+   - `pnpm -C packages/praecis/youtube test && pnpm -C packages/praecis/youtube build`
    - `pnpm docs:serve` to preview the MkDocs site locally
 
 5. **Before pushing**
@@ -82,8 +83,22 @@ Three packages evolve together (see `docs/60-devex/initial-tools-roadmap.md`):
    graph-contract tests.
 2. **Knowledge Taxonomy (`packages/phyla/`)** – classification schemas, metadata validation,
    governance tooling.
-3. **YouTube Ingestion Engine (`packages/praecis/youtube/`)** – playlist ingestion, transcript
-   classification, metadata enrichment, editorial output.
+3. **YouTube Ingestion Engine (`packages/praecis/youtube/`)** – playlist/video ingestion,
+   transcript capture, two-pass claim extraction, review queue, and dossier export.
+
+## Current MVP Commands
+
+For a full command list, run:
+
+- `pnpm -C packages/praecis/youtube cli help`
+
+Typical flow:
+
+1. `pnpm -C packages/praecis/youtube cli ingest video <url>`
+2. `pnpm -C packages/praecis/youtube cli extract claims <url> --llm --model <id>`
+3. `pnpm -C packages/praecis/youtube cli review next <url> --state draft`
+4. `pnpm -C packages/praecis/youtube cli export dossier video <url>`
+5. `pnpm -C packages/praecis/youtube cli query "<topic>"`
 
 Each package must deliver: PRD/ADR/FDD as applicable, ≥80% coverage with TDD, DocOps assets
 (quickstart, runbook, prompts), and observability hooks.

@@ -1,10 +1,33 @@
 # @aidha/ingestion-youtube
 
-Pipeline package that ingests YouTube playlists, captures transcripts, classifies entries using the
-shared taxonomy, enriches graph metadata, and emits summaries/editorial commentary for humans + AI.
+YouTube ingestion and extraction package for the AIDHA MVP.
 
-- Depends on the graph backend + taxonomy packages; reflect these via pnpm dependencies once APIs exist.
-- Store ingestion prompts and evaluation suites under `prompts/` with DocOps-compliant metadata.
-- Provide a CLI entry point (`pnpm ingest dev --playlist <id>`) and document it in quickstarts/runbooks.
+Core capabilities:
 
-Roadmap + DocOps expectations live in `docs/60-devex/Initial_Tools_Roadmap.md`.
+- ingest playlist/video metadata + transcripts
+- extract claims (heuristic or LLM-backed two-pass)
+- extract references
+- review and curate claims (`draft|accepted|rejected`)
+- export dossier/transcript artifacts
+- query and relate captured claims
+
+## CLI
+
+Run:
+
+- `pnpm -C packages/praecis/youtube cli help`
+
+Common workflow:
+
+1. `pnpm -C packages/praecis/youtube cli ingest video <url>`
+2. `pnpm -C packages/praecis/youtube cli extract claims <url> --llm --model <id>`
+3. `pnpm -C packages/praecis/youtube cli review next <url> --state draft`
+4. `pnpm -C packages/praecis/youtube cli export dossier video <url>`
+
+## Key Docs
+
+- Quickstart: `docs/60-devex/ingest-quickstart.md`
+- Operations runbook: `docs/50-runbooks/runbook-003-youtube-ingestion.md`
+- Two-pass extraction architecture: `docs/20-adr/adr-007-two-pass-llm-extraction-architecture.md`
+- First/second pass designs: `docs/30-fdd/fdd-002-first-pass-youtube-claim-mining.md`,
+  `docs/30-fdd/fdd-003-second-pass-editorial-selection.md`

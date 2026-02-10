@@ -15,6 +15,12 @@ import type {
   ExportSnapshotOptions,
   GraphSnapshot,
   QueryResult,
+  ExportGephiOptions,
+  GephiExport,
+  GephiNode,
+  GephiEdge,
+  GetGraphStatsOptions,
+  GraphStats,
 } from './types.js';
 import type { GraphNode, GraphEdge, NodeType, Predicate } from '../schema/index.js';
 import { GraphNode as GraphNodeSchema, GraphEdge as GraphEdgeSchema } from '../schema/index.js';
@@ -222,7 +228,52 @@ export class SQLiteStore implements GraphStore {
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_predicate_idx ON edges (subject, predicate)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_predicate_object_idx ON edges (predicate, object)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_object_idx ON edges (subject, object)`);
+    this.initializeViews();
     this.initializeFts();
+  }
+
+  private initializeViews(): void {
+    this.db.exec(`
+      CREATE VIEW IF NOT EXISTS v_nodes AS
+      SELECT
+        id,
+        type,
+        label,
+        created_at AS createdAt,
+        updated_at AS updatedAt,
+        json_extract(metadata, '$.title') AS title,
+        json_extract(metadata, '$.state') AS state,
+        json_extract(metadata, '$.videoId') AS videoId,
+        json_extract(metadata, '$.source') AS source
+      FROM nodes
+    `);
+    this.db.exec(`
+      CREATE VIEW IF NOT EXISTS v_edges AS
+      SELECT
+        subject,
+        predicate,
+        object,
+        created_at AS createdAt,
+        json_extract(metadata, '$.weight') AS weight
+      FROM edges
+    `);
+    this.db.exec(`
+      CREATE VIEW IF NOT EXISTS v_claims_with_sources AS
+      SELECT
+        n.id AS claimId,
+        n.label AS claimLabel,
+        n.content AS claimContent,
+        json_extract(n.metadata, '$.state') AS state,
+        json_extract(n.metadata, '$.videoId') AS videoId,
+        e.object AS sourceId,
+        src.label AS sourceLabel,
+        src.type AS sourceType,
+        n.created_at AS createdAt
+      FROM nodes n
+      LEFT JOIN edges e ON e.subject = n.id AND e.predicate = 'claimDerivedFrom'
+      LEFT JOIN nodes src ON src.id = e.object
+      WHERE n.type = 'Claim'
+    `);
   }
 
   private initializeFts(): void {
@@ -579,6 +630,147 @@ export class SQLiteStore implements GraphStore {
       let edges = edgesResult.value.items.filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
       edges = sortEdges(edges);
       return { ok: true, value: { nodes: sortedNodes, edges } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async exportGephi(options: ExportGephiOptions = {}): Promise<Result<GephiExport>> {
+    try {
+      // Query edges with optional predicate filter
+      let edgeSql = 'SELECT subject, predicate, object, created_at FROM edges';
+      const edgeParams: unknown[] = [];
+      if (options.predicates && options.predicates.length > 0) {
+        edgeSql += ` WHERE predicate IN (${options.predicates.map(() => '?').join(', ')})`;
+        edgeParams.push(...options.predicates);
+      }
+      edgeSql += ' ORDER BY subject, predicate, object';
+      const edgeRows = this.db.prepare(edgeSql).all(...edgeParams) as Array<{
+        subject: string; predicate: string; object: string; created_at: string;
+      }>;
+
+      const referencedIds = new Set<string>();
+      for (const row of edgeRows) {
+        referencedIds.add(row.subject);
+        referencedIds.add(row.object);
+      }
+
+      // Query nodes with optional type filter
+      let nodeSql = 'SELECT id, type, label, created_at FROM nodes';
+      const nodeClauses: string[] = [];
+      const nodeParams: unknown[] = [];
+      if (options.nodeTypes && options.nodeTypes.length > 0) {
+        nodeClauses.push(`type IN (${options.nodeTypes.map(() => '?').join(', ')})`);
+        nodeParams.push(...options.nodeTypes);
+      }
+      if (nodeClauses.length > 0) {
+        nodeSql += ` WHERE ${nodeClauses.join(' AND ')}`;
+      }
+      nodeSql += ' ORDER BY type, id';
+      const nodeRows = this.db.prepare(nodeSql).all(...nodeParams) as Array<{
+        id: string; type: string; label: string; created_at: string;
+      }>;
+
+      // Filter to referenced nodes if predicate filter is active
+      let filteredNodeRows = nodeRows;
+      if (options.predicates && options.predicates.length > 0) {
+        filteredNodeRows = nodeRows.filter(n => referencedIds.has(n.id));
+      }
+
+      const gephiNodes: GephiNode[] = filteredNodeRows.map(n => ({
+        id: n.id,
+        ...(options.includeLabels ? { label: n.label } : {}),
+        type: n.type,
+        createdAt: n.created_at,
+      }));
+
+      // Filter edges to only those where both endpoints exist in the filtered node set
+      const includedNodeIds = new Set(filteredNodeRows.map(n => n.id));
+      const filteredEdges = edgeRows.filter(
+        e => includedNodeIds.has(e.subject) && includedNodeIds.has(e.object),
+      );
+
+      const gephiEdges: GephiEdge[] = filteredEdges.map(e => ({
+        source: e.subject,
+        target: e.object,
+        predicate: e.predicate,
+        weight: 1,
+        createdAt: e.created_at,
+      }));
+
+      return { ok: true, value: { nodes: gephiNodes, edges: gephiEdges } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async getGraphStats(options: GetGraphStatsOptions = {}): Promise<Result<GraphStats>> {
+    try {
+      const topN = options.topN ?? 10;
+
+      // Node counts by type
+      const nodeCountRows = this.db.prepare(
+        'SELECT type, COUNT(*) as count FROM nodes GROUP BY type ORDER BY type'
+      ).all() as Array<{ type: string; count: number }>;
+      const nodeCounts: Record<string, number> = {};
+      for (const row of nodeCountRows) {
+        nodeCounts[row.type] = row.count;
+      }
+
+      // Edge counts by predicate
+      const edgeCountRows = this.db.prepare(
+        'SELECT predicate, COUNT(*) as count FROM edges GROUP BY predicate ORDER BY predicate'
+      ).all() as Array<{ predicate: string; count: number }>;
+      const edgeCounts: Record<string, number> = {};
+      for (const row of edgeCountRows) {
+        edgeCounts[row.predicate] = row.count;
+      }
+
+      // Claim state counts from metadata
+      const claimRows = this.db.prepare(
+        "SELECT metadata FROM nodes WHERE type = 'Claim'"
+      ).all() as Array<{ metadata: string | null }>;
+      const claimStateCounts: Record<string, number> = {};
+      for (const row of claimRows) {
+        const meta = parseMetadata(row.metadata);
+        const state = typeof meta['state'] === 'string' ? meta['state'] : 'unknown';
+        claimStateCounts[state] = (claimStateCounts[state] ?? 0) + 1;
+      }
+
+      // Top-degree nodes: start from all edge endpoints (including dangling)
+      // then LEFT JOIN to nodes for type lookup, using 'unknown' for missing nodes
+      const degreeRows = this.db.prepare(`
+        SELECT ep.id,
+          COALESCE(n.type, 'unknown') AS type,
+          COALESCE(i.in_deg, 0) AS in_degree,
+          COALESCE(o.out_deg, 0) AS out_degree,
+          COALESCE(i.in_deg, 0) + COALESCE(o.out_deg, 0) AS total_degree
+        FROM (SELECT subject AS id FROM edges UNION SELECT object AS id FROM edges) AS ep
+        LEFT JOIN nodes AS n ON ep.id = n.id
+        LEFT JOIN (SELECT object AS nid, COUNT(*) AS in_deg FROM edges GROUP BY object) AS i ON ep.id = i.nid
+        LEFT JOIN (SELECT subject AS nid, COUNT(*) AS out_deg FROM edges GROUP BY subject) AS o ON ep.id = o.nid
+        ORDER BY total_degree DESC, ep.id ASC
+        LIMIT ?
+      `).all(topN) as Array<{
+        id: string; type: string; in_degree: number; out_degree: number; total_degree: number;
+      }>;
+
+      const topDegreeNodes = degreeRows.map(row => ({
+        id: row.id,
+        type: row.type,
+        inDegree: row.in_degree,
+        outDegree: row.out_degree,
+      }));
+
+      return {
+        ok: true,
+        value: {
+          nodeCounts,
+          edgeCounts,
+          topDegreeNodes,
+          ...(Object.keys(claimStateCounts).length > 0 ? { claimStateCounts } : {}),
+        },
+      };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

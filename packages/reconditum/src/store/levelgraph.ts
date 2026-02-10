@@ -23,6 +23,12 @@ import type {
   ExportSnapshotOptions,
   GraphSnapshot,
   QueryResult,
+  ExportGephiOptions,
+  GephiExport,
+  GephiNode,
+  GephiEdge,
+  GetGraphStatsOptions,
+  GraphStats,
 } from './types.js';
 import type {
   GraphNode,
@@ -410,6 +416,120 @@ export class LevelGraphStore implements GraphStore {
       let edges = edgesResult.value.items.filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
       edges = sortEdges(edges);
       return { ok: true, value: { nodes: sortedNodes, edges } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async exportGephi(options: ExportGephiOptions = {}): Promise<Result<GephiExport>> {
+    try {
+      const edgesResult = await this.getEdges({});
+      if (!edgesResult.ok) return { ok: false, error: edgesResult.error };
+      let edges = edgesResult.value.items;
+      if (options.predicates && options.predicates.length > 0) {
+        const predicateSet = new Set(options.predicates);
+        edges = edges.filter(e => predicateSet.has(e.predicate));
+      }
+
+      const referencedIds = new Set<string>();
+      for (const edge of edges) {
+        referencedIds.add(edge.subject);
+        referencedIds.add(edge.object);
+      }
+
+      const nodesResult = await this.queryNodes({});
+      if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
+      let nodes = nodesResult.value.items;
+      if (options.nodeTypes && options.nodeTypes.length > 0) {
+        const typeSet = new Set(options.nodeTypes);
+        nodes = nodes.filter(n => typeSet.has(n.type));
+      }
+      if (options.predicates && options.predicates.length > 0) {
+        nodes = nodes.filter(n => referencedIds.has(n.id));
+      }
+
+      const gephiNodes: GephiNode[] = sortNodes(nodes).map(n => ({
+        id: n.id,
+        ...(options.includeLabels ? { label: n.label } : {}),
+        type: n.type,
+        createdAt: n.createdAt,
+      }));
+
+      // Filter edges to only those where both endpoints exist in the filtered node set
+      const includedNodeIds = new Set(nodes.map(n => n.id));
+      edges = edges.filter(e => includedNodeIds.has(e.subject) && includedNodeIds.has(e.object));
+
+      const gephiEdges: GephiEdge[] = sortEdges(edges).map(e => ({
+        source: e.subject,
+        target: e.object,
+        predicate: e.predicate,
+        weight: 1,
+        createdAt: e.createdAt,
+      }));
+
+      return { ok: true, value: { nodes: gephiNodes, edges: gephiEdges } };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async getGraphStats(options: GetGraphStatsOptions = {}): Promise<Result<GraphStats>> {
+    try {
+      const topN = options.topN ?? 10;
+      const nodesResult = await this.queryNodes({});
+      if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
+      const nodes = nodesResult.value.items;
+
+      const nodeCounts: Record<string, number> = {};
+      const claimStateCounts: Record<string, number> = {};
+      for (const node of nodes) {
+        nodeCounts[node.type] = (nodeCounts[node.type] ?? 0) + 1;
+        if (node.type === 'Claim') {
+          const state = (node.metadata as Record<string, unknown>)?.['state'];
+          const stateStr = typeof state === 'string' ? state : 'unknown';
+          claimStateCounts[stateStr] = (claimStateCounts[stateStr] ?? 0) + 1;
+        }
+      }
+
+      const edgesResult = await this.getEdges({});
+      if (!edgesResult.ok) return { ok: false, error: edgesResult.error };
+      const allEdges = edgesResult.value.items;
+
+      const edgeCounts: Record<string, number> = {};
+      const inDeg = new Map<string, number>();
+      const outDeg = new Map<string, number>();
+      for (const edge of allEdges) {
+        edgeCounts[edge.predicate] = (edgeCounts[edge.predicate] ?? 0) + 1;
+        inDeg.set(edge.object, (inDeg.get(edge.object) ?? 0) + 1);
+        outDeg.set(edge.subject, (outDeg.get(edge.subject) ?? 0) + 1);
+      }
+
+      const allIds = new Set<string>([...inDeg.keys(), ...outDeg.keys()]);
+      const degreeEntries = Array.from(allIds).map(id => ({
+        id,
+        inDegree: inDeg.get(id) ?? 0,
+        outDegree: outDeg.get(id) ?? 0,
+        total: (inDeg.get(id) ?? 0) + (outDeg.get(id) ?? 0),
+      }));
+      degreeEntries.sort((a, b) => b.total - a.total || a.id.localeCompare(b.id));
+
+      const nodeMap = new Map(nodes.map(n => [n.id, n]));
+      const topDegreeNodes = degreeEntries.slice(0, topN).map(entry => ({
+        id: entry.id,
+        type: nodeMap.get(entry.id)?.type ?? 'unknown',
+        inDegree: entry.inDegree,
+        outDegree: entry.outDegree,
+      }));
+
+      return {
+        ok: true,
+        value: {
+          nodeCounts,
+          edgeCounts,
+          topDegreeNodes,
+          ...(Object.keys(claimStateCounts).length > 0 ? { claimStateCounts } : {}),
+        },
+      };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

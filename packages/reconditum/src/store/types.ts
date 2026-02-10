@@ -99,6 +99,54 @@ export interface GraphSnapshot {
   edges: GraphEdge[];
 }
 
+/**
+ * Gephi CSV export types.
+ */
+export interface GephiNode {
+  id: string;
+  label?: string;
+  type: string;
+  createdAt: string;
+}
+
+export interface GephiEdge {
+  source: string;
+  target: string;
+  predicate: string;
+  weight: number;
+  createdAt: string;
+}
+
+export interface ExportGephiOptions {
+  predicates?: Predicate[];
+  nodeTypes?: NodeType[];
+  includeLabels?: boolean;
+}
+
+export interface GephiExport {
+  nodes: GephiNode[];
+  edges: GephiEdge[];
+}
+
+/**
+ * Graph statistics types.
+ */
+export interface GraphStats {
+  nodeCounts: Record<string, number>;
+  edgeCounts: Record<string, number>;
+  topDegreeNodes: Array<{
+    id: string;
+    type: string;
+    inDegree: number;
+    outDegree: number;
+  }>;
+  claimStateCounts?: Record<string, number>;
+}
+
+export interface GetGraphStatsOptions {
+  topN?: number;
+}
+
 export interface TransactionCapableStore {
   runInTransaction<T>(work: () => Promise<Result<T>>): Promise<Result<T>>;
 }
@@ -127,6 +175,8 @@ export interface GraphStore {
   getEdges(options?: QueryEdgesOptions): Promise<Result<QueryResult<GraphEdge>>>;
   deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>>;
   exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>>;
+  exportGephi(options?: ExportGephiOptions): Promise<Result<GephiExport>>;
+  getGraphStats(options?: GetGraphStatsOptions): Promise<Result<GraphStats>>;
   runInTransaction?<T>(work: () => Promise<Result<T>>): Promise<Result<T>>;
   close(): Promise<void>;
 }

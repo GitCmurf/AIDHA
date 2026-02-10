@@ -22,6 +22,12 @@ export type {
   ExportScope,
   GraphSnapshot,
   TransactionCapableStore,
+  GephiNode,
+  GephiEdge,
+  ExportGephiOptions,
+  GephiExport,
+  GraphStats,
+  GetGraphStatsOptions,
 } from './types.js';
 
 export { LevelGraphStore } from './levelgraph.js';

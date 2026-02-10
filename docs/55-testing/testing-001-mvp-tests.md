@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-001
 owner: Engineering
 status: Draft
-version: '0.14'
+version: '0.15'
 last_updated: 2026-02-09
 title: MVP Test Suite Map and Hardening Coverage
 type: TESTING
@@ -13,7 +13,7 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.14
+> **Version:** 0.15
 > **Last Updated:** 2026-02-09
 > **Type:** TESTING
 
@@ -37,6 +37,7 @@ docops_version: '2.0'
 | 0.12    | 2026-02-08 | AI     | Add offline YouTube golden fixture invariant coverage | — | Draft | — |
 | 0.13    | 2026-02-09 | AI     | Add fixture import and query regression coverage notes | — | Draft | — |
 | 0.14    | 2026-02-09 | AI     | Add claim purge unit + CLI coverage | — | Draft | — |
+| 0.15    | 2026-02-09 | AI     | Add export source-prefix default filename coverage | — | Draft | — |
 
 ## Purpose
 
@@ -70,7 +71,7 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
 - `tests/review-atomicity.sqlite.test.ts`: SQLite-backed review batch atomicity checks.
 - `tests/cli-review-atomicity.test.ts`: process-level CLI atomicity checks with DB snapshot
   comparison.
-- `tests/cli-export.test.ts`: CLI split dossier and transcript JSON export coverage.
+- `tests/cli-export.test.ts`: split dossier/transcript export coverage and source-prefix defaults.
 - `tests/cli-preflight.test.ts`: preflight command output and `--help` subcommand routing.
 - `tests/cli-fixtures.test.ts`: fixture import command behavior and usage failures.
 - `tests/cli-claims-purge.test.ts`: command-level purge behavior and usage failures.

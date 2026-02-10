@@ -18,6 +18,8 @@ describe('CLI usage help text', () => {
     expect(CLI_USAGE_TEXT).toContain('export dossier video <videoIdOrUrl>');
     expect(CLI_USAGE_TEXT).toContain('--split-states');
     expect(CLI_USAGE_TEXT).toContain('export transcript video <videoIdOrUrl>');
+    expect(CLI_USAGE_TEXT).toContain('--source-prefix <prefix>');
+    expect(CLI_USAGE_TEXT).toContain('--out ./out/dossier-youtube-<id>.md');
   });
 
   it('documents yt-dlp JS runtime ingest option', () => {

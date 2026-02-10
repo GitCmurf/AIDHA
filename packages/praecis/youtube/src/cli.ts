@@ -91,6 +91,15 @@ function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
+function resolveSourcePrefix(options: CliOptions, fallback: string): string {
+  const raw = options['source-prefix'];
+  if (typeof raw === 'string') {
+    const value = raw.trim().toLowerCase();
+    if (value.length > 0) return value;
+  }
+  return fallback;
+}
+
 function parseClaimStates(options: CliOptions): ClaimState[] {
   const statesOption = options['states'];
   const includeDrafts = optionBool(options, 'include-drafts');
@@ -127,6 +136,13 @@ function parseCsvList(options: CliOptions, key: string): string[] {
 
 async function ensureDir(path: string): Promise<void> {
   await mkdir(path, { recursive: true });
+}
+
+function csvEscape(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 }
 
 function deriveDraftPath(path: string): string {
@@ -352,9 +368,58 @@ async function runClaims(positionals: string[], options: CliOptions): Promise<nu
 
 async function runExport(positionals: string[], options: CliOptions): Promise<number> {
   const kind = positionals[1];
+  if (!kind) {
+    console.error('Usage: export <dossier|transcript|gephi> ...');
+    return 1;
+  }
+
+  if (kind === 'gephi') {
+    const store = await openStore(options);
+    const predicateOpt = optionString(options, 'predicate', '');
+    const nodeTypeOpt = optionString(options, 'node-type', '');
+    const includeLabels = optionBool(options, 'include-labels');
+    const outDir = optionString(options, 'out', './out');
+
+    const predicates = predicateOpt
+      ? predicateOpt.split(',').map(s => s.trim()).filter(Boolean) as import('@aidha/graph-backend').ExportGephiOptions['predicates']
+      : undefined;
+    const nodeTypes = nodeTypeOpt
+      ? nodeTypeOpt.split(',').map(s => s.trim()).filter(Boolean) as import('@aidha/graph-backend').ExportGephiOptions['nodeTypes']
+      : undefined;
+
+    const result = await store.exportGephi({ predicates, nodeTypes, includeLabels });
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+
+    await ensureDir(outDir);
+    const nodeHeader = includeLabels ? 'Id,Label,Type,CreatedAt' : 'Id,Type,CreatedAt';
+    const nodeRows = result.value.nodes.map(n =>
+      includeLabels
+        ? `${csvEscape(n.id)},${csvEscape(n.label ?? '')},${csvEscape(n.type)},${csvEscape(n.createdAt)}`
+        : `${csvEscape(n.id)},${csvEscape(n.type)},${csvEscape(n.createdAt)}`
+    );
+    const nodesPath = resolve(outDir, 'nodes.csv');
+    await writeFile(nodesPath, [nodeHeader, ...nodeRows].join('\n') + '\n', 'utf-8');
+
+    const edgeHeader = 'Source,Target,Type,Weight,CreatedAt';
+    const edgeRows = result.value.edges.map(e =>
+      `${csvEscape(e.source)},${csvEscape(e.target)},${csvEscape(e.predicate)},${e.weight},${csvEscape(e.createdAt)}`
+    );
+    const edgesPath = resolve(outDir, 'edges.csv');
+    await writeFile(edgesPath, [edgeHeader, ...edgeRows].join('\n') + '\n', 'utf-8');
+
+    console.log(`Wrote ${result.value.nodes.length} nodes: ${nodesPath}`);
+    console.log(`Wrote ${result.value.edges.length} edges: ${edgesPath}`);
+    await store.close();
+    return 0;
+  }
+
   const entity = positionals[2];
   const target = positionals[3];
-  if (!kind || !entity || !target) {
+  if (!entity || !target) {
     console.error('Usage: export <dossier|transcript> <video|playlist> <idOrUrl>');
     return 1;
   }
@@ -364,6 +429,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
   const splitStates = optionBool(options, 'split-states');
   const states = parseClaimStates(options);
   const pretty = optionBool(options, 'pretty');
+  const sourcePrefix = resolveSourcePrefix(options, 'youtube');
 
   const resolvePlaylistInput = async (): Promise<Result<{
     playlistId: string;
@@ -399,7 +465,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
       await store.close();
       return 1;
     }
-    const outPath = optionString(options, 'out', `./out/dossier-${videoId}.md`);
+    const outPath = optionString(options, 'out', `./out/dossier-${sourcePrefix}-${videoId}.md`);
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
     console.log(`Wrote dossier: ${resolve(outPath)}`);
@@ -435,7 +501,11 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
       await store.close();
       return 1;
     }
-    const outPath = optionString(options, 'out', `./out/dossier-playlist-${playlistInput.value.playlistId}.md`);
+    const outPath = optionString(
+      options,
+      'out',
+      `./out/dossier-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.md`
+    );
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
     console.log(`Wrote dossier: ${resolve(outPath)}`);
@@ -466,7 +536,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
       await store.close();
       return 1;
     }
-    const outPath = optionString(options, 'out', `./out/transcript-${videoId}.json`);
+    const outPath = optionString(options, 'out', `./out/transcript-${sourcePrefix}-${videoId}.json`);
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
     console.log(`Wrote transcript: ${resolve(outPath)}`);
@@ -494,7 +564,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
     const outPath = optionString(
       options,
       'out',
-      `./out/transcript-playlist-${playlistInput.value.playlistId}.json`
+      `./out/transcript-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.json`
     );
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
@@ -680,9 +750,52 @@ async function runReview(positionals: string[], options: CliOptions): Promise<nu
 
 async function runDiagnose(positionals: string[], options: CliOptions): Promise<number> {
   const mode = positionals[1];
+  if (!mode) {
+    console.error('Usage: diagnose <transcript|extract|editor|stats> ...');
+    return 1;
+  }
+
+  if (mode === 'stats') {
+    const store = await openStore(options);
+    const topN = optionNumber(options, 'top', 10);
+    const result = await store.getGraphStats({ topN });
+    if (!result.ok) {
+      console.error(result.error.message);
+      await store.close();
+      return 1;
+    }
+    if (optionBool(options, 'json')) {
+      console.log(JSON.stringify(result.value, null, 2));
+    } else {
+      const stats = result.value;
+      console.log('=== Node Counts ===');
+      for (const [type, count] of Object.entries(stats.nodeCounts).sort()) {
+        console.log(`  ${type}: ${count}`);
+      }
+      console.log('\n=== Edge Counts ===');
+      for (const [pred, count] of Object.entries(stats.edgeCounts).sort()) {
+        console.log(`  ${pred}: ${count}`);
+      }
+      if (stats.claimStateCounts && Object.keys(stats.claimStateCounts).length > 0) {
+        console.log('\n=== Claim States ===');
+        for (const [state, count] of Object.entries(stats.claimStateCounts).sort()) {
+          console.log(`  ${state}: ${count}`);
+        }
+      }
+      if (stats.topDegreeNodes.length > 0) {
+        console.log(`\n=== Top ${stats.topDegreeNodes.length} Nodes by Degree ===`);
+        for (const node of stats.topDegreeNodes) {
+          console.log(`  ${node.id} (${node.type}) in=${node.inDegree} out=${node.outDegree}`);
+        }
+      }
+    }
+    await store.close();
+    return 0;
+  }
+
   const target = positionals[2];
-  if (!mode || !target) {
-    console.error('Usage: diagnose <transcript|extract> <videoIdOrUrl>');
+  if (!target) {
+    console.error('Usage: diagnose <transcript|extract|editor> <videoIdOrUrl>');
     return 1;
   }
   const videoId = parseVideoId(target);
@@ -787,7 +900,7 @@ async function runDiagnose(positionals: string[], options: CliOptions): Promise<
     return 0;
   }
 
-  console.error('Unknown diagnose mode. Use transcript, extract, or editor.');
+  console.error('Unknown diagnose mode. Use transcript, extract, editor, or stats.');
   return 1;
 }
 

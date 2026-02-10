@@ -3,7 +3,7 @@ document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
 last_updated: 2026-02-09
-version: '1.14'
+version: '1.15'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.14
+> **Version:** 1.15
 > **Last Updated:** 2026-02-09
 > **Type:** RUNBOOK
 
@@ -45,6 +45,7 @@ docops_version: '2.0'
 | 1.12    | 2026-02-08 | AI     | Add preflight command and subcommand help guidance | — | Draft | — |
 | 1.13    | 2026-02-09 | AI     | Add fixture import operation and golden test data guidance | — | Draft | — |
 | 1.14    | 2026-02-09 | AI     | Add claims purge operation for clean reruns | — | Draft | — |
+| 1.15    | 2026-02-09 | AI     | Add source-prefixed export filename defaults | — | Draft | — |
 
 ## Purpose
 
@@ -185,6 +186,9 @@ auditing steps.
      --out ./out/dossier-<id>.md
    ```
 
+   Without `--out`, default is `./out/dossier-youtube-<id>.md`.
+   Override source naming via `--source-prefix <prefix>`.
+
    Output files:
 
 - `./out/dossier-<id>.md`
@@ -196,6 +200,8 @@ auditing steps.
    pnpm -C packages/praecis/youtube cli export transcript video <url> \
      --out ./out/transcript-<id>.json
    ```
+
+   Without `--out`, default is `./out/transcript-youtube-<id>.json`.
 
 - **Create area/goal/project planning nodes**
 
