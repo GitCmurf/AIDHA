@@ -42,6 +42,38 @@ class ConcurrentResourceMetadataStore extends InMemoryStore {
   }
 }
 
+class TransactionalResourceRunStatsStore extends InMemoryStore {
+  private inTx = false;
+  public transactionalWriteVerified = false;
+
+  async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
+    this.inTx = true;
+    try {
+      return await work();
+    } finally {
+      this.inTx = false;
+    }
+  }
+
+  override async upsertNode(
+    type: Parameters<InMemoryStore['upsertNode']>[0],
+    id: Parameters<InMemoryStore['upsertNode']>[1],
+    data: Parameters<InMemoryStore['upsertNode']>[2],
+    options?: Parameters<InMemoryStore['upsertNode']>[3]
+  ): ReturnType<InMemoryStore['upsertNode']> {
+    if (
+      type === 'Resource' &&
+      id === 'youtube-test-video' &&
+      data.metadata &&
+      typeof (data.metadata as Record<string, unknown>)['lastClaimRunAt'] === 'string'
+    ) {
+      expect(this.inTx).toBe(true);
+      this.transactionalWriteVerified = true;
+    }
+    return super.upsertNode(type, id, data, options);
+  }
+}
+
 describe('Extraction pipelines', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
@@ -131,5 +163,22 @@ describe('Extraction pipelines', () => {
     expect(resource.value?.metadata?.['lastClaimRunAt']).toBeTypeOf('string');
 
     await concurrentStore.close();
+  });
+
+  it('writes claim run stats inside a transaction when supported', async () => {
+    const transactionalStore = new TransactionalResourceRunStatsStore();
+    const transactionalIngestion = new IngestionPipeline({
+      graphStore: transactionalStore,
+      taxonomyRegistry,
+      youtubeClient,
+    });
+
+    await transactionalIngestion.ingestPlaylist('test-playlist');
+    const claimPipeline = new ClaimExtractionPipeline({ graphStore: transactionalStore });
+    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    expect(result.ok).toBe(true);
+    expect(transactionalStore.transactionalWriteVerified).toBe(true);
+
+    await transactionalStore.close();
   });
 });

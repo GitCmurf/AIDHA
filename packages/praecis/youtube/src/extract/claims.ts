@@ -9,6 +9,24 @@ export interface ClaimExtractionConfig {
   extractor?: ClaimExtractor;
 }
 
+interface TransactionalStore {
+  runInTransaction<T>(work: () => Promise<Result<T>>): Promise<Result<T>>;
+}
+
+function hasTransactions(store: GraphStore): store is GraphStore & TransactionalStore {
+  return typeof (store as Partial<TransactionalStore>).runInTransaction === 'function';
+}
+
+async function runAtomically<T>(
+  store: GraphStore,
+  work: () => Promise<Result<T>>
+): Promise<Result<T>> {
+  if (!hasTransactions(store)) {
+    return work();
+  }
+  return store.runInTransaction(work);
+}
+
 export class HeuristicClaimExtractor implements ClaimExtractor {
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
     const maxClaims = input.maxClaims ?? 20;
@@ -140,45 +158,51 @@ export class ClaimExtractionPipeline {
       }
     }
 
-    const latestResourceResult = await this.graphStore.getNode(resourceId);
-    if (!latestResourceResult.ok) return latestResourceResult;
-    if (!latestResourceResult.value) {
-      return { ok: false, error: new Error(`Resource not found: ${resourceId}`) };
-    }
+    const lastClaimRunAt = new Date().toISOString();
+    const updateRunMetadata = await runAtomically(this.graphStore, async () => {
+      const latestResourceResult = await this.graphStore.getNode(resourceId);
+      if (!latestResourceResult.ok) return latestResourceResult;
+      if (!latestResourceResult.value) {
+        return { ok: false, error: new Error(`Resource not found: ${resourceId}`) };
+      }
 
-    const existingMetadata = (latestResourceResult.value.metadata ?? {}) as Record<string, unknown>;
-    const runMetadata: Record<string, unknown> = {
-      ...existingMetadata,
-      lastClaimRunAt: new Date().toISOString(),
-      lastClaimRunCandidates: candidates.length,
-      lastClaimRunCreated: claimsCreated,
-      lastClaimRunUpdated: claimsUpdated,
-      lastClaimRunNoop: claimsNoop,
-      lastClaimRunEdgesCreated: edgesCreated,
-      lastClaimRunEdgesUpdated: edgesUpdated,
-      lastClaimRunEdgesNoop: edgesNoop,
-      lastClaimRunExtractor: this.extractor.constructor.name,
-    };
-    if (extractorEditorVersion) {
-      runMetadata['lastClaimRunEditorVersion'] = extractorEditorVersion;
-    }
-    if (firstModel) {
-      runMetadata['lastClaimRunModel'] = firstModel;
-    }
-    if (firstPromptVersion) {
-      runMetadata['lastClaimRunPromptVersion'] = firstPromptVersion;
-    }
-    const resourceUpdate = await this.graphStore.upsertNode(
-      'Resource',
-      resourceId,
-      {
-        label: latestResourceResult.value.label,
-        content: latestResourceResult.value.content,
-        metadata: runMetadata,
-      },
-      { detectNoop: true }
-    );
-    if (!resourceUpdate.ok) return resourceUpdate;
+      const existingMetadata = (latestResourceResult.value.metadata ?? {}) as Record<string, unknown>;
+      const runMetadata: Record<string, unknown> = {
+        ...existingMetadata,
+        lastClaimRunAt,
+        lastClaimRunCandidates: candidates.length,
+        lastClaimRunCreated: claimsCreated,
+        lastClaimRunUpdated: claimsUpdated,
+        lastClaimRunNoop: claimsNoop,
+        lastClaimRunEdgesCreated: edgesCreated,
+        lastClaimRunEdgesUpdated: edgesUpdated,
+        lastClaimRunEdgesNoop: edgesNoop,
+        lastClaimRunExtractor: this.extractor.constructor.name,
+      };
+      if (extractorEditorVersion) {
+        runMetadata['lastClaimRunEditorVersion'] = extractorEditorVersion;
+      }
+      if (firstModel) {
+        runMetadata['lastClaimRunModel'] = firstModel;
+      }
+      if (firstPromptVersion) {
+        runMetadata['lastClaimRunPromptVersion'] = firstPromptVersion;
+      }
+
+      const resourceUpdate = await this.graphStore.upsertNode(
+        'Resource',
+        resourceId,
+        {
+          label: latestResourceResult.value.label,
+          content: latestResourceResult.value.content,
+          metadata: runMetadata,
+        },
+        { detectNoop: true }
+      );
+      if (!resourceUpdate.ok) return resourceUpdate;
+      return { ok: true, value: undefined };
+    });
+    if (!updateRunMetadata.ok) return updateRunMetadata;
 
     return {
       ok: true,

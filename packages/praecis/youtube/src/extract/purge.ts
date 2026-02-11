@@ -57,35 +57,40 @@ export async function purgeClaimsForVideo(
   videoId: string
 ): Promise<Result<PurgeClaimsResult>> {
   const resourceId = `youtube-${videoId}`;
-  const resourceResult = await store.getNode(resourceId);
-  if (!resourceResult.ok) return resourceResult;
-  if (!resourceResult.value) {
-    return { ok: false, error: new Error(`Resource not found: ${resourceId}`) };
-  }
-  const resource = resourceResult.value;
-
-  const claimResult = await store.queryNodes({
-    type: 'Claim',
-    filters: { resourceId },
-  });
-  if (!claimResult.ok) return claimResult;
-
-  const claimIds = claimResult.value.items.map(item => item.id);
-  const { metadata, changed } = stripClaimRunMetadata(resource);
-
   return runAtomically(store, async () => {
+    const resourceResult = await store.getNode(resourceId);
+    if (!resourceResult.ok) return resourceResult;
+    if (!resourceResult.value) {
+      return { ok: false, error: new Error(`Resource not found: ${resourceId}`) };
+    }
+
+    const claimResult = await store.queryNodes({
+      type: 'Claim',
+      filters: { resourceId },
+    });
+    if (!claimResult.ok) return claimResult;
+
+    const claimIds = claimResult.value.items.map(item => item.id);
+
     for (const claimId of claimIds) {
       const deleted = await store.deleteNode(claimId, { cascade: true });
       if (!deleted.ok) return deleted;
     }
 
+    const latestResource = await store.getNode(resourceId);
+    if (!latestResource.ok) return latestResource;
+    if (!latestResource.value) {
+      return { ok: false, error: new Error(`Resource not found: ${resourceId}`) };
+    }
+
+    const { metadata, changed } = stripClaimRunMetadata(latestResource.value);
     if (changed) {
       const resourceUpdate = await store.upsertNode(
         'Resource',
         resourceId,
         {
-          label: resource.label,
-          content: resource.content,
+          label: latestResource.value.label,
+          content: latestResource.value.content,
           metadata,
         },
         { detectNoop: true }

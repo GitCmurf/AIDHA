@@ -6,6 +6,14 @@
 ## Dev Workflow & Commands
 - `pnpm docs:serve` / `pnpm docs:build` — preview and validate the MkDocs site before opening a PR.
 
+## Engineering Principles
+- specification-led
+- test-driven development
+- modularised, reusable, separation of concerns
+- SOLID + DRY + KISS
+- atomic unit of change is: tests + code + comments + docs
+- all material code changes should be code-reviewed before commit
+
 ## Coding Style & Naming Conventions
 - Bash scripts use 4-space indentation, `set -euo pipefail`, and descriptive function names; prefer long-form flags for readability.
 - Branches and spec folders must follow `NNN-short-name` (lowercase, dashed) to remain discoverable by the automation pipeline.
