@@ -22,6 +22,7 @@
     "cli": "node dist/cli.js"
   },
   "dependencies": {
+    "@aidha/config": "workspace:*",
     "@aidha/graph-backend": "file:../../reconditum",
     "@aidha/taxonomy": "file:../../phyla",
     "zod": "^3.25.76"

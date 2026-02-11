@@ -13,41 +13,39 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-function getYtDlpBin(): string {
-  return (
-    process.env['AIDHA_YTDLP_BIN'] ??
-    process.env['YTDLP_BIN'] ??
-    'yt-dlp'
-  );
+// ── Runtime Config ───────────────────────────────────────────────────────────
+
+/** Configuration for the yt-dlp client, typically derived from ResolvedConfig. */
+export interface YtDlpRuntimeConfig {
+  bin: string;
+  jsRuntimes: string;
+  cookiesFile?: string;
+  timeoutMs: number;
+  keepFiles: boolean;
+  debugTranscript: boolean;
 }
 
-function getJsRuntimes(): string {
-  const configured =
+/** Build a YtDlpRuntimeConfig from process.env (legacy/fallback). */
+export function ytDlpConfigFromEnv(): YtDlpRuntimeConfig {
+  const jsConfigured =
     process.env['AIDHA_YTDLP_JS_RUNTIMES'] ??
     process.env['YTDLP_JS_RUNTIMES'] ??
     'node';
-  return configured.trim() || 'node';
-}
-
-function getCookiesFile(): string | undefined {
-  return (
-    process.env['AIDHA_YTDLP_COOKIES_FILE'] ??
-    process.env['YTDLP_COOKIES_FILE'] ??
-    process.env['YTDLP_COOKIES']
-  );
-}
-
-function getTimeoutMs(): number {
   const parsed = Number.parseInt(process.env['AIDHA_YTDLP_TIMEOUT_MS'] ?? '120000', 10);
-  return Number.isNaN(parsed) ? 120000 : parsed;
-}
-
-function shouldKeepFiles(): boolean {
-  return process.env['AIDHA_YTDLP_KEEP_FILES'] === '1';
-}
-
-function isDebug(): boolean {
-  return process.env['AIDHA_DEBUG_TRANSCRIPT'] === '1';
+  return {
+    bin:
+      process.env['AIDHA_YTDLP_BIN'] ??
+      process.env['YTDLP_BIN'] ??
+      'yt-dlp',
+    jsRuntimes: jsConfigured.trim() || 'node',
+    cookiesFile:
+      process.env['AIDHA_YTDLP_COOKIES_FILE'] ??
+      process.env['YTDLP_COOKIES_FILE'] ??
+      process.env['YTDLP_COOKIES'],
+    timeoutMs: Number.isNaN(parsed) ? 120000 : parsed,
+    keepFiles: process.env['AIDHA_YTDLP_KEEP_FILES'] === '1',
+    debugTranscript: process.env['AIDHA_DEBUG_TRANSCRIPT'] === '1',
+  };
 }
 
 const FORMAT_PRIORITY = ['.vtt', '.ttml', '.json3', '.json'];
@@ -153,9 +151,12 @@ function parseConfiguredRuntimes(configured: string): YtDlpPreflightRuntime[] {
   return entries;
 }
 
-export async function diagnoseYtDlpEnvironment(): Promise<Result<YtDlpEnvironmentDiagnosis>> {
-  const ytdlpExecutable = getYtDlpBin();
-  const jsConfigured = getJsRuntimes();
+export async function diagnoseYtDlpEnvironment(
+  rtConfig?: YtDlpRuntimeConfig,
+): Promise<Result<YtDlpEnvironmentDiagnosis>> {
+  const cfg = rtConfig ?? ytDlpConfigFromEnv();
+  const ytdlpExecutable = cfg.bin;
+  const jsConfigured = cfg.jsRuntimes;
   const jsExecutable = parseRuntimeExecutable(jsConfigured);
 
   const [ytdlpAvailable, jsAvailable, ffmpegAvailable] = await Promise.all([
@@ -199,9 +200,11 @@ export interface YtDlpPreflightOptions {
 }
 
 export async function runYtDlpPreflight(
-  options: YtDlpPreflightOptions = {}
+  options: YtDlpPreflightOptions = {},
+  rtConfig?: YtDlpRuntimeConfig,
 ): Promise<Result<YtDlpPreflightReport>> {
-  const envResult = await diagnoseYtDlpEnvironment();
+  const cfg = rtConfig ?? ytDlpConfigFromEnv();
+  const envResult = await diagnoseYtDlpEnvironment(cfg);
   if (!envResult.ok) return envResult;
 
   const env = envResult.value;
@@ -242,7 +245,7 @@ export async function runYtDlpPreflight(
           env.jsRuntime.configured,
           options.probeUrl,
         ], {
-          timeout: getTimeoutMs(),
+          timeout: cfg.timeoutMs,
           maxBuffer: 8 * 1024 * 1024,
         });
         probe.ok = true;
@@ -332,8 +335,10 @@ async function parseSubtitleFile(filePath: string): Promise<{ segments: Transcri
 }
 
 export async function fetchTranscriptWithYtDlp(
-  videoIdOrUrl: string
+  videoIdOrUrl: string,
+  rtConfig?: YtDlpRuntimeConfig,
 ): Promise<Result<Transcript>> {
+  const cfg = rtConfig ?? ytDlpConfigFromEnv();
   let tmpPath: string | null = null;
   try {
     tmpPath = await fs.mkdtemp(join(tmpdir(), 'aidha-ytdlp-'));
@@ -358,9 +363,9 @@ export async function fetchTranscriptWithYtDlp(
     outputTemplate,
   ];
 
-  args.push('--js-runtimes', getJsRuntimes());
+  args.push('--js-runtimes', cfg.jsRuntimes);
 
-  const cookiesFile = getCookiesFile();
+  const cookiesFile = cfg.cookiesFile;
   if (cookiesFile) {
     args.push('--cookies', cookiesFile);
   }
@@ -368,13 +373,13 @@ export async function fetchTranscriptWithYtDlp(
   args.push(videoIdOrUrl);
 
   try {
-    if (isDebug()) {
+    if (cfg.debugTranscript) {
       // eslint-disable-next-line no-console
-      console.log(`[transcript] yt-dlp: ${getYtDlpBin()} ${args.join(' ')}`);
+      console.log(`[transcript] yt-dlp: ${cfg.bin} ${args.join(' ')}`);
     }
 
-    await execFileAsync(getYtDlpBin(), args, {
-      timeout: getTimeoutMs(),
+    await execFileAsync(cfg.bin, args, {
+      timeout: cfg.timeoutMs,
       maxBuffer: 10 * 1024 * 1024,
     });
 
@@ -411,9 +416,9 @@ export async function fetchTranscriptWithYtDlp(
     return { ok: false, error: new Error(message) };
   } finally {
     if (tmpPath) {
-      if (!shouldKeepFiles()) {
+      if (!cfg.keepFiles) {
         await fs.rm(tmpPath, { recursive: true, force: true });
-      } else if (isDebug()) {
+      } else if (cfg.debugTranscript) {
         // eslint-disable-next-line no-console
         console.log(`[transcript] yt-dlp files kept at ${tmpPath}`);
       }

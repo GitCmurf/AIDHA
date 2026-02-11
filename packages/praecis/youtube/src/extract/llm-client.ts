@@ -76,6 +76,35 @@ export class OpenAiCompatibleClient implements LlmClient {
   }
 }
 
+/** Resolved LLM config shape (matches ResolvedConfig.llm). */
+export interface LlmResolvedConfig {
+  model: string;
+  apiKey: string;
+  baseUrl: string;
+  timeoutMs: number;
+  cacheDir: string;
+}
+
+/**
+ * Create an LLM client from resolved config values.
+ */
+export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmClient> {
+  if (!cfg.baseUrl) {
+    return { ok: false, error: new Error('llm.base_url is not configured') };
+  }
+  return {
+    ok: true,
+    value: new OpenAiCompatibleClient({
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey || undefined,
+      timeoutMs: cfg.timeoutMs || 60_000,
+    }),
+  };
+}
+
+/**
+ * Create an LLM client from process.env (legacy/fallback).
+ */
 export function createDefaultLlmClient(): Result<LlmClient> {
   const baseUrl = process.env['AIDHA_LLM_BASE_URL'];
   if (!baseUrl) {
