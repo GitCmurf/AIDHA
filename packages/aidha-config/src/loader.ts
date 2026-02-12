@@ -290,6 +290,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
 
   // ── Step 7: Compute final base_dir ──────────────────────────────────
   const baseDir = computeFinalBaseDir(baseDirPrelim, config.base_dir);
+  config.base_dir = baseDir;
 
   // ── Step 8: Resolve path-like values ────────────────────────────────
   resolvePathValues(config as unknown as Record<string, unknown>, baseDir);

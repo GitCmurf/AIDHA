@@ -125,6 +125,7 @@ profiles:
     const expectedBase = resolve(tmpDir, 'subproject');
     const result = await loadConfig({ cwd: tmpDir, env: {} });
     expect(result.baseDir).toBe(expectedBase);
+    expect(result.config!.base_dir).toBe(expectedBase);
     expect(result.config!.profiles['default']?.db).toBe(
       resolve(expectedBase, './out/data.sqlite'),
     );

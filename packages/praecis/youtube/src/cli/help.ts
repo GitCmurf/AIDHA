@@ -1,6 +1,12 @@
 export const CLI_USAGE_TEXT = `AIDHA YouTube CLI
 
 Usage:
+  Global Options:
+    --config <path>      Path to config file (default: auto-discover)
+    --profile <name>     Profile to use (default: default)
+    --source <id>        Source ID (default: auto-selected by command)
+
+  Commands:
   aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]

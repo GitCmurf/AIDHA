@@ -137,27 +137,33 @@ export function resolvePathValues<T extends Record<string, unknown>>(
   // Extract leaf property names that are path-annotated in any $def
   const pathLeafNames = getPathLeafNames();
 
-  function walk(obj: unknown): void {
+  function walk(obj: unknown, currentPath: string): void {
     if (obj === null || typeof obj !== 'object') return;
 
     if (Array.isArray(obj)) {
       for (const item of obj) {
-        walk(item);
+        walk(item, currentPath);
       }
       return;
     }
 
     const record = obj as Record<string, unknown>;
     for (const [key, value] of Object.entries(record)) {
+      const nextPath = currentPath ? `${currentPath}.${key}` : key;
+      // `base_dir` has dedicated resolution semantics in loader.ts and should
+      // never be re-resolved here.
+      if (nextPath === 'base_dir') {
+        continue;
+      }
       if (typeof value === 'string' && pathLeafNames.has(key)) {
         record[key] = resolvePathValue(value, baseDir);
       } else if (typeof value === 'object' && value !== null) {
-        walk(value);
+        walk(value, nextPath);
       }
     }
   }
 
-  walk(config);
+  walk(config, '');
   return config;
 }
 

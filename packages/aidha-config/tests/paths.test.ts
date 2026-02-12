@@ -172,4 +172,21 @@ describe('resolvePathValues', () => {
     expect(config.profiles.default.list[1].cache_dir).toBe(resolve(baseDir, './cache-b'));
     expect(config.profiles.default.list[1].model).toBe('gpt-4o');
   });
+
+  it('should not re-resolve top-level base_dir', () => {
+    const config = {
+      base_dir: 'subproject',
+      profiles: {
+        default: {
+          db: './out/test.sqlite',
+        },
+      },
+    };
+    const finalBaseDir = resolve(baseDir, 'subproject');
+
+    resolvePathValues(config as Record<string, unknown>, finalBaseDir);
+
+    expect(config.base_dir).toBe('subproject');
+    expect(config.profiles.default.db).toBe(resolve(finalBaseDir, './out/test.sqlite'));
+  });
 });

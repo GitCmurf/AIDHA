@@ -116,13 +116,13 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
 
   // ── llm ──
   const model = optStr(options, 'model');
-  if (model !== undefined) {
+  if (model !== undefined && model.length > 0) {
     overrides.llm = { ...(overrides.llm ?? {}), model };
   }
 
   // ── editor ──
   const editorVersion = optStr(options, 'editor-version');
-  if (editorVersion !== undefined) {
+  if (editorVersion !== undefined && editorVersion.length > 0) {
     overrides.editor = { ...(overrides.editor ?? {}), version: editorVersion.toLowerCase() };
   }
   const windowMinutes = optNum(options, 'window-minutes');
@@ -164,7 +164,7 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
     overrides.extraction = { ...(overrides.extraction ?? {}), max_chunks: maxChunks };
   }
   const promptVersion = optStr(options, 'prompt-version');
-  if (promptVersion !== undefined) {
+  if (promptVersion !== undefined && promptVersion.length > 0) {
     overrides.extraction = { ...(overrides.extraction ?? {}), prompt_version: promptVersion };
   }
 
@@ -176,11 +176,11 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
 
   // ── ytdlp ──
   const ytdlpBin = optStr(options, 'ytdlp-bin');
-  if (ytdlpBin !== undefined) {
+  if (ytdlpBin !== undefined && ytdlpBin.length > 0) {
     overrides.ytdlp = { ...(overrides.ytdlp ?? {}), bin: ytdlpBin };
   }
   const ytdlpCookies = optStr(options, 'ytdlp-cookies');
-  if (ytdlpCookies !== undefined) {
+  if (ytdlpCookies !== undefined && ytdlpCookies.length > 0) {
     overrides.ytdlp = { ...(overrides.ytdlp ?? {}), cookies_file: ytdlpCookies };
   }
   const ytdlpTimeout = optNum(options, 'ytdlp-timeout');
@@ -188,7 +188,7 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
     overrides.ytdlp = { ...(overrides.ytdlp ?? {}), timeout_ms: ytdlpTimeout };
   }
   const ytdlpJsRuntimes = optStr(options, 'ytdlp-js-runtimes');
-  if (ytdlpJsRuntimes !== undefined) {
+  if (ytdlpJsRuntimes !== undefined && ytdlpJsRuntimes.length > 0) {
     overrides.ytdlp = { ...(overrides.ytdlp ?? {}), js_runtimes: ytdlpJsRuntimes };
   }
   const ytdlpKeep = optBool(options, 'ytdlp-keep');
@@ -198,7 +198,7 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
 
   // ── cache-dir (maps to llm.cache_dir) ──
   const cacheDir = optStr(options, 'cache-dir');
-  if (cacheDir !== undefined) {
+  if (cacheDir !== undefined && cacheDir.length > 0) {
     overrides.llm = { ...(overrides.llm ?? {}), cache_dir: cacheDir };
   }
 

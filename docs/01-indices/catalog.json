@@ -183,6 +183,20 @@
     }
   },
   {
+    "path": "30-fdd/fdd-004-user-configuration.md",
+    "title": "FDD 004: User Configuration Profiles",
+    "front_matter": {
+      "document_id": "AIDHA-FDD-004",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-02-12",
+      "title": "User Configuration Profiles",
+      "type": "FDD",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "30-fdd/fdd-002-first-pass-youtube-claim-mining.md",
     "title": "FDD: First-Pass YouTube Claim Mining",
     "front_matter": {
@@ -486,6 +500,20 @@
       "version": "0.1",
       "last_updated": "2026-02-06",
       "title": "Claim Lifecycle and Review Workflow",
+      "type": "ADR",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-008-configuration-management.md",
+    "title": "ADR 008: Configuration Management System",
+    "front_matter": {
+      "document_id": "AIDHA-ADR-008",
+      "owner": "Repo Maintainers",
+      "status": "Approved",
+      "version": "0.1",
+      "last_updated": "2026-02-12",
+      "title": "Configuration Management System",
       "type": "ADR",
       "docops_version": "2.0"
     }

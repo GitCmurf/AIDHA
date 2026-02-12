@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +12,6 @@ import {
   IngestionPipeline,
   ClaimExtractionPipeline,
   LlmClaimExtractor,
-  createDefaultLlmClient,
   ReferenceExtractionPipeline,
   purgeClaimsForVideo,
   DossierExporter,
@@ -32,6 +32,7 @@ import {
   formatTranscriptDiagnosis,
   formatExtractionDiagnosis,
 } from './index.js';
+import { runConfig } from './cli/config-cmd.js';
 import { parseArgs } from './cli/parse.js';
 import { CLI_USAGE_TEXT } from './cli/help.js';
 import { formatIngestionStatus } from './cli/status.js';
@@ -39,8 +40,14 @@ import type { ClaimState } from './utils/claim-state.js';
 import type { Result } from './pipeline/types.js';
 import { runYtDlpPreflight } from './client/yt-dlp.js';
 import { parseTranscriptTtml } from './client/transcript.js';
+import {
+  resolveCliConfig,
+  buildCliOverrides,
+} from './cli/config-bridge.js';
+import type { ResolvedConfig } from '@aidha/config';
+import { createLlmClientFromConfig } from './extract/llm-client.js';
 
-type CliOptions = Record<string, string | boolean>;
+export type CliOptions = Record<string, string | boolean>;
 
 function parseVideoId(input: string): string {
   if (!input.includes('/') && !input.includes('.')) {
@@ -71,6 +78,49 @@ function parsePlaylistId(input: string): string {
   } catch {
     return input;
   }
+}
+
+export function resolveSourceId(positionals: string[], options: CliOptions): string | undefined {
+  const explicit = options['source'];
+  if (typeof explicit === 'string' && explicit.trim().length > 0) {
+    return explicit.trim();
+  }
+
+  const command = positionals[0];
+  if (
+    command === 'ingest' ||
+    command === 'extract' ||
+    command === 'claims' ||
+    command === 'export' ||
+    command === 'query' ||
+    command === 'related' ||
+    command === 'review' ||
+    command === 'task' ||
+    command === 'area' ||
+    command === 'goal' ||
+    command === 'project' ||
+    command === 'diagnose' ||
+    command === 'preflight' ||
+    command === 'fixtures'
+  ) {
+    return 'youtube';
+  }
+
+  return undefined;
+}
+
+function normalizeEntrypointPath(pathValue: string): string {
+  const absolute = resolve(pathValue);
+  try {
+    return realpathSync(absolute);
+  } catch {
+    return absolute;
+  }
+}
+
+export function isCliEntrypoint(importMetaUrl: string, argv1?: string): boolean {
+  if (!argv1) return false;
+  return normalizeEntrypointPath(fileURLToPath(importMetaUrl)) === normalizeEntrypointPath(argv1);
 }
 
 function optionString(options: CliOptions, key: string, fallback: string): string {
@@ -155,41 +205,35 @@ function printHelp(): void {
   console.log(CLI_USAGE_TEXT);
 }
 
-async function openStore(options: CliOptions): Promise<SQLiteStore> {
-  const dbPath = optionString(options, 'db', './out/aidha.sqlite');
+async function openStore(options: CliOptions, config: ResolvedConfig): Promise<SQLiteStore> {
+  const dbPath = config.db;
   await ensureDir(dirname(dbPath));
   return SQLiteStore.open(dbPath);
 }
 
-async function runIngest(positionals: string[], options: CliOptions): Promise<number> {
+async function runIngest(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const mode = positionals[1];
   const target = positionals[2];
   if (!mode || !target) {
     console.error('Usage: ingest <playlist|video> <idOrUrl>');
     return 1;
   }
-  if (optionBool(options, 'ytdlp-keep')) {
-    process.env['AIDHA_YTDLP_KEEP_FILES'] = '1';
-  }
-  const ytdlpCookies = optionString(options, 'ytdlp-cookies', '');
-  if (ytdlpCookies) {
-    process.env['AIDHA_YTDLP_COOKIES_FILE'] = ytdlpCookies;
-  }
-  const ytdlpBin = optionString(options, 'ytdlp-bin', '');
-  if (ytdlpBin) {
-    process.env['AIDHA_YTDLP_BIN'] = ytdlpBin;
-  }
-  const ytdlpTimeout = optionNumber(options, 'ytdlp-timeout', 0);
-  if (ytdlpTimeout > 0) {
-    process.env['AIDHA_YTDLP_TIMEOUT_MS'] = String(ytdlpTimeout);
-  }
-  const ytdlpJsRuntimes = optionString(options, 'ytdlp-js-runtimes', '');
-  if (ytdlpJsRuntimes) {
-    process.env['AIDHA_YTDLP_JS_RUNTIMES'] = ytdlpJsRuntimes;
-  }
-  const store = await openStore(options);
+
+  // Note: config.ytdlp has already incorporated CLI overrides via buildCliOverrides()
+
+  const store = await openStore(options, config);
   const taxonomyRegistry = new InMemoryRegistry();
-  const client = optionBool(options, 'mock') ? new MockYouTubeClient() : new RealYouTubeClient();
+
+  // Resolve full YtDlpRuntimeConfig
+  const ytDlpConfig = {
+    ...config.ytdlp,
+    debugTranscript: config.youtube.debugTranscript,
+  };
+
+  const client = optionBool(options, 'mock')
+    ? new MockYouTubeClient()
+    : new RealYouTubeClient(config.youtube, ytDlpConfig);
+
   const pipeline = new IngestionPipeline({
     graphStore: store,
     taxonomyRegistry,
@@ -253,7 +297,7 @@ async function runIngest(positionals: string[], options: CliOptions): Promise<nu
   return 0;
 }
 
-async function runExtract(positionals: string[], options: CliOptions): Promise<number> {
+async function runExtract(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const mode = positionals[1];
   const videoArg = positionals[2];
   if (!mode || !videoArg) {
@@ -261,59 +305,48 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
     return 1;
   }
   const videoId = parseVideoId(videoArg);
-  const store = await openStore(options);
+  const store = await openStore(options, config);
 
   if (mode === 'claims') {
     const useLlm = optionBool(options, 'llm');
-    const maxClaims = optionNumber(options, 'claims', 0);
-    const chunkMinutes = optionNumber(options, 'chunk-minutes', 0);
-    const maxChunks = optionNumber(options, 'max-chunks', 0);
-    const editorVersionOption = optionString(
-      options,
-      'editor-version',
-      process.env['AIDHA_EDITOR_VERSION'] ?? 'v1'
-    ).toLowerCase();
-    const editorVersion = editorVersionOption === 'v2' ? 'v2' : 'v1';
-    const editorWindowMinutes = optionNumber(options, 'window-minutes', 0);
-    const editorMaxPerWindow = optionNumber(options, 'max-per-window', 0);
-    const editorMinWindows = optionNumber(options, 'min-windows', 0);
-    const editorMinWords = optionNumber(options, 'min-words', 0);
-    const editorMinChars = optionNumber(options, 'min-chars', 0);
     const editorLlm = optionBool(options, 'editor-llm');
+
     let extractor: LlmClaimExtractor | undefined;
     if (useLlm) {
-      const model = optionString(options, 'model', process.env['AIDHA_LLM_MODEL'] ?? '');
-      if (!model) {
-        console.error('Missing LLM model. Provide --model or set AIDHA_LLM_MODEL.');
+      if (!config.llm.model) {
+        console.error('Missing LLM model. Provide --model or set llm.model in config.');
         await store.close();
         return 1;
       }
-      const clientResult = createDefaultLlmClient();
+
+      const clientResult = createLlmClientFromConfig(config.llm);
       if (!clientResult.ok) {
         console.error(clientResult.error.message);
         await store.close();
         return 1;
       }
+
       extractor = new LlmClaimExtractor({
         client: clientResult.value,
-        model,
-        promptVersion: process.env['AIDHA_CLAIMS_PROMPT_VERSION'] ?? 'v1',
-        chunkMinutes: chunkMinutes > 0 ? chunkMinutes : undefined,
-        maxChunks: maxChunks > 0 ? maxChunks : undefined,
-        cacheDir: process.env['AIDHA_LLM_CACHE_DIR'],
-        editorVersion,
-        editorWindowMinutes: editorWindowMinutes > 0 ? editorWindowMinutes : undefined,
-        editorMaxPerWindow: editorMaxPerWindow > 0 ? editorMaxPerWindow : undefined,
-        editorMinWindows: editorMinWindows > 0 ? editorMinWindows : undefined,
-        editorMinWords: editorMinWords > 0 ? editorMinWords : undefined,
-        editorMinChars: editorMinChars > 0 ? editorMinChars : undefined,
-        editorLlm,
+        model: config.llm.model,
+        promptVersion: config.extraction.promptVersion,
+        chunkMinutes: config.extraction.chunkMinutes > 0 ? config.extraction.chunkMinutes : undefined,
+        maxChunks: config.extraction.maxChunks > 0 ? config.extraction.maxChunks : undefined,
+        cacheDir: config.llm.cacheDir || undefined,
+        editorVersion: config.editor.version === 'v2' ? 'v2' : 'v1',
+        editorWindowMinutes: config.editor.windowMinutes > 0 ? config.editor.windowMinutes : undefined,
+        editorMaxPerWindow: config.editor.maxPerWindow > 0 ? config.editor.maxPerWindow : undefined,
+        editorMinWindows: config.editor.minWindows > 0 ? config.editor.minWindows : undefined,
+        editorMinWords: config.editor.minWords > 0 ? config.editor.minWords : undefined,
+        editorMinChars: config.editor.minChars > 0 ? config.editor.minChars : undefined,
+        editorLlm: config.editor.editorLlm || editorLlm, // Allow flag to override if not set in config? (Flag is already in config via overrides)
+        // config.editor.editorLlm comes from ResolvedConfig which includes cli overrides.
       });
     }
 
     const pipeline = new ClaimExtractionPipeline({ graphStore: store, extractor });
     const result = await pipeline.extractClaimsForVideo(videoId, {
-      maxClaims: maxClaims > 0 ? maxClaims : undefined,
+      maxClaims: config.extraction.maxClaims > 0 ? config.extraction.maxClaims : undefined,
     });
     if (!result.ok) {
       console.error(result.error.message);
@@ -342,7 +375,7 @@ async function runExtract(positionals: string[], options: CliOptions): Promise<n
   return 0;
 }
 
-async function runClaims(positionals: string[], options: CliOptions): Promise<number> {
+async function runClaims(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const action = positionals[1];
   const target = positionals[2];
   if (action !== 'purge' || !target) {
@@ -351,7 +384,7 @@ async function runClaims(positionals: string[], options: CliOptions): Promise<nu
   }
 
   const videoId = parseVideoId(target);
-  const store = await openStore(options);
+  const store = await openStore(options, config);
   const result = await purgeClaimsForVideo(store, videoId);
   if (!result.ok) {
     console.error(result.error.message);
@@ -366,7 +399,7 @@ async function runClaims(positionals: string[], options: CliOptions): Promise<nu
   return 0;
 }
 
-async function runExport(positionals: string[], options: CliOptions): Promise<number> {
+async function runExport(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const kind = positionals[1];
   if (!kind) {
     console.error('Usage: export <dossier|transcript|gephi> ...');
@@ -374,11 +407,11 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
   }
 
   if (kind === 'gephi') {
-    const store = await openStore(options);
+    const store = await openStore(options, config);
     const predicateOpt = optionString(options, 'predicate', '');
     const nodeTypeOpt = optionString(options, 'node-type', '');
     const includeLabels = optionBool(options, 'include-labels');
-    const outDir = optionString(options, 'out', './out');
+    const outDir = optionString(options, 'out', config.export.outDir || './out');
 
     const predicates = predicateOpt
       ? predicateOpt.split(',').map(s => s.trim()).filter(Boolean) as import('@aidha/graph-backend').ExportGephiOptions['predicates']
@@ -424,12 +457,12 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
     return 1;
   }
 
-  const store = await openStore(options);
+  const store = await openStore(options, config);
   const exporter = new DossierExporter({ graphStore: store });
   const splitStates = optionBool(options, 'split-states');
   const states = parseClaimStates(options);
   const pretty = optionBool(options, 'pretty');
-  const sourcePrefix = resolveSourcePrefix(options, 'youtube');
+  const sourcePrefix = resolveSourcePrefix(options, config.export.sourcePrefix);
 
   const resolvePlaylistInput = async (): Promise<Result<{
     playlistId: string;
@@ -442,7 +475,12 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
     if (typeof videosOption === 'string' && videosOption.length > 0) {
       videoIds = videosOption.split(',').map(v => v.trim()).filter(Boolean);
     } else {
-      const client = optionBool(options, 'mock') ? new MockYouTubeClient() : new RealYouTubeClient();
+      const client = optionBool(options, 'mock')
+        ? new MockYouTubeClient()
+        : new RealYouTubeClient(config.youtube, {
+            ...config.ytdlp,
+            debugTranscript: config.youtube.debugTranscript,
+          });
       const playlistResult = await client.fetchPlaylist(playlistId);
       if (!playlistResult.ok) return playlistResult;
       videoIds = playlistResult.value.videoIds;
@@ -465,7 +503,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
       await store.close();
       return 1;
     }
-    const outPath = optionString(options, 'out', `./out/dossier-${sourcePrefix}-${videoId}.md`);
+    const outPath = optionString(options, 'out', `${config.export.outDir}/dossier-${sourcePrefix}-${videoId}.md`);
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
     console.log(`Wrote dossier: ${resolve(outPath)}`);
@@ -504,7 +542,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
     const outPath = optionString(
       options,
       'out',
-      `./out/dossier-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.md`
+      `${config.export.outDir}/dossier-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.md`
     );
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
@@ -536,7 +574,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
       await store.close();
       return 1;
     }
-    const outPath = optionString(options, 'out', `./out/transcript-${sourcePrefix}-${videoId}.json`);
+    const outPath = optionString(options, 'out', `${config.export.outDir}/transcript-${sourcePrefix}-${videoId}.json`);
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
     console.log(`Wrote transcript: ${resolve(outPath)}`);
@@ -564,7 +602,7 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
     const outPath = optionString(
       options,
       'out',
-      `./out/transcript-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.json`
+      `${config.export.outDir}/transcript-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.json`
     );
     await ensureDir(dirname(outPath));
     await writeFile(outPath, result.value, 'utf-8');
@@ -579,13 +617,13 @@ async function runExport(positionals: string[], options: CliOptions): Promise<nu
   return 0;
 }
 
-async function runQuery(positionals: string[], options: CliOptions): Promise<number> {
+async function runQuery(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const queryText = positionals.slice(1).join(' ').trim();
   if (!queryText) {
     console.error('Usage: query <text>');
     return 1;
   }
-  const store = await openStore(options);
+  const store = await openStore(options, config);
   const limit = optionNumber(options, 'limit', 10);
   const project = optionString(options, 'project', '');
   const area = optionString(options, 'area', '');
@@ -621,13 +659,13 @@ async function runQuery(positionals: string[], options: CliOptions): Promise<num
   return 0;
 }
 
-async function runRelated(positionals: string[], options: CliOptions): Promise<number> {
+async function runRelated(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const claimId = optionString(options, 'claim', '');
   if (!claimId) {
     console.error('Usage: related --claim <claimId>');
     return 1;
   }
-  const store = await openStore(options);
+  const store = await openStore(options, config);
   const limit = optionNumber(options, 'limit', 10);
   const includeDrafts = optionBool(options, 'include-drafts');
   const result = await findRelatedClaims(store, {
@@ -656,13 +694,13 @@ async function runRelated(positionals: string[], options: CliOptions): Promise<n
   return 0;
 }
 
-async function runReview(positionals: string[], options: CliOptions): Promise<number> {
+async function runReview(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const action = positionals[1];
   if (!action) {
     console.error('Usage: review <next|apply> ...');
     return 1;
   }
-  const store = await openStore(options);
+  const store = await openStore(options, config);
 
   if (action === 'next') {
     const target = positionals[2];
@@ -748,7 +786,7 @@ async function runReview(positionals: string[], options: CliOptions): Promise<nu
   return 0;
 }
 
-async function runDiagnose(positionals: string[], options: CliOptions): Promise<number> {
+async function runDiagnose(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const mode = positionals[1];
   if (!mode) {
     console.error('Usage: diagnose <transcript|extract|editor|stats> ...');
@@ -756,7 +794,7 @@ async function runDiagnose(positionals: string[], options: CliOptions): Promise<
   }
 
   if (mode === 'stats') {
-    const store = await openStore(options);
+    const store = await openStore(options, config);
     const topN = optionNumber(options, 'top', 10);
     const result = await store.getGraphStats({ topN });
     if (!result.ok) {
@@ -802,7 +840,12 @@ async function runDiagnose(positionals: string[], options: CliOptions): Promise<
 
   if (mode === 'transcript') {
     const useMock = optionBool(options, 'mock');
-    const client = useMock ? new MockYouTubeClient() : new RealYouTubeClient();
+    const client = useMock
+      ? new MockYouTubeClient()
+      : new RealYouTubeClient(config.youtube, {
+          ...config.ytdlp,
+          debugTranscript: config.youtube.debugTranscript,
+        });
     const result = await diagnoseTranscript(client, videoId, {
       checkTooling: !useMock,
     });
@@ -817,82 +860,37 @@ async function runDiagnose(positionals: string[], options: CliOptions): Promise<
     return 0;
   }
 
-  if (mode === 'extract') {
-    const store = await openStore(options);
-    const includeEditor = optionBool(options, 'include-editor');
-    const editorVersionOption = optionString(
-      options,
-      'editor-version',
-      process.env['AIDHA_EDITOR_VERSION'] ?? 'v1'
-    ).toLowerCase();
-    const editorVersion = editorVersionOption === 'v2' ? 'v2' : 'v1';
-    const result = await diagnoseExtraction(store, videoId, {
-      includeEditor,
-      model: optionString(options, 'model', process.env['AIDHA_LLM_MODEL'] ?? '') || undefined,
-      promptVersion: optionString(
-        options,
-        'prompt-version',
-        process.env['AIDHA_CLAIMS_PROMPT_VERSION'] ?? ''
-      ) || undefined,
-      chunkMinutes: optionNumber(options, 'chunk-minutes', 0) || undefined,
-      maxChunks: optionNumber(options, 'max-chunks', 0) || undefined,
-      cacheDir: optionString(options, 'cache-dir', process.env['AIDHA_LLM_CACHE_DIR'] ?? '') || undefined,
-      editorVersion,
-      maxClaims: optionNumber(options, 'claims', 0) || undefined,
-      windowMinutes: optionNumber(options, 'window-minutes', 0) || undefined,
-      maxPerWindow: optionNumber(options, 'max-per-window', 0) || undefined,
-      minWindows: optionNumber(options, 'min-windows', 0) || undefined,
-      minWords: optionNumber(options, 'min-words', 0) || undefined,
-      minChars: optionNumber(options, 'min-chars', 0) || undefined,
-    });
-    if (!result.ok) {
-      console.error(result.error.message);
-      await store.close();
-      return 1;
-    }
-    console.log(formatExtractionDiagnosis(result.value, optionBool(options, 'json')));
-    if (includeEditor && result.value.editorial && !result.value.editorial.available) {
-      await store.close();
-      return 2;
-    }
-    await store.close();
-    return 0;
-  }
+  if (mode === 'extract' || mode === 'editor') {
+    const store = await openStore(options, config);
+    const includeEditor = mode === 'editor' || optionBool(options, 'include-editor');
 
-  if (mode === 'editor') {
-    const store = await openStore(options);
-    const editorVersionOption = optionString(
-      options,
-      'editor-version',
-      process.env['AIDHA_EDITOR_VERSION'] ?? 'v1'
-    ).toLowerCase();
-    const editorVersion = editorVersionOption === 'v2' ? 'v2' : 'v1';
-    const result = await diagnoseExtraction(store, videoId, {
-      includeEditor: true,
-      model: optionString(options, 'model', process.env['AIDHA_LLM_MODEL'] ?? '') || undefined,
-      promptVersion: optionString(
-        options,
-        'prompt-version',
-        process.env['AIDHA_CLAIMS_PROMPT_VERSION'] ?? ''
-      ) || undefined,
-      chunkMinutes: optionNumber(options, 'chunk-minutes', 0) || undefined,
-      maxChunks: optionNumber(options, 'max-chunks', 0) || undefined,
-      cacheDir: optionString(options, 'cache-dir', process.env['AIDHA_LLM_CACHE_DIR'] ?? '') || undefined,
-      editorVersion,
-      maxClaims: optionNumber(options, 'claims', 0) || undefined,
-      windowMinutes: optionNumber(options, 'window-minutes', 0) || undefined,
-      maxPerWindow: optionNumber(options, 'max-per-window', 0) || undefined,
-      minWindows: optionNumber(options, 'min-windows', 0) || undefined,
-      minWords: optionNumber(options, 'min-words', 0) || undefined,
-      minChars: optionNumber(options, 'min-chars', 0) || undefined,
-    });
+    // Construct diagnosis options from config directly
+    const diagnosisOpts = {
+      includeEditor,
+      model: config.llm.model || undefined,
+      promptVersion: config.extraction.promptVersion || undefined,
+      chunkMinutes: config.extraction.chunkMinutes > 0 ? config.extraction.chunkMinutes : undefined,
+      maxChunks: config.extraction.maxChunks > 0 ? config.extraction.maxChunks : undefined,
+      cacheDir: config.llm.cacheDir || undefined,
+      editorVersion: (config.editor.version === 'v2' ? 'v2' : 'v1') as 'v1' | 'v2',
+      maxClaims: config.extraction.maxClaims > 0 ? config.extraction.maxClaims : undefined,
+      windowMinutes: config.editor.windowMinutes > 0 ? config.editor.windowMinutes : undefined,
+      maxPerWindow: config.editor.maxPerWindow > 0 ? config.editor.maxPerWindow : undefined,
+      minWindows: config.editor.minWindows > 0 ? config.editor.minWindows : undefined,
+      minWords: config.editor.minWords > 0 ? config.editor.minWords : undefined,
+      minChars: config.editor.minChars > 0 ? config.editor.minChars : undefined,
+    };
+
+    const result = await diagnoseExtraction(store, videoId, diagnosisOpts);
+
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
       return 1;
     }
     console.log(formatExtractionDiagnosis(result.value, optionBool(options, 'json')));
-    if (!result.value.editorial?.available) {
+
+    if (includeEditor && result.value.editorial && !result.value.editorial.available) {
       await store.close();
       return 2;
     }
@@ -910,13 +908,13 @@ function parseTags(options: CliOptions): string[] {
   return raw.split(',').map(tag => tag.trim()).filter(Boolean);
 }
 
-async function runTask(positionals: string[], options: CliOptions): Promise<number> {
+async function runTask(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const action = positionals[1];
   if (!action) {
     console.error('Usage: task <create|show> ...');
     return 1;
   }
-  const store = await openStore(options);
+  const store = await openStore(options, config);
 
   if (action === 'create') {
     const claimId = optionString(options, 'from-claim', '');
@@ -1000,7 +998,7 @@ async function runTask(positionals: string[], options: CliOptions): Promise<numb
   return 0;
 }
 
-async function runArea(positionals: string[], options: CliOptions): Promise<number> {
+async function runArea(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const action = positionals[1];
   if (action !== 'create') {
     console.error('Unknown area action. Use create.');
@@ -1012,7 +1010,7 @@ async function runArea(positionals: string[], options: CliOptions): Promise<numb
     return 1;
   }
 
-  const store = await openStore(options);
+  const store = await openStore(options, config);
   const result = await createArea(store, {
     id: optionString(options, 'id', '').trim() || undefined,
     name,
@@ -1028,7 +1026,7 @@ async function runArea(positionals: string[], options: CliOptions): Promise<numb
   return 0;
 }
 
-async function runGoal(positionals: string[], options: CliOptions): Promise<number> {
+async function runGoal(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const action = positionals[1];
   if (action !== 'create') {
     console.error('Unknown goal action. Use create.');
@@ -1040,7 +1038,7 @@ async function runGoal(positionals: string[], options: CliOptions): Promise<numb
     return 1;
   }
 
-  const store = await openStore(options);
+  const store = await openStore(options, config);
   const result = await createGoal(store, {
     id: optionString(options, 'id', '').trim() || undefined,
     name,
@@ -1057,7 +1055,7 @@ async function runGoal(positionals: string[], options: CliOptions): Promise<numb
   return 0;
 }
 
-async function runProject(positionals: string[], options: CliOptions): Promise<number> {
+async function runProject(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const action = positionals[1];
   if (action !== 'create') {
     console.error('Unknown project action. Use create.');
@@ -1071,7 +1069,7 @@ async function runProject(positionals: string[], options: CliOptions): Promise<n
     return 1;
   }
 
-  const store = await openStore(options);
+  const store = await openStore(options, config);
   const result = await createProject(store, {
     id: optionString(options, 'id', '').trim() || undefined,
     name,
@@ -1089,7 +1087,7 @@ async function runProject(positionals: string[], options: CliOptions): Promise<n
   return 0;
 }
 
-async function runPreflight(positionals: string[], options: CliOptions): Promise<number> {
+async function runPreflight(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const mode = positionals[1];
   if (mode !== 'youtube') {
     console.error('Usage: preflight youtube [--json] [--probe-url <url>]');
@@ -1097,9 +1095,10 @@ async function runPreflight(positionals: string[], options: CliOptions): Promise
   }
 
   const probeUrl = optionString(options, 'probe-url', '');
-  const result = await runYtDlpPreflight({
-    probeUrl: probeUrl || undefined,
-  });
+  const result = await runYtDlpPreflight(
+    { probeUrl: probeUrl || undefined },
+    { ...config.ytdlp, debugTranscript: config.youtube.debugTranscript }
+  );
   if (!result.ok) {
     console.error(result.error.message);
     return 1;
@@ -1136,7 +1135,7 @@ function inferVideoIdFromPath(path: string): string | undefined {
   return match?.[1];
 }
 
-async function runFixtures(positionals: string[], options: CliOptions): Promise<number> {
+async function runFixtures(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
   const mode = positionals[1];
   if (mode !== 'import-ttml') {
     console.error('Usage: fixtures import-ttml <path> [--video-id <id>] [--source-url <url>] [--track <name>] [--out <path>] [--pretty]');
@@ -1216,49 +1215,61 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     return 0;
   }
 
+  const cliOverrides = buildCliOverrides(parsed.options);
+  const { config, loadResult } = await resolveCliConfig({
+    configPath: typeof parsed.options['config'] === 'string' ? parsed.options['config'] : undefined,
+    profile: typeof parsed.options['profile'] === 'string' ? parsed.options['profile'] : undefined,
+    source: resolveSourceId(parsed.positionals, parsed.options),
+    cliOverrides,
+  });
+
   let exitCode = 0;
   switch (command) {
     case 'ingest':
-      exitCode = await runIngest(parsed.positionals, parsed.options);
+      exitCode = await runIngest(parsed.positionals, parsed.options, config);
       break;
     case 'extract':
-      exitCode = await runExtract(parsed.positionals, parsed.options);
+      exitCode = await runExtract(parsed.positionals, parsed.options, config);
       break;
     case 'claims':
-      exitCode = await runClaims(parsed.positionals, parsed.options);
+      exitCode = await runClaims(parsed.positionals, parsed.options, config);
       break;
     case 'export':
-      exitCode = await runExport(parsed.positionals, parsed.options);
+      exitCode = await runExport(parsed.positionals, parsed.options, config);
       break;
     case 'query':
-      exitCode = await runQuery(parsed.positionals, parsed.options);
+      exitCode = await runQuery(parsed.positionals, parsed.options, config);
       break;
     case 'related':
-      exitCode = await runRelated(parsed.positionals, parsed.options);
+      exitCode = await runRelated(parsed.positionals, parsed.options, config);
       break;
     case 'review':
-      exitCode = await runReview(parsed.positionals, parsed.options);
+      exitCode = await runReview(parsed.positionals, parsed.options, config);
       break;
     case 'task':
-      exitCode = await runTask(parsed.positionals, parsed.options);
+      exitCode = await runTask(parsed.positionals, parsed.options, config);
       break;
     case 'area':
-      exitCode = await runArea(parsed.positionals, parsed.options);
+      exitCode = await runArea(parsed.positionals, parsed.options, config);
       break;
     case 'goal':
-      exitCode = await runGoal(parsed.positionals, parsed.options);
+      exitCode = await runGoal(parsed.positionals, parsed.options, config);
       break;
     case 'project':
-      exitCode = await runProject(parsed.positionals, parsed.options);
+      exitCode = await runProject(parsed.positionals, parsed.options, config);
       break;
     case 'diagnose':
-      exitCode = await runDiagnose(parsed.positionals, parsed.options);
+      exitCode = await runDiagnose(parsed.positionals, parsed.options, config);
       break;
     case 'preflight':
-      exitCode = await runPreflight(parsed.positionals, parsed.options);
+      exitCode = await runPreflight(parsed.positionals, parsed.options, config);
       break;
     case 'fixtures':
-      exitCode = await runFixtures(parsed.positionals, parsed.options);
+      exitCode = await runFixtures(parsed.positionals, parsed.options, config);
+      break;
+    case 'config':
+      // config <subcommand> -> positionals[1]
+      exitCode = await runConfig(parsed.positionals.slice(1), parsed.options, loadResult, config);
       break;
     default:
       console.error(`Unknown command: ${command}`);
@@ -1269,7 +1280,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
   return exitCode;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   runCli().then(
     code => process.exit(code),
     err => {

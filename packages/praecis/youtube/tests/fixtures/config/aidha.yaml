@@ -1,0 +1,14 @@
+config_version: 1
+base_dir: .
+default_profile: local
+
+profiles:
+    local:
+        db: ./local.sqlite
+        llm:
+            model: gpt-4o
+
+    custom:
+        db: ./custom.sqlite
+        llm:
+            model: claude-3-opus

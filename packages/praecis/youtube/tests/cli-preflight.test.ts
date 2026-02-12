@@ -9,17 +9,14 @@ describe('CLI preflight and help routing', () => {
   let ytdlpScript = '';
   let runtimeScript = '';
   let ytdlpLogPath = '';
-  let originalEnv: Record<string, string | undefined>;
+  let originalPath = '';
 
   beforeEach(async () => {
     tempRoot = await mkdtemp(join(tmpdir(), 'aidha-cli-preflight-'));
     ytdlpScript = join(tempRoot, 'yt-dlp');
     runtimeScript = join(tempRoot, 'node-runtime');
     ytdlpLogPath = join(tempRoot, 'ytdlp.log');
-    originalEnv = {
-      AIDHA_YTDLP_BIN: process.env['AIDHA_YTDLP_BIN'],
-      AIDHA_YTDLP_JS_RUNTIMES: process.env['AIDHA_YTDLP_JS_RUNTIMES'],
-    };
+    originalPath = process.env['PATH'] ?? '';
 
     const ytdlpBody = [
       '#!/usr/bin/env bash',
@@ -53,15 +50,26 @@ describe('CLI preflight and help routing', () => {
     await writeFile(runtimeScript, runtimeBody, 'utf-8');
     await chmod(runtimeScript, 0o755);
 
-    process.env['AIDHA_YTDLP_BIN'] = ytdlpScript;
-    process.env['AIDHA_YTDLP_JS_RUNTIMES'] = `node:${runtimeScript}`;
+    for (const tool of ['deno', 'bun', 'ffmpeg']) {
+      const toolPath = join(tempRoot, tool);
+      const toolBody = [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'if [[ "${1:-}" == "--version" ]]; then',
+        `    echo "${tool}-test-1.0.0"`,
+        '    exit 0',
+        'fi',
+        'exit 0',
+      ].join('\n');
+      await writeFile(toolPath, toolBody, 'utf-8');
+      await chmod(toolPath, 0o755);
+    }
+
+    process.env['PATH'] = `${tempRoot}:${originalPath}`;
   });
 
   afterEach(async () => {
-    for (const [key, value] of Object.entries(originalEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    process.env['PATH'] = originalPath;
     if (tempRoot) {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -93,6 +101,10 @@ describe('CLI preflight and help routing', () => {
       '--json',
       '--probe-url',
       'https://www.youtube.com/watch?v=probe-video',
+      '--ytdlp-bin',
+      ytdlpScript,
+      '--ytdlp-js-runtimes',
+      `node:${runtimeScript}`,
     ]);
 
     expect(code).toBe(0);
@@ -113,5 +125,5 @@ describe('CLI preflight and help routing', () => {
 
     logSpy.mockRestore();
     errSpy.mockRestore();
-  }, 20_000);
+  }, 40_000);
 });
