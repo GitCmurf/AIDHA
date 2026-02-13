@@ -50,6 +50,8 @@ describe('CLI Config Init (Phase 2A)', () => {
     // Check content
     const content = await readFile(configPath, 'utf-8');
     expect(content).toContain('config_version: 1');
+    expect(content).not.toContain('temperature'); // Removed invalid key
+    expect(content).toContain('cookie: ${YOUTUBE_COOKIE}'); // Renamed key
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Initialized config'));
   });
 
@@ -102,5 +104,49 @@ describe('CLI Config Init (Phase 2A)', () => {
 
     expect(code).toBe(0);
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('non-interactive environment'));
+  });
+
+  it('init rejects --source', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const code = await runCli(['config', 'init', '--source', 'youtube']);
+    expect(code).toBe(2);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('--source is not applicable'));
+  });
+
+  it('init --user-global respects XDG_CONFIG_HOME', async () => {
+    const xdgDir = join(tmpDir, 'xdg-config-home');
+    const oldXdg = process.env['XDG_CONFIG_HOME'];
+    process.env['XDG_CONFIG_HOME'] = xdgDir;
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const code = await runCli(['config', 'init', '--user-global', '--dry-run']);
+      expect(code).toBe(0);
+      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining(join(xdgDir, 'aidha', 'config.yaml')));
+    } finally {
+      if (oldXdg === undefined) {
+        delete process.env['XDG_CONFIG_HOME'];
+      } else {
+        process.env['XDG_CONFIG_HOME'] = oldXdg;
+      }
+    }
+  });
+
+  it('init --user-global ignores relative XDG_CONFIG_HOME values', async () => {
+    const oldXdg = process.env['XDG_CONFIG_HOME'];
+    process.env['XDG_CONFIG_HOME'] = 'relative-xdg-home';
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const code = await runCli(['config', 'init', '--user-global', '--dry-run']);
+      expect(code).toBe(0);
+      expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('relative-xdg-home'));
+    } finally {
+      if (oldXdg === undefined) {
+        delete process.env['XDG_CONFIG_HOME'];
+      } else {
+        process.env['XDG_CONFIG_HOME'] = oldXdg;
+      }
+    }
   });
 });

@@ -28,17 +28,16 @@ import type { AidhaConfig } from './types.js';
 
 /** Error thrown when config file has invalid YAML. */
 export class ConfigParseError extends Error {
-  constructor(filePath: string, cause: unknown) {
-    super(`Failed to parse config file: ${filePath}`);
+  constructor(public readonly filePath: string, message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'ConfigParseError';
-    this.cause = cause;
   }
 }
 
 /** Error thrown when config file fails schema validation. */
 export class ConfigValidationError extends Error {
   constructor(
-    filePath: string,
+    public readonly filePath: string,
     public readonly errors: Array<{ path: string; message: string }>,
   ) {
     const details = errors.map((e) => `  ${e.path}: ${e.message}`).join('\n');
@@ -49,7 +48,7 @@ export class ConfigValidationError extends Error {
 
 /** Error thrown when config_version is unsupported. */
 export class ConfigVersionError extends Error {
-  constructor(fileVersion: number, supported: number) {
+  constructor(public readonly filePath: string, fileVersion: number, supported: number) {
     super(
       `Config file declares config_version: ${fileVersion}, but this binary ` +
         `only supports version ${supported}. Please update your binary or ` +
@@ -61,7 +60,7 @@ export class ConfigVersionError extends Error {
 
 /** Error thrown when an explicit config path override is missing. */
 export class ConfigNotFoundError extends Error {
-  constructor(filePath: string) {
+  constructor(public readonly filePath: string) {
     super(
       `Config file not found: ${filePath}. ` +
         `If you set AIDHA_CONFIG or passed an explicit config path, ensure it exists.`,
@@ -201,11 +200,11 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     const content = readFileSync(configPath, 'utf-8');
     raw = parseYAML(content);
   } catch (err) {
-    throw new ConfigParseError(configPath, err);
+    throw new ConfigParseError(configPath, `Failed to parse config file: ${configPath}`, { cause: err });
   }
 
   if (raw === null || typeof raw !== 'object') {
-    throw new ConfigParseError(configPath, new Error('Config file is empty or not an object'));
+    throw new ConfigParseError(configPath, 'Config file is empty or not an object');
   }
 
   const rawObj = raw as Record<string, unknown>;
@@ -285,7 +284,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
 
   // Check config_version
   if (config.config_version !== SUPPORTED_CONFIG_VERSION) {
-    throw new ConfigVersionError(config.config_version, SUPPORTED_CONFIG_VERSION);
+    throw new ConfigVersionError(configPath, config.config_version, SUPPORTED_CONFIG_VERSION);
   }
 
   // ── Step 7: Compute final base_dir ──────────────────────────────────

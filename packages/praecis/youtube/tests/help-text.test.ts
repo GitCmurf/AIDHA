@@ -41,4 +41,10 @@ describe('CLI usage help text', () => {
     expect(CLI_USAGE_TEXT).toContain('diagnose editor <videoIdOrUrl>');
     expect(CLI_USAGE_TEXT).toContain('--include-editor');
   });
+
+  it('documents config set as phase-gated without source flag', () => {
+    expect(CLI_USAGE_TEXT).toContain('aidha-youtube config set <key> <value>');
+    expect(CLI_USAGE_TEXT).toContain('(Coming in Phase 2B)');
+    expect(CLI_USAGE_TEXT).not.toContain('config set <key> <value> [--config <path>] [--profile <name>] [--source <id>]');
+  });
 });

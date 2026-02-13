@@ -2,119 +2,20 @@ import {
   loadConfig,
   validateConfig,
   formatProvenance,
-  createProvenance,
-  DEFAULTS,
+  resolveKeyProvenance,
   redactSecrets,
+  ConfigValidationError,
 } from '@aidha/config';
 import type { LoadResult, ResolvedConfig } from '@aidha/config';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, isAbsolute } from 'node:path';
 import type { CliOptions } from '../cli.js'; // Import CliOptions
-import { readFile, writeFile, mkdir, constants, access } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, constants, access, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { dump as dumpYaml } from 'js-yaml'; // Restore dumpYaml
 import { buildCliOverrides } from './config-bridge.js'; // Restore buildCliOverrides
 
-// ... (rest of imports will be handled by context or subsequent chunks if needed,
-// but here I am replacing the block I broke)
-
-// Function to check if a key exists in an object (deep)
-function deepHas(obj: any, path: string): boolean {
-  const value = deepGet(obj, path);
-  return value !== undefined;
-}
-
-async function runConfigExplain(
-  positionals: string[],
-  options: CliOptions,
-  loadResult: LoadResult,
-  resolvedConfig: ResolvedConfig
-): Promise<number> {
-  const key = positionals[2];
-  if (!key) {
-    console.error('Usage: config explain <key> [--source <id>]');
-    return 1;
-  }
-
-
-
-  if (!loadResult.config) {
-    console.error('No config loaded.');
-    return 1;
-  }
-
-  const profileName = optionString(options, 'profile') || loadResult.config.default_profile || 'default';
-  const sourceId = optionString(options, 'source');
-  const cliOverrides = buildCliOverrides(options); // Tier 1
-
-  // Tier overrides checking order:
-  // 1. CLI Overrides
-  // 2. Named Profile
-  // 3. Source Defaults
-  // 4. Default Profile
-  // 5. Hardcoded Defaults
-
-  let tier: import('@aidha/config').ConfigTier;
-  let origin = '';
-
-  // 1. CLI
-  if (deepHas(cliOverrides, key)) {
-    tier = 'cli';
-  }
-  // 2. Profile
-  else if (deepHas(loadResult.config.profiles?.[profileName], key)) {
-    tier = 'profile';
-  }
-  // 3. Source
-  else if (sourceId && deepHas(loadResult.config.sources?.[sourceId], key)) {
-    tier = 'source';
-  }
-  // 4. Default Profile (if profileName != default check default too?
-  //    Actually resolution logic merges default profile first.
-  //    But if profileName IS default, we already checked it in step 2.
-  //    If profileName is NOT default, we need to check default profile as fallback.)
-  else if (profileName !== 'default' && deepHas(loadResult.config.profiles?.['default'], key)) {
-    tier = 'default';
-  }
-  // 5. Hardcoded
-  else {
-    // We assume it comes from hardcoded defaults if it exists in resolved config
-    // or if we find it in DEFAULTS.
-    // DEFAULTS structure matches Config?
-    // DEFAULTS.profiles.default, DEFAULTS.sources...
-    // Let's check DEFAULTS.profiles.default
-    if (deepHas(DEFAULTS.profiles?.['default'], key)) {
-      tier = 'hardcoded';
-    }
-    else if (sourceId && deepHas(DEFAULTS.sources?.[sourceId], key)) {
-      tier = 'hardcoded';
-    }
-    else {
-      // Not found or undefined?
-      tier = 'hardcoded'; // Fallback
-    }
-  }
-
-  const provenance = createProvenance(key, tier, {
-    profileName,
-    sourceId,
-  });
-
-  const value = deepGet(resolvedConfig, key);
-
-  // Format provenance for the specific key
-  const output = formatProvenance(provenance, value);
-  console.log(output);
-  return 0;
-}
-
-
-// 'lodash' is not in package.json? I should check.
-// If not, I can implement simple deep get or add lodash.get.
-// aidha-config uses deepMerge, maybe it helps? No.
-// I'll implement a simple deep get for now to avoid dependency if possible, or check package.json.
-// Actually, I can use a helper.
-
+// Function to get a value from an object (deep)
 function deepGet(obj: any, path: string): any {
   return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 }
@@ -128,6 +29,17 @@ function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
+
+
+
+export function ensureNoSource(options: CliOptions, commandName: string): boolean {
+  if (optionString(options, 'source')) {
+    console.error(`--source is not applicable to 'config ${commandName}'.`);
+    return false;
+  }
+  return true;
+}
+
 /**
  * Dispatcher for `aidha-youtube config <subcommand>`
  */
@@ -135,7 +47,8 @@ export async function runConfig(
   positionals: string[],
   options: CliOptions,
   loadResult: LoadResult,
-  resolvedConfig: ResolvedConfig
+  resolvedConfig?: ResolvedConfig,
+  error?: Error
 ): Promise<number> {
   const subcommand = positionals[0];
 
@@ -143,14 +56,17 @@ export async function runConfig(
     case 'path':
       return runConfigPath(options, loadResult);
     case 'validate':
-      return runConfigValidate(options, loadResult);
+      return runConfigValidate(options, loadResult, error);
     case 'list-profiles':
-      return runConfigListProfiles(options, loadResult);
+      return runConfigListProfiles(options, loadResult, error);
     case 'show':
+      if (!resolvedConfig) return printConfigLoadError(error);
       return runConfigShow(options, loadResult, resolvedConfig);
     case 'get':
+      if (!resolvedConfig) return printConfigLoadError(error);
       return runConfigGet(positionals, options, loadResult, resolvedConfig);
     case 'explain':
+      if (!resolvedConfig) return printConfigLoadError(error);
       return runConfigExplain(positionals, options, loadResult, resolvedConfig);
     case 'init':
       return runConfigInit(options);
@@ -159,20 +75,61 @@ export async function runConfig(
       return 1;
     default:
       console.error(`Unknown config subcommand: ${subcommand}`);
-      console.error('Available: path, validate, list-profiles');
+      console.error('Available: path, validate, list-profiles, show, get, explain, init, set');
       return 1;
   }
 }
 
-function ensureNoSource(options: CliOptions, commandName: string): void {
-  if (optionString(options, 'source')) {
-    console.error(`--source is not applicable to 'config ${commandName}'.`);
-    process.exit(2);
+function printConfigLoadError(error?: Error): number {
+  if (error) {
+    console.error(`Error: Failed to load configuration.`);
+    console.error(`Reason: ${error.message}`);
+    // Check for nested errors (e.g. schema validation)
+    if (error instanceof ConfigValidationError) {
+      for (const e of error.errors) {
+        console.error(`- ${e.path}: ${e.message}`);
+      }
+    }
+    return 1;
   }
+  console.error('Error: This command requires a valid configuration.');
+  return 1;
+}
+
+
+async function runConfigExplain(
+  positionals: string[],
+  options: CliOptions,
+  loadResult: LoadResult,
+  resolvedConfig: ResolvedConfig
+): Promise<number> {
+
+  const key = positionals[1];
+  if (!key) {
+    console.error('Usage: config explain <key> [--source <id>]');
+    return 1;
+  }
+
+
+  const explicitProfile = optionString(options, 'profile');
+  const sourceId = optionString(options, 'source');
+  const { value, provenance } = resolveKeyProvenance({
+    key,
+    rawConfig: loadResult.config,
+    resolvedConfig,
+    cliOverrides: buildCliOverrides(options),
+    profileName: explicitProfile,
+    sourceId,
+  });
+
+  // Format provenance for the specific key
+  const output = formatProvenance(provenance, value);
+  console.log(output);
+  return 0;
 }
 
 function runConfigPath(options: CliOptions, loadResult: LoadResult): number {
-  ensureNoSource(options, 'path');
+  if (!ensureNoSource(options, 'path')) return 2;
 
   if (optionBool(options, 'base-dir')) {
     console.log(resolve(loadResult.baseDir));
@@ -187,10 +144,22 @@ function runConfigPath(options: CliOptions, loadResult: LoadResult): number {
   return 0;
 }
 
-function runConfigValidate(options: CliOptions, loadResult: LoadResult): number {
-  ensureNoSource(options, 'validate');
+function runConfigValidate(options: CliOptions, loadResult: LoadResult, error?: Error): number {
+  if (!ensureNoSource(options, 'validate')) return 2;
+
+
+  if (error) {
+    // Use centralized error printer
+    return printConfigLoadError(error);
+  }
 
   if (!loadResult.config) {
+    if (loadResult.configPath) {
+        // Should have been caught above if it was an error?
+        // Maybe config is null but no error attached? (e.g. file empty?)
+        console.error(`Config file exists but loaded as null: ${loadResult.configPath}`);
+        return 1;
+    }
     console.log('No config file loaded (using internal defaults).');
     return 0;
   }
@@ -200,7 +169,11 @@ function runConfigValidate(options: CliOptions, loadResult: LoadResult): number 
     console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
     return 0;
   } else {
-    console.error(`Config is invalid: ${resolve(loadResult.configPath ?? '')}`);
+    // Should be unreachable if loader throws on invalid?
+    // But maybe loader validates interpolated config?
+    // If loader throws, we handled it above.
+    const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
+    console.error(`Config is invalid: ${pathStr}`);
     for (const error of result.errors) {
       console.error(`- ${error.path}: ${error.message}`);
     }
@@ -208,23 +181,20 @@ function runConfigValidate(options: CliOptions, loadResult: LoadResult): number 
   }
 }
 
-function runConfigListProfiles(options: CliOptions, loadResult: LoadResult): number {
-  ensureNoSource(options, 'list-profiles');
+function runConfigListProfiles(options: CliOptions, loadResult: LoadResult, error?: Error): number {
+  if (!ensureNoSource(options, 'list-profiles')) return 2;
+
+  if (error) {
+    return printConfigLoadError(error);
+  }
 
   const profiles = new Set<string>();
-  // default profile is always implicitly available in effective config,
-  // but we are listing DEFINED profiles in the loaded config.
-  // The 'default_profile' key in config points to the default active profile.
-  // The 'profiles' map contains the definitions.
 
   if (loadResult.config?.profiles) {
     for (const name of Object.keys(loadResult.config.profiles)) {
       profiles.add(name);
     }
   }
-
-  // Should we include 'default'? If it's a key in profiles, yes.
-  // If the user means "what profiles can I pass to --profile?", then yes.
 
   const sorted = Array.from(profiles).sort();
   if (sorted.length === 0) {
@@ -252,19 +222,18 @@ async function confirmAction(message: string, force: boolean): Promise<boolean> 
   });
 }
 
-
-
 async function runConfigShow(
   options: CliOptions,
   loadResult: LoadResult,
   defaultResolved: ResolvedConfig
 ): Promise<number> {
+  if (!ensureNoSource(options, 'show')) return 2;
+
   const showSecrets = optionBool(options, 'show-secrets');
   const raw = optionBool(options, 'raw');
   const force = optionBool(options, 'yes');
 
   if (raw) {
-    // D2.4: Raw output requires confirmation
     if (process.stdout.isTTY) {
       const confirmed = await confirmAction('⚠️  Warning: Printing raw config file may expose secrets. Continue?', force);
       if (!confirmed) {
@@ -292,7 +261,6 @@ async function runConfigShow(
   }
 
   if (showSecrets) {
-    // D2.4: Show secrets requires confirmation
     if (process.stdout.isTTY) {
       const confirmed = await confirmAction('⚠️  Warning: --show-secrets will expose sensitive data. Continue?', force);
       if (!confirmed) {
@@ -310,7 +278,6 @@ async function runConfigShow(
   if (optionBool(options, 'json')) {
     console.log(JSON.stringify(configToPrint, null, 2));
   } else {
-    // YAML
     console.log(dumpYaml(configToPrint));
   }
   return 0;
@@ -347,9 +314,8 @@ function runConfigGet(
   return 0;
 }
 
-
-
 // ── Increment 3: Scaffolding (init) ──────────────────────────────────────────
+
 
 const DEFAULT_SCAFFOLD = `# AIDHA Configuration File
 config_version: 1
@@ -362,26 +328,27 @@ profiles:
     # Local development profile
     llm:
       model: gpt-4o
-      temperature: 0
     youtube:
-      cookie_string: \${YOUTUBE_COOKIE}
+      cookie: \${YOUTUBE_COOKIE}
 `;
 
 async function runConfigInit(options: CliOptions): Promise<number> {
+  if (!ensureNoSource(options, 'init')) return 2;
+
   const force = optionBool(options, 'force');
   const dryRun = optionBool(options, 'dry-run');
   const interactive = optionBool(options, 'interactive');
 
-  // Determine path
-  // --user-global -> ~/.config/aidha/config.yaml
-  // Default override via --project-local -> ./.aidha/config.yaml
-  // We default to project-local as per plan.
-
   let targetPath: string;
   if (optionBool(options, 'user-global')) {
-    targetPath = join(homedir(), '.config', 'aidha', 'config.yaml');
+    const xdgConfigHome = process.env['XDG_CONFIG_HOME'];
+    const xdgConfigHomeTrimmed = xdgConfigHome?.trim();
+    const configHome =
+      xdgConfigHomeTrimmed && xdgConfigHomeTrimmed.length > 0 && isAbsolute(xdgConfigHomeTrimmed)
+        ? xdgConfigHomeTrimmed
+        : join(homedir(), '.config');
+    targetPath = join(configHome, 'aidha', 'config.yaml');
   } else {
-    // Project local
     targetPath = resolve(process.cwd(), '.aidha', 'config.yaml');
   }
 
@@ -390,11 +357,6 @@ async function runConfigInit(options: CliOptions): Promise<number> {
       console.warn('⚠️  Warning: Interactive initialization running in non-interactive environment.');
       console.warn('   Falling back to default scaffold.');
     } else {
-      // TODO: Implement interactive flow (ask for model, cookie, etc.)
-      // For Increment 3, we focus on deterministic scaffold.
-      // If user asks for interactive, we could just print a message saying "interactive coming soon" and proceed?
-      // Or implement basic prompts.
-      // Plan says "Opt-in guided setup (TTY only)".
       console.log('Interactive setup not yet implemented. Using default scaffold.');
     }
   }
@@ -408,10 +370,8 @@ async function runConfigInit(options: CliOptions): Promise<number> {
     return 0;
   }
 
-  // Check existence
   try {
     await access(targetPath, constants.F_OK);
-    // Exists
     if (!force) {
       console.error(`Error: Config file already exists at ${targetPath}`);
       console.error('       Use --force to overwrite.');
@@ -422,10 +382,17 @@ async function runConfigInit(options: CliOptions): Promise<number> {
     // Does not exist, proceed
   }
 
-  // Ensure directory
   try {
     await mkdir(dirname(targetPath), { recursive: true });
     await writeFile(targetPath, content, { mode: 0o600, encoding: 'utf-8' });
+
+    try {
+      await chmod(targetPath, 0o600);
+    } catch (chmodErr) {
+       // Ignore chmod error on Windows? Or warn?
+       // Just proceed.
+    }
+
     console.log(`Initialized config at ${targetPath}`);
     return 0;
   } catch (err) {

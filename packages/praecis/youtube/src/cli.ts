@@ -102,6 +102,7 @@ export function resolveSourceId(positionals: string[], options: CliOptions): str
     command === 'diagnose' ||
     command === 'preflight' ||
     command === 'fixtures'
+    // command === 'config' // Removed in Phase 2A Round 3 fix
   ) {
     return 'youtube';
   }
@@ -1216,60 +1217,81 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
   }
 
   const cliOverrides = buildCliOverrides(parsed.options);
-  const { config, loadResult } = await resolveCliConfig({
+
+
+  let config: ResolvedConfig | undefined;
+  let loadResult: import('@aidha/config').LoadResult;
+
+  const resolution = await resolveCliConfig({
     configPath: typeof parsed.options['config'] === 'string' ? parsed.options['config'] : undefined,
     profile: typeof parsed.options['profile'] === 'string' ? parsed.options['profile'] : undefined,
     source: resolveSourceId(parsed.positionals, parsed.options),
     cliOverrides,
   });
 
+  loadResult = resolution.loadResult;
+
+  if (resolution.ok) {
+    config = resolution.config;
+  } else {
+    if (command === 'config') {
+      // Phase 2A Round 7: Config commands handle their own errors.
+      // We pass the (possibly failed) loadResult to runConfig.
+    } else {
+      throw resolution.error;
+    }
+  }
+
   let exitCode = 0;
   switch (command) {
     case 'ingest':
-      exitCode = await runIngest(parsed.positionals, parsed.options, config);
+      exitCode = await runIngest(parsed.positionals, parsed.options, config!);
       break;
     case 'extract':
-      exitCode = await runExtract(parsed.positionals, parsed.options, config);
+      exitCode = await runExtract(parsed.positionals, parsed.options, config!);
       break;
     case 'claims':
-      exitCode = await runClaims(parsed.positionals, parsed.options, config);
+      exitCode = await runClaims(parsed.positionals, parsed.options, config!);
       break;
     case 'export':
-      exitCode = await runExport(parsed.positionals, parsed.options, config);
+      exitCode = await runExport(parsed.positionals, parsed.options, config!);
       break;
     case 'query':
-      exitCode = await runQuery(parsed.positionals, parsed.options, config);
+      exitCode = await runQuery(parsed.positionals, parsed.options, config!);
       break;
     case 'related':
-      exitCode = await runRelated(parsed.positionals, parsed.options, config);
+      exitCode = await runRelated(parsed.positionals, parsed.options, config!);
       break;
     case 'review':
-      exitCode = await runReview(parsed.positionals, parsed.options, config);
+      exitCode = await runReview(parsed.positionals, parsed.options, config!);
       break;
     case 'task':
-      exitCode = await runTask(parsed.positionals, parsed.options, config);
+      exitCode = await runTask(parsed.positionals, parsed.options, config!);
       break;
     case 'area':
-      exitCode = await runArea(parsed.positionals, parsed.options, config);
+      exitCode = await runArea(parsed.positionals, parsed.options, config!);
       break;
     case 'goal':
-      exitCode = await runGoal(parsed.positionals, parsed.options, config);
+      exitCode = await runGoal(parsed.positionals, parsed.options, config!);
       break;
     case 'project':
-      exitCode = await runProject(parsed.positionals, parsed.options, config);
+      exitCode = await runProject(parsed.positionals, parsed.options, config!);
       break;
     case 'diagnose':
-      exitCode = await runDiagnose(parsed.positionals, parsed.options, config);
+      exitCode = await runDiagnose(parsed.positionals, parsed.options, config!);
       break;
     case 'preflight':
-      exitCode = await runPreflight(parsed.positionals, parsed.options, config);
+      exitCode = await runPreflight(parsed.positionals, parsed.options, config!);
       break;
     case 'fixtures':
-      exitCode = await runFixtures(parsed.positionals, parsed.options, config);
+      exitCode = await runFixtures(parsed.positionals, parsed.options, config!);
       break;
     case 'config':
       // config <subcommand> -> positionals[1]
-      exitCode = await runConfig(parsed.positionals.slice(1), parsed.options, loadResult, config);
+      // loadResult is always populated (full or partial). config may be undefined.
+      // Pass error if resolution failed.
+      const error = !resolution.ok ? resolution.error : undefined;
+      exitCode = await runConfig(parsed.positionals.slice(1), parsed.options, loadResult!, config, error);
       break;
     default:
       console.error(`Unknown command: ${command}`);

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createProvenance, formatProvenance } from '../src/explain.js';
+import { createProvenance, formatProvenance, resolveKeyProvenance } from '../src/explain.js';
 import type { ConfigTier } from '../src/explain.js';
+import { resolveConfig } from '../src/resolver.js';
 
 describe('createProvenance', () => {
   it('should create CLI tier provenance', () => {
@@ -89,5 +90,100 @@ describe('formatProvenance', () => {
       const prov = createProvenance('test', tier);
       expect(prov.tierLabel).toBeTruthy();
     }
+  });
+});
+
+describe('resolveKeyProvenance', () => {
+  it('uses profile tier when named profile overrides source defaults', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'local',
+      profiles: {
+        local: {
+          llm: { model: 'profile-model' },
+        },
+      },
+      sources: {
+        youtube: {
+          llm: { model: 'source-model' },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      profileName: 'local',
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'llm.model',
+      rawConfig,
+      resolvedConfig,
+      profileName: 'local',
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('profile');
+    expect(result.provenance.origin).toBe('profiles.local');
+    expect(result.value).toBe('profile-model');
+  });
+
+  it('supports camelCase key lookup against snake_case config paths', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'local',
+      profiles: {
+        local: {
+          llm: { base_url: 'https://example.local/v1' },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      profileName: 'local',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'llm.baseUrl',
+      rawConfig,
+      resolvedConfig,
+      profileName: 'local',
+    });
+
+    expect(result.provenance.tier).toBe('profile');
+    expect(result.provenance.origin).toBe('profiles.local');
+    expect(result.value).toBe('https://example.local/v1');
+  });
+
+  it('reports hardcoded source-default origin when only built-in source value exists', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'local',
+      profiles: {
+        local: {},
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      profileName: 'local',
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'youtube.cookie',
+      rawConfig,
+      resolvedConfig,
+      profileName: 'local',
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('hardcoded');
+    expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
   });
 });

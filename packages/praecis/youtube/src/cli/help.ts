@@ -1,12 +1,22 @@
 export const CLI_USAGE_TEXT = `AIDHA YouTube CLI
 
 Usage:
-  Global Options:
+Global Options:
     --config <path>      Path to config file (default: auto-discover)
-    --profile <name>     Profile to use (default: default)
-    --source <id>        Source ID (default: auto-selected by command)
+    --profile <name>     Select a configuration profile (default: "default" or from config).
+    --source <id>        Select a data source (e.g. "youtube").
+                        Auto-selected for source-bound commands (ingest, extract, etc.).
+                        For 'config' commands, only applicable to 'get' and 'explain'.
 
-  Commands:
+Commands:
+  aidha-youtube config path [--config <path>] [--base-dir]
+  aidha-youtube config validate [--config <path>]
+  aidha-youtube config list-profiles [--config <path>]
+  aidha-youtube config show [--config <path>] [--profile <name>] [--show-secrets] [--raw] [--json]
+  aidha-youtube config get <key> [--config <path>] [--profile <name>] [--source <id>] [--json]
+  aidha-youtube config explain <key> [--config <path>] [--profile <name>] [--source <id>]
+  aidha-youtube config init [--force] [--dry-run] [--user-global] [--interactive]
+  aidha-youtube config set <key> <value> [--config <path>] [--profile <name>] (Coming in Phase 2B)
   aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]

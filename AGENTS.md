@@ -10,9 +10,11 @@
 - specification-led
 - test-driven development
 - modularised, reusable, separation of concerns
+- recommend use of battle-tested open-source libraries/modules over 'reinventing the wheel'
 - SOLID + DRY + KISS
 - atomic unit of change is: tests + code + comments + docs
 - all material code changes should be code-reviewed before commit
+- follow professional 'git etiquette', including common commit messages and push only within an appropriate PR
 
 ## Coding Style & Naming Conventions
 - Bash scripts use 4-space indentation, `set -euo pipefail`, and descriptive function names; prefer long-form flags for readability.

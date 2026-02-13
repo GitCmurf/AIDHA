@@ -65,8 +65,14 @@ export type { ResolveOptions } from './resolver.js';
 export { redactSecrets, isSecretKey, REDACTED } from './redact.js';
 
 // ── Provenance / explain ─────────────────────────────────────────────────────
-export { createProvenance, formatProvenance } from './explain.js';
-export type { ConfigTier, Provenance, ProvenanceOptions } from './explain.js';
+export { createProvenance, formatProvenance, resolveKeyProvenance } from './explain.js';
+export type {
+  ConfigTier,
+  Provenance,
+  ProvenanceOptions,
+  ResolveKeyProvenanceOptions,
+  KeyProvenanceResult,
+} from './explain.js';
 
 // ── Config loader ────────────────────────────────────────────────────────────
 export {

@@ -17,6 +17,10 @@ import type {
 import {
   loadConfig,
   resolveConfig,
+  ConfigParseError,
+  ConfigValidationError,
+  ConfigVersionError,
+  ConfigNotFoundError,
 } from '@aidha/config';
 
 // ── Public Types ─────────────────────────────────────────────────────────────
@@ -32,12 +36,22 @@ export interface ConfigBridgeOptions {
   cliOverrides?: Partial<Profile>;
 }
 
-export interface ConfigBridgeResult {
-  /** The fully-resolved config. */
-  config: ResolvedConfig;
-  /** Loader result — includes warnings and the config file path used. */
-  loadResult: LoadResult;
-}
+export type ConfigBridgeResult =
+  | {
+      ok: true;
+      /** The fully-resolved config. */
+      config: ResolvedConfig;
+      /** Loader result — includes warnings and the config file path used. */
+      loadResult: LoadResult;
+    }
+  | {
+      ok: false;
+      error: Error;
+      /**
+       * Partial load result if available (e.g. for validation commands).
+       */
+      loadResult: LoadResult;
+    };
 
 // ── Bridge ───────────────────────────────────────────────────────────────────
 
@@ -46,30 +60,77 @@ export interface ConfigBridgeResult {
  *
  * 1. Discover and parse the config file (or use defaults if none found).
  * 2. Resolve through all five tiers: CLI → profile → source → default → DEFAULTS.
- * 3. Return the `ResolvedConfig` ready for consumption.
+ * 3. Return a Result object.
+ *
+ * Catches known config-domain errors (Parse, Validation, Version, NotFound) and
+ * returns them as a failure result. RETHROWS unexpected errors (bugs).
  *
  * In zero-config mode (no config file), only Tiers 1 and 5 contribute.
  */
 export async function resolveCliConfig(
   opts: ConfigBridgeOptions = {},
 ): Promise<ConfigBridgeResult> {
-  const loadResult = await loadConfig({
-    configPath: opts.configPath || undefined,
-    onWarning: (msg) => {
-      // eslint-disable-next-line no-console
-      console.warn(`[config] ${msg}`);
-    },
-  });
+  try {
+    const loadResult = await loadConfig({
+      configPath: opts.configPath || undefined,
+      onWarning: (msg) => {
+        // eslint-disable-next-line no-console
+        console.warn(`[config] ${msg}`);
+      },
+    });
 
-  const config = resolveConfig({
-    rawConfig: loadResult.config,
-    baseDir: loadResult.baseDir,
-    profileName: opts.profile || undefined,
-    sourceId: opts.source || undefined,
-    cliOverrides: opts.cliOverrides,
-  });
+    const config = resolveConfig({
+      rawConfig: loadResult.config,
+      baseDir: loadResult.baseDir,
+      profileName: opts.profile || undefined,
+      sourceId: opts.source || undefined,
+      cliOverrides: opts.cliOverrides,
+    });
 
-  return { config, loadResult };
+    return { ok: true, config, loadResult };
+  } catch (error: unknown) {
+    const err = error as Error;
+
+    // Phase 2A Round 7: Narrow exception handling.
+    // Only catch known config-domain errors. Rethrow unexpected errors (bugs).
+    const isConfigError =
+      err instanceof ConfigParseError ||
+      err instanceof ConfigValidationError ||
+      err instanceof ConfigVersionError ||
+      err instanceof ConfigNotFoundError;
+
+    if (!isConfigError) {
+      throw err;
+    }
+
+    // Robust path reporting: try to extract path from error if not provided in opts
+    let configPath = opts.configPath || process.env['AIDHA_CONFIG'] || null;
+
+    // Check for specific error types that contain filePath
+    if (!configPath) {
+      if (
+        err instanceof ConfigParseError ||
+        err instanceof ConfigValidationError ||
+        err instanceof ConfigVersionError ||
+        err instanceof ConfigNotFoundError
+      ) {
+        configPath = err.filePath;
+      }
+    }
+
+    const loadResult: LoadResult = {
+      config: null,
+      configPath,
+      baseDir: process.cwd(), // Fallback
+      warnings: [],
+    };
+
+    return {
+      ok: false,
+      error: err,
+      loadResult,
+    };
+  }
 }
 
 // ── CLI Override Helpers ─────────────────────────────────────────────────────
