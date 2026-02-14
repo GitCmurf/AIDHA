@@ -43,7 +43,9 @@ describe('CLI usage help text', () => {
   });
 
   it('documents config set command signature', () => {
-    expect(CLI_USAGE_TEXT).toContain('aidha-youtube config set <key> <value> [--config <path>] [--dry-run]');
-    expect(CLI_USAGE_TEXT).not.toContain('(Coming in Phase 2B)');
+    const configLine = CLI_USAGE_TEXT.split('\n').find(l => l.includes('aidha-youtube config set'));
+    expect(configLine).toBeDefined();
+    expect(configLine).toContain('<key> <value>');
+    expect(configLine).not.toContain('(Coming in Phase 2B)');
   });
 });

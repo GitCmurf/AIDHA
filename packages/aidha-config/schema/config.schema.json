@@ -170,7 +170,8 @@
           "type": "object",
           "description": "Per-profile extension point.",
           "additionalProperties": true
-        }
+        },
+        "rss": { "$ref": "#/$defs/RssConfig" }
       }
     },
     "SourceDefaults": {
@@ -189,11 +190,19 @@
         "export": { "$ref": "#/$defs/ExportConfig" },
         "ytdlp": { "$ref": "#/$defs/YtdlpConfig" },
         "youtube": { "$ref": "#/$defs/YoutubeConfig" },
+        "rss": { "$ref": "#/$defs/RssConfig" },
         "extensions": {
           "type": "object",
           "description": "Per-source extension point.",
           "additionalProperties": true
         }
+      }
+    },
+    "RssConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "poll_interval_minutes": { "type": "integer", "minimum": 1 }
       }
     }
   }

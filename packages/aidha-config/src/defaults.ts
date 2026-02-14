@@ -75,5 +75,10 @@ export const DEFAULTS: DeepReadonly<AidhaConfig> = {
   },
   sources: {
     youtube: YOUTUBE_SOURCE_DEFAULTS,
+    rss: {
+      rss: {
+        poll_interval_minutes: 60,
+      },
+    },
   },
 } as const;

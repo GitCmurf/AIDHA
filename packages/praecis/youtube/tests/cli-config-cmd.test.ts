@@ -407,9 +407,9 @@ profiles:
 
   describe('Policy Validation: --source applicability', () => {
     // Subcommands that MUST reject --source
-    const prohibited = ['path', 'validate', 'list-profiles', 'show', 'init'];
+    const prohibited = ['path', 'validate', 'list-profiles', 'show'];
     // Subcommands that MAY accept --source
-    const allowed = ['get', 'explain'];
+    const allowed = ['get', 'explain', 'init'];
 
     it.each(prohibited)('config %s rejects --source', async (subcommand) => {
         await createConfig('config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}');
@@ -533,4 +533,15 @@ sources:
       expect(code).toBe(2);
     });
   });
+
+  test('config get resolves RSS defaults (Active Source)', async () => {
+    // Prove RSS config is "live" via --source defaults
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const code = await runCli(['config', 'get', 'rss.pollIntervalMinutes', '--source', 'rss']);
+
+    expect(code).toBe(0);
+    // Should resolve to 60 from DEFAULTS.sources.rss (Tier 5)
+    expect(consoleLog).toHaveBeenCalledWith('60');
+  });
+
 });

@@ -56,6 +56,20 @@
     }
   },
   {
+    "path": "60-devex/config-guide.md",
+    "title": "AIDHA Configuration Guide",
+    "front_matter": {
+      "document_id": "AIDHA-GUIDE-001",
+      "owner": "Repo Maintainers",
+      "status": "Draft",
+      "last_updated": "2026-02-14",
+      "version": "1.0",
+      "title": "AIDHA Configuration Guide",
+      "type": "GUIDE",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "60-devex/ingest-quickstart.md",
     "title": null,
     "front_matter": {

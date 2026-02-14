@@ -1,5 +1,4 @@
 import {
-  loadConfig,
   validateConfig,
   formatProvenance,
   resolveKeyProvenance,
@@ -18,8 +17,9 @@ import { dump as dumpYaml } from 'js-yaml'; // Restore dumpYaml
 import { buildCliOverrides } from './config-bridge.js'; // Restore buildCliOverrides
 
 // Function to get a value from an object (deep)
-function deepGet(obj: any, path: string): any {
-  return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+function deepGet(obj: unknown, path: string): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return path.split('.').reduce((acc: any, part) => acc && acc[part], obj);
 }
 
 function optionString(options: CliOptions, key: string): string | undefined {
@@ -30,8 +30,6 @@ function optionString(options: CliOptions, key: string): string | undefined {
 function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
-
-
 
 
 export function ensureNoSource(options: CliOptions, commandName: string): boolean {
@@ -288,7 +286,7 @@ async function runConfigShow(
 function runConfigGet(
   positionals: string[],
   options: CliOptions,
-  loadResult: LoadResult,
+  _loadResult: LoadResult,
   resolvedConfig: ResolvedConfig
 ): number {
   const key = positionals[1];
@@ -319,7 +317,7 @@ function runConfigGet(
 // ── Increment 3: Scaffolding (init) ──────────────────────────────────────────
 
 
-const DEFAULT_SCAFFOLD = `# AIDHA Configuration File
+const BASE_SCAFFOLD = `# AIDHA Configuration File
 config_version: 1
 
 # Default profile to use when --profile is not specified
@@ -330,12 +328,24 @@ profiles:
     # Local development profile
     llm:
       model: gpt-4o
-    youtube:
-      cookie: \${YOUTUBE_COOKIE}
 `;
 
+const SOURCE_SCAFFOLDS: Record<string, string> = {
+  youtube: `sources:
+  youtube:
+    cookie: \${YOUTUBE_COOKIE}
+`,
+  rss: `sources:
+  rss:
+    # RSS source configuration
+    poll_interval_minutes: 60
+`
+};
+
+
 async function runConfigInit(options: CliOptions): Promise<number> {
-  if (!ensureNoSource(options, 'init')) return 2;
+  // Parsing source is allowed for init options.
+
 
   const force = optionBool(options, 'force');
   const dryRun = optionBool(options, 'dry-run');
@@ -363,7 +373,40 @@ async function runConfigInit(options: CliOptions): Promise<number> {
     }
   }
 
-  const content = DEFAULT_SCAFFOLD;
+
+  const sourceOpt = optionString(options, 'source');
+  // Default to youtube if no source specified (backward compat/current state) or if strictness desired?
+  // User guide implies init with nothing gives basic.
+  // But previously we hardcoded youtube. Let's strictly require it or default to none?
+  // Current hardcoded had youtube. Let's default to 'youtube' for now to match specific requirement,
+  // or better: default to empty unless requested?
+  // "Implement `aidha config init --source <id>` scaffolding."
+
+  let scaffold = BASE_SCAFFOLD;
+
+  if (sourceOpt) {
+      if (SOURCE_SCAFFOLDS[sourceOpt]) {
+          scaffold += '\n' + SOURCE_SCAFFOLDS[sourceOpt];
+      } else {
+          console.warn(`⚠️  Warning: No scaffold defined for source '${sourceOpt}'.`);
+      }
+  } else {
+      // For backward compatibility with the hardcoded version in previous steps,
+      // we could include youtube by default, but cleaner to require flags for new sources.
+      // However, to keep "local: ... youtube: ..." structure from before if user doesn't specify,
+      // I'll add youtube by default if NO source is specified, OR leave it bare.
+      // Let's leave it bare to prove extensibility, but maybe that breaks expectations?
+      // "Implement `aidha config init --source <id>` scaffolding" suggests specific opt-in.
+      // I'll add a comment in the file to prompt adding sources.
+      scaffold += `
+# Add source configs here
+# sources:
+#   youtube:
+#     cookie: \${YOUTUBE_COOKIE}
+`;
+  }
+
+  const content = scaffold;
 
   if (dryRun) {
     console.log(`Dry run: Would write to ${targetPath}`);

@@ -106,11 +106,47 @@ describe('CLI Config Init (Phase 2A)', () => {
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('non-interactive environment'));
   });
 
-  it('init rejects --source', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const code = await runCli(['config', 'init', '--source', 'youtube']);
-    expect(code).toBe(2);
-    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('--source is not applicable'));
+  it('init --source rss scaffolds source-specific config', async () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'init', '--source', 'rss', '--project-local']);
+    expect(code).toBe(0);
+
+    const configPath = join(tmpDir, '.aidha', 'config.yaml');
+    const content = await readFile(configPath, 'utf-8');
+
+    // Parse YAML to ensure structure is correct
+    const { load } = await import('js-yaml');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed = load(content) as any;
+
+    expect(parsed.sources).toBeDefined();
+    expect(parsed.sources.rss).toBeDefined();
+    expect(parsed.sources.rss.poll_interval_minutes).toBe(60);
+
+    // Profile 'local' should not have 'rss'
+    expect(parsed.profiles.local.rss).toBeUndefined();
+  });
+
+  it('init --source youtube scaffolds source-specific config', async () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'init', '--source', 'youtube', '--project-local']);
+    expect(code).toBe(0);
+
+    const configPath = join(tmpDir, '.aidha', 'config.yaml');
+    const content = await readFile(configPath, 'utf-8');
+
+    const { load } = await import('js-yaml');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed = load(content) as any;
+
+    expect(parsed.sources).toBeDefined();
+    expect(parsed.sources.youtube).toBeDefined();
+    expect(parsed.sources.youtube.cookie).toBe('${YOUTUBE_COOKIE}');
+
+    // Profile 'local' should not have 'youtube'
+    expect(parsed.profiles.local.youtube).toBeUndefined();
   });
 
   it('init --user-global respects XDG_CONFIG_HOME', async () => {

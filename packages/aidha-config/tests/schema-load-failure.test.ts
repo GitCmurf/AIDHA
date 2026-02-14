@@ -18,7 +18,7 @@ describe('schema loading failures', () => {
 
     try {
       const { validateConfig } = await import('../src/schema.js');
-      expect(() => validateConfig({})).toThrow(/Failed to load config schema/i);
+      expect(() => validateConfig({})).toThrow(/Failed to compile config schema/i);
     } finally {
       vi.doUnmock('node:fs');
       vi.resetModules();

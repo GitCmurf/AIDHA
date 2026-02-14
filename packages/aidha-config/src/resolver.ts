@@ -22,12 +22,19 @@ import { DEFAULTS } from './defaults.js';
 // ── Deep merge helper ────────────────────────────────────────────────────────
 
 /**
+ * Recursive partial type.
+ */
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+/**
  * Deep-merge `source` into `target`. Arrays are replaced, not concatenated.
  * Returns a new object (does not mutate inputs).
  */
 export function deepMerge<T extends Record<string, unknown>>(
   target: T,
-  source: Partial<T>,
+  source: DeepPartial<T>,
 ): T {
   const result = { ...target } as Record<string, unknown>;
   const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -74,6 +81,7 @@ function profileToFlat(profile: Profile): Record<string, unknown> {
   if (profile.export) flat['export'] = { ...profile.export };
   if (profile.ytdlp) flat['ytdlp'] = { ...profile.ytdlp };
   if (profile.youtube) flat['youtube'] = { ...profile.youtube };
+  if (profile.rss) flat['rss'] = { ...profile.rss };
   if (profile.extensions) flat['extensions'] = { ...profile.extensions };
   return flat;
 }
@@ -165,6 +173,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   const exp = (m['export'] ?? {}) as Record<string, unknown>;
   const ytdlp = (m['ytdlp'] ?? {}) as Record<string, unknown>;
   const youtube = (m['youtube'] ?? {}) as Record<string, unknown>;
+  const rss = (m['rss'] ?? {}) as Record<string, unknown>;
 
   // Build extensions with three scopes
   const extensions: ResolvedConfig['extensions'] = {};
@@ -232,6 +241,15 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       innertubeApiKey: (youtube['innertube_api_key'] as string) ?? '',
       debugTranscript: (youtube['debug_transcript'] as boolean) ?? false,
     },
+    // RSS config availability is source-dependent (Tier 3)
+    // Currently used for future-proofing and testing extensibility.
+    ...(rss['poll_interval_minutes'] !== undefined
+      ? {
+          rss: {
+            pollIntervalMinutes: rss['poll_interval_minutes'] as number,
+          },
+        }
+      : {}),
     ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
   };
 }

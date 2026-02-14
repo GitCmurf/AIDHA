@@ -58,6 +58,11 @@ export interface YtdlpConfig {
   keep_files: boolean;
 }
 
+/** RSS configuration. */
+export interface RssConfig {
+  poll_interval_minutes: number;
+}
+
 /** YouTube client configuration. */
 export interface YoutubeConfig {
   cookie: string;
@@ -78,6 +83,7 @@ export interface Profile {
   export?: Partial<ExportConfig>;
   ytdlp?: Partial<YtdlpConfig>;
   youtube?: Partial<YoutubeConfig>;
+  rss?: Partial<RssConfig>;
   extensions?: Record<string, unknown>;
 }
 
@@ -156,6 +162,9 @@ export interface ResolvedConfig {
     cookie: string;
     innertubeApiKey: string;
     debugTranscript: boolean;
+  };
+  rss?: {
+    pollIntervalMinutes: number;
   };
   extensions?: {
     global?: Record<string, unknown>;

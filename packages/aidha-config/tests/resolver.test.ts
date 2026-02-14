@@ -12,7 +12,7 @@ function minimalConfig(overrides: Partial<AidhaConfig> = {}): AidhaConfig {
     profiles: {
       default: {
         db: './config-default.sqlite',
-        llm: { model: 'config-default-model' },
+        llm: { model: 'config-default-model', timeout_ms: 1000 },
       },
     },
     ...overrides,

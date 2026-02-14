@@ -22,12 +22,13 @@ const SCHEMA_PATH = join(__dirname, '..', 'schema', 'config.schema.json');
 
 /** Compiled Ajv validator (lazy singleton). */
 let _validate: ValidateFunction | undefined;
+/** Cached raw schema (lazy singleton). */
+let _schema: Record<string, unknown> | undefined;
 
 function getValidator(): ValidateFunction {
   if (!_validate) {
     try {
-      const schemaText = readFileSync(SCHEMA_PATH, 'utf-8');
-      const schema = JSON.parse(schemaText) as Record<string, unknown>;
+      const schema = loadSchema();
       // `strict: false` allows our custom x-aidha-* annotations without
       // Ajv complaining about unknown keywords.
       const ajv = new AjvClass({ allErrors: true, strict: false });
@@ -36,7 +37,7 @@ function getValidator(): ValidateFunction {
       const msg =
         err instanceof Error ? err.message : String(err);
       const wrapped = new Error(
-        `Failed to load config schema from ${SCHEMA_PATH}: ${msg}`,
+        `Failed to compile config schema: ${msg}`,
       );
       (wrapped as any).cause = err;
       throw wrapped;
@@ -100,7 +101,6 @@ export function convertValue(keyPath: string, value: string): any {
   for (const part of parts) {
     if (!current) break;
 
-    // Resolve refs
     if (current.$ref) {
       const refPath = current.$ref.replace('#/', '').split('/');
       let ref: any = schema;
@@ -110,6 +110,13 @@ export function convertValue(keyPath: string, value: string): any {
       }
       current = ref;
     }
+
+    if (current.oneOf || current.anyOf) {
+        // Union type encountered; unpredictable structure. Treat as unknown.
+        current = undefined;
+        break;
+    }
+
 
     if (current.type === 'object') {
       if (current.properties && current.properties[part]) {
@@ -140,6 +147,10 @@ export function convertValue(keyPath: string, value: string): any {
       else ref = ref[refPart];
     }
     current = ref;
+  }
+
+  if (current && (current.oneOf || current.anyOf)) {
+      return value;
   }
 
   const expectedType = current?.type;
@@ -173,6 +184,9 @@ export function convertValue(keyPath: string, value: string): any {
  * Useful for introspecting `x-aidha-path` and `x-aidha-secret` annotations.
  */
 export function loadSchema(): Record<string, unknown> {
-  const schemaText = readFileSync(SCHEMA_PATH, 'utf-8');
-  return JSON.parse(schemaText) as Record<string, unknown>;
+  if (!_schema) {
+      const schemaText = readFileSync(SCHEMA_PATH, 'utf-8');
+      _schema = JSON.parse(schemaText) as Record<string, unknown>;
+  }
+  return _schema;
 }
