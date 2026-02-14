@@ -383,9 +383,9 @@ export async function fetchTranscriptWithYtDlp(
       maxBuffer: 10 * 1024 * 1024,
     });
 
-    const files = (await fs.readdir(tmpPath))
+    const files = (await fs.readdir(tmpPath!))
       .filter(name => FORMAT_PRIORITY.includes(extname(name).toLowerCase()))
-      .map(name => join(tmpPath, name));
+      .map(name => join(tmpPath!, name));
 
     const ordered = orderSubtitleFiles(files);
     for (const file of ordered) {

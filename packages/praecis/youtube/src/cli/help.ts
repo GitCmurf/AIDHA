@@ -16,7 +16,7 @@ Commands:
   aidha-youtube config get <key> [--config <path>] [--profile <name>] [--source <id>] [--json]
   aidha-youtube config explain <key> [--config <path>] [--profile <name>] [--source <id>]
   aidha-youtube config init [--force] [--dry-run] [--user-global] [--interactive]
-  aidha-youtube config set <key> <value> [--config <path>] [--profile <name>] (Coming in Phase 2B)
+  aidha-youtube config set <key> <value> [--config <path>] [--dry-run]
   aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]

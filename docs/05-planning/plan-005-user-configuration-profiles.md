@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-005
 owner: Repo Maintainers
 status: Draft
-version: "0.4"
-last_updated: 2026-02-10
+version: "0.5"
+last_updated: 2026-02-14
 title: User Configuration Profiles
 type: PLAN
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.4
-> **Last Updated:** 2026-02-10
+> **Version:** 0.5
+> **Last Updated:** 2026-02-14
 > **Type:** PLAN
 
 # User Configuration Profiles
@@ -29,6 +29,7 @@ docops_version: "2.0"
 | 0.2     | 2026-02-10 | AI     | Add 5-tier precedence with source defaults; drop compat concerns. | —         | Draft  | —         |
 | 0.3     | 2026-02-10 | AI     | Harden for production-grade config: path semantics, safe writes, `.env`, explainability, and strict-but-extensible schema. | — | Draft | — |
 | 0.4     | 2026-02-10 | AI     | Clarify dotenv/base_dir order, schema strictness for maps, path-like annotations, and decision consequences. | — | Draft | — |
+| 0.5     | 2026-02-14 | AI     | Document additionalProperties conversion behavior for config mutation. | — | Draft | — |
 
 ## Objective
 
@@ -461,6 +462,10 @@ The schema must be strict by default:
 - `extensions`: maps are allowed at the top-level, per-profile, and per-source
   as an explicit escape hatch. Keys inside `extensions` are not interpreted by
   AIDHA and are not validated beyond being JSON/YAML objects.
+
+Note on mutation: when a schema section uses `additionalProperties: true`, type
+coercion during `config set` is skipped because the schema does not define an
+expected type for those keys.
 
 Runtime shaping: `ResolvedConfig.extensions` keeps these three scopes separate
 (`global`, `source`, `profile`) rather than merging them into a single map. This

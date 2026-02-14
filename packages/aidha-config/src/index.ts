@@ -35,7 +35,7 @@ export { SUPPORTED_CONFIG_VERSION } from './types.js';
 export { DEFAULTS } from './defaults.js';
 
 // ── Schema validation ────────────────────────────────────────────────────────
-export { validateConfig, loadSchema } from './schema.js';
+export { validateConfig, loadSchema, convertValue } from './schema.js';
 
 // ── Environment variable interpolation ───────────────────────────────────────
 export {
@@ -89,8 +89,9 @@ export type { LoadOptions, LoadResult } from './loader.js';
 // ── Config writer ────────────────────────────────────────────────────────────
 export {
   writeConfig,
+  mutateConfig,
   ConfigReadOnlyError,
   ConfigConflictError,
   ConfigWriteValidationError,
 } from './writer.js';
-export type { WriteOptions, WriteResult } from './writer.js';
+export type { WriteOptions, WriteResult, MutateOptions } from './writer.js';

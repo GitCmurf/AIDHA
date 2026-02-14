@@ -14,6 +14,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "verify:manual": "pnpm run build && node scripts/manual-verify.mjs",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
   },

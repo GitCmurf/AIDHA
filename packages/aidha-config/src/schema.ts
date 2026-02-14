@@ -85,6 +85,90 @@ export function validateConfig(config: unknown): ValidationResult {
 }
 
 /**
+ * Convert a string value to the type expected by the schema for a given keyPath.
+ *
+ * @param keyPath - Dot-separated key path (e.g., 'profiles.local.llm.timeout_ms').
+ * @param value - The string value from CLI.
+ * @returns The converted value (e.g., number, boolean, or string).
+ */
+export function convertValue(keyPath: string, value: string): any {
+  const schema = loadSchema();
+  const parts = keyPath.split('.');
+
+  let current: any = schema;
+
+  for (const part of parts) {
+    if (!current) break;
+
+    // Resolve refs
+    if (current.$ref) {
+      const refPath = current.$ref.replace('#/', '').split('/');
+      let ref: any = schema;
+      for (const refPart of refPath) {
+        if (refPart === '$defs') ref = ref.$defs;
+        else ref = ref[refPart];
+      }
+      current = ref;
+    }
+
+    if (current.type === 'object') {
+      if (current.properties && current.properties[part]) {
+        current = current.properties[part];
+      } else if (current.additionalProperties) {
+        // If current.additionalProperties === true, the type is unknown/any.
+        // We should skip conversion (treat as string).
+        if (typeof current.additionalProperties === 'object') {
+           current = current.additionalProperties;
+        } else {
+           // boolean true -> any type.
+           current = undefined;
+        }
+      } else {
+        current = undefined;
+      }
+    } else {
+      current = undefined;
+    }
+  }
+
+  // Resolve final ref if any
+  if (current && current.$ref) {
+    const refPath = current.$ref.replace('#/', '').split('/');
+    let ref: any = schema;
+    for (const refPart of refPath) {
+      if (refPart === '$defs') ref = ref.$defs;
+      else ref = ref[refPart];
+    }
+    current = ref;
+  }
+
+  const expectedType = current?.type;
+
+  if (expectedType === 'integer' || expectedType === 'number') {
+    if (!value || value.trim().length === 0) {
+      throw new Error(`Value for ${keyPath} cannot be empty; expected number.`);
+    }
+    const n = Number(value);
+    if (Number.isNaN(n)) {
+      throw new Error(`Invalid numeric value for ${keyPath}: "${value}"`);
+    }
+    if (expectedType === 'integer' && !Number.isInteger(n)) {
+      throw new Error(`Invalid integer value for ${keyPath}: "${value}". Expected an integer.`);
+    }
+    return n;
+  }
+
+  if (expectedType === 'boolean') {
+    const v = value.toLowerCase().trim();
+    if (v === 'true' || v === '1' || v === 'yes' || v === 'on') return true;
+    if (v === 'false' || v === '0' || v === 'no' || v === 'off') return false;
+    throw new Error(`Invalid boolean value for ${keyPath}: "${value}". Expected one of: true, false, 1, 0, yes, no, on, off.`);
+  }
+
+  return value;
+}
+
+/**
  * Load and return the raw JSON Schema object.
  * Useful for introspecting `x-aidha-path` and `x-aidha-secret` annotations.
  */

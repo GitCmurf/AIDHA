@@ -5,6 +5,8 @@ import {
   resolveKeyProvenance,
   redactSecrets,
   ConfigValidationError,
+  ConfigWriteValidationError,
+  mutateConfig,
 } from '@aidha/config';
 import type { LoadResult, ResolvedConfig } from '@aidha/config';
 import { resolve, dirname, join, isAbsolute } from 'node:path';
@@ -71,8 +73,8 @@ export async function runConfig(
     case 'init':
       return runConfigInit(options);
     case 'set':
-      console.error("Command 'set' is coming in Phase 2B (blocked on AST writer).");
-      return 1;
+      if (!ensureNoSource(options, 'set')) return 2;
+      return runConfigSet(positionals, options, loadResult);
     default:
       console.error(`Unknown config subcommand: ${subcommand}`);
       console.error('Available: path, validate, list-profiles, show, get, explain, init, set');
@@ -397,6 +399,76 @@ async function runConfigInit(options: CliOptions): Promise<number> {
     return 0;
   } catch (err) {
     console.error(`Failed to write config: ${err instanceof Error ? err.message : String(err)}`);
+    return 1;
+  }
+}
+
+async function runConfigSet(
+  positionals: string[],
+  options: CliOptions,
+  loadResult: LoadResult
+): Promise<number> {
+  const key = positionals[1];
+  const value = positionals[2];
+
+  if (!key || value === undefined) {
+    console.error('Usage: config set <key> <value> [--config <path>]');
+    return 1;
+  }
+
+  const dryRun = optionBool(options, 'dry-run');
+
+  // Determine target path:
+  // 1. Explicit --config
+  // 2. loadResult.configPath (if auto-discovered)
+  // 3. Fallback to .aidha/config.yaml in CWD
+  let targetPath = optionString(options, 'config');
+  if (!targetPath) {
+    targetPath = loadResult.configPath || resolve(process.cwd(), '.aidha', 'config.yaml');
+  }
+
+  try {
+    const result = mutateConfig({
+      filePath: targetPath,
+      keyPath: key,
+      value,
+      dryRun,
+    });
+
+    if (result.written) {
+      console.log(`Successfully updated ${key} in ${targetPath}`);
+      if (result.backupPath) {
+        console.log(`Backup created at: ${result.backupPath}`);
+      }
+    } else if (dryRun) {
+      if (result.validationErrors && result.validationErrors.length > 0) {
+        console.error('Error: Configuration validation failed.');
+        for (const error of result.validationErrors) {
+          console.error(`- ${error.path}: ${error.message}`);
+        }
+        return 1;
+      }
+      console.log(`Dry run: Would update ${key} in ${targetPath}`);
+    } else {
+      if (result.validationErrors && result.validationErrors.length > 0) {
+        console.error('Error: Configuration validation failed.');
+        for (const error of result.validationErrors) {
+          console.error(`- ${error.path}: ${error.message}`);
+        }
+        return 1;
+      }
+      console.error(`No changes were written to ${targetPath} for ${key}.`);
+      return 1;
+    }
+
+    return 0;
+  } catch (err) {
+    if (err instanceof ConfigWriteValidationError) {
+      console.error('Error: Configuration validation failed.');
+      console.error(err.message);
+      return 1;
+    }
+    console.error(`Error: Failed to update configuration: ${err instanceof Error ? err.message : String(err)}`);
     return 1;
   }
 }

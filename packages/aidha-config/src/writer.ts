@@ -14,8 +14,25 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync, statSync, unlinkSync, chmodSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { stringify as stringifyYAML } from 'yaml';
-import { validateConfig } from './schema.js';
+import { stringify as stringifyYAML, parseDocument, isAlias, isMap, isSeq, isPair, YAMLMap, visit } from 'yaml';
+import { validateConfig, convertValue } from './schema.js';
+
+// ... (existing helper methods if any)
+
+/** Helper to find a node by its anchor name. */
+function findNodeByAnchor(doc: any, anchorName: string): any {
+  let found: any = undefined;
+  visit(doc, {
+    Node: (_key, node: any) => {
+      if (node.anchor === anchorName) {
+        found = node;
+        return visit.BREAK;
+      }
+    }
+  });
+  return found;
+}
+
 
 // ── Error classes ────────────────────────────────────────────────────────────
 
@@ -43,7 +60,7 @@ export class ConfigConflictError extends Error {
 
 /** Error thrown when validation fails before writing. */
 export class ConfigWriteValidationError extends Error {
-  constructor(errors: Array<{ path: string; message: string }>) {
+  constructor(public readonly errors: Array<{ path: string; message: string }>) {
     const details = errors.map((e) => `  ${e.path}: ${e.message}`).join('\n');
     super(`Config validation failed before write:\n${details}`);
     this.name = 'ConfigWriteValidationError';
@@ -250,6 +267,243 @@ export function writeConfig(options: WriteOptions): WriteResult {
       unlinkSync(tmpPath);
     } catch {
       // Best-effort cleanup
+    }
+    throw err;
+  }
+
+  return { written: true, backupPath, validationErrors };
+}
+
+/** Options for mutating a config file. */
+export interface MutateOptions {
+  /** Target file path. */
+  filePath: string;
+  /** Dot-separated key path (e.g., 'profiles.local.llm.model'). */
+  keyPath: string;
+  /** The value to set (string from CLI, will be converted). */
+  value: string;
+  /** If true, only validate — don't actually write. */
+  dryRun?: boolean;
+  /** Skip schema validation after mutation. */
+  skipValidation?: boolean;
+  /** Environment map (to check AIDHA_CONFIG_READONLY). */
+  env?: Record<string, string | undefined>;
+}
+
+/**
+ * Mutate a config file by setting a specific key to a new value.
+ * Preserves comments, anchors, and formatting by using AST-preserving updates.
+ */
+export function mutateConfig(options: MutateOptions): WriteResult {
+  const {
+    filePath,
+    keyPath,
+    value,
+    dryRun = false,
+    skipValidation = false,
+    env = process.env as Record<string, string | undefined>,
+  } = options;
+
+  // ── Read-only check ─────────────────────────────────────────────────
+  if (env['AIDHA_CONFIG_READONLY'] === '1') {
+    throw new ConfigReadOnlyError();
+  }
+
+  // ── Load and Mutate ─────────────────────────────────────────────────
+  let content = '';
+  if (existsSync(filePath)) {
+    content = readFileSync(filePath, 'utf-8');
+  }
+
+  const doc = parseDocument(content);
+
+  let convertedValue: any;
+  try {
+    convertedValue = convertValue(keyPath, value);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Treat conversion errors as validation errors
+    if (dryRun) {
+      return {
+        written: false,
+        backupPath: null,
+        validationErrors: [{ path: keyPath, message: msg }],
+      };
+    }
+    throw new ConfigWriteValidationError([{ path: keyPath, message: msg }]);
+  }
+
+  // ── Manual traversal to handle Aliases ──────────────────────────────
+  // doc.setIn fails if the path traverses an Alias node. We must resolve
+  // aliases manually to reach the mutable target node.
+  // "Break Alias": If we encounter an alias on the write path, we replace
+  // it with a clone of its target to ensure we don't mutate the anchor shared by others.
+
+  const pathParts = keyPath.split('.');
+  if (pathParts.some(p => !p.trim())) {
+    throw new Error(`Invalid keyPath '${keyPath}': segments cannot be empty.`);
+  }
+
+  const lastKey = pathParts.pop()!; // specific key to set
+
+  let current: any = doc.contents;
+  if (!current) {
+      // Initialize contents if missing, even for root keys
+      doc.contents = new YAMLMap() as any;
+      current = doc.contents;
+  }
+
+  let parent: any = doc;
+  let parentKey: any = 'contents'; // Special indicator for doc.contents
+
+  // Helper to replace current alias with clone
+  const breakAlias = (aliasNode: any) => {
+    const anchorName = aliasNode.source;
+    const targetNode = findNodeByAnchor(doc, anchorName);
+
+    if (!targetNode) {
+       // Cannot resolve? We can't safely define behavior.
+       return null;
+    }
+
+    // Clone the target node to break the link
+    if (!targetNode.clone || typeof targetNode.clone !== 'function') {
+        throw new Error(`Cannot safely write to alias '${keyPath}': target node does not support cloning.`);
+    }
+
+    const clone = targetNode.clone();
+
+    // Clear anchor on the clone to avoid duplication
+    if (clone.anchor) clone.anchor = undefined;
+
+    // Replace in parent
+    if (parentKey === 'contents') {
+      doc.contents = clone;
+    } else if (isMap(parent)) {
+      parent.set(parentKey, clone);
+    } // (We don't expect Seq parents for config keys usually)
+
+    return clone;
+  };
+
+
+  // traverse to the parent container of the target key
+  for (const part of pathParts) {
+    if (!current) break;
+
+    // Break Alias if encountered
+    if (isAlias(current)) {
+      const clone = breakAlias(current);
+      if (clone) {
+        current = clone;
+      } else {
+        // Anchor resolving failed
+        current = undefined;
+        break;
+      }
+    }
+
+    if (isMap(current)) {
+      if (!current.has(part)) {
+        // Create missing intermediate node
+        const newMap = new YAMLMap();
+        current.set(part, newMap);
+
+        // Prepare for next step
+        parent = current;
+        parentKey = part;
+        current = newMap;
+      } else {
+        // Prepare for next step
+        parent = current;
+        parentKey = part;
+        current = current.get(part, true); // keep node check for alias next
+      }
+    } else {
+       current = undefined;
+       break;
+    }
+  }
+
+  // Final resolution regarding the container itself
+  // If the container we landed on involves an alias, break it too.
+  if (current && isAlias(current)) {
+     const clone = breakAlias(current);
+     if (clone) current = clone;
+  }
+
+  if (current && isMap(current)) {
+    current.set(lastKey, convertedValue);
+  } else {
+    // If we failed to reach a Map, throw
+    throw new Error(`Cannot set key '${keyPath}': path traversal failed or target is not a map.`);
+  }
+
+  const mutatedConfig = doc.toJS() as Record<string, unknown>;
+
+  // ── Validation after mutation ───────────────────────────────────────
+  const validationErrors: Array<{ path: string; message: string }> = [];
+  if (!skipValidation) {
+    const result = validateConfig(mutatedConfig);
+    if (!result.valid) {
+      if (dryRun) {
+        return { written: false, backupPath: null, validationErrors: result.errors };
+      }
+      throw new ConfigWriteValidationError(result.errors);
+    }
+  }
+
+  if (dryRun) {
+    return { written: false, backupPath: null, validationErrors };
+  }
+
+  // ── Write mutated YAML ──────────────────────────────────────────────
+  // We reuse the atomic write logic by calling writeConfig with the mutated doc
+  // but we want to use doc.toString() instead of stringifyYAML(config) to preserve style.
+  // So we'll manually perform the write/backup here to avoid re-serializing style-free.
+
+  // ── Backup rotation ─────────────────────────────────────────────────
+  const backupPath = rotateBackups(filePath);
+
+  // ── Atomic write (temp → rename) ────────────────────────────────────
+  const tmpPath = `${filePath}.tmp.${process.pid}`;
+  const yaml = doc.toString();
+
+  try {
+    writeFileSync(tmpPath, yaml, { encoding: 'utf-8', mode: 0o600 });
+    try {
+      chmodSync(tmpPath, 0o600);
+    } catch {
+      // ignore
+    }
+    try {
+      renameSync(tmpPath, filePath);
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === 'EEXIST' || code === 'EPERM') {
+        try {
+          unlinkSync(filePath);
+        } catch {
+          // ignore
+        }
+        renameSync(tmpPath, filePath);
+      } else if (code === 'EXDEV') {
+        writeFileSync(filePath, yaml, { encoding: 'utf-8', mode: 0o600 });
+        try {
+          chmodSync(filePath, 0o600);
+        } catch {
+          // ignore
+        }
+        unlinkSync(tmpPath);
+      } else {
+        throw err;
+      }
+    }
+  } catch (err) {
+    try {
+      unlinkSync(tmpPath);
+    } catch {
+      // ignore
     }
     throw err;
   }
