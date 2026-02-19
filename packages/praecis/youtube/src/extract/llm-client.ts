@@ -101,23 +101,3 @@ export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmCli
     }),
   };
 }
-
-/**
- * Create an LLM client from process.env (legacy/fallback).
- */
-export function createDefaultLlmClient(): Result<LlmClient> {
-  const baseUrl = process.env['AIDHA_LLM_BASE_URL'];
-  if (!baseUrl) {
-    return { ok: false, error: new Error('AIDHA_LLM_BASE_URL is not set') };
-  }
-  const apiKey = process.env['AIDHA_LLM_API_KEY'];
-  const timeoutEnv = process.env['AIDHA_LLM_TIMEOUT_MS'];
-  let timeoutMs: number | undefined;
-  if (timeoutEnv) {
-    const parsed = Number.parseInt(timeoutEnv, 10);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      timeoutMs = parsed;
-    }
-  }
-  return { ok: true, value: new OpenAiCompatibleClient({ baseUrl, apiKey, timeoutMs }) };
-}

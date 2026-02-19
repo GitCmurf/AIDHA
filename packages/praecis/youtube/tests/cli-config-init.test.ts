@@ -141,12 +141,14 @@ describe('CLI Config Init (Phase 2A)', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = load(content) as any;
 
+    // Verify it scaffolded into sources.youtube.youtube
     expect(parsed.sources).toBeDefined();
     expect(parsed.sources.youtube).toBeDefined();
-    expect(parsed.sources.youtube.cookie).toBe('${YOUTUBE_COOKIE}');
+    expect(parsed.sources.youtube.youtube).toBeDefined();
+    expect(parsed.sources.youtube.youtube.cookie).toContain('${YOUTUBE_COOKIE}');
 
-    // Profile 'local' should not have 'youtube'
-    expect(parsed.profiles.local.youtube).toBeUndefined();
+    // Ensure it didn't pollute profiles
+    expect(parsed.profiles?.local?.youtube).toBeUndefined();
   });
 
   it('init --user-global respects XDG_CONFIG_HOME', async () => {

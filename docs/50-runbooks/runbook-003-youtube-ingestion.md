@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-02-09
-version: '1.15'
+last_updated: 2026-02-15
+version: '1.16'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.15
-> **Last Updated:** 2026-02-09
+> **Version:** 1.16
+> **Last Updated:** 2026-02-15
 > **Type:** RUNBOOK
 
 ## Version History
@@ -46,6 +46,7 @@ docops_version: '2.0'
 | 1.13    | 2026-02-09 | AI     | Add fixture import operation and golden test data guidance | — | Draft | — |
 | 1.14    | 2026-02-09 | AI     | Add claims purge operation for clean reruns | — | Draft | — |
 | 1.15    | 2026-02-09 | AI     | Add source-prefixed export filename defaults | — | Draft | — |
+| 1.16    | 2026-02-15 | AI     | Document config file setup for ingestion runs | — | Draft | — |
 
 ## Purpose
 
@@ -53,6 +54,17 @@ Placeholder runbook describing ingestion job schedules, retry policies, alert re
 auditing steps.
 
 ## Operational Checklist
+
+- **Confirm configuration**
+
+   Use a config file to avoid flag sprawl and to make runs reproducible.
+
+   ```bash
+   pnpm -C packages/praecis/youtube cli config init
+   pnpm -C packages/praecis/youtube cli config validate
+   ```
+
+   If you keep a project-local config, place it at `./.aidha/config.yaml`.
 
 - **Build dependencies**
 

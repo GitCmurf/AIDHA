@@ -219,7 +219,7 @@ export async function diagnoseExtraction(
 
   let editorial: EditorialDiagnosis | undefined;
   if (options.includeEditor) {
-    const cacheDir = options.cacheDir ?? process.env['AIDHA_LLM_CACHE_DIR'] ?? './out/cache/claims';
+    const cacheDir = options.cacheDir ?? './out/cache/claims';
     const modelFromClaims = claimResult.value.items.find(
       claim => typeof claim.metadata?.['model'] === 'string'
     )?.metadata?.['model'] as string | undefined;

@@ -3,16 +3,13 @@ import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fetchTranscriptWithYtDlp } from '../src/client/yt-dlp.js';
+import type { YtDlpRuntimeConfig } from '../src/client/yt-dlp.js';
 
 describe('yt-dlp fallback', () => {
   let scriptPath: string;
   let scriptDir: string;
   let argsPath: string;
-  const originalEnv = {
-    AIDHA_YTDLP_BIN: process.env['AIDHA_YTDLP_BIN'],
-    AIDHA_YTDLP_KEEP_FILES: process.env['AIDHA_YTDLP_KEEP_FILES'],
-    AIDHA_YTDLP_JS_RUNTIMES: process.env['AIDHA_YTDLP_JS_RUNTIMES'],
-  };
+  let config: YtDlpRuntimeConfig;
 
   beforeEach(async () => {
     scriptDir = await fs.mkdtemp(join(tmpdir(), 'aidha-ytdlp-test-'));
@@ -55,34 +52,23 @@ describe('yt-dlp fallback', () => {
     ].join('\n');
     await fs.writeFile(scriptPath, script, 'utf-8');
     await fs.chmod(scriptPath, 0o755);
-    process.env['AIDHA_YTDLP_BIN'] = scriptPath;
-    process.env['AIDHA_YTDLP_KEEP_FILES'] = '0';
-    process.env['AIDHA_YTDLP_JS_RUNTIMES'] = 'node';
+    config = {
+      bin: scriptPath,
+      jsRuntimes: 'node',
+      timeoutMs: 120000,
+      keepFiles: false,
+      debugTranscript: false,
+    };
   });
 
   afterEach(async () => {
-    if (originalEnv.AIDHA_YTDLP_BIN === undefined) {
-      delete process.env['AIDHA_YTDLP_BIN'];
-    } else {
-      process.env['AIDHA_YTDLP_BIN'] = originalEnv.AIDHA_YTDLP_BIN;
-    }
-    if (originalEnv.AIDHA_YTDLP_KEEP_FILES === undefined) {
-      delete process.env['AIDHA_YTDLP_KEEP_FILES'];
-    } else {
-      process.env['AIDHA_YTDLP_KEEP_FILES'] = originalEnv.AIDHA_YTDLP_KEEP_FILES;
-    }
-    if (originalEnv.AIDHA_YTDLP_JS_RUNTIMES === undefined) {
-      delete process.env['AIDHA_YTDLP_JS_RUNTIMES'];
-    } else {
-      process.env['AIDHA_YTDLP_JS_RUNTIMES'] = originalEnv.AIDHA_YTDLP_JS_RUNTIMES;
-    }
     if (scriptDir) {
       await fs.rm(scriptDir, { recursive: true, force: true });
     }
   });
 
   it('returns transcript segments from yt-dlp output', async () => {
-    const result = await fetchTranscriptWithYtDlp('test-video');
+    const result = await fetchTranscriptWithYtDlp('test-video', config);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.segments.length).toBeGreaterThan(0);
@@ -90,15 +76,17 @@ describe('yt-dlp fallback', () => {
   });
 
   it('normalizes videoId when input is a URL', async () => {
-    const result = await fetchTranscriptWithYtDlp('https://www.youtube.com/watch?v=test-video');
+    const result = await fetchTranscriptWithYtDlp('https://www.youtube.com/watch?v=test-video', config);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.videoId).toBe('test-video');
   });
 
   it('passes configured JS runtimes to yt-dlp', async () => {
-    process.env['AIDHA_YTDLP_JS_RUNTIMES'] = 'node';
-    const result = await fetchTranscriptWithYtDlp('test-video');
+    const result = await fetchTranscriptWithYtDlp('test-video', {
+      ...config,
+      jsRuntimes: 'node',
+    });
     expect(result.ok).toBe(true);
     const args = await fs.readFile(argsPath, 'utf-8');
     expect(args).toContain('--js-runtimes');

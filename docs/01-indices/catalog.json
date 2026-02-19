@@ -59,11 +59,11 @@
     "path": "60-devex/config-guide.md",
     "title": "AIDHA Configuration Guide",
     "front_matter": {
-      "document_id": "AIDHA-GUIDE-001",
+      "document_id": "AIDHA-GUIDE-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2026-02-14",
-      "version": "1.0",
+      "last_updated": "2026-02-15",
+      "version": "1.4",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -301,8 +301,8 @@
       "document_id": "AIDHA-RUNBOOK-003",
       "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2026-02-09",
-      "version": "1.15",
+      "last_updated": "2026-02-15",
+      "version": "1.16",
       "title": "YouTube Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
@@ -371,8 +371,8 @@
       "document_id": "AIDHA-PLAN-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "version": "0.5",
-      "last_updated": "2026-02-14",
+      "version": "0.9",
+      "last_updated": "2026-02-19",
       "title": "User Configuration Profiles",
       "type": "PLAN",
       "docops_version": "2.0"
@@ -399,8 +399,8 @@
       "document_id": "AIDHA-PLAN-002",
       "owner": "Product",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-02-10",
+      "version": "0.2",
+      "last_updated": "2026-02-19",
       "title": "MVP Delivery Plan and Documentation Reconciliation",
       "type": "PLAN",
       "docops_version": "2.0"

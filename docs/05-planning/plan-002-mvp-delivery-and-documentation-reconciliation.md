@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-002
 owner: Product
 status: Draft
-version: "0.1"
-last_updated: 2026-02-10
+version: "0.2"
+last_updated: 2026-02-19
 title: MVP Delivery Plan and Documentation Reconciliation
 type: PLAN
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Product
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-02-10
+> **Version:** 0.2
+> **Last Updated:** 2026-02-19
 > **Type:** PLAN
 
 # MVP Delivery Plan and Documentation Reconciliation
@@ -26,6 +26,7 @@ docops_version: "2.0"
 | Version | Date       | Author | Change Summary                         | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2026-02-10 | AI     | MVP implementation pland and doc audit | —         | Draft  | —         |
+| 0.2     | 2026-02-19 | AI     | Reconcile stale backend parity/golden test tasks with current passing suites. | — | Draft | — |
 
 ## Purpose
 
@@ -125,9 +126,9 @@ Out of scope for MVP:
 The implementation backlog for MVP scope is complete. Remaining delivery tasks are release tasks:
 
 - [ ] Run final end-to-end acceptance run on target fixture/video set and archive outputs.
-- [ ] Resolve open review findings in `packages/reconditum` (Gephi export filtering + stats parity).
+- [x] Resolve open review findings in `packages/reconditum` (Gephi export filtering + stats parity).
 - [ ] Cut MVP release notes and tag a baseline commit.
-- [ ] 'Golden' tests
+- [x] Golden tests (offline fixture invariants + determinism).
 - [ ] Readiness review for public GitHub commit
 
 ## Delivery Task List (Codex-executable)
@@ -144,9 +145,9 @@ Acceptance:
 
 ### Phase B: Backend review parity fixes
 
-- [ ] Fix SQLite `exportGephi` edge filtering when `nodeTypes` is provided.
-- [ ] Fix SQLite `getGraphStats` top-degree handling for dangling edge endpoints.
-- [ ] Add/adjust parity tests across in-memory/SQLite/levelgraph as applicable.
+- [x] Fix SQLite `exportGephi` edge filtering when `nodeTypes` is provided.
+- [x] Fix SQLite `getGraphStats` top-degree handling for dangling edge endpoints.
+- [x] Add/adjust parity tests across in-memory/SQLite/levelgraph as applicable.
 
 Acceptance:
 

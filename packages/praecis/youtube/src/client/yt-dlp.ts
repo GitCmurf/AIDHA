@@ -25,6 +25,17 @@ export interface YtDlpRuntimeConfig {
   debugTranscript: boolean;
 }
 
+/** Default runtime config (no environment-variable lookup). */
+export function ytDlpDefaultConfig(): YtDlpRuntimeConfig {
+  return {
+    bin: 'yt-dlp',
+    jsRuntimes: 'node',
+    timeoutMs: 120000,
+    keepFiles: false,
+    debugTranscript: false,
+  };
+}
+
 /** Build a YtDlpRuntimeConfig from process.env (legacy/fallback). */
 export function ytDlpConfigFromEnv(): YtDlpRuntimeConfig {
   const jsConfigured =
@@ -154,7 +165,7 @@ function parseConfiguredRuntimes(configured: string): YtDlpPreflightRuntime[] {
 export async function diagnoseYtDlpEnvironment(
   rtConfig?: YtDlpRuntimeConfig,
 ): Promise<Result<YtDlpEnvironmentDiagnosis>> {
-  const cfg = rtConfig ?? ytDlpConfigFromEnv();
+  const cfg = rtConfig ?? ytDlpDefaultConfig();
   const ytdlpExecutable = cfg.bin;
   const jsConfigured = cfg.jsRuntimes;
   const jsExecutable = parseRuntimeExecutable(jsConfigured);
@@ -203,7 +214,7 @@ export async function runYtDlpPreflight(
   options: YtDlpPreflightOptions = {},
   rtConfig?: YtDlpRuntimeConfig,
 ): Promise<Result<YtDlpPreflightReport>> {
-  const cfg = rtConfig ?? ytDlpConfigFromEnv();
+  const cfg = rtConfig ?? ytDlpDefaultConfig();
   const envResult = await diagnoseYtDlpEnvironment(cfg);
   if (!envResult.ok) return envResult;
 
@@ -338,7 +349,7 @@ export async function fetchTranscriptWithYtDlp(
   videoIdOrUrl: string,
   rtConfig?: YtDlpRuntimeConfig,
 ): Promise<Result<Transcript>> {
-  const cfg = rtConfig ?? ytDlpConfigFromEnv();
+  const cfg = rtConfig ?? ytDlpDefaultConfig();
   let tmpPath: string | null = null;
   try {
     tmpPath = await fs.mkdtemp(join(tmpdir(), 'aidha-ytdlp-'));

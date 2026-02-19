@@ -59,7 +59,6 @@ export {
   timelineCoverage,
   dropCounts,
   OpenAiCompatibleClient,
-  createDefaultLlmClient,
   ReferenceExtractionPipeline,
 } from './extract/index.js';
 

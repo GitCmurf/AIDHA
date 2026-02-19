@@ -26,6 +26,15 @@ export interface YouTubeClientConfig {
   debugTranscript: boolean;
 }
 
+/** Default client config (no environment-variable lookup). */
+export function youtubeDefaultConfig(): YouTubeClientConfig {
+  return {
+    cookie: undefined,
+    innertubeApiKey: undefined,
+    debugTranscript: false,
+  };
+}
+
 /** Build a YouTubeClientConfig from process.env (legacy/fallback). */
 export function youtubeConfigFromEnv(): YouTubeClientConfig {
   return {
@@ -46,7 +55,7 @@ let _ytCfg: YouTubeClientConfig | undefined;
 let _ytDlpCfg: YtDlpRuntimeConfig | undefined;
 
 function activeYtCfg(): YouTubeClientConfig {
-  if (!_ytCfg) _ytCfg = youtubeConfigFromEnv();
+  if (!_ytCfg) _ytCfg = youtubeDefaultConfig();
   return _ytCfg;
 }
 

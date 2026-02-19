@@ -1,9 +1,9 @@
 ---
-document_id: AIDHA-GUIDE-001
+document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
-last_updated: 2026-02-14
-version: "1.0"
+last_updated: 2026-02-15
+version: "1.4"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -11,32 +11,39 @@ docops_version: "2.0"
 
 <!-- MEMINIT_METADATA_BLOCK -->
 
-> **Document ID:** AIDHA-GUIDE-001
+> **Document ID:** AIDHA-GUIDE-005
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.0
-> **Last Updated:** 2026-02-14
+> **Version:** 1.4
+> **Last Updated:** 2026-02-15
 > **Type:** GUIDE
 
 ## Version History
 
-| Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
-| ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
-| 1.1     | 2026-02-14 | AI     | Added Sources documentation.   | —         | Draft  | —         |
-| 1.0     | 2026-02-14 | AI     | Initial guide. | —         | Draft  | —         |
+| Version | Date       | Author | Change Summary                                          | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ------------------------------------------------------- | --------- | ------ | --------- |
+| 1.0     | 2026-02-10 | CMF    | Initial draft (Profile model)                           | —         | Draft  | —         |
+| 1.1     | 2026-02-14 | CMF    | Clarify Sources and RSS defaults                        | —         | Draft  | —         |
+| 1.2     | 2026-02-14 | CMF    | Update SourceDefaults structure to match schema nesting | —         | Draft  | —         |
+| 1.3     | 2026-02-15 | AI     | Restore guide identity and clarify nested sources keys  | —         | Draft  | —         |
+| 1.4     | 2026-02-15 | AI     | Assign unique document ID and simplify overview text    | —         | Draft  | —         |
 
 # AIDHA Configuration Guide
 
-This guide explains how to configure AIDHA using the configuration file system.
-
 ## Overview
 
-AIDHA supports a robust configuration system that allows you to:
+AIDHA reads settings from a YAML file. You can specify defaults for different environments
+(local vs. production) and different sources (YouTube vs. RSS). A fixed order decides which
+value wins.
 
-- Define persistent settings in a `config.yaml` file.
-- Switch between environments (e.g., local vs. production) using **Profiles**.
-- Override settings via environment variables (for secrets) and CLI flags.
+The config file lives at `.aidha/config.yaml` (per-project) or `~/.config/aidha/config.yaml` (global).
+
+### Key Concepts
+
+1. **Profiles**: Named sets of overrides (e.g., `local`, `production`).
+2. **Sources**: Defaults that apply only when a specific ingestion source is active.
+3. **Resolution**: Values are merged from 5 tiers (CLI -> Profile -> Source -> Default -> Hardcoded).
 
 ## Configuration File Locations
 
@@ -50,9 +57,9 @@ AIDHA searches for a configuration file in the following order:
 
 If no file is found, AIDHA runs with safe defaults.
 
-## Structure
+## Configuration Structure
 
-A typical `.aidha/config.yaml` looks like this:
+A typical config file looks like this:
 
 ```yaml
 config_version: 1
@@ -61,17 +68,29 @@ default_profile: local
 profiles:
   local:
     llm:
-      model: gpt-3.5-turbo
-      timeout_ms: 30000
+      model: gpt-4o-mini
+    # Optional: Profile-specific source overrides
     youtube:
-      debug_transcript: true
-    ytdlp:
-      keep_files: true
+      # The outer "youtube" is the source name. The inner "youtube" is the settings for that source.
+      youtube:
+        debug_transcript: true
 
   production:
     llm:
-      model: gpt-4
+      model: gpt-4-turbo
     db: ./prod.sqlite
+
+sources:
+  # Tier 3: Defaults applied when 'rss' source is active
+  rss:
+    # The outer "rss" is the source name. The inner "rss" is the settings for that source.
+    rss:
+      poll_interval_minutes: 60
+
+  youtube:
+    # The outer "youtube" is the source name. The inner "youtube" is the settings for that source.
+    youtube:
+      cookie: ${YOUTUBE_COOKIE}
 ```
 
 ## Profiles
@@ -94,10 +113,12 @@ AIDHA automatically applies defaults defined in the `sources` block of your conf
 ```yaml
 sources:
   rss:
-    poll_interval_minutes: 60
+    # Outer key = source name, inner key = settings for that source.
+    rss:
+      poll_interval_minutes: 60
 ```
 
-These defaults apply *only* when the corresponding source is active.
+These defaults apply _only_ when the corresponding source is active.
 
 ## Precedence
 

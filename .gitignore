@@ -60,6 +60,7 @@ specs/**/coverage/
 specs/**/.pytest_cache/
 specs/**/tmp/
 specs/**/.DS_Store
+.aidha/config.yaml
 
 # Generated specification data
 .specify/memory/*.json

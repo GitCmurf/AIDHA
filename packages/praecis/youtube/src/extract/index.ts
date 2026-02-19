@@ -24,5 +24,5 @@ export {
 export { countFragments, countBoilerplate, timelineCoverage, dropCounts } from './editorial-metrics.js';
 export type { FragmentRules, CoverageSummary } from './editorial-metrics.js';
 export type { LlmClient, LlmCompletionRequest } from './llm-client.js';
-export { OpenAiCompatibleClient, createDefaultLlmClient } from './llm-client.js';
+export { OpenAiCompatibleClient } from './llm-client.js';
 export { ReferenceExtractionPipeline } from './references.js';

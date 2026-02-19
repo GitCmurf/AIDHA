@@ -333,12 +333,13 @@ profiles:
 const SOURCE_SCAFFOLDS: Record<string, string> = {
   youtube: `sources:
   youtube:
-    cookie: \${YOUTUBE_COOKIE}
+    youtube:
+      cookie: \${YOUTUBE_COOKIE}
 `,
   rss: `sources:
   rss:
-    # RSS source configuration
-    poll_interval_minutes: 60
+    rss:
+      poll_interval_minutes: 60
 `
 };
 
@@ -402,7 +403,8 @@ async function runConfigInit(options: CliOptions): Promise<number> {
 # Add source configs here
 # sources:
 #   youtube:
-#     cookie: \${YOUTUBE_COOKIE}
+#     youtube:
+#       cookie: \${YOUTUBE_COOKIE}
 `;
   }
 

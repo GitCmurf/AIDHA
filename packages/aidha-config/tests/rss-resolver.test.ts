@@ -16,6 +16,7 @@ describe('resolveConfig — RSS Tiers', () => {
         rss: { rss: { poll_interval_minutes: 120 } },
       },
     });
+    const resolved = resolveConfig({ rawConfig: config, sourceId: 'rss' });
     expect(resolved.rss?.pollIntervalMinutes).toBe(120);
   });
 
@@ -41,7 +42,7 @@ describe('resolveConfig — RSS Tiers', () => {
   it('Tier 4/5: Absence resolves to defaults (60 min)', () => {
     const config = minimalConfig();
     const resolved = resolveConfig({ rawConfig: config, sourceId: 'rss' });
-    // Hardcoded default in resolver.ts is 60
+    // Defaults from DEFAULTS.sources.rss is 60
     expect(resolved.rss?.pollIntervalMinutes).toBe(60);
   });
 });

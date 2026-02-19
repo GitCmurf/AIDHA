@@ -33,8 +33,11 @@ profiles:
             min_chars: 100
 
 # Top-level sources defaults (Tier 3)
+# Note: SourceDefaults have the same shape as Profile, so configs are nested.
 sources:
     rss:
-        poll_interval_minutes: 60
+        rss:
+            poll_interval_minutes: 60
     youtube:
-        cookie: ${YOUTUBE_COOKIE}
+        youtube:
+            cookie: ${YOUTUBE_COOKIE}

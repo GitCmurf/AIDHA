@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-005
 owner: Repo Maintainers
 status: Draft
-version: "0.5"
-last_updated: 2026-02-14
+version: "0.9"
+last_updated: 2026-02-19
 title: User Configuration Profiles
 type: PLAN
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.5
-> **Last Updated:** 2026-02-14
+> **Version:** 0.9
+> **Last Updated:** 2026-02-19
 > **Type:** PLAN
 
 # User Configuration Profiles
@@ -30,6 +30,10 @@ docops_version: "2.0"
 | 0.3     | 2026-02-10 | AI     | Harden for production-grade config: path semantics, safe writes, `.env`, explainability, and strict-but-extensible schema. | — | Draft | — |
 | 0.4     | 2026-02-10 | AI     | Clarify dotenv/base_dir order, schema strictness for maps, path-like annotations, and decision consequences. | — | Draft | — |
 | 0.5     | 2026-02-14 | AI     | Document additionalProperties conversion behavior for config mutation. | — | Draft | — |
+| 0.6     | 2026-02-15 | AI     | Mark completed phases and record remaining gaps.                  | —         | Draft  | —         |
+| 0.7     | 2026-02-15 | AI     | Complete Phase 3 documentation items.                             | —         | Draft  | —         |
+| 0.8     | 2026-02-15 | AI     | Add scoped meminit check helper.                                 | —         | Draft  | —         |
+| 0.9     | 2026-02-19 | AI     | Close remaining Phase 1 runtime env fallback gaps in praecis runtime paths. | — | Draft | — |
 
 ## Objective
 
@@ -718,68 +722,84 @@ This follows the same pattern as `git config` (CLI) backed by `libgit2` (API).
 
 Build and test `packages/aidha-config/` in isolation.
 
-- [ ] `types.ts` — full TypeScript types matching the schema (`Profile`,
+- [x] `types.ts` — full TypeScript types matching the schema (`Profile`,
       `SourceDefaults`, `AidhaConfig`, `ResolvedConfig`).
-- [ ] `defaults.ts` — all current hardcoded defaults extracted and documented.
-- [ ] `schema/config.schema.json` — JSON Schema with descriptions for every key,
+- [x] `defaults.ts` — all current hardcoded defaults extracted and documented.
+- [x] `schema/config.schema.json` — JSON Schema with descriptions for every key,
       including the `sources` section.
-- [ ] `schema.ts` — compiled validator.
-- [ ] `loader.ts` — file discovery, YAML parse, optional dotenv load, env-var interpolation.
-- [ ] `interpolation.ts` — `${VAR}` and `${VAR:-fallback}` expansion.
-- [ ] `resolver.ts` — five-tier merge (CLI → profile → source → default → hardcoded).
-- [ ] `paths.ts` — compute `base_dir` and resolve path-like values consistently.
-- [ ] `redact.ts` — schema-aware redaction allowlist for safe output/logging.
-- [ ] `explain.ts` — per-key provenance (`config explain`) based on resolution traces.
-- [ ] `writer.ts` — safe write-back with backup, comment-preserving edits, and concurrency guard.
-- [ ] Full test suite (see Section 10).
+- [x] `schema.ts` — compiled validator.
+- [x] `loader.ts` — file discovery, YAML parse, optional dotenv load, env-var interpolation.
+- [x] `interpolation.ts` — `${VAR}` and `${VAR:-fallback}` expansion.
+- [x] `resolver.ts` — five-tier merge (CLI → profile → source → default → hardcoded).
+- [x] `paths.ts` — compute `base_dir` and resolve path-like values consistently.
+- [x] `redact.ts` — schema-aware redaction allowlist for safe output/logging.
+- [x] `explain.ts` — per-key provenance (`config explain`) based on resolution traces.
+- [x] `writer.ts` — safe write-back with backup, comment-preserving edits, and concurrency guard.
+- [x] Full test suite (see Section 10).
 
 **Acceptance:** All unit tests pass; `pnpm -C packages/aidha-config test` green.
 No changes to praecis or any other package yet.
 
+**Status (2026-02-15):** Complete.
+
 ### Phase 1: Wire Config into Praecis CLI
 
-- [ ] Add `--config`, `--profile`, and `--source` flags to `cli/parse.ts`.
-- [ ] Create a `resolveCliConfig()` function in `cli.ts` that calls
+- [x] Ensure `--config`, `--profile`, and `--source` flags are parsed and plumbed through.
+- [x] Create a `resolveCliConfig()` function (in `cli/config-bridge.ts`) that calls
       `loadConfigFile()` → `resolveConfig()` and returns a typed, validated
       `ResolvedConfig` object.
-- [ ] Auto-select `--source youtube` for YouTube-related commands (`ingest`,
+- [x] Auto-select `--source youtube` for YouTube-related commands (`ingest`,
       `extract`, `diagnose transcript/extract/editor`).
-- [ ] Replace all inline `process.env['AIDHA_*']` and `optionString/optionNumber`
-      calls with reads from the `ResolvedConfig`.
-- [ ] Update help text (`cli/help.ts`) to document `--config`, `--profile`,
+- [x] Replace remaining runtime `process.env['AIDHA_*']` fallbacks in praecis
+      execution paths with reads from `ResolvedConfig`.
+- [x] Update help text (`cli/help.ts`) to document `--config`, `--profile`,
       `--source`, and the config file search path.
 
 **Acceptance:** All existing praecis tests pass with no config file present
 (zero-config). Tests pass with a config file providing equivalent values.
 
+**Status (2026-02-19):** Complete. Runtime command paths now resolve through
+`ResolvedConfig` (including diagnose/editor cache and yt-dlp runtime usage).
+Environment helpers may remain for explicit library callers but are no longer
+the default runtime path.
+
 ### Phase 2: Config Management CLI
 
-- [ ] Add `aidha config <subcommand>` to the CLI dispatch (`cli.ts`).
-- [ ] Implement `show` (default redacted, supports `--json`), `explain`, `set`
+- [x] Add `aidha config <subcommand>` to the CLI dispatch (`cli.ts`).
+- [x] Implement `show` (default redacted, supports `--json`), `explain`, `set`
       (supports `--dry-run`), `get`, `validate`, `init`, `list-profiles`, `path`.
-- [ ] Add help-text tests for all new sub-commands.
+- [x] Add help-text tests for all new sub-commands.
 
 **Acceptance:** `aidha config init` produces a valid, schema-compliant YAML file.
 `aidha config validate` catches intentional violations.
 
+**Status (2026-02-15):** Complete.
+
 ### Phase 3: Documentation and Devex
 
-- [ ] Add `docs/60-devex/config-guide.md` — user-facing guide with examples.
-- [ ] Update `docs/50-runbooks/runbook-003-youtube-ingestion.md` to reference
+- [x] Add `docs/60-devex/config-guide.md` — user-facing guide with examples.
+- [x] Update `docs/50-runbooks/runbook-003-youtube-ingestion.md` to reference
       config file setup.
-- [ ] Add an annotated example config to `examples/config.example.yaml` in the
+- [x] Add an annotated example config to `examples/config.example.yaml` in the
       repo root (committed, no secrets).
-- [ ] Update `.gitignore` to include `.aidha/config.yaml`.
-- [ ] Update `AGENTS.md` to mention the config system.
+- [x] Update `.gitignore` to include `.aidha/config.yaml`.
+- [x] Update `AGENTS.md` to mention the config system.
+- [x] Add a scoped DocOps check helper (`scripts/meminit-check.mjs`) for
+      path or glob filtering.
+
+**Status (2026-02-15):** Complete.
 
 ### Phase 4: Additional Source Vectors (Future)
 
 - [ ] Define source defaults for new ingestion vectors as they are built
       (e.g., `rss-feed`, `pdf-ingest`, `podcast`).
-- [ ] Consider `aidha config init --source <id>` to scaffold source-specific
+- [x] Consider `aidha config init --source <id>` to scaffold source-specific
       config sections.
 - [ ] Evaluate whether source-specific CLI sub-commands (e.g., `aidha rss`)
       should automatically register their source ID.
+
+**Status (2026-02-15):** Partially complete. RSS defaults and scaffolding exist.
+Additional sources and auto-registration for new commands remain future work.
 
 ---
 
