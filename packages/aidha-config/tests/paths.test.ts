@@ -168,8 +168,9 @@ describe('resolvePathValues', () => {
 
     resolvePathValues(config as Record<string, unknown>, baseDir);
 
-    expect(config.profiles.default.list[0].cache_dir).toBe(resolve(baseDir, './cache-a'));
-    expect(config.profiles.default.list[1].cache_dir).toBe(resolve(baseDir, './cache-b'));
+    // Array payloads outside schema-qualified config paths are left untouched.
+    expect(config.profiles.default.list[0].cache_dir).toBe('./cache-a');
+    expect(config.profiles.default.list[1].cache_dir).toBe('./cache-b');
     expect(config.profiles.default.list[1].model).toBe('gpt-4o');
   });
 
@@ -188,5 +189,31 @@ describe('resolvePathValues', () => {
 
     expect(config.base_dir).toBe('subproject');
     expect(config.profiles.default.db).toBe(resolve(finalBaseDir, './out/test.sqlite'));
+  });
+
+  it('should not resolve extension payload keys based on leaf-name collisions', () => {
+    const config = {
+      extensions: {
+        my_plugin: {
+          out_dir: './plugin-out',
+          db: './plugin-db.sqlite',
+        },
+      },
+      profiles: {
+        default: {
+          extensions: {
+            inner: {
+              cache_dir: './plugin-cache',
+            },
+          },
+        },
+      },
+    };
+
+    resolvePathValues(config as Record<string, unknown>, baseDir);
+
+    expect(config.extensions.my_plugin.out_dir).toBe('./plugin-out');
+    expect(config.extensions.my_plugin.db).toBe('./plugin-db.sqlite');
+    expect(config.profiles.default.extensions.inner.cache_dir).toBe('./plugin-cache');
   });
 });

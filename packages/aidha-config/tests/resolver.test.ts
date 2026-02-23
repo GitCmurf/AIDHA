@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolveConfig, deepMerge } from '../src/resolver.js';
 import type { AidhaConfig } from '../src/types.js';
+import { resolve } from 'node:path';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ describe('resolveConfig — five-tier merge', () => {
     expect(resolved.llm.model).toBe('gpt-4o-mini');
     expect(resolved.editor.version).toBe('v2');
     expect(resolved.extraction.maxClaims).toBe(15);
-    expect(resolved.db).toBe('./out/aidha.sqlite');
+    expect(resolved.db).toBe(resolve(process.cwd(), './out/aidha.sqlite'));
   });
 
   it('Tier 4: system default profile overrides hardcoded', () => {
@@ -168,7 +169,7 @@ describe('resolveConfig — five-tier merge', () => {
     expect(resolved.llm.model).toBe('tier1-model');            // Tier 1
     expect(resolved.editor.version).toBe('v1');                // Tier 2
     expect(resolved.extraction.promptVersion).toBe('tier3-prompt'); // Tier 3
-    expect(resolved.db).toBe('./tier4.sqlite');                 // Tier 4
+    expect(resolved.db).toBe(resolve(process.cwd(), './tier4.sqlite')); // Tier 4
     expect(resolved.editor.minChars).toBe(50);                 // Tier 5
   });
 });
@@ -208,6 +209,15 @@ describe('resolveConfig — edge cases', () => {
   it('should use cwd as default baseDir', () => {
     const resolved = resolveConfig();
     expect(resolved.baseDir).toBe(process.cwd());
+  });
+
+  it('should resolve hardcoded default paths relative to baseDir', () => {
+    const baseDir = '/tmp/aidha-base';
+    const resolved = resolveConfig({ baseDir });
+
+    expect(resolved.db).toBe(resolve(baseDir, './out/aidha.sqlite'));
+    expect(resolved.llm.cacheDir).toBe(resolve(baseDir, './out/cache/claims'));
+    expect(resolved.export.outDir).toBe(resolve(baseDir, './out'));
   });
 });
 
@@ -254,6 +264,18 @@ describe('resolveConfig — extensions', () => {
       cliOverrides: { extensions: { a: 2, b: 3 } },
     });
     expect(resolved.extensions?.profile).toEqual({ a: 2, b: 3 });
+  });
+
+  it('should include default profile extensions when no profileName is provided', () => {
+    const config = minimalConfig({
+      default_profile: 'local',
+      profiles: {
+        default: {},
+        local: { extensions: { by_default: true } },
+      },
+    });
+    const resolved = resolveConfig({ rawConfig: config });
+    expect(resolved.extensions?.profile).toEqual({ by_default: true });
   });
 
   it('should omit extensions when none exist', () => {

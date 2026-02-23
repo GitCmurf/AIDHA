@@ -18,6 +18,7 @@ import type {
   ResolvedConfig,
 } from './types.js';
 import { DEFAULTS } from './defaults.js';
+import { resolvePathValue } from './paths.js';
 
 // ── Deep merge helper ────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   const ytdlp = (m['ytdlp'] ?? {}) as Record<string, unknown>;
   const youtube = (m['youtube'] ?? {}) as Record<string, unknown>;
   const rss = (m['rss'] ?? {}) as Record<string, unknown>;
+  const activeProfileName = profileName ?? rawConfig?.default_profile;
 
   // Build extensions with three scopes
   const extensions: ResolvedConfig['extensions'] = {};
@@ -187,8 +189,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       extensions.source = { ...srcExt };
     }
   }
-  if (rawConfig && profileName) {
-    const profExt = rawConfig.profiles?.[profileName]?.extensions;
+  if (rawConfig && activeProfileName) {
+    const profExt = rawConfig.profiles?.[activeProfileName]?.extensions;
     if (profExt && Object.keys(profExt).length > 0) {
       extensions.profile = { ...profExt };
     }
@@ -202,13 +204,13 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   return {
     baseDir,
-    db: (m['db'] as string) ?? '',
+    db: resolvePathValue((m['db'] as string) ?? '', baseDir),
     llm: {
       model: (llm['model'] as string) ?? '',
       apiKey: (llm['api_key'] as string) ?? '',
       baseUrl: (llm['base_url'] as string) ?? '',
       timeoutMs: (llm['timeout_ms'] as number) ?? 0,
-      cacheDir: (llm['cache_dir'] as string) ?? '',
+      cacheDir: resolvePathValue((llm['cache_dir'] as string) ?? '', baseDir),
     },
     editor: {
       version: (editor['version'] as string) ?? '',
@@ -226,12 +228,12 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       promptVersion: (extraction['prompt_version'] as string) ?? '',
     },
     export: {
-      outDir: (exp['out_dir'] as string) ?? '',
+      outDir: resolvePathValue((exp['out_dir'] as string) ?? '', baseDir),
       sourcePrefix: (exp['source_prefix'] as string) ?? '',
     },
     ytdlp: {
-      bin: (ytdlp['bin'] as string) ?? '',
-      cookiesFile: (ytdlp['cookies_file'] as string) ?? '',
+      bin: resolvePathValue((ytdlp['bin'] as string) ?? '', baseDir),
+      cookiesFile: resolvePathValue((ytdlp['cookies_file'] as string) ?? '', baseDir),
       timeoutMs: (ytdlp['timeout_ms'] as number) ?? 0,
       jsRuntimes: (ytdlp['js_runtimes'] as string) ?? '',
       keepFiles: (ytdlp['keep_files'] as boolean) ?? false,

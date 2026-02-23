@@ -186,4 +186,23 @@ describe('resolveKeyProvenance', () => {
     expect(result.provenance.tier).toBe('hardcoded');
     expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
   });
+
+  it('marks secret keys as secret for explain redaction', () => {
+    const resolvedConfig = resolveConfig({
+      baseDir: process.cwd(),
+    });
+
+    const llmSecret = resolveKeyProvenance({
+      key: 'llm.apiKey',
+      resolvedConfig,
+    });
+    const ytSecret = resolveKeyProvenance({
+      key: 'youtube.innertubeApiKey',
+      resolvedConfig,
+    });
+
+    expect(llmSecret.provenance.isSecret).toBe(true);
+    expect(ytSecret.provenance.isSecret).toBe(true);
+    expect(formatProvenance(llmSecret.provenance, 'sk-live-secret')).toContain('********');
+  });
 });

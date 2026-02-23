@@ -8,6 +8,7 @@
  */
 
 import { DEFAULTS } from './defaults.js';
+import { isSecretKey } from './redact.js';
 import type { AidhaConfig, Profile, ResolvedConfig } from './types.js';
 
 /** The five configuration tiers, from highest to lowest priority. */
@@ -154,6 +155,8 @@ export function resolveKeyProvenance(
 ): KeyProvenanceResult {
   const { key, rawConfig, resolvedConfig, cliOverrides, profileName, sourceId } = options;
   const altKey = toSnakeCasePath(key);
+  const keyLeaf = key.split('.').at(-1) ?? key;
+  const altKeyLeaf = altKey.split('.').at(-1) ?? altKey;
   const has = (obj: unknown): boolean => deepHas(obj, key) || deepHas(obj, altKey);
 
   const defaultProfileName = rawConfig?.default_profile ?? 'default';
@@ -193,7 +196,7 @@ export function resolveKeyProvenance(
   const provenance = createProvenance(key, tier, {
     profileName: provenanceProfileName,
     sourceId: provenanceSourceId,
-  });
+  }, isSecretKey(key) || isSecretKey(altKey) || isSecretKey(keyLeaf) || isSecretKey(altKeyLeaf));
 
   const value = deepGet(resolvedConfig, key);
   return { value, provenance };

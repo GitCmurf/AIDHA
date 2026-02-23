@@ -53,42 +53,7 @@ export function computeFinalBaseDir(
 let _pathKeys: string[] | undefined;
 
 export function getPathAnnotatedKeys(): string[] {
-  if (_pathKeys) return _pathKeys;
-
-  const schema = loadSchema();
-  const paths: string[] = [];
-
-  function walk(obj: unknown, jsonPath: string): void {
-    if (obj === null || typeof obj !== 'object') return;
-    const record = obj as Record<string, unknown>;
-
-    if (record['x-aidha-path'] === true && jsonPath !== '') {
-      paths.push(jsonPath);
-    }
-
-    // Walk into `properties`
-    if (typeof record['properties'] === 'object' && record['properties'] !== null) {
-      for (const [key, val] of Object.entries(record['properties'] as Record<string, unknown>)) {
-        walk(val, jsonPath ? `${jsonPath}.${key}` : key);
-      }
-    }
-
-    // Walk into `$defs`
-    if (typeof record['$defs'] === 'object' && record['$defs'] !== null) {
-      for (const [, val] of Object.entries(record['$defs'] as Record<string, unknown>)) {
-        walk(val, jsonPath);
-      }
-    }
-
-    // Walk into `additionalProperties` when it references a $def
-    if (typeof record['additionalProperties'] === 'object' && record['additionalProperties'] !== null) {
-      walk(record['additionalProperties'], jsonPath);
-    }
-  }
-
-  walk(schema, '');
-  _pathKeys = paths;
-  return paths;
+  return getPathPatterns().map((segments) => segments.join('.'));
 }
 
 /**
@@ -134,28 +99,27 @@ export function resolvePathValues<T extends Record<string, unknown>>(
   config: T,
   baseDir: string,
 ): T {
-  // Extract leaf property names that are path-annotated in any $def
-  const pathLeafNames = getPathLeafNames();
+  const pathPatterns = getPathPatterns();
 
-  function walk(obj: unknown, currentPath: string): void {
+  function walk(obj: unknown, currentPath: string[]): void {
     if (obj === null || typeof obj !== 'object') return;
 
     if (Array.isArray(obj)) {
       for (const item of obj) {
-        walk(item, currentPath);
+        walk(item, [...currentPath, '*']);
       }
       return;
     }
 
     const record = obj as Record<string, unknown>;
     for (const [key, value] of Object.entries(record)) {
-      const nextPath = currentPath ? `${currentPath}.${key}` : key;
+      const nextPath = [...currentPath, key];
       // `base_dir` has dedicated resolution semantics in loader.ts and should
       // never be re-resolved here.
-      if (nextPath === 'base_dir') {
+      if (nextPath.length === 1 && nextPath[0] === 'base_dir') {
         continue;
       }
-      if (typeof value === 'string' && pathLeafNames.has(key)) {
+      if (typeof value === 'string' && pathPatterns.some((pattern) => matchesPathPattern(pattern, nextPath))) {
         record[key] = resolvePathValue(value, baseDir);
       } else if (typeof value === 'object' && value !== null) {
         walk(value, nextPath);
@@ -163,43 +127,73 @@ export function resolvePathValues<T extends Record<string, unknown>>(
     }
   }
 
-  walk(config, '');
+  walk(config, []);
   return config;
 }
 
 /**
- * Extract the set of leaf property names that have `x-aidha-path: true`
- * from the schema's `$defs` and top-level properties.
+ * Extract full schema-qualified path patterns for fields annotated with
+ * `x-aidha-path: true`.
+ *
+ * Uses `*` for dynamic object keys coming from `additionalProperties`.
  */
-let _pathLeafNames: Set<string> | undefined;
+type PathPattern = string[];
+let _pathPatterns: PathPattern[] | undefined;
 
-function getPathLeafNames(): Set<string> {
-  if (_pathLeafNames) return _pathLeafNames;
+function getPathPatterns(): PathPattern[] {
+  if (_pathPatterns) return _pathPatterns;
 
   const schema = loadSchema();
-  const names = new Set<string>();
+  const defs =
+    schema !== null &&
+    typeof schema === 'object' &&
+    (schema as Record<string, unknown>)['$defs'] !== null &&
+    typeof (schema as Record<string, unknown>)['$defs'] === 'object'
+      ? ((schema as Record<string, unknown>)['$defs'] as Record<string, unknown>)
+      : {};
+  const patterns: PathPattern[] = [];
 
-  function walk(obj: unknown): void {
+  function deref(obj: unknown): unknown {
     if (obj === null || typeof obj !== 'object') return;
     const record = obj as Record<string, unknown>;
+    const ref = record['$ref'];
+    if (typeof ref !== 'string' || !ref.startsWith('#/$defs/')) return obj;
+    const defName = ref.slice('#/$defs/'.length);
+    return defs[defName];
+  }
+
+  function walk(obj: unknown, path: string[]): void {
+    const dereferenced = deref(obj);
+    if (dereferenced === null || typeof dereferenced !== 'object') return;
+    const record = dereferenced as Record<string, unknown>;
+
+    if (record['x-aidha-path'] === true && path.length > 0) {
+      patterns.push(path);
+    }
 
     if (typeof record['properties'] === 'object' && record['properties'] !== null) {
       for (const [key, val] of Object.entries(record['properties'] as Record<string, unknown>)) {
-        if (val !== null && typeof val === 'object' && (val as Record<string, unknown>)['x-aidha-path'] === true) {
-          names.add(key);
-        }
-        walk(val);
+        walk(val, [...path, key]);
       }
     }
 
-    if (typeof record['$defs'] === 'object' && record['$defs'] !== null) {
-      for (const [, val] of Object.entries(record['$defs'] as Record<string, unknown>)) {
-        walk(val);
-      }
+    const additionalProperties = record['additionalProperties'];
+    if (additionalProperties !== null && typeof additionalProperties === 'object') {
+      walk(additionalProperties, [...path, '*']);
     }
   }
 
-  walk(schema);
-  _pathLeafNames = names;
-  return names;
+  walk(schema, []);
+  _pathPatterns = patterns;
+  return patterns;
+}
+
+function matchesPathPattern(pattern: PathPattern, actualPath: string[]): boolean {
+  if (pattern.length !== actualPath.length) return false;
+  for (let idx = 0; idx < pattern.length; idx += 1) {
+    if (pattern[idx] !== '*' && pattern[idx] !== actualPath[idx]) {
+      return false;
+    }
+  }
+  return true;
 }

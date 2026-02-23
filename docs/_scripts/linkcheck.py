@@ -14,6 +14,12 @@ from typing import Dict, Any
 DOCS = pathlib.Path(__file__).resolve().parents[2] / "docs"
 REPORT = DOCS / "01-indices" / "linkcheck-report.json"
 URL_PATTERN = re.compile(r"https?://[\w\-._~:/?#\[\]@!$&'()*+,;=%]+", re.IGNORECASE)
+SKIP_HOST_PATTERN = re.compile(r"^https?://(?:www\.)?(youtube\.com|youtu\.be)/", re.IGNORECASE)
+SKIP_EXACT_URLS = {
+    # Service endpoints and schema IDs can be valid yet unavailable/rate-limited in CI.
+    "https://api.openai.com/v1",
+    "https://github.com/GitCmurf/AIDHA/blob/main/packages/aidha-config/schema/config.schema.json",
+}
 TIMEOUT = 5
 
 
@@ -67,6 +73,28 @@ def main() -> int:
                     "status": "skipped",
                     "http_status": None,
                     "error": "skipped_localhost",
+                }
+            )
+            continue
+        if url in SKIP_EXACT_URLS:
+            results.append(
+                {
+                    "url": url,
+                    "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "status": "skipped",
+                    "http_status": None,
+                    "error": "skipped_known_endpoint",
+                }
+            )
+            continue
+        if SKIP_HOST_PATTERN.match(url):
+            results.append(
+                {
+                    "url": url,
+                    "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "status": "skipped",
+                    "http_status": None,
+                    "error": "skipped_unstable_host",
                 }
             )
             continue
