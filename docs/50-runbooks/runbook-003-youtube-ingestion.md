@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-02-15
-version: '1.16'
+last_updated: 2026-02-23
+version: '1.17'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.16
-> **Last Updated:** 2026-02-15
+> **Version:** 1.17
+> **Last Updated:** 2026-02-23
 > **Type:** RUNBOOK
 
 ## Version History
@@ -47,6 +47,7 @@ docops_version: '2.0'
 | 1.14    | 2026-02-09 | AI     | Add claims purge operation for clean reruns | — | Draft | — |
 | 1.15    | 2026-02-09 | AI     | Add source-prefixed export filename defaults | — | Draft | — |
 | 1.16    | 2026-02-15 | AI     | Document config file setup for ingestion runs | — | Draft | — |
+| 1.17    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 
 ## Purpose
 
@@ -101,7 +102,7 @@ auditing steps.
 
    ```bash
    pnpm -C packages/praecis/youtube cli preflight youtube \
-     --probe-url https://www.youtube.com/watch?v=<id> \
+     --probe-url <video-url> \
      --json
    ```
 
@@ -111,7 +112,7 @@ auditing steps.
    pnpm -C packages/praecis/youtube cli fixtures import-ttml \
      ./testdata/youtube_golden/raw/<videoId>.en-orig.ttml \
      --video-id <videoId> \
-     --source-url https://www.youtube.com/watch?v=<videoId> \
+     --source-url <video-url> \
      --out ./testdata/youtube_golden/<videoId>.excerpts.json \
      --pretty
    ```
@@ -229,7 +230,7 @@ auditing steps.
    For LLM-backed claims:
 
    ```bash
-   AIDHA_LLM_BASE_URL=https://your-llm-endpoint/v1 \
+   AIDHA_LLM_BASE_URL=<llm-base-url> \
    AIDHA_LLM_API_KEY=... \
    pnpm -C packages/praecis/youtube cli extract claims <url> \
      --llm \

@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-02-09
-version: '0.24'
+last_updated: 2026-02-23
+version: '0.25'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.24
-> **Last Updated:** 2026-02-09
+> **Version:** 0.25
+> **Last Updated:** 2026-02-23
 > **Type:** GUIDE
 
 ## Version History
@@ -46,6 +46,7 @@ docops_version: '2.0'
 | 0.22    | 2026-02-09 | AI     | Refresh fixture workflow details and timestamp metadata | — | Draft | — |
 | 0.23    | 2026-02-09 | AI     | Add claims purge command for clean extraction reruns | — | Draft | — |
 | 0.24    | 2026-02-09 | AI     | Add source-prefixed default export filenames | — | Draft | — |
+| 0.25    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 
 ## Purpose
 
@@ -73,19 +74,19 @@ Optional:
 1. **Ingest**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli ingest video https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli ingest video <video-url>
    ```
 
 2. **Check ingestion status**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli ingest status https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli ingest status <video-url>
    ```
 
    Add `--json` for machine-readable output:
 
    ```bash
-   pnpm -C packages/praecis/youtube cli ingest status https://youtu.be/<id> --json
+   pnpm -C packages/praecis/youtube cli ingest status <video-url> --json
    ```
 
 3. **Run environment preflight**
@@ -98,14 +99,14 @@ Optional:
 
    ```bash
    pnpm -C packages/praecis/youtube cli preflight youtube \
-     --probe-url https://www.youtube.com/watch?v=<id> \
+     --probe-url <video-url> \
      --json
    ```
 
 4. **Extract claims**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli extract claims <video-url>
    ```
 
    Claims default to `state=accepted`. Query and dossier export only include
@@ -114,9 +115,9 @@ Optional:
    LLM-backed extraction (optional):
 
    ```bash
-   AIDHA_LLM_BASE_URL=https://your-llm-endpoint/v1 \
+   AIDHA_LLM_BASE_URL=<llm-base-url> \
    AIDHA_LLM_API_KEY=... \
-   pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id> \
+   pnpm -C packages/praecis/youtube cli extract claims <video-url> \
      --llm \
      --model your-model \
      --editor-version v2 \
@@ -141,7 +142,7 @@ Optional:
 5. **Export dossier**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli export dossier video https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli export dossier video <video-url>
    ```
 
    Default output path: `./out/dossier-youtube-<id>.md`
@@ -149,7 +150,7 @@ Optional:
    Split accepted vs draft-inclusive outputs:
 
    ```bash
-   pnpm -C packages/praecis/youtube cli export dossier video https://youtu.be/<id> \
+   pnpm -C packages/praecis/youtube cli export dossier video <video-url> \
      --split-states \
      --out ./out/dossier-<id>.md
    ```
@@ -162,7 +163,7 @@ Optional:
 6. **Export transcript JSON**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli export transcript video https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli export transcript video <video-url>
    ```
 
    Default output path: `./out/transcript-youtube-<id>.json`
@@ -170,7 +171,7 @@ Optional:
    Override prefix if needed:
 
    ```bash
-   pnpm -C packages/praecis/youtube cli export transcript video https://youtu.be/<id> \
+   pnpm -C packages/praecis/youtube cli export transcript video <video-url> \
      --source-prefix yt
    ```
 
@@ -219,7 +220,7 @@ Optional:
 - **Purge existing claims for a clean rerun (optional)**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli claims purge https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli claims purge <video-url>
    ```
 
    This removes `Claim` nodes for the video and cascades related claim edges.
@@ -228,7 +229,7 @@ Optional:
 - **Review drafts in batches**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli review next https://youtu.be/<id> --state draft --limit 10
+   pnpm -C packages/praecis/youtube cli review next <video-url> --state draft --limit 10
    ```
 
    ```bash
@@ -241,9 +242,9 @@ Optional:
 - **Run diagnostics**
 
    ```bash
-   pnpm -C packages/praecis/youtube cli diagnose transcript https://youtu.be/<id>
-   pnpm -C packages/praecis/youtube cli diagnose extract https://youtu.be/<id>
-   pnpm -C packages/praecis/youtube cli diagnose editor https://youtu.be/<id>
+   pnpm -C packages/praecis/youtube cli diagnose transcript <video-url>
+   pnpm -C packages/praecis/youtube cli diagnose extract <video-url>
+   pnpm -C packages/praecis/youtube cli diagnose editor <video-url>
    ```
 
    Note: `diagnose transcript` exits with code `2` when JS runtime support for `yt-dlp`
@@ -268,7 +269,7 @@ Optional:
    pnpm -C packages/praecis/youtube cli fixtures import-ttml \
      ./testdata/youtube_golden/raw/<videoId>.en-orig.ttml \
      --video-id <videoId> \
-     --source-url https://www.youtube.com/watch?v=<videoId> \
+     --source-url <video-url> \
      --out ./testdata/youtube_golden/<videoId>.excerpts.json \
      --pretty
    ```
@@ -279,7 +280,7 @@ When direct YouTube transcript fetches fail, ingestion falls back to `yt-dlp`. Y
 per run:
 
 ```bash
-pnpm -C packages/praecis/youtube cli ingest video https://youtu.be/<id> \
+pnpm -C packages/praecis/youtube cli ingest video <video-url> \
   --ytdlp-cookies /path/to/cookies.txt \
   --ytdlp-keep
 ```

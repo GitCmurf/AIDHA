@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-004
 owner: Ingestion Team
 status: Draft
-version: '0.2'
-last_updated: 2026-02-08
+version: '0.3'
+last_updated: 2026-02-23
 title: LLM Claim Extraction Guide
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-02-08
+> **Version:** 0.3
+> **Last Updated:** 2026-02-23
 > **Type:** GUIDE
 
 # LLM Claim Extraction Guide
@@ -26,6 +26,7 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | --------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2026-02-06 | AI     | Initial LLM extraction guide            | —         | Draft  | —         |
 | 0.2     | 2026-02-08 | AI     | Add offline golden fixture workflow and invariant checks | — | Draft | — |
+| 0.3     | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 
 ## Purpose
 
@@ -42,7 +43,7 @@ Document LLM-specific extraction controls, cache behavior, and review workflow c
 ## Run Extraction
 
 ```bash
-pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id> \
+pnpm -C packages/praecis/youtube cli extract claims <video-url> \
   --llm \
   --model <model> \
   --claims 15 \
@@ -74,7 +75,7 @@ pnpm -C packages/praecis/youtube cli extract claims https://youtu.be/<id> \
 ## Review and Curation Commands
 
 ```bash
-pnpm -C packages/praecis/youtube cli review next https://youtu.be/<id> --state draft --limit 10
+pnpm -C packages/praecis/youtube cli review next <video-url> --state draft --limit 10
 ```
 
 ```bash
@@ -88,8 +89,8 @@ pnpm -C packages/praecis/youtube cli review apply \
 ## Diagnostics
 
 ```bash
-pnpm -C packages/praecis/youtube cli diagnose transcript https://youtu.be/<id>
-pnpm -C packages/praecis/youtube cli diagnose extract https://youtu.be/<id>
+pnpm -C packages/praecis/youtube cli diagnose transcript <video-url>
+pnpm -C packages/praecis/youtube cli diagnose extract <video-url>
 ```
 
 `diagnose extract` reports claim state distribution, method counts, and provenance gaps.

@@ -7,6 +7,7 @@ import pathlib
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 from typing import Dict, Any
 
@@ -18,20 +19,27 @@ TIMEOUT = 5
 
 def check_url(url: str) -> Dict[str, Any]:
     def fetch(method: str) -> tuple[int | None, str | None]:
-        req = urllib.request.Request(url, method=method)
+        req = urllib.request.Request(
+            url,
+            method=method,
+            headers={"User-Agent": "AIDHA-linkcheck/1.0"},
+        )
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # noqa: S310
                 return getattr(resp, "status", None), None
+        except urllib.error.HTTPError as exc:
+            return exc.code, str(exc)
         except Exception as exc:  # fall back or report
             return None, str(exc)
 
     status, error = fetch("HEAD")
     if error:
         status, error = fetch("GET")
+    reachable_statuses = {401, 403, 405, 429}
     result = {
         "url": url,
         "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "status": "ok" if status and 200 <= status < 400 else "fail",
+        "status": "ok" if status and (200 <= status < 400 or status in reachable_statuses) else "fail",
         "http_status": status,
         "error": error,
     }
@@ -42,9 +50,11 @@ def main() -> int:
     urls: set[str] = set()
     for md in DOCS.rglob("*.md"):
         text = md.read_text(encoding="utf-8", errors="ignore")
-        matches = URL_PATTERN.findall(text)
-        for match in matches:
-            cleaned = match.rstrip('\")')
+        for match in URL_PATTERN.finditer(text):
+            if match.start() >= 4 and text[match.start() - 4:match.start()] == "git+":
+                # pip VCS URL form (git+https://...) is not a browsable HTTP endpoint.
+                continue
+            cleaned = match.group(0).rstrip('\")')
             urls.add(cleaned)
     results = []
     failures = 0
