@@ -64,6 +64,19 @@ describe('discoverConfigPath', () => {
     const path = discoverConfigPath(undefined, tmpDir);
     expect(path).toBeNull();
   });
+
+  it('should use caller env for XDG_CONFIG_HOME discovery', () => {
+    const xdgHome = join(tmpDir, 'xdg-home');
+    const xdgConfig = join(xdgHome, 'aidha', 'config.yaml');
+    mkdirSync(dirname(xdgConfig), { recursive: true });
+    writeFileSync(xdgConfig, MINIMAL_YAML, 'utf-8');
+
+    const path = discoverConfigPath(undefined, tmpDir, {
+      XDG_CONFIG_HOME: xdgHome,
+    });
+
+    expect(path).toBe(xdgConfig);
+  });
 });
 
 // ── loadConfig ───────────────────────────────────────────────────────────────
@@ -150,6 +163,54 @@ profiles:
       env: { TEST_API_KEY: 'sk-test-key' },
     });
     expect(result.config!.profiles['default']?.llm?.api_key).toBe('sk-test-key');
+  });
+
+  it('should respect caller env for XDG discovery in loadConfig', async () => {
+    const processXdgHome = join(tmpDir, 'xdg-process');
+    const callerXdgHome = join(tmpDir, 'xdg-caller');
+
+    mkdirSync(join(processXdgHome, 'aidha'), { recursive: true });
+    mkdirSync(join(callerXdgHome, 'aidha'), { recursive: true });
+
+    writeFileSync(
+      join(processXdgHome, 'aidha', 'config.yaml'),
+      `
+config_version: 1
+default_profile: process
+profiles:
+  process: {}
+`,
+      'utf-8',
+    );
+    writeFileSync(
+      join(callerXdgHome, 'aidha', 'config.yaml'),
+      `
+config_version: 1
+default_profile: caller
+profiles:
+  caller: {}
+`,
+      'utf-8',
+    );
+
+    const originalXdg = process.env['XDG_CONFIG_HOME'];
+    process.env['XDG_CONFIG_HOME'] = processXdgHome;
+
+    try {
+      const result = await loadConfig({
+        cwd: tmpDir,
+        env: { XDG_CONFIG_HOME: callerXdgHome },
+      });
+
+      expect(result.configPath).toBe(join(callerXdgHome, 'aidha', 'config.yaml'));
+      expect(result.config!.default_profile).toBe('caller');
+    } finally {
+      if (originalXdg === undefined) {
+        delete process.env['XDG_CONFIG_HOME'];
+      } else {
+        process.env['XDG_CONFIG_HOME'] = originalXdg;
+      }
+    }
   });
 });
 

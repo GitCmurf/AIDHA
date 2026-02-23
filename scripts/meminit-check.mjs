@@ -15,18 +15,37 @@ function resolveMeminitCommand() {
 }
 
 function runAndExit(command, args) {
-    const result = spawnSync(command, args, { stdio: 'inherit' });
+    let result = spawnSync(command, args, { stdio: 'inherit' });
+    if (result.error && command !== 'meminit') {
+        result = spawnSync('meminit', args, { stdio: 'inherit' });
+    }
     process.exit(typeof result.status === 'number' ? result.status : 1);
 }
 
 function globToRegex(glob) {
     const normalized = glob.replace(/\\/g, '/').replace(/^\.\//, '');
-    const escaped = normalized.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-    const withWildcards = escaped
-        .replace(/\\\*\\\*/g, '.*')
-        .replace(/\\\*/g, '[^/]*')
-        .replace(/\\\?/g, '.');
-    return new RegExp(`^${withWildcards}$`);
+    const escapeRegexChar = (char) => char.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+
+    let pattern = '';
+    for (let index = 0; index < normalized.length; index += 1) {
+        const char = normalized[index];
+        if (char === '*') {
+            if (normalized[index + 1] === '*') {
+                pattern += '.*';
+                index += 1;
+            } else {
+                pattern += '[^/]*';
+            }
+            continue;
+        }
+        if (char === '?') {
+            pattern += '[^/]';
+            continue;
+        }
+        pattern += escapeRegexChar(char);
+    }
+
+    return new RegExp(`^${pattern}$`);
 }
 
 const patterns = process.argv.slice(2);
@@ -41,6 +60,16 @@ const result = spawnSync(
     ['check', '--root', '.', '--format', 'json'],
     { encoding: 'utf-8' },
 );
+if (result.error && meminitCommand !== 'meminit') {
+    const fallbackResult = spawnSync(
+        'meminit',
+        ['check', '--root', '.', '--format', 'json'],
+        { encoding: 'utf-8' },
+    );
+    if (!fallbackResult.error || fallbackResult.status !== null) {
+        Object.assign(result, fallbackResult);
+    }
+}
 
 if (result.error) {
     // eslint-disable-next-line no-console

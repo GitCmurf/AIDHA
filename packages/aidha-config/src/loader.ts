@@ -81,6 +81,7 @@ export class ConfigNotFoundError extends Error {
 export function discoverConfigPath(
   envOverride?: string,
   cwd = process.cwd(),
+  env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
 ): string | null {
   // 1. Explicit env override
   if (envOverride) {
@@ -93,7 +94,7 @@ export function discoverConfigPath(
   if (existsSync(projectLocal)) return projectLocal;
 
   // 3. XDG_CONFIG_HOME
-  const xdgHome = process.env['XDG_CONFIG_HOME'];
+  const xdgHome = env['XDG_CONFIG_HOME'];
   if (xdgHome) {
     const xdgPath = join(xdgHome, 'aidha', 'config.yaml');
     if (existsSync(xdgPath)) return xdgPath;
@@ -178,6 +179,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
   const configPath = discoverConfigPath(
     explicitPath,
     cwd,
+    env,
   );
 
   if (!configPath) {

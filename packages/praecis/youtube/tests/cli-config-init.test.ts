@@ -122,7 +122,7 @@ describe('CLI Config Init (Phase 2A)', () => {
 
     expect(parsed.sources).toBeDefined();
     expect(parsed.sources.rss).toBeDefined();
-    expect(parsed.sources.rss.poll_interval_minutes).toBe(60);
+    expect(parsed.sources.rss.rss.poll_interval_minutes).toBe(60);
 
     // Profile 'local' should not have 'rss'
     expect(parsed.profiles.local.rss).toBeUndefined();
