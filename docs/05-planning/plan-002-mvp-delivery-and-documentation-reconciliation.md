@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-002
 owner: Product
 status: Draft
-version: "0.2"
-last_updated: 2026-02-19
+version: "0.4"
+last_updated: 2026-02-22
 title: MVP Delivery Plan and Documentation Reconciliation
 type: PLAN
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Product
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-02-19
+> **Version:** 0.4
+> **Last Updated:** 2026-02-22
 > **Type:** PLAN
 
 # MVP Delivery Plan and Documentation Reconciliation
@@ -27,6 +27,8 @@ docops_version: "2.0"
 | ------- | ---------- | ------ | -------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2026-02-10 | AI     | MVP implementation pland and doc audit | —         | Draft  | —         |
 | 0.2     | 2026-02-19 | AI     | Reconcile stale backend parity/golden test tasks with current passing suites. | — | Draft | — |
+| 0.3     | 2026-02-20 | AI     | Record acceptance artifacts, release notes/changelog updates, and baseline tag. | — | Draft | — |
+| 0.4     | 2026-02-22 | AI     | Complete release gate verification and readiness checklist review. | — | Draft | — |
 
 ## Purpose
 
@@ -125,19 +127,20 @@ Out of scope for MVP:
 
 The implementation backlog for MVP scope is complete. Remaining delivery tasks are release tasks:
 
-- [ ] Run final end-to-end acceptance run on target fixture/video set and archive outputs.
+- [x] Run final end-to-end acceptance run on target fixture/video set and archive outputs.
 - [x] Resolve open review findings in `packages/reconditum` (Gephi export filtering + stats parity).
-- [ ] Cut MVP release notes and tag a baseline commit.
+- [x] Cut MVP release notes and tag a baseline commit.
 - [x] Golden tests (offline fixture invariants + determinism).
-- [ ] Readiness review for public GitHub commit
+- [x] Readiness review for public GitHub commit
 
 ## Delivery Task List (Codex-executable)
 
 ### Phase A: Final acceptance run
 
-- [ ] Execute ingest -> extract -> refs -> export -> query on agreed test videos.
-- [ ] Capture command transcript and generated artifacts in `docs/01-indices/` or release notes.
-- [ ] Verify deterministic rerun behavior for unchanged input.
+- [x] Execute ingest -> extract -> refs -> export -> query on agreed test videos.
+- [x] Capture command transcript and generated artifacts in
+  `docs/55-testing/acceptance-run-20260220/` and release notes.
+- [x] Verify deterministic rerun behavior for unchanged input.
 
 Acceptance:
 
@@ -155,13 +158,25 @@ Acceptance:
 
 ### Phase C: Release packaging
 
-- [ ] Update changelog and release summary docs.
-- [ ] Confirm docs and tests are green (`pre-commit`, `meminit check`, `pnpm docs:build`).
-- [ ] Tag MVP baseline commit and publish the delivery note.
+- [x] Update changelog and release summary docs.
+- [x] Confirm docs and tests are green (`pre-commit`, `meminit check`, `pnpm docs:build`).
+- [x] Tag MVP baseline commit and publish the delivery note.
 
 Acceptance:
 
 - One auditable MVP baseline with synchronized code, tests, and docs.
+
+## Release Readiness Review (2026-02-22)
+
+- [x] Acceptance artifacts captured at
+  `docs/55-testing/acceptance-run-20260220/testing-002-acceptance-run-20260220.md`.
+- [x] Release notes authored at
+  `docs/60-devex/release-notes-001-mvp-baseline-20260220.md`.
+- [x] Baseline tag created: `mvp-baseline-20260220`.
+- [x] Changelog synchronized at `docs/60-devex/changelog.md` and `CHANGELOG.md`.
+- [x] Release gates run locally:
+  `pre-commit run --all-files`, `meminit check --root .`, `pnpm docs:build`.
+- [x] Meminit status: 0 violations, 0 warnings.
 
 ## Risks and Controls
 

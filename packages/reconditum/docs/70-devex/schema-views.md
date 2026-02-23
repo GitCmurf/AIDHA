@@ -1,4 +1,29 @@
-# SQLite VIEWs — Graph Inspection
+---
+document_id: RECON-REF-002
+owner: Reconditum Maintainers
+status: Draft
+version: '0.1'
+last_updated: 2026-02-22
+title: SQLite VIEWs - Graph Inspection
+type: REF
+docops_version: '2.0'
+---
+<!-- MEMINIT_METADATA_BLOCK -->
+> **Document ID:** RECON-REF-002
+> **Owner:** Reconditum Maintainers
+> **Approvers:** —
+> **Status:** Draft
+> **Version:** 0.1
+> **Last Updated:** 2026-02-22
+> **Type:** REF
+
+# SQLite VIEWs - Graph Inspection
+
+## Version History
+
+| Version | Date       | Author | Change Summary                | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | ----------------------------- | --------- | ------ | --------- |
+| 0.1     | 2026-02-22 | AI     | Add DocOps metadata baseline. | —         | Draft  | —         |
 
 The `SQLiteStore` creates three read-only VIEWs on initialization to simplify
 graph inspection without building a graphical interface.

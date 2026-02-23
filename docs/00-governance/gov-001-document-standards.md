@@ -2,8 +2,8 @@
 document_id: AIDHA-GOV-001
 owner: Repo Maintainers
 status: Draft
-version: '1.1'
-last_updated: 2025-12-27
+version: '1.2'
+last_updated: 2026-02-22
 title: Repository Document Standards
 type: GOV
 docops_version: '2.0'
@@ -12,11 +12,11 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-GOV-001
 > **Owner:** Repo Maintainers
 > **Status:** Draft
-> **Version:** 1.1
-> **Last Updated:** 2025-12-27
+> **Version:** 1.2
+> **Last Updated:** 2026-02-22
 > **Type:** GOV
 
-# Repository Document Standards (v1.0)
+# Repository Document Standards (v1.2)
 
 These standards implement the organisation-wide **DocOps Constitution v2.0** for this repository.
 
@@ -26,6 +26,7 @@ These standards implement the organisation-wide **DocOps Constitution v2.0** for
 | ------- | ---------- | ------ | ------------------------------------------- | --------- | ------ | --------- |
 | 1.0     | 2025-12-27 | CMF    | Adopt Meminit governance baseline           | —         | Draft  | —         |
 | 1.1     | 2025-12-27 | CMF    | Add required Version History for validation | —         | Draft  | —         |
+| 1.2     | 2026-02-22 | CMF    | Document meminit local install guidance     | —         | Draft  | —         |
 
 ---
 
@@ -36,6 +37,12 @@ The validation of these standards is automated via the `meminit` CLI.
 * `meminit check`: Validates directory structure, filenames, and frontmatter.
 * `meminit fix`: Automatically corrects common violations (e.g., filenames, missing/invalid required
   frontmatter fields).
+
+For repo-local reproducibility, install `meminit` into the project virtual environment and ensure
+`./.venv/bin` resolves before global tools when running DocOps checks.
+
+Example:
+`pip install "git+https://github.com/GitCmurf/meminit.git@v0.2.0"`
 
 Failures in `meminit check` will block commits via pre-commit hooks.
 
