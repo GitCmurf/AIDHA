@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -91,5 +91,18 @@ describe('yt-dlp fallback', () => {
     const args = await fs.readFile(argsPath, 'utf-8');
     expect(args).toContain('--js-runtimes');
     expect(args).toContain('node');
+  });
+
+  it('returns transcript even when temp cleanup fails', async () => {
+    const rmSpy = vi
+      .spyOn(fs, 'rm')
+      .mockRejectedValueOnce(new Error('tmp directory is locked'));
+
+    const result = await fetchTranscriptWithYtDlp('test-video', config);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.fullText).toContain('Hello from yt-dlp');
+
+    rmSpy.mockRestore();
   });
 });

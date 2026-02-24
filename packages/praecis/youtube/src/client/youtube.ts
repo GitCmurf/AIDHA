@@ -50,15 +50,6 @@ export function youtubeConfigFromEnv(): YouTubeClientConfig {
 // Innertube API configuration
 const INNERTUBE_CLIENT_VERSION = '2.20240101.00.00';
 
-// Module-level active config (set by constructor or lazily from env)
-let _ytCfg: YouTubeClientConfig | undefined;
-let _ytDlpCfg: YtDlpRuntimeConfig | undefined;
-
-function activeYtCfg(): YouTubeClientConfig {
-  if (!_ytCfg) _ytCfg = youtubeDefaultConfig();
-  return _ytCfg;
-}
-
 const DEFAULT_HEADERS: Record<string, string> = {
   'User-Agent':
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -66,8 +57,8 @@ const DEFAULT_HEADERS: Record<string, string> = {
   Accept: '*/*',
 };
 
-function consentHeaders(): Record<string, string> {
-  const cookie = activeYtCfg().cookie;
+function consentHeaders(ytCfg: YouTubeClientConfig): Record<string, string> {
+  const cookie = ytCfg.cookie;
   return {
     ...DEFAULT_HEADERS,
     Cookie: cookie
@@ -76,16 +67,16 @@ function consentHeaders(): Record<string, string> {
   };
 }
 
-function buildTranscriptHeaders(videoId?: string): Record<string, string> {
-  const authHeader = buildSapisidHash('https://www.youtube.com');
+function buildTranscriptHeaders(ytCfg: YouTubeClientConfig, videoId?: string): Record<string, string> {
+  const authHeader = buildSapisidHash(ytCfg, 'https://www.youtube.com');
   if (!videoId) {
     return {
-      ...consentHeaders(),
+      ...consentHeaders(ytCfg),
       ...(authHeader ? { Authorization: authHeader } : {}),
     };
   }
   return {
-    ...consentHeaders(),
+    ...consentHeaders(ytCfg),
     Referer: `https://www.youtube.com/watch?v=${videoId}`,
     Origin: 'https://www.youtube.com',
     ...(authHeader ? { Authorization: authHeader } : {}),
@@ -97,15 +88,15 @@ function getCookieValue(cookie: string, name: string): string | undefined {
   return match?.[1];
 }
 
-function buildSapisidHash(origin: string): string | undefined {
-  const cookie = activeYtCfg().cookie;
+function buildSapisidHash(ytCfg: YouTubeClientConfig, origin: string): string | undefined {
+  const cookie = ytCfg.cookie;
   if (!cookie) return undefined;
   const sapisid =
     getCookieValue(cookie, 'SAPISID') ??
     getCookieValue(cookie, '__Secure-3PAPISID') ??
     getCookieValue(cookie, 'APISID');
   if (!sapisid) {
-    if (activeYtCfg().debugTranscript) {
+    if (ytCfg.debugTranscript) {
       // eslint-disable-next-line no-console
       console.log('[transcript] cookie missing SAPISID/APISID');
     }
@@ -253,6 +244,7 @@ function parseTimedTextTracks(xml: string, videoId: string): CaptionTrack[] {
 async function tryDirectTimedText(
   videoId: string,
   languageCode: string,
+  ytCfg: YouTubeClientConfig,
   kind?: string
 ): Promise<CaptionTrack | null> {
   try {
@@ -265,8 +257,8 @@ async function tryDirectTimedText(
     url.searchParams.set('fmt', 'srv3');
     const candidates = buildTranscriptUrls(url.toString());
     for (const candidate of candidates) {
-      const result = await fetchTranscriptSegments(candidate, videoId);
-      if (activeYtCfg().debugTranscript && result.segments.length === 0) {
+      const result = await fetchTranscriptSegments(candidate, videoId, ytCfg);
+      if (ytCfg.debugTranscript && result.segments.length === 0) {
         const preview = result.payload.slice(0, 120).replace(/\s+/g, ' ');
         // eslint-disable-next-line no-console
         console.log(
@@ -290,15 +282,18 @@ async function tryDirectTimedText(
   }
 }
 
-async function fetchCaptionTracksFromTimedText(videoId: string): Promise<Result<CaptionTrack[]>> {
+async function fetchCaptionTracksFromTimedText(
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
+): Promise<Result<CaptionTrack[]>> {
   try {
     const listUrl = `https://www.youtube.com/api/timedtext?type=list&v=${videoId}`;
-    const response = await fetch(listUrl, { headers: buildTranscriptHeaders(videoId) });
+    const response = await fetch(listUrl, { headers: buildTranscriptHeaders(ytCfg, videoId) });
     if (!response.ok) {
       return { ok: false, error: new Error(`Timedtext list failed: ${response.status}`) };
     }
     const xml = await response.text();
-    if (activeYtCfg().debugTranscript) {
+    if (ytCfg.debugTranscript) {
       const preview = xml.slice(0, 240).replace(/\s+/g, ' ');
       // eslint-disable-next-line no-console
       console.log(`[transcript] timedtext list status=${response.status} length=${xml.length}`);
@@ -307,11 +302,11 @@ async function fetchCaptionTracksFromTimedText(videoId: string): Promise<Result<
     }
     const tracks = parseTimedTextTracks(xml, videoId);
     if (tracks.length === 0) {
-      const autoTrack = await tryDirectTimedText(videoId, 'en', 'asr');
+      const autoTrack = await tryDirectTimedText(videoId, 'en', ytCfg, 'asr');
       if (autoTrack) {
         return { ok: true, value: [autoTrack] };
       }
-      const manualTrack = await tryDirectTimedText(videoId, 'en');
+      const manualTrack = await tryDirectTimedText(videoId, 'en', ytCfg);
       if (manualTrack) {
         return { ok: true, value: [manualTrack] };
       }
@@ -482,7 +477,8 @@ function parseTranscriptPayload(payload: string, fmt?: string | null): Transcrip
 
 async function fetchTranscriptSegments(
   url: string,
-  videoId: string
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
 ): Promise<{
   segments: TranscriptSegment[];
   payload: string;
@@ -492,7 +488,7 @@ async function fetchTranscriptSegments(
   contentLength: string | null;
   fmt: string | null;
 }> {
-  const response = await fetch(url, { headers: buildTranscriptHeaders(videoId) });
+  const response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
   const payload = await response.text();
   const fmt = new URL(url).searchParams.get('fmt');
   const segments =
@@ -683,10 +679,13 @@ function parseTranscriptFromGetTranscript(data: unknown): TranscriptSegment[] {
   return segments;
 }
 
-async function fetchTranscriptFromGetTranscript(videoId: string): Promise<Result<TranscriptSegment[]>> {
+async function fetchTranscriptFromGetTranscript(
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
+): Promise<Result<TranscriptSegment[]>> {
   try {
     const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: consentHeaders(),
+      headers: consentHeaders(ytCfg),
     });
     if (!response.ok) {
       return { ok: false, error: new Error(`Video page failed: ${response.status}`) };
@@ -696,12 +695,12 @@ async function fetchTranscriptFromGetTranscript(videoId: string): Promise<Result
     if (!params) {
       return { ok: false, error: new Error(`Transcript params not found for ${videoId}`) };
     }
-    if (activeYtCfg().debugTranscript) {
+    if (ytCfg.debugTranscript) {
       // eslint-disable-next-line no-console
       console.log(`[transcript] get_transcript params length=${params.length}`);
     }
     const ytcfg = extractYtcfg(html);
-    const apiKey = (ytcfg?.['INNERTUBE_API_KEY'] as string | undefined) ?? activeYtCfg().innertubeApiKey;
+    const apiKey = (ytcfg?.['INNERTUBE_API_KEY'] as string | undefined) ?? ytCfg.innertubeApiKey;
     if (!apiKey) {
       return { ok: false, error: new Error(`Innertube API key missing for ${videoId}`) };
     }
@@ -710,14 +709,14 @@ async function fetchTranscriptFromGetTranscript(videoId: string): Promise<Result
     const clientVersion = ytcfg?.['INNERTUBE_CLIENT_VERSION'] ?? INNERTUBE_CLIENT_VERSION;
     const visitorData = ytcfg?.['VISITOR_DATA'] as string | undefined;
     const origin = 'https://www.youtube.com';
-    const authHeader = buildSapisidHash(origin);
-    if (activeYtCfg().debugTranscript) {
+    const authHeader = buildSapisidHash(ytCfg, origin);
+    if (ytCfg.debugTranscript) {
       // eslint-disable-next-line no-console
       console.log(
         `[transcript] get_transcript clientName=${clientName} clientVersion=${clientVersion} ` +
         `visitorData=${visitorData ? 'yes' : 'no'}`
       );
-      if (!activeYtCfg().cookie) {
+      if (!ytCfg.cookie) {
         // eslint-disable-next-line no-console
         console.log('[transcript] get_transcript cookie missing');
       }
@@ -750,7 +749,7 @@ async function fetchTranscriptFromGetTranscript(videoId: string): Promise<Result
     );
 
     if (!transcriptResponse.ok) {
-      if (activeYtCfg().debugTranscript) {
+      if (ytCfg.debugTranscript) {
         const errorText = await transcriptResponse.text();
         const preview = errorText.slice(0, 200).replace(/\s+/g, ' ');
         // eslint-disable-next-line no-console
@@ -777,10 +776,11 @@ async function fetchTranscriptFromGetTranscript(videoId: string): Promise<Result
 async function fetchCaptionTracksFromInnertube(
   videoId: string,
   apiKey: string,
+  ytCfg: YouTubeClientConfig,
   context?: Record<string, unknown>
 ): Promise<Result<CaptionTrack[]>> {
   try {
-    const authHeader = buildSapisidHash('https://www.youtube.com');
+    const authHeader = buildSapisidHash(ytCfg, 'https://www.youtube.com');
     const response = await fetch(
       `https://www.youtube.com/youtubei/v1/player?key=${apiKey}`,
       {
@@ -833,16 +833,19 @@ async function fetchCaptionTracksFromInnertube(
   }
 }
 
-async function fetchCaptionTracksFromHtml(videoId: string): Promise<Result<CaptionTrack[]>> {
+async function fetchCaptionTracksFromHtml(
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
+): Promise<Result<CaptionTrack[]>> {
   try {
     const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: consentHeaders(),
+      headers: consentHeaders(ytCfg),
     });
     if (!response.ok) {
       return { ok: false, error: new Error(`Video page failed: ${response.status}`) };
     }
     const html = await response.text();
-    if (activeYtCfg().debugTranscript) {
+    if (ytCfg.debugTranscript) {
       // eslint-disable-next-line no-console
       console.log(`[transcript] html status=${response.status} length=${html.length}`);
     }
@@ -871,7 +874,7 @@ async function fetchCaptionTracksFromHtml(videoId: string): Promise<Result<Capti
     const apiKey = ytcfg?.['INNERTUBE_API_KEY'] as string | undefined;
     const context = ytcfg?.['INNERTUBE_CONTEXT'] as Record<string, unknown> | undefined;
     if (apiKey) {
-      const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, apiKey, context);
+      const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, apiKey, ytCfg, context);
       if (innertubeResult.ok) return innertubeResult;
     }
 
@@ -884,30 +887,36 @@ async function fetchCaptionTracksFromHtml(videoId: string): Promise<Result<Capti
 /**
  * Extract caption tracks from video page using Innertube player response.
  */
-async function fetchCaptionTracks(videoId: string): Promise<Result<CaptionTrack[]>> {
-  if (!activeYtCfg().innertubeApiKey) {
-    const htmlFallback = await fetchCaptionTracksFromHtml(videoId);
+async function fetchCaptionTracks(
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
+): Promise<Result<CaptionTrack[]>> {
+  if (!ytCfg.innertubeApiKey) {
+    const htmlFallback = await fetchCaptionTracksFromHtml(videoId, ytCfg);
     if (htmlFallback.ok) return htmlFallback;
-    return fetchCaptionTracksFromTimedText(videoId);
+    return fetchCaptionTracksFromTimedText(videoId, ytCfg);
   }
 
-  const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, activeYtCfg().innertubeApiKey!);
+  const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, ytCfg.innertubeApiKey, ytCfg);
   if (innertubeResult.ok) return innertubeResult;
-  const htmlFallback = await fetchCaptionTracksFromHtml(videoId);
+  const htmlFallback = await fetchCaptionTracksFromHtml(videoId, ytCfg);
   if (htmlFallback.ok) return htmlFallback;
-  return fetchCaptionTracksFromTimedText(videoId);
+  return fetchCaptionTracksFromTimedText(videoId, ytCfg);
 }
 
 /**
  * Real YouTube client using Innertube API (same approach as youtube-transcript-api).
  */
 export class RealYouTubeClient implements YouTubeClient {
+  private readonly ytCfg: YouTubeClientConfig;
+  private readonly ytDlpCfg?: YtDlpRuntimeConfig;
+
   constructor(
     ytConfig?: YouTubeClientConfig,
     ytDlpConfig?: YtDlpRuntimeConfig,
   ) {
-    if (ytConfig) _ytCfg = ytConfig;
-    if (ytDlpConfig) _ytDlpCfg = ytDlpConfig;
+    this.ytCfg = ytConfig ?? youtubeDefaultConfig();
+    this.ytDlpCfg = ytDlpConfig;
   }
 
   /**
@@ -963,7 +972,7 @@ export class RealYouTubeClient implements YouTubeClient {
 
     try {
       // Get caption tracks via Innertube API
-      const tracksResult = await fetchCaptionTracks(videoId);
+      const tracksResult = await fetchCaptionTracks(videoId, this.ytCfg);
       if (!tracksResult.ok) {
         return { ok: false, error: tracksResult.error };
       }
@@ -981,7 +990,7 @@ export class RealYouTubeClient implements YouTubeClient {
       }
 
       const transcriptUrls = buildTranscriptUrls(englishTrack.baseUrl);
-      if (activeYtCfg().debugTranscript) {
+      if (this.ytCfg.debugTranscript) {
         // eslint-disable-next-line no-console
         console.log(`[transcript] track url: ${maskTranscriptUrl(transcriptUrls[0] ?? '')}`);
       }
@@ -992,13 +1001,13 @@ export class RealYouTubeClient implements YouTubeClient {
       let lastContentType: string | null = null;
 
       for (const candidate of transcriptUrls) {
-        const result = await fetchTranscriptSegments(candidate, videoId);
+        const result = await fetchTranscriptSegments(candidate, videoId, this.ytCfg);
         segments = result.segments;
         lastPayload = result.payload;
         lastStatus = result.status;
         lastContentType = result.contentType;
         if (segments.length > 0) break;
-        if (activeYtCfg().debugTranscript) {
+        if (this.ytCfg.debugTranscript) {
           const preview = result.payload.slice(0, 120).replace(/\s+/g, ' ');
           // eslint-disable-next-line no-console
           console.log(
@@ -1010,17 +1019,22 @@ export class RealYouTubeClient implements YouTubeClient {
       }
 
       if (segments.length === 0) {
-        const directTrack = await tryDirectTimedText(videoId, englishTrack.languageCode, englishTrack.kind);
+        const directTrack = await tryDirectTimedText(
+          videoId,
+          englishTrack.languageCode,
+          this.ytCfg,
+          englishTrack.kind,
+        );
         if (directTrack) {
           const directUrls = buildTranscriptUrls(directTrack.baseUrl);
           for (const candidate of directUrls) {
-            const result = await fetchTranscriptSegments(candidate, videoId);
+            const result = await fetchTranscriptSegments(candidate, videoId, this.ytCfg);
             segments = result.segments;
             lastPayload = result.payload;
             lastStatus = result.status;
             lastContentType = result.contentType;
             if (segments.length > 0) break;
-            if (activeYtCfg().debugTranscript) {
+            if (this.ytCfg.debugTranscript) {
               const preview = result.payload.slice(0, 120).replace(/\s+/g, ' ');
               // eslint-disable-next-line no-console
               console.log(
@@ -1036,12 +1050,12 @@ export class RealYouTubeClient implements YouTubeClient {
       let lastError: Error | null = null;
 
       if (segments.length === 0) {
-        const transcriptResult = await fetchTranscriptFromGetTranscript(videoId);
+        const transcriptResult = await fetchTranscriptFromGetTranscript(videoId, this.ytCfg);
         if (transcriptResult.ok) {
           segments = transcriptResult.value;
         } else {
           lastError = transcriptResult.error;
-          if (activeYtCfg().debugTranscript) {
+          if (this.ytCfg.debugTranscript) {
             // eslint-disable-next-line no-console
             console.log(`[transcript] get_transcript error: ${transcriptResult.error.message}`);
           }
@@ -1049,19 +1063,19 @@ export class RealYouTubeClient implements YouTubeClient {
       }
 
       if (segments.length === 0) {
-        const ytdlpResult = await fetchTranscriptWithYtDlp(videoId, _ytDlpCfg);
+        const ytdlpResult = await fetchTranscriptWithYtDlp(videoId, this.ytDlpCfg);
         if (ytdlpResult.ok) {
           segments = ytdlpResult.value.segments;
         } else {
           lastError = ytdlpResult.error;
-          if (activeYtCfg().debugTranscript) {
+          if (this.ytCfg.debugTranscript) {
             // eslint-disable-next-line no-console
             console.log(`[transcript] yt-dlp error: ${ytdlpResult.error.message}`);
           }
         }
       }
 
-      if (activeYtCfg().debugTranscript && segments.length === 0) {
+      if (this.ytCfg.debugTranscript && segments.length === 0) {
         const preview = lastPayload.slice(0, 240).replace(/\s+/g, ' ');
         // eslint-disable-next-line no-console
         console.log(`[transcript] body preview: ${preview}`);

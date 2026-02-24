@@ -428,7 +428,15 @@ export async function fetchTranscriptWithYtDlp(
   } finally {
     if (tmpPath) {
       if (!cfg.keepFiles) {
-        await fs.rm(tmpPath, { recursive: true, force: true });
+        try {
+          await fs.rm(tmpPath, { recursive: true, force: true });
+        } catch (error) {
+          if (cfg.debugTranscript) {
+            const message = error instanceof Error ? error.message : String(error);
+            // eslint-disable-next-line no-console
+            console.log(`[transcript] cleanup warning: ${message}`);
+          }
+        }
       } else if (cfg.debugTranscript) {
         // eslint-disable-next-line no-console
         console.log(`[transcript] yt-dlp files kept at ${tmpPath}`);
