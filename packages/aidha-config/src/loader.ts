@@ -85,7 +85,7 @@ export function discoverConfigPath(
 ): string | null {
   // 1. Explicit env override
   if (envOverride) {
-    const resolved = resolve(envOverride);
+    const resolved = resolve(cwd, envOverride);
     return existsSync(resolved) ? resolved : null;
   }
 

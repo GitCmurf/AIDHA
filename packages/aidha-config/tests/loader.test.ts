@@ -55,6 +55,12 @@ describe('discoverConfigPath', () => {
     expect(path).toBe(filePath);
   });
 
+  it('should resolve relative env override against provided cwd', () => {
+    const filePath = writeConfig(MINIMAL_YAML, 'custom/config.yaml');
+    const path = discoverConfigPath('./custom/config.yaml', tmpDir);
+    expect(path).toBe(filePath);
+  });
+
   it('should return null when env override path does not exist', () => {
     const path = discoverConfigPath('/nonexistent/config.yaml');
     expect(path).toBeNull();
@@ -93,6 +99,20 @@ describe('loadConfig', () => {
     await expect(
       loadConfig({ cwd: tmpDir, configPath: join(tmpDir, 'missing.yaml'), env: {} }),
     ).rejects.toThrow(ConfigNotFoundError);
+  });
+
+  it('should resolve explicit relative configPath against caller cwd', async () => {
+    const filePath = writeConfig(MINIMAL_YAML);
+    const callerCwd = join(tmpDir, 'caller');
+    mkdirSync(callerCwd, { recursive: true });
+
+    const result = await loadConfig({
+      cwd: callerCwd,
+      configPath: '../.aidha/config.yaml',
+      env: {},
+    });
+
+    expect(result.configPath).toBe(filePath);
   });
 
   it('should throw ConfigNotFoundError when AIDHA_CONFIG points to missing file', async () => {

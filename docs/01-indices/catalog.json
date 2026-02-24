@@ -379,6 +379,20 @@
     }
   },
   {
+    "path": "05-planning/task-001-public-repo.md",
+    "title": "Public Repository Readiness — Task List & Strategy",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-001",
+      "owner": "GitCmurf",
+      "status": "Draft",
+      "version": "1.3",
+      "last_updated": "2026-02-23",
+      "title": "Public Repository Readiness — Task List & Strategy",
+      "type": "TASK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "05-planning/plan-005-user-configuration-profiles.md",
     "title": "User Configuration Profiles",
     "front_matter": {

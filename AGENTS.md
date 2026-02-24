@@ -5,6 +5,8 @@
 - Configuration lives in `~/.config/aidha/config.yaml` (user) or `./.aidha/config.yaml` (project); see `docs/60-devex/config-guide.md`.
 
 ## Dev Workflow & Commands
+- this project is greenfield with no production deployment or users
+  - breaking changes are acceptable; backward compatibility is not needed
 - `pnpm docs:serve` / `pnpm docs:build` — preview and validate the MkDocs site before opening a PR.
 
 ## Engineering Principles

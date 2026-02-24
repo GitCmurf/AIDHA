@@ -1,10 +1,18 @@
 # AIDHA Workspace
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 This repository hosts a pnpm monorepo plus DocOps infrastructure for graph-native personal knowledge
 tooling to create an AI-assistant-friendly 'personal cognition graph manager'.
 
 Read `AGENTS.md` for day-to-day workflow guidance and
 `docs/00-governance/gov-001-document-standards.md` for documentation rules.
+
+Created by [Colin Farmer](https://github.com/GitCmurf)
+
+---
+
+## Overview
 
 The MVP seeks to prove the concept using YouTube video transcripts as the first ingestion vector,
 before moving on to:
@@ -19,7 +27,7 @@ before moving on to:
 
 1. **Clone & prerequisites**
    - Install [pnpm](https://pnpm.io/) and Python 3.12+
-   - `git clone <repo>`
+   - `git clone https://github.com/GitCmurf/AIDHA.git`
 
 2. **Install dependencies**
    - `pnpm install` (workspace metadata/scripts)
@@ -124,3 +132,19 @@ Each package must deliver: PRD/ADR/FDD as applicable, ≥80% coverage with TDD, 
 - Use the DocOps checklists to ensure new repos or branches follow the same structure.
 - When in doubt, add content under the numbered `docs/` tree and regenerate the catalog before
   opening a PR.
+
+## Contributing
+
+Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
+
+## Code of Conduct
+
+Please read [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for our code of conduct.
+
+## Security
+
+Please read [SECURITY.md](./SECURITY.md) for security guidelines.
+
+## License
+
+AIDHA is licensed under the Apache License 2.0. See [LICENSE.md](./LICENSE.md) for more information.
