@@ -28,6 +28,7 @@ docops_version: "2.0"
 | 1.1     | 2026-02-23 | AI     | Updated task sections and checklist wording for license/security/docs planning details. | — | Active | — |
 | 1.2     | 2026-02-23 | AI     | Clarified security reporting guidance alignment, normalized status markers, and corrected version-history semantics. | — | Active | — |
 | 1.3     | 2026-02-23 | AI     | Updated checklist states to reflect actual repo findings (telemetry-id still tracked, package-lock.json files present, added env var documentation task). | — | Active | — |
+| 1.4     | 2026-02-24 | AI     | Integrated adoption feedback into a structured Launch Readiness section. | — | Active | — |
 
 ## Project Status
 
@@ -409,9 +410,49 @@ Apache 2.0 does **not** grant trademark rights. To formally protect the name:
 
 ---
 
+## Part 4 — Launch Readiness & Adoption
+
+While security and licensing are critical, the biggest barrier to a successful public
+launch is **developer experience (DX) and immediate perceived value**. If a user
+cannot experience the core value of AIDHA within 5 minutes, they will move on.
+
+### 4.1 "Hello World" & Frictionless Onboarding
+
+> **Problem:** High barrier to entry (requires pnpm install, multiple builds).
+> **Solution:** Create a 5-minute "See It Work" path.
+
+- [ ] Ensure the CLI can be run effortlessly (e.g., `npx @aidha/youtube ingest <url>`
+      without manual builds).
+- [ ] If `npx` isn't viable immediately, provide a pre-built binary or a simple Docker container.
+- [ ] Ensure error messages during initial setup are clear and actionable (e.g., missing API keys).
+
+### 4.2 README & Architectural Clarity
+
+> **Problem:** README describes components but not the workflow ("What does this DO?").
+> **Solution:** Show, don't just tell.
+
+- [ ] Add a "What is AIDHA?" section at the very top of the README:
+  > _AIDHA turns video content into a queryable knowledge graph. Watch a video →
+  > AIDHA extracts claims → You refine them → Export as JSON-LD. Unlike
+  > note-taking apps, AIDHA tracks provenance: every claim links to its source
+  > timestamp._
+- [ ] Include clear examples of the output (e.g., `examples/output/` with sample JSON-LD).
+- [ ] Add a screenshot of the CLI in action.
+- [ ] Add a simple graph visualization (even if crude) to illustrate the end result.
+
+### 4.3 Simplify Contribution Path
+
+> **Problem:** The DocOps system is impressive but adds cognitive load for casual contributors.
+> **Solution:** Provide an 80/20 fast-path.
+
+- [ ] Create a `CONTRIBUTING_QUICK.md` that skips heavy governance and just explains
+      how to build, run tests, and submit a PR for simple bug fixes.
+
+---
+
 ## Summary Checklist
 
-### Must Do Before Going Public
+### Must Do Before Going Public (Security & Licence)
 
 - [ ] Sanitise or squash git history (§1.1)
 - [x] Replace `LICENSE.md` with Apache License 2.0 (§1.4)
@@ -419,6 +460,13 @@ Apache 2.0 does **not** grant trademark rights. To formally protect the name:
 - [x] Add `license` + `author` fields to all `package.json` files (§1.4, §2.2C)
 - [x] Create `CONTRIBUTING.md` (§1.6)
 - [x] Create `CODE_OF_CONDUCT.md` (§1.6)
+
+### Must Do Before Going Public (Adoption Readiness)
+
+- [ ] Create a 5-minute "See It Work" path (e.g., easy `npx` execution) (§4.1)
+- [ ] Update README with clear value proposition and workflow (§4.2)
+- [ ] Add screenshots, sample JSON-LD output, and basic visualization to README (§4.2)
+- [ ] Add `CONTRIBUTING_QUICK.md` to reduce contribution friction (§4.3)
 
 ### Strongly Recommended
 
@@ -439,57 +487,3 @@ Apache 2.0 does **not** grant trademark rights. To formally protect the name:
 - [ ] Enable Dependabot and secret scanning (§1.7)
 - [ ] Add `TRADEMARKS.md` (§3.5)
 - [ ] Set up branch protection rules (§1.7)
-
-## Feedback on adoption
-
-What Will Actually Prevent Adoption
-
-  Issue: No "Hello World"
-  Why It Matters: People need to see value in <5 minutes
-  Current State: CLI requires manual build, no demo
-  ────────────────────────────────────────
-  Issue: Architectural opacity
-  Why It Matters: "What does this DO?" isn't answerable from README
-  Current State: README describes components, not workflow
-  ────────────────────────────────────────
-  Issue: Installation friction
-  Why It Matters: pnpm install && pnpm -C packages/x build × 4 packages
-  Current State: High barrier for casual evaluation
-  ────────────────────────────────────────
-  Issue: Output mystery
-  Why It Matters: No examples of what the graph actually looks like
-  Current State: Test fixtures exist but not showcased
-
-  What I'd Do Before Going Public
-
-  1. Create a 5-minute "See It Work" path
-    - One command that works: npx @aidha/youtube ingest <url>
-    - Or better: publish packages to npm so npm install -g @aidha/youtube works
-  2. Add a "What is AIDHA?" section at the top of README
-  AIDHA turns video content into a queryable knowledge graph.
-
-  Watch a video → AIDHA extracts claims → You refine them → Export as JSON-LD
-
-  Unlike note-taking apps, AIDHA tracks provenance: every claim links to its source timestamp.
-  3. Show, don't just tell
-    - Add examples/output/ with sample JSON-LD
-    - One screenshot of the CLI in action
-    - One graph visualization (even if crude)
-  4. Simplify the contribution path
-    - The DocOps system is impressive but adds cognitive load
-    - Add a CONTRIBUTING_QUICK.md with the 80/20 path
-
-  ---
-
-### The Only Thing That Matters Right Now
-
-  Can someone run `npx @aidha/youtube https://youtube.com/watch?v=xyz` and see something cool in 2 minutes?
-
-  If the answer is "no," fix that first. Everything else is distraction.
-
-  The technical foundation is excellent. But notice what the tests don't cover:
-
-- CLI user experience
-- Installation/onboarding
-- Output visualization
-- End-to-end workflow demo
