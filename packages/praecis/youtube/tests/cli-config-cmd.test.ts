@@ -242,6 +242,72 @@ profiles:
     expect(consoleLog).toHaveBeenCalledWith('gpt-4o');
   });
 
+  it('get redacts secret values by default', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      api_key: sk-test-123
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'get', 'llm.apiKey', '--config', configPath]);
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith('********');
+    expect(consoleLog).not.toHaveBeenCalledWith('sk-test-123');
+  });
+
+  it('get --show-secrets requires --yes in non-TTY', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      api_key: sk-test-123
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+
+    const code = await runCli([
+      'config',
+      'get',
+      'llm.apiKey',
+      '--config',
+      configPath,
+      '--show-secrets',
+    ]);
+    expect(code).toBe(1);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('requires --yes'));
+  });
+
+  it('get --show-secrets --yes prints secret value in non-TTY', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      api_key: sk-test-123
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+
+    const code = await runCli([
+      'config',
+      'get',
+      'llm.apiKey',
+      '--config',
+      configPath,
+      '--show-secrets',
+      '--yes',
+    ]);
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith('sk-test-123');
+  });
+
   it('get handles missing key', async () => {
     await createConfig('config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -272,6 +338,15 @@ profiles:
     // We mocked console.log so we get raw string (with ANSI codes if process supports color).
     // Just create a simpler regex expectation.
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('llm.model'));
+  });
+
+  it('explain handles missing key', async () => {
+    await createConfig('config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'explain', 'missing.key', '--config', configPath]);
+    expect(code).toBe(1);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('Key not found'));
   });
 
   it('show --raw requires --yes in non-TTY', async () => {

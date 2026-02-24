@@ -3,6 +3,8 @@ import {
   formatProvenance,
   resolveKeyProvenance,
   redactSecrets,
+  isSecretKey,
+  REDACTED,
   ConfigValidationError,
   ConfigWriteValidationError,
   mutateConfig,
@@ -110,6 +112,12 @@ async function runConfigExplain(
     return 1;
   }
 
+
+  const val = deepGet(resolvedConfig, key);
+  if (val === undefined) {
+    console.error(`Key not found: ${key}`);
+    return 1;
+  }
 
   const explicitProfile = optionString(options, 'profile');
   const sourceId = optionString(options, 'source');
@@ -283,12 +291,12 @@ async function runConfigShow(
   return 0;
 }
 
-function runConfigGet(
+async function runConfigGet(
   positionals: string[],
   options: CliOptions,
   _loadResult: LoadResult,
   resolvedConfig: ResolvedConfig
-): number {
+): Promise<number> {
   const key = positionals[1];
   if (!key) {
     console.error('Usage: config get <key>');
@@ -302,14 +310,34 @@ function runConfigGet(
     return 1;
   }
 
-  if (typeof val === 'object' && val !== null) {
+  const keyLeaf = key.split('.').at(-1) ?? key;
+  const secretKey = isSecretKey(key) || isSecretKey(keyLeaf);
+  const showSecrets = optionBool(options, 'show-secrets');
+  const force = optionBool(options, 'yes');
+
+  if (secretKey && showSecrets) {
+    if (process.stdout.isTTY) {
+      const confirmed = await confirmAction('⚠️  Warning: --show-secrets will expose sensitive data. Continue?', force);
+      if (!confirmed) {
+        console.error('Aborted.');
+        return 1;
+      }
+    } else if (!force) {
+      console.error('Error: --show-secrets in non-TTY requires --yes to confirm security risk.');
+      return 1;
+    }
+  }
+
+  const outputValue = secretKey && !showSecrets ? REDACTED : val;
+
+  if (typeof outputValue === 'object' && outputValue !== null) {
     if (optionBool(options, 'json')) {
-      console.log(JSON.stringify(val, null, 2));
+      console.log(JSON.stringify(outputValue, null, 2));
     } else {
-      console.log(dumpYaml(val));
+      console.log(dumpYaml(outputValue));
     }
   } else {
-    console.log(String(val));
+    console.log(String(outputValue));
   }
   return 0;
 }

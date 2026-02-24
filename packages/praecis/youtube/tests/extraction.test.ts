@@ -74,6 +74,26 @@ class TransactionalResourceRunStatsStore extends InMemoryStore {
   }
 }
 
+class TransactionalClaimWriteFailureStore extends InMemoryStore {
+  private claimEdgeWrites = 0;
+
+  override async upsertEdge(
+    subject: Parameters<InMemoryStore['upsertEdge']>[0],
+    predicate: Parameters<InMemoryStore['upsertEdge']>[1],
+    object: Parameters<InMemoryStore['upsertEdge']>[2],
+    data: Parameters<InMemoryStore['upsertEdge']>[3],
+    options?: Parameters<InMemoryStore['upsertEdge']>[4]
+  ): ReturnType<InMemoryStore['upsertEdge']> {
+    if (predicate === 'claimDerivedFrom') {
+      this.claimEdgeWrites += 1;
+      if (this.claimEdgeWrites === 2) {
+        return { ok: false, error: new Error('forced edge failure') };
+      }
+    }
+    return super.upsertEdge(subject, predicate, object, data, options);
+  }
+}
+
 describe('Extraction pipelines', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
@@ -178,6 +198,70 @@ describe('Extraction pipelines', () => {
     const result = await claimPipeline.extractClaimsForVideo('test-video');
     expect(result.ok).toBe(true);
     expect(transactionalStore.transactionalWriteVerified).toBe(true);
+
+    await transactionalStore.close();
+  });
+
+  it('rolls back claim writes when transactional extraction fails', async () => {
+    const transactionalStore = new TransactionalClaimWriteFailureStore();
+    const transactionalIngestion = new IngestionPipeline({
+      graphStore: transactionalStore,
+      taxonomyRegistry,
+      youtubeClient,
+    });
+
+    await transactionalIngestion.ingestPlaylist('test-playlist');
+
+    const excerptResult = await transactionalStore.queryNodes({
+      type: 'Excerpt',
+      filters: { resourceId: 'youtube-test-video' },
+    });
+    expect(excerptResult.ok).toBe(true);
+    if (!excerptResult.ok) return;
+    expect(excerptResult.value.items.length).toBeGreaterThanOrEqual(2);
+
+    const extractor = {
+      async extractClaims() {
+        return [
+          {
+            text: 'First transactional claim',
+            excerptIds: [excerptResult.value.items[0].id],
+            confidence: 0.9,
+            method: 'heuristic' as const,
+          },
+          {
+            text: 'Second transactional claim',
+            excerptIds: [excerptResult.value.items[1].id],
+            confidence: 0.8,
+            method: 'heuristic' as const,
+          },
+        ];
+      },
+    };
+
+    const claimPipeline = new ClaimExtractionPipeline({
+      graphStore: transactionalStore,
+      extractor,
+    });
+    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('forced edge failure');
+
+    const claims = await transactionalStore.queryNodes({ type: 'Claim' });
+    expect(claims.ok).toBe(true);
+    if (!claims.ok) return;
+    expect(claims.value.items).toHaveLength(0);
+
+    const edges = await transactionalStore.getEdges({ predicate: 'claimDerivedFrom' });
+    expect(edges.ok).toBe(true);
+    if (!edges.ok) return;
+    expect(edges.value.items).toHaveLength(0);
+
+    const resource = await transactionalStore.getNode('youtube-test-video');
+    expect(resource.ok).toBe(true);
+    if (!resource.ok) return;
+    expect(resource.value?.metadata?.['lastClaimRunAt']).toBeUndefined();
 
     await transactionalStore.close();
   });

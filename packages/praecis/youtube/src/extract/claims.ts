@@ -113,53 +113,52 @@ export class ClaimExtractionPipeline {
     let edgesCreated = 0;
     let edgesUpdated = 0;
     let edgesNoop = 0;
-
-    for (const claim of candidates) {
-      const claimId = hashId('claim', [resourceId, claim.text, ...claim.excerptIds]);
-      const label = claim.text.length > 120 ? `${claim.text.slice(0, 117)}...` : claim.text;
-      const metadata: Record<string, unknown> = {
-        resourceId,
-        videoId,
-        method: claim.method ?? 'heuristic',
-        confidence: claim.confidence ?? 0.4,
-        state: claim.state ?? DEFAULT_CLAIM_STATE,
-      };
-      if (extractorEditorVersion) metadata['editorVersion'] = extractorEditorVersion;
-      if (typeof claim.startSeconds === 'number') metadata['startSeconds'] = claim.startSeconds;
-      if (claim.type) metadata['type'] = claim.type;
-      if (claim.why) metadata['why'] = claim.why;
-      if (claim.model) metadata['model'] = claim.model;
-      if (claim.promptVersion) metadata['promptVersion'] = claim.promptVersion;
-
-      const data: NodeDataInput = {
-        label,
-        content: claim.text,
-        metadata,
-      };
-
-      const upsert = await this.graphStore.upsertNode('Claim', claimId, data, { detectNoop: true });
-      if (!upsert.ok) return upsert;
-      if (upsert.value.created) claimsCreated++;
-      else if (upsert.value.updated) claimsUpdated++;
-      else if (upsert.value.noop) claimsNoop++;
-
-      for (const excerptId of claim.excerptIds) {
-        const edge = await this.graphStore.upsertEdge(
-          claimId,
-          'claimDerivedFrom',
-          excerptId,
-          { metadata: { confidence: claim.confidence ?? 0.4 } },
-          { detectNoop: true }
-        );
-        if (!edge.ok) return edge;
-        if (edge.value.created) edgesCreated++;
-        else if (edge.value.updated) edgesUpdated++;
-        else if (edge.value.noop) edgesNoop++;
-      }
-    }
-
     const lastClaimRunAt = new Date().toISOString();
-    const updateRunMetadata = await runAtomically(this.graphStore, async () => {
+    const writeResult = await runAtomically(this.graphStore, async () => {
+      for (const claim of candidates) {
+        const claimId = hashId('claim', [resourceId, claim.text, ...claim.excerptIds]);
+        const label = claim.text.length > 120 ? `${claim.text.slice(0, 117)}...` : claim.text;
+        const metadata: Record<string, unknown> = {
+          resourceId,
+          videoId,
+          method: claim.method ?? 'heuristic',
+          confidence: claim.confidence ?? 0.4,
+          state: claim.state ?? DEFAULT_CLAIM_STATE,
+        };
+        if (extractorEditorVersion) metadata['editorVersion'] = extractorEditorVersion;
+        if (typeof claim.startSeconds === 'number') metadata['startSeconds'] = claim.startSeconds;
+        if (claim.type) metadata['type'] = claim.type;
+        if (claim.why) metadata['why'] = claim.why;
+        if (claim.model) metadata['model'] = claim.model;
+        if (claim.promptVersion) metadata['promptVersion'] = claim.promptVersion;
+
+        const data: NodeDataInput = {
+          label,
+          content: claim.text,
+          metadata,
+        };
+
+        const upsert = await this.graphStore.upsertNode('Claim', claimId, data, { detectNoop: true });
+        if (!upsert.ok) return upsert;
+        if (upsert.value.created) claimsCreated++;
+        else if (upsert.value.updated) claimsUpdated++;
+        else if (upsert.value.noop) claimsNoop++;
+
+        for (const excerptId of claim.excerptIds) {
+          const edge = await this.graphStore.upsertEdge(
+            claimId,
+            'claimDerivedFrom',
+            excerptId,
+            { metadata: { confidence: claim.confidence ?? 0.4 } },
+            { detectNoop: true }
+          );
+          if (!edge.ok) return edge;
+          if (edge.value.created) edgesCreated++;
+          else if (edge.value.updated) edgesUpdated++;
+          else if (edge.value.noop) edgesNoop++;
+        }
+      }
+
       const latestResourceResult = await this.graphStore.getNode(resourceId);
       if (!latestResourceResult.ok) return latestResourceResult;
       if (!latestResourceResult.value) {
@@ -202,7 +201,7 @@ export class ClaimExtractionPipeline {
       if (!resourceUpdate.ok) return resourceUpdate;
       return { ok: true, value: undefined };
     });
-    if (!updateRunMetadata.ok) return updateRunMetadata;
+    if (!writeResult.ok) return writeResult;
 
     return {
       ok: true,
