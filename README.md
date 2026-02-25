@@ -113,11 +113,11 @@ Each package must deliver: PRD/ADR/FDD as applicable, ≥80% coverage with TDD, 
 
 ## Documentation Site (MkDocs)
 
-- `pnpm docs:serve` → <http://127.0.0.1:8000> (Material theme, literate nav).
+- `pnpm docs:serve` → <http://127.0.0.1:8000> (Material theme).
 - `pnpm docs:linkcheck` → checks external links and writes
   `docs/01-indices/linkcheck-report.json`.
 - `pnpm docs:build` → generates catalog, validates docs, and runs `mkdocs build --strict`.
-- Navigation lives in `docs/_nav.yml`; update it when adding new top-level docs.
+- Navigation lives in `mkdocs.yml`; update it when adding new top-level docs.
 
 ## Automation & CI
 

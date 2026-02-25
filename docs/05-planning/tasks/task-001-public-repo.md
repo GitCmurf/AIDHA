@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.3"
-last_updated: 2026-02-23
+version: "1.8"
+last_updated: 2026-02-24
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
 docops_version: "2.0"
@@ -13,9 +13,9 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
-> **Status:** Active
-> **Version:** 1.3
-> **Last Updated:** 2026-02-23
+> **Status:** Draft
+> **Version:** 1.8
+> **Last Updated:** 2026-02-24
 > **Type:** TASK
 
 # Public Repository Readiness — Task List & Strategy
@@ -24,16 +24,30 @@ docops_version: "2.0"
 
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
-| 1.0     | 2026-02-23 | AI     | Initial release of public-repo readiness task plan. | — | Active | — |
-| 1.1     | 2026-02-23 | AI     | Updated task sections and checklist wording for license/security/docs planning details. | — | Active | — |
-| 1.2     | 2026-02-23 | AI     | Clarified security reporting guidance alignment, normalized status markers, and corrected version-history semantics. | — | Active | — |
-| 1.3     | 2026-02-23 | AI     | Updated checklist states to reflect actual repo findings (telemetry-id still tracked, package-lock.json files present, added env var documentation task). | — | Active | — |
-| 1.4     | 2026-02-24 | AI     | Integrated adoption feedback into a structured Launch Readiness section. | — | Active | — |
+| 1.0     | 2026-02-23 | AI     | Initial release of public-repo readiness task plan. | — | Draft | — |
+| 1.1     | 2026-02-23 | AI     | Updated task sections and checklist wording for license/security/docs planning details. | — | Draft | — |
+| 1.2     | 2026-02-23 | AI     | Clarified security reporting guidance alignment, normalized status markers, and corrected version-history semantics. | — | Draft | — |
+| 1.3     | 2026-02-23 | AI     | Updated checklist states to reflect actual repo findings (telemetry-id still tracked, package-lock.json files present, added env var documentation task). | — | Draft | — |
+| 1.4     | 2026-02-24 | AI     | Integrated adoption feedback into a structured Launch Readiness section. | — | Draft | — |
+| 1.5     | 2026-02-24 | AI     | Correct checklist mismatches, move TASK under `docs/05-planning/tasks/`, and add go/no-go gates. | — | Draft | — |
+| 1.6     | 2026-02-24 | AI     | Adjust secret-scan go/no-go gate to match the repo's pre-commit workflow. | — | Draft | — |
+| 1.7     | 2026-02-24 | AI     | Remove public email references and add CI secret scanning workflow gate. | — | Draft | — |
+| 1.8     | 2026-02-24 | AI     | Add fixture/license and history-scan clarifications for public launch. | — | Draft | — |
 
 ## Project Status
 
 Execution status is tracked in checklist sections below.
 Version History records document revisions only.
+
+## Go/No-Go Gates (Flip Repo To Public)
+
+- [ ] `meminit check --root .` passes with 0 violations and 0 warnings
+- [ ] `pre-commit run detect-secrets --all-files` passes (baseline reviewed)
+- [ ] GitHub Actions `Secret Scan` workflow passes (gitleaks)
+- [ ] `pnpm docs:build` passes (MkDocs site is the review artifact)
+- [ ] Git history strategy is executed (see §1.1): squash vs scrub
+- [ ] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
+- [ ] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
 
 ---
 
@@ -44,7 +58,7 @@ protection** (retaining your rights while sharing code). Items are ordered by cr
 
 ### 1.1 Git History Sanitisation
 
-> **Status:** 🟡 Needs Verification
+> **Status:** Needs verification
 
 The Feb 2026 audit (AIDHA-GOV-003, prior conversation) confirmed the **current HEAD** is clean.
 However, git history may contain previously-committed secrets, debug files, or personal notes that
@@ -54,39 +68,39 @@ were later deleted.
       history
 - [ ] Run `git log --all --diff-filter=D --name-only` to list every file ever deleted — review the
       list for `.env`, `*.key`, personal docs, etc.
-- [ ] **Decision point — fresh history or scrubbed history:**
-  - _Option A (recommended for pre-alpha):_ Squash the entire private history into a single
-    "initial commit" and start the public repo with a clean slate. This is the simplest and safest
-    approach for a project at this stage.
-  - _Option B:_ Use `git filter-repo` or `BFG Repo-Cleaner` to surgically remove any sensitive
-    blobs while preserving history.
-- [ ] After either option, verify with `trufflehog` again
+- [x] **Decision: Option A (recommended for pre-alpha)**: squash the entire private history into a
+      single "initial commit" and start the public repo with a clean slate.
+  - [ ] Produce a new repo history with a single root commit (no sensitive legacy blobs)
+  - [ ] Verify the resulting repo contents with secret scanners before flipping public
+  - [ ] Keep the old private repo archived or delete it after validation
+- [ ] After either option, verify again with secret scanners (e.g., gitleaks CI + trufflehog)
 
 ### 1.2 Secrets & Credentials Audit (Current State)
 
-> **Status:** 🟡 In Progress (verified Feb 2026, follow-up checks pending)
+> **Status:** In progress (verified Feb 2026, follow-up checks pending)
 
 - [x] `.gitignore` covers `.env`, `.env.*`, `secrets/`, `credentials/`, `*.key`, `*.secret`
 - [x] No hardcoded API keys, tokens, or passwords found in tracked source files
 - [x] `YOUTUBE_COOKIE` correctly sourced from environment variable, not committed
 - [x] Add `detect-secrets` hook to `.pre-commit-config.yaml` for ongoing prevention
 - [x] Confirm `firebase-debug.log` (contains personal email) remains untracked — DELETED
-- [ ] `telemetry-id` added to `.gitignore` but file is still tracked — run `git rm --cached telemetry-id`
+- [x] Remove tracked `telemetry-id` (`git rm --cached telemetry-id`) while keeping it gitignored
 
 ### 1.3 PII & Embarrassment Review
 
-> **Status:** ✅ Clean (verified Feb 2026)
+> **Status:** Clean (verified Feb 2026)
 
 - [x] No profanity, aggressive comments, or embarrassing TODOs found
 - [x] `coderabbit-review-*.txt` files are gitignored
 - [x] `WIP-*` files are gitignored
+- [x] `WIP-initial-specs/` is gitignored and not tracked
 - [ ] Verify that `specs/` feedback files (`v1.2-feedback-AC.md`, etc.) don't contain sensitive
       reviewer information or proprietary third-party content
 - [ ] Review `docs/55-testing/acceptance-run-*` artifacts for any PII in test transcripts
 
 ### 1.4 License File
 
-> **Status:** ✅ Completed
+> **Status:** Completed
 
 The current `LICENSE.md` now contains the full Apache 2.0 license text.
 
@@ -97,7 +111,7 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
   - `packages/phyla/package.json`
   - `packages/reconditum/package.json`
   - `packages/praecis/youtube/package.json`
-- [ ] Add SPDX license header to every source file (see Part 2 for template)
+- [ ] Optional: add SPDX headers going forward (do not churn the whole repo purely for headers)
 - [x] Decide whether the `private: true` flag should remain (yes, while it's a monorepo root —
       prevents accidental npm publish)
 
@@ -149,14 +163,14 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 
 ### 1.9 Cleanup & Housekeeping
 
-> **Status:** 🟡 Needs Attention — several tracked-but-gitignored files remain
+> **Status:** Needs attention
 
-- [ ] Remove `coderabbit-review-*.txt` files from the working tree (3 files present, gitignored)
+- [ ] Optional: delete local `coderabbit-review-*.txt` artifacts (gitignored; not a publish blocker)
 - [x] Remove `firebase-debug.log` from working tree — DELETED
 - [ ] Review whether `specs/` directory belongs in the public repo or should be archived/removed
-- [ ] Remove tracked `package-lock.json` files (repo uses pnpm; found in root and 3 package locations)
-- [ ] Run `git rm --cached telemetry-id` — file is in .gitignore but still tracked
-- [ ] Remove the `out/` directory if it's committed build output
+- [ ] Optional: delete local `package-lock.json` files (gitignored; not tracked)
+- [x] Ensure `telemetry-id` is no longer tracked (gitignored local file)
+- [ ] Optional: delete local `out/` directories (gitignored; not tracked)
 - [ ] Verify `node_modules/` is not tracked (it shouldn't be, but confirm)
 
 ---
@@ -199,8 +213,8 @@ Apache 2.0 **already** provides strong attribution requirements. Here's how to m
 
 #### A. The `NOTICE` File (Legally Required to Be Preserved)
 
-Create `NOTICE` at the repo root. Under Apache 2.0, **anyone who redistributes the code MUST
-include the contents of this file.** This is your most powerful attribution mechanism.
+Create `NOTICE` at the repo root. Under Apache 2.0, redistributors must preserve required notices,
+and `NOTICE` is the conventional place to put them. This is a strong attribution mechanism.
 
 ```text
 AIDHA — AI-Assisted Personal Cognition Graph Manager
@@ -213,14 +227,14 @@ For more information, see https://github.com/GitCmurf/AIDHA
 
 #### B. SPDX Headers in Every Source File
 
-Add this header to every `.ts` file:
+If you want per-file attribution, add this header to new `.ts` files:
 
 ```typescript
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 ```
 
-And in Markdown/YAML files where appropriate:
+In Markdown/YAML files where appropriate:
 
 ```markdown
 <!-- SPDX-License-Identifier: Apache-2.0 -->
@@ -235,7 +249,7 @@ Add to each `package.json`:
 
 ```json
 {
-  "author": "Colin Farmer <colinfarmer.gg1@gmail.com> (https://github.com/GitCmurf)",
+  "author": "Colin Farmer (GitCmurf) (https://github.com/GitCmurf)",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

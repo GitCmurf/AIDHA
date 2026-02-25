@@ -3,8 +3,8 @@ document_id: AIDHA-REF-003
 owner: DocOps Working Group
 approvers: CMF
 status: Draft
-last_updated: 2025-12-27
-version: '0.2'
+last_updated: 2026-02-24
+version: '0.3'
 title: Repository Structure
 type: REF
 docops_version: '2.0'
@@ -15,8 +15,8 @@ docops_version: '2.0'
 > **Owner:** DocOps Working Group
 > **Approvers:** CMF
 > **Status:** Draft
-> **Last Updated:** 2025-12-27
-> **Version:** 0.2
+> **Last Updated:** 2026-02-24
+> **Version:** 0.3
 > **Type:** REF
 
 # Repository Structure
@@ -27,6 +27,7 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | ----------------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-11-09 | TBD    | Seed repository structure overview        | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History | —         | Draft  | —         |
+| 0.3     | 2026-02-24 | AI     | Update MkDocs nav reference (`mkdocs.yml`) | — | Draft | — |
 
 ## Top-Level Directories
 
@@ -67,4 +68,4 @@ Promote reusable logic into dedicated packages before referencing across feature
 - `src/components`, `src/features`, `src/lib`, `src/shared` are acceptable inside packages/apps, but
   favor package-level boundaries for shared logic to keep imports explicit.
 - When adding new domains, reserve a Document ID prefix (e.g., `MEMO-PRD`).
-- For future public packages/apps, extend `pnpm-workspace.yaml` and update this document plus `docs/_nav.yml`.
+- For future public packages/apps, extend `pnpm-workspace.yaml` and update this document plus `mkdocs.yml`.

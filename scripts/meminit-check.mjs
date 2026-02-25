@@ -16,7 +16,10 @@ function resolveMeminitCommand() {
 
 function runAndExit(command, args) {
     let result = spawnSync(command, args, { stdio: 'inherit' });
-    if (result.error && command !== 'meminit') {
+    // Some sandboxed environments surface a non-fatal EPERM in `result.error` even when
+    // the command ran successfully (i.e. a numeric status is present). Only treat
+    // `result.error` as fatal if the process failed to spawn (status is null).
+    if (result.status === null && result.error && command !== 'meminit') {
         result = spawnSync('meminit', args, { stdio: 'inherit' });
     }
     process.exit(typeof result.status === 'number' ? result.status : 1);
@@ -60,7 +63,7 @@ const result = spawnSync(
     ['check', '--root', '.', '--format', 'json'],
     { encoding: 'utf-8' },
 );
-if (result.error && meminitCommand !== 'meminit') {
+if (result.status === null && result.error && meminitCommand !== 'meminit') {
     const fallbackResult = spawnSync(
         'meminit',
         ['check', '--root', '.', '--format', 'json'],
@@ -71,7 +74,7 @@ if (result.error && meminitCommand !== 'meminit') {
     }
 }
 
-if (result.error) {
+if (result.status === null && result.error) {
     // eslint-disable-next-line no-console
     console.error(`meminit check failed: ${result.error.message}`);
     process.exit(2);

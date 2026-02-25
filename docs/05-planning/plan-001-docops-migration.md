@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-001
 owner: Repo Maintainers
 status: Draft
-version: '0.1'
-last_updated: 2025-12-27
+version: '0.2'
+last_updated: 2026-02-24
 title: DocOps Brownfield Migration Plan
 type: PLAN
 docops_version: '2.0'
@@ -13,8 +13,8 @@ docops_version: '2.0'
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2025-12-27
+> **Version:** 0.2
+> **Last Updated:** 2026-02-24
 > **Type:** PLAN
 
 # DocOps Brownfield Migration Plan
@@ -26,6 +26,7 @@ This plan tracks the repo’s migration onto Meminit DocOps 2.0 compliance gates
 | Version | Date       | Author | Change Summary               | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | ---------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-12-27 | CMF    | Create migration plan record | —         | Draft  | —         |
+| 0.2     | 2026-02-24 | AI     | Update nav source-of-truth reference (`mkdocs.yml`) | — | Draft | — |
 
 ## Goals
 
@@ -42,5 +43,5 @@ This plan tracks the repo’s migration onto Meminit DocOps 2.0 compliance gates
 ## Current Work Items
 
 - Resolve remaining `meminit check` violations in `docs/`.
-- Update MkDocs nav (`docs/_nav.yml`) after renames.
+- Update MkDocs nav (`mkdocs.yml`) after renames.
 - Regenerate indices (`docs/01-indices/catalog.json`) and validate schema.

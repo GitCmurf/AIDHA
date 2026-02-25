@@ -2,8 +2,8 @@
 document_id: AIDHA-GOV-005
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-02-09
+version: '0.3'
+last_updated: 2026-02-24
 title: Third-Party Notices
 type: GOV
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-02-09
+> **Version:** 0.3
+> **Last Updated:** 2026-02-24
 > **Type:** GOV
 
 # Third-Party Notices
@@ -26,6 +26,7 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | --------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2026-02-08 | AI     | Initial third-party notices register | —       | Draft  | —         |
 | 0.2     | 2026-02-09 | AI     | Align with GOV type and add fixture governance context | — | Draft | — |
+| 0.3     | 2026-02-24 | AI     | Add explicit redistribution verification and acceptance-run coverage guidance | — | Draft | — |
 
 ## Purpose
 
@@ -48,10 +49,23 @@ for engineering and test fixtures.
   - Fixture generation is documented in
     `packages/praecis/youtube/ops/capture-golden-fixtures.sh`.
 - Declared status:
-  - Source videos indicate Creative Commons licensing; verify status in source metadata before redistribution.
+  - Source videos were selected as Creative Commons-licensed at the time of capture.
+  - Before making this repository public, re-verify the current license metadata for each source
+    URL and record the verification date.
 - Operational note:
   - Raw downloaded subtitle artifacts are not committed; only normalized fixture
     JSON and metadata are stored.
+
+### Acceptance run artifacts derived from transcripts
+
+- Location:
+  - `docs/55-testing/acceptance-run-*/`
+- Declared status:
+  - These documents may contain transcript-derived excerpts and therefore inherit the same
+    redistribution constraints as their source content.
+  - Before making this repository public, either:
+    - verify the source content is licensed for redistribution, or
+    - redact/remove transcript-derived excerpts from the acceptance-run docs.
 
 ## Maintenance
 

@@ -14,7 +14,7 @@
   "bin": {
     "aidha-youtube": "./dist/cli.js"
   },
-  "author": "Colin Farmer <colinfarmer.gg1@gmail.com> (https://github.com/GitCmurf)",
+  "author": "Colin Farmer (GitCmurf) (https://github.com/GitCmurf)",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

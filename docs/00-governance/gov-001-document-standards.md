@@ -2,8 +2,8 @@
 document_id: AIDHA-GOV-001
 owner: Repo Maintainers
 status: Draft
-version: '1.2'
-last_updated: 2026-02-22
+version: '1.3'
+last_updated: 2026-02-24
 title: Repository Document Standards
 type: GOV
 docops_version: '2.0'
@@ -12,11 +12,11 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-GOV-001
 > **Owner:** Repo Maintainers
 > **Status:** Draft
-> **Version:** 1.2
-> **Last Updated:** 2026-02-22
+> **Version:** 1.3
+> **Last Updated:** 2026-02-24
 > **Type:** GOV
 
-# Repository Document Standards (v1.2)
+# Repository Document Standards (v1.3)
 
 These standards implement the organisation-wide **DocOps Constitution v2.0** for this repository.
 
@@ -27,6 +27,7 @@ These standards implement the organisation-wide **DocOps Constitution v2.0** for
 | 1.0     | 2025-12-27 | CMF    | Adopt Meminit governance baseline           | —         | Draft  | —         |
 | 1.1     | 2025-12-27 | CMF    | Add required Version History for validation | —         | Draft  | —         |
 | 1.2     | 2026-02-22 | CMF    | Document meminit local install guidance     | —         | Draft  | —         |
+| 1.3     | 2026-02-24 | AI     | Align TASK status guidance with meminit schema validation | — | Draft | — |
 
 ---
 
@@ -194,7 +195,9 @@ Tooling behavior:
 
 ## 9. Local Extensions
 
-* **Task Files**: Task files (`type: task`) are stored in `docs/05-planning/tasks/` and are used to
-  track human-AI shared work items. They use the statuses `Active` and `Done`.
+* **Task Files**: Task files (`type: TASK`) are stored in `docs/05-planning/tasks/` and are used to
+  track human-AI shared work items. The frontmatter `status` value MUST follow the repository
+  schema (e.g., `Draft`, `In Review`, `Approved`, `Superseded`); execution progress should be
+  tracked inside the document via checklists.
 
 ---

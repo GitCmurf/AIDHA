@@ -57,6 +57,8 @@ def extract_title(text: str) -> str | None:
 def should_include(p: pathlib.Path) -> bool:
     if p.suffix.lower() != ".md":
         return False
+    if p.name.startswith("WIP-"):
+        return False
     rel = p.relative_to(DOCS)
     if "_templates" in rel.parts:
         return False

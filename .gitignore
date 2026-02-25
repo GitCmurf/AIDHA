@@ -89,6 +89,8 @@ scratch/
 WIP/
 WIP-*/
 docs/**/WIP-*
+WIP-initial-specs/
+*:Zone.Identifier
 __Local__Do_Not_Commit/
 coderabbit-review-*.txt
 coderabbit_*review*.txt

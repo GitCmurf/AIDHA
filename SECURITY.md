@@ -9,9 +9,11 @@ AIDHA is in **pre-alpha** stage. Only the latest commit on the main branch is su
 If you find a security vulnerability in AIDHA, please report it by:
 
 1. **Using GitHub Security Advisories** (private reporting flow for this repository)
-2. Or **emailing privately** to colinfarmer.gg1@gmail.com
+2. If Security Advisories are unavailable for your environment, open a **minimal-detail** GitHub
+   issue that includes **no vulnerability details** and asks maintainers to provide a private
+   handoff channel.
 
-Do not open public issues for security vulnerabilities.
+Do not open public issues with security vulnerability details.
 
 Please include:
 - A clear description of the vulnerability
@@ -81,7 +83,7 @@ These credentials can carry account-lock, access-ban, and legal/compliance risk 
 ## Security Measures
 
 - Pre-commit hooks with secret detection
-- GitHub Actions workflow with secret scanning
+- GitHub Actions workflows with secret scanning (`detect-secrets` + `gitleaks`)
 - Comprehensive `.gitignore` file
 - Configuration validation and redaction
 

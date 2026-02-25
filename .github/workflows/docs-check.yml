@@ -30,11 +30,13 @@ jobs:
       - name: Linkcheck
         run: python docs/_scripts/linkcheck.py
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install markdownlint-cli
-        run: |
-          npm --version || (curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)
-          # Pin for reproducible linting (avoids unexpected new rules breaking CI).
-          npm i -g markdownlint-cli@0.41.0
+        run: npm i -g markdownlint-cli@0.41.0
 
       - name: Markdownlint
         run: |

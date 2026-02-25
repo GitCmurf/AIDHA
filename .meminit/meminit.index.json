@@ -1,7 +1,7 @@
 {
   "output_schema_version": "1.0",
   "index_version": "0.1",
-  "generated_at": "2025-12-30T17:27:19.250724+00:00",
+  "generated_at": "2026-02-24T19:39:39.775572+00:00",
   "namespaces": [
     {
       "namespace": "root",
@@ -62,12 +62,75 @@
       "status": "Draft"
     },
     {
+      "document_id": "AIDHA-ADR-005",
+      "path": "docs/20-adr/adr-005-graph-db-rationale.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Graph DB Rationale",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-ADR-006",
+      "path": "docs/20-adr/adr-006-claim-lifecycle-review-workflow.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Claim Lifecycle and Review Workflow",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-ADR-007",
+      "path": "docs/20-adr/adr-007-two-pass-llm-extraction-architecture.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Two-Pass LLM Extraction Architecture",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-ADR-008",
+      "path": "docs/20-adr/adr-008-configuration-management.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "ADR",
+      "title": "Configuration Management System",
+      "status": "Approved"
+    },
+    {
       "document_id": "AIDHA-FDD-001",
       "path": "docs/30-fdd/fdd-001-ingestion-engine.md",
       "namespace": "root",
       "repo_prefix": "AIDHA",
       "type": "FDD",
       "title": "Ingestion Engine Design",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-FDD-002",
+      "path": "docs/30-fdd/fdd-002-first-pass-youtube-claim-mining.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "FDD",
+      "title": "First-Pass YouTube Claim Mining",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-FDD-003",
+      "path": "docs/30-fdd/fdd-003-second-pass-editorial-selection.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "FDD",
+      "title": "Second-Pass Editorial Claim Selection",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-FDD-004",
+      "path": "docs/30-fdd/fdd-004-user-configuration.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "FDD",
+      "title": "User Configuration Profiles",
       "status": "Draft"
     },
     {
@@ -107,6 +170,15 @@
       "status": "Draft"
     },
     {
+      "document_id": "AIDHA-GOV-005",
+      "path": "docs/00-governance/gov-005-third-party-notices.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GOV",
+      "title": "Third-Party Notices",
+      "status": "Draft"
+    },
+    {
       "document_id": "AIDHA-GUIDE-001",
       "path": "docs/60-devex/graph-quickstart.md",
       "namespace": "root",
@@ -134,6 +206,24 @@
       "status": "Draft"
     },
     {
+      "document_id": "AIDHA-GUIDE-004",
+      "path": "docs/60-devex/llm-claim-extraction.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GUIDE",
+      "title": "LLM Claim Extraction Guide",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-GUIDE-005",
+      "path": "docs/60-devex/config-guide.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "GUIDE",
+      "title": "AIDHA Configuration Guide",
+      "status": "Draft"
+    },
+    {
       "document_id": "AIDHA-OVERVIEW-001",
       "path": "docs/index.md",
       "namespace": "root",
@@ -149,6 +239,33 @@
       "repo_prefix": "AIDHA",
       "type": "PLAN",
       "title": "DocOps Brownfield Migration Plan",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-PLAN-002",
+      "path": "docs/05-planning/plan-002-mvp-delivery-and-documentation-reconciliation.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PLAN",
+      "title": "MVP Delivery Plan and Documentation Reconciliation",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-PLAN-004",
+      "path": "docs/05-planning/plan-004-improve-claims-quality-editorial-ranking.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PLAN",
+      "title": "Improve Claim Quality and Editorial Ranking",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-PLAN-005",
+      "path": "docs/05-planning/plan-005-user-configuration-profiles.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PLAN",
+      "title": "User Configuration Profiles",
       "status": "Draft"
     },
     {
@@ -233,6 +350,15 @@
       "status": "Draft"
     },
     {
+      "document_id": "AIDHA-REF-007",
+      "path": "docs/60-devex/release-notes-001-mvp-baseline-20260220.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "REF",
+      "title": "MVP Baseline Release Notes 20260220",
+      "status": "Draft"
+    },
+    {
       "document_id": "AIDHA-RUNBOOK-001",
       "path": "docs/50-runbooks/runbook-001-graph-backend.md",
       "namespace": "root",
@@ -260,6 +386,60 @@
       "status": "Draft"
     },
     {
+      "document_id": "AIDHA-STRAT-001",
+      "path": "docs/02-strategy/strategy-001-minimum-vertical-slice.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "STRAT",
+      "title": "Minimum End-to-End Vertical Slice",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-STRATEGY-002",
+      "path": "docs/02-strategy/strategy-002-vision.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "STRATEGY",
+      "title": "AIDHA Product Vision",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TASK-001",
+      "path": "docs/05-planning/tasks/task-001-public-repo.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "Public Repository Readiness \u2014 Task List & Strategy",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TASK-002",
+      "path": "docs/05-planning/tasks/task-002-mvp-completion.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "MVP Vertical Slice Completion Task List",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TESTING-001",
+      "path": "docs/55-testing/testing-001-mvp-tests.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TESTING",
+      "title": "MVP Test Suite Map and Hardening Coverage",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TESTING-002",
+      "path": "docs/55-testing/acceptance-run-20260220/testing-002-acceptance-run-20260220.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TESTING",
+      "title": "Acceptance Run 20260220",
+      "status": "Draft"
+    },
+    {
       "document_id": "PHYLA-REF-001",
       "path": "packages/phyla/docs/70-devex/README.md",
       "namespace": "phyla",
@@ -284,6 +464,15 @@
       "repo_prefix": "RECON",
       "type": "REF",
       "title": "Reconditum Package Docs (Pointers)",
+      "status": "Draft"
+    },
+    {
+      "document_id": "RECON-REF-002",
+      "path": "packages/reconditum/docs/70-devex/schema-views.md",
+      "namespace": "reconditum",
+      "repo_prefix": "RECON",
+      "type": "REF",
+      "title": "SQLite VIEWs - Graph Inspection",
       "status": "Draft"
     }
   ]
