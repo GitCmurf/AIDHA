@@ -84,6 +84,17 @@ describe('formatProvenance', () => {
     expect(output).toContain('test.value');
   });
 
+  it('should redact nested secret values inside object output', () => {
+    const prov = createProvenance('llm', 'profile', { profileName: 'local' });
+    const output = formatProvenance(prov, {
+      model: 'gpt-4o',
+      apiKey: 'sk-test-123',
+      baseUrl: 'https://example.local/v1',
+    });
+    expect(output).toContain('********');
+    expect(output).not.toContain('sk-test-123');
+  });
+
   it('should include all five tiers', () => {
     const tiers: ConfigTier[] = ['cli', 'profile', 'source', 'default', 'hardcoded'];
     for (const tier of tiers) {
@@ -185,6 +196,23 @@ describe('resolveKeyProvenance', () => {
 
     expect(result.provenance.tier).toBe('hardcoded');
     expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
+  });
+
+  it('reports built-in source defaults before built-in profile defaults', () => {
+    const resolvedConfig = resolveConfig({
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('hardcoded');
+    expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
+    expect(result.value).toBe(15);
   });
 
   it('marks secret keys as secret for explain redaction', () => {

@@ -121,9 +121,8 @@ Secret/
 credentials/
 creds/*/
 
-# Lockfiles (repo uses pnpm workspaces; avoid per-package npm locks)
+# Lockfiles (repo uses pnpm workspaces; commit root pnpm-lock.yaml)
 package-lock.json
 npm-shrinkwrap.json
 yarn.lock
-pnpm-lock.yaml
 telemetry-id

@@ -8,7 +8,7 @@
  */
 
 import { DEFAULTS } from './defaults.js';
-import { isSecretKey } from './redact.js';
+import { isSecretKey, redactSecrets } from './redact.js';
 import type { AidhaConfig, Profile, ResolvedConfig } from './types.js';
 
 /** The five configuration tiers, from highest to lowest priority. */
@@ -171,11 +171,11 @@ export function resolveKeyProvenance(
     tier = 'source';
   } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
     tier = 'default';
-  } else if (has(DEFAULTS.profiles?.['default'])) {
-    tier = 'hardcoded';
   } else if (sourceId && has(DEFAULTS.sources?.[sourceId])) {
     tier = 'hardcoded';
     hardcodedFromSource = true;
+  } else if (has(DEFAULTS.profiles?.['default'])) {
+    tier = 'hardcoded';
   } else {
     tier = 'hardcoded';
   }
@@ -217,7 +217,10 @@ export function formatProvenance(prov: Provenance, value: unknown): string {
     displayValue = '********';
   } else {
     try {
-      const serialized = JSON.stringify(value);
+      const safeValue = (typeof value === 'object' && value !== null)
+        ? redactSecrets(value)
+        : value;
+      const serialized = JSON.stringify(safeValue);
       if (serialized === undefined) {
         displayValue = value === undefined ? 'undefined' : '[unserializable]';
       } else {

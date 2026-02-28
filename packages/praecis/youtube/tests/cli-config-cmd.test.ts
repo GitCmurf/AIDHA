@@ -259,6 +259,71 @@ profiles:
     expect(consoleLog).not.toHaveBeenCalledWith('sk-test-123');
   });
 
+  it('get redacts nested secret values when retrieving a parent object', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-4o
+      api_key: sk-test-123
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'get', 'llm', '--config', configPath, '--json']);
+    expect(code).toBe(0);
+
+    const output = String(consoleLog.mock.calls.at(-1)?.[0] ?? '');
+    expect(output).toContain('"apiKey": "********"');
+    expect(output).not.toContain('sk-test-123');
+  });
+
+  it('get --show-secrets requires --yes for parent objects containing secrets in non-TTY', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      api_key: sk-test-123
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+
+    const code = await runCli([
+      'config',
+      'get',
+      'llm',
+      '--config',
+      configPath,
+      '--json',
+      '--show-secrets',
+    ]);
+    expect(code).toBe(1);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('requires --yes'));
+  });
+
+  it('explain redacts nested secret values for object-valued keys', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-4o
+      api_key: sk-test-123
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'explain', 'llm', '--config', configPath]);
+    expect(code).toBe(0);
+
+    const output = String(consoleLog.mock.calls.at(-1)?.[0] ?? '');
+    expect(output).toContain('"apiKey":"********"');
+    expect(output).not.toContain('sk-test-123');
+  });
+
   it('get --show-secrets requires --yes in non-TTY', async () => {
     await createConfig(`
 config_version: 1

@@ -8,7 +8,7 @@ describe('CLI Configuration Bridge', () => {
   it('resolves defaults when no options provided', async () => {
     // This looks for aidha.yaml in CWD, likely won't find it, so returns defaults
     const { config } = await resolveCliConfig({});
-    expect(config.db).toBe('./out/aidha.sqlite'); // Default from Schema/Defaults
+    expect(config.db).toBe(resolve(process.cwd(), './out/aidha.sqlite')); // Default from Schema/Defaults
     expect(config.youtube.debugTranscript).toBe(false);
   });
 

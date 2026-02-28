@@ -311,11 +311,23 @@ async function runConfigGet(
   }
 
   const keyLeaf = key.split('.').at(-1) ?? key;
-  const secretKey = isSecretKey(key) || isSecretKey(keyLeaf);
   const showSecrets = optionBool(options, 'show-secrets');
   const force = optionBool(options, 'yes');
 
-  if (secretKey && showSecrets) {
+  const containsSecretDescendants = (value: unknown): boolean => {
+    if (value === null || typeof value !== 'object') return false;
+    if (Array.isArray(value)) return value.some(item => containsSecretDescendants(item));
+    for (const [prop, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (isSecretKey(prop)) return true;
+      if (containsSecretDescendants(nested)) return true;
+    }
+    return false;
+  };
+
+  const keyIsSecret = isSecretKey(key) || isSecretKey(keyLeaf);
+  const valueHasSecrets = keyIsSecret ? true : containsSecretDescendants(val);
+
+  if (showSecrets && valueHasSecrets) {
     if (process.stdout.isTTY) {
       const confirmed = await confirmAction('⚠️  Warning: --show-secrets will expose sensitive data. Continue?', force);
       if (!confirmed) {
@@ -328,7 +340,14 @@ async function runConfigGet(
     }
   }
 
-  const outputValue = secretKey && !showSecrets ? REDACTED : val;
+  let outputValue: unknown = val;
+  if (!showSecrets) {
+    if (keyIsSecret) {
+      outputValue = REDACTED;
+    } else if (typeof val === 'object' && val !== null) {
+      outputValue = redactSecrets(val);
+    }
+  }
 
   if (typeof outputValue === 'object' && outputValue !== null) {
     if (optionBool(options, 'json')) {

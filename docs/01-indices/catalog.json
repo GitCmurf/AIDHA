@@ -626,8 +626,8 @@
       "document_id": "AIDHA-TASK-001",
       "owner": "GitCmurf",
       "status": "Draft",
-      "version": "1.8",
-      "last_updated": "2026-02-24",
+      "version": "1.10",
+      "last_updated": "2026-02-27",
       "title": "Public Repository Readiness — Task List & Strategy",
       "type": "TASK",
       "docops_version": "2.0"
@@ -640,8 +640,8 @@
       "document_id": "AIDHA-TASK-002",
       "owner": "Product",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-02-24",
+      "version": "0.3",
+      "last_updated": "2026-02-27",
       "title": "MVP Vertical Slice Completion Task List",
       "type": "TASK",
       "docops_version": "2.0"

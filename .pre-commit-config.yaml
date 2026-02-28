@@ -14,14 +14,19 @@ repos:
     hooks:
       - id: docs-catalog
         name: Generate docs catalog
-        entry: python3 docs/_scripts/gen_catalog.py
-        language: system
+        entry: python docs/_scripts/gen_catalog.py
+        language: python
+        additional_dependencies:
+          - PyYAML
         files: ^docs/.*\.md$
         pass_filenames: false
       - id: docs-validate
         name: Validate docs front matter + version tables + catalog schema
-        entry: python3 docs/_scripts/validate_docs.py
-        language: system
+        entry: python docs/_scripts/validate_docs.py
+        language: python
+        additional_dependencies:
+          - PyYAML
+          - jsonschema
         files: ^docs/.*\.md$
         pass_filenames: false
   - repo: https://github.com/igorshubovych/markdownlint-cli

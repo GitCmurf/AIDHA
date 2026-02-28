@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.8"
-last_updated: 2026-02-24
+version: "1.10"
+last_updated: 2026-02-27
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.8
-> **Last Updated:** 2026-02-24
+> **Version:** 1.10
+> **Last Updated:** 2026-02-27
 > **Type:** TASK
 
 # Public Repository Readiness — Task List & Strategy
@@ -33,18 +33,31 @@ docops_version: "2.0"
 | 1.6     | 2026-02-24 | AI     | Adjust secret-scan go/no-go gate to match the repo's pre-commit workflow. | — | Draft | — |
 | 1.7     | 2026-02-24 | AI     | Remove public email references and add CI secret scanning workflow gate. | — | Draft | — |
 | 1.8     | 2026-02-24 | AI     | Add fixture/license and history-scan clarifications for public launch. | — | Draft | — |
+| 1.9     | 2026-02-27 | AI     | Refresh checklist evidence, close verified local gates, and add environment-variable documentation evidence. | — | Draft | — |
+| 1.10    | 2026-02-27 | AI     | Complete PII review, dependency license audit, and create CONTRIBUTING_QUICK.md. | — | Draft | — |
 
 ## Project Status
 
 Execution status is tracked in checklist sections below.
 Version History records document revisions only.
 
+## Execution Evidence (2026-02-27)
+
+- `meminit check --root .` passed with 0 violations and 0 warnings.
+- `pnpm docs:build` passed (`mkdocs build --strict` succeeded).
+- User-verified local IDE run: `pre-commit run --all-files` passed
+  `Detect secrets`; only `markdownlint` was failing before follow-up fixes.
+- Repo hygiene checks:
+  - no `specs/` directory present
+  - `node_modules/` is not tracked
+  - no tracked `package-lock.json` or tracked `out/` artifacts
+
 ## Go/No-Go Gates (Flip Repo To Public)
 
-- [ ] `meminit check --root .` passes with 0 violations and 0 warnings
-- [ ] `pre-commit run detect-secrets --all-files` passes (baseline reviewed)
+- [x] `meminit check --root .` passes with 0 violations and 0 warnings
+- [x] `pre-commit run detect-secrets --all-files` passes (baseline reviewed)
 - [ ] GitHub Actions `Secret Scan` workflow passes (gitleaks)
-- [ ] `pnpm docs:build` passes (MkDocs site is the review artifact)
+- [x] `pnpm docs:build` passes (MkDocs site is the review artifact)
 - [ ] Git history strategy is executed (see §1.1): squash vs scrub
 - [ ] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
 - [ ] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
@@ -94,9 +107,9 @@ were later deleted.
 - [x] `coderabbit-review-*.txt` files are gitignored
 - [x] `WIP-*` files are gitignored
 - [x] `WIP-initial-specs/` is gitignored and not tracked
-- [ ] Verify that `specs/` feedback files (`v1.2-feedback-AC.md`, etc.) don't contain sensitive
+- [x] Verify that `specs/` feedback files (`v1.2-feedback-AC.md`, etc.) don't contain sensitive
       reviewer information or proprietary third-party content
-- [ ] Review `docs/55-testing/acceptance-run-*` artifacts for any PII in test transcripts
+- [x] Review `docs/55-testing/acceptance-run-*` artifacts for any PII in test transcripts
 
 ### 1.4 License File
 
@@ -118,10 +131,13 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 ### 1.5 Copyright & Attribution
 
 - [x] Add a `NOTICE` file (Apache 2.0 convention) at the repo root — see Part 2
-- [ ] Ensure `gov-005-third-party-notices.md` is complete for all vendored or fixture data
+- [x] Ensure `gov-005-third-party-notices.md` is complete for all vendored or fixture data
 - [ ] Verify YouTube golden test fixtures comply with their source license terms (currently noted as
+  - [x] `UepWRYgBpv0`: Verified CC Attribution license.
+  - [ ] `IN6w6GnN-Ic`: **WARNING** - Marked as Standard YouTube License (NA in yt-dlp).
+    Requires replacement or explicit permission before public release.
       "Creative Commons — verify before redistribution")
-- [ ] Remove or rewrite any content authored by others without license (e.g. check `specs/`
+- [x] Remove or rewrite any content authored by others without license (e.g. check `specs/`
       feedback files)
 
 ### 1.6 README & Public-Facing Documentation
@@ -137,15 +153,15 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 - [x] Create `CONTRIBUTING.md` (contributor guide: code style, PR process, CLA/DCO)
 - [x] Create `CODE_OF_CONDUCT.md` (adopt Contributor Covenant or similar)
 - [x] Create or update `SECURITY.md` (vulnerability reporting process)
-- [ ] Document required environment variables in package READMEs or a dedicated ENVIRONMENT.md:
-  - [ ] `AIDHA_LLM_API_KEY` — LLM API key for extraction
-  - [ ] `YOUTUBE_COOKIE` — YouTube authentication cookie
-  - [ ] `YOUTUBE_INNERTUBE_API_KEY` — YouTube InnerTube API key
-  - [ ] Document the `${VAR}` interpolation pattern for contributors
+- [x] Document required environment variables in package READMEs or a dedicated ENVIRONMENT.md:
+  - [x] `AIDHA_LLM_API_KEY` — LLM API key for extraction
+  - [x] `YOUTUBE_COOKIE` — YouTube authentication cookie
+  - [x] `YOUTUBE_INNERTUBE_API_KEY` — YouTube InnerTube API key
+  - [x] Document the `${VAR}` interpolation pattern for contributors
 
 ### 1.7 CI/CD & GitHub Repository Settings
 
-- [ ] Review `.github/workflows/docs-check.yml` — ensure it doesn't expose secrets in logs
+- [x] Review `.github/workflows/docs-check.yml` — ensure it doesn't expose secrets in logs
 - [ ] Add branch protection rules (require PR reviews, passing CI before merge)
 - [ ] Configure GitHub repository settings:
   - [ ] Enable Dependabot for security alerts
@@ -155,11 +171,11 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 
 ### 1.8 Dependency Licence Audit
 
-- [ ] Run `npx license-checker --summary` on each package to verify all transitive dependencies are
+- [x] Run `npx license-checker --summary` on each package to verify all transitive dependencies are
       compatible with Apache 2.0
-- [ ] Flag any GPL-licensed dependencies (Apache 2.0 is incompatible with GPLv2; compatible with
+- [x] Flag any GPL-licensed dependencies (Apache 2.0 is incompatible with GPLv2; compatible with
       GPLv3 **only** in one direction)
-- [ ] Document findings in `gov-005-third-party-notices.md`
+- [x] Document findings in `gov-005-third-party-notices.md`
 
 ### 1.9 Cleanup & Housekeeping
 
@@ -167,11 +183,11 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 
 - [ ] Optional: delete local `coderabbit-review-*.txt` artifacts (gitignored; not a publish blocker)
 - [x] Remove `firebase-debug.log` from working tree — DELETED
-- [ ] Review whether `specs/` directory belongs in the public repo or should be archived/removed
+- [x] Review whether `specs/` directory belongs in the public repo or should be archived/removed
 - [ ] Optional: delete local `package-lock.json` files (gitignored; not tracked)
 - [x] Ensure `telemetry-id` is no longer tracked (gitignored local file)
 - [ ] Optional: delete local `out/` directories (gitignored; not tracked)
-- [ ] Verify `node_modules/` is not tracked (it shouldn't be, but confirm)
+- [x] Verify `node_modules/` is not tracked (it shouldn't be, but confirm)
 
 ---
 
@@ -480,7 +496,7 @@ cannot experience the core value of AIDHA within 5 minutes, they will move on.
 - [ ] Create a 5-minute "See It Work" path (e.g., easy `npx` execution) (§4.1)
 - [ ] Update README with clear value proposition and workflow (§4.2)
 - [ ] Add screenshots, sample JSON-LD output, and basic visualization to README (§4.2)
-- [ ] Add `CONTRIBUTING_QUICK.md` to reduce contribution friction (§4.3)
+- [x] Add `CONTRIBUTING_QUICK.md` to reduce contribution friction (§4.3)
 
 ### Strongly Recommended
 

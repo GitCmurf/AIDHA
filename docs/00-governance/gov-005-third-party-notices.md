@@ -35,6 +35,14 @@ for engineering and test fixtures.
 
 ## Registered Notices
 
+### NPM Dependencies
+
+- A dependency license audit was conducted on 2026-02-27.
+- All transitive dependencies across the workspace packages use permissive licenses
+  (MIT, ISC, BSD-3-Clause, Apache-2.0, Python-2.0).
+- No GPL or incompatible licenses were found.
+- The project's dependencies are fully compatible with its Apache 2.0 license.
+
 ### YouTube golden transcript fixtures
 
 - Location:

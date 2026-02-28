@@ -138,15 +138,24 @@ async function readVersion(executable: string): Promise<string | undefined> {
   }
 }
 
-function parseConfiguredRuntimes(configured: string): YtDlpPreflightRuntime[] {
+export function parseConfiguredRuntimes(configured: string): YtDlpPreflightRuntime[] {
   const parts = configured
     .split(',')
     .map(part => part.trim())
     .filter(Boolean);
   const entries = parts.map(part => {
-    const split = part.split(':');
-    const label = split[0]?.trim() || part;
-    const executable = split[1]?.trim() || label;
+    const trimmed = part.trim();
+    const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(trimmed);
+    if (windowsAbsolute) {
+      return {
+        label: trimmed,
+        executable: trimmed,
+        available: false,
+      };
+    }
+    const splitIndex = trimmed.indexOf(':');
+    const label = splitIndex === -1 ? trimmed : trimmed.slice(0, splitIndex).trim() || trimmed;
+    const executable = splitIndex === -1 ? label : trimmed.slice(splitIndex + 1).trim() || label;
     return {
       label,
       executable,
