@@ -1306,13 +1306,19 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   runCli().then(
     code => process.exit(code),
     err => {
-      // Log only the error message to avoid leaking sensitive data in stack traces.
-      // Set AIDHA_VERBOSE=1 environment variable to enable full error details (stack traces).
+      // Log only sanitized error information to avoid leaking sensitive data.
+      // AIDHA_VERBOSE enables error name prefix but never prints full stacks.
       const verbose = process.env.AIDHA_VERBOSE === '1' || process.env.AIDHA_VERBOSE === 'true';
-      if (verbose && err instanceof Error) {
-        console.error(err);
+      if (err instanceof Error) {
+        const basicMessage = err.message || 'Unexpected error';
+        if (verbose) {
+          console.error(`[error] ${err.name}: ${basicMessage}`);
+        } else {
+          console.error(basicMessage);
+        }
       } else {
-        console.error(err instanceof Error ? err.message : String(err));
+        const message = String(err);
+        console.error(verbose ? `[error] ${message}` : message);
       }
       process.exit(1);
     }

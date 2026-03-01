@@ -36,8 +36,8 @@ describe('OpenAiCompatibleClient', () => {
 
     it('should handle URLs at the maximum length boundary', () => {
       // URLs exactly at the limit should work fine
-      // "https://api.example.com/" is 22 chars, so we need 2048 - 22 = 2026 more chars
-      const maxLengthUrl = 'https://api.example.com/' + 'a'.repeat(2026);
+      // "https://api.example.com/" is 24 chars, so we need 2048 - 24 = 2024 more chars
+      const maxLengthUrl = 'https://api.example.com/' + 'a'.repeat(2024);
       expect(() => new OpenAiCompatibleClient({
         baseUrl: maxLengthUrl,
         apiKey: 'test-key', // pragma: allowlist secret

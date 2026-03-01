@@ -155,7 +155,8 @@ describe('interpolateString', () => {
 
   it('should interpolate strings at maximum length with variables', () => {
     // Verify that interpolation works correctly at the length boundary
-    const longValue = 'x'.repeat(9995); // 9995 + ${VAR} (5 chars) = 10000
+    // ${VAR} is 6 characters, so 9994 + 6 = 10000 exactly
+    const longValue = 'x'.repeat(9994);
     expect(() => interpolateString(`${longValue}\${VAR}`, env({ VAR: 'y' }))).not.toThrow();
     expect(interpolateString(`${longValue}\${VAR}`, env({ VAR: 'y' }))).toBe(longValue + 'y');
   });

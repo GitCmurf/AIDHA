@@ -113,7 +113,8 @@ describe('redactSecrets', () => {
     expect(() => isSecretKey(maxLengthKey)).not.toThrow();
     expect(isSecretKey(maxLengthKey)).toBe(false);
 
-    const maxLengthSecretKey = 'a'.repeat(251) + '_password'; // 256 chars total (251 + 6)
+    // '_password' is 9 characters, so 247 + 9 = 256 exactly
+    const maxLengthSecretKey = 'a'.repeat(247) + '_password';
     expect(() => isSecretKey(maxLengthSecretKey)).not.toThrow();
     expect(isSecretKey(maxLengthSecretKey)).toBe(true);
   });
