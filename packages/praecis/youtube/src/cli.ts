@@ -1306,7 +1306,8 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   runCli().then(
     code => process.exit(code),
     err => {
-      console.error(err);
+      // Log only the error message to avoid leaking sensitive data in stack traces
+      console.error(err instanceof Error ? err.message : String(err));
       process.exit(1);
     }
   );

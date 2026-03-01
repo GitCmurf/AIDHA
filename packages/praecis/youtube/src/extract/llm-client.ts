@@ -19,7 +19,10 @@ export interface OpenAiCompatibleConfig {
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, '');
+  // Limit input length to prevent potential ReDoS attacks
+  const MAX_URL_LENGTH = 2048;
+  const trimmed = baseUrl.length > MAX_URL_LENGTH ? baseUrl.slice(0, MAX_URL_LENGTH) : baseUrl;
+  return trimmed.replace(/\/+$/, '');
 }
 
 export class OpenAiCompatibleClient implements LlmClient {

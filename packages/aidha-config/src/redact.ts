@@ -143,7 +143,10 @@ function toSnakeCase(key: string): string {
   //   ApiKey -> api_key
   //   APIKey -> api_key
   //   YTdlpPath -> ytdlp_path
-  return key
+  // Limit input length to prevent potential ReDoS attacks
+  const MAX_KEY_LENGTH = 256;
+  const trimmed = key.length > MAX_KEY_LENGTH ? key.slice(0, MAX_KEY_LENGTH) : key;
+  return trimmed
     .replace(/-/g, '_')
     .replace(/([A-Z]+)([A-Z][a-z0-9]+)/g, '$1_$2')
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2')

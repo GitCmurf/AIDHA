@@ -89,7 +89,11 @@ export function interpolateString(
     throw new InterpolationDepthError(MAX_DEPTH);
   }
 
-  return value.replace(
+  // Limit input length to prevent potential ReDoS attacks on the regex
+  const MAX_INPUT_LENGTH = 10000;
+  const trimmed = value.length > MAX_INPUT_LENGTH ? value.slice(0, MAX_INPUT_LENGTH) : value;
+
+  return trimmed.replace(
     TOKEN_RE,
     (
       _match: string,
