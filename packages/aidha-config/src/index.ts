@@ -67,6 +67,9 @@ export type { ResolveOptions } from './resolver.js';
 // ── Secret redaction ─────────────────────────────────────────────────────────
 export { redactSecrets, isSecretKey, REDACTED } from './redact.js';
 
+// ── Validation ─────────────────────────────────────────────────────────────────
+export { validateLength } from './validation.js';
+
 // ── Provenance / explain ─────────────────────────────────────────────────────
 export { createProvenance, formatProvenance, resolveKeyProvenance } from './explain.js';
 export type {

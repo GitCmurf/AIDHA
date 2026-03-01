@@ -15,8 +15,12 @@
  */
 
 import { loadSchema } from './schema.js';
+import { validateLength } from './validation.js';
 
 const REDACTED = '********';
+
+/** Maximum key length to prevent potential ReDoS attacks. */
+const MAX_KEY_LENGTH = 256;
 
 /** Heuristic patterns for secret key names (case-insensitive). */
 const SECRET_PATTERNS = [
@@ -145,10 +149,7 @@ function toSnakeCase(key: string): string {
   //   YTdlpPath -> ytdlp_path
   // Limit input length to prevent potential ReDoS attacks and to avoid
   // silently truncating keys that may end with secret patterns (e.g., '..._password')
-  const MAX_KEY_LENGTH = 256;
-  if (key.length > MAX_KEY_LENGTH) {
-    throw new Error(`Key length (${key.length}) exceeds maximum of ${MAX_KEY_LENGTH}.`);
-  }
+  validateLength(key, MAX_KEY_LENGTH, 'Key');
   return key
     .replace(/-/g, '_')
     .replace(/([A-Z]+)([A-Z][a-z0-9]+)/g, '$1_$2')

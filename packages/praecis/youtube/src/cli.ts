@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+
+// CLI constants
+const ENV_VERBOSE = 'AIDHA_VERBOSE';
+const ERROR_PREFIX = '[error]';
+const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] === 'true';
+
 import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -1307,18 +1313,17 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
     code => process.exit(code),
     err => {
       // Log only sanitized error information to avoid leaking sensitive data.
-      // AIDHA_VERBOSE enables error name prefix but never prints full stacks.
-      const verbose = process.env.AIDHA_VERBOSE === '1' || process.env.AIDHA_VERBOSE === 'true';
+      // ENV_VERBOSE enables error name prefix but never prints full stacks.
       if (err instanceof Error) {
         const basicMessage = err.message || 'Unexpected error';
-        if (verbose) {
-          console.error(`[error] ${err.name}: ${basicMessage}`);
+        if (VERBOSE) {
+          console.error(`${ERROR_PREFIX} ${err.name}: ${basicMessage}`);
         } else {
           console.error(basicMessage);
         }
       } else {
         const message = String(err);
-        console.error(verbose ? `[error] ${message}` : message);
+        console.error(VERBOSE ? `${ERROR_PREFIX} ${message}` : message);
       }
       process.exit(1);
     }
