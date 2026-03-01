@@ -18,9 +18,13 @@ export interface OpenAiCompatibleConfig {
   timeoutMs?: number;
 }
 
+/** Maximum base URL length to prevent potential ReDoS attacks. */
+const MAX_URL_LENGTH = 2048;
+
 function normalizeBaseUrl(baseUrl: string): string {
   // Limit input length to prevent potential ReDoS attacks
-  const MAX_URL_LENGTH = 2048;
+  // Note: Inline validation used instead of @aidha/config's validateLength
+  // to avoid loading the heavy barrel import (schema, loader dependencies).
   if (baseUrl.length > MAX_URL_LENGTH) {
     throw new Error(`Base URL length (${baseUrl.length}) exceeds maximum of ${MAX_URL_LENGTH}.`);
   }
@@ -97,12 +101,16 @@ export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmCli
   if (!cfg.baseUrl) {
     return { ok: false, error: new Error('llm.base_url is not configured') };
   }
-  return {
-    ok: true,
-    value: new OpenAiCompatibleClient({
-      baseUrl: cfg.baseUrl,
-      apiKey: cfg.apiKey || undefined,
-      timeoutMs: cfg.timeoutMs || 60_000,
-    }),
-  };
+  try {
+    return {
+      ok: true,
+      value: new OpenAiCompatibleClient({
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey || undefined,
+        timeoutMs: cfg.timeoutMs ?? 60_000,
+      }),
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
 }

@@ -10,8 +10,13 @@
  * @module
  */
 
+import { validateLength } from './validation.js';
+
 /** Maximum recursive expansion depth to prevent runaway loops. */
 const MAX_DEPTH = 10;
+
+/** Maximum input string length to prevent potential ReDoS attacks. */
+const MAX_INPUT_LENGTH = 10000;
 
 /**
  * Pattern for interpolation tokens:
@@ -90,10 +95,7 @@ export function interpolateString(
   }
 
   // Limit input length to prevent potential ReDoS attacks on the regex
-  const MAX_INPUT_LENGTH = 10000;
-  if (value.length > MAX_INPUT_LENGTH) {
-    throw new Error(`Input string length (${value.length}) exceeds maximum of ${MAX_INPUT_LENGTH}.`);
-  }
+  validateLength(value, MAX_INPUT_LENGTH, 'Input string');
 
   return value.replace(
     TOKEN_RE,

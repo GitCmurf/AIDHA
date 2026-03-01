@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -48,6 +49,11 @@ import type { ResolvedConfig } from '@aidha/config';
 import { createLlmClientFromConfig } from './extract/llm-client.js';
 
 export type CliOptions = Record<string, string | boolean>;
+
+// CLI constants
+const ENV_VERBOSE = 'AIDHA_VERBOSE';
+const ERROR_PREFIX = '[error]';
+const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] === 'true';
 
 function parseVideoId(input: string): string {
   if (!input.includes('/') && !input.includes('.')) {
@@ -1307,18 +1313,17 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
     code => process.exit(code),
     err => {
       // Log only sanitized error information to avoid leaking sensitive data.
-      // AIDHA_VERBOSE enables error name prefix but never prints full stacks.
-      const verbose = process.env.AIDHA_VERBOSE === '1' || process.env.AIDHA_VERBOSE === 'true';
+      // ENV_VERBOSE enables error name prefix but never prints full stacks.
       if (err instanceof Error) {
         const basicMessage = err.message || 'Unexpected error';
-        if (verbose) {
-          console.error(`[error] ${err.name}: ${basicMessage}`);
+        if (VERBOSE) {
+          console.error(`${ERROR_PREFIX} ${err.name}: ${basicMessage}`);
         } else {
           console.error(basicMessage);
         }
       } else {
         const message = String(err);
-        console.error(verbose ? `[error] ${message}` : message);
+        console.error(VERBOSE ? `${ERROR_PREFIX} ${message}` : message);
       }
       process.exit(1);
     }
