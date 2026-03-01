@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-// CLI constants
-const ENV_VERBOSE = 'AIDHA_VERBOSE';
-const ERROR_PREFIX = '[error]';
-const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] === 'true';
-
 import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -54,6 +49,11 @@ import type { ResolvedConfig } from '@aidha/config';
 import { createLlmClientFromConfig } from './extract/llm-client.js';
 
 export type CliOptions = Record<string, string | boolean>;
+
+// CLI constants
+const ENV_VERBOSE = 'AIDHA_VERBOSE';
+const ERROR_PREFIX = '[error]';
+const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] === 'true';
 
 function parseVideoId(input: string): string {
   if (!input.includes('/') && !input.includes('.')) {

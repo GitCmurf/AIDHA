@@ -14,9 +14,9 @@
  * Throws an error if the input exceeds the maximum allowed length.
  *
  * @param value - The value to validate
- * @param maxLength - Maximum allowed length
+ * @param maxLength - Maximum allowed length (must be non-negative)
  * @param context - Description of what is being validated (used in error message)
- * @throws {Error} If input exceeds maximum length
+ * @throws {Error} If input exceeds maximum length or maxLength is invalid
  *
  * @example
  * ```ts
@@ -25,6 +25,9 @@
  * ```
  */
 export function validateLength(value: string, maxLength: number, context: string): void {
+  if (maxLength < 0) {
+    throw new Error(`Invalid maxLength for ${context}: ${maxLength} (must be non-negative)`);
+  }
   if (value.length > maxLength) {
     throw new Error(`${context} length (${value.length}) exceeds maximum of ${maxLength}.`);
   }

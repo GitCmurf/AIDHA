@@ -34,8 +34,18 @@ describe('OpenAiCompatibleClient', () => {
       })).toThrow(/Base URL length .* exceeds maximum/);
     });
 
+    it('should throw error for URLs just over the maximum length', () => {
+      // Test the boundary condition: 2049 characters should fail
+      // "https://api.example.com/" is 24 chars, so we need 2049 - 24 = 2025 more chars
+      const overLimitUrl = 'https://api.example.com/' + 'a'.repeat(2025);
+      expect(() => new OpenAiCompatibleClient({
+        baseUrl: overLimitUrl,
+        apiKey: 'test-key', // pragma: allowlist secret
+      })).toThrow(/Base URL length .* exceeds maximum/);
+    });
+
     it('should handle URLs at the maximum length boundary', () => {
-      // URLs exactly at the limit should work fine
+      // URLs exactly at the limit (2048) should work fine
       // "https://api.example.com/" is 24 chars, so we need 2048 - 24 = 2024 more chars
       const maxLengthUrl = 'https://api.example.com/' + 'a'.repeat(2024);
       expect(() => new OpenAiCompatibleClient({
