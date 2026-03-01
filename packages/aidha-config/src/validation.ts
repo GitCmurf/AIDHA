@@ -25,8 +25,10 @@
  * ```
  */
 export function validateLength(value: string, maxLength: number, context: string): void {
-  if (maxLength < 0) {
-    throw new Error(`Invalid maxLength for ${context}: ${maxLength} (must be non-negative)`);
+  if (!Number.isFinite(maxLength) || !Number.isInteger(maxLength) || maxLength < 0) {
+    throw new Error(
+      `Invalid maxLength for ${context}: ${maxLength} (must be a non-negative integer)`,
+    );
   }
   if (value.length > maxLength) {
     throw new Error(`${context} length (${value.length}) exceeds maximum of ${maxLength}.`);
