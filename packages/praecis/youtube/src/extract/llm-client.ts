@@ -107,7 +107,7 @@ export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmCli
       value: new OpenAiCompatibleClient({
         baseUrl: cfg.baseUrl,
         apiKey: cfg.apiKey || undefined,
-        timeoutMs: cfg.timeoutMs || 60_000,
+        timeoutMs: cfg.timeoutMs ?? 60_000,
       }),
     };
   } catch (error) {
