@@ -23,6 +23,8 @@ const MAX_URL_LENGTH = 2048;
 
 function normalizeBaseUrl(baseUrl: string): string {
   // Limit input length to prevent potential ReDoS attacks
+  // Note: Inline validation used instead of @aidha/config's validateLength
+  // to avoid loading the heavy barrel import (schema, loader dependencies).
   if (baseUrl.length > MAX_URL_LENGTH) {
     throw new Error(`Base URL length (${baseUrl.length}) exceeds maximum of ${MAX_URL_LENGTH}.`);
   }

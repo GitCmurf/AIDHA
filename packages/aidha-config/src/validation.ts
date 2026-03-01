@@ -14,9 +14,9 @@
  * Throws an error if the input exceeds the maximum allowed length.
  *
  * @param value - The value to validate
- * @param maxLength - Maximum allowed length (must be non-negative)
+ * @param maxLength - Maximum allowed length (must be a non-negative integer)
  * @param context - Description of what is being validated (used in error message)
- * @throws {Error} If input exceeds maximum length or maxLength is invalid
+ * @throws {Error} If input exceeds maximum length or maxLength is not a finite, non-negative integer
  *
  * @example
  * ```ts
