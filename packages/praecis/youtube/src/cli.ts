@@ -1306,8 +1306,14 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   runCli().then(
     code => process.exit(code),
     err => {
-      // Log only the error message to avoid leaking sensitive data in stack traces
-      console.error(err instanceof Error ? err.message : String(err));
+      // Log only the error message to avoid leaking sensitive data in stack traces.
+      // Set AIDHA_VERBOSE=1 environment variable to enable full error details (stack traces).
+      const verbose = process.env.AIDHA_VERBOSE === '1' || process.env.AIDHA_VERBOSE === 'true';
+      if (verbose && err instanceof Error) {
+        console.error(err);
+      } else {
+        console.error(err instanceof Error ? err.message : String(err));
+      }
       process.exit(1);
     }
   );

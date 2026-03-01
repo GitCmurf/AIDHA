@@ -91,9 +91,11 @@ export function interpolateString(
 
   // Limit input length to prevent potential ReDoS attacks on the regex
   const MAX_INPUT_LENGTH = 10000;
-  const trimmed = value.length > MAX_INPUT_LENGTH ? value.slice(0, MAX_INPUT_LENGTH) : value;
+  if (value.length > MAX_INPUT_LENGTH) {
+    throw new Error(`Input string length (${value.length}) exceeds maximum of ${MAX_INPUT_LENGTH}.`);
+  }
 
-  return trimmed.replace(
+  return value.replace(
     TOKEN_RE,
     (
       _match: string,
