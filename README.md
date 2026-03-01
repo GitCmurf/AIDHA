@@ -4,7 +4,8 @@
 
 ## What is AIDHA?
 
-*AIDHA turns video content into a queryable knowledge graph. Watch a video → AIDHA extracts claims → You refine them → Export as JSON-LD. Unlike note-taking apps, AIDHA tracks provenance:
+*AIDHA turns video content into a queryable knowledge graph. Watch a video → AIDHA extracts
+claims → You refine them → Export as JSON-LD. Unlike note-taking apps, AIDHA tracks provenance:
 *every claim links to its source timestamp.*
 
 ![AIDHA Workflow Graph Placeholder](https://via.placeholder.com/800x400.png?text=AIDHA+Knowledge+Graph+Workflow)

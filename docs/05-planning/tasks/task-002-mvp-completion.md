@@ -494,7 +494,8 @@ graph TD
 
 ## Next Steps
 
-1. Configure GitHub repository settings (branch protection, Dependabot, secret scanning) after pushing the squashed history.
+1. Configure GitHub repository settings (branch protection, Dependabot, secret scanning)
+   after pushing the squashed history.
 
 ## Success Criteria
 
