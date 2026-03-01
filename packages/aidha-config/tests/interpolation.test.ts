@@ -134,6 +134,32 @@ describe('interpolateString', () => {
       InterpolationDepthError,
     );
   });
+
+  // ── ReDoS protection (length limits) ─────────────────────────────────────
+
+  it('should throw error for input strings exceeding maximum length (ReDoS protection)', () => {
+    // The interpolateString function has a MAX_INPUT_LENGTH of 10000 to prevent
+    // potential ReDoS attacks on the complex TOKEN_RE regex.
+    const tooLong = 'a'.repeat(10001);
+    expect(() => interpolateString(tooLong, env({}))).toThrow(
+      /Input string length .* exceeds maximum/,
+    );
+  });
+
+  it('should handle strings at the maximum length boundary', () => {
+    // Strings exactly at the limit should work fine
+    const maxLength = 'a'.repeat(10000);
+    expect(() => interpolateString(maxLength, env({}))).not.toThrow();
+    expect(interpolateString(maxLength, env({}))).toBe(maxLength);
+  });
+
+  it('should interpolate strings at maximum length with variables', () => {
+    // Verify that interpolation works correctly at the length boundary
+    // ${VAR} is 6 characters, so 9994 + 6 = 10000 exactly
+    const longValue = 'x'.repeat(9994);
+    expect(() => interpolateString(`${longValue}\${VAR}`, env({ VAR: 'y' }))).not.toThrow();
+    expect(interpolateString(`${longValue}\${VAR}`, env({ VAR: 'y' }))).toBe(longValue + 'y');
+  });
 });
 
 describe('interpolateDeep', () => {

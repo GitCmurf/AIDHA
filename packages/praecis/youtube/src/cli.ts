@@ -1306,7 +1306,20 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   runCli().then(
     code => process.exit(code),
     err => {
-      console.error(err);
+      // Log only sanitized error information to avoid leaking sensitive data.
+      // AIDHA_VERBOSE enables error name prefix but never prints full stacks.
+      const verbose = process.env.AIDHA_VERBOSE === '1' || process.env.AIDHA_VERBOSE === 'true';
+      if (err instanceof Error) {
+        const basicMessage = err.message || 'Unexpected error';
+        if (verbose) {
+          console.error(`[error] ${err.name}: ${basicMessage}`);
+        } else {
+          console.error(basicMessage);
+        }
+      } else {
+        const message = String(err);
+        console.error(verbose ? `[error] ${message}` : message);
+      }
       process.exit(1);
     }
   );

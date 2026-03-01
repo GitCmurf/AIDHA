@@ -98,4 +98,24 @@ describe('redactSecrets', () => {
     expect(result[0]?.apiKey).toBe(REDACTED);
     expect(result[1]?.model).toBe('gpt');
   });
+
+  it('should throw error for keys exceeding maximum length (ReDoS protection)', () => {
+    // The toSnakeCase function (used internally by isSecretKey) has a MAX_KEY_LENGTH of 256.
+    // This prevents ReDoS attacks on the regex and ensures keys that end with secret
+    // patterns (e.g., '..._password') are not silently truncated, which would bypass redaction.
+    const longKey = 'a'.repeat(256) + '_password';
+    expect(() => isSecretKey(longKey)).toThrow(/Key length .* exceeds maximum/);
+  });
+
+  it('should handle keys at the maximum length boundary', () => {
+    // Keys exactly at the limit should work fine
+    const maxLengthKey = 'a'.repeat(256);
+    expect(() => isSecretKey(maxLengthKey)).not.toThrow();
+    expect(isSecretKey(maxLengthKey)).toBe(false);
+
+    // '_password' is 9 characters, so 247 + 9 = 256 exactly
+    const maxLengthSecretKey = 'a'.repeat(247) + '_password';
+    expect(() => isSecretKey(maxLengthSecretKey)).not.toThrow();
+    expect(isSecretKey(maxLengthSecretKey)).toBe(true);
+  });
 });

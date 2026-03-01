@@ -8,12 +8,15 @@ type TranscriptJsonEvent = {
 type TranscriptJson = { events?: TranscriptJsonEvent[] };
 
 export function decodeXmlEntities(value: string): string {
+  // Use a single-pass approach to avoid ReDoS and prevent double escaping.
+  // Note: &amp; must be replaced LAST to avoid double-decoding issues.
+  // For example: &amp;quot; should become &quot; not "
   return value
-    .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
 }
 
 export function parseTranscriptXml(xml: string): TranscriptSegment[] {

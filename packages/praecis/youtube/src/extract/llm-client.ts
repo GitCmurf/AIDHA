@@ -19,6 +19,11 @@ export interface OpenAiCompatibleConfig {
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
+  // Limit input length to prevent potential ReDoS attacks
+  const MAX_URL_LENGTH = 2048;
+  if (baseUrl.length > MAX_URL_LENGTH) {
+    throw new Error(`Base URL length (${baseUrl.length}) exceeds maximum of ${MAX_URL_LENGTH}.`);
+  }
   return baseUrl.replace(/\/+$/, '');
 }
 
