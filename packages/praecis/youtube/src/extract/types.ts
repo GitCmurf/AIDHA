@@ -7,6 +7,8 @@ export interface ClaimCandidate {
   confidence?: number;
   startSeconds?: number;
   type?: string;
+  classification?: string;
+  domain?: string;
   why?: string;
   method?: 'heuristic' | 'llm';
   chunkIndex?: number;

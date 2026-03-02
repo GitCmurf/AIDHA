@@ -95,6 +95,13 @@ function renderVideoMarkdown(dossier: VideoDossier): string {
       const statePrefix = claim.state === 'accepted' ? '' : `[${claim.state}] `;
       lines.push(`${index + 1}. [${claim.timestampLabel}](${claim.timestampUrl}) ${statePrefix}${claim.text}`);
       lines.push(`   - Excerpt: ${claim.excerptText}`);
+      if (claim.domain || claim.classification) {
+        const resolutionBits = [
+          claim.domain ? `**Domain:** ${claim.domain}` : null,
+          claim.classification ? `**Classification:** ${claim.classification}` : null,
+        ].filter(Boolean);
+        lines.push(`   - ${resolutionBits.join(' | ')}`);
+      }
       if (claim.type || typeof claim.confidence === 'number' || claim.method) {
         const metaBits = [
           claim.type ? `type=${claim.type}` : null,
@@ -288,6 +295,12 @@ export class DossierExporter {
         excerptId: excerpt?.id,
         referenceUrls,
         type: typeof claim.metadata?.['type'] === 'string' ? (claim.metadata?.['type'] as string) : undefined,
+        classification: typeof claim.metadata?.['classification'] === 'string'
+          ? (claim.metadata?.['classification'] as string)
+          : undefined,
+        domain: typeof claim.metadata?.['domain'] === 'string'
+          ? (claim.metadata?.['domain'] as string)
+          : undefined,
         confidence: typeof claim.metadata?.['confidence'] === 'number'
           ? (claim.metadata?.['confidence'] as number)
           : undefined,

@@ -128,6 +128,8 @@ export class ClaimExtractionPipeline {
         if (extractorEditorVersion) metadata['editorVersion'] = extractorEditorVersion;
         if (typeof claim.startSeconds === 'number') metadata['startSeconds'] = claim.startSeconds;
         if (claim.type) metadata['type'] = claim.type;
+        if (claim.classification) metadata['classification'] = claim.classification;
+        if (claim.domain) metadata['domain'] = claim.domain;
         if (claim.why) metadata['why'] = claim.why;
         if (claim.model) metadata['model'] = claim.model;
         if (claim.promptVersion) metadata['promptVersion'] = claim.promptVersion;

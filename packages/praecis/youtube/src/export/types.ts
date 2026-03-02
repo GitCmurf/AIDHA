@@ -9,6 +9,8 @@ export interface DossierClaim {
   excerptId?: string;
   referenceUrls: string[];
   type?: string;
+  classification?: string;
+  domain?: string;
   confidence?: number;
   method?: string;
 }

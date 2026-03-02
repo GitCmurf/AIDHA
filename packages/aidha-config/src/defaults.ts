@@ -49,11 +49,13 @@ export const DEFAULTS: DeepReadonly<AidhaConfig> = {
     default: {
       db: './out/aidha.sqlite',
       llm: {
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini',
         api_key: '',
         base_url: 'https://api.openai.com/v1',
         timeout_ms: 30_000,
         cache_dir: './out/cache/claims',
+        reasoning_effort: 'medium',
+        verbosity: 'medium',
       },
       editor: {
         version: 'v2',

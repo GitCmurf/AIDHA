@@ -346,8 +346,9 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
         editorMinWindows: config.editor.minWindows > 0 ? config.editor.minWindows : undefined,
         editorMinWords: config.editor.minWords > 0 ? config.editor.minWords : undefined,
         editorMinChars: config.editor.minChars > 0 ? config.editor.minChars : undefined,
-        editorLlm: config.editor.editorLlm || editorLlm, // Allow flag to override if not set in config? (Flag is already in config via overrides)
-        // config.editor.editorLlm comes from ResolvedConfig which includes cli overrides.
+        editorLlm: config.editor.editorLlm || editorLlm,
+        reasoningEffort: config.llm.reasoningEffort,
+        verbosity: config.llm.verbosity,
       });
     }
 

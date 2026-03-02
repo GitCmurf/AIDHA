@@ -76,6 +76,16 @@
           "type": "string",
           "description": "Directory for LLM response caching.",
           "x-aidha-path": true
+        },
+        "reasoning_effort": {
+          "type": "string",
+          "enum": ["none", "minimal", "low", "medium", "high", "xhigh"],
+          "description": "GPT-5 reasoning depth control."
+        },
+        "verbosity": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "GPT-5 response verbosity control."
         }
       }
     },

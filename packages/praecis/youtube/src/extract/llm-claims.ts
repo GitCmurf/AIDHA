@@ -10,11 +10,14 @@ import { runEditorPassV1, runEditorPassV2 } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
 import { clamp, normalizeText, toNumber } from './utils.js';
 import { hashId } from '../utils/ids.js';
+import { HIGH_RES_MOCK_CLAIMS } from './mock-analyst.js';
 
 const CLAIM_TYPES = [
   'insight',
   'instruction',
   'fact',
+  'mechanism',
+  'opinion',
   'decision',
   'warning',
   'question',
@@ -27,6 +30,8 @@ const ClaimSchema = z.object({
   excerptIds: z.array(z.string()).min(1),
   startSeconds: z.number().nonnegative().optional(),
   type: z.string().optional(),
+  classification: z.string().optional(),
+  domain: z.string().optional(),
   confidence: z.number().min(0).max(1).optional(),
   why: z.string().optional(),
 });
@@ -98,6 +103,8 @@ export interface LlmClaimExtractorConfig {
   editorRewritePromptVersion?: string;
   editorRewriteMinKeywordOverlap?: number;
   editorRewriteMaxEditRatio?: number;
+  reasoningEffort?: string;
+  verbosity?: string;
   fallback?: ClaimExtractor;
 }
 
@@ -119,12 +126,12 @@ export interface CachedClaimsLoadResult {
   candidates: ClaimCandidate[];
 }
 
-const DEFAULT_CHUNK_MINUTES = 5;
-const DEFAULT_MAX_CLAIMS = 15;
+const DEFAULT_CHUNK_MINUTES = 10;
+const DEFAULT_MAX_CLAIMS = 25;
 const DEFAULT_CACHE_DIR = './out/cache/claims';
-const DEFAULT_MIN_CLAIMS_PER_CHUNK = 3;
-const DEFAULT_MAX_CLAIMS_PER_CHUNK = 8;
-const DEFAULT_EDITOR_REWRITE_PROMPT_VERSION = 'editor-rewrite-v1';
+const DEFAULT_MIN_CLAIMS_PER_CHUNK = 5;
+const DEFAULT_MAX_CLAIMS_PER_CHUNK = 12;
+const DEFAULT_EDITOR_REWRITE_PROMPT_VERSION = 'editor-rewrite-v2';
 const DEFAULT_EDITOR_REWRITE_MIN_KEYWORD_OVERLAP = 0.3;
 const DEFAULT_EDITOR_REWRITE_MAX_EDIT_RATIO = 0.5;
 
@@ -239,6 +246,8 @@ async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCa
       excerptIds: claim.excerptIds,
       startSeconds: claim.startSeconds,
       type: claim.type,
+      classification: claim.classification,
+      domain: claim.domain,
       confidence: claim.confidence,
       why: claim.why,
     })),
@@ -457,6 +466,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private editorRewritePromptVersion: string;
   private editorRewriteMinKeywordOverlap: number;
   private editorRewriteMaxEditRatio: number;
+  private reasoningEffort?: string;
+  private verbosity?: string;
   private fallback?: ClaimExtractor;
 
   constructor(config: LlmClaimExtractorConfig) {
@@ -486,6 +497,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       0,
       1
     );
+    this.reasoningEffort = config.reasoningEffort;
+    this.verbosity = config.verbosity;
     this.fallback = config.fallback ?? new HeuristicClaimExtractor();
   }
 
@@ -635,15 +648,18 @@ export class LlmClaimExtractor implements ClaimExtractor {
       startSeconds: candidate.startSeconds ?? 0,
     }));
     const system = [
-      'You revise claim text for clarity while preserving provenance constraints.',
+      'You are a high-resolution information extraction agent.',
+      'You revise claim text for extreme clarity and technical precision while preserving provenance.',
       'Return only JSON matching the schema with claim indexes and revised text.',
-      'Do not add new facts. Keep numeric values. Keep meaning consistent with evidence excerpts.',
+      'Constraint: Every revised claim MUST be a specific, standalone assertion.',
+      'Constraint: Preserve all technical terms, numbers, and units exactly.',
     ].join(' ');
     const user = [
       `Video: ${input.resource.label}`,
       `Schema: {"claims":[{"index":number,"text":string}]}`,
-      'Revise each claim to improve readability only.',
-      'Preserve meaning, numbers, and cited evidence.',
+      'Goal: Rewrite each claim to be as useful and high-resolution as possible.',
+      'Instruction: If a claim is generic, look at its excerptText and add specific details (numbers, mechanisms).',
+      'Instruction: Maintain strict grounding in the provided evidence.',
       `CLAIMS:\n${JSON.stringify(claimsPayload, null, 2)}`,
     ].join('\n');
 
@@ -652,7 +668,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       system,
       user,
       temperature: 0,
-      maxTokens: 1200,
+      maxTokens: 2000,
+      reasoningEffort: this.reasoningEffort,
+      verbosity: this.verbosity,
     };
     const response = await this.client.generate(request);
     if (!response.ok) return null;
@@ -723,17 +741,20 @@ export class LlmClaimExtractor implements ClaimExtractor {
       text: normalizeText(excerpt.content ?? ''),
     }));
     const system = [
-      'You extract auditable claims from transcript excerpts.',
+      'You are a senior analyst extracting high-resolution health and physiological assertions.',
       'Return only JSON that matches the provided schema.',
-      'Avoid sponsor/intro/outro chatter and keep claims specific.',
+      'CRITICAL: Over-index on specificity and niche technical insights.',
+      'CRITICAL: Reject generic advice (e.g. "eat balanced meals", "sleep more").',
+      'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
     ].join(' ');
     const user = [
       `Video: ${resource.label}`,
       `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
-      `Return ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} claims if possible.`,
-      `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"confidence":0-1,"why":string}]}`,
+      `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
+      `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion","domain":string,"confidence":0-1,"why":string}]}`,
       `Allowed types: ${CLAIM_TYPES.join(', ')}`,
-      'Use only excerptIds from the list below.',
+      'Requirement: If you find a generic claim, replace it with a more specific one from the same text.',
+      'Requirement: Include the physiological Domain (e.g. "Protein Kinetics", "Lipidology") and Classification.',
       `EXCERPTS:\n${JSON.stringify(excerptsPayload, null, 2)}`,
     ].join('\n');
 
@@ -743,6 +764,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       chunk,
       excerptStartMap,
       strictRetry: true,
+      reasoningEffort: this.reasoningEffort,
+      verbosity: this.verbosity,
     });
 
     if (parsed.length > 0) {
@@ -750,6 +773,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
+    // Temporarily disabled fallback to see real LLM errors
+    /*
     if (this.fallback) {
       const fallbackClaims = await this.fallback.extractClaims({
         resource,
@@ -762,6 +787,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         chunkIndex: chunk.index,
       }));
     }
+    */
 
     return [];
   }
@@ -772,15 +798,22 @@ export class LlmClaimExtractor implements ClaimExtractor {
     chunk: ClaimChunk;
     excerptStartMap: Map<string, number>;
     strictRetry: boolean;
+    reasoningEffort?: string;
+    verbosity?: string;
   }): Promise<ClaimCandidate[]> {
-    const { system, user, chunk, excerptStartMap, strictRetry } = input;
+    const { system, user, chunk, excerptStartMap, strictRetry, reasoningEffort, verbosity } = input;
     const request = {
       model: this.model,
       system,
       user,
+      reasoningEffort,
+      verbosity,
     };
     const response = await this.client.generate(request);
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error(`LLM error in chunk ${chunk.index}: ${response.error.message}`);
+      return [];
+    }
 
     const parsed = this.parseResponse(response.value, chunk, excerptStartMap);
     if (parsed.length > 0 || !strictRetry) return parsed;
@@ -789,7 +822,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
       ...request,
       user: `${user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
     });
-    if (!retry.ok) return [];
+    if (!retry.ok) {
+      console.error(`LLM retry error in chunk ${chunk.index}: ${retry.error.message}`);
+      return [];
+    }
     return this.parseResponse(retry.value, chunk, excerptStartMap);
   }
 
@@ -822,6 +858,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
         confidence: clamp(candidate.confidence ?? 0.7, 0, 1),
         startSeconds,
         type: normalizeType(candidate.type),
+        classification: candidate.classification,
+        domain: candidate.domain,
         why: candidate.why ? normalizeText(candidate.why) : undefined,
         method: 'llm',
         chunkIndex: chunk.index,

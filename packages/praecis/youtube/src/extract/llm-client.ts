@@ -6,6 +6,8 @@ export interface LlmCompletionRequest {
   user: string;
   temperature?: number;
   maxTokens?: number;
+  reasoningEffort?: string;
+  verbosity?: string;
 }
 
 export interface LlmClient {
@@ -46,21 +48,41 @@ export class OpenAiCompatibleClient implements LlmClient {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
+      const body: Record<string, unknown> = {
+        model: request.model,
+        messages: [
+          { role: 'system', content: request.system },
+          { role: 'user', content: request.user },
+        ],
+      };
+
+      if (request.reasoningEffort) {
+        body['reasoning_effort'] = request.reasoningEffort;
+      }
+      if (request.verbosity) {
+        body['verbosity'] = request.verbosity;
+      }
+
+      // Traditional parameters
+      if (request.temperature !== undefined) {
+        body['temperature'] = request.temperature;
+      } else if (!request.reasoningEffort) {
+        body['temperature'] = 0.2;
+      }
+
+      if (request.maxTokens !== undefined) {
+        body['max_tokens'] = request.maxTokens;
+      } else {
+        body['max_tokens'] = 900;
+      }
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         },
-        body: JSON.stringify({
-          model: request.model,
-          messages: [
-            { role: 'system', content: request.system },
-            { role: 'user', content: request.user },
-          ],
-          temperature: request.temperature ?? 0.2,
-          max_tokens: request.maxTokens ?? 900,
-        }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
