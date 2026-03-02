@@ -46,7 +46,11 @@ export class OpenAiCompatibleClient implements LlmClient {
 
   async generate(request: LlmCompletionRequest): Promise<Result<string>> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let timeout: NodeJS.Timeout | undefined;
+    if (this.timeoutMs > 0) {
+      timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    }
+
     try {
       const body: Record<string, unknown> = {
         model: request.model,
@@ -56,17 +60,23 @@ export class OpenAiCompatibleClient implements LlmClient {
         ],
       };
 
-      if (request.reasoningEffort) {
-        body['reasoning_effort'] = request.reasoningEffort;
-      }
-      if (request.verbosity) {
-        body['verbosity'] = request.verbosity;
+      // GPT-5 family capability gating
+      const isGpt5 = request.model.toLowerCase().startsWith('gpt-5');
+
+      if (isGpt5) {
+        if (request.reasoningEffort) {
+          body['reasoning_effort'] = request.reasoningEffort;
+        }
+        if (request.verbosity) {
+          body['verbosity'] = request.verbosity;
+        }
       }
 
       // Traditional parameters
       if (request.temperature !== undefined) {
         body['temperature'] = request.temperature;
-      } else if (!request.reasoningEffort) {
+      } else if (!isGpt5 || body['reasoning_effort'] === 'none') {
+        // Only set default temperature if not in a reasoning mode
         body['temperature'] = 0.2;
       }
 

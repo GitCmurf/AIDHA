@@ -10,7 +10,6 @@ import { runEditorPassV1, runEditorPassV2 } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
 import { clamp, normalizeText, toNumber } from './utils.js';
 import { hashId } from '../utils/ids.js';
-import { HIGH_RES_MOCK_CLAIMS } from './mock-analyst.js';
 
 const CLAIM_TYPES = [
   'insight',
@@ -773,9 +772,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
-    // Temporarily disabled fallback to see real LLM errors
-    /*
     if (this.fallback) {
+      console.warn(`LLM extraction failed or returned no results for chunk ${chunk.index}; falling back to heuristic.`);
       const fallbackClaims = await this.fallback.extractClaims({
         resource,
         excerpts: chunk.excerpts,
@@ -787,7 +785,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
         chunkIndex: chunk.index,
       }));
     }
-    */
 
     return [];
   }
