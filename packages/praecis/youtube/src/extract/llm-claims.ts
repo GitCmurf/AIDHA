@@ -402,6 +402,28 @@ function cacheKeyForChunk(input: {
   ]);
 }
 
+/**
+ * Legacy cache key function for backward compatibility with v1 caches.
+ * Does not include schema version in the hash.
+ */
+function legacyCacheKeyForChunk(input: {
+  videoId: string;
+  chunk: ClaimChunk;
+  transcriptHash: string;
+  model: string;
+  promptVersion: string;
+}): string {
+  return hashId('llm-claims', [
+    input.videoId,
+    input.chunk.index,
+    input.chunk.start,
+    input.chunk.end,
+    input.transcriptHash,
+    input.model,
+    input.promptVersion,
+  ]);
+}
+
 function cacheMetadataForChunk(input: {
   transcriptHash: string;
   model: string;
@@ -442,14 +464,26 @@ export async function loadCachedClaimCandidates(
       model: input.model,
       promptVersion: input.promptVersion,
     });
-    const cachePath = join(cacheDir, `${cacheKey}.json`);
+    const legacyCacheKey = legacyCacheKeyForChunk({
+      videoId,
+      chunk,
+      transcriptHash,
+      model: input.model,
+      promptVersion: input.promptVersion,
+    });
     const metadata = cacheMetadataForChunk({
       transcriptHash,
       model: input.model,
       promptVersion: input.promptVersion,
       chunk,
     });
-    const cached = await readCache(cachePath, metadata);
+
+    // Try new cache key first, then fall back to legacy key for backward compatibility
+    let cached = await readCache(join(cacheDir, `${cacheKey}.json`), metadata);
+    if (!cached && cacheKey !== legacyCacheKey) {
+      cached = await readCache(join(cacheDir, `${legacyCacheKey}.json`), metadata);
+    }
+
     if (!cached) {
       cacheMisses += 1;
       continue;
@@ -762,14 +796,27 @@ export class LlmClaimExtractor implements ClaimExtractor {
       model: this.model,
       promptVersion: this.promptVersion,
     });
-    const cachePath = join(this.cacheDir, `${cacheKey}.json`);
+    const legacyCacheKey = legacyCacheKeyForChunk({
+      videoId,
+      chunk,
+      transcriptHash,
+      model: this.model,
+      promptVersion: this.promptVersion,
+    });
     const cacheMetadata = cacheMetadataForChunk({
       transcriptHash,
       model: this.model,
       promptVersion: this.promptVersion,
       chunk,
     });
-    const cached = await readCache(cachePath, cacheMetadata);
+    const cachePath = join(this.cacheDir, `${cacheKey}.json`);
+
+    // Try new cache key first, then fall back to legacy key for backward compatibility
+    let cached = await readCache(cachePath, cacheMetadata);
+    if (!cached && cacheKey !== legacyCacheKey) {
+      cached = await readCache(join(this.cacheDir, `${legacyCacheKey}.json`), cacheMetadata);
+    }
+
     if (cached) {
       return cached.map(claim => ({
         ...claim,

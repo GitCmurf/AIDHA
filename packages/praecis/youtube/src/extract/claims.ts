@@ -51,7 +51,7 @@ function validateClaim(claim: ClaimCandidate): ClaimCandidate | null {
     const textPreview = typeof claim.text === 'string'
       ? claim.text.slice(0, 50)
       : '[non-string text]';
-    console.warn(`Claim validation failed for: "${textPreview}..."}`, {
+    console.warn(`Claim validation failed for: "${textPreview}..."`, {
       error: result.error.errors.map(e => e.message).join(', '),
     });
     return null;
@@ -102,7 +102,8 @@ const MIN_SENTENCE_WORDS = 4;
 interface MergedSegment {
   text: string;
   startSeconds: number | undefined;
-  endSeconds: number | undefined;  // Track the end of the last merged excerpt
+  /** Start time of the last excerpt in this merged segment (used for gap calculation) */
+  lastStartSeconds: number | undefined;
   excerptIndices: number[];
 }
 
@@ -191,15 +192,16 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     let currentMerged: MergedSegment = {
       text: segments[0]!.text,
       startSeconds: segments[0]!.startSeconds,
-      endSeconds: segments[0]!.startSeconds, // Initialize with start, will update when merged
+      lastStartSeconds: segments[0]!.startSeconds, // Initialize with first segment's start
       excerptIndices: [segments[0]!.originalIndex],
     };
 
     for (let i = 1; i < segments.length; i++) {
       const segment = segments[i]!;
-      // Calculate gap from the end of current merged segment to start of next segment
-      const gap = typeof currentMerged.endSeconds === 'number' && typeof segment.startSeconds === 'number'
-        ? segment.startSeconds - currentMerged.endSeconds
+      // Calculate gap from the last merged segment's start to the next segment's start
+      // Since we don't have excerpt end times, we use the start of each excerpt as a proxy
+      const gap = typeof currentMerged.lastStartSeconds === 'number' && typeof segment.startSeconds === 'number'
+        ? segment.startSeconds - currentMerged.lastStartSeconds
         : Infinity;
 
       const shouldMerge = gap <= DEFAULT_MERGE_GAP_SECONDS &&
@@ -208,14 +210,14 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       if (shouldMerge) {
         currentMerged.text += ' ' + segment.text;
         currentMerged.excerptIndices.push(segment.originalIndex);
-        // Update endSeconds to the new segment's end
-        currentMerged.endSeconds = segment.startSeconds;
+        // Update lastStartSeconds to track the most recent segment's start time
+        currentMerged.lastStartSeconds = segment.startSeconds;
       } else {
         mergedSegments.push(currentMerged);
         currentMerged = {
           text: segment.text,
           startSeconds: segment.startSeconds,
-          endSeconds: segment.startSeconds, // Initialize with start, will update on merge
+          lastStartSeconds: segment.startSeconds,
           excerptIndices: [segment.originalIndex],
         };
       }
