@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-003-ATOMIC
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.1"
+version: "1.2"
 last_updated: 2026-03-03
 title: YouTube Claim Extraction - Production-Grade Atomic Task Breakdown
 type: TASK
@@ -16,7 +16,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.1
+> **Version:** 1.2
 > **Last Updated:** 2026-03-03
 > **Type:** TASK
 
@@ -24,10 +24,11 @@ docops_version: "2.0"
 
 ## Version History
 
-| Version | Date       | Author | Change Summary                                                                                                                                                                                        | Reviewers | Status | Reference |
-| ------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ | --------- |
-| 1.0     | 2026-03-02 | AI     | Initial atomic task breakdown across 5 phases                                                                                                                                                         | —         | Draft  | —         |
-| 1.1     | 2026-03-03 | AI     | Integrate Gemini NLP library research into Phase 1: add wink-nlp, Compromise.js, YAKE! evaluation; add SVO extraction, discourse marker, and grammatical completeness tasks; document SpaCy trade-off | —         | Draft  | —         |
+| Version | Date       | Author | Change Summary                                                                                                                                                                                                                                                                                                                                                                                          | Reviewers | Status | Reference                         |
+| ------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ | --------------------------------- |
+| 1.0     | 2026-03-02 | AI     | Initial atomic task breakdown across 5 phases                                                                                                                                                                                                                                                                                                                                                           | —         | Draft  | —                                 |
+| 1.1     | 2026-03-03 | AI     | Integrate Gemini NLP library research into Phase 1: add wink-nlp, Compromise.js, YAKE! evaluation; add SVO extraction, discourse marker, and grammatical completeness tasks; document SpaCy trade-off                                                                                                                                                                                                   | —         | Draft  | —                                 |
+| 1.2     | 2026-03-03 | AI     | Differential consolidation: incorporate all gaps from v1, v2, and GPT-5 fork. Add Pre-Mortem Analysis, Phase 6 (LLM Rewrite Pass), Phase 7 (Documentation & Maintenance), Phase 8 (Speaker Attribution — DEFERRED). Add Tasks 2.8, 2.13, 3.6, 3.7. Enhance Tasks 3.3, 3.5, 5.1, 5.4, 5.5. Add test coverage requirements. Renumber Phase 2 tasks. This version supersedes all prior Task-003 documents. | —         | Draft  | Task-003, Task-003-v2, GPT-5 fork |
 
 ## Technical Archaeology Summary
 
@@ -74,6 +75,27 @@ docops_version: "2.0"
 - Over-extraction of conversational filler ("So," "And then")
 - Generic summary claims without specific mechanisms
 - Pronoun-led claims without clear antecedents
+
+---
+
+## Pre-Mortem Analysis
+
+**Likely Failure Points:**
+
+1. **Over-reliance on LLM prompts without testing:** Failing to validate prompt changes with real-world test cases leads to regressions masked by cache hits.
+2. **Ignoring heuristic fallback quality:** Assuming LLM extraction will always work leads to poor out-of-box experience when API keys are missing, providers are degraded, or rate limits are hit.
+3. **Lack of validation metrics:** Not measuring extraction quality against a stable baseline prevents objective comparison and masks quality regressions behind subjective assessment.
+4. **Breaking backward compatibility:** Changing `ClaimCandidate` schema, cache format, or `method` field values without testing cached results causes downstream consumer breakage.
+5. **Insufficient prompt versioning:** Failing to increment `promptVersion` when prompt text changes causes stale cache hits (`noop=20` on changed logic), as observed in initial credential confusion incident.
+
+**Mitigation Strategies:**
+
+- Always test prompt changes against golden fixtures before merge (Phase 4)
+- Improve heuristic extractor as a reliable fallback independent of LLM availability (Phase 1)
+- Implement objective quality metrics with CI quality gates (Phase 4)
+- Maintain compatibility with existing cache formats; additive schema changes only (Phase 5)
+- Strict prompt versioning with clear documentation and cache invalidation policy (Phase 7)
+- Circuit breaker + cost controls to prevent runaway extraction (Phase 5)
 
 ---
 
@@ -222,33 +244,47 @@ docops_version: "2.0"
 - **Regression Guard**: Missing evidenceType defaults to undefined; no required field validation
 - **Completion Criteria**: Claims from v2 prompt include evidenceType >60% of time matching Gemini baseline coverage
 
-### Task 2.8: Increase Pass 1 token budget to prevent truncation
+### Task 2.8: Render evidenceType in dossier output
+
+- [ ] **Task**: Update [`renderDossier()`](packages/praecis/youtube/src/export/dossier.ts:1) to display `Evidence: ${evidenceType}` line when field is present in claim metadata. Update [`DossierClaimEntry`](packages/praecis/youtube/src/export/types.ts:1) type to include optional `evidenceType` field.
+- **Rationale**: Without dossier rendering, evidenceType is parsed (Task 2.7) but never visible in the primary artifact. The dossier is the canonical output reviewers and operators use; evidence type visibility makes it obvious when extraction produces "Gemini-like" evidence-grounded assertions versus generic claims.
+- **Regression Guard**: Field display conditional on presence; existing dossier output unchanged for claims without evidenceType
+- **Completion Criteria**: Dossier output for test video shows `Evidence: RCT`, `Evidence: Meta-analysis`, etc. for claims with evidenceType; dossier renders cleanly without evidenceType for legacy claims
+
+### Task 2.9: Increase Pass 1 token budget to prevent truncation
 
 - [ ] **Task**: Define `const CLAIM_MINING_MAX_TOKENS = 3000` and pass to [`fetchAndParseClaims()`](packages/praecis/youtube/src/extract/llm-claims.ts:792) via `maxTokens` parameter
 - **Rationale**: Current default 900 tokens causes JSON truncation for 10-minute chunks with rich metadata. Dedicated constant prevents global max_tokens changes affecting other LLM calls.
 - **Regression Guard**: Constant isolated in llm-claims.ts; no change to `llm-client.ts` defaults
 - **Completion Criteria**: Zero JSON truncation errors on test video with 10-minute chunks; response parse success rate >98%
 
-### Task 2.9: Add provider-safe structured output support
+### Task 2.10: Add provider-safe structured output support
 
 - [ ] **Task**: Add optional `responseFormat?: { type: 'json_schema', schema: object }` to [`LlmCompletionRequest`](packages/praecis/youtube/src/extract/llm-client.ts:1) and conditionally include in OpenAI-compatible providers
 - **Rationale**: JSON-mode reduces parse failures but must be capability-gated to avoid breaking non-supporting providers (Google, z.AI).
 - **Regression Guard**: Feature detection via provider metadata; graceful degradation to standard mode
 - **Completion Criteria**: Parse failure rate drops >30% on OpenAI-compatible providers; no failures on unsupported providers
 
-### Task 2.10: Add parse-error-aware retry logic
+### Task 2.11: Add parse-error-aware retry logic
 
 - [ ] **Task**: Modify retry prompt in [`fetchAndParseClaims()`](packages/praecis/youtube/src/extract/llm-claims.ts:792) line 820 to include validation error: `JSON validation failed: ${error.message}. Return ONLY valid JSON matching the schema exactly.`
 - **Rationale**: Current retry asks for "ONLY JSON" without specifying failure, reducing recovery rate.
 - **Regression Guard**: Error message sanitized to prevent prompt injection; retry count unchanged (1)
 - **Completion Criteria**: Retry success rate improves >20% as measured against intentional malformed responses
 
-### Task 2.11: Make fallback explicit in diagnostics
+### Task 2.12: Make fallback explicit in diagnostics
 
 - [ ] **Task**: Set `method: 'heuristic-fallback'` (line 784) and log structured warning with chunk index, failure reason, and video ID
 - **Rationale**: Silent fallback (current `method: 'heuristic'`) masks upstream LLM failures, causing operators to misattribute low quality to LLM degradation rather than extraction failure.
 - **Regression Guard**: New method value distinct from standard heuristic; consumers can filter if needed
 - **Completion Criteria**: Fallback events appear in logs with structured fields; dossier output includes fallback indicator when >50% claims from fallback
+
+### Task 2.13: Normalize classification and type values during parsing
+
+- [ ] **Task**: Implement [`normalizeClassification(value: string): string`](packages/praecis/youtube/src/extract/llm-claims.ts:1) mapping variants (e.g., "fact", "Fact", "FACT", "factual") to canonical values (`Fact | Mechanism | Opinion`). Implement [`normalizeType(value: string): string`](packages/praecis/youtube/src/extract/llm-claims.ts:1) for `CLAIM_TYPES` controlled vocabulary. Apply both in [`parseResponse()`](packages/praecis/youtube/src/extract/llm-claims.ts:829).
+- **Rationale**: The prompt requests `Fact|Mechanism|Opinion` and a controlled `type` set, but the runtime schema accepts free strings. LLMs produce inconsistent casing and synonym variants across chunks, causing editorial scoring drift and making metadata coverage metrics unreliable. Normalization at parse time is a one-line fix with outsized downstream impact.
+- **Regression Guard**: Unknown/unmappable values preserved as-is (logged at debug level); no data loss. Add [`normalizeClassification.test.ts`](packages/praecis/youtube/tests/normalize.test.ts:1) covering all known variants.
+- **Completion Criteria**: Classification values in extracted claims are always one of `Fact | Mechanism | Opinion`; type values match `CLAIM_TYPES` enum; zero free-string variants in test output
 
 ---
 
@@ -270,10 +306,10 @@ docops_version: "2.0"
 
 ### Task 3.3: Implement transcript-echo detection penalty
 
-- [ ] **Task**: Add [`isTranscriptEcho(candidate: ClaimCandidate, excerptTexts: Map<string, string>): boolean`](packages/praecis/youtube/src/extract/editorial-ranking.ts:1) detecting >90% text overlap between claim and source excerpt
-- **Rationale**: Heuristic extractor produces raw transcript echoes; editorial pass should penalize these to favor synthesized assertions.
-- **Regression Guard**: Threshold configurable via `echoOverlapThreshold`; high threshold prevents penalizing legitimate short claims
-- **Completion Criteria**: Transcript-echo claims (raw excerpt copies) reduced by >70% in final output
+- [ ] **Task**: Add [`isTranscriptEcho(candidate: ClaimCandidate, excerptTexts: Map<string, string>): boolean`](packages/praecis/youtube/src/extract/editorial-ranking.ts:1) detecting high text overlap between claim and source excerpt. Pass `excerptTextById: Map<string, string>` to [`scoreCandidateV2()`](packages/praecis/youtube/src/extract/editorial-ranking.ts:200). Calculate `echoRatio = claimText.length / (sum(matchingExcerptTexts.map(t => t.length)) + 1)` and apply `-0.25` penalty when `echoRatio > 0.95`.
+- **Rationale**: "Claim equals excerpt" is low-value even when technically a complete sentence; penalizing echo pushes the editor toward synthesized assertions instead of raw transcript quotes. Heuristic extractor produces raw transcript echoes by design (wrapping excerpt content); editorial pass should deprioritize these to favor LLM-synthesized or NLP-enhanced candidates.
+- **Regression Guard**: Threshold configurable via `echoOverlapThreshold` (default 0.95); high threshold prevents penalizing legitimate short claims that naturally overlap with brief excerpts. Penalty weight configurable via `ECHO_PENALTY` constant.
+- **Completion Criteria**: Transcript-echo claims (raw excerpt copies) reduced by >70% in final output; [`packages/praecis/youtube/tests/editorial-ranking.v2.test.ts`](packages/praecis/youtube/tests/editorial-ranking.v2.test.ts:1) includes echo detection tests with known echo/non-echo pairs
 
 ### Task 3.4: Add semantic similarity deduplication
 
@@ -284,10 +320,24 @@ docops_version: "2.0"
 
 ### Task 3.5: Expose editorial diagnostics in CLI output
 
-- [ ] **Task**: Add `--editorial-diagnostics` flag to CLI and include [`EditorialDiagnostics`](packages/praecis/youtube/src/extract/editorial-ranking.ts:63) output in JSON export
-- **Rationale**: Operators need visibility into drop reasons (boilerplate, fragment, duplicate, coverage) for quality tuning.
-- **Regression Guard**: Flag optional; default output unchanged
-- **Completion Criteria**: Diagnostics show counts per drop reason and window coverage distribution; validated in CLI tests
+- [ ] **Task**: Return [`EditorialDiagnostics`](packages/praecis/youtube/src/extract/editorial-ranking.ts:63) from [`runEditorPassV2()`](packages/praecis/youtube/src/extract/editorial-ranking.ts:503) containing per-candidate drop reasons, coverage distribution, and dedupe counts. Add `--show-editorial-diagnostics` flag to CLI. Expose diagnostics via [`aidha diagnose extraction`](packages/praecis/youtube/src/diagnose/index.ts:1) command and include in JSON export when flag is set.
+- **Rationale**: Operators need visibility into drop reasons (boilerplate, fragment, duplicate, echo, coverage) for quality tuning. Without diagnostics, "quality" changes are hard to attribute to Pass 1 vs. Pass 2, and editorial parameter tuning becomes trial-and-error.
+- **Regression Guard**: Flag optional; default output unchanged. Diagnostics object serializable to JSON for programmatic consumption.
+- **Completion Criteria**: Diagnostics show counts per drop reason (boilerplate, fragment, duplicate, echo, low-confidence) and window coverage distribution; validated in [`packages/praecis/youtube/tests/cli.test.ts`](packages/praecis/youtube/tests/cli.test.ts:1); JSON export includes diagnostics when flag is set
+
+### Task 3.6: Make v2 the default editor version
+
+- [ ] **Task**: Change `DEFAULT_EDITOR_VERSION` to `'v2'` in [`packages/praecis/youtube/src/extract/llm-claims.ts`](packages/praecis/youtube/src/extract/llm-claims.ts:1). Add `--editor-v1` flag option in [`packages/praecis/youtube/src/cli/help.ts`](packages/praecis/youtube/src/cli/help.ts:1) for backwards compatibility.
+- **Rationale**: V2 scoring is designed to prefer specificity/actionability and reduce fragments (metadata bonuses, echo penalty, context-dependent penalty). Keeping v1 opt-in preserves backward behavior for debugging and regression comparisons. Atomic Task 1.5 already assumes v2 editor usage but the default was never switched.
+- **Regression Guard**: `--editor-v1` flag restores v1 behavior; existing CLI tests updated to cover both paths. V1 editor code preserved, not deleted.
+- **Completion Criteria**: Default extraction uses v2 scoring; `--editor-v1` flag produces identical output to current default; CLI help text documents the flag
+
+### Task 3.7: Add context-dependent claim penalty in V2 scoring
+
+- [ ] **Task**: Implement [`isContextDependent(text: string): boolean`](packages/praecis/youtube/src/extract/editorial-ranking.ts:1) that checks for leading pronouns ("This", "That", "It", "They", "These", "Those") without clear antecedents, demonstratives, and back-references. Apply `-0.15` penalty in [`scoreCandidateV2()`](packages/praecis/youtube/src/extract/editorial-ranking.ts:200).
+- **Rationale**: Even after prompt improvements (Task 2.4), some claims remain context-dependent. A deterministic penalty in the editorial scorer provides defense-in-depth: the prompt reduces generation of pronoun-led claims, while the scorer deprioritizes any that slip through. This prevents context-dependent claims from displacing high-utility assertions in the final capped set.
+- **Regression Guard**: Penalty weight configurable via `CONTEXT_DEPENDENT_PENALTY` constant; function does not reject claims outright, only reduces score. Test suite includes 10 context-dependent and 10 standalone claims to verify correct classification.
+- **Completion Criteria**: Context-dependent claims score ≥0.15 lower than equivalent standalone claims; [`packages/praecis/youtube/tests/editorial-ranking.v2.test.ts`](packages/praecis/youtube/tests/editorial-ranking.v2.test.ts:1) updated with context-dependent penalty assertions; standalone claim rate exceeds 90% in editorial output
 
 ---
 
@@ -328,16 +378,60 @@ docops_version: "2.0"
 - **Regression Guard**: Benchmark uses mock LLM client with recorded responses; deterministic
 - **Completion Criteria**: CI fails if F1 drops below baseline; baseline established from current best configuration
 
+### Test Coverage Requirements
+
+#### Unit Tests
+
+| Component                    | Test File                                                     | Coverage Requirements                                                                                             |
+| ---------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Sentence splitter            | `packages/praecis/youtube/tests/extraction.test.ts`           | Test edge cases: empty input, single sentence, quotes, multiple sentences, malformed input                        |
+| Boilerplate filter           | `packages/praecis/youtube/tests/extraction.test.ts`           | Test: sponsor messages, CTA phrases, intro/outro patterns, edge cases (legitimate claims with pattern substrings) |
+| Feature-based confidence     | `packages/praecis/youtube/tests/extraction.test.ts`           | Test: numbers/units (+0.1), action verbs (+0.1), pronoun-start (-0.1), questions (-0.1), YAKE! salience bonus     |
+| Heuristic extraction         | `packages/praecis/youtube/tests/extraction.test.ts`           | End-to-end: raw excerpts → sentence-split → filtered → deduped candidates                                         |
+| Prompt parsing               | `packages/praecis/youtube/tests/llm-claims.test.ts`           | Test: prompt extraction, schema parsing, normalization, cache compatibility                                       |
+| Editorial V2 scoring         | `packages/praecis/youtube/tests/editorial-ranking.v2.test.ts` | Test: semantic dedupe, metadata bonus, transcript-echo detection, context-dependent penalty, standalone penalties |
+| Rewrite guardrails           | `packages/praecis/youtube/tests/llm-claims.test.ts`           | Test: hallucination check, edit-ratio cap, numeric token preservation, evidence-type preservation                 |
+| Classification normalization | `packages/praecis/youtube/tests/normalize.test.ts`            | Test: case variants, synonym mapping, unknown value passthrough                                                   |
+| NLP utilities                | `packages/praecis/youtube/tests/nlp-utils.test.ts`            | Test: SVO extraction, discourse markers, grammatical completeness (when NLP flag enabled)                         |
+
+#### Integration Tests
+
+| Feature                 | Test File                                                            | Coverage Requirements                                                                                             |
+| ----------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| E2E extraction pipeline | `packages/praecis/youtube/tests/integration.test.ts`                 | Test: transcript → claims → graph → dossier on golden fixtures                                                    |
+| CLI extraction commands | `packages/praecis/youtube/tests/cli.test.ts`                         | Test: `aidha extract`, `aidha dossier` with various flags including `--editor-v1`, `--show-editorial-diagnostics` |
+| Benchmark comparison    | `packages/praecis/youtube/src/diagnose/benchmark-extraction.test.ts` | Test: metrics calculation, diff report generation, baseline comparison                                            |
+| Cache invalidation      | `packages/praecis/youtube/tests/llm-claims.test.ts`                  | Test: prompt version bump, model change, transcript hash change, schema version bump                              |
+
+#### Quality Benchmarks (CI Gate Targets)
+
+| Metric                     | Current (Heuristic) | Target (LLM + V2)   |
+| -------------------------- | ------------------- | ------------------- |
+| Domain coverage            | 0%                  | > 80%               |
+| Classification coverage    | 0%                  | > 70%               |
+| Evidence type coverage     | 0%                  | > 60%               |
+| Fragment rate (< 15 chars) | ~80%                | < 10%               |
+| Boilerplate rate           | ~30%                | < 5%                |
+| Standalone claim rate      | ~40%                | > 90%               |
+| Dedupe rate                | N/A                 | > 15% (cross-chunk) |
+
 ---
 
 ## Phase 5: Pre-Mortem Risk Mitigations (Anti-Fragility)
 
-### Task 5.1: Implement circuit breaker for LLM latency
+### Task 5.1a: Implement circuit breaker state machine module
 
-- [ ] **Task**: Add circuit breaker with 5s timeout per chunk and automatic heuristic fallback in [`extractChunkClaims()`](packages/praecis/youtube/src/extract/llm-claims.ts:700)
-- **Mitigation**: Prevents batch ingestion timeouts when LLM provider experiences latency degradation; maintains pipeline throughput
-- **Regression Guard**: Timeout configurable via `AIDHA_LLM_CHUNK_TIMEOUT_MS`; metric emitted for monitoring
-- **Completion Criteria**: Chunk processing never exceeds 10s total; timeout events logged with video ID and chunk index
+- [ ] **Task**: Create [`packages/praecis/youtube/src/extract/circuit-breaker.ts`](packages/praecis/youtube/src/extract/circuit-breaker.ts:1) implementing a state machine with states: `CLOSED` (normal), `OPEN` (failing, skip LLM), `HALF_OPEN` (probe). Configure with `failureThreshold` (default 3), `resetTimeoutMs` (default 30000), and `chunkTimeoutMs` (default 5000 via `AIDHA_LLM_CHUNK_TIMEOUT_MS`). Expose `canExecute(): boolean`, `recordSuccess(): void`, `recordFailure(error: Error): void`.
+- **Mitigation**: Isolates circuit breaker logic from extraction concerns; enables unit testing of state transitions independently. Prevents batch ingestion timeouts when LLM provider experiences latency degradation.
+- **Regression Guard**: State machine has dedicated test file [`packages/praecis/youtube/tests/circuit-breaker.spec.ts`](packages/praecis/youtube/tests/circuit-breaker.spec.ts:1) covering all state transitions. Timeout and threshold values configurable.
+- **Completion Criteria**: Circuit breaker opens after N consecutive failures; half-open probe succeeds → close; half-open probe fails → re-open. All state transitions tested.
+
+### Task 5.1b: Enforce circuit breaker in chunk mining
+
+- [ ] **Task**: Integrate circuit breaker from Task 5.1a into [`extractChunkClaims()`](packages/praecis/youtube/src/extract/llm-claims.ts:700). When breaker is `OPEN`, remaining chunks skip LLM and use heuristic fallback with `method: 'heuristic-circuit-breaker'`. Log breaker state transitions at `warn` level.
+- **Mitigation**: Failed runs terminate early with degraded mode instead of timing out on every chunk. Chunk processing never exceeds 10s total.
+- **Regression Guard**: Breaker state reset between videos; no cross-video contamination. Metric emitted for monitoring (`circuitBreakerTrips` counter).
+- **Completion Criteria**: After breaker opens, remaining chunks skip LLM; timeout events logged with video ID and chunk index; total video processing time bounded
 
 ### Task 5.2: Implement token budget pre-processing
 
@@ -353,19 +447,21 @@ docops_version: "2.0"
 - **Regression Guard**: Schema version hash component of cache key; old caches ignored on schema bump
 - **Completion Criteria**: Adding evidenceType field triggers cache miss on existing entries; no parse errors from stale caches
 
-### Task 5.4: Implement runtime schema validation with zod
+### Task 5.4: Centralize claim candidate schema and implement runtime validation
 
-- [ ] **Task**: Validate all claim outputs against [`ClaimSchema`](packages/praecis/youtube/src/extract/llm-claims.ts:27) before persistence; reject non-compliant claims
-- **Mitigation**: Runtime validation prevents downstream consumer breakage from unexpected claim structures
-- **Regression Guard**: Validation errors logged with claim text for debugging; claim skipped but pipeline continues
-- **Completion Criteria**: Zero unvalidated claims persisted to graph; validation errors < 1% of extraction volume
+- [ ] **Task**: Create [`packages/praecis/youtube/src/extract/claim-candidate-schema.ts`](packages/praecis/youtube/src/extract/claim-candidate-schema.ts:1) with a centralized zod schema for `ClaimCandidate` that both heuristic and LLM extraction paths validate against. Validate all claim outputs against this schema before persistence; reject non-compliant claims. Migrate [`ClaimSchema`](packages/praecis/youtube/src/extract/llm-claims.ts:27) validation into the centralized module.
+- **Mitigation**: Runtime validation prevents downstream consumer breakage from unexpected claim structures. Centralizing the schema prevents drift between heuristic and LLM extraction paths producing structurally different candidates that break downstream consumers.
+- **Regression Guard**: Validation errors logged with claim text for debugging; claim skipped but pipeline continues. Dedicated test file [`packages/praecis/youtube/tests/claim-candidate-schema.spec.ts`](packages/praecis/youtube/tests/claim-candidate-schema.spec.ts:1) validates both candidate types against one schema.
+- **Completion Criteria**: Zero unvalidated claims persisted to graph; validation errors < 1% of extraction volume; both heuristic and LLM candidates validate under single schema
 
-### Task 5.5: Add entailment verification layer
+### Task 5.5: Add tiered entailment verification layer
 
-- [ ] **Task**: Implement [`verifyEntailment(claim: string, excerptTexts: string[]): Promise<boolean>`](packages/praecis/youtube/src/extract/verification.ts:1) using embedding similarity threshold 0.75
-- **Mitigation**: Detects hallucinated claims absent from source text; flags for review instead of auto-reject
-- **Regression Guard**: Verification async and non-blocking; failures logged but don't block extraction
-- **Completion Criteria**: Hallucination rate (claims with <0.5 similarity to source) < 5% in production; flagged claims reviewed
+- [ ] **Task**: Implement tiered grounding verification in [`packages/praecis/youtube/src/extract/verification.ts`](packages/praecis/youtube/src/extract/verification.ts:1):
+  - **Tier 1 (Lexical)**: [`verifyLexicalGrounding(claim: string, excerptTexts: string[]): boolean`](packages/praecis/youtube/src/extract/verification.ts:1) using keyword overlap ratio (Jaccard similarity on content tokens). Fast, synchronous, zero API cost. Threshold: 0.3 minimum overlap. Claims below threshold flagged as `groundingLevel: 'ungrounded'`.
+  - **Tier 2 (Embedding)**: [`verifyEntailment(claim: string, excerptTexts: string[]): Promise<boolean>`](packages/praecis/youtube/src/extract/verification.ts:1) using embedding similarity threshold 0.75. Only invoked for claims that pass Tier 1 but have overlap ratio < 0.6 (borderline cases). Claims below threshold flagged for review.
+- **Mitigation**: Tiered approach reduces embedding API costs by filtering obvious non-grounded claims lexically first. Detects hallucinated claims absent from source text; flags for review instead of auto-reject. Lexical grounding catches catastrophic hallucinations (claims with zero keyword overlap) at zero cost.
+- **Regression Guard**: Both tiers async and non-blocking; failures logged but don't block extraction. Lexical verification has dedicated test file [`packages/praecis/youtube/tests/verification.spec.ts`](packages/praecis/youtube/tests/verification.spec.ts:1).
+- **Completion Criteria**: Hallucination rate (claims with <0.3 lexical overlap to source) < 5% in production; Tier 1 filters >80% of non-grounded claims without API calls; flagged claims reviewed
 
 ### Task 5.6: Implement cost estimation and alerting
 
@@ -376,19 +472,132 @@ docops_version: "2.0"
 
 ---
 
+## Phase 6: Optional LLM Rewrite Pass (Pass 2b)
+
+> These tasks improve the optional editorial rewrite pass (`--editor-llm`). The rewrite pass is an opt-in enhancement that uses an LLM to improve claim text quality after editorial selection. It is not required for the core extraction pipeline.
+
+### Task 6.1: Create versioned rewrite prompt module
+
+- [ ] **Task**: Create [`packages/praecis/youtube/src/extract/prompts/editor-rewrite-v3.ts`](packages/praecis/youtube/src/extract/prompts/editor-rewrite-v3.ts:1) with [`getEditorRewritePrompt(): PromptPayload`](packages/praecis/youtube/src/extract/prompts/editor-rewrite-v3.ts:1) function. Increment version to `'editor-rewrite-v3'`. Add 2-3 examples: (1) Adding specificity to a generic claim while preserving numbers/units, (2) Preserving evidence-type and mechanism details during rewrite, (3) Shortening a wordy claim while keeping meaning and domain classification.
+- **Rationale**: Rewrite quality depends heavily on examples; embedding prompts in code encourages "tiny edits without version bumps" which breaks cache determinism. Versioned prompt module enables A/B testing and rollback.
+- **Regression Guard**: `promptVersion` incremented to `'editor-rewrite-v3'`; v2 prompt preserved for rollback. Examples sourced from `out/gemini-web-claims-extraction.md`.
+- **Completion Criteria**: New prompt module includes TypeScript types; all existing rewrite tests pass with v2 prompt; v3 prompt produces higher-quality rewrites on test claims
+
+### Task 6.2: Increase rewrite maxTokens to avoid JSON truncation
+
+- [ ] **Task**: Change `maxTokens: 2000` to `maxTokens: 4000` in [`fetchRewriteCandidates()`](packages/praecis/youtube/src/extract/llm-claims.ts:1) LLM request.
+- **Rationale**: The rewrite request processes many claims at once; insufficient output tokens leads to JSON truncation and parse failure, effectively disabling rewrite improvements. 4000 tokens accommodates 25 claims with rich metadata.
+- **Regression Guard**: Constant isolated in rewrite function; no change to other LLM call budgets
+- **Completion Criteria**: Zero JSON truncation errors during rewrite pass on test video with 25+ claims
+
+### Task 6.3: Re-tune rewrite guardrails with fixture-driven tests
+
+- [ ] **Task**: Add test [`test.rewriteGuardrails()`](packages/praecis/youtube/tests/llm-claims.test.ts:1) that sends claims through rewrite and verifies: (1) Hallucination check passes (rewritten text entails from source), (2) Edit ratio doesn't exceed threshold (prevent total rewrites), (3) Numeric tokens preserved (numbers, units, percentages must survive rewrite).
+- **Rationale**: Guardrails should prevent hallucination while permitting meaningful specificity increases; tests ensure the thresholds are intentional and stable rather than arbitrary.
+- **Regression Guard**: Guardrail thresholds documented in test file; edit-ratio cap configurable
+- **Completion Criteria**: Rewrite guardrail tests pass; rewritten claims preserve >95% of numeric tokens; edit ratio below configured threshold
+
+### Task 6.4: Add evidence-type preservation guardrail for rewrites
+
+- [ ] **Task**: In [`rewriteSelectedClaims()`](packages/praecis/youtube/src/extract/llm-claims.ts:1), verify rewritten claims preserve `evidenceType` if present in original. Return original claim if evidence type is lost during rewrite.
+- **Rationale**: Evidence type is a primary utility signal from Task 2.6-2.7; rewrites that drop it reduce auditability and can turn high-signal claims into generic ones. Preservation guardrail ensures rewrite quality doesn't regress evidence grounding.
+- **Regression Guard**: Guardrail applies only to claims with existing evidenceType; claims without it are unaffected
+- **Completion Criteria**: Zero evidence-type loss in rewrite output; test verifies preservation on 10 claims with various evidence types
+
+---
+
+## Phase 7: Documentation & Maintenance
+
+> Per AGENTS.md, the atomic unit of change is "tests + code + comments + docs". Documentation tasks are mandatory and must be completed in the same PR as the code changes they document.
+
+### Task 7.1: Update FDD-002 candidate schema examples
+
+- [ ] **Task**: Update [`docs/30-fdd/fdd-002-first-pass-youtube-claim-mining.md`](docs/30-fdd/fdd-002-first-pass-youtube-claim-mining.md:1) to include `evidenceType?: string` in schema examples. Update schema table to show it as optional additive field. Add section explaining prompt versioning policy: increment `promptVersion` when prompt changes, cache invalidation rules, testing requirements before version bump.
+- **Rationale**: The FDD is the contract for Pass 1; keeping it in sync prevents future drift and clarifies which fields are required vs. optional for backward compatibility. Prompt versioning documentation prevents the "cache pollution" failure mode observed in the initial credential confusion incident (Background 1.1 in v1).
+- **Regression Guard**: Schema examples remain backward-compatible; new fields shown as optional
+- **Completion Criteria**: FDD-002 schema examples include evidenceType; prompt versioning policy documented; `pnpm docs:build` succeeds
+
+### Task 7.2: Update FDD-003 editorial scoring rules
+
+- [ ] **Task**: Update [`docs/30-fdd/fdd-003-second-pass-editorial-selection.md`](docs/30-fdd/fdd-003-second-pass-editorial-selection.md:1) to document: V2 scoring formula with all weights and penalties (metadata bonus, echo penalty, context-dependent penalty), semantic dedupe algorithm with threshold, editorial diagnostics output format. Include example with step-by-step score calculation.
+- **Rationale**: Pass 2 is intended to be deterministic and reusable (FDD-003 contract); documenting the exact rules makes quality work reviewable and reduces "mystery scoring" where operators cannot predict why a claim was dropped or kept.
+- **Regression Guard**: Documentation additive; does not change implementation
+- **Completion Criteria**: FDD-003 includes V2 scoring formula, penalty weights, dedupe algorithm, and worked example; `pnpm docs:build` succeeds
+
+### Task 7.3: Remove dead imports and scaffolding
+
+- [ ] **Task**: Run `eslint --fix` and remove unused imports across [`packages/praecis/youtube/src/extract/llm-claims.ts`](packages/praecis/youtube/src/extract/llm-claims.ts:1) and related extraction modules. Delete any mock/test scaffolding that predates current implementation (e.g., abandoned mock paths, commented-out code blocks, unused type imports).
+- **Rationale**: Extraction quality work will iterate quickly across many tasks; keeping the implementation tidy prevents accidental reintroduction of abandoned paths and reduces cognitive load during code review.
+- **Regression Guard**: `eslint --fix` only; no manual deletions without test verification. TypeScript build must succeed after cleanup.
+- **Completion Criteria**: Zero unused imports in extraction modules; `pnpm build` and `pnpm test` pass; no commented-out code blocks
+
+### Task 7.4: Archive legacy output artifacts
+
+- [ ] **Task**: Create [`packages/praecis/youtube/out/README.md`](packages/praecis/youtube/out/README.md:1) documenting output artifacts with: name, date, extraction method, quality notes. Rename legacy heuristic-only dossier files with `-legacy` suffix (e.g., `dossier-final.md` → `dossier-final-legacy.md`).
+- **Rationale**: Old heuristic-only dossiers can be mistaken for "current behavior" during benchmarking; clarifying or archiving outputs keeps benchmark comparisons honest and prevents false quality regression reports.
+- **Regression Guard**: Renames only; no file deletion. README documents all artifacts for discoverability.
+- **Completion Criteria**: All legacy output artifacts renamed with `-legacy` suffix; README lists all artifacts with metadata; no broken references in test fixtures
+
+### Task 7.5: Archive superseded Task-003 planning documents
+
+- [ ] **Task**: Update `task-003-fix-extraction-quality.md` and `task-003-fix-extraction-quality-v2.md` status to `Superseded` in frontmatter. Add supersession notice linking to this document (`task-003-extraction-quality-atomic-breakdown.md` v1.2). Optionally move to `docs/05-planning/tasks/archive/` directory.
+- **Rationale**: Multiple forked planning documents create confusion about which version is canonical. After v1.2 consolidation, earlier documents contain no unique content and should be clearly marked as superseded.
+- **Regression Guard**: Documents not deleted, only marked as superseded. Links from other documents updated if moved.
+- **Completion Criteria**: Both earlier documents marked as superseded; this document (v1.2) is the sole canonical source for Task-003 planning
+
+---
+
+## Phase 8: Speaker Attribution Pipeline (DEFERRED)
+
+> **Status: DEFERRED** — Speaker attribution is a real capability gap but is orthogonal to extraction quality. These tasks should be addressed after Phases 1-7 are complete, or as a separate Task-004 if scope warrants.
+
+### Task 8.1: Extend transcript segment schema with speaker field
+
+- [ ] **Task**: Add optional `speaker?: string` field to transcript segment zod schema in [`packages/praecis/youtube/src/schema/transcript.ts`](packages/praecis/youtube/src/schema/transcript.ts:1). Schema must validate both formats (with and without speaker).
+- **Rationale**: Speaker attribution is currently impossible; multi-speaker videos (interviews, panels) produce claims without source attribution, reducing auditability.
+- **Regression Guard**: [`packages/praecis/youtube/tests/schema.test.ts`](packages/praecis/youtube/tests/schema.test.ts:1) validates both formats
+- **Completion Criteria**: TypeScript build succeeds with optional field; existing transcript data parses without speaker field
+
+### Task 8.2: Implement speaker prefix parsing
+
+- [ ] **Task**: Add speaker prefix parser in [`packages/praecis/youtube/src/client/transcript.ts`](packages/praecis/youtube/src/client/transcript.ts:1) that extracts speaker names from common transcript formats (e.g., "Dr. Huberman: ...", "[Speaker 1]: ...").
+- **Rationale**: Attribution failures propagate into downstream claims; early parsing preserves speaker provenance.
+- **Regression Guard**: [`packages/praecis/youtube/tests/transcript-parse.test.ts`](packages/praecis/youtube/tests/transcript-parse.test.ts:1) covers common formats
+- **Completion Criteria**: Parser extracts speaker without altering timestamps or content text
+
+### Task 8.3: Persist excerpt speaker metadata
+
+- [ ] **Task**: Include speaker field in stored Excerpt nodes via [`packages/praecis/youtube/src/pipeline/ingest.ts`](packages/praecis/youtube/src/pipeline/ingest.ts:1).
+- **Rationale**: Pass 1 chunk mining cannot preserve speaker provenance unless it's stored during ingestion.
+- **Regression Guard**: [`packages/praecis/youtube/tests/pipeline.test.ts`](packages/praecis/youtube/tests/pipeline.test.ts:1) validates excerpt metadata
+- **Completion Criteria**: Stored Excerpt nodes include speaker when available; missing speaker defaults to undefined
+
+### Task 8.4: Include speaker field in Pass 1 excerpt payload
+
+- [ ] **Task**: Include speaker field in the excerpt JSON sent to LLM in [`packages/praecis/youtube/src/extract/llm-claims.ts`](packages/praecis/youtube/src/extract/llm-claims.ts:1) Pass 1 prompt.
+- **Rationale**: Pass 1 must preserve provenance fields to enable speaker-attributed claims in dossier output.
+- **Regression Guard**: [`packages/praecis/youtube/tests/llm-claims.test.ts`](packages/praecis/youtube/tests/llm-claims.test.ts:1) verifies excerpt payload includes speaker
+- **Completion Criteria**: Prompt excerpt JSON includes speaker when available; LLM extracts speaker-attributed claims
+
+---
+
 ## Success Metrics Summary
 
-| Metric                 | Baseline | Target   | Measurement Method                                  |
-| :--------------------- | :------- | :------- | :-------------------------------------------------- |
-| Heuristic Precision    | ~20%     | >60%     | Fragment/boilerplate rate in golden fixture test    |
-| Heuristic Recall       | ~40%     | >70%     | Coverage of Gemini baseline claims                  |
-| LLM Hallucination Rate | Unknown  | <5%      | Entailment verification failures                    |
-| Domain Coverage        | ~5%      | >70%     | Claims with domain metadata / total claims          |
-| Evidence Type Coverage | 0%       | >60%     | Claims with evidenceType / total claims             |
-| Fragment Rate          | ~80%     | <15%     | Claims with trailing ellipsis or conjunctions       |
-| Standalone Rate        | ~40%     | >85%     | Claims without pronoun start or dangling references |
-| Cache Compatibility    | N/A      | 100%     | Existing caches parse without error                 |
-| CI Benchmark Pass      | N/A      | Required | `test:extraction-benchmark` gate                    |
+| Metric                        | Baseline | Target   | Measurement Method                                  |
+| :---------------------------- | :------- | :------- | :-------------------------------------------------- |
+| Heuristic Precision           | ~20%     | >60%     | Fragment/boilerplate rate in golden fixture test    |
+| Heuristic Recall              | ~40%     | >70%     | Coverage of Gemini baseline claims                  |
+| LLM Hallucination Rate        | Unknown  | <5%      | Tiered entailment verification failures             |
+| Domain Coverage               | ~5%      | >70%     | Claims with domain metadata / total claims          |
+| Classification Consistency    | Unknown  | >95%     | Normalized classification values / total claims     |
+| Evidence Type Coverage        | 0%       | >60%     | Claims with evidenceType / total claims             |
+| Fragment Rate                 | ~80%     | <15%     | Claims with trailing ellipsis or conjunctions       |
+| Standalone Rate               | ~40%     | >90%     | Claims without pronoun start or dangling references |
+| Transcript-Echo Rate          | ~60%     | <15%     | Claims with >95% overlap to source excerpt          |
+| Rewrite Evidence Preservation | N/A      | 100%     | Evidence type retained through rewrite pass         |
+| Cache Compatibility           | N/A      | 100%     | Existing caches parse without error                 |
+| CI Benchmark Pass             | N/A      | Required | `test:extraction-benchmark` gate                    |
+| FDD Documentation Sync        | N/A      | 100%     | FDD-002/003 reflect implementation                  |
 
 ---
 
@@ -413,7 +622,9 @@ flowchart TD
         P2T3[2.3 Negative Examples]
         P2T4[2.4 Schema Constraints]
         P2T5[2.5 Video Context]
-        P2T6[2.8 Token Budget]
+        P2T8[2.8 Dossier Rendering]
+        P2T9[2.9 Token Budget]
+        P2T13[2.13 Classification Normalization]
     end
 
     subgraph Phase4 [Phase 4: Validation]
@@ -426,6 +637,19 @@ flowchart TD
         P3T1[3.1 Provenance Preservation]
         P3T2[3.2 Metadata Scoring]
         P3T4[3.4 Semantic Dedupe]
+        P3T6[3.6 V2 Default Editor]
+        P3T7[3.7 Context-Dependent Penalty]
+    end
+
+    subgraph Phase6 [Phase 6: LLM Rewrite Pass]
+        P6T1[6.1 Versioned Rewrite Prompt]
+        P6T4[6.4 Evidence-Type Preservation]
+    end
+
+    subgraph Phase7 [Phase 7: Documentation]
+        P7T1[7.1 FDD-002 Update]
+        P7T2[7.2 FDD-003 Update]
+        P7T5[7.5 Archive Superseded Docs]
     end
 
     P1T3 --> P1T5
@@ -435,11 +659,20 @@ flowchart TD
     P1T3 --> P1T8
     P1T9 --> P1T5
     P2T1 --> P2T2 --> P2T3 --> P2T4 --> P2T5
+    P2T5 --> P2T8
+    P2T5 --> P2T13
     P4T1 --> P4T2 --> P4T3
-    P2T6 --> P4T3
+    P2T9 --> P4T3
     P1T5 --> P3T1
     P2T5 --> P3T2
     P3T1 --> P3T4
+    P3T2 --> P3T6
+    P3T2 --> P3T7
+    P3T6 --> P6T1
+    P6T1 --> P6T4
+    P3T6 --> P7T2
+    P2T8 --> P7T1
+    P7T1 --> P7T5
 ```
 
 **Recommended Execution:**
@@ -448,8 +681,12 @@ flowchart TD
 2. Phase 1 core (Tasks 1.1-1.6): sentence splitting, merging, boilerplate, confidence, editor integration
 3. Phase 1 NLP (Tasks 1.7-1.9): SVO extraction, discourse markers, grammatical completeness — depends on wink-nlp/Compromise.js from Tasks 1.1/1.3
 4. Parallel execution: Phase 1 NLP tasks and Phase 2.1-2.5 (prompt v2)
-5. Phase 3 (orchestration) after both extraction paths stabilized
-6. Phase 5 (mitigations) before production deployment
+5. Phase 2 schema tasks (2.6-2.8, 2.13): evidenceType schema → parse → dossier render, classification normalization
+6. Phase 3 (orchestration) after both extraction paths stabilized, including v2 default switch (3.6) and context-dependent penalty (3.7)
+7. Phase 5 (mitigations) before production deployment
+8. Phase 6 (LLM rewrite pass) after Phase 3 stabilization — opt-in enhancement
+9. Phase 7 (documentation) in parallel with Phases 5-6; FDD updates in same PR as implementation changes
+10. Phase 8 (speaker attribution) — DEFERRED until Phases 1-7 complete
 
 ---
 
@@ -457,6 +694,8 @@ flowchart TD
 
 - [FDD-002: First-Pass YouTube Claim Mining](../../30-fdd/fdd-002-first-pass-youtube-claim-mining.md)
 - [FDD-003: Second-Pass Editorial Claim Selection](../../30-fdd/fdd-003-second-pass-editorial-selection.md)
-- [Task-003-v2: Prior Task Breakdown](./task-003-fix-extraction-quality-v2.md)
+- [Task-003 v1 (Superseded): Original Task Plan](./task-003-fix-extraction-quality.md)
+- [Task-003-v2 (Superseded): Prior Task Breakdown](./task-003-fix-extraction-quality-v2.md)
+- [Task-003 GPT-5 Fork (Superseded): Parallel Task Breakdown](./task-003-plan-phases-gpt-5.md)
 - [Gemini Baseline: `packages/praecis/youtube/out/gemini-web-claims-extraction.md`](../../../../packages/praecis/youtube/out/gemini-web-claims-extraction.md)
 - [Heuristic Output Sample: `packages/praecis/youtube/out/dossier-final.md`](../../../../packages/praecis/youtube/out/dossier-final.md)

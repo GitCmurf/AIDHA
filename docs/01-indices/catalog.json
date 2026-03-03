@@ -626,8 +626,8 @@
       "document_id": "AIDHA-TASK-004",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-03-02",
+      "version": "0.2",
+      "last_updated": "2026-03-03",
       "title": "Claim Extraction Evaluation Matrix",
       "type": "TASK",
       "docops_version": "2.0"
@@ -654,23 +654,9 @@
       "document_id": "AIDHA-TASK-003-ATOMIC",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "1.1",
+      "version": "1.2",
       "last_updated": "2026-03-03",
       "title": "YouTube Claim Extraction - Production-Grade Atomic Task Breakdown",
-      "type": "TASK",
-      "docops_version": "2.0"
-    }
-  },
-  {
-    "path": "05-planning/tasks/task-003-fix-extraction-quality.md",
-    "title": "Fix Extraction Quality and Provider Flex",
-    "front_matter": {
-      "document_id": "AIDHA-TASK-003",
-      "owner": "Ingestion Team",
-      "status": "Superseded",
-      "version": "0.4",
-      "last_updated": "2026-03-02",
-      "title": "Fix Extraction Quality and Provider Flex",
       "type": "TASK",
       "docops_version": "2.0"
     }
@@ -685,20 +671,6 @@
       "version": "1.0",
       "last_updated": "2026-03-03",
       "title": "Phase Plan - GPT-5 Integration Roadmap",
-      "type": "TASK",
-      "docops_version": "2.0"
-    }
-  },
-  {
-    "path": "05-planning/tasks/task-003-fix-extraction-quality-v2.md",
-    "title": "YouTube Video Claim Extraction Quality Improvement Task Breakdown",
-    "front_matter": {
-      "document_id": "AIDHA-TASK-003-v2",
-      "owner": "Ingestion Team",
-      "status": "Draft",
-      "version": "1.0",
-      "last_updated": "2026-03-02",
-      "title": "YouTube Video Claim Extraction Quality Improvement Task Breakdown",
       "type": "TASK",
       "docops_version": "2.0"
     }

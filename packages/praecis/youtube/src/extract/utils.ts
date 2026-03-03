@@ -66,6 +66,34 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 /**
+ * Builds a map of excerpt IDs to their text content for echo detection.
+ * Filters out excerpts with no content.
+ */
+export function buildExcerptTextsById(excerpts: ReadonlyArray<{ id: string; content?: string | null }>): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const excerpt of excerpts) {
+    if (excerpt.content) {
+      map.set(excerpt.id, excerpt.content);
+    }
+  }
+  return map;
+}
+
+/**
+ * Type-safe helper to extract a string value from metadata.
+ */
+export function getStringMetadata(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  return typeof metadata?.[key] === 'string' ? (metadata[key] as string) : undefined;
+}
+
+/**
+ * Type-safe helper to extract a number value from metadata.
+ */
+export function getNumberMetadata(metadata: Record<string, unknown> | undefined, key: string): number | undefined {
+  return typeof metadata?.[key] === 'number' ? (metadata[key] as number) : undefined;
+}
+
+/**
  * Determines if a text segment ends with a dangling marker.
  * @param text - The text to check
  * @returns true if the text ends with a dangling conjunction or punctuation

@@ -11,6 +11,7 @@ import type {
 } from './types.js';
 import type { ClaimState } from '../utils/claim-state.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
+import { getStringMetadata, getNumberMetadata } from '../extract/utils.js';
 
 export interface DossierExporterConfig {
   graphStore: GraphStore;
@@ -298,23 +299,13 @@ export class DossierExporter {
         excerptText: truncateText(excerptText, 220),
         excerptId: excerpt?.id,
         referenceUrls,
-        type: typeof claim.metadata?.['type'] === 'string' ? (claim.metadata?.['type'] as string) : undefined,
-        classification: typeof claim.metadata?.['classification'] === 'string'
-          ? (claim.metadata?.['classification'] as string)
-          : undefined,
-        domain: typeof claim.metadata?.['domain'] === 'string'
-          ? (claim.metadata?.['domain'] as string)
-          : undefined,
-        evidenceType: typeof claim.metadata?.['evidenceType'] === 'string'
-          ? (claim.metadata?.['evidenceType'] as string)
-          : undefined,
-        confidence: typeof claim.metadata?.['confidence'] === 'number'
-          ? (claim.metadata?.['confidence'] as number)
-          : undefined,
-        method: typeof claim.metadata?.['method'] === 'string' ? (claim.metadata?.['method'] as string) : undefined,
-        echoOverlapRatio: typeof claim.metadata?.['echoOverlapRatio'] === 'number'
-          ? (claim.metadata?.['echoOverlapRatio'] as number)
-          : undefined,
+        type: getStringMetadata(claim.metadata, 'type'),
+        classification: getStringMetadata(claim.metadata, 'classification'),
+        domain: getStringMetadata(claim.metadata, 'domain'),
+        evidenceType: getStringMetadata(claim.metadata, 'evidenceType'),
+        confidence: getNumberMetadata(claim.metadata, 'confidence'),
+        method: getStringMetadata(claim.metadata, 'method'),
+        echoOverlapRatio: getNumberMetadata(claim.metadata, 'echoOverlapRatio'),
       });
     }
 

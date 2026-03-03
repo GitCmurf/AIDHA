@@ -6,9 +6,9 @@ import type { GraphNode } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
 import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from './types.js';
 import { HeuristicClaimExtractor } from './claims.js';
-import { runEditorPassV1, runEditorPassV2 } from './editorial-ranking.js';
+import { runEditorPassV1, runEditorPassV2, DEFAULT_ECHO_DETECTION } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
-import { clamp, normalizeText, toNumber } from './utils.js';
+import { clamp, normalizeText, toNumber, buildExcerptTextsById } from './utils.js';
 import { hashId } from '../utils/ids.js';
 import { buildPass1PromptV2, PROMPT_VERSION as PROMPT_V2_VERSION } from './prompts/pass1-claim-mining-v2.js';
 
@@ -559,13 +559,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let selected: ClaimCandidate[];
     if (this.editorVersion === 'v2') {
       const excerptTextLengthById = new Map<string, number>();
-      const excerptTextsById = new Map<string, string>();
       for (const excerpt of excerpts) {
         excerptTextLengthById.set(excerpt.id, excerpt.content?.length ?? 0);
-        if (excerpt.content) {
-          excerptTextsById.set(excerpt.id, excerpt.content);
-        }
       }
+      const excerptTextsById = buildExcerptTextsById(excerpts);
+
       selected = runEditorPassV2(allCandidates, {
         maxClaims,
         chunkCount: chunked.length,
@@ -576,10 +574,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         minChars: this.editorMinChars,
         excerptTextLengthById,
         excerptTextsById,
-        echoDetection: {
-          mode: 'tag', // Tag echoes with overlap ratio instead of penalizing
-          overlapThreshold: 0.9,
-        },
+        echoDetection: DEFAULT_ECHO_DETECTION,
       });
     } else {
       selected = runEditorPassV1(allCandidates, {

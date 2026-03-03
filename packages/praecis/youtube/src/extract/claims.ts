@@ -11,8 +11,9 @@ import {
   isCompleteSentence,
   countFragmentIndicators,
   startsWithConnector,
+  buildExcerptTextsById,
 } from './utils.js';
-import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnostics } from './editorial-ranking.js';
+import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnostics, DEFAULT_ECHO_DETECTION } from './editorial-ranking.js';
 import { z } from 'zod';
 
 /**
@@ -259,12 +260,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     const adaptiveMinWindows = Math.min(4, Math.max(1, actualWindowCount));
 
     // Build excerpt texts map for echo detection
-    const excerptTextsById = new Map<string, string>();
-    for (const excerpt of input.excerpts) {
-      if (excerpt.content) {
-        excerptTextsById.set(excerpt.id, excerpt.content);
-      }
-    }
+    const excerptTextsById = buildExcerptTextsById(input.excerpts);
 
     const editorialResult = runEditorPassV2WithDiagnostics(unique, {
       maxClaims,
@@ -273,10 +269,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       maxPerWindow: 3,
       minWindows: adaptiveMinWindows,
       excerptTextsById,
-      echoDetection: {
-        mode: 'tag', // Tag echoes with overlap ratio instead of penalizing
-        overlapThreshold: 0.9,
-      },
+      echoDetection: DEFAULT_ECHO_DETECTION,
     });
 
     // Store diagnostics for retrieval

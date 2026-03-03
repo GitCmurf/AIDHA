@@ -107,6 +107,18 @@ const DEFAULT_V2_ECHO_DETECTION_ENABLED = true;
  */
 export type EchoDetectionMode = 'off' | 'tag';
 
+/**
+ * Default echo detection configuration.
+ * Used when caller doesn't provide explicit settings.
+ */
+export const DEFAULT_ECHO_DETECTION: Readonly<{
+  mode: EchoDetectionMode;
+  overlapThreshold: number;
+}> = Object.freeze({
+  mode: 'tag',
+  overlapThreshold: 0.9,
+}) as const;
+
 export type EditorialDropReason =
   | 'empty'
   | 'boilerplate'
@@ -770,20 +782,20 @@ export function runEditorPassV2WithDiagnostics(
   let echoAnalyzedCount = 0;
 
   // Phase 1: Apply quality filters and calculate echo overlap ratios
-  const candidatesWithEcho: ClaimCandidate[] = candidates.map(candidate => {
-    // Calculate echo overlap if enabled and excerpt texts are available
-    if (echoMode !== 'off' && options.excerptTextsById) {
-      const overlapRatio = calculateEchoOverlapRatio(candidate, options.excerptTextsById);
-      if (overlapRatio !== undefined) {
-        echoAnalyzedCount++;
-        if (overlapRatio >= echoThreshold) {
-          echoTaggedCount++;
+  // Only create new array if echo detection is enabled and excerpt texts are available
+  const candidatesWithEcho = (echoMode !== 'off' && options.excerptTextsById)
+    ? candidates.map(candidate => {
+        const overlapRatio = calculateEchoOverlapRatio(candidate, options.excerptTextsById);
+        if (overlapRatio !== undefined) {
+          echoAnalyzedCount++;
+          if (overlapRatio >= echoThreshold) {
+            echoTaggedCount++;
+          }
+          return { ...candidate, echoOverlapRatio: overlapRatio };
         }
-        return { ...candidate, echoOverlapRatio: overlapRatio };
-      }
-    }
-    return candidate;
-  });
+        return candidate;
+      })
+    : candidates; // Use original array when echo detection is disabled
 
   for (const candidate of candidatesWithEcho) {
     const text = normalizeText(candidate.text);
