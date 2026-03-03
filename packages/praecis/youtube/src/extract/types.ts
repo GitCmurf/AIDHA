@@ -10,6 +10,7 @@ export interface ClaimCandidate {
   classification?: string;
   domain?: string;
   why?: string;
+  evidenceType?: string;
   method?: 'heuristic' | 'llm';
   chunkIndex?: number;
   model?: string;

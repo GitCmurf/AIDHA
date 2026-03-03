@@ -10,6 +10,7 @@ import { runEditorPassV1, runEditorPassV2 } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
 import { clamp, normalizeText, toNumber } from './utils.js';
 import { hashId } from '../utils/ids.js';
+import { buildPass1PromptV2, PROMPT_VERSION as PROMPT_V2_VERSION } from './prompts/pass1-claim-mining-v2.js';
 
 const CLAIM_TYPES = [
   'insight',
@@ -33,6 +34,7 @@ const ClaimSchema = z.object({
   domain: z.string().optional(),
   confidence: z.number().min(0).max(1).optional(),
   why: z.string().optional(),
+  evidenceType: z.string().optional(),
 });
 
 const ResponseSchema = z.object({
@@ -249,6 +251,7 @@ async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCa
       domain: claim.domain,
       confidence: claim.confidence,
       why: claim.why,
+      evidenceType: claim.evidenceType,
     })),
   };
   await writeFile(path, JSON.stringify(payload, null, 2), 'utf-8');
@@ -739,23 +742,46 @@ export class LlmClaimExtractor implements ClaimExtractor {
       startSeconds: toNumber(excerpt.metadata?.['start'], 0),
       text: normalizeText(excerpt.content ?? ''),
     }));
-    const system = [
-      'You are a senior analyst extracting high-resolution health and physiological assertions.',
-      'Return only JSON that matches the provided schema.',
-      'CRITICAL: Over-index on specificity and niche technical insights.',
-      'CRITICAL: Reject generic advice (e.g. "eat balanced meals", "sleep more").',
-      'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
-    ].join(' ');
-    const user = [
-      `Video: ${resource.label}`,
-      `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
-      `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
-      `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion","domain":string,"confidence":0-1,"why":string}]}`,
-      `Allowed types: ${CLAIM_TYPES.join(', ')}`,
-      'Requirement: If you find a generic claim, replace it with a more specific one from the same text.',
-      'Requirement: Include the physiological Domain (e.g. "Protein Kinetics", "Lipidology") and Classification.',
-      `EXCERPTS:\n${JSON.stringify(excerptsPayload, null, 2)}`,
-    ].join('\n');
+
+    // Route to v2 prompt module if promptVersion matches, otherwise use inline prompt
+    let system: string;
+    let user: string;
+
+    if (this.promptVersion === PROMPT_V2_VERSION) {
+      const prompt = buildPass1PromptV2(
+        {
+          resourceLabel: resource.label,
+          chunkIndex: chunk.index,
+          chunkCount,
+          chunkStart: chunk.start,
+          minClaims: DEFAULT_MIN_CLAIMS_PER_CHUNK,
+          maxClaims: DEFAULT_MAX_CLAIMS_PER_CHUNK,
+          excerptIds: chunk.excerpts.map(e => e.id),
+        },
+        excerptsPayload
+      );
+      system = prompt.system;
+      user = prompt.user;
+    } else {
+      // Legacy inline prompt (original behavior)
+      system = [
+        'You are a senior analyst extracting high-resolution health and physiological assertions.',
+        'Return only JSON that matches the provided schema.',
+        'CRITICAL: Over-index on specificity and niche technical insights.',
+        'CRITICAL: Reject generic advice (e.g. "eat balanced meals", "sleep more").',
+        'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
+      ].join(' ');
+      user = [
+        `Video: ${resource.label}`,
+        `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
+        `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
+        `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion","domain":string,"confidence":0-1,"why":string}]}`,
+        `Allowed types: ${CLAIM_TYPES.join(', ')}`,
+        'Requirement: If you find a generic claim, replace it with a more specific one from the same text.',
+        'Requirement: Include the physiological Domain (e.g. "Protein Kinetics", "Lipidology") and Classification.',
+        `EXCERPTS:\n${JSON.stringify(excerptsPayload, null, 2)}`,
+      ].join('\n');
+    }
 
     const parsed = await this.fetchAndParseClaims({
       system,
@@ -799,12 +825,14 @@ export class LlmClaimExtractor implements ClaimExtractor {
     verbosity?: string;
   }): Promise<ClaimCandidate[]> {
     const { system, user, chunk, excerptStartMap, strictRetry, reasoningEffort, verbosity } = input;
+    // Use higher maxTokens for mining requests to prevent JSON truncation
     const request = {
       model: this.model,
       system,
       user,
       reasoningEffort,
       verbosity,
+      maxTokens: 4000, // Increased from default to prevent JSON truncation
     };
     const response = await this.client.generate(request);
     if (!response.ok) {
@@ -815,15 +843,52 @@ export class LlmClaimExtractor implements ClaimExtractor {
     const parsed = this.parseResponse(response.value, chunk, excerptStartMap);
     if (parsed.length > 0 || !strictRetry) return parsed;
 
+    // Enhanced retry with parse-error feedback
+    const parseError = this.getParseError(response.value);
+    const retryUser = parseError
+      ? `${user}\n\nPARSE ERROR FEEDBACK:\n${parseError}\n\nPlease fix the above issues and return ONLY valid JSON. Do not include commentary or markdown.`
+      : `${user}\n\nReturn ONLY valid JSON matching the schema. Do not include commentary or markdown.`;
+
     const retry = await this.client.generate({
       ...request,
-      user: `${user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
+      user: retryUser,
     });
     if (!retry.ok) {
       console.error(`LLM retry error in chunk ${chunk.index}: ${retry.error.message}`);
       return [];
     }
     return this.parseResponse(retry.value, chunk, excerptStartMap);
+  }
+
+  /**
+   * Analyzes LLM response to identify parse errors for feedback.
+   * Returns a summary of issues found, or null if no specific error detected.
+   */
+  private getParseError(content: string): string | null {
+    const jsonBlock = extractJsonBlock(content);
+    if (!jsonBlock) {
+      return 'No valid JSON block found. Output must be a JSON object with a "claims" array.';
+    }
+
+    try {
+      JSON.parse(jsonBlock);
+      return null; // Valid JSON
+    } catch (e) {
+      const error = e as Error;
+      const message = error.message.toLowerCase();
+
+      if (message.includes('claims') && message.includes('required')) {
+        return 'Missing required "claims" array in JSON output.';
+      }
+      if (message.includes('unexpected token')) {
+        return 'JSON syntax error - check for trailing commas, unquoted strings, or other syntax issues.';
+      }
+      if (message.includes('unexpected end')) {
+        return 'Incomplete JSON - output appears to be truncated. Ensure all objects and arrays are properly closed.';
+      }
+
+      return `JSON parsing failed: ${error.message}`;
+    }
   }
 
   private parseResponse(
@@ -858,6 +923,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         classification: candidate.classification,
         domain: candidate.domain,
         why: candidate.why ? normalizeText(candidate.why) : undefined,
+        evidenceType: candidate.evidenceType,
         method: 'llm',
         chunkIndex: chunk.index,
         model: this.model,

@@ -1,4 +1,32 @@
+---
+document_id: AIDHA-TASK-003-v2
+owner: Ingestion Team
+status: Draft
+version: "1.0"
+last_updated: 2026-03-02
+title: YouTube Video Claim Extraction Quality Improvement Task Breakdown
+type: TASK
+docops_version: "2.0"
+---
+
+<!-- markdownlint-disable MD013 MD022 MD024 MD032 -->
+<!-- MEMINIT_METADATA_BLOCK -->
+
+> **Document ID:** AIDHA-TASK-003-v2
+> **Owner:** Ingestion Team
+> **Approvers:** —
+> **Status:** Draft
+> **Version:** 1.0
+> **Last Updated:** 2026-03-02
+> **Type:** TASK
+
 # YouTube Video Claim Extraction Quality Improvement Task Breakdown
+
+## Version History
+
+| Version | Date       | Author | Change Summary                                  | Reviewers | Status | Reference |
+| :------ | :--------- | :----- | :---------------------------------------------- | :-------- | :----- | :-------- |
+| 1.0     | 2026-03-02 | AI     | Comprehensive task breakdown for extraction quality improvement | —         | Draft  | —         |
 
 ## Pre-Mortem Analysis
 **Likely Failure Points:**

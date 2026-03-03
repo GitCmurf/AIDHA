@@ -11,6 +11,27 @@ const LOW_VALUE_PATTERNS = [
   /welcome back/i,
   /intro/i,
   /outro/i,
+  // Wealthfront and financial sponsor CTAs
+  /wealthfront/i,
+  /APY on your cash/i,
+  /annual percentage yield/i,
+  /partner banks/i,
+  /earn \d+% APY/i,
+  /high-yield savings account/i,
+  /automated investing/i,
+  /tax-optimized/i,
+  // Common ad-read patterns
+  /special offer/i,
+  /discount code/i,
+  /promo code/i,
+  /use code \w+/i,
+  /limited time/i,
+  /act now/i,
+  /don't miss out/i,
+  /click the link/i,
+  /link in the (description|bio)/i,
+  /affiliate link/i,
+  /support the (channel|show|podcast)/i,
 ];
 
 const ACTION_MARKERS = [
