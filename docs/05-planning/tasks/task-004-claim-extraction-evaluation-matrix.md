@@ -9,7 +9,7 @@ type: TASK
 docops_version: "2.0"
 ---
 
-<!-- markdownlint-disable MD013 -->
+<!-- markdownlint-disable MD013 MD031 -->
 <!-- MEMINIT_METADATA_BLOCK -->
 
 > **Document ID:** AIDHA-TASK-004
@@ -36,8 +36,8 @@ This task defines a systematic evaluation framework for YouTube claim extraction
 | :--------------------- | :---------------------------------------------------------------------------------------------------------- |
 | **Completeness**       | Does the extraction capture all substantive claims present in the transcript? (Recall proxy)                |
 | **Accuracy**           | Are extracted claims faithful to the source material without hallucination or distortion? (Precision proxy) |
-| **Representativeness** | Do the claims proportionally cover the video's topic distribution and timeline? (Coverage proxy)            |
-| **MECE**               | Are claims Mutually Exclusive (no redundancy) and Collectively Exhaustive (no gaps)? (Structure proxy)      |
+| **Topic Coverage**     | Do the claims proportionally cover the video's topic distribution and timeline? (Representativeness proxy)  |
+| **Atomicity**          | Are claims single, indivisible assertions without redundancy? (Structure proxy)                             |
 
 ### Design Principles (per `engineering-principles.md`)
 
@@ -61,6 +61,19 @@ This task depends on AIDHA-TASK-003-ATOMIC Phase 1–2 completion (extraction im
 - **Rationale**: A diverse corpus spanning different content types (lecture, interview, panel, solo explainer), durations (15min–2hr+), and domains (nutrition, neuroscience, exercise physiology) prevents overfitting evaluation to a single video style. The existing test video `h_1zlead9ZU` (Huberman × Aragon, ~2hr, nutrition) is necessary but insufficient alone.
 - **Selection Criteria**: At least 2 videos per domain category; at least 1 video <30min and 1 video >90min; at least 1 multi-speaker panel; no duplicate channels
 - **Regression Guard**: Corpus file validated by schema test; minimum 5 entries enforced
+- **Spec Example**:
+  ```json
+  {
+    "videoId": "h_1zlead9ZU",
+    "url": "https://www.youtube.com/watch?v=h_1zlead9ZU",
+    "title": "Dr. Andrew Huberman: The Science of Nutrition...",
+    "channelName": "Huberman Lab",
+    "durationMinutes": 124,
+    "topicDomain": "Nutrition",
+    "expectedClaimDensity": "high",
+    "rationale": "High-density scientific assertions; multi-speaker debate."
+  }
+  ```
 - **Completion Criteria**: Corpus JSON passes schema validation; each entry includes rationale for inclusion; corpus covers ≥3 distinct topic domains
 
 ### Task 1.2: Ingest and cache transcripts for corpus videos
@@ -92,27 +105,65 @@ This task depends on AIDHA-TASK-003-ATOMIC Phase 1–2 completion (extraction im
 - **Regression Guard**: Cache miss triggers extraction; cache hit skips extraction and logs cache-hit; stale cache detected by version mismatch
 - **Completion Criteria**: Second run of identical matrix completes in <5 seconds; version bump triggers full re-extraction
 
+### Task 1.6: Create human-verified golden annotations
+
+- [ ] **Task**: Create [`packages/praecis/youtube/tests/fixtures/eval-matrix/golden-annotations.json`] containing human-verified "ideal" claim sets for 2 representative videos from the corpus (one short, one long)
+- [ ] **Task**: Define schema for annotations: `videoId`, `idealClaims: string[]`, `rejectedClaims: { text: string, reason: string }[]`
+- **Rationale**: To trust the "LLM-as-Judge", we must calibrate it against human judgment. This "Golden Set" serves as the ground truth for validating the scoring engine itself (Task 2.2).
+- **Regression Guard**: JSON validated by schema; contains at least 2 videos
+- **Spec Definition**:
+  ```typescript
+  interface GoldenAnnotation {
+    videoId: string;
+    idealClaims: string[]; // The perfect set of claims a human would extract
+    rejectedClaims: { text: string; reason: "hallucination" | "redundant" | "fragment" | "topic-drift" }[];
+  }
+  ```
+- **Completion Criteria**: Fixture file exists and contains manually curated claims for the selected videos
+
 ---
 
 ## Phase 2: LLM-as-Judge Scoring Engine
 
 ### Task 2.1: Define scoring rubric schema
 
-- [ ] **Task**: Create [`packages/praecis/youtube/src/eval/scoring-rubric.ts`] exporting zod schemas for `ClaimSetScore` with fields: `completeness: number` (0–10), `accuracy: number` (0–10), `representativeness: number` (0–10), `mece: number` (0–10), `overallScore: number` (0–10), `reasoning: string`, `missingClaims: string[]`, `hallucinations: string[]`, `redundancies: string[]`, `gapAreas: string[]`
+- [ ] **Task**: Create [`packages/praecis/youtube/src/eval/scoring-rubric.ts`] exporting zod schemas for `ClaimSetScore` with fields: `completeness: number` (0–10), `accuracy: number` (0–10), `topicCoverage: number` (0–10), `atomicity: number` (0–10), `overallScore: number` (0–10), `reasoning: string`, `missingClaims: string[]`, `hallucinations: string[]`, `redundancies: string[]`, `gapAreas: string[]`
 - **Rationale**: Structured scoring with explicit sub-dimensions prevents vague "good/bad" judgments. Zod validation at the boundary (engineering-principles.md §5) catches malformed judge responses before they corrupt aggregation.
 - **Regression Guard**: Schema rejects scores outside 0–10 range; `reasoning` required non-empty; arrays may be empty but must be present
+- **Spec Definition**:
+  ```typescript
+  export const ClaimSetScoreSchema = z.object({
+    completeness: z.number().min(0).max(10),
+    accuracy: z.number().min(0).max(10),
+    topicCoverage: z.number().min(0).max(10),
+    atomicity: z.number().min(0).max(10),
+    overallScore: z.number().min(0).max(10),
+    reasoning: z.string().min(10),
+    missingClaims: z.array(z.string()),
+    hallucinations: z.array(z.string()),
+    redundancies: z.array(z.string()),
+    gapAreas: z.array(z.string())
+  });
+  ```
 - **Completion Criteria**: Schema validates example scores; rejects out-of-range values; unit test covers edge cases (0, 10, missing fields)
 
 ### Task 2.2: Implement judge prompt template
 
 - [ ] **Task**: Create [`packages/praecis/youtube/src/eval/prompts/judge-claim-quality.ts`] exporting `buildJudgePrompt(transcript: string, claims: ClaimCandidate[], videoContext: VideoContext): { system: string; user: string }` that instructs the judge model to evaluate the four dimensions
-- **Rationale**: The judge prompt is the most critical component — it must be specific enough to produce calibrated scores but generic enough to work across domains. Few-shot examples from the Gemini baseline (`out/gemini-web-claims-extraction.md`) anchor the judge's quality expectations.
+- **Rationale**: The judge prompt is the most critical component. It must be calibrated against the human-verified Golden Set (Task 1.6) to ensure it penalizes what a human would penalize.
 - **Prompt Design**:
   - System: "You are an expert evaluator of information extraction quality..."
   - Include the full transcript (or representative chunks) as ground truth
   - Include the extracted claim set to evaluate
-  - Include 2 calibration examples: one high-quality set (score 8–9) and one low-quality set (score 2–3) from `out/dossier-final.md`
+  - Include 2 calibration examples derived from Task 1.6 (Golden Annotations)
   - Request structured JSON output matching `ClaimSetScore` schema
+- **Prompt Structure Spec**:
+  - **System**: "You are an expert evaluator of information extraction quality... Output JSON only."
+  - **User**:
+    - `TRANSCRIPT_CONTEXT`: (Title, Channel, Description)
+    - `TRANSCRIPT_TEXT`: (The text to evaluate against)
+    - `CANDIDATE_CLAIMS`: (The JSON list of claims to score)
+    - `CALIBRATION_EXAMPLES`: (Array of { claims: [], score: {}, reasoning: "" })
 - **Regression Guard**: Prompt template tested for presence of all four dimension names; calibration examples included; output format instruction present
 - **Completion Criteria**: Judge prompt produces parseable `ClaimSetScore` JSON from ≥2 different judge models; inter-rater agreement >0.7 on calibration examples
 
@@ -125,7 +176,7 @@ This task depends on AIDHA-TASK-003-ATOMIC Phase 1–2 completion (extraction im
 
 ### Task 2.4: Implement multi-judge consensus scoring
 
-- [ ] **Task**: Create [`packages/praecis/youtube/src/eval/consensus-scorer.ts`] with `scoreWithConsensus(judgeClients: Array<{ client: LlmClient; model: string }>, transcript: string, claims: ClaimCandidate[], videoContext: VideoContext): Promise<ConsensusScore>` that runs ≥2 judge models and computes mean scores with inter-rater variance
+- [ ] **Task**: Create [`packages/praecis/youtube/src/eval/consensus-scorer.ts`] with `scoreWithConsensus(...)` that runs ≥2 judge models (configurable) and computes mean scores with inter-rater variance
 - **Rationale**: Single-judge scoring is unreliable due to model-specific biases. Multi-judge consensus with variance reporting surfaces disagreements that indicate ambiguous extraction quality. Engineering-principles.md §8: "Optimise after measuring" — variance data guides judge selection.
 - **Consensus Method**: Mean of dimension scores; flag cells where any dimension variance >2.0 for manual review
 - **Regression Guard**: Minimum 2 judges required; single-judge fallback emits warning; variance computed per dimension
@@ -148,6 +199,15 @@ This task depends on AIDHA-TASK-003-ATOMIC Phase 1–2 completion (extraction im
 - **Rationale**: Raw cell scores are not actionable without aggregation. Per-model averages reveal which models extract best; per-video averages reveal which content types are hardest; dimension leaderboards show model strengths (e.g., "Model X is most accurate but least complete").
 - **Aggregation Metrics**: mean, median, min, max, stddev per dimension per model; rank ordering by overall score; cost-efficiency ratio (score / cost)
 - **Regression Guard**: Aggregator handles missing cells (partial matrix runs) gracefully; empty matrix returns structured error
+- **Spec Definition**:
+  ```typescript
+  interface MatrixReport {
+    summary: { bestModel: string; worstModel: string; hardestVideo: string };
+    modelStats: Record<string, { meanOverall: number; meanAccuracy: number; ... }>;
+    videoStats: Record<string, { meanDifficulty: number; ... }>;
+    leaderboards: Record<"accuracy" | "completeness" | "overall", { modelId: string; score: number }[]>;
+  }
+  ```
 - **Completion Criteria**: Aggregator produces valid report from a 3×3 matrix; rankings are deterministic (tiebreaker by model name)
 
 ### Task 3.2: Generate markdown comparison report
@@ -204,7 +264,7 @@ This task depends on AIDHA-TASK-003-ATOMIC Phase 1–2 completion (extraction im
 
 ### Task 4.4: Add CI quality gate for extraction regression
 
-- [ ] **Task**: Create [`packages/praecis/youtube/tests/eval/quality-gate.spec.ts`] that loads the latest matrix report JSON and asserts: best model overall score ≥6.0, no model scores <3.0 on any dimension, mean MECE score ≥5.0
+- [ ] **Task**: Create [`packages/praecis/youtube/tests/eval/quality-gate.spec.ts`] that loads the latest matrix report JSON and asserts: best model overall score ≥6.0, no model scores <3.0 on any dimension, mean Atomicity score ≥5.0
 - **Rationale**: CI gate prevents merging changes that degrade extraction quality below acceptable thresholds. Thresholds are intentionally conservative initially and tightened as extraction improves.
 - **Regression Guard**: Gate reads from cached report; does not trigger new extraction; thresholds configurable via environment variables
 - **Completion Criteria**: CI fails if quality thresholds breached; threshold values documented in test file comments

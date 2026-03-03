@@ -799,7 +799,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
     }
 
     if (this.fallback) {
-      console.warn(`LLM extraction failed or returned no results for chunk ${chunk.index}; falling back to heuristic.`);
+      const videoId = typeof resource.metadata?.['videoId'] === 'string'
+        ? (resource.metadata?.['videoId'] as string)
+        : resource.id;
+      console.warn(
+        `[LLM-FALLBACK] video=${videoId} chunk=${chunk.index} ` +
+        `LLM extraction failed or returned no results; falling back to heuristic extraction`
+      );
       const fallbackClaims = await this.fallback.extractClaims({
         resource,
         excerpts: chunk.excerpts,
@@ -807,7 +813,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       });
       return fallbackClaims.map(candidate => ({
         ...candidate,
-        method: candidate.method ?? 'heuristic',
+        method: 'heuristic-fallback',
         chunkIndex: chunk.index,
       }));
     }

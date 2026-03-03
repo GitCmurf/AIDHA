@@ -8,6 +8,7 @@ export interface LlmCompletionRequest {
   maxTokens?: number;
   reasoningEffort?: string;
   verbosity?: string;
+  responseFormat?: { type: 'json_schema'; schema: Record<string, unknown> };
 }
 
 export interface LlmClient {
@@ -84,6 +85,12 @@ export class OpenAiCompatibleClient implements LlmClient {
         body['max_tokens'] = request.maxTokens;
       } else {
         body['max_tokens'] = 900;
+      }
+
+      // OpenAI-compatible structured output (GPT-4o+ and GPT-5)
+      // Only add for models that support it to avoid breaking other providers
+      if (request.responseFormat && isGpt5) {
+        body['response_format'] = request.responseFormat;
       }
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {

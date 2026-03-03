@@ -11,7 +11,7 @@ export interface ClaimCandidate {
   domain?: string;
   why?: string;
   evidenceType?: string;
-  method?: 'heuristic' | 'llm';
+  method?: 'heuristic' | 'heuristic-fallback' | 'llm';
   chunkIndex?: number;
   model?: string;
   promptVersion?: string;

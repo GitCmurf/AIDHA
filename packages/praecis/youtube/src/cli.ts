@@ -317,6 +317,7 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
   if (mode === 'claims') {
     const useLlm = optionBool(options, 'llm');
     const editorLlm = optionBool(options, 'editor-llm');
+    const showEditorDiagnostics = optionBool(options, 'editorial-diagnostics');
 
     let extractor: LlmClaimExtractor | undefined;
     if (useLlm) {
@@ -362,6 +363,31 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
       return 1;
     }
     console.log(`Claims: created=${result.value.claimsCreated} updated=${result.value.claimsUpdated} noop=${result.value.claimsNoop}`);
+
+    if (showEditorDiagnostics) {
+      const resourceId = `youtube-${videoId}`;
+      const resourceResult = await store.getNode(resourceId);
+      if (resourceResult.ok && resourceResult.value) {
+        const diagnosticsJson = resourceResult.value.metadata?.['lastClaimRunEditorDiagnostics'];
+        if (typeof diagnosticsJson === 'string') {
+          try {
+            const diagnostics = JSON.parse(diagnosticsJson) as import('./extract/editorial-ranking.js').EditorialDiagnostics;
+            console.log('\nEditorial Diagnostics:');
+            console.log(`  Total candidates: ${diagnostics.totalCandidates}`);
+            console.log(`  Selected: ${diagnostics.selectedCount}`);
+            console.log(`  Dropped: ${Object.entries(diagnostics.droppedCounts).map(([reason, count]) => `${reason}=${count}`).join(', ')}`);
+            console.log('  Window coverage:');
+            for (const coverage of diagnostics.windowCoverage) {
+              console.log(`    Window ${coverage.windowIndex}: ${coverage.selectedCount} claims`);
+            }
+          } catch {
+            console.log('  (Unable to parse diagnostics)');
+          }
+        } else {
+          console.log('  (No diagnostics available)');
+        }
+      }
+    }
   } else if (mode === 'refs') {
     const pipeline = new ReferenceExtractionPipeline({ graphStore: store });
     const result = await pipeline.extractReferencesForVideo(videoId);

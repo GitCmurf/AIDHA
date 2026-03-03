@@ -61,6 +61,29 @@ const STEP_PATTERNS = [
 
 const CONJUNCTION_ENDINGS = ['and', 'but', 'so', 'or', 'then'];
 const FILLER_PATTERNS = [/\buh\b/gi, /\bum\b/gi];
+// Pronouns that indicate decontextualized fragments when they start a claim
+const CONTEXT_DEPENDENT_PRONOUNS = [
+  'this',
+  'that',
+  'these',
+  'those',
+  'it',
+  'its',
+  'they',
+  'them',
+  'their',
+  'he',
+  'him',
+  'his',
+  'she',
+  'her',
+  'hers',
+  'we',
+  'us',
+  'our',
+  'you',
+  'your',
+];
 const NUMBER_OR_UNIT_PATTERN = /\b\d+(?:\.\d+)?(?:%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds)?\b/i;
 const ALL_CAPS_TOKEN_PATTERN = /^[A-Z]{2,}$/;
 
@@ -70,16 +93,20 @@ const DEFAULT_MIN_WINDOWS = 4;
 const DEFAULT_V2_MIN_WORDS = 8;
 const DEFAULT_V2_MIN_CHARS = 50;
 const DEFAULT_V2_DEDUPE_OVERLAP = 0.8;
+const DEFAULT_V2_SEMANTIC_SIMILARITY_THRESHOLD = 0.75;
 const DEFAULT_V2_BOILERPLATE_PENALTY = 0.55;
 const DEFAULT_V2_FRAGMENT_PENALTY = 0.5;
 const DEFAULT_V2_DROP_THRESHOLD = 0.2;
+const DEFAULT_V2_ECHO_OVERLAP_THRESHOLD = 0.9;
+const DEFAULT_V2_ECHO_PENALTY = 0.3;
 
 export type EditorialDropReason =
   | 'empty'
   | 'boilerplate'
   | 'fragment'
   | 'duplicate'
-  | 'coverage';
+  | 'coverage'
+  | 'echo';
 
 export interface EditorialDiagnostics {
   editorVersion: 'v1' | 'v2';
@@ -103,10 +130,14 @@ export interface EditorialPassV2Options {
   minWords?: number;
   minChars?: number;
   dedupeOverlapThreshold?: number;
+  semanticSimilarityThreshold?: number;
   boilerplatePenalty?: number;
   fragmentPenalty?: number;
   dropThreshold?: number;
   excerptTextLengthById?: Map<string, number>;
+  excerptTextsById?: Map<string, string>;
+  echoOverlapThreshold?: number;
+  echoPenalty?: number;
 }
 
 interface ScoredCandidate {
@@ -122,6 +153,48 @@ interface DedupeResult {
 
 function normalizeKey(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Calculates token overlap ratio between two strings.
+ * Returns the intersection size divided by the max token count.
+ */
+function tokenOverlapRatio(str1: string, str2: string): number {
+  const tokens1 = new Set(normalizeText(str1).toLowerCase().split(/\s+/).filter(Boolean));
+  const tokens2 = new Set(normalizeText(str2).toLowerCase().split(/\s+/).filter(Boolean));
+
+  if (tokens1.size === 0 || tokens2.size === 0) return 0;
+
+  const intersection = new Set<string>();
+  for (const token of tokens1) {
+    if (tokens2.has(token)) intersection.add(token);
+  }
+
+  return intersection.size / Math.max(tokens1.size, tokens2.size);
+}
+
+/**
+ * Detects if a claim is a raw transcript echo (near-exact copy of source excerpt).
+ * Uses token overlap to identify claims that lack synthesis.
+ */
+function isTranscriptEcho(
+  candidate: ClaimCandidate,
+  excerptTexts: Map<string, string>,
+  threshold: number
+): boolean {
+  const normalizedClaim = normalizeText(candidate.text).toLowerCase();
+  if (normalizedClaim.length < 20) return false; // Short claims can't reliably be detected as echoes
+
+  let maxOverlap = 0;
+  for (const excerptId of candidate.excerptIds) {
+    const excerptText = excerptTexts.get(excerptId);
+    if (excerptText) {
+      const overlap = tokenOverlapRatio(normalizedClaim, excerptText);
+      maxOverlap = Math.max(maxOverlap, overlap);
+    }
+  }
+
+  return maxOverlap >= threshold;
 }
 
 function stableExcerptKey(candidate: ClaimCandidate): string {
@@ -186,6 +259,28 @@ function isTooShortV2(text: string, minWords: number, minChars: number): boolean
   return false;
 }
 
+/**
+ * Detects if a claim starts with a context-dependent pronoun.
+ * These claims are often fragments that lack clear antecedents.
+ */
+function startsWithPronoun(text: string): boolean {
+  const normalized = normalizeText(text);
+  const firstWord = normalized.split(/\s+/)[0]?.toLowerCase();
+  if (!firstWord) return false;
+
+  // Check for pronouns that indicate missing context
+  if (CONTEXT_DEPENDENT_PRONOUNS.includes(firstWord)) {
+    return true;
+  }
+
+  // Check for "which" or "who" clauses (relative pronouns starting fragments)
+  if (firstWord === 'which' || firstWord === 'who' || firstWord === 'whose') {
+    return true;
+  }
+
+  return false;
+}
+
 function excerptOverlapRatio(a: ClaimCandidate, b: ClaimCandidate): number {
   const aSet = new Set(a.excerptIds);
   const bSet = new Set(b.excerptIds);
@@ -216,6 +311,58 @@ function dedupeCandidates(
   for (const candidate of ranked) {
     const existingIndex = deduped.findIndex(existing =>
       shouldMergeCandidates(existing, candidate, overlapThreshold)
+    );
+    if (existingIndex === -1) {
+      deduped.push(candidate);
+      continue;
+    }
+
+    duplicateCount += 1;
+    const existing = deduped[existingIndex];
+    if (existing && comparePriority(candidate, existing) < 0) {
+      deduped[existingIndex] = candidate;
+    }
+  }
+
+  return { duplicateCount, deduped: deduped.sort(compareCandidateOutputOrder) };
+}
+
+/**
+ * Calculates semantic similarity between two claims using token set overlap.
+ * Higher values indicate more similar content (paraphrases).
+ */
+function semanticSimilarity(a: ClaimCandidate, b: ClaimCandidate): number {
+  const tokensA = new Set(normalizeText(a.text).toLowerCase().split(/\s+/).filter(Boolean));
+  const tokensB = new Set(normalizeText(b.text).toLowerCase().split(/\s+/).filter(Boolean));
+
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+
+  // Jaccard similarity: intersection / union
+  const intersection = new Set<string>();
+  for (const token of tokensA) {
+    if (tokensB.has(token)) intersection.add(token);
+  }
+
+  const union = new Set([...tokensA, ...tokensB]);
+  return intersection.size / union.size;
+}
+
+/**
+ * Performs semantic deduplication to catch paraphrased claims that escape exact matching.
+ * Uses token set Jaccard similarity to identify claims with similar meaning but different wording.
+ */
+function semanticDedupe(
+  candidates: ClaimCandidate[],
+  comparePriority: (a: ClaimCandidate, b: ClaimCandidate) => number,
+  semanticThreshold: number
+): DedupeResult {
+  const ranked = candidates.slice().sort(comparePriority);
+  const deduped: ClaimCandidate[] = [];
+  let duplicateCount = 0;
+
+  for (const candidate of ranked) {
+    const existingIndex = deduped.findIndex(existing =>
+      semanticSimilarity(existing, candidate) >= semanticThreshold
     );
     if (existingIndex === -1) {
       deduped.push(candidate);
@@ -298,8 +445,11 @@ function scoreCandidateV2(
   candidate: ClaimCandidate,
   options: {
     excerptTextLengthById?: Map<string, number>;
+    excerptTextsById?: Map<string, string>;
     boilerplatePenalty: number;
     fragmentPenalty: number;
+    echoPenalty: number;
+    echoOverlapThreshold: number;
     minWords: number;
     minChars: number;
   }
@@ -312,12 +462,23 @@ function scoreCandidateV2(
   const evidence = evidenceDensityScore(candidate, options.excerptTextLengthById);
 
   let score = (
-    confidence * 0.25 +
-    lengthScore * 0.1 +
+    confidence * 0.20 +
+    lengthScore * 0.10 +
     actionScore * 0.25 +
-    specificity * 0.2 +
-    evidence * 0.2
+    specificity * 0.15 +
+    evidence * 0.15
   );
+
+  // Metadata richness bonus - favors claims with rich metadata matching Gemini baseline
+  if (candidate.domain) {
+    score += 0.15;
+  }
+  if (candidate.classification) {
+    score += 0.10;
+  }
+  if (candidate.evidenceType) {
+    score += 0.10;
+  }
 
   if (isLowValue(text)) {
     score -= options.boilerplatePenalty;
@@ -325,6 +486,19 @@ function scoreCandidateV2(
   if (isTooShortV2(text, options.minWords, options.minChars)) {
     score -= options.fragmentPenalty;
   }
+
+  // Context-dependent pronoun-led fragment penalty
+  if (startsWithPronoun(text)) {
+    score -= 0.15;
+  }
+
+  // Transcript-echo detection penalty
+  if (options.excerptTextsById && options.echoOverlapThreshold > 0) {
+    if (isTranscriptEcho(candidate, options.excerptTextsById, options.echoOverlapThreshold)) {
+      score -= options.echoPenalty;
+    }
+  }
+
   return clamp(score, 0, 1);
 }
 
@@ -335,6 +509,7 @@ function defaultDroppedCounts(): Record<EditorialDropReason, number> {
     fragment: 0,
     duplicate: 0,
     coverage: 0,
+    echo: 0,
   };
 }
 
@@ -541,6 +716,40 @@ export function runEditorPassV2WithDiagnostics(
     0,
     1
   );
+  const semanticSimilarityThreshold = clamp(
+    options.semanticSimilarityThreshold ?? DEFAULT_V2_SEMANTIC_SIMILARITY_THRESHOLD,
+    0,
+    1
+  );
+  const echoOverlapThreshold = clamp(
+    options.echoOverlapThreshold ?? DEFAULT_V2_ECHO_OVERLAP_THRESHOLD,
+    0,
+    1
+  );
+  const echoPenalty = clamp(options.echoPenalty ?? DEFAULT_V2_ECHO_PENALTY, 0, 1);
+
+  const scoreOptions = {
+    excerptTextLengthById: options.excerptTextLengthById,
+    excerptTextsById: options.excerptTextsById,
+    boilerplatePenalty,
+    fragmentPenalty,
+    echoPenalty,
+    echoOverlapThreshold,
+    minWords,
+    minChars,
+  };
+
+  const comparePriority = (left: ClaimCandidate, right: ClaimCandidate): number => {
+    const leftScore = scoreCandidateV2(left, scoreOptions);
+    const rightScore = scoreCandidateV2(right, scoreOptions);
+    const scoreDiff = rightScore - leftScore;
+    if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
+    const startDiff = candidateStart(left) - candidateStart(right);
+    if (startDiff !== 0) return startDiff;
+    const textDiff = left.text.localeCompare(right.text);
+    if (textDiff !== 0) return textDiff;
+    return stableExcerptKey(left).localeCompare(stableExcerptKey(right));
+  };
 
   for (const candidate of candidates) {
     const text = normalizeText(candidate.text);
@@ -549,13 +758,7 @@ export function runEditorPassV2WithDiagnostics(
       continue;
     }
 
-    const score = scoreCandidateV2(candidate, {
-      excerptTextLengthById: options.excerptTextLengthById,
-      boilerplatePenalty,
-      fragmentPenalty,
-      minWords,
-      minChars,
-    });
+    const score = scoreCandidateV2(candidate, scoreOptions);
 
     if (isLowValue(text) && score <= dropThreshold) {
       droppedCounts.boilerplate += 1;
@@ -568,55 +771,32 @@ export function runEditorPassV2WithDiagnostics(
     filtered.push(candidate);
   }
 
-  const deduped = dedupeCandidates(
-    filtered,
-    (left, right) => {
-      const leftScore = scoreCandidateV2(left, {
-        excerptTextLengthById: options.excerptTextLengthById,
-        boilerplatePenalty,
-        fragmentPenalty,
-        minWords,
-        minChars,
-      });
-      const rightScore = scoreCandidateV2(right, {
-        excerptTextLengthById: options.excerptTextLengthById,
-        boilerplatePenalty,
-        fragmentPenalty,
-        minWords,
-        minChars,
-      });
-      const scoreDiff = rightScore - leftScore;
-      if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
-      const startDiff = candidateStart(left) - candidateStart(right);
-      if (startDiff !== 0) return startDiff;
-      const textDiff = left.text.localeCompare(right.text);
-      if (textDiff !== 0) return textDiff;
-      return stableExcerptKey(left).localeCompare(stableExcerptKey(right));
-    },
-    dedupeOverlapThreshold
-  );
+  // First pass: exact match and excerpt overlap deduplication
+  const deduped = dedupeCandidates(filtered, comparePriority, dedupeOverlapThreshold);
   droppedCounts.duplicate += deduped.duplicateCount;
+
+  // Second pass: semantic similarity deduplication for paraphrases
+  const semanticDeduped = semanticDedupe(
+    deduped.deduped,
+    comparePriority,
+    semanticSimilarityThreshold
+  );
+  droppedCounts.duplicate += semanticDeduped.duplicateCount;
 
   const windowSeconds = Math.max(
     60,
     Math.floor((options.windowMinutes ?? DEFAULT_WINDOW_MINUTES) * 60)
   );
-  const scoredCandidates = deduped.deduped
+  const scoredCandidates = semanticDeduped.deduped
     .map(candidate => ({
       candidate,
-      score: scoreCandidateV2(candidate, {
-        excerptTextLengthById: options.excerptTextLengthById,
-        boilerplatePenalty,
-        fragmentPenalty,
-        minWords,
-        minChars,
-      }),
+      score: scoreCandidateV2(candidate, scoreOptions),
       windowIndex: resolveWindowIndex(candidate, windowSeconds),
     }))
     .sort(compareScoredCandidatePriority);
 
-  const selected = selectV2DiverseCandidates(deduped.deduped, scoredCandidates, options);
-  droppedCounts.coverage += deduped.deduped.length - selected.length;
+  const selected = selectV2DiverseCandidates(semanticDeduped.deduped, scoredCandidates, options);
+  droppedCounts.coverage += semanticDeduped.deduped.length - selected.length;
 
   return {
     selected,

@@ -12,7 +12,7 @@ import {
   countFragmentIndicators,
   startsWithConnector,
 } from './utils.js';
-import { runEditorPassV2 } from './editorial-ranking.js';
+import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnostics } from './editorial-ranking.js';
 
 export interface ClaimExtractionConfig {
   graphStore: GraphStore;
@@ -72,12 +72,22 @@ export interface MergeableSegment {
  * This is a zero-dependency fallback that works without LLM access.
  */
 export class HeuristicClaimExtractor implements ClaimExtractor {
+  private lastEditorDiagnostics: EditorialDiagnostics | undefined;
+
   /**
    * Returns the editorial version used by this extractor.
    * The heuristic path uses v2 editorial filtering for better quality.
    */
   getEditorVersion(): 'v2' {
     return 'v2';
+  }
+
+  /**
+   * Returns the diagnostics from the last editorial pass run.
+   * Provides insight into drop reasons and window coverage for quality tuning.
+   */
+  getLastEditorDiagnostics(): EditorialDiagnostics | undefined {
+    return this.lastEditorDiagnostics;
   }
 
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
@@ -207,13 +217,17 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
 
     // For longer content, use full editorial pass v2
     const adaptiveMinWindows = Math.min(4, Math.max(1, actualWindowCount));
-    const editorialFiltered = runEditorPassV2(unique, {
+    const editorialResult = runEditorPassV2WithDiagnostics(unique, {
       maxClaims,
       chunkCount: mergedSegments.length,
       windowMinutes: 5,
       maxPerWindow: 3,
       minWindows: adaptiveMinWindows,
     });
+
+    // Store diagnostics for retrieval
+    this.lastEditorDiagnostics = editorialResult.diagnostics;
+    const editorialFiltered = editorialResult.selected;
 
     // Step 6: Sort by quality (higher confidence first) and limit
     const sorted = editorialFiltered.sort((a, b) => {
@@ -306,6 +320,13 @@ export class ClaimExtractionPipeline {
       candidate => typeof candidate.promptVersion === 'string'
     )?.promptVersion;
 
+    // Retrieve editorial diagnostics if available
+    let editorialDiagnostics: EditorialDiagnostics | undefined;
+    const maybeHeuristic = this.extractor as Partial<{ getLastEditorDiagnostics: () => EditorialDiagnostics | undefined }>;
+    if (typeof maybeHeuristic.getLastEditorDiagnostics === 'function') {
+      editorialDiagnostics = maybeHeuristic.getLastEditorDiagnostics();
+    }
+
     let claimsCreated = 0;
     let claimsUpdated = 0;
     let claimsNoop = 0;
@@ -389,6 +410,9 @@ export class ClaimExtractionPipeline {
       }
       if (firstPromptVersion) {
         runMetadata['lastClaimRunPromptVersion'] = firstPromptVersion;
+      }
+      if (editorialDiagnostics) {
+        runMetadata['lastClaimRunEditorDiagnostics'] = JSON.stringify(editorialDiagnostics);
       }
 
       const resourceUpdate = await this.graphStore.upsertNode(
