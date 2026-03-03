@@ -3,18 +3,13 @@
  *
  * Tests that the runtime schema validation correctly validates
  * claim candidates and rejects malformed data.
+ *
+ * Note: The actual ClaimCandidateSchema is internal to claims.ts
+ * and not exported. These tests verify the type shape and constraints.
  */
 
 import { describe, it, expect } from 'vitest';
 import type { ClaimCandidate } from '../src/extract/types.js';
-
-// Import the validation function from claims.ts
-// Note: We're testing the schema validation concept here
-
-const ClaimCandidateSchema = {
-  // This matches the schema in claims.ts
-  validate: (claim: ClaimCandidate) => { success: true; data: claim; error: null },
-};
 
 describe('runtime schema validation', () => {
   it('accepts valid claim with all fields', () => {

@@ -2,7 +2,7 @@ import type { GraphNode, GraphStore, NodeDataInput } from '@aidha/graph-backend'
 import type { Result } from '../pipeline/types.js';
 import type { ClaimExtractionResult, ClaimExtractor, ClaimExtractionInput, ClaimCandidate } from './types.js';
 import { hashId } from '../utils/ids.js';
-import { DEFAULT_CLAIM_STATE } from '../utils/claim-state.js';
+import { DEFAULT_CLAIM_STATE, type ClaimState } from '../utils/claim-state.js';
 import {
   normalizeText,
   normalizeKey,
@@ -34,7 +34,9 @@ const ClaimCandidateSchema = z.object({
   chunkIndex: z.number().int().optional(),
   model: z.string().optional(),
   promptVersion: z.string().optional(),
-  state: z.string().optional(),
+  extractorVersion: z.string().optional(),
+  echoOverlapRatio: z.number().min(0).max(1).optional(),
+  state: z.enum(['draft', 'accepted', 'rejected']).optional(),
 });
 
 /**
@@ -45,12 +47,17 @@ function validateClaim(claim: ClaimCandidate): ClaimCandidate | null {
   const result = ClaimCandidateSchema.safeParse(claim);
   if (!result.success) {
     // Log validation error for debugging (in production, would use proper logger)
-    console.warn(`Claim validation failed for: "${claim.text.slice(0, 50)}..."}`, {
+    // Safely access text property, handling non-string values
+    const textPreview = typeof claim.text === 'string'
+      ? claim.text.slice(0, 50)
+      : '[non-string text]';
+    console.warn(`Claim validation failed for: "${textPreview}..."}`, {
       error: result.error.errors.map(e => e.message).join(', '),
     });
     return null;
   }
-  return result.data;
+  // Merge the validated result with original claim to preserve fields not in schema
+  return { ...claim, ...result.data };
 }
 
 export interface ClaimExtractionConfig {
@@ -95,6 +102,7 @@ const MIN_SENTENCE_WORDS = 4;
 interface MergedSegment {
   text: string;
   startSeconds: number | undefined;
+  endSeconds: number | undefined;  // Track the end of the last merged excerpt
   excerptIndices: number[];
 }
 
@@ -104,6 +112,7 @@ interface MergedSegment {
 export interface MergeableSegment {
   text: string;
   startSeconds?: number;
+  endSeconds?: number;
 }
 
 /**
@@ -143,13 +152,18 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       }))
       .filter(segment => segment.text.length > 0);
 
-    if (segments.length === 0) return [];
+    if (segments.length === 0) {
+      this.lastEditorDiagnostics = undefined;
+      return [];
+    }
 
     // For very short transcripts (test fixtures), use original behavior for compatibility
     if (segments.length <= 2) {
+      this.lastEditorDiagnostics = undefined;
+
       const candidates: ClaimCandidate[] = segments.map(segment => ({
         text: segment.text,
-        excerptIds: [input.excerpts[segment.originalIndex]?.id].filter(Boolean),
+        excerptIds: [input.excerpts[segment.originalIndex]?.id].filter((id): id is string => typeof id === 'string'),
         confidence: this.computeHeuristicConfidence(segment.text),
         startSeconds: segment.startSeconds,
         method: 'heuristic',
@@ -172,17 +186,20 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     }
 
     // Step 2: Merge adjacent excerpts within the gap window, tracking which excerpts contributed
+    // segments.length > 2 here, so segments[0] and segments[i] are always defined
     const mergedSegments: MergedSegment[] = [];
     let currentMerged: MergedSegment = {
-      text: segments[0].text,
-      startSeconds: segments[0].startSeconds,
-      excerptIndices: [segments[0].originalIndex],
+      text: segments[0]!.text,
+      startSeconds: segments[0]!.startSeconds,
+      endSeconds: segments[0]!.startSeconds, // Initialize with start, will update when merged
+      excerptIndices: [segments[0]!.originalIndex],
     };
 
     for (let i = 1; i < segments.length; i++) {
-      const segment = segments[i];
-      const gap = typeof currentMerged.startSeconds === 'number' && typeof segment.startSeconds === 'number'
-        ? segment.startSeconds - currentMerged.startSeconds
+      const segment = segments[i]!;
+      // Calculate gap from the end of current merged segment to start of next segment
+      const gap = typeof currentMerged.endSeconds === 'number' && typeof segment.startSeconds === 'number'
+        ? segment.startSeconds - currentMerged.endSeconds
         : Infinity;
 
       const shouldMerge = gap <= DEFAULT_MERGE_GAP_SECONDS &&
@@ -191,15 +208,14 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       if (shouldMerge) {
         currentMerged.text += ' ' + segment.text;
         currentMerged.excerptIndices.push(segment.originalIndex);
-        // Keep the earliest start time
-        if (typeof segment.startSeconds === 'number' && typeof currentMerged.startSeconds === 'number') {
-          currentMerged.startSeconds = Math.min(currentMerged.startSeconds, segment.startSeconds);
-        }
+        // Update endSeconds to the new segment's end
+        currentMerged.endSeconds = segment.startSeconds;
       } else {
         mergedSegments.push(currentMerged);
         currentMerged = {
           text: segment.text,
           startSeconds: segment.startSeconds,
+          endSeconds: segment.startSeconds, // Initialize with start, will update on merge
           excerptIndices: [segment.originalIndex],
         };
       }
@@ -222,7 +238,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
         }
 
         // Find the excerpt IDs that contributed to this merged segment
-        const excerptIds = merged.excerptIndices.map(idx => input.excerpts[idx]?.id).filter(Boolean);
+        const excerptIds = merged.excerptIndices.map(idx => input.excerpts[idx]?.id).filter((id): id is string => typeof id === 'string');
 
         sentenceCandidates.push({
           text: normalized,
@@ -235,7 +251,10 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       }
     }
 
-    if (sentenceCandidates.length === 0) return [];
+    if (sentenceCandidates.length === 0) {
+      this.lastEditorDiagnostics = undefined;
+      return [];
+    }
 
     // Step 4: Deduplicate by normalized key (handles punctuation variants)
     const seen = new Set<string>();
@@ -246,7 +265,10 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       return true;
     });
 
-    if (unique.length === 0) return [];
+    if (unique.length === 0) {
+      this.lastEditorDiagnostics = undefined;
+      return [];
+    }
 
     // Step 5: Apply editorial pass v2 for deterministic quality filtering
     // Adapt minWindows to the actual content length to avoid empty results
@@ -410,6 +432,7 @@ export class ClaimExtractionPipeline {
         if (claim.type) metadata['type'] = claim.type;
         if (claim.classification) metadata['classification'] = claim.classification;
         if (claim.domain) metadata['domain'] = claim.domain;
+        if (claim.evidenceType) metadata['evidenceType'] = claim.evidenceType;
         if (claim.why) metadata['why'] = claim.why;
         if (claim.model) metadata['model'] = claim.model;
         if (claim.promptVersion) metadata['promptVersion'] = claim.promptVersion;

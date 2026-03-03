@@ -67,7 +67,7 @@ describe('golden dataset integrity', () => {
   it('has balanced true positive to false positive ratio', () => {
     const dataset = loadGoldenDataset();
 
-    // Need at least 70% true positives for quality benchmarking
+    // Need at least 60% true positives for quality benchmarking
     const tpRatio = dataset.metadata.truePositives / dataset.metadata.totalSamples;
     expect(tpRatio).toBeGreaterThanOrEqual(0.6);
   });
@@ -108,12 +108,19 @@ describe('golden dataset integrity', () => {
     const falsePositives = dataset.samples.filter(s => !s.isTruePositive);
     expect(falsePositives.length).toBeGreaterThan(0);
 
+    // Count false positives with metadata (some may have metadata but are still false positives,
+    // e.g., sponsor CTAs might be classified)
+    let withMetadataCount = 0;
     for (const sample of falsePositives) {
-      // False positives should not have claim metadata
       const hasMetadata = sample.domain || sample.classification || sample.evidenceType;
-      // Some false positives might have metadata but are still false positives
-      // (e.g., sponsor CTAs might be classified), so we don't strictly enforce null here
+      if (hasMetadata) withMetadataCount++;
     }
+
+    // Most false positives should not have full claim metadata
+    // We allow some to have metadata (e.g., sponsor CTAs with classification)
+    // but expect the majority to lack complete metadata
+    const metadataRatio = withMetadataCount / falsePositives.length;
+    expect(metadataRatio).toBeLessThan(0.5); // Less than 50% should have metadata
   });
 
   it('has valid video metadata', () => {

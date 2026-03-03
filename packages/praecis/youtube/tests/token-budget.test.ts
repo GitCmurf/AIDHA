@@ -158,8 +158,9 @@ describe('token-budget', () => {
       const chunks = chunkTextByTokenBudget(original, 500);
 
       const rejoined = chunks.join('');
-      // Length may differ slightly due to whitespace normalization
-      expect(rejoined.length).toBeCloseTo(original.length, 100);
+      // Length should be nearly identical (allow small variance for whitespace normalization)
+      expect(rejoined.length).toBeGreaterThanOrEqual(original.length - 100);
+      expect(rejoined.length).toBeLessThanOrEqual(original.length + 100);
     });
   });
 

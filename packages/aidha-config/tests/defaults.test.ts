@@ -49,4 +49,10 @@ describe('DEFAULTS', () => {
     const youtube = DEFAULTS.sources?.['youtube']?.youtube;
     expect(youtube?.cookie).toBe('');
   });
+
+  it('should have reasoning_effort and verbosity with valid defaults', () => {
+    const llm = DEFAULTS.profiles['default']?.llm;
+    expect(llm?.reasoning_effort).toBe('medium');
+    expect(llm?.verbosity).toBe('medium');
+  });
 });

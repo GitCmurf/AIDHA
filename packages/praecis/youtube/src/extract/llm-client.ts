@@ -1,4 +1,5 @@
 import type { Result } from '../pipeline/types.js';
+import { validateLength } from '@aidha/config';
 
 export interface LlmCompletionRequest {
   model: string;
@@ -19,18 +20,80 @@ export interface OpenAiCompatibleConfig {
   baseUrl: string;
   apiKey?: string;
   timeoutMs?: number;
+  modelCapabilities?: ModelCapabilities;
+}
+
+/**
+ * Model capability flags for feature gating.
+ * Prevents brittle string matching against model names.
+ */
+export interface ModelCapabilities {
+  supportsReasoningEffort: boolean;
+  supportsVerbosity: boolean;
+  supportsStructuredOutput: boolean;
+  defaultMaxTokens: number;
+}
+
+/**
+ * Default model capabilities for unknown models.
+ * Assumes limited capabilities for safety.
+ */
+export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
+  supportsReasoningEffort: false,
+  supportsVerbosity: false,
+  supportsStructuredOutput: false,
+  defaultMaxTokens: 900,
+};
+
+/**
+ * Detects model capabilities from model identifier.
+ * Uses string matching as a fallback for unconfigured models.
+ *
+ * For production, this should be replaced with a model registry.
+ */
+export function detectModelCapabilities(model: string): ModelCapabilities {
+  const normalized = model.toLowerCase().trim();
+
+  // GPT-5 family - has all advanced features
+  if (normalized.startsWith('gpt-5')) {
+    return {
+      supportsReasoningEffort: true,
+      supportsVerbosity: true,
+      supportsStructuredOutput: true,
+      defaultMaxTokens: 900,
+    };
+  }
+
+  // GPT-4o and later - support structured output
+  if (normalized.startsWith('gpt-4o')) {
+    return {
+      supportsReasoningEffort: false,
+      supportsVerbosity: false,
+      supportsStructuredOutput: true,
+      defaultMaxTokens: 4096,
+    };
+  }
+
+  // GPT-4 family - no advanced features
+  if (normalized.startsWith('gpt-4')) {
+    return {
+      supportsReasoningEffort: false,
+      supportsVerbosity: false,
+      supportsStructuredOutput: false,
+      defaultMaxTokens: 4096,
+    };
+  }
+
+  // Default for unknown models
+  return DEFAULT_MODEL_CAPABILITIES;
 }
 
 /** Maximum base URL length to prevent potential ReDoS attacks. */
 const MAX_URL_LENGTH = 2048;
 
 function normalizeBaseUrl(baseUrl: string): string {
-  // Limit input length to prevent potential ReDoS attacks
-  // Note: Inline validation used instead of @aidha/config's validateLength
-  // to avoid loading the heavy barrel import (schema, loader dependencies).
-  if (baseUrl.length > MAX_URL_LENGTH) {
-    throw new Error(`Base URL length (${baseUrl.length}) exceeds maximum of ${MAX_URL_LENGTH}.`);
-  }
+  // Use validateLength from @aidha/config to avoid duplication
+  validateLength(baseUrl, MAX_URL_LENGTH, 'Base URL');
   return baseUrl.replace(/\/+$/, '');
 }
 
@@ -38,11 +101,28 @@ export class OpenAiCompatibleClient implements LlmClient {
   private baseUrl: string;
   private apiKey?: string;
   private timeoutMs: number;
+  private modelCapabilities: ModelCapabilities;
 
   constructor(config: OpenAiCompatibleConfig) {
     this.baseUrl = normalizeBaseUrl(config.baseUrl);
     this.apiKey = config.apiKey;
     this.timeoutMs = config.timeoutMs ?? 60_000;
+    this.modelCapabilities = config.modelCapabilities ?? DEFAULT_MODEL_CAPABILITIES;
+  }
+
+  /**
+   * Sets the model capabilities for feature gating.
+   * Allows dynamic capability configuration after construction.
+   */
+  setModelCapabilities(capabilities: ModelCapabilities): void {
+    this.modelCapabilities = capabilities;
+  }
+
+  /**
+   * Gets the current model capabilities.
+   */
+  getModelCapabilities(): ModelCapabilities {
+    return this.modelCapabilities;
   }
 
   async generate(request: LlmCompletionRequest): Promise<Result<string>> {
@@ -61,35 +141,33 @@ export class OpenAiCompatibleClient implements LlmClient {
         ],
       };
 
-      // GPT-5 family capability gating
-      const isGpt5 = request.model.toLowerCase().startsWith('gpt-5');
+      // Use configured model capabilities for feature gating
+      const capabilities = this.modelCapabilities;
 
-      if (isGpt5) {
-        if (request.reasoningEffort) {
-          body['reasoning_effort'] = request.reasoningEffort;
-        }
-        if (request.verbosity) {
-          body['verbosity'] = request.verbosity;
-        }
+      if (capabilities.supportsReasoningEffort && request.reasoningEffort) {
+        body['reasoning_effort'] = request.reasoningEffort;
+      }
+      if (capabilities.supportsVerbosity && request.verbosity) {
+        body['verbosity'] = request.verbosity;
       }
 
       // Traditional parameters
       if (request.temperature !== undefined) {
         body['temperature'] = request.temperature;
-      } else if (!isGpt5 || body['reasoning_effort'] === 'none') {
-        // Only set default temperature if not in a reasoning mode
+      } else if (!capabilities.supportsReasoningEffort) {
+        // Only set default temperature for non-reasoning models
         body['temperature'] = 0.2;
       }
 
       if (request.maxTokens !== undefined) {
         body['max_tokens'] = request.maxTokens;
       } else {
-        body['max_tokens'] = 900;
+        body['max_tokens'] = capabilities.defaultMaxTokens;
       }
 
-      // OpenAI-compatible structured output (GPT-4o+ and GPT-5)
+      // OpenAI-compatible structured output
       // Only add for models that support it to avoid breaking other providers
-      if (request.responseFormat && isGpt5) {
+      if (request.responseFormat && capabilities.supportsStructuredOutput) {
         body['response_format'] = request.responseFormat;
       }
 

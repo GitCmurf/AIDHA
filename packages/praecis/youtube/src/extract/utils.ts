@@ -94,6 +94,44 @@ export function getNumberMetadata(metadata: Record<string, unknown> | undefined,
 }
 
 /**
+ * Formats a timestamp in seconds as HH:MM:SS or MM:SS.
+ * @param seconds - Timestamp in seconds
+ * @returns Formatted timestamp string
+ */
+export function formatTimestamp(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+/**
+ * Builds a timestamp URL for a YouTube video.
+ * @param baseUrl - The base video URL
+ * @param seconds - Timestamp in seconds
+ * @returns URL with timestamp parameter
+ */
+export function buildTimestampUrl(baseUrl: string, seconds: number): string {
+  const separator = baseUrl.includes('?') ? '&' : '?';
+  return `${baseUrl}${separator}t=${Math.max(0, Math.floor(seconds))}s`;
+}
+
+/**
+ * Truncates text to a maximum length, appending an ellipsis if truncated.
+ * @param text - The text to truncate
+ * @param maxLength - Maximum length including ellipsis
+ * @returns Truncated text with ellipsis if needed
+ */
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}…`;
+}
+
+/**
  * Determines if a text segment ends with a dangling marker.
  * @param text - The text to check
  * @returns true if the text ends with a dangling conjunction or punctuation
@@ -141,19 +179,20 @@ export function splitSentences(text: string): string[] {
   let i = 0;
 
   while (i < normalized.length) {
-    const char = normalized[i];
+    const char = normalized.charAt(i);
     current += char;
 
     // Check for sentence-ending punctuation
     if (char === '.' || char === '!' || char === '?') {
       // Look ahead to see if this is truly a sentence end
-      const nextChar = normalized[i + 1];
-      const nextNextChar = normalized[i + 2];
+      const nextChar = normalized.charAt(i + 1);
+      const nextNextChar = normalized.charAt(i + 2);
 
       // Check if current "word" ending with period is an abbreviation
       const currentWords = current.trim().split(/\s+/);
-      const lastWord = currentWords[currentWords.length - 1]?.toLowerCase().replace(/[.:!?]$/, '');
-      const isAbbreviation = ABBREVIATIONS.has(lastWord);
+      const lastWordRaw = currentWords[currentWords.length - 1];
+      const lastWord = lastWordRaw?.toLowerCase().replace(/[.:!?]$/, '');
+      const isAbbreviation = lastWord ? ABBREVIATIONS.has(lastWord) : false;
 
       // Sentence end conditions:
       // 1. End of string
@@ -210,18 +249,39 @@ export function isCompleteSentence(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
 
-  const firstChar = trimmed[0];
-  const lastChar = trimmed[trimmed.length - 1];
-
-  // Must start with capital or quote/paren (after stripping opening quotes)
+  // Must start with capital or quote/paren (after stripping opening quotes/parens/brackets)
   const firstNonQuote = trimmed.replace(/^["'(\[\s]+/, '')[0];
-  const startsProperly = firstNonQuote && firstNonQuote === firstNonQuote.toUpperCase();
+  const startsProperly = firstNonQuote ? (firstNonQuote === firstNonQuote.toUpperCase()) : false;
 
-  // Must end with proper punctuation
-  const endsProperly = /[.!?"]$/.test(lastChar);
+  // Must end with proper punctuation, optionally followed by closing quotes/parens/brackets
+  // Valid endings: . ! ? ." !?" .' !?' .) !? ) .] !? ] etc.
+  const endsProperly = /[.!?][\"'\])]?$/i.test(trimmed);
+
+  // Check if the sentence is properly wrapped (matching opening and closing marks)
+  const lastChar = trimmed.charAt(trimmed.length - 1);
+
+  // Handle quotes - check if properly closed
+  if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
+    const quote = trimmed.charAt(0);
+    if (quote && !trimmed.endsWith(quote)) {
+      // Opening quote without closing quote - check for other ending punctuation
+      if (lastChar && !/[.!?]$/.test(lastChar)) return false;
+    }
+  }
+  // Handle parentheses and brackets
+  const openParens = (trimmed.match(/\(/g) || []).length;
+  const closeParens = (trimmed.match(/\)/g) || []).length;
+  const openBrackets = (trimmed.match(/\[/g) || []).length;
+  const closeBrackets = (trimmed.match(/\]/g) || []).length;
+  if (openParens !== closeParens || openBrackets !== closeBrackets) {
+    // Mismatched brackets - still valid if ends with punctuation
+    if (lastChar && !/[.!?]$/.test(lastChar)) return false;
+  }
 
   // Should not have dangling ending (but we check this separately for quotes)
-  const notDangling = !hasDanglingEnding(trimmed.replace(/[."]$/, ''));
+  // Strip common ending patterns before checking for dangling
+  const stripped = trimmed.replace(/[.!?][\"'\])]?$/, '');
+  const notDangling = !hasDanglingEnding(stripped);
 
   return startsProperly && endsProperly && notDangling;
 }
@@ -239,6 +299,7 @@ export function isCompleteSentence(text: string): boolean {
 export interface MergeableSegment {
   text: string;
   startSeconds?: number;
+  endSeconds?: number;
 }
 
 /**
@@ -249,7 +310,7 @@ export function startsWithConnector(text: string): boolean {
   if (!trimmed) return false;
 
   const firstWord = trimmed.split(/\s+/)[0]?.toLowerCase().replace(/^["'(\[]/, '');
-  return DANGLING_MARKERS.has(firstWord);
+  return firstWord ? DANGLING_MARKERS.has(firstWord) : false;
 }
 
 export function mergeAdjacentSegments(
@@ -257,14 +318,14 @@ export function mergeAdjacentSegments(
   maxGapSeconds: number = 15
 ): string[] {
   if (segments.length === 0) return [];
-  if (segments.length === 1) return [segments[0].text];
+  if (segments.length === 1) return [segments[0]!.text];
 
   const merged: string[] = [];
-  let currentText = segments[0].text;
-  let lastStart = segments[0].startSeconds;
+  let currentText = segments[0]!.text;
+  let lastStart = segments[0]!.startSeconds;
 
   for (let i = 1; i < segments.length; i++) {
-    const segment = segments[i];
+    const segment = segments[i]!;
     const gap = typeof lastStart === 'number' && typeof segment.startSeconds === 'number'
       ? segment.startSeconds - lastStart
       : Infinity;

@@ -5,6 +5,8 @@
  * Prevents unbounded token usage and maintains cost predictability.
  */
 
+import { splitSentences } from './utils.js';
+
 /**
  * Estimates token count for a given text.
  * Uses a conservative heuristic: ~4 characters per token for English text.
@@ -93,7 +95,7 @@ export function chunkTextByTokenBudget(
   maxTokensPerChunk: number = TARGET_TOKENS_PER_CHUNK
 ): string[] {
   const chunks: string[] = [];
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  const sentences = splitSentences(text);
 
   let currentChunk = '';
   let currentTokens = 0;

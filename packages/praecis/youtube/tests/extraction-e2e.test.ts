@@ -124,9 +124,16 @@ describe('Full extraction pipeline integration', () => {
     expect(refs.ok).toBe(true);
     if (!refs.ok) return;
 
-    const exampleRef = refs.value.items.find(r =>
-      (r.metadata?.['url'] as string)?.includes('example.com')
-    );
+    const exampleRef = refs.value.items.find(r => {
+      const url = r.metadata?.['url'];
+      if (typeof url !== 'string') return false;
+      try {
+        const parsed = new URL(url);
+        return parsed.hostname === 'example.com';
+      } catch {
+        return false;
+      }
+    });
     expect(exampleRef).toBeDefined();
   });
 

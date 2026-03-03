@@ -1,91 +1,16 @@
 import type { ClaimCandidate } from './types.js';
-import { clamp, normalizeText } from './utils.js';
-
-const LOW_VALUE_PATTERNS = [
-  /subscribe/i,
-  /like and subscribe/i,
-  /smash that (like|subscribe)/i,
-  /sponsor/i,
-  /patreon/i,
-  /thanks for watching/i,
-  /welcome back/i,
-  /intro/i,
-  /outro/i,
-  // Wealthfront and financial sponsor CTAs
-  /wealthfront/i,
-  /APY on your cash/i,
-  /annual percentage yield/i,
-  /partner banks/i,
-  /earn \d+% APY/i,
-  /high-yield savings account/i,
-  /automated investing/i,
-  /tax-optimized/i,
-  // Common ad-read patterns
-  /special offer/i,
-  /discount code/i,
-  /promo code/i,
-  /use code \w+/i,
-  /limited time/i,
-  /act now/i,
-  /don't miss out/i,
-  /click the link/i,
-  /link in the (description|bio)/i,
-  /affiliate link/i,
-  /support the (channel|show|podcast)/i,
-];
-
-const ACTION_MARKERS = [
-  'do',
-  'avoid',
-  'use',
-  'try',
-  'stop',
-  'start',
-  'increase',
-  'decrease',
-  'step',
-  'rule',
-  'create',
-  'set',
-  'measure',
-  'track',
-];
-
-const STEP_PATTERNS = [
-  /\bstep\s+\d+\b/i,
-  /\bfirst\b/i,
-  /\bthen\b/i,
-  /\bnext\b/i,
-  /\bfinally\b/i,
-];
-
-const CONJUNCTION_ENDINGS = ['and', 'but', 'so', 'or', 'then'];
-const FILLER_PATTERNS = [/\buh\b/gi, /\bum\b/gi];
-// Pronouns that indicate decontextualized fragments when they start a claim
-const CONTEXT_DEPENDENT_PRONOUNS = [
-  'this',
-  'that',
-  'these',
-  'those',
-  'it',
-  'its',
-  'they',
-  'them',
-  'their',
-  'he',
-  'him',
-  'his',
-  'she',
-  'her',
-  'hers',
-  'we',
-  'us',
-  'our',
-  'you',
-  'your',
-];
-const NUMBER_OR_UNIT_PATTERN = /\b\d+(?:\.\d+)?(?:%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds)?\b/i;
-const ALL_CAPS_TOKEN_PATTERN = /^[A-Z]{2,}$/;
+import { clamp, normalizeText, normalizeKey } from './utils.js';
+import {
+  BOILERPLATE_PATTERNS,
+  ACTION_MARKERS,
+  STEP_PATTERNS,
+  CONJUNCTION_ENDINGS,
+  FILLER_PATTERNS,
+  CONTEXT_DEPENDENT_PRONOUNS,
+  NUMBER_OR_UNIT_PATTERN,
+  ALL_CAPS_TOKEN_PATTERN,
+  EDITORIAL_V2_WEIGHTS,
+} from './constants.js';
 
 const DEFAULT_WINDOW_MINUTES = 5;
 const DEFAULT_MAX_PER_WINDOW = 3;
@@ -115,9 +40,9 @@ export const DEFAULT_ECHO_DETECTION: Readonly<{
   mode: EchoDetectionMode;
   overlapThreshold: number;
 }> = Object.freeze({
-  mode: 'tag',
+  mode: 'tag' as const,
   overlapThreshold: 0.9,
-}) as const;
+});
 
 export type EditorialDropReason =
   | 'empty'
@@ -178,10 +103,6 @@ interface ScoredCandidate {
 interface DedupeResult {
   deduped: ClaimCandidate[];
   duplicateCount: number;
-}
-
-function normalizeKey(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -260,7 +181,7 @@ function compareCandidateOutputOrder(a: ClaimCandidate, b: ClaimCandidate): numb
 }
 
 function isLowValue(text: string): boolean {
-  return LOW_VALUE_PATTERNS.some(pattern => pattern.test(text));
+  return BOILERPLATE_PATTERNS.some(pattern => pattern.test(text));
 }
 
 function isTooShortV1(text: string): boolean {
@@ -273,7 +194,7 @@ function endsWithConjunction(text: string): boolean {
   const words = normalizeText(text).split(/\s+/).filter(Boolean);
   const lastWord = words[words.length - 1]?.toLowerCase();
   if (!lastWord) return false;
-  return CONJUNCTION_ENDINGS.includes(lastWord);
+  return (CONJUNCTION_ENDINGS as readonly string[]).includes(lastWord);
 }
 
 function hasTooMuchFiller(text: string): boolean {
@@ -305,7 +226,7 @@ function startsWithPronoun(text: string): boolean {
   if (!firstWord) return false;
 
   // Check for pronouns that indicate missing context
-  if (CONTEXT_DEPENDENT_PRONOUNS.includes(firstWord)) {
+  if ((CONTEXT_DEPENDENT_PRONOUNS as readonly string[]).includes(firstWord)) {
     return true;
   }
 
@@ -495,22 +416,22 @@ function scoreCandidateV2(
   const evidence = evidenceDensityScore(candidate, options.excerptTextLengthById);
 
   let score = (
-    confidence * 0.20 +
-    lengthScore * 0.10 +
-    actionScore * 0.25 +
-    specificity * 0.15 +
-    evidence * 0.15
+    confidence * EDITORIAL_V2_WEIGHTS.CONFIDENCE +
+    lengthScore * EDITORIAL_V2_WEIGHTS.LENGTH +
+    actionScore * EDITORIAL_V2_WEIGHTS.ACTIONABILITY +
+    specificity * EDITORIAL_V2_WEIGHTS.SPECIFICITY +
+    evidence * EDITORIAL_V2_WEIGHTS.EVIDENCE
   );
 
   // Metadata richness bonus - favors claims with rich metadata matching Gemini baseline
   if (candidate.domain) {
-    score += 0.15;
+    score += EDITORIAL_V2_WEIGHTS.DOMAIN_BONUS;
   }
   if (candidate.classification) {
-    score += 0.10;
+    score += EDITORIAL_V2_WEIGHTS.CLASSIFICATION_BONUS;
   }
   if (candidate.evidenceType) {
-    score += 0.10;
+    score += EDITORIAL_V2_WEIGHTS.EVIDENCE_TYPE_BONUS;
   }
 
   if (isLowValue(text)) {
@@ -522,7 +443,7 @@ function scoreCandidateV2(
 
   // Context-dependent pronoun-led fragment penalty
   if (startsWithPronoun(text)) {
-    score -= 0.15;
+    score -= EDITORIAL_V2_WEIGHTS.PRONOUN_FRAGMENT_PENALTY;
   }
 
   return clamp(score, 0, 1);
@@ -783,9 +704,10 @@ export function runEditorPassV2WithDiagnostics(
 
   // Phase 1: Apply quality filters and calculate echo overlap ratios
   // Only create new array if echo detection is enabled and excerpt texts are available
-  const candidatesWithEcho = (echoMode !== 'off' && options.excerptTextsById)
+  const excerptTexts = options.excerptTextsById;
+  const candidatesWithEcho = (echoMode !== 'off' && excerptTexts)
     ? candidates.map(candidate => {
-        const overlapRatio = calculateEchoOverlapRatio(candidate, options.excerptTextsById);
+        const overlapRatio = calculateEchoOverlapRatio(candidate, excerptTexts);
         if (overlapRatio !== undefined) {
           echoAnalyzedCount++;
           if (overlapRatio >= echoThreshold) {
