@@ -45,6 +45,7 @@ const CacheMetadataSchema = z.object({
   transcriptHash: z.string().min(1),
   model: z.string().min(1),
   promptVersion: z.string().min(1),
+  schemaVersion: z.number().int().positive().optional(),
   chunkIndex: z.number().int().nonnegative(),
   chunkStart: z.number().nonnegative(),
   chunkEnd: z.number().nonnegative(),
@@ -54,6 +55,15 @@ const CacheSchema = z.object({
   metadata: CacheMetadataSchema,
   claims: z.array(ClaimSchema),
 });
+
+/**
+ * Current schema version for cache invalidation.
+ * Increment when adding required fields or changing claim structure.
+ * Version history:
+ *   1: Initial schema with text, excerptIds, startSeconds, type, classification, domain, confidence, why
+ *   2: Added evidenceType field
+ */
+const CURRENT_SCHEMA_VERSION = 2;
 
 const RewriteClaimSchema = z.object({
   index: z.number().int().nonnegative(),
@@ -222,6 +232,17 @@ async function readCache(path: string, metadata: CacheMetadata): Promise<ClaimCa
     const parsed = CacheSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) return null;
     const cachedMeta = parsed.data.metadata;
+
+    // Check schema version: if cached has a version, it must match current
+    // If cached has no version (v1 cache), it's still valid for backward compatibility
+    if (
+      cachedMeta.schemaVersion !== undefined &&
+      cachedMeta.schemaVersion !== CURRENT_SCHEMA_VERSION
+    ) {
+      // Schema version mismatch - cache is stale
+      return null;
+    }
+
     if (
       cachedMeta.transcriptHash !== metadata.transcriptHash ||
       cachedMeta.model !== metadata.model ||
@@ -375,6 +396,7 @@ function cacheKeyForChunk(input: {
     input.transcriptHash,
     input.model,
     input.promptVersion,
+    CURRENT_SCHEMA_VERSION,
   ]);
 }
 
@@ -388,6 +410,7 @@ function cacheMetadataForChunk(input: {
     transcriptHash: input.transcriptHash,
     model: input.model,
     promptVersion: input.promptVersion,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     chunkIndex: input.chunk.index,
     chunkStart: input.chunk.start,
     chunkEnd: input.chunk.end,

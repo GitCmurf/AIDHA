@@ -13,6 +13,44 @@ import {
   startsWithConnector,
 } from './utils.js';
 import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnostics } from './editorial-ranking.js';
+import { z } from 'zod';
+
+/**
+ * Runtime schema for claim validation.
+ * Matches ClaimCandidate interface for runtime validation.
+ */
+const ClaimCandidateSchema = z.object({
+  text: z.string().min(1),
+  excerptIds: z.array(z.string()).min(1),
+  confidence: z.number().min(0).max(1).optional(),
+  startSeconds: z.number().nonnegative().optional(),
+  type: z.string().optional(),
+  classification: z.string().optional(),
+  domain: z.string().optional(),
+  why: z.string().optional(),
+  evidenceType: z.string().optional(),
+  method: z.enum(['heuristic', 'heuristic-fallback', 'llm']).optional(),
+  chunkIndex: z.number().int().optional(),
+  model: z.string().optional(),
+  promptVersion: z.string().optional(),
+  state: z.string().optional(),
+});
+
+/**
+ * Validates a claim candidate against the runtime schema.
+ * Returns the validated claim or null if validation fails.
+ */
+function validateClaim(claim: ClaimCandidate): ClaimCandidate | null {
+  const result = ClaimCandidateSchema.safeParse(claim);
+  if (!result.success) {
+    // Log validation error for debugging (in production, would use proper logger)
+    console.warn(`Claim validation failed for: "${claim.text.slice(0, 50)}..."}`, {
+      error: result.error.errors.map(e => e.message).join(', '),
+    });
+    return null;
+  }
+  return result.data;
+}
 
 export interface ClaimExtractionConfig {
   graphStore: GraphStore;
@@ -320,6 +358,17 @@ export class ClaimExtractionPipeline {
       candidate => typeof candidate.promptVersion === 'string'
     )?.promptVersion;
 
+    // Validate claims against runtime schema before persistence
+    const validatedCandidates = candidates.map(validateClaim).filter((c): c is ClaimCandidate => c !== null);
+    const validationErrorCount = candidates.length - validatedCandidates.length;
+
+    if (validationErrorCount > 0) {
+      console.warn(`Dropped ${validationErrorCount} invalid claims for ${resourceId}`);
+    }
+
+    // Use validated candidates for persistence
+    const persistenceCandidates = validatedCandidates;
+
     // Retrieve editorial diagnostics if available
     let editorialDiagnostics: EditorialDiagnostics | undefined;
     const maybeHeuristic = this.extractor as Partial<{ getLastEditorDiagnostics: () => EditorialDiagnostics | undefined }>;
@@ -335,7 +384,7 @@ export class ClaimExtractionPipeline {
     let edgesNoop = 0;
     const lastClaimRunAt = new Date().toISOString();
     const writeResult = await runAtomically(this.graphStore, async () => {
-      for (const claim of candidates) {
+      for (const claim of persistenceCandidates) {
         // Use normalized key for claim ID to ensure punctuation variants map to same node
         const normalizedClaimKey = normalizeKey(claim.text);
         const claimId = hashId('claim', [resourceId, normalizedClaimKey, ...claim.excerptIds]);
@@ -394,6 +443,8 @@ export class ClaimExtractionPipeline {
         ...existingMetadata,
         lastClaimRunAt,
         lastClaimRunCandidates: candidates.length,
+        lastClaimRunValidated: persistenceCandidates.length,
+        lastClaimRunValidationErrors: validationErrorCount,
         lastClaimRunCreated: claimsCreated,
         lastClaimRunUpdated: claimsUpdated,
         lastClaimRunNoop: claimsNoop,
