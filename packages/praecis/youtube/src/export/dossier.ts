@@ -102,11 +102,15 @@ function renderVideoMarkdown(dossier: VideoDossier): string {
         ].filter(Boolean);
         lines.push(`   - ${resolutionBits.join(' | ')}`);
       }
-      if (claim.type || typeof claim.confidence === 'number' || claim.method) {
+      if (claim.evidenceType) {
+        lines.push(`   - **Evidence:** ${claim.evidenceType}`);
+      }
+      if (claim.type || typeof claim.confidence === 'number' || claim.method || typeof claim.echoOverlapRatio === 'number') {
         const metaBits = [
           claim.type ? `type=${claim.type}` : null,
           typeof claim.confidence === 'number' ? `confidence=${claim.confidence.toFixed(2)}` : null,
           claim.method ? `method=${claim.method}` : null,
+          typeof claim.echoOverlapRatio === 'number' ? `echo=${(claim.echoOverlapRatio * 100).toFixed(0)}%` : null,
         ].filter(Boolean);
         if (metaBits.length > 0) {
           lines.push(`   - Meta: ${metaBits.join(', ')}`);
@@ -301,10 +305,16 @@ export class DossierExporter {
         domain: typeof claim.metadata?.['domain'] === 'string'
           ? (claim.metadata?.['domain'] as string)
           : undefined,
+        evidenceType: typeof claim.metadata?.['evidenceType'] === 'string'
+          ? (claim.metadata?.['evidenceType'] as string)
+          : undefined,
         confidence: typeof claim.metadata?.['confidence'] === 'number'
           ? (claim.metadata?.['confidence'] as number)
           : undefined,
         method: typeof claim.metadata?.['method'] === 'string' ? (claim.metadata?.['method'] as string) : undefined,
+        echoOverlapRatio: typeof claim.metadata?.['echoOverlapRatio'] === 'number'
+          ? (claim.metadata?.['echoOverlapRatio'] as number)
+          : undefined,
       });
     }
 

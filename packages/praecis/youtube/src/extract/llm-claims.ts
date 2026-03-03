@@ -559,8 +559,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let selected: ClaimCandidate[];
     if (this.editorVersion === 'v2') {
       const excerptTextLengthById = new Map<string, number>();
+      const excerptTextsById = new Map<string, string>();
       for (const excerpt of excerpts) {
         excerptTextLengthById.set(excerpt.id, excerpt.content?.length ?? 0);
+        if (excerpt.content) {
+          excerptTextsById.set(excerpt.id, excerpt.content);
+        }
       }
       selected = runEditorPassV2(allCandidates, {
         maxClaims,
@@ -571,6 +575,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
         minWords: this.editorMinWords,
         minChars: this.editorMinChars,
         excerptTextLengthById,
+        excerptTextsById,
+        echoDetection: {
+          mode: 'tag', // Tag echoes with overlap ratio instead of penalizing
+          overlapThreshold: 0.9,
+        },
       });
     } else {
       selected = runEditorPassV1(allCandidates, {

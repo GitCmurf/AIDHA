@@ -152,6 +152,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
         confidence: this.computeHeuristicConfidence(segment.text),
         startSeconds: segment.startSeconds,
         method: 'heuristic',
+        extractorVersion: 'heuristic-v1',
       }));
 
       // Simple deduplication
@@ -228,6 +229,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           confidence: this.computeHeuristicConfidence(normalized),
           startSeconds: merged.startSeconds,
           method: 'heuristic',
+          extractorVersion: 'heuristic-v1',
         });
       }
     }
@@ -255,12 +257,26 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
 
     // For longer content, use full editorial pass v2
     const adaptiveMinWindows = Math.min(4, Math.max(1, actualWindowCount));
+
+    // Build excerpt texts map for echo detection
+    const excerptTextsById = new Map<string, string>();
+    for (const excerpt of input.excerpts) {
+      if (excerpt.content) {
+        excerptTextsById.set(excerpt.id, excerpt.content);
+      }
+    }
+
     const editorialResult = runEditorPassV2WithDiagnostics(unique, {
       maxClaims,
       chunkCount: mergedSegments.length,
       windowMinutes: 5,
       maxPerWindow: 3,
       minWindows: adaptiveMinWindows,
+      excerptTextsById,
+      echoDetection: {
+        mode: 'tag', // Tag echoes with overlap ratio instead of penalizing
+        overlapThreshold: 0.9,
+      },
     });
 
     // Store diagnostics for retrieval
@@ -404,6 +420,7 @@ export class ClaimExtractionPipeline {
         if (claim.why) metadata['why'] = claim.why;
         if (claim.model) metadata['model'] = claim.model;
         if (claim.promptVersion) metadata['promptVersion'] = claim.promptVersion;
+        if (typeof claim.echoOverlapRatio === 'number') metadata['echoOverlapRatio'] = claim.echoOverlapRatio;
 
         const data: NodeDataInput = {
           label,

@@ -98,15 +98,21 @@ const DEFAULT_V2_BOILERPLATE_PENALTY = 0.55;
 const DEFAULT_V2_FRAGMENT_PENALTY = 0.5;
 const DEFAULT_V2_DROP_THRESHOLD = 0.2;
 const DEFAULT_V2_ECHO_OVERLAP_THRESHOLD = 0.9;
-const DEFAULT_V2_ECHO_PENALTY = 0.3;
+const DEFAULT_V2_ECHO_DETECTION_ENABLED = true;
+
+/**
+ * Echo detection mode controls how transcript echoes are handled.
+ * - 'off': Disable echo detection entirely
+ * - 'tag': Calculate and tag claims with overlap ratio (preserves all claims)
+ */
+export type EchoDetectionMode = 'off' | 'tag';
 
 export type EditorialDropReason =
   | 'empty'
   | 'boilerplate'
   | 'fragment'
   | 'duplicate'
-  | 'coverage'
-  | 'echo';
+  | 'coverage';
 
 export interface EditorialDiagnostics {
   editorVersion: 'v1' | 'v2';
@@ -114,6 +120,10 @@ export interface EditorialDiagnostics {
   selectedCount: number;
   droppedCounts: Record<EditorialDropReason, number>;
   windowCoverage: Array<{ windowIndex: number; selectedCount: number }>;
+  /** Count of claims tagged as transcript echoes (overlap ≥ threshold) */
+  echoTaggedCount: number;
+  /** Count of claims analyzed for echo (non-zero overlap ratio) */
+  echoAnalyzedCount: number;
 }
 
 export interface EditorialPassV1Options {
@@ -136,8 +146,15 @@ export interface EditorialPassV2Options {
   dropThreshold?: number;
   excerptTextLengthById?: Map<string, number>;
   excerptTextsById?: Map<string, string>;
-  echoOverlapThreshold?: number;
-  echoPenalty?: number;
+  /**
+   * Echo detection configuration.
+   * - mode: 'off' to disable, 'tag' to calculate overlap without penalizing
+   * - overlapThreshold: minimum overlap ratio to consider a claim an "echo" (default 0.9)
+   */
+  echoDetection?: {
+    mode?: EchoDetectionMode;
+    overlapThreshold?: number;
+  };
 }
 
 interface ScoredCandidate {
@@ -174,27 +191,34 @@ function tokenOverlapRatio(str1: string, str2: string): number {
 }
 
 /**
- * Detects if a claim is a raw transcript echo (near-exact copy of source excerpt).
- * Uses token overlap to identify claims that lack synthesis.
+ * Calculates the maximum token overlap ratio between a claim and its source excerpts.
+ * Returns a value between 0 and 1, where higher values indicate more similarity to the transcript.
+ * Returns undefined if no excerpt texts are available or the claim is too short to analyze.
+ *
+ * This helps distinguish between:
+ * - High ratios (>0.9): Near-exact transcript copies ("echoes")
+ * - Medium ratios (0.5-0.9): Partially rewritten claims
+ * - Low ratios (<0.5): Highly synthesized/assertions
  */
-function isTranscriptEcho(
+function calculateEchoOverlapRatio(
   candidate: ClaimCandidate,
-  excerptTexts: Map<string, string>,
-  threshold: number
-): boolean {
+  excerptTexts: Map<string, string>
+): number | undefined {
   const normalizedClaim = normalizeText(candidate.text).toLowerCase();
-  if (normalizedClaim.length < 20) return false; // Short claims can't reliably be detected as echoes
+  if (normalizedClaim.length < 20) return undefined; // Short claims can't reliably be analyzed
 
   let maxOverlap = 0;
+  let hasExcerpt = false;
   for (const excerptId of candidate.excerptIds) {
     const excerptText = excerptTexts.get(excerptId);
     if (excerptText) {
+      hasExcerpt = true;
       const overlap = tokenOverlapRatio(normalizedClaim, excerptText);
       maxOverlap = Math.max(maxOverlap, overlap);
     }
   }
 
-  return maxOverlap >= threshold;
+  return hasExcerpt ? maxOverlap : undefined;
 }
 
 function stableExcerptKey(candidate: ClaimCandidate): string {
@@ -445,11 +469,8 @@ function scoreCandidateV2(
   candidate: ClaimCandidate,
   options: {
     excerptTextLengthById?: Map<string, number>;
-    excerptTextsById?: Map<string, string>;
     boilerplatePenalty: number;
     fragmentPenalty: number;
-    echoPenalty: number;
-    echoOverlapThreshold: number;
     minWords: number;
     minChars: number;
   }
@@ -492,13 +513,6 @@ function scoreCandidateV2(
     score -= 0.15;
   }
 
-  // Transcript-echo detection penalty
-  if (options.excerptTextsById && options.echoOverlapThreshold > 0) {
-    if (isTranscriptEcho(candidate, options.excerptTextsById, options.echoOverlapThreshold)) {
-      score -= options.echoPenalty;
-    }
-  }
-
   return clamp(score, 0, 1);
 }
 
@@ -509,7 +523,6 @@ function defaultDroppedCounts(): Record<EditorialDropReason, number> {
     fragment: 0,
     duplicate: 0,
     coverage: 0,
-    echo: 0,
   };
 }
 
@@ -685,6 +698,8 @@ export function runEditorPassV1WithDiagnostics(
         selected,
         candidate => (typeof candidate.chunkIndex === 'number' ? candidate.chunkIndex : -1)
       ),
+      echoTaggedCount: 0, // v1 does not support echo detection
+      echoAnalyzedCount: 0,
     },
   };
 }
@@ -721,20 +736,19 @@ export function runEditorPassV2WithDiagnostics(
     0,
     1
   );
-  const echoOverlapThreshold = clamp(
-    options.echoOverlapThreshold ?? DEFAULT_V2_ECHO_OVERLAP_THRESHOLD,
+
+  // Echo detection configuration
+  const echoMode = options.echoDetection?.mode ?? 'tag';
+  const echoThreshold = clamp(
+    options.echoDetection?.overlapThreshold ?? DEFAULT_V2_ECHO_OVERLAP_THRESHOLD,
     0,
     1
   );
-  const echoPenalty = clamp(options.echoPenalty ?? DEFAULT_V2_ECHO_PENALTY, 0, 1);
 
   const scoreOptions = {
     excerptTextLengthById: options.excerptTextLengthById,
-    excerptTextsById: options.excerptTextsById,
     boilerplatePenalty,
     fragmentPenalty,
-    echoPenalty,
-    echoOverlapThreshold,
     minWords,
     minChars,
   };
@@ -751,7 +765,27 @@ export function runEditorPassV2WithDiagnostics(
     return stableExcerptKey(left).localeCompare(stableExcerptKey(right));
   };
 
-  for (const candidate of candidates) {
+  // Track echo statistics
+  let echoTaggedCount = 0;
+  let echoAnalyzedCount = 0;
+
+  // Phase 1: Apply quality filters and calculate echo overlap ratios
+  const candidatesWithEcho: ClaimCandidate[] = candidates.map(candidate => {
+    // Calculate echo overlap if enabled and excerpt texts are available
+    if (echoMode !== 'off' && options.excerptTextsById) {
+      const overlapRatio = calculateEchoOverlapRatio(candidate, options.excerptTextsById);
+      if (overlapRatio !== undefined) {
+        echoAnalyzedCount++;
+        if (overlapRatio >= echoThreshold) {
+          echoTaggedCount++;
+        }
+        return { ...candidate, echoOverlapRatio: overlapRatio };
+      }
+    }
+    return candidate;
+  });
+
+  for (const candidate of candidatesWithEcho) {
     const text = normalizeText(candidate.text);
     if (text.length === 0) {
       droppedCounts.empty += 1;
@@ -809,6 +843,8 @@ export function runEditorPassV2WithDiagnostics(
         selected,
         candidate => resolveWindowIndex(candidate, windowSeconds)
       ),
+      echoTaggedCount,
+      echoAnalyzedCount,
     },
   };
 }
