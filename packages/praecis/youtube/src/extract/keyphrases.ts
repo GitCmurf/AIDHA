@@ -1,0 +1,92 @@
+/**
+ * Keyphrase extraction utilities used by semantic verification.
+ *
+ * The extractor favors deterministic, low-cost heuristics and avoids
+ * high-maintenance lexical allowlists.
+ */
+
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+  'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those',
+  'from', 'into', 'onto', 'over', 'under', 'it', 'its', 'their', 'our',
+]);
+
+// Ultra-generic terms that weakly discriminate meaning across domains.
+const GENERIC_TERMS = new Set([
+  'analysis', 'approach', 'assessment', 'case', 'category', 'claim', 'component',
+  'concept', 'condition', 'context', 'data', 'decision', 'description', 'detail',
+  'development', 'difference', 'discussion', 'effect', 'element', 'evidence',
+  'example', 'factor', 'feature', 'finding', 'focus', 'framework', 'function',
+  'general', 'goal', 'group', 'guideline', 'idea', 'impact', 'information',
+  'insight', 'instance', 'issue', 'item', 'knowledge', 'level', 'method',
+  'model', 'number', 'outcome', 'overview', 'parameter', 'pattern', 'point',
+  'position', 'practice', 'principle', 'problem', 'process', 'program',
+  'project', 'question', 'range', 'rate', 'reason', 'report', 'research',
+  'result', 'results', 'review', 'role', 'scope', 'section', 'significant',
+  'situation', 'stage', 'standard', 'state', 'step', 'strategy', 'structure',
+  'study', 'subject', 'summary', 'system', 'target', 'term', 'theory',
+  'topic', 'trend', 'type', 'understanding', 'value', 'variable', 'view',
+  'way', 'work', 'shows',
+]);
+
+const GENERIC_TERMS_MAX = 100;
+if (GENERIC_TERMS.size > GENERIC_TERMS_MAX) {
+  throw new Error(
+    `GENERIC_TERMS exceeded cap (${GENERIC_TERMS.size}/${GENERIC_TERMS_MAX}). ` +
+    'Review and prune terms before merge.'
+  );
+}
+
+const PROPER_NOUN_PATTERN = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g;
+const TOKEN_PATTERN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g;
+
+function normalizeWord(raw: string): string {
+  return raw.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9-]+$/g, '');
+}
+
+function isAcronym(raw: string): boolean {
+  return /^[A-Z]{2,}[A-Z0-9-]*$/.test(raw);
+}
+
+function isCandidateTerm(normalized: string, raw: string): boolean {
+  const acronym = isAcronym(raw);
+  const longEnough = normalized.length >= 4;
+  return (acronym || longEnough)
+    && !STOPWORDS.has(normalized)
+    && !GENERIC_TERMS.has(normalized);
+}
+
+/**
+ * Extracts key phrases (proper nouns and non-generic salient terms) from text.
+ *
+ * @param text - The text to extract phrases from
+ * @returns Array of extracted key phrases
+ */
+export function extractKeyPhrases(text: string): string[] {
+  const phrases: string[] = [];
+
+  const properNouns = text.match(PROPER_NOUN_PATTERN);
+  if (properNouns) {
+    phrases.push(...properNouns.map(phrase => phrase.toLowerCase()));
+  }
+
+  const rawTokens = text.match(TOKEN_PATTERN) ?? [];
+  const tokens = rawTokens
+    .map(raw => ({ raw, normalized: normalizeWord(raw) }))
+    .filter(token => token.normalized.length > 0);
+
+  const candidateTokens = tokens.filter(token => isCandidateTerm(token.normalized, token.raw));
+  phrases.push(...candidateTokens.map(token => token.normalized));
+
+  for (let i = 1; i < tokens.length; i++) {
+    const left = tokens[i - 1];
+    const right = tokens[i];
+    if (left && right && isCandidateTerm(left.normalized, left.raw) && isCandidateTerm(right.normalized, right.raw)) {
+      phrases.push(`${left.normalized} ${right.normalized}`);
+    }
+  }
+
+  return Array.from(new Set(phrases));
+}

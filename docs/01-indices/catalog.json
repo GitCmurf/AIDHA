@@ -365,6 +365,20 @@
     }
   },
   {
+    "path": "05-planning/plan-006-verification-keyphrase-refactor.md",
+    "title": "Verification and Keyphrase Extraction Refactor",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-006",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-03-05",
+      "title": "Verification and Keyphrase Extraction Refactor",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "05-planning/plan-002-mvp-delivery-and-documentation-reconciliation.md",
     "title": "MVP Delivery Plan and Documentation Reconciliation",
     "front_matter": {

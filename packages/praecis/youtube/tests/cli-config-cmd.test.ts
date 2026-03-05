@@ -674,7 +674,7 @@ sources:
     });
   });
 
-  test('config get resolves RSS defaults (Active Source)', async () => {
+  it('config get resolves RSS defaults (Active Source)', async () => {
     // Prove RSS config is "live" via --source defaults
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
     const code = await runCli(['config', 'get', 'rss.pollIntervalMinutes', '--source', 'rss']);

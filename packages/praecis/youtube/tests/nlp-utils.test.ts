@@ -53,6 +53,16 @@ describe('extractSVOTriples', () => {
     expect(Array.isArray(triples)).toBe(true);
   });
 
+  it('keeps adverb inside auxiliary verb phrase', () => {
+    const triples = extractSVOTriples('The machine has quickly run the task.');
+    expect(triples.length).toBeGreaterThan(0);
+    const triple = triples[0];
+    expect(triple.verb.toLowerCase()).toContain('has');
+    expect(triple.verb.toLowerCase()).toContain('quickly');
+    expect(triple.verb.toLowerCase()).toContain('run');
+    expect(triple.object.toLowerCase()).toContain('task');
+  });
+
   it('returns array for text without verbs', () => {
     const triples = extractSVOTriples('Hello world');
     // May or may not return triples depending on compromise parsing

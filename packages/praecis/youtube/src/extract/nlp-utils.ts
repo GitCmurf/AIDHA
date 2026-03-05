@@ -204,7 +204,7 @@ export function extractSVOTriples(text: string): SVOTriple[] {
     // Find verb position
     let verbIndex = -1;
     for (let i = 0; i < terms.length; i++) {
-      const tags = terms[i]?.tags || [];
+      const tags = normalizeTags(terms[i]?.tags);
       if (tags.includes('Verb') || tags.includes('Auxiliary')) {
         verbIndex = i;
         break;
@@ -218,7 +218,7 @@ export function extractSVOTriples(text: string): SVOTriple[] {
     for (let i = 0; i < verbIndex; i++) {
       const term = terms[i];
       if (!term) continue;
-      const tags = term.tags || [];
+      const tags = normalizeTags(term.tags);
       // Skip prepositions at the start
       if (i === 0 && tags.includes('Preposition')) {
         continue;
@@ -233,14 +233,29 @@ export function extractSVOTriples(text: string): SVOTriple[] {
     for (let i = verbIndex; i < terms.length; i++) {
       const term = terms[i];
       if (!term) break;
-      const tags = term.tags || [];
-      if (tags.includes('Verb') || tags.includes('Auxiliary') || tags.includes('Adverb')) {
+      const tags = normalizeTags(term.tags);
+      if (tags.includes('Verb') || tags.includes('Auxiliary')) {
         if (term.text) {
           verbTerms.push(term.text);
+        }
+        continue;
+      }
+
+      // Preserve adverbs between auxiliary and lexical verb, e.g.:
+      // "has quickly run diagnostics"
+      if (tags.includes('Adverb') && verbTerms.length > 0) {
+        const nextTags = normalizeTags(terms[i + 1]?.tags);
+        if (nextTags.includes('Verb') || nextTags.includes('Auxiliary')) {
+          if (term.text) {
+            verbTerms.push(term.text);
+          }
+          continue;
         }
       } else {
         break;
       }
+
+      break;
     }
 
     // Extract object (noun phrases after verb)
@@ -381,6 +396,59 @@ const POS_TAG_MAP: Record<string, string> = {
   AtMention: 'MENTION',
 };
 
+const POS_PRIORITY: Record<string, number> = {
+  PRON: 1,
+  VERB: 2,
+  AUX: 3,
+  ADJ: 4,
+  ADV: 5,
+  PREP: 6,
+  DET: 7,
+  CONJ: 8,
+  NUM: 9,
+  DATE: 10,
+  WH: 11,
+  NOUN: 12,
+  UNK: 99,
+};
+
+const DEFAULT_POS_PRIORITY = 99;
+
+function normalizeTags(rawTags: unknown): string[] {
+  if (Array.isArray(rawTags)) {
+    return rawTags.filter((tag): tag is string => typeof tag === 'string');
+  }
+  if (rawTags && typeof rawTags === 'object') {
+    return Object.keys(rawTags as Record<string, unknown>);
+  }
+  return [];
+}
+
+function selectBestPos(tags: string[]): string {
+  const mapped = tags
+    .map(tag => POS_TAG_MAP[tag])
+    .filter((tag): tag is string => Boolean(tag));
+
+  if (mapped.length === 0) {
+    return 'UNK';
+  }
+
+  // O(n) linear scan instead of O(n log n) sort
+  let best = mapped[0]!;
+  let bestPriority = POS_PRIORITY[best] ?? DEFAULT_POS_PRIORITY;
+
+  for (let i = 1; i < mapped.length; i++) {
+    const tag = mapped[i]!;
+    const priority = POS_PRIORITY[tag] ?? DEFAULT_POS_PRIORITY;
+    if (priority < bestPriority) {
+      best = tag;
+      bestPriority = priority;
+    }
+  }
+
+  return best;
+}
+
 /**
  * Checks if the text matches a given POS pattern.
  *
@@ -431,22 +499,13 @@ export function hasPOSPattern(text: string, pattern: string[]): boolean {
  */
 export function getPOSPattern(text: string): string[] {
   const doc = nlp(text);
-  const sentences = doc.json() || [];
+  const sentences = doc.sentences().json() || [];
   const terms = sentences.flatMap((s: any) => s.terms || []);
   const pattern: string[] = [];
 
   for (const term of terms) {
-    const tags = term.tags || [];
-    let pos = 'UNK';
-
-    for (const tag of tags) {
-      if (POS_TAG_MAP[tag]) {
-        pos = POS_TAG_MAP[tag]!;
-        break;
-      }
-    }
-
-    pattern.push(pos);
+    const tags = normalizeTags(term.tags);
+    pattern.push(selectBestPos(tags));
   }
 
   return pattern;
@@ -484,7 +543,7 @@ export function isGrammaticallyComplete(text: string): boolean {
 
   // Check for verb presence
   const hasVerb = terms.some((term: { tags?: string[] }) =>
-    (term.tags || []).some((tag) => tag === 'Verb' || tag === 'Copula' || tag === 'Auxiliary')
+    normalizeTags(term.tags).some((tag) => tag === 'Verb' || tag === 'Copula' || tag === 'Auxiliary')
   );
 
   if (!hasVerb) return false;
@@ -494,7 +553,7 @@ export function isGrammaticallyComplete(text: string): boolean {
   let foundVerb = false;
 
   for (const term of terms) {
-    const tags = term.tags || [];
+    const tags = normalizeTags(term.tags);
     if (!foundVerb && (tags.includes('Verb') || tags.includes('Copula'))) {
       foundVerb = true;
     }
@@ -506,8 +565,24 @@ export function isGrammaticallyComplete(text: string): boolean {
   // Check for proper ending punctuation
   const lastChar = trimmed[trimmed.length - 1];
   const hasProperEnding = lastChar === '.' || lastChar === '!' || lastChar === '?';
+  if (hasSubject && hasVerb && hasProperEnding) {
+    return true;
+  }
 
-  return hasSubject && hasVerb && hasProperEnding;
+  // Handle common question form with auxiliary before subject:
+  // "What is your name?"
+  if (lastChar === '?') {
+    const hasQuestionWord = terms.some((term: { tags?: unknown }) =>
+      normalizeTags(term.tags).includes('QuestionWord')
+    );
+    const hasPronounOrNoun = terms.some((term: { tags?: unknown }) => {
+      const tags = normalizeTags(term.tags);
+      return tags.includes('Pronoun') || tags.includes('Noun') || tags.includes('ProperNoun');
+    });
+    return hasQuestionWord && hasVerb && hasPronounOrNoun;
+  }
+
+  return false;
 }
 
 /**

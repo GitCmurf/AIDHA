@@ -70,9 +70,46 @@ describe('verification', () => {
       expect(phrases).toContain('artificial intelligence');
     });
 
-    it('extracts domain-specific terms', () => {
+    it('suppresses ultra-generic terms', () => {
       const phrases = extractKeyPhrases('The study shows significant results from the research');
-      expect(phrases.length).toBeGreaterThan(0);
+      expect(phrases).not.toContain('study');
+      expect(phrases).not.toContain('research');
+      expect(phrases).not.toContain('results');
+      expect(phrases).toEqual([]);
+    });
+
+    it('retains meaningful domain terms', () => {
+      const phrases = extractKeyPhrases('Leucine stimulates muscle protein synthesis');
+      expect(phrases).toContain('leucine');
+      expect(phrases).toContain('muscle');
+      expect(phrases).toContain('protein');
+      expect(phrases).toContain('synthesis');
+    });
+
+    it('retains non-health domain terms', () => {
+      const phrases = extractKeyPhrases('Kubernetes clusters use etcd for state storage');
+      expect(phrases).toContain('kubernetes');
+      expect(phrases).toContain('etcd');
+      expect(phrases).toContain('storage');
+    });
+
+    it('retains acronyms', () => {
+      const phrases = extractKeyPhrases('ATP and HTTP are core acronyms');
+      expect(phrases).toContain('atp');
+      expect(phrases).toContain('http');
+    });
+
+    it('retains hyphenated and alphanumeric terms', () => {
+      const phrases = extractKeyPhrases('COVID-19 and T-cell responses are state-of-the-art');
+      expect(phrases).toContain('covid-19');
+      expect(phrases).toContain('t-cell');
+      expect(phrases).toContain('state-of-the-art');
+    });
+
+    it('does not treat sentence-initial capitalization as named-entity evidence', () => {
+      const phrases = extractKeyPhrases('Study results vary across cohorts');
+      expect(phrases).not.toContain('study');
+      expect(phrases).not.toContain('results');
     });
 
     it('returns empty array for text with no key phrases', () => {

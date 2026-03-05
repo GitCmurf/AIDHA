@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SQLiteStore } from '@aidha/graph-backend';
 import { runCli } from '../src/cli.js';
+import { describeIfSqlite } from './test-utils.js';
 
-describe('CLI review apply atomicity', () => {
+describeIfSqlite('CLI review apply atomicity', () => {
   let tempRoot = '';
   let dbPath = '';
 

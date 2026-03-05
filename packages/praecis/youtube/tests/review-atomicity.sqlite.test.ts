@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SQLiteStore } from '@aidha/graph-backend';
 import { applyReviewAction } from '../src/review/index.js';
+import { describeIfSqlite } from './test-utils.js';
 
-describe('review workflow (SQLite atomicity)', () => {
+describeIfSqlite('review workflow (SQLite atomicity)', () => {
   let store: SQLiteStore;
 
   beforeEach(async () => {
