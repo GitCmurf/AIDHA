@@ -303,9 +303,12 @@ describe('CLAIM_CLASSIFICATIONS constant', () => {
     expect(CLAIM_CLASSIFICATIONS).toContain('fact');
     expect(CLAIM_CLASSIFICATIONS).toContain('mechanism');
     expect(CLAIM_CLASSIFICATIONS).toContain('opinion');
+    expect(CLAIM_CLASSIFICATIONS).toContain('warning');
+    expect(CLAIM_CLASSIFICATIONS).toContain('instruction');
+    expect(CLAIM_CLASSIFICATIONS).toContain('insight');
   });
 
-  it('has exactly 3 classifications', () => {
-    expect(CLAIM_CLASSIFICATIONS).toHaveLength(3);
+  it('has exactly 6 classifications', () => {
+    expect(CLAIM_CLASSIFICATIONS).toHaveLength(6);
   });
 });

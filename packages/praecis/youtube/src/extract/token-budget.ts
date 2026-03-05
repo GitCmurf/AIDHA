@@ -26,7 +26,7 @@ export function estimateTokens(text: string): number {
 
 /**
  * Maximum token budget per video to prevent runaway costs.
- * At $0.001 per 1k tokens (rough GPT-4 pricing), 50k tokens = $0.05 per video
+ * At $0.01 per 1k tokens (conservative GPT-4 pricing), 50k tokens = $0.50 per video
  */
 const MAX_TOKENS_PER_VIDEO = 50_000;
 

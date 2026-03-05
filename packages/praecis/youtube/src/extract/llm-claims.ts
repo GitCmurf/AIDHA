@@ -10,7 +10,7 @@ import { runEditorPassV1, runEditorPassV2, DEFAULT_ECHO_DETECTION } from './edit
 import type { LlmClient } from './llm-client.js';
 import { clamp, normalizeText, toNumber, buildExcerptTextsById } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
-import { normalizeClaimClassification } from './claim-candidate-schema.js';
+import { normalizeClaimClassification, CLAIM_TYPES } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
 import { sanitizeForPrompt } from './prompt-safety.js';
@@ -19,19 +19,6 @@ import {
   getEditorRewritePrompt,
   REWRITE_PROMPT_VERSION as EDITOR_REWRITE_V3_PROMPT_VERSION,
 } from './prompts/editor-rewrite-v3.js';
-
-const CLAIM_TYPES = [
-  'insight',
-  'instruction',
-  'fact',
-  'mechanism',
-  'opinion',
-  'decision',
-  'warning',
-  'question',
-  'summary',
-  'example',
-];
 
 const ClaimSchema = z.object({
   text: z.string().min(1),

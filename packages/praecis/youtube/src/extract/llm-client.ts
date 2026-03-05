@@ -120,8 +120,8 @@ export class OpenAiCompatibleClient implements LlmClient {
   private timeoutMs: number;
   private modelCapabilities: ModelCapabilities;
   private modelCapabilitiesConfigured: boolean;
-  /** Static cache for model capabilities to avoid repeated detection (LRU-bounded). */
-  private static capabilitiesCache = new Map<string, CachedCapabilities>();
+  /** Instance cache for model capabilities to avoid repeated detection (LRU-bounded). */
+  private capabilitiesCache = new Map<string, CachedCapabilities>();
 
   constructor(config: OpenAiCompatibleConfig) {
     this.baseUrl = normalizeBaseUrl(config.baseUrl);
@@ -135,9 +135,9 @@ export class OpenAiCompatibleClient implements LlmClient {
    * Gets cached capabilities for a model, detecting and caching if not already cached.
    * Uses LRU eviction to bound cache size.
    */
-  private static getModelCapabilities(model: string): ModelCapabilities {
+  private getModelCapabilities(model: string): ModelCapabilities {
     const now = Date.now();
-    const cached = OpenAiCompatibleClient.capabilitiesCache.get(model);
+    const cached = this.capabilitiesCache.get(model);
 
     if (cached) {
       cached.lastAccess = now;
@@ -145,13 +145,13 @@ export class OpenAiCompatibleClient implements LlmClient {
     }
 
     const capabilities = detectModelCapabilities(model);
-    OpenAiCompatibleClient.capabilitiesCache.set(model, { capabilities, lastAccess: now });
+    this.capabilitiesCache.set(model, { capabilities, lastAccess: now });
 
     // Evict oldest entry if cache exceeds maximum size
-    if (OpenAiCompatibleClient.capabilitiesCache.size > MAX_CAPABILITIES_CACHE_SIZE) {
-      const oldest = [...OpenAiCompatibleClient.capabilitiesCache.entries()]
+    if (this.capabilitiesCache.size > MAX_CAPABILITIES_CACHE_SIZE) {
+      const oldest = [...this.capabilitiesCache.entries()]
         .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0]?.[0];
-      if (oldest) OpenAiCompatibleClient.capabilitiesCache.delete(oldest);
+      if (oldest) this.capabilitiesCache.delete(oldest);
     }
 
     return capabilities;
@@ -194,7 +194,7 @@ export class OpenAiCompatibleClient implements LlmClient {
       // Otherwise, detect capabilities dynamically based on the requested model.
       const modelCapabilities = this.modelCapabilitiesConfigured
         ? this.modelCapabilities
-        : OpenAiCompatibleClient.getModelCapabilities(request.model);
+        : this.getModelCapabilities(request.model);
 
       if (modelCapabilities.supportsReasoningEffort && request.reasoningEffort) {
         body['reasoning_effort'] = request.reasoningEffort;

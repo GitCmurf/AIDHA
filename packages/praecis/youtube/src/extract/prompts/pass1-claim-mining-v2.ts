@@ -6,6 +6,7 @@
  */
 
 import { sanitizeForPrompt } from '../prompt-safety.js';
+import { CLAIM_CLASSIFICATIONS, CLAIM_TYPES } from '../claim-candidate-schema.js';
 
 export interface PromptInput {
   resourceLabel: string;
@@ -130,15 +131,11 @@ const DOMAINS = [
 
 /**
  * Classification types for claims.
+ * Derived from CLAIM_CLASSIFICATIONS in claim-candidate-schema.ts (title-cased for prompt display).
  */
-const CLASSIFICATIONS = [
-  'Fact',
-  'Mechanism',
-  'Opinion',
-  'Warning',
-  'Instruction',
-  'Insight',
-].join(', ');
+const CLASSIFICATIONS = CLAIM_CLASSIFICATIONS.map(
+  c => c.charAt(0).toUpperCase() + c.slice(1)
+).join(', ');
 
 /**
  * Evidence types for claim backing.
@@ -156,22 +153,6 @@ const EVIDENCE_TYPES = [
   'SWAN Study',
   'Longitudinal RCT',
 ].join(', ');
-
-/**
- * Allowed claim types.
- */
-const CLAIM_TYPES = [
-  'insight',
-  'instruction',
-  'fact',
-  'mechanism',
-  'opinion',
-  'decision',
-  'warning',
-  'question',
-  'summary',
-  'example',
-];
 
 /**
  * Builds the system prompt for Pass 1 claim extraction.

@@ -21,8 +21,11 @@ export const CLAIM_TYPES = [
 /**
  * Valid claim classification values.
  * These categorize claims into broad semantic categories.
+ *
+ * Must match CLASSIFICATIONS in pass1-claim-mining-v2.ts to ensure
+ * normalizeClaimClassification doesn't silently drop valid values.
  */
-export const CLAIM_CLASSIFICATIONS = ['fact', 'mechanism', 'opinion'] as const;
+export const CLAIM_CLASSIFICATIONS = ['fact', 'mechanism', 'opinion', 'warning', 'instruction', 'insight'] as const;
 
 /**
  * Valid claim state values.
