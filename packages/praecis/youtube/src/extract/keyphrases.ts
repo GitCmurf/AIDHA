@@ -42,8 +42,38 @@ if (GENERIC_TERMS.size > GENERIC_TERMS_MAX) {
 const PROPER_NOUN_PATTERN = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g;
 const TOKEN_PATTERN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g;
 
+/**
+ * Normalizes a word by lowercasing and stripping leading/trailing non-alphanumeric chars.
+ * Uses simple string operations to avoid ReDoS vulnerabilities from complex regex.
+ */
 function normalizeWord(raw: string): string {
-  return raw.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9-]+$/g, '');
+  const lower = raw.toLowerCase();
+  let start = 0;
+  let end = lower.length;
+
+  // Find first alphanumeric character
+  while (start < end && !isAlphaNumeric(lower[start]!)) {
+    start++;
+  }
+
+  // Find last alphanumeric character
+  while (end > start && !isAlphaNumeric(lower[end - 1]!)) {
+    end--;
+  }
+
+  return lower.slice(start, end);
+}
+
+/**
+ * Checks if a character is alphanumeric (a-z, 0-9).
+ * Inline for performance to avoid regex overhead.
+ */
+function isAlphaNumeric(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return (
+    (code >= 48 && code <= 57) || // 0-9
+    (code >= 97 && code <= 122)   // a-z
+  );
 }
 
 function isAcronym(raw: string): boolean {
