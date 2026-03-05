@@ -595,6 +595,18 @@ export class LlmClaimExtractor implements ClaimExtractor {
     };
   }
 
+  /**
+   * Sanitizes a video label to prevent prompt injection attacks.
+   * Removes potential instruction override patterns and limits length.
+   */
+  private static sanitizeLabel(label: string): string {
+    return label
+      .replace(/ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/gi, '[REDACTED]')
+      .replace(/(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/gi, '[REDACTED]')
+      .replace(/```/g, '\'\'\'') // Prevent code fence injection
+      .slice(0, 200); // Limit length
+  }
+
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
     const maxClaims = input.maxClaims ?? this.maxClaims;
     const excerpts = input.excerpts;
@@ -741,23 +753,17 @@ export class LlmClaimExtractor implements ClaimExtractor {
       startSeconds: candidate.startSeconds ?? 0,
     }));
 
-    // Sanitize resource.label to prevent prompt injection
-    const sanitizeLabel = (label: string): string => {
-      return label
-        .replace(/ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/gi, '[REDACTED]')
-        .replace(/(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/gi, '[REDACTED]')
-        .replace(/```/g, '\'\'\'') // Prevent code fence injection
-        .slice(0, 200); // Limit length
-    };
-
-    const { system, user } = getEditorRewritePrompt(sanitizeLabel(input.resource.label), JSON.stringify(claimsPayload, null, 2));
+    const { system, user } = getEditorRewritePrompt(
+      LlmClaimExtractor.sanitizeLabel(input.resource.label),
+      JSON.stringify(claimsPayload, null, 2)
+    );
 
     const request = {
       model: this.model,
       system,
       user,
       temperature: 0,
-      maxTokens: 4000,
+      maxTokens: this.maxTokens,
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
     };
@@ -876,15 +882,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
       user = prompt.user;
     } else {
       // Legacy inline prompt (original behavior)
-      // Sanitize resource.label to prevent prompt injection
-      const sanitizeLabel = (label: string): string => {
-        return label
-          .replace(/ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/gi, '[REDACTED]')
-          .replace(/(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/gi, '[REDACTED]')
-          .replace(/```/g, '\'\'\'') // Prevent code fence injection
-          .slice(0, 200); // Limit length
-      };
-
       system = [
         'You are a senior analyst extracting high-resolution health and physiological assertions.',
         'Return only JSON that matches the provided schema.',
@@ -893,7 +890,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
       ].join(' ');
       user = [
-        `VIDEO_LABEL: """${sanitizeLabel(resource.label)}"""`,
+        `VIDEO_LABEL: """${LlmClaimExtractor.sanitizeLabel(resource.label)}"""`,
         `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
         `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
         `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion","domain":string,"confidence":0-1,"why":string}]}`,
@@ -960,6 +957,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       console.warn(`[CIRCUIT-OPEN] Chunk ${chunk.index}: Circuit breaker is open, skipping LLM call`);
       return [];
     }
+
+    // Increment half-open call counter for manual circuit breaker usage
+    this.circuitBreaker.incrementHalfOpenCallCount();
 
     const request = {
       model: this.model,
@@ -1033,8 +1033,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
     if (retryParsed.length > 0) {
       this.circuitBreaker.recordSuccess();
     } else {
-      // Record failure on parse failure after retry
-      this.circuitBreaker.recordFailure();
+      // LLM responded successfully but extracted no claims - not a service failure
+      this.circuitBreaker.recordSuccess();
     }
     return retryParsed;
   }

@@ -23,7 +23,6 @@ const DEFAULT_V2_BOILERPLATE_PENALTY = 0.55;
 const DEFAULT_V2_FRAGMENT_PENALTY = 0.5;
 const DEFAULT_V2_DROP_THRESHOLD = 0.2;
 const DEFAULT_V2_ECHO_OVERLAP_THRESHOLD = 0.9;
-const DEFAULT_V2_ECHO_DETECTION_ENABLED = true;
 
 /**
  * Echo detection mode controls how transcript echoes are handled.
@@ -517,11 +516,9 @@ function resolveWindowIndex(
 }
 
 function selectV2DiverseCandidates(
-  candidates: ClaimCandidate[],
   scoredCandidates: ScoredCandidate[],
   options: EditorialPassV2Options
 ): ClaimCandidate[] {
-  void candidates;
   const maxClaims = options.maxClaims;
   const maxPerWindow = Math.max(1, options.maxPerWindow ?? DEFAULT_MAX_PER_WINDOW);
   const minWindows = Math.max(1, options.minWindows ?? DEFAULT_MIN_WINDOWS);
@@ -763,7 +760,7 @@ export function runEditorPassV2WithDiagnostics(
     }))
     .sort(compareScoredCandidatePriority);
 
-  const selected = selectV2DiverseCandidates(semanticDeduped.deduped, scoredCandidates, options);
+  const selected = selectV2DiverseCandidates(scoredCandidates, options);
   droppedCounts.coverage += semanticDeduped.deduped.length - selected.length;
 
   return {

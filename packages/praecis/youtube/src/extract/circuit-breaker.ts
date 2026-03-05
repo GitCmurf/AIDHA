@@ -117,11 +117,17 @@ export class CircuitBreaker {
    * @param config - Partial configuration. Unspecified values use defaults.
    */
   constructor(config: Partial<CircuitBreakerConfig> = {}) {
+    const halfOpenMaxCalls = Math.max(1, config.halfOpenMaxCalls ?? DEFAULT_CONFIG.halfOpenMaxCalls);
+    // Clamp halfOpenSuccessThreshold to halfOpenMaxCalls to make HalfOpen recoverable
+    const halfOpenSuccessThreshold = Math.max(
+      1,
+      Math.min(halfOpenMaxCalls, config.halfOpenSuccessThreshold ?? DEFAULT_CONFIG.halfOpenSuccessThreshold)
+    );
     this.config = {
       failureThreshold: Math.max(1, config.failureThreshold ?? DEFAULT_CONFIG.failureThreshold),
       resetTimeoutMs: Math.max(1, config.resetTimeoutMs ?? DEFAULT_CONFIG.resetTimeoutMs),
-      halfOpenMaxCalls: Math.max(1, config.halfOpenMaxCalls ?? DEFAULT_CONFIG.halfOpenMaxCalls),
-      halfOpenSuccessThreshold: Math.max(1, config.halfOpenSuccessThreshold ?? DEFAULT_CONFIG.halfOpenSuccessThreshold),
+      halfOpenMaxCalls,
+      halfOpenSuccessThreshold,
     };
   }
 
@@ -188,10 +194,9 @@ export class CircuitBreaker {
    * - Open: No-op (already failing).
    */
   recordFailure(): void {
-    this.lastFailureTime = Date.now();
-
     switch (this.state) {
       case CircuitBreakerState.Closed: {
+        this.lastFailureTime = Date.now();
         this.failures++;
 
         if (this.failures >= this.config.failureThreshold) {
@@ -201,12 +206,13 @@ export class CircuitBreaker {
       }
 
       case CircuitBreakerState.HalfOpen: {
+        this.lastFailureTime = Date.now();
         this.transitionToOpen();
         break;
       }
 
       case CircuitBreakerState.Open: {
-        // No-op: already in open state
+        // No-op: already in open state, don't push out recovery time
         break;
       }
     }
@@ -236,6 +242,16 @@ export class CircuitBreaker {
       case CircuitBreakerState.HalfOpen: {
         return this.halfOpenCallCount < this.config.halfOpenMaxCalls;
       }
+    }
+  }
+
+  /**
+   * Increments the half-open call counter.
+   * For manual circuit breaker usage when not using execute().
+   */
+  incrementHalfOpenCallCount(): void {
+    if (this.state === CircuitBreakerState.HalfOpen) {
+      this.halfOpenCallCount++;
     }
   }
 

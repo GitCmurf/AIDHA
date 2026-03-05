@@ -159,7 +159,14 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           : undefined,
         originalIndex: index,
       }))
-      .filter(segment => segment.text.length > 0);
+      .filter(segment => segment.text.length > 0)
+      .sort((a, b) => {
+        // Sort by startSeconds, with undefined values treated as Infinity
+        const aStart = typeof a.startSeconds === 'number' ? a.startSeconds : Number.MAX_SAFE_INTEGER;
+        const bStart = typeof b.startSeconds === 'number' ? b.startSeconds : Number.MAX_SAFE_INTEGER;
+        if (aStart !== bStart) return aStart - bStart;
+        return a.originalIndex - b.originalIndex;
+      });
 
     if (segments.length === 0) {
       this.lastEditorDiagnostics = undefined;
@@ -212,7 +219,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
         ? segment.startSeconds - currentMerged.lastStartSeconds
         : Infinity;
 
-      const shouldMerge = gap <= DEFAULT_MERGE_GAP_SECONDS &&
+      const shouldMerge = gap >= 0 && gap <= DEFAULT_MERGE_GAP_SECONDS &&
         (hasDanglingEnding(currentMerged.text) || startsWithConnector(segment.text));
 
       if (shouldMerge) {

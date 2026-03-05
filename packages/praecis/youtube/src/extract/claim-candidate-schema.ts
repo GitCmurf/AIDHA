@@ -49,8 +49,8 @@ export const CLAIM_METHODS = ['heuristic', 'heuristic-fallback', 'llm'] as const
  * ```
  */
 export const ClaimCandidateSchema = z.object({
-  text: z.string().min(1, 'Claim text cannot be empty'),
-  excerptIds: z.array(z.string()).min(1, 'At least one excerpt ID is required'),
+  text: z.string().trim().min(1, 'Claim text cannot be empty'),
+  excerptIds: z.array(z.string().trim().min(1, 'Excerpt ID cannot be empty')).min(1, 'At least one excerpt ID is required'),
   confidence: z.number().min(0).max(1).optional(),
   startSeconds: z.number().nonnegative().optional(),
   type: z.enum(CLAIM_TYPES).optional(),
@@ -59,7 +59,7 @@ export const ClaimCandidateSchema = z.object({
   why: z.string().optional(),
   evidenceType: z.string().optional(),
   method: z.enum(CLAIM_METHODS).optional(),
-  chunkIndex: z.number().int().optional(),
+  chunkIndex: z.number().int().nonnegative().optional(),
   model: z.string().optional(),
   promptVersion: z.string().optional(),
   extractorVersion: z.string().optional(),

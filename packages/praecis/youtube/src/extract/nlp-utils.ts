@@ -316,7 +316,7 @@ export function extractDiscourseMarkers(text: string): DiscourseMarker[] {
 
       // Clean the term for matching
       const cleanTerm = term.replace(/[^a-z]/g, '');
-      if (DISCOURSE_MARKERS[cleanTerm] && !MULTI_WORD_MARKERS.some((m) => m.includes(cleanTerm))) {
+      if (DISCOURSE_MARKERS[cleanTerm]) {
         const type = DISCOURSE_MARKERS[cleanTerm] || 'unknown';
         let position: 'start' | 'middle' | 'end' = 'middle';
 
@@ -689,6 +689,15 @@ const BOILERPLATE_KEYWORDS = new Set([
 ]);
 
 /**
+ * Pre-compiled regex patterns for boilerplate keyword detection.
+ * Compiled once at module load to avoid repeated regex compilation in hot path.
+ */
+const BOILERPLATE_KEYWORD_REGEXES = Array.from(BOILERPLATE_KEYWORDS).map((keyword) => {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`, 'i');
+});
+
+/**
  * Detects if text contains boilerplate POS patterns typical of sponsor segments or CTAs.
  *
  * @param text - The input text to analyze
@@ -707,9 +716,9 @@ export function hasBoilerplatePOSPattern(text: string): boolean {
   const doc = nlp(text);
   const pattern = getPOSPattern(text);
 
-  // Check for boilerplate keywords
-  const hasBoilerplateKeyword = Array.from(BOILERPLATE_KEYWORDS).some((keyword) =>
-    normalizedText.includes(keyword)
+  // Check for boilerplate keywords using pre-compiled regex patterns
+  const hasBoilerplateKeyword = BOILERPLATE_KEYWORD_REGEXES.some((regex) =>
+    regex.test(normalizedText)
   );
 
   // Check for common POS patterns
