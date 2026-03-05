@@ -1,5 +1,6 @@
 import type { ClaimCandidate } from './types.js';
 import { clamp, normalizeText, normalizeKey, uniqueSortedStrings } from './utils.js';
+import { calculateTokenOverlap } from './verification.js';
 import {
   BOILERPLATE_PATTERNS,
   ACTION_MARKERS,
@@ -106,20 +107,14 @@ interface DedupeResult {
 
 /**
  * Calculates token overlap ratio between two strings.
- * Returns the intersection size divided by the max token count.
+ * Uses max denominator (rather than min or union) for echo detection:
+ * - When comparing a short claim against a long transcript, a high ratio requires
+ *   the claim to be "contained within" the transcript (echo behavior).
+ * - This prevents false positives where a short claim would have high overlap
+ *   with any sufficiently long text by chance alone.
  */
 function tokenOverlapRatio(str1: string, str2: string): number {
-  const tokens1 = new Set(normalizeText(str1).toLowerCase().split(/\s+/).filter(Boolean));
-  const tokens2 = new Set(normalizeText(str2).toLowerCase().split(/\s+/).filter(Boolean));
-
-  if (tokens1.size === 0 || tokens2.size === 0) return 0;
-
-  const intersection = new Set<string>();
-  for (const token of tokens1) {
-    if (tokens2.has(token)) intersection.add(token);
-  }
-
-  return intersection.size / Math.max(tokens1.size, tokens2.size);
+  return calculateTokenOverlap(str1, str2);
 }
 
 /**

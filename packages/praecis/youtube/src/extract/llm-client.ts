@@ -35,14 +35,22 @@ export interface ModelCapabilities {
 }
 
 /**
+ * Default max tokens for unknown models.
+ * Calculated as: ~12 claims × ~100 chars/claim × ~2 tokens/char ÷ 1.2 compression ≈ 2000.
+ * Rounded to 2048 for power-of-2 alignment.
+ */
+const DEFAULT_MAX_TOKENS_FOR_UNKNOWN_MODELS = 2048;
+
+/**
  * Default model capabilities for unknown models.
- * Assumes limited capabilities for safety.
+ * Assumes limited capabilities for safety, but provides sufficient maxTokens
+ * for claim extraction responses (5-12 claims with multiple fields).
  */
 export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
   supportsReasoningEffort: false,
   supportsVerbosity: false,
   supportsStructuredOutput: false,
-  defaultMaxTokens: 900,
+  defaultMaxTokens: DEFAULT_MAX_TOKENS_FOR_UNKNOWN_MODELS,
 };
 
 /**

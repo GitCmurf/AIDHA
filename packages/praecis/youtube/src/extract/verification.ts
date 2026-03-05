@@ -80,12 +80,20 @@ interface EntailmentResult {
 }
 
 /**
+ * Scaling factor applied to semantic similarity for entailment estimation.
+ * Entailment requires higher confidence than semantic similarity, so we scale down.
+ */
+const ENTAILMENT_SCALING_FACTOR = 0.8;
+
+/**
  * Default configuration values
  */
 const DEFAULT_CONFIG: VerificationConfig = {
   lexicalThreshold: 0.3,
   semanticThreshold: 0.6,
-  entailmentThreshold: 0.7,
+  // Entailment threshold is scaled to align with semantic gate
+  // This ensures tier 3 is reachable for claims that pass tier 2
+  entailmentThreshold: 0.6 * ENTAILMENT_SCALING_FACTOR, // = 0.48
 };
 
 /**

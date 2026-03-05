@@ -248,6 +248,10 @@ export class CircuitBreaker {
   /**
    * Increments the half-open call counter.
    * For manual circuit breaker usage when not using execute().
+   *
+   * WARNING: When using manual mode, ensure recordSuccess()/recordFailure()
+   * are called exactly once per operation to avoid state inconsistencies.
+   * Prefer using execute() for automatic state management.
    */
   incrementHalfOpenCallCount(): void {
     if (this.state === CircuitBreakerState.HalfOpen) {
