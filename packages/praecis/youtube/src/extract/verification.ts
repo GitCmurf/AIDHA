@@ -256,7 +256,7 @@ export class TieredVerifier {
 
     // Apply a scaling factor to semantic similarity for entailment estimation
     // This is a conservative approach - entailment requires higher confidence
-    const entailmentScore = Math.min(1, semanticResult.similarity * 0.8);
+    const entailmentScore = Math.min(1, semanticResult.similarity * ENTAILMENT_SCALING_FACTOR);
 
     return {
       score: entailmentScore,

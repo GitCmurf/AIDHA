@@ -107,11 +107,8 @@ interface DedupeResult {
 
 /**
  * Calculates token overlap ratio between two strings.
- * Uses max denominator (rather than min or union) for echo detection:
- * - When comparing a short claim against a long transcript, a high ratio requires
- *   the claim to be "contained within" the transcript (echo behavior).
- * - This prevents false positives where a short claim would have high overlap
- *   with any sufficiently long text by chance alone.
+ * Uses Jaccard similarity (intersection / union) via calculateTokenOverlap.
+ * Delegates to the verification module which implements the actual computation.
  */
 function tokenOverlapRatio(str1: string, str2: string): number {
   return calculateTokenOverlap(str1, str2);
