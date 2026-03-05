@@ -1023,8 +1023,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Check circuit breaker again before retry (respects HalfOpen call limits)
     if (!this.circuitBreaker.canExecute()) {
-      // Treat parse error as recoverable (LLM is healthy)
-      this.circuitBreaker.recordSuccess();
+      // Circuit breaker blocked the retry; skip without recording any outcome
       return [];
     }
     this.circuitBreaker.incrementHalfOpenCallCount();
