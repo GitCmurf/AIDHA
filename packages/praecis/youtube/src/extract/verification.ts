@@ -199,6 +199,8 @@ export class TieredVerifier {
       return { similarity: 0, verified: false };
     }
 
+    // Extract claim key phrases once (loop-invariant)
+    const claimPhrases = extractKeyPhrases(claim);
     let maxSimilarity = 0;
 
     for (const source of sources) {
@@ -207,7 +209,6 @@ export class TieredVerifier {
       // Use trigram overlap for phrase-level matching
       const trigramSim = calculateNGramOverlap(claim, source, 3);
       // Extract and compare key phrases
-      const claimPhrases = extractKeyPhrases(claim);
       const sourcePhrases = extractKeyPhrases(source);
       const phraseOverlap = calculatePhraseOverlap(claimPhrases, sourcePhrases);
 
