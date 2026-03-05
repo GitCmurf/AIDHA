@@ -151,7 +151,17 @@ const DEFAULT_MAX_CLAIMS = 25;
 const DEFAULT_CACHE_DIR = './out/cache/claims';
 const DEFAULT_MIN_CLAIMS_PER_CHUNK = 5;
 const DEFAULT_MAX_CLAIMS_PER_CHUNK = 12;
-const DEFAULT_EDITOR_REWRITE_PROMPT_VERSION = 'editor-rewrite-v2';
+let prompt;
+if (this.editorRewritePromptVersion === 'editor-rewrite-v3') {
+  const { system, user } = getEditorRewritePrompt(
+    LlmClaimExtractor.sanitizeLabel(input.resource.label),
+    JSON.stringify(claimsPayload, null, 2)
+  );
+  prompt = { system, user };
+} else {
+  // Future versions can be added here
+  throw new Error(`Unknown editor rewrite prompt version: ${this.editorRewritePromptVersion}`);
+}
 const DEFAULT_EDITOR_REWRITE_MIN_KEYWORD_OVERLAP = 0.3;
 const DEFAULT_EDITOR_REWRITE_MAX_EDIT_RATIO = 0.5;
 const DEFAULT_MAX_TOKENS = 4000;
