@@ -678,10 +678,23 @@ export function runEditorPassV2WithDiagnostics(
     minChars,
   };
 
+  // Score cache to avoid redundant computation in hot paths
+  // Use stable string keys instead of object references to avoid issues with object mutation
+  const scoreCache = new Map<string, number>();
+  const getCacheKey = (candidate: ClaimCandidate): string => {
+    return `${candidate.startSeconds}:${candidate.text}:${candidate.excerptIds.join(',')}`;
+  };
+  const getScore = (candidate: ClaimCandidate): number => {
+    const key = getCacheKey(candidate);
+    const cached = scoreCache.get(key);
+    if (cached !== undefined) return cached;
+    const score = scoreCandidateV2(candidate, scoreOptions);
+    scoreCache.set(key, score);
+    return score;
+  };
+
   const comparePriority = (left: ClaimCandidate, right: ClaimCandidate): number => {
-    const leftScore = scoreCandidateV2(left, scoreOptions);
-    const rightScore = scoreCandidateV2(right, scoreOptions);
-    const scoreDiff = rightScore - leftScore;
+    const scoreDiff = getScore(right) - getScore(left);
     if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
     const startDiff = candidateStart(left) - candidateStart(right);
     if (startDiff !== 0) return startDiff;
@@ -718,7 +731,7 @@ export function runEditorPassV2WithDiagnostics(
       continue;
     }
 
-    const score = scoreCandidateV2(candidate, scoreOptions);
+    const score = getScore(candidate);
 
     if (isLowValue(text) && score <= dropThreshold) {
       droppedCounts.boilerplate += 1;
@@ -750,7 +763,7 @@ export function runEditorPassV2WithDiagnostics(
   const scoredCandidates = semanticDeduped.deduped
     .map(candidate => ({
       candidate,
-      score: scoreCandidateV2(candidate, scoreOptions),
+      score: getScore(candidate),
       windowIndex: resolveWindowIndex(candidate, windowSeconds),
     }))
     .sort(compareScoredCandidatePriority);

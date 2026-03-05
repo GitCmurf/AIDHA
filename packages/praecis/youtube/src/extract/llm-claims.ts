@@ -11,7 +11,7 @@ import type { LlmClient } from './llm-client.js';
 import { clamp, normalizeText, toNumber, buildExcerptTextsById } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
 import { normalizeClaimClassification } from './claim-candidate-schema.js';
-import { CircuitBreaker, CircuitBreakerOpenError } from './circuit-breaker.js';
+import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
 import { buildPass1PromptV2, PROMPT_VERSION as PROMPT_V2_VERSION } from './prompts/pass1-claim-mining-v2.js';
 import { getEditorRewritePrompt } from './prompts/editor-rewrite-v3.js';
@@ -1020,6 +1020,14 @@ export class LlmClaimExtractor implements ClaimExtractor {
     const retryUser = sanitizedFeedback
       ? `${user}\n\nPARSE ERROR FEEDBACK:\n${sanitizedFeedback}\n\nPlease fix the above issues and return ONLY valid JSON. Do not include commentary or markdown.`
       : `${user}\n\nReturn ONLY valid JSON matching the schema. Do not include commentary or markdown.`;
+
+    // Check circuit breaker again before retry (respects HalfOpen call limits)
+    if (!this.circuitBreaker.canExecute()) {
+      // Treat parse error as recoverable (LLM is healthy)
+      this.circuitBreaker.recordSuccess();
+      return [];
+    }
+    this.circuitBreaker.incrementHalfOpenCallCount();
 
     let retry;
     try {

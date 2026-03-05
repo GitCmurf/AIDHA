@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-005
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.0"
+version: "1.1"
 last_updated: 2026-03-05
 title: Deferred Claim Extraction Improvements
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-005
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.0
+> **Version:** 1.1
 > **Last Updated:** 2026-03-05
 > **Type:** TASK
 
@@ -30,6 +30,7 @@ docops_version: "2.0"
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 1.0     | 2026-03-05 | AI     | Initial release documenting deferred improvements from code review rounds 1-2. | — | Draft | — |
+| 1.1     | 2026-03-05 | AI     | Marked A.1, A.3, C.2 as resolved. Added D.2 (shared memoization utility). | — | Draft | — |
 
 ## Overview
 
@@ -52,7 +53,11 @@ These items represent technical debt that should be addressed systematically.
 
 ## A. Verification Module Improvements
 
-### A.1. Replace Massive COMMON_NOUNS Set
+### A.1. Replace Massive COMMON_NOUNS Set ✅ RESOLVED
+
+**Status:** Completed in commit 753e4f2
+**Resolution:** Created new `keyphrases.ts` module with curated `GENERIC_TERMS`
+set (97 words, capped at 100)
 
 **File:** `packages/praecis/youtube/src/extract/verification.ts` (lines 116-118)
 
@@ -141,7 +146,10 @@ Also update line 267:
 
 ---
 
-### A.3. Hoist Claim Phrase Extraction
+### A.3. Hoist Claim Phrase Extraction ✅ RESOLVED
+
+**Status:** Completed (uncommitted)
+**Resolution:** Hoisted `extractKeyPhrases(claim)` outside source loop in `verifySemantic()`
 
 **File:** `packages/praecis/youtube/src/extract/verification.ts` (lines 216-224)
 
@@ -334,7 +342,11 @@ const echoThreshold = clamp(
 
 ---
 
-### C.2. Cache V2 Scores in Hot Paths
+### C.2. Cache V2 Scores in Hot Paths ✅ RESOLVED
+
+**Status:** Completed (uncommitted)
+**Resolution:** Implemented score caching with stable string-based cache keys to avoid
+object reference issues. Uses `startSeconds:text:excerptIds` as cache key.
 
 **File:** `packages/praecis/youtube/src/extract/editorial-ranking.ts` (lines 681-691,
 735-754)
@@ -342,7 +354,7 @@ const echoThreshold = clamp(
 **Issue:** `scoreCandidateV2()` is recomputed multiple times during
 sorting/dedupe/scoring. A local score cache reduces repeated work.
 
-**Proposed Solution:**
+**Implementation:**
 
 ```typescript
 const scoreCache = new Map<ClaimCandidate, number>();
@@ -387,6 +399,96 @@ export const COST_WARNING_THRESHOLD_USD = 0.50;
 
 ---
 
+### D.2. Create Shared Memoization Utility
+
+**Files:** `packages/praecis/youtube/src/extract/utils.ts` (or new `memo.ts`)
+
+**Issue:** Multiple ad-hoc caching implementations exist across the codebase:
+
+- Editorial ranking uses local Map-based score caching
+- LLM claims uses file-based caching with schema versioning
+- No shared utility for common memoization patterns
+
+**Impact:**
+
+- Code duplication across modules
+- Inconsistent caching strategies
+- Re-implementation of common patterns
+
+**Proposed Solution:**
+Create a shared memoization utility with support for custom key functions:
+
+```typescript
+// In utils.ts or new memo.ts
+export function memoize<T, R>(
+  fn: (arg: T) => R,
+  getKey?: (arg: T) => string
+): (arg: T) => R {
+  const cache = new Map<string, R>();
+  return (arg: T) => {
+    const key = getKey ? getKey(arg) : JSON.stringify(arg);
+    if (cache.has(key)) return cache.get(key)!;
+    const result = fn(arg);
+    cache.set(key, result);
+    return result;
+  };
+}
+
+// Optional: LRU-bounded version for long-running caches
+export function memoizeLRU<T, R>(
+  fn: (arg: T) => R,
+  getKey?: (arg: T) => string,
+  maxSize: number = 1000
+): (arg: T) => R {
+  const cache = new Map<string, R>();
+  const accessOrder = new Array<string>(); // Track LRU
+
+  return (arg: T) => {
+    const key = getKey ? getKey(arg) : JSON.stringify(arg);
+
+    // Move to end if accessed (mark as recently used)
+    if (cache.has(key)) {
+      const idx = accessOrder.indexOf(key);
+      if (idx > -1) {
+        accessOrder.splice(idx, 1);
+      }
+      accessOrder.push(key);
+      return cache.get(key)!;
+    }
+
+    const result = fn(arg);
+    cache.set(key, result);
+    accessOrder.push(key);
+
+    // Evict oldest if over limit
+    if (cache.size > maxSize) {
+      const oldest = accessOrder.shift();
+      if (oldest) cache.delete(oldest);
+    }
+
+    return result;
+  };
+}
+```
+
+**Example usage for scoreCandidateV2:**
+
+```typescript
+const memoizedScore = memoize(
+  (candidate: ClaimCandidate) => scoreCandidateV2(candidate, scoreOptions),
+  (candidate) => `${candidate.startSeconds}:${candidate.text}:${candidate.excerptIds.join(',')}`
+);
+```
+
+**Acceptance Criteria:**
+
+- [ ] Shared `memoize()` utility added to `utils.ts` or new `memo.ts`
+- [ ] Optional `memoizeLRU()` variant with size limits
+- [ ] Editorial ranking updated to use shared utility (optional refactoring)
+- [ ] All tests pass
+
+---
+
 ## Implementation Notes
 
 ### Priority Order
@@ -395,14 +497,18 @@ Suggested implementation order:
 
 1. **A.2** (Unify entailment scaling) - Critical for correctness
 2. **A.4** (Validate n parameter) - Prevents incorrect behavior
-3. **A.1** (Replace COMMON_NOUNS) - High maintainability impact
-4. **B.1** (Extract magic numbers) - Low risk, high clarity
-5. **A.3** (Hoist phrase extraction) - Minor performance
-6. **B.2** (Clarify cache guard) - Documentation only
-7. **C.1** (Use DEFAULT_ECHO_DETECTION) - Minor refactor
-8. **A.5** (Fix documentation) - Documentation only
-9. **C.2** (Cache V2 scores) - Performance optimization
-10. **D.1** (Shared constants) - Organizational improvement
+3. **B.1** (Extract magic numbers) - Low risk, high clarity
+4. **B.2** (Clarify cache guard) - Documentation only
+5. **C.1** (Use DEFAULT_ECHO_DETECTION) - Minor refactor
+6. **A.5** (Fix documentation) - Documentation only
+7. **D.1** (Shared constants) - Organizational improvement
+8. **D.2** (Shared memoization utility) - Code quality improvement
+
+**Completed Items:**
+
+- ✅ **A.1** (Replace COMMON_NOUNS) - Completed in commit 753e4f2
+- ✅ **A.3** (Hoist phrase extraction) - Completed (uncommitted)
+- ✅ **C.2** (Cache V2 scores) - Completed (uncommitted)
 
 ### Testing Strategy
 

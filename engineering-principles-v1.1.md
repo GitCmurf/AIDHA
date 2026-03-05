@@ -1,6 +1,6 @@
 # Engineering Principles
 
-*(GitCmurf v1.1 -- 2026 revision)*
+*(GitCmurf v1.1 -- 2026/03/05 revision)*
 
 **Audience:** Human contributors and AI coding assistants (Codex,
 Claude, Gemini, etc.)\
