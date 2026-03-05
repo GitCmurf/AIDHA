@@ -22,30 +22,7 @@ import {
   hasBoilerplatePOSPattern,
 } from './nlp-utils.js';
 import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnostics, DEFAULT_ECHO_DETECTION } from './editorial-ranking.js';
-import { z } from 'zod';
-
-/**
- * Runtime schema for claim validation.
- * Matches ClaimCandidate interface for runtime validation.
- */
-const ClaimCandidateSchema = z.object({
-  text: z.string().min(1),
-  excerptIds: z.array(z.string()).min(1),
-  confidence: z.number().min(0).max(1).optional(),
-  startSeconds: z.number().nonnegative().optional(),
-  type: z.string().optional(),
-  classification: z.string().optional(),
-  domain: z.string().optional(),
-  why: z.string().optional(),
-  evidenceType: z.string().optional(),
-  method: z.enum(['heuristic', 'heuristic-fallback', 'llm']).optional(),
-  chunkIndex: z.number().int().optional(),
-  model: z.string().optional(),
-  promptVersion: z.string().optional(),
-  extractorVersion: z.string().optional(),
-  echoOverlapRatio: z.number().min(0).max(1).optional(),
-  state: z.enum(['draft', 'accepted', 'rejected']).optional(),
-});
+import { ClaimCandidateSchema } from './claim-candidate-schema.js';
 
 /**
  * Validates a claim candidate against the runtime schema.

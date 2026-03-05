@@ -14,7 +14,6 @@ export interface PromptInput {
   chunkStart: number;
   minClaims: number;
   maxClaims: number;
-  excerptIds: string[];
 }
 
 export interface PromptOutput {
