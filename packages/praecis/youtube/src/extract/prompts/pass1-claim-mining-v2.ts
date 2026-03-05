@@ -5,6 +5,8 @@
  * Based on Gemini baseline success showing domain-labeled, evidence-backed claims.
  */
 
+import { sanitizeForPrompt } from '../prompt-safety.js';
+
 export interface PromptInput {
   resourceLabel: string;
   chunkIndex: number;
@@ -214,33 +216,14 @@ export function buildUserPrompt(input: PromptInput, excerpts: Array<{id: string;
     }],
   };
 
-  // Escape user-provided label to prevent prompt injection
-  // Replace common prompt injection patterns with safe placeholders
-  const sanitizeLabel = (label: string): string => {
-    return label
-      .replace(/ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/gi, '[REDACTED]')
-      .replace(/(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/gi, '[REDACTED]')
-      .replace(/```/g, '\'\'\'') // Prevent code fence injection
-      .slice(0, 200); // Limit length
-  };
-
-  // Sanitize excerpt text to prevent prompt injection from transcript content
-  const sanitizeText = (text: string): string => {
-    return text
-      .replace(/ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/gi, '[REDACTED]')
-      .replace(/(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/gi, '[REDACTED]')
-      .replace(/```/g, '\'\'\'') // Prevent code fence injection
-      .slice(0, 1000); // Limit excerpt text length
-  };
-
   // Sanitize all excerpts before including in prompt
   const sanitizedExcerpts = excerpts.map(excerpt => ({
     ...excerpt,
-    text: sanitizeText(excerpt.text),
+    text: sanitizeForPrompt(excerpt.text, 1000),
   }));
 
   return [
-    `VIDEO_LABEL: """${sanitizeLabel(input.resourceLabel)}"""`,
+    `VIDEO_LABEL: """${sanitizeForPrompt(input.resourceLabel, 200)}"""`,
     `Chunk ${input.chunkIndex + 1}/${input.chunkCount} starting at ${Math.floor(input.chunkStart)}s.`,
     `Goal: Extract ${input.minClaims}-${input.maxClaims} high-utility claims.`,
     '',

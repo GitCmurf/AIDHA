@@ -13,6 +13,7 @@ import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './toke
 import { normalizeClaimClassification } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
+import { sanitizeForPrompt } from './prompt-safety.js';
 import { buildPass1PromptV2, PROMPT_VERSION as PROMPT_V2_VERSION } from './prompts/pass1-claim-mining-v2.js';
 import {
   getEditorRewritePrompt,
@@ -600,18 +601,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
     };
   }
 
-  /**
-   * Sanitizes a video label to prevent prompt injection attacks.
-   * Removes potential instruction override patterns and limits length.
-   */
-  private static sanitizeLabel(label: string): string {
-    return label
-      .replace(/ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/gi, '[REDACTED]')
-      .replace(/(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/gi, '[REDACTED]')
-      .replace(/```/g, '\'\'\'') // Prevent code fence injection
-      .slice(0, 200); // Limit length
-  }
-
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
     const maxClaims = input.maxClaims ?? this.maxClaims;
     const excerpts = input.excerpts;
@@ -761,7 +750,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let prompt: { system: string; user: string };
     if (this.usesEditorRewriteV3) {
       prompt = getEditorRewritePrompt(
-        LlmClaimExtractor.sanitizeLabel(input.resource.label),
+        sanitizeForPrompt(input.resource.label, 200),
         JSON.stringify(claimsPayload, null, 2)
       );
     } else {
@@ -888,7 +877,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
       ].join(' ');
       user = [
-        `VIDEO_LABEL: """${LlmClaimExtractor.sanitizeLabel(resource.label)}"""`,
+        `VIDEO_LABEL: """${sanitizeForPrompt(resource.label, 200)}"""`,
         `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
         `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
         `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion","domain":string,"confidence":0-1,"why":string}]}`,

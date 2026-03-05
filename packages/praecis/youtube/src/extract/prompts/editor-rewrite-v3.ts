@@ -11,10 +11,10 @@ export interface RewritePromptOutput {
 
 /**
  * Escapes triple-quote delimiters in text to prevent prompt injection.
- * Replaces """ with \" to avoid breaking the data fence.
+ * Replaces """ with ''' to avoid breaking the data fence.
  */
 function escapeTripleQuoted(value: string): string {
-  return value.replaceAll('"""', '\\"""');
+  return value.replaceAll('"""', "'''");
 }
 
 /**
