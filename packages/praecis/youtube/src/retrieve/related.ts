@@ -2,34 +2,18 @@ import type { GraphNode, GraphStore } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
 import type { ClaimState } from '../utils/claim-state.js';
+import { buildTimestampUrl, formatTimestamp, toNumber } from '../extract/utils.js';
 
+/**
+ * Normalizes text for token-based similarity computation.
+ * Unlike normalizeText in utils.ts (which only handles whitespace),
+ * this version also lowercases and removes punctuation for tokenization.
+ *
+ * @param text - The text to normalize
+ * @returns Normalized text suitable for token similarity comparison
+ */
 function normalizeText(text: string | undefined): string {
   return (text ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? fallback : parsed;
-  }
-  return fallback;
-}
-
-function formatTimestamp(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(total / 3600);
-  const mins = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  if (hours > 0) {
-    return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function buildTimestampUrl(baseUrl: string, seconds: number): string {
-  const separator = baseUrl.includes('?') ? '&' : '?';
-  return `${baseUrl}${separator}t=${Math.max(0, Math.floor(seconds))}s`;
 }
 
 function tokenSet(text: string | undefined): Set<string> {

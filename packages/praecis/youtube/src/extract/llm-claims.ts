@@ -14,7 +14,10 @@ import { normalizeClaimClassification } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
 import { buildPass1PromptV2, PROMPT_VERSION as PROMPT_V2_VERSION } from './prompts/pass1-claim-mining-v2.js';
-import { getEditorRewritePrompt } from './prompts/editor-rewrite-v3.js';
+import {
+  getEditorRewritePrompt,
+  REWRITE_PROMPT_VERSION as EDITOR_REWRITE_V3_PROMPT_VERSION,
+} from './prompts/editor-rewrite-v3.js';
 
 const CLAIM_TYPES = [
   'insight',
@@ -125,6 +128,8 @@ export interface LlmClaimExtractorConfig {
   circuitBreaker?: {
     failureThreshold?: number;
     resetTimeoutMs?: number;
+    halfOpenMaxCalls?: number;
+    halfOpenSuccessThreshold?: number;
   };
 }
 
@@ -151,17 +156,7 @@ const DEFAULT_MAX_CLAIMS = 25;
 const DEFAULT_CACHE_DIR = './out/cache/claims';
 const DEFAULT_MIN_CLAIMS_PER_CHUNK = 5;
 const DEFAULT_MAX_CLAIMS_PER_CHUNK = 12;
-let prompt;
-if (this.editorRewritePromptVersion === 'editor-rewrite-v3') {
-  const { system, user } = getEditorRewritePrompt(
-    LlmClaimExtractor.sanitizeLabel(input.resource.label),
-    JSON.stringify(claimsPayload, null, 2)
-  );
-  prompt = { system, user };
-} else {
-  // Future versions can be added here
-  throw new Error(`Unknown editor rewrite prompt version: ${this.editorRewritePromptVersion}`);
-}
+const DEFAULT_EDITOR_REWRITE_PROMPT_VERSION = EDITOR_REWRITE_V3_PROMPT_VERSION;
 const DEFAULT_EDITOR_REWRITE_MIN_KEYWORD_OVERLAP = 0.3;
 const DEFAULT_EDITOR_REWRITE_MAX_EDIT_RATIO = 0.5;
 const DEFAULT_MAX_TOKENS = 4000;
@@ -550,6 +545,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private maxTokens: number;
   private fallback?: ClaimExtractor;
   private circuitBreaker: CircuitBreaker;
+  private usesEditorRewriteV3: boolean;
 
   constructor(config: LlmClaimExtractorConfig) {
     this.client = config.client;
@@ -568,6 +564,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.editorLlm = config.editorLlm ?? false;
     this.editorRewritePromptVersion =
       config.editorRewritePromptVersion ?? DEFAULT_EDITOR_REWRITE_PROMPT_VERSION;
+    this.usesEditorRewriteV3 =
+      this.editorRewritePromptVersion === EDITOR_REWRITE_V3_PROMPT_VERSION;
     this.editorRewriteMinKeywordOverlap = clamp(
       config.editorRewriteMinKeywordOverlap ?? DEFAULT_EDITOR_REWRITE_MIN_KEYWORD_OVERLAP,
       0,
@@ -584,11 +582,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.fallback = config.fallback ?? new HeuristicClaimExtractor();
 
     // Initialize circuit breaker with config or defaults
-    const cbConfig = config.circuitBreaker;
-    this.circuitBreaker = new CircuitBreaker({
-      failureThreshold: cbConfig?.failureThreshold ?? 5,
-      resetTimeoutMs: cbConfig?.resetTimeoutMs ?? 30000,
-    });
+    // CircuitBreaker constructor handles undefined values with built-in defaults
+    this.circuitBreaker = new CircuitBreaker(config.circuitBreaker ?? {});
   }
 
   getEditorVersion(): 'v1' | 'v2' {
@@ -763,15 +758,20 @@ export class LlmClaimExtractor implements ClaimExtractor {
       startSeconds: candidate.startSeconds ?? 0,
     }));
 
-    const { system, user } = getEditorRewritePrompt(
-      LlmClaimExtractor.sanitizeLabel(input.resource.label),
-      JSON.stringify(claimsPayload, null, 2)
-    );
+    let prompt: { system: string; user: string };
+    if (this.usesEditorRewriteV3) {
+      prompt = getEditorRewritePrompt(
+        LlmClaimExtractor.sanitizeLabel(input.resource.label),
+        JSON.stringify(claimsPayload, null, 2)
+      );
+    } else {
+      throw new Error(`Unknown editor rewrite prompt version: ${this.editorRewritePromptVersion}`);
+    }
 
     const request = {
       model: this.model,
-      system,
-      user,
+      system: prompt.system,
+      user: prompt.user,
       temperature: 0,
       maxTokens: this.maxTokens,
       reasoningEffort: this.reasoningEffort,
@@ -784,7 +784,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     const retry = await this.client.generate({
       ...request,
-      user: `${user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
+      user: `${prompt.user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
     });
     if (!retry.ok) return null;
     return this.parseRewriteResponse(retry.value);

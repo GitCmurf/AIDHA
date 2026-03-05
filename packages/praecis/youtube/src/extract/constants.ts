@@ -14,7 +14,7 @@ export const BOILERPLATE_PATTERNS = [
   /subscribe/i,
   /like and subscribe/i,
   /smash that (like|subscribe)/i,
-  /sponsor/i,
+  /\bsponsor\b/i,
   /patreon/i,
   /thanks for watching/i,
   /welcome back/i,

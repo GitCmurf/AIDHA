@@ -1,6 +1,7 @@
 import type { GraphNode, GraphStore, NodeDataInput } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
 import { hashId } from '../utils/ids.js';
+import { buildTimestampUrl, formatTimestamp, toNumber } from '../extract/utils.js';
 
 export const DEFAULT_INBOX_PROJECT_ID = 'project-inbox';
 
@@ -51,27 +52,6 @@ function normalizeProjectId(projectId?: string): string {
 function normalizeTagId(tag: string): string {
   const slug = tag.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return slug.length > 0 ? `tag-${slug}` : hashId('tag', [tag]);
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? fallback : parsed;
-  }
-  return fallback;
-}
-
-function formatTimestamp(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const mins = Math.floor(total / 60);
-  const secs = total % 60;
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function buildTimestampUrl(baseUrl: string, seconds: number): string {
-  const separator = baseUrl.includes('?') ? '&' : '?';
-  return `${baseUrl}${separator}t=${Math.max(0, Math.floor(seconds))}s`;
 }
 
 function truncate(text: string | undefined, max = 220): string | undefined {

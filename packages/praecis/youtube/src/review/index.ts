@@ -8,22 +8,7 @@ import { createTaskFromClaim } from '../tasks/index.js';
 import type { ClaimState } from '../utils/claim-state.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
 import { hashId } from '../utils/ids.js';
-
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? fallback : parsed;
-  }
-  return fallback;
-}
-
-function formatTimestamp(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const mins = Math.floor(total / 60);
-  const secs = total % 60;
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
+import { formatTimestamp, toNumber } from '../extract/utils.js';
 
 function buildTimestampUrl(baseUrl: string, seconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(seconds));

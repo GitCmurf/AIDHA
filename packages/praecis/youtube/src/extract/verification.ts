@@ -121,7 +121,7 @@ const STOPWORDS = new Set([
  * const verifier = new TieredVerifier({
  *   lexicalThreshold: 0.3,
  *   semanticThreshold: 0.6,
- *   entailmentThreshold: 0.7,
+ *   entailmentThreshold: 0.48, // = semanticThreshold * ENTAILMENT_SCALING_FACTOR
  * });
  *
  * const result = await verifier.verify(
