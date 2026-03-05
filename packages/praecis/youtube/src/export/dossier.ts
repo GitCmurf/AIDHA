@@ -11,7 +11,7 @@ import type {
 } from './types.js';
 import type { ClaimState } from '../utils/claim-state.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
-import { getStringMetadata, getNumberMetadata, formatTimestamp, buildTimestampUrl, normalizeText, truncateText, toNumber } from '../extract/utils.js';
+import { getStringMetadata, getNumberMetadata, formatTimestamp, buildTimestampUrl, normalizeText, truncateText, toNumber, uniqueSortedStrings } from '../extract/utils.js';
 
 export interface DossierExporterConfig {
   graphStore: GraphStore;
@@ -40,7 +40,7 @@ function sortTranscriptSegments(segments: TranscriptSegmentExport[]): Transcript
 }
 
 function sortReferences(refs: string[]): string[] {
-  return Array.from(new Set(refs)).sort((a, b) => a.localeCompare(b));
+  return uniqueSortedStrings(refs);
 }
 
 function renderVideoMarkdown(dossier: VideoDossier): string {

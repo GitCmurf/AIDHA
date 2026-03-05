@@ -42,6 +42,10 @@ export type {
   CachedClaimsLoadResult,
   FragmentRules,
   CoverageSummary,
+  VerificationResult,
+  VerificationConfig,
+  VerificationTier,
+  CircuitBreakerConfig,
 } from './extract/index.js';
 export type { LlmClient, LlmCompletionRequest } from './extract/index.js';
 export {
@@ -60,6 +64,29 @@ export {
   dropCounts,
   OpenAiCompatibleClient,
   ReferenceExtractionPipeline,
+  TieredVerifier,
+  calculateTokenOverlap,
+  calculateNGramOverlap,
+  extractKeyPhrases,
+  CircuitBreaker,
+  CircuitBreakerState,
+  CircuitBreakerOpenError,
+  ClaimCandidateSchema,
+  CLAIM_TYPES,
+  CLAIM_CLASSIFICATIONS,
+  CLAIM_STATES,
+  CLAIM_METHODS,
+  validateClaimCandidate,
+  isValidClaimCandidate,
+  normalizeClaimType,
+  normalizeClaimClassification,
+  extractSVOTriples,
+  extractDiscourseMarkers,
+  hasPOSPattern,
+  getPOSPattern,
+  isGrammaticallyComplete,
+  extractKeywords,
+  hasBoilerplatePOSPattern,
 } from './extract/index.js';
 
 // Export (Markdown dossier)

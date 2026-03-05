@@ -50,6 +50,8 @@ This pass prioritizes high recall and auditability over strict precision.
    - `excerptIds: string[]` (required, non-empty, each value must match known excerpt ID)
    - `startSeconds: number` (optional, if absent derive from earliest cited excerpt, must be `>= 0`)
    - `type: string` (optional, normalized lower-case enum-like value)
+   - `why: string` (optional, brief explanation of evidence basis)
+   - `evidenceType: string` (optional, type of evidence: RCT, Meta-analysis, etc.)
    - `confidence: number` (optional, clamped to `0.0..1.0`)
 5. Persist validated candidates to cache using deterministic key components.
 
@@ -63,6 +65,9 @@ This pass prioritizes high recall and auditability over strict precision.
       "excerptIds": ["excerpt-abc123"],
       "startSeconds": 42,
       "type": "insight",
+      "classification": "fact",
+      "domain": "Software Engineering",
+      "evidenceType": "Physiological Consensus",
       "confidence": 0.82
     }
   ]
@@ -70,7 +75,11 @@ This pass prioritizes high recall and auditability over strict precision.
 ```
 
 Allowed `type` values currently include:
-`insight`, `instruction`, `fact`, `decision`, `warning`, `question`, `summary`, `example`.
+`insight`, `instruction`, `fact`, `mechanism`, `opinion`, `decision`,
+`warning`, `question`, `summary`, `example`.
+
+Allowed `classification` values include:
+`fact`, `mechanism`, `opinion`.
 
 ## Outputs
 

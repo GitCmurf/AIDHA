@@ -97,17 +97,56 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '');
 }
 
+/** Maximum number of model capabilities to cache (LRU eviction). */
+const MAX_CAPABILITIES_CACHE_SIZE = 100;
+
+/** Cached capabilities with timestamp for LRU eviction. */
+interface CachedCapabilities {
+  capabilities: ModelCapabilities;
+  lastAccess: number;
+}
+
 export class OpenAiCompatibleClient implements LlmClient {
   private baseUrl: string;
   private apiKey?: string;
   private timeoutMs: number;
   private modelCapabilities: ModelCapabilities;
+  private modelCapabilitiesConfigured: boolean;
+  /** Static cache for model capabilities to avoid repeated detection (LRU-bounded). */
+  private static capabilitiesCache = new Map<string, CachedCapabilities>();
 
   constructor(config: OpenAiCompatibleConfig) {
     this.baseUrl = normalizeBaseUrl(config.baseUrl);
     this.apiKey = config.apiKey;
     this.timeoutMs = config.timeoutMs ?? 60_000;
+    this.modelCapabilitiesConfigured = config.modelCapabilities !== undefined;
     this.modelCapabilities = config.modelCapabilities ?? DEFAULT_MODEL_CAPABILITIES;
+  }
+
+  /**
+   * Gets cached capabilities for a model, detecting and caching if not already cached.
+   * Uses LRU eviction to bound cache size.
+   */
+  private static getModelCapabilities(model: string): ModelCapabilities {
+    const now = Date.now();
+    const cached = OpenAiCompatibleClient.capabilitiesCache.get(model);
+
+    if (cached) {
+      cached.lastAccess = now;
+      return cached.capabilities;
+    }
+
+    const capabilities = detectModelCapabilities(model);
+    OpenAiCompatibleClient.capabilitiesCache.set(model, { capabilities, lastAccess: now });
+
+    // Evict oldest entry if cache exceeds maximum size
+    if (OpenAiCompatibleClient.capabilitiesCache.size > MAX_CAPABILITIES_CACHE_SIZE) {
+      const oldest = [...OpenAiCompatibleClient.capabilitiesCache.entries()]
+        .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0]?.[0];
+      if (oldest) OpenAiCompatibleClient.capabilitiesCache.delete(oldest);
+    }
+
+    return capabilities;
   }
 
   /**
@@ -115,6 +154,7 @@ export class OpenAiCompatibleClient implements LlmClient {
    * Allows dynamic capability configuration after construction.
    */
   setModelCapabilities(capabilities: ModelCapabilities): void {
+    this.modelCapabilitiesConfigured = true;
     this.modelCapabilities = capabilities;
   }
 
@@ -141,20 +181,24 @@ export class OpenAiCompatibleClient implements LlmClient {
         ],
       };
 
-      // Use configured model capabilities for feature gating
-      const capabilities = this.modelCapabilities;
+      // If capabilities are explicitly configured, they override per-request detection.
+      // This enforces a single-model-per-client behavior for capability gating.
+      // Otherwise, detect capabilities dynamically based on the requested model.
+      const modelCapabilities = this.modelCapabilitiesConfigured
+        ? this.modelCapabilities
+        : OpenAiCompatibleClient.getModelCapabilities(request.model);
 
-      if (capabilities.supportsReasoningEffort && request.reasoningEffort) {
+      if (modelCapabilities.supportsReasoningEffort && request.reasoningEffort) {
         body['reasoning_effort'] = request.reasoningEffort;
       }
-      if (capabilities.supportsVerbosity && request.verbosity) {
+      if (modelCapabilities.supportsVerbosity && request.verbosity) {
         body['verbosity'] = request.verbosity;
       }
 
       // Traditional parameters
       if (request.temperature !== undefined) {
         body['temperature'] = request.temperature;
-      } else if (!capabilities.supportsReasoningEffort) {
+      } else if (!modelCapabilities.supportsReasoningEffort) {
         // Only set default temperature for non-reasoning models
         body['temperature'] = 0.2;
       }
@@ -162,12 +206,12 @@ export class OpenAiCompatibleClient implements LlmClient {
       if (request.maxTokens !== undefined) {
         body['max_tokens'] = request.maxTokens;
       } else {
-        body['max_tokens'] = capabilities.defaultMaxTokens;
+        body['max_tokens'] = modelCapabilities.defaultMaxTokens;
       }
 
       // OpenAI-compatible structured output
       // Only add for models that support it to avoid breaking other providers
-      if (request.responseFormat && capabilities.supportsStructuredOutput) {
+      if (request.responseFormat && modelCapabilities.supportsStructuredOutput) {
         body['response_format'] = request.responseFormat;
       }
 

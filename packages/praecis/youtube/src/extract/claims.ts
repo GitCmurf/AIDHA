@@ -6,6 +6,7 @@ import { DEFAULT_CLAIM_STATE, type ClaimState } from '../utils/claim-state.js';
 import {
   normalizeText,
   normalizeKey,
+  uniqueSortedStrings,
   splitSentences,
   hasDanglingEnding,
   isCompleteSentence,
@@ -13,6 +14,13 @@ import {
   startsWithConnector,
   buildExcerptTextsById,
 } from './utils.js';
+import {
+  extractSVOTriples,
+  extractDiscourseMarkers,
+  isGrammaticallyComplete,
+  extractKeywords,
+  hasBoilerplatePOSPattern,
+} from './nlp-utils.js';
 import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnostics, DEFAULT_ECHO_DETECTION } from './editorial-ranking.js';
 import { z } from 'zod';
 
@@ -248,7 +256,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           confidence: this.computeHeuristicConfidence(normalized),
           startSeconds: merged.startSeconds,
           method: 'heuristic',
-          extractorVersion: 'heuristic-v1',
+          extractorVersion: process.env['AIDHA_HEURISTIC_NLP_LIBRARY'] === 'true' ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
         });
       }
     }
@@ -317,6 +325,12 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
    * - Complete sentences (not fragments)
    * - Longer text (more substantive)
    * - Fewer fragment indicators
+   * - Grammatically complete sentences (NLP-enhanced)
+   * - Clear SVO structure (NLP-enhanced)
+   * - Discourse markers indicating complex reasoning (NLP-enhanced)
+   * - Keyword richness (NLP-enhanced)
+   * Penalties for:
+   * - Boilerplate POS patterns (NLP-enhanced)
    */
   private computeHeuristicConfidence(text: string): number {
     let score = 0.4; // Base confidence
@@ -337,6 +351,29 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     // Penalty for fragment indicators
     const fragmentCount = countFragmentIndicators(text);
     score -= fragmentCount * 0.1;
+
+    // NLP-enhanced scoring factors
+    // Bonus for grammatical completeness
+    if (isGrammaticallyComplete(text)) score += 0.1;
+
+    // Bonus for SVO structure
+    const svoTriples = extractSVOTriples(text);
+    if (svoTriples.length > 0) score += 0.1;
+
+    // Bonus for discourse markers (causal/contrastive indicate complex reasoning)
+    const discourseMarkers = extractDiscourseMarkers(text);
+    const hasComplexReasoning = discourseMarkers.some(
+      m => m.type === 'causal' || m.type === 'contrast'
+    );
+    if (hasComplexReasoning) score += 0.05;
+
+    // Bonus for keyword richness (0.02-0.1 based on keyword count)
+    const keywords = extractKeywords(text, { maxKeywords: 10 });
+    const keywordScore = Math.min(keywords.length * 0.02, 0.1);
+    score += keywordScore;
+
+    // Penalty for boilerplate POS patterns
+    if (hasBoilerplatePOSPattern(text)) score -= 0.15;
 
     return Math.min(0.95, Math.max(0.1, score));
   }
@@ -419,8 +456,10 @@ export class ClaimExtractionPipeline {
     const writeResult = await runAtomically(this.graphStore, async () => {
       for (const claim of persistenceCandidates) {
         // Use normalized key for claim ID to ensure punctuation variants map to same node
+        // Sort excerptIds to ensure consistent hashing regardless of order
         const normalizedClaimKey = normalizeKey(claim.text);
-        const claimId = hashId('claim', [resourceId, normalizedClaimKey, ...claim.excerptIds]);
+        const sortedExcerptIds = uniqueSortedStrings(claim.excerptIds);
+        const claimId = hashId('claim', [resourceId, normalizedClaimKey, ...sortedExcerptIds]);
         const label = claim.text.length > 120 ? `${claim.text.slice(0, 117)}...` : claim.text;
         const metadata: Record<string, unknown> = {
           resourceId,

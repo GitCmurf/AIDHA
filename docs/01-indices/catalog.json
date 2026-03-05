@@ -662,20 +662,6 @@
     }
   },
   {
-    "path": "05-planning/tasks/task-003-plan-phases-gpt-5.md",
-    "title": "Phase Plan - GPT-5 Integration Roadmap",
-    "front_matter": {
-      "document_id": "AIDHA-TASK-003-PHASE-GPT5",
-      "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "1.0",
-      "last_updated": "2026-03-03",
-      "title": "Phase Plan - GPT-5 Integration Roadmap",
-      "type": "TASK",
-      "docops_version": "2.0"
-    }
-  },
-  {
     "path": "05-planning/tasks/task-002-mvp-completion.md",
     "title": "MVP Vertical Slice Completion Task List",
     "front_matter": {

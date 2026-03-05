@@ -30,6 +30,19 @@ export function normalizeText(text: string): string {
 }
 
 /**
+ * Deduplicates and sorts string arrays for consistent ordering.
+ * Uses standard JS relational string comparison (a < b) which yields a
+ * deterministic, environment-independent codepoint/binary ordering.
+ * Useful for creating stable keys from arrays of IDs.
+ *
+ * @param items - Array of strings to deduplicate and sort
+ * @returns New array with unique strings in deterministic sorted order
+ */
+export function uniqueSortedStrings<T extends string>(items: readonly T[]): T[] {
+  return Array.from(new Set(items)).sort((a, b) => a < b ? -1 : a > b ? 1 : 0) as T[];
+}
+
+/**
  * Creates a normalized key for deduplication.
  * Handles:
  * - Case normalization
@@ -43,8 +56,8 @@ export function normalizeText(text: string): string {
 export function normalizeKey(text: string): string {
   return normalizeText(text)
     .toLowerCase()
-    // Remove common punctuation variants
-    .replace(/[",;:!?()[\]{}]/g, '')
+    // Remove common punctuation variants (including trailing periods)
+    .replace(/[.",;:!?()[\]{}]/g, '')
     // Normalize apostrophes and quotes
     .replace(/[''"""]/g, '')
     // Normalize multiple spaces

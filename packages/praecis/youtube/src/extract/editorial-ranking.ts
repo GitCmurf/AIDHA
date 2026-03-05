@@ -1,5 +1,5 @@
 import type { ClaimCandidate } from './types.js';
-import { clamp, normalizeText, normalizeKey } from './utils.js';
+import { clamp, normalizeText, normalizeKey, uniqueSortedStrings } from './utils.js';
 import {
   BOILERPLATE_PATTERNS,
   ACTION_MARKERS,
@@ -59,7 +59,7 @@ export interface EditorialDiagnostics {
   windowCoverage: Array<{ windowIndex: number; selectedCount: number }>;
   /** Count of claims tagged as transcript echoes (overlap ≥ threshold) */
   echoTaggedCount: number;
-  /** Count of claims analyzed for echo (non-zero overlap ratio) */
+  /** Count of claims analyzed for echo (including zero overlap ratio) */
   echoAnalyzedCount: number;
 }
 
@@ -155,7 +155,7 @@ function calculateEchoOverlapRatio(
 }
 
 function stableExcerptKey(candidate: ClaimCandidate): string {
-  return Array.from(new Set(candidate.excerptIds)).sort((a, b) => a.localeCompare(b)).join('|');
+  return uniqueSortedStrings(candidate.excerptIds).join('|');
 }
 
 function candidateStart(candidate: ClaimCandidate): number {
@@ -344,10 +344,10 @@ function scoreCandidateV1(candidate: ClaimCandidate): number {
 
 function actionabilityScore(text: string): number {
   const normalized = normalizeText(text).toLowerCase();
-  const words = normalized.split(/\s+/).filter(Boolean);
+  const wordSet = new Set(normalized.split(/\s+/).filter(Boolean));
   let markers = 0;
   for (const marker of ACTION_MARKERS) {
-    if (words.includes(marker)) markers += 1;
+    if (wordSet.has(marker)) markers += 1;
   }
   for (const pattern of STEP_PATTERNS) {
     if (pattern.test(normalized)) markers += 1;

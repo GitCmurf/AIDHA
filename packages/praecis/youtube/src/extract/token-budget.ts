@@ -5,7 +5,7 @@
  * Prevents unbounded token usage and maintains cost predictability.
  */
 
-import { splitSentences } from './utils.js';
+import { splitSentences, normalizeText } from './utils.js';
 
 /**
  * Estimates token count for a given text.
@@ -15,8 +15,8 @@ import { splitSentences } from './utils.js';
 export function estimateTokens(text: string): number {
   if (!text) return 0;
 
-  // Remove extra whitespace to get a more accurate count
-  const normalized = text.replace(/\s+/g, ' ').trim();
+  // Reuse normalizeText for consistent whitespace handling
+  const normalized = normalizeText(text);
 
   // Conservative estimate: 4 chars per token
   // This overestimates slightly for text with many short words
@@ -173,6 +173,12 @@ export function estimateCost(tokens: number, pricePer1kTokens: number): number {
 }
 
 /**
+ * Default conservative price per 1k tokens (USD) for cost estimation warnings.
+ * This is intentionally high to provide conservative cost projections.
+ */
+export const DEFAULT_COST_PER_1K_TOKENS = 0.01;
+
+/**
  * Token budget summary for logging and diagnostics.
  */
 export interface TokenBudgetSummary {
@@ -200,7 +206,7 @@ export function createTokenBudgetSummary(
     chunkCount: budget.maxChunks,
     tokensPerChunk: budget.targetTokensPerChunk,
     underBudget: !result.overBudget,
-    ...(pricePer1kTokens && {
+    ...(pricePer1kTokens !== undefined && {
       estimatedCostUsd: estimateCost(budget.totalBudget, pricePer1kTokens),
       pricePer1kTokens,
     }),
