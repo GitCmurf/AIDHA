@@ -1,6 +1,6 @@
 import type { ClaimCandidate } from './types.js';
 import { clamp, normalizeText, normalizeKey, uniqueSortedStrings } from './utils.js';
-import { calculateTokenOverlap } from './verification.js';
+import { calculateTokenOverlap, tokenize } from './verification.js';
 import {
   BOILERPLATE_PATTERNS,
   ACTION_MARKERS,
@@ -293,7 +293,7 @@ function semanticDedupe(
   // Pre-tokenize all candidates once to avoid repeated Set creation
   const tokenSets = new Map<ClaimCandidate, Set<string>>();
   for (const c of ranked) {
-    tokenSets.set(c, new Set(normalizeText(c.text).toLowerCase().split(/\s+/).filter(Boolean)));
+    tokenSets.set(c, new Set(tokenize(normalizeText(c.text))));
   }
 
   const deduped: ClaimCandidate[] = [];

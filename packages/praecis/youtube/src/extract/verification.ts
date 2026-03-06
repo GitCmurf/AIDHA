@@ -411,7 +411,7 @@ export function calculateNGramOverlap(text1: string, text2: string, n = 2): numb
  * @param text - The text to tokenize
  * @returns Array of tokens
  */
-function tokenize(text: string): string[] {
+export function tokenize(text: string): string[] {
   return text
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ')
