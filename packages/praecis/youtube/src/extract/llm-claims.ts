@@ -807,8 +807,15 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return null;
     }
 
-    this.circuitBreaker.recordSuccess();
-    return this.parseRewriteResponse(retry.value);
+    const retryParsed = this.parseRewriteResponse(retry.value);
+    if (retryParsed) {
+      this.circuitBreaker.recordSuccess();
+      return retryParsed;
+    }
+
+    // Parse failed - LLM returned invalid JSON structure
+    this.circuitBreaker.recordFailure();
+    return null;
   }
 
   private parseRewriteResponse(content: string): Array<{ index: number; text: string }> | null {

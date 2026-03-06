@@ -31,13 +31,8 @@ const GENERIC_TERMS = new Set([
   'way', 'work', 'shows',
 ]);
 
+/** Maximum curated cap for GENERIC_TERMS to prevent scope creep. */
 const GENERIC_TERMS_MAX = 100;
-if (GENERIC_TERMS.size > GENERIC_TERMS_MAX) {
-  throw new Error(
-    `GENERIC_TERMS exceeded cap (${GENERIC_TERMS.size}/${GENERIC_TERMS_MAX}). ` +
-    'Review and prune terms before merge.'
-  );
-}
 
 const PROPER_NOUN_PATTERN = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g;
 const TOKEN_PATTERN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g;

@@ -11,7 +11,7 @@
  * but "limited time only" or "limited time offer" are clear CTA markers.
  */
 export const BOILERPLATE_PATTERNS = [
-  /subscribe/i,
+  /\bsubscribe\b/i,
   /like and subscribe/i,
   /smash that (like|subscribe)/i,
   /\bsponsor\b/i,

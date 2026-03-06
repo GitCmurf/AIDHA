@@ -204,7 +204,8 @@ export function splitSentences(text: string): string[] {
       // Check if current "word" ending with period is an abbreviation
       const currentWords = current.trim().split(/\s+/);
       const lastWordRaw = currentWords[currentWords.length - 1];
-      const lastWord = lastWordRaw?.toLowerCase().replace(/[.:!?]$/, '');
+      // Strip all non-alphanumeric characters to match "e.g." → "eg", "i.e." → "ie"
+      const lastWord = lastWordRaw?.toLowerCase().replace(/[^a-z0-9]/g, '');
       const isAbbreviation = lastWord ? ABBREVIATIONS.has(lastWord) : false;
 
       // Sentence end conditions:
