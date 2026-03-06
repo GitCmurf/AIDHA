@@ -293,7 +293,7 @@ function semanticDedupe(
   // Pre-tokenize all candidates once to avoid repeated Set creation
   const tokenSets = new Map<ClaimCandidate, Set<string>>();
   for (const c of ranked) {
-    tokenSets.set(c, new Set(tokenize(normalizeText(c.text))));
+    tokenSets.set(c, new Set(tokenize(c.text)));
   }
 
   const deduped: ClaimCandidate[] = [];

@@ -286,7 +286,7 @@ async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCa
       evidenceType: claim.evidenceType,
     })),
   };
-  await writeFile(path, JSON.stringify(payload, null, 2), 'utf-8');
+  await writeFile(path, JSON.stringify(payload), 'utf-8');
 }
 
 function tokenize(text: string): string[] {
@@ -389,7 +389,7 @@ async function writeRewriteCache(
   claims: Array<{ index: number; text: string }>
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify({ metadata, claims }, null, 2), 'utf-8');
+  await writeFile(path, JSON.stringify({ metadata, claims }), 'utf-8');
 }
 
 function cacheKeyForChunk(input: {
@@ -623,11 +623,15 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     let selected: ClaimCandidate[];
     if (this.editorVersion === 'v2') {
+      // Build both maps in a single pass for efficiency
       const excerptTextLengthById = new Map<string, number>();
+      const excerptTextsById = new Map<string, string>();
       for (const excerpt of excerpts) {
         excerptTextLengthById.set(excerpt.id, excerpt.content?.length ?? 0);
+        if (excerpt.content) {
+          excerptTextsById.set(excerpt.id, excerpt.content);
+        }
       }
-      const excerptTextsById = buildExcerptTextsById(excerpts);
 
       selected = runEditorPassV2(allCandidates, {
         maxClaims,
@@ -1042,11 +1046,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
-    if (!strictRetry) {
-      // Even with no parsed claims on non-strict retry, record success (LLM responded but no valid claims)
-      this.circuitBreaker.recordSuccess();
-      return parsed;
-    }
+    // Even with no parsed claims, record success before retry (LLM responded but no valid claims)
+    // This prevents the circuit breaker from getting stuck in HalfOpen state
+    this.circuitBreaker.recordSuccess();
 
     // Enhanced retry with parse-error feedback
     // Sanitize parseError to prevent second-order prompt injection
@@ -1064,7 +1066,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Check circuit breaker again before retry (respects HalfOpen call limits)
     if (!this.circuitBreaker.canExecute()) {
-      // Circuit breaker blocked the retry; skip without recording any outcome
+      // Circuit breaker blocked the retry
       return [];
     }
     this.circuitBreaker.incrementHalfOpenCallCount();

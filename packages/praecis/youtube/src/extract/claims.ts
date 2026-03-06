@@ -3,6 +3,7 @@ import type { Result } from '../pipeline/types.js';
 import type { ClaimExtractionResult, ClaimExtractor, ClaimExtractionInput, ClaimCandidate } from './types.js';
 import { hashId } from '../utils/ids.js';
 import { DEFAULT_CLAIM_STATE, type ClaimState } from '../utils/claim-state.js';
+import type { MergeableSegment } from './utils.js';
 import {
   normalizeText,
   normalizeKey,
@@ -97,15 +98,6 @@ interface MergedSegment {
   /** Start time of the last excerpt in this merged segment (used for gap calculation) */
   lastStartSeconds: number | undefined;
   excerptIndices: number[];
-}
-
-/**
- * Interface for mergeable segments.
- */
-export interface MergeableSegment {
-  text: string;
-  startSeconds?: number;
-  endSeconds?: number;
 }
 
 /**

@@ -313,7 +313,6 @@ export function isCompleteSentence(text: string): boolean {
 export interface MergeableSegment {
   text: string;
   startSeconds?: number;
-  endSeconds?: number;
 }
 
 /**
