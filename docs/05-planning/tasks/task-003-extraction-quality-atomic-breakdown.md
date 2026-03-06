@@ -696,6 +696,5 @@ flowchart TD
 - [FDD-003: Second-Pass Editorial Claim Selection](../../30-fdd/fdd-003-second-pass-editorial-selection.md)
 - [Task-003 v1 (Superseded): Original Task Plan](./task-003-fix-extraction-quality.md)
 - [Task-003-v2 (Superseded): Prior Task Breakdown](./task-003-fix-extraction-quality-v2.md)
-- [Task-003 GPT-5 Fork (Superseded): Parallel Task Breakdown](./task-003-plan-phases-gpt-5.md)
 - [Gemini Baseline: `packages/praecis/youtube/out/gemini-web-claims-extraction.md`](../../../../packages/praecis/youtube/out/gemini-web-claims-extraction.md)
 - [Heuristic Output Sample: `packages/praecis/youtube/out/dossier-final.md`](../../../../packages/praecis/youtube/out/dossier-final.md)

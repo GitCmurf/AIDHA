@@ -149,6 +149,13 @@ const DEFAULT_EDITOR_REWRITE_MIN_KEYWORD_OVERLAP = 0.3;
 const DEFAULT_EDITOR_REWRITE_MAX_EDIT_RATIO = 0.5;
 const DEFAULT_MAX_TOKENS = 4000;
 
+/**
+ * Optimal input token size per chunk for extraction quality.
+ * Larger prompts may reduce quality for some models.
+ * This is distinct from DEFAULT_MAX_TOKENS (output budget).
+ */
+const OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD = 4000;
+
 function hashTranscript(excerpts: GraphNode[]): string {
   const hash = createHash('sha256');
   const sorted = excerpts.slice().sort((a, b) => {
@@ -936,7 +943,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Enforce token budget per chunk (includes prompt + payload)
     const totalRequestTokens = estimateTokens(system) + estimateTokens(user);
-    if (totalRequestTokens > 4000) {
+    if (totalRequestTokens > OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD) {
       console.warn(`[TOKEN-BUDGET] Chunk ${chunk.index} exceeds optimal token budget (${totalRequestTokens} tokens). Extraction quality may be reduced.`);
     }
 

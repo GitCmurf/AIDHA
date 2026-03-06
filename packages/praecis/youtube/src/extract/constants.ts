@@ -18,8 +18,8 @@ export const BOILERPLATE_PATTERNS = [
   /patreon/i,
   /thanks for watching/i,
   /welcome back/i,
-  /intro/i,
-  /outro/i,
+  /\bintro\b/i,
+  /\boutro\b/i,
   // Wealthfront and financial sponsor CTAs
   /wealthfront/i,
   /APY on your cash/i,
