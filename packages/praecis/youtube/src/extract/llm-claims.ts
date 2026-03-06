@@ -753,16 +753,61 @@ export class LlmClaimExtractor implements ClaimExtractor {
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
     };
-    const response = await this.client.generate(request);
-    if (!response.ok) return null;
-    const parsed = this.parseRewriteResponse(response.value);
-    if (parsed) return parsed;
 
-    const retry = await this.client.generate({
-      ...request,
-      user: `${prompt.user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
-    });
-    if (!retry.ok) return null;
+    // Check circuit breaker before first LLM call
+    if (!this.circuitBreaker.canExecute()) {
+      console.warn('[CIRCUIT-OPEN] Editor rewrite: Circuit breaker is open, skipping rewrite call');
+      return null;
+    }
+    this.circuitBreaker.incrementHalfOpenCallCount();
+
+    let response;
+    try {
+      response = await this.client.generate(request);
+    } catch (error) {
+      this.circuitBreaker.recordFailure();
+      console.error(`Editor rewrite error: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+
+    if (!response.ok) {
+      this.circuitBreaker.recordFailure();
+      console.error(`Editor rewrite error: ${response.error.message}`);
+      return null;
+    }
+
+    const parsed = this.parseRewriteResponse(response.value);
+    if (parsed) {
+      this.circuitBreaker.recordSuccess();
+      return parsed;
+    }
+
+    // Check circuit breaker again before retry
+    if (!this.circuitBreaker.canExecute()) {
+      console.warn('[CIRCUIT-OPEN] Editor rewrite retry: Circuit breaker is open, skipping retry');
+      return null;
+    }
+    this.circuitBreaker.incrementHalfOpenCallCount();
+
+    let retry;
+    try {
+      retry = await this.client.generate({
+        ...request,
+        user: `${prompt.user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
+      });
+    } catch (error) {
+      this.circuitBreaker.recordFailure();
+      console.error(`Editor rewrite retry error: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+
+    if (!retry.ok) {
+      this.circuitBreaker.recordFailure();
+      console.error(`Editor rewrite retry error: ${retry.error.message}`);
+      return null;
+    }
+
+    this.circuitBreaker.recordSuccess();
     return this.parseRewriteResponse(retry.value);
   }
 
