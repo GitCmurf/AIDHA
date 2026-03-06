@@ -20,15 +20,6 @@ export const BOILERPLATE_PATTERNS = [
   /welcome back/i,
   /\bintro\b/i,
   /\boutro\b/i,
-  // Wealthfront and financial sponsor CTAs
-  /wealthfront/i,
-  /APY on your cash/i,
-  /annual percentage yield/i,
-  /partner banks/i,
-  /earn \d+% APY/i,
-  /high-yield savings account/i,
-  /automated investing/i,
-  /tax-optimized/i,
   // Common ad-read patterns (more specific to avoid false positives)
   /\bspecial offer\b/i,
   /\bdiscount code\b/i,

@@ -151,10 +151,11 @@ const DEFAULT_MAX_TOKENS = 4000;
 
 /**
  * Optimal input token size per chunk for extraction quality.
+ * Scaled to DEFAULT_CHUNK_MINUTES=10 with v2 prompt overhead (~1200 tokens).
  * Larger prompts may reduce quality for some models.
  * This is distinct from DEFAULT_MAX_TOKENS (output budget).
  */
-const OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD = 4000;
+const OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD = 6000;
 
 function hashTranscript(excerpts: GraphNode[]): string {
   const hash = createHash('sha256');

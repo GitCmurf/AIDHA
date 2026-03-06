@@ -298,6 +298,9 @@ function semanticSimilarity(a: ClaimCandidate, b: ClaimCandidate): number {
 /**
  * Performs semantic deduplication to catch paraphrased claims that escape exact matching.
  * Uses token set Jaccard similarity to identify claims with similar meaning but different wording.
+ *
+ * Performance: Pre-tokenizes all candidates once to avoid repeated Set allocation in O(n²) loop.
+ * For 144 candidates with ~50 tokens each, this reduces ~20,000 Set allocations to just 144.
  */
 function semanticDedupe(
   candidates: ClaimCandidate[],
@@ -305,22 +308,31 @@ function semanticDedupe(
   semanticThreshold: number
 ): DedupeResult {
   const ranked = candidates.slice().sort(comparePriority);
+
+  // Pre-tokenize all candidates once to avoid repeated Set creation
+  const tokenSets = new Map<ClaimCandidate, Set<string>>();
+  for (const c of ranked) {
+    tokenSets.set(c, new Set(normalizeText(c.text).toLowerCase().split(/\s+/).filter(Boolean)));
+  }
+
   const deduped: ClaimCandidate[] = [];
   let duplicateCount = 0;
 
   for (const candidate of ranked) {
-    const existingIndex = deduped.findIndex(existing =>
-      semanticSimilarity(existing, candidate) >= semanticThreshold
-    );
-    if (existingIndex === -1) {
-      deduped.push(candidate);
-      continue;
-    }
+    const candidateTokens = tokenSets.get(candidate)!;
+    const isDuplicate = deduped.some(existing => {
+      const existingTokens = tokenSets.get(existing)!;
+      if (candidateTokens.size === 0 || existingTokens.size === 0) return false;
+      let intersect = 0;
+      for (const t of candidateTokens) { if (existingTokens.has(t)) intersect++; }
+      const union = candidateTokens.size + existingTokens.size - intersect;
+      return (intersect / union) >= semanticThreshold;
+    });
 
-    duplicateCount += 1;
-    const existing = deduped[existingIndex];
-    if (existing && comparePriority(candidate, existing) < 0) {
-      deduped[existingIndex] = candidate;
+    if (isDuplicate) {
+      duplicateCount++;
+    } else {
+      deduped.push(candidate);
     }
   }
 
