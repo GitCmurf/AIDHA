@@ -76,7 +76,7 @@ Negative 1 - Intro boilerplate:
 - REJECT: Generic intro with no substantive claim
 
 Negative 2 - Sponsor CTA:
-"I've been using Wealthfront for my savings and nearly a decade, and you can earn 4% APY on your cash."
+"I've been using [SPONSOR] for my [PRODUCT_CATEGORY], and you can earn [OFFER] with code [PROMO_CODE]."
 - REJECT: Sponsor advertisement, not domain content
 
 Negative 3 - Transcript echo:
@@ -220,7 +220,7 @@ export function buildUserPrompt(input: PromptInput, excerpts: Array<{id: string;
     '- Each claim SHOULD include evidenceType when evidence is mentioned',
     '- If you find a generic claim, replace it with a more specific one from the same text',
     '- Reject intro/outro phrases like "welcome to", "thanks for watching", "subscribe"',
-    '- Reject sponsor content (Wealthfront, Athletic Greens, etc.)',
+    '- Reject sponsor content (e.g., "use code [CODE]", "[SPONSOR] discount", "[PRODUCT] link in description")',
     '- Reject sentence fragments ending in commas or hanging conjunctions',
     '- Aim for diverse claims across different physiological domains',
     '',

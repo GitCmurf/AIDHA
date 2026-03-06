@@ -265,6 +265,10 @@ export class CircuitBreaker {
    * If the circuit is OPEN, throws {@link CircuitBreakerOpenError}.
    * Otherwise, executes the function and records success or failure.
    *
+   * **NOTE**: This method treats ALL errors (including application-level errors like
+   * ValidationErrors) as failures. For more granular control, use the manual pattern:
+   * canExecute() → operation → recordSuccess()/recordFailure() based on error type.
+   *
    * @param fn - Async function to execute.
    * @returns Promise resolving to the function's return value.
    * @throws {@link CircuitBreakerOpenError} if circuit is open.
