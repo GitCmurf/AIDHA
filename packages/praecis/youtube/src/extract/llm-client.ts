@@ -135,7 +135,7 @@ export class OpenAiCompatibleClient implements LlmClient {
    * Gets cached capabilities for a model, detecting and caching if not already cached.
    * Uses LRU eviction to bound cache size.
    */
-  private getModelCapabilities(model: string): ModelCapabilities {
+  private getCapabilitiesForModel(model: string): ModelCapabilities {
     const now = Date.now();
     const cached = this.capabilitiesCache.get(model);
 
@@ -194,7 +194,7 @@ export class OpenAiCompatibleClient implements LlmClient {
       // Otherwise, detect capabilities dynamically based on the requested model.
       const modelCapabilities = this.modelCapabilitiesConfigured
         ? this.modelCapabilities
-        : this.getModelCapabilities(request.model);
+        : this.getCapabilitiesForModel(request.model);
 
       if (modelCapabilities.supportsReasoningEffort && request.reasoningEffort) {
         body['reasoning_effort'] = request.reasoningEffort;

@@ -275,25 +275,6 @@ function dedupeCandidates(
   return { duplicateCount, deduped: deduped.sort(compareCandidateOutputOrder) };
 }
 
-/**
- * Calculates semantic similarity between two claims using token set overlap.
- * Higher values indicate more similar content (paraphrases).
- */
-function semanticSimilarity(a: ClaimCandidate, b: ClaimCandidate): number {
-  const tokensA = new Set(normalizeText(a.text).toLowerCase().split(/\s+/).filter(Boolean));
-  const tokensB = new Set(normalizeText(b.text).toLowerCase().split(/\s+/).filter(Boolean));
-
-  if (tokensA.size === 0 || tokensB.size === 0) return 0;
-
-  // Jaccard similarity: intersection / union
-  const intersection = new Set<string>();
-  for (const token of tokensA) {
-    if (tokensB.has(token)) intersection.add(token);
-  }
-
-  const union = new Set([...tokensA, ...tokensB]);
-  return intersection.size / union.size;
-}
 
 /**
  * Performs semantic deduplication to catch paraphrased claims that escape exact matching.
