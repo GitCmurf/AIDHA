@@ -6,6 +6,22 @@
  */
 
 /**
+ * Escapes triple-quote delimiters in text to prevent prompt injection.
+ * Replaces """ with ''' to avoid breaking the data fence.
+ *
+ * @param value - The text to escape
+ * @returns Text with triple-quotes replaced
+ *
+ * @example
+ * ```typescript
+ * escapeTripleQuoted('My """cool""" video'); // => "My '''cool''' video"
+ * ```
+ */
+export function escapeTripleQuoted(value: string): string {
+  return value.replaceAll('"""', "'''");
+}
+
+/**
  * Sanitizes text for safe inclusion in LLM prompts.
  *
  * Protects against:

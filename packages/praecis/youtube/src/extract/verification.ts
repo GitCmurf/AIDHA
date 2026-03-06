@@ -8,7 +8,7 @@
  *
  * @module extract/verification
  */
-import { extractKeyPhrases } from './keyphrases.js';
+import { extractKeyPhrases, STOPWORDS } from './keyphrases.js';
 
 export { extractKeyPhrases };
 
@@ -98,16 +98,6 @@ const DEFAULT_CONFIG: VerificationConfig = {
   // This ensures tier 3 is reachable for claims that pass tier 2
   entailmentThreshold: 0.6 * ENTAILMENT_SCALING_FACTOR, // = 0.48
 };
-
-/**
- * Stopwords to exclude from tokenization
- */
-const STOPWORDS = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-  'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those',
-]);
 
 /**
  * TieredVerifier implements a three-tier verification system for grounding claims.

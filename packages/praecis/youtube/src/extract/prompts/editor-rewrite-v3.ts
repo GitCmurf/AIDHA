@@ -4,17 +4,11 @@
  * Modular prompt for refining claim text clarity, precision, and resolution.
  */
 
+import { escapeTripleQuoted } from '../prompt-safety.js';
+
 export interface RewritePromptOutput {
   system: string;
   user: string;
-}
-
-/**
- * Escapes triple-quote delimiters in text to prevent prompt injection.
- * Replaces """ with ''' to avoid breaking the data fence.
- */
-function escapeTripleQuoted(value: string): string {
-  return value.replaceAll('"""', "'''");
 }
 
 /**

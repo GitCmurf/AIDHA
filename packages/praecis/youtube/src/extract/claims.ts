@@ -25,6 +25,13 @@ import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnost
 import { ClaimCandidateSchema } from './claim-candidate-schema.js';
 
 /**
+ * Pre-compiled regex patterns for claim text analysis.
+ * Compiled once at module load to avoid repeated regex compilation in hot path.
+ */
+const NUMBER_REGEX = /\d+/;
+const UNIT_REGEX = /%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds|degree|degrees/i;
+
+/**
  * Validates a claim candidate against the runtime schema.
  * Returns the validated claim or null if validation fails.
  */
@@ -320,8 +327,8 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     let score = 0.4; // Base confidence
 
     // Bonus for numbers and units
-    const hasNumber = /\d+/.test(text);
-    const hasUnit = /%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds|degree|degrees/i.test(text);
+    const hasNumber = NUMBER_REGEX.test(text);
+    const hasUnit = UNIT_REGEX.test(text);
     if (hasNumber) score += 0.15;
     if (hasUnit) score += 0.1;
 

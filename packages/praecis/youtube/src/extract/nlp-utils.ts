@@ -23,6 +23,7 @@
  */
 
 import nlp from 'compromise';
+import { STOPWORDS, GENERIC_TERMS } from './keyphrases.js';
 
 /**
  * Represents a Subject-Verb-Object triple extracted from text.
@@ -593,28 +594,6 @@ export interface KeywordExtractionOptions {
   maxKeywords?: number;
 }
 
-const KEYWORD_STOPWORDS = new Set([
-  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had',
-  'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his',
-  'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy',
-  'did', 'she', 'use', 'her', 'way', 'many', 'oil', 'sit', 'set', 'run',
-  'eat', 'far', 'sea', 'eye', 'ask', 'own', 'say', 'too', 'any', 'try',
-  'let', 'put', 'end', 'why', 'turn', 'here', 'show', 'every', 'good',
-  'would', 'there', 'their', 'what', 'said', 'each', 'which', 'will',
-  'about', 'could', 'other', 'after', 'first', 'never', 'these', 'think',
-  'where', 'being', 'every', 'great', 'might', 'shall', 'still', 'those',
-  'while', 'this', 'that', 'with', 'have', 'from', 'they', 'been', 'were',
-  'said', 'time', 'than', 'them', 'into', 'just', 'like', 'over', 'also',
-  'back', 'only', 'know', 'take', 'year', 'good', 'some', 'come', 'make',
-  'well', 'work', 'life', 'even', 'more', 'want', 'here', 'look', 'down',
-  'most', 'long', 'last', 'find', 'give', 'does', 'made', 'part', 'such',
-  'keep', 'call', 'came', 'need', 'feel', 'seem', 'turn', 'hand', 'high',
-  'sure', 'upon', 'head', 'help', 'home', 'side', 'move', 'both', 'five',
-  'once', 'same', 'must', 'name', 'left', 'each', 'done', 'open', 'case',
-  'show', 'live', 'play', 'went', 'told', 'seen', 'long', 'want', 'came',
-  'took', 'went', 'seen', 'knew', 'said', 'told', 'went', 'took', 'made',
-]);
-
 /**
  * Extracts keywords from text using compromise noun phrases and frequency analysis.
  * Implements a YAKE!-like heuristic based on frequency, position, and term properties.
@@ -633,9 +612,16 @@ export function extractKeywords(text: string, options: KeywordExtractionOptions 
   const { maxKeywords = 10 } = options;
   const doc = nlp(text);
 
-  // Extract noun phrases (multi-word terms) and important nouns
+  // Extract nouns for keyword analysis
   const nouns = doc.nouns().out('array') as string[];
-  const nounPhrases = nouns;
+
+  // NOTE: compromise v14.x does not have a nounPhrases() method.
+  // Multi-word phrase extraction is handled by extractKeyPhrases in keyphrases.ts
+  // for the verification path. For NLP-enhanced scoring, single-word nouns
+  // combined with frequency analysis provides sufficient signal.
+  // TODO: Re-evaluate when upgrading to compromise v15+ or replacing with
+  // a more capable NLP library with proper noun phrase extraction.
+  const nounPhrases: string[] = [];
 
   // Extract all terms for frequency analysis
   const sentences = doc.json() || [];
@@ -650,8 +636,9 @@ export function extractKeywords(text: string, options: KeywordExtractionOptions 
     const word = term.text.toLowerCase().replace(/[^a-z]/g, '');
     if (word.length < 3) continue;
 
-    // Skip common stopwords
-    if (KEYWORD_STOPWORDS.has(word)) continue;
+    // Use shared STOPWORDS and GENERIC_TERMS from keyphrases.ts
+    // This ensures domain-agnostic filtering per plan-006 principles
+    if (STOPWORDS.has(word) || GENERIC_TERMS.has(word)) continue;
 
     wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
 
@@ -709,28 +696,34 @@ export function extractKeywords(text: string, options: KeywordExtractionOptions 
 
 /**
  * Common boilerplate POS patterns found in sponsor segments and CTAs.
- * These patterns often indicate promotional or filler content.
+ *
+ * NOTE: These patterns use IMPERATIVE-ANCHORED matching (must start at sentence beginning)
+ * to avoid false positives on legitimate claims. Generic sliding-window patterns were
+ * removed because they incorrectly penalized domain content like:
+ * - "Studies support the link between X and Y" → matched ['VERB', 'DET', 'NOUN']
+ * - "The mechanism introduces a key signal" → matched ['VERB', 'DET', 'NOUN']
+ *
+ * Only highly-specific CTA patterns are retained here.
  */
 const BOILERPLATE_PATTERNS: string[][] = [
-  // "Check out our sponsor" patterns
-  ['VERB', 'PREP', 'DET', 'NOUN'],
-  ['VERB', 'DET', 'NOUN', 'PREP'],
-  // "Click the link below" patterns
-  ['VERB', 'DET', 'NOUN', 'ADV'],
-  // "Visit our website" patterns
-  ['VERB', 'DET', 'NOUN'],
-  // "Thanks for watching" patterns
-  ['NOUN', 'PREP', 'VERB'],
-  // "Subscribe and hit the bell" patterns
+  // "Subscribe and hit the bell" - imperative verb + conjunction + verb
   ['VERB', 'CONJ', 'VERB'],
-  // "Use code SAVE20" patterns
-  ['VERB', 'NOUN', 'NOUN'],
-  // "This video is sponsored by" patterns
+  // "Thanks for watching" - gratitude noun + preposition + gerund
+  ['NOUN', 'PREP', 'VERB'],
+  // "This video is sponsored by" - specific declarative pattern
   ['DET', 'NOUN', 'VERB', 'VERB', 'PREP'],
 ];
 
 /**
- * Keywords commonly found in sponsor/CTA boilerplate.
+ * CTA-specific keywords for sponsor/affiliate detection.
+ *
+ * NOTE: Tightened to avoid false positives on legitimate domain claims.
+ * Removed domain-agnostic words like 'link', 'support', 'check', 'visit', 'channel'
+ * which appear in valid content across domains.
+ *
+ * Retained only words with strong CTA specificity:
+ * - Platform-specific: patreon, merch, affiliate, referral
+ * - Action-specific: subscribe (as engagement CTA, not verb use), promo, discount
  */
 const BOILERPLATE_KEYWORDS = new Set([
   'sponsor',
@@ -738,18 +731,8 @@ const BOILERPLATE_KEYWORDS = new Set([
   'ad',
   'advertisement',
   'promo',
-  'code',
   'discount',
-  'link',
-  'subscribe',
-  'like',
-  'comment',
-  'share',
-  'follow',
-  'click',
-  'check',
-  'visit',
-  'support',
+  'subscribe', // Engagement CTA context
   'patreon',
   'merch',
   'store',
@@ -757,10 +740,9 @@ const BOILERPLATE_KEYWORDS = new Set([
   'purchase',
   'affiliate',
   'referral',
-  'thanks',
-  'thank',
-  'watching',
-  'channel',
+  'thanks', // In outro context
+  'thank', // In outro context
+  'watching', // In "thanks for watching"
 ]);
 
 /**
@@ -773,7 +755,22 @@ const BOILERPLATE_KEYWORD_REGEXES = Array.from(BOILERPLATE_KEYWORDS).map((keywor
 });
 
 /**
+ * Pre-compiled regex for detecting CTA structural markers in imperative sentences.
+ * Compiled once at module load to avoid repeated regex compilation in hot path.
+ *
+ * These markers indicate strong CTA intent when combined with imperative verb patterns:
+ * - Second-person pronouns (your, our) indicate direct address to user
+ * - Directional words (below) indicate CTA positioning
+ * - Time/urgency markers (for more, today, now) indicate call-to-action urgency
+ */
+const CTA_MARKERS_REGEX = /\b(your|our|below|for more|today|now)\b/i;
+
+/**
  * Detects if text contains boilerplate POS patterns typical of sponsor segments or CTAs.
+ *
+ * Uses a dual-layer approach to minimize false positives on legitimate domain claims:
+ * 1. CTA-specific keyword detection (tightened to avoid domain-agnostic terms)
+ * 2. Imperative sentence pattern detection (must start with verb)
  *
  * @param text - The input text to analyze
  * @returns true if the text matches common boilerplate patterns
@@ -796,30 +793,29 @@ export function hasBoilerplatePOSPattern(text: string): boolean {
     regex.test(normalizedText)
   );
 
-  // Check for common POS patterns
+  // Check for common POS patterns (Anchored to start)
   const hasBoilerplatePattern = BOILERPLATE_PATTERNS.some((boilerPattern) => {
     if (pattern.length < boilerPattern.length) return false;
 
-    for (let i = 0; i <= pattern.length - boilerPattern.length; i++) {
-      let match = true;
-      for (let j = 0; j < boilerPattern.length; j++) {
-        if (pattern[i + j] !== boilerPattern[j]) {
-          match = false;
-          break;
-        }
+    // Must start at index 0 (anchored)
+    let match = true;
+    for (let j = 0; j < boilerPattern.length; j++) {
+      if (pattern[j] !== boilerPattern[j]) {
+        match = false;
+        break;
       }
-      if (match) return true;
     }
-    return false;
+    return match;
   });
 
   // Check for imperative sentence patterns (common in CTAs)
+  // This is the primary signal: CTAs almost always start with imperative verbs
   const sentences = doc.sentences().json();
   const hasImperativePattern = sentences.some((sentence: { terms?: Array<{ tags: string[]; text: string }> }) => {
     const terms = sentence.terms || [];
     if (terms.length === 0) return false;
 
-    // Check if sentence starts with a verb
+    // Check if sentence starts with a verb (imperative mood)
     const firstTerm = terms[0];
     if (!firstTerm) return false;
 
@@ -827,5 +823,18 @@ export function hasBoilerplatePOSPattern(text: string): boolean {
     return firstTags.includes('Verb') && !firstTags.includes('Pronoun');
   });
 
-  return (hasBoilerplateKeyword && hasBoilerplatePattern) || (hasImperativePattern && hasBoilerplateKeyword);
+  // Require BOTH keyword AND pattern/imperative match to reduce false positives
+  // This prevents "Studies support the link..." from triggering due to generic keywords
+  //
+  // Exception: Strong imperative patterns (verb-first sentences) with certain structural
+  // markers are sufficient even without explicit keywords. This catches CTAs like
+  // "Click the link below" and "Visit our website" without requiring those common
+  // words in the keyword blacklist (which would cause false positives on legitimate content).
+  const hasStrongImperativeCTA = hasImperativePattern && CTA_MARKERS_REGEX.test(normalizedText);
+
+  if (hasStrongImperativeCTA) {
+    return true;
+  }
+
+  return hasBoilerplateKeyword && (hasBoilerplatePattern || hasImperativePattern);
 }

@@ -5,7 +5,11 @@
  * high-maintenance lexical allowlists.
  */
 
-const STOPWORDS = new Set([
+/**
+ * Stopwords to exclude from keyphrase extraction.
+ * Domain-agnostic common function words.
+ */
+export const STOPWORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
   'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
   'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
@@ -13,8 +17,11 @@ const STOPWORDS = new Set([
   'from', 'into', 'onto', 'over', 'under', 'it', 'its', 'their', 'our',
 ]);
 
-// Ultra-generic terms that weakly discriminate meaning across domains.
-const GENERIC_TERMS = new Set([
+/**
+ * Ultra-generic terms that weakly discriminate meaning across domains.
+ * Per plan-006 policy: max 100 entries, changes require benchmark-linked rationale.
+ */
+export const GENERIC_TERMS = new Set([
   'analysis', 'approach', 'assessment', 'case', 'category', 'claim', 'component',
   'concept', 'condition', 'context', 'data', 'decision', 'description', 'detail',
   'development', 'difference', 'discussion', 'effect', 'element', 'evidence',

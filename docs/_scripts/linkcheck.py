@@ -13,7 +13,7 @@ from typing import Dict, Any
 
 DOCS = pathlib.Path(__file__).resolve().parents[2] / "docs"
 REPORT = DOCS / "01-indices" / "linkcheck-report.json"
-URL_PATTERN = re.compile(r"https?://[\w\-._~:/?#\[\]@!$&'()*+,;=%]+", re.IGNORECASE)
+URL_PATTERN = re.compile(r"https?://[\w\-._~:/?#@!$&'()*+,;=%]+", re.IGNORECASE)
 SKIP_HOST_PATTERN = re.compile(r"^https?://(?:www\.)?(youtube\.com|youtu\.be)/", re.IGNORECASE)
 SKIP_EXACT_URLS = {
     # Service endpoints and schema IDs can be valid yet unavailable/rate-limited in CI.
@@ -52,6 +52,24 @@ def check_url(url: str) -> Dict[str, Any]:
     return result
 
 
+def clean_url(url: str) -> str:
+    """Removes trailing markdown artifacts and punctuation while keeping balanced parens."""
+    # Iteratively strip from the right if the character is clearly a markdown artifact or sentence punctuation.
+    while url:
+        last = url[-1]
+        if last in '".,]':
+            url = url[:-1]
+        elif last == ')':
+            # Only strip trailing ')' if it's likely a markdown link artifact (unbalanced).
+            if url.count('(') < url.count(')'):
+                url = url[:-1]
+            else:
+                break
+        else:
+            break
+    return url
+
+
 def main() -> int:
     urls: set[str] = set()
     for md in DOCS.rglob("*.md"):
@@ -60,7 +78,7 @@ def main() -> int:
             if match.start() >= 4 and text[match.start() - 4:match.start()] == "git+":
                 # pip VCS URL form (git+https://...) is not a browsable HTTP endpoint.
                 continue
-            cleaned = match.group(0).rstrip('\")')
+            cleaned = clean_url(match.group(0))
             urls.add(cleaned)
     results = []
     failures = 0
