@@ -13,7 +13,7 @@ import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './toke
 import { normalizeClaimClassification, CLAIM_TYPES } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
-import { sanitizeForPrompt } from './prompt-safety.js';
+import { sanitizeForPrompt, escapeTripleQuoted } from './prompt-safety.js';
 import { buildPass1PromptV2, PROMPT_VERSION as PROMPT_V2_VERSION } from './prompts/pass1-claim-mining-v2.js';
 import {
   getEditorRewritePrompt,
@@ -928,7 +928,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
       ].join(' ');
       user = [
-        `VIDEO_LABEL: """${sanitizeForPrompt(resource.label, 200)}"""`,
+        `VIDEO_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(resource.label, 200))}"""`,
         `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
         `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
         `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion","domain":string,"confidence":0-1,"why":string}]}`,

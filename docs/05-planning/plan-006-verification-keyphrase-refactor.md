@@ -32,7 +32,7 @@ docops_version: "2.0"
 
 Fix incorrect keyphrase extraction semantics and reduce scope creep in
 `verification.ts`, while keeping behavior deterministic and testable per
-[engineering-principles.md](../../engineering-principles.md).
+`engineering-principles.md` (see repo root).
 
 ## Problem Statement
 

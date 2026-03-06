@@ -512,14 +512,14 @@ docops_version: "2.0"
 
 ### Task 7.1: Update FDD-002 candidate schema examples
 
-- [x] **Task**: Update [`docs/30-fdd/fdd-002-first-pass-youtube-claim-mining.md`](docs/30-fdd/fdd-002-first-pass-youtube-claim-mining.md:1) to include `evidenceType?: string` in schema examples. Update schema table to show it as optional additive field. Add section explaining prompt versioning policy: increment `promptVersion` when prompt changes, cache invalidation rules, testing requirements before version bump.
+- [x] **Task**: Update [`docs/30-fdd/fdd-002-first-pass-youtube-claim-mining.md`](../../30-fdd/fdd-002-first-pass-youtube-claim-mining.md) to include `evidenceType?: string` in schema examples. Update schema table to show it as optional additive field. Add section explaining prompt versioning policy: increment `promptVersion` when prompt changes, cache invalidation rules, testing requirements before version bump.
 - **Rationale**: The FDD is the contract for Pass 1; keeping it in sync prevents future drift and clarifies which fields are required vs. optional for backward compatibility. Prompt versioning documentation prevents the "cache pollution" failure mode observed in the initial credential confusion incident (Background 1.1 in v1).
 - **Regression Guard**: Schema examples remain backward-compatible; new fields shown as optional
 - **Completion Criteria**: FDD-002 schema examples include evidenceType; prompt versioning policy documented; `pnpm docs:build` succeeds
 
 ### Task 7.2: Update FDD-003 editorial scoring rules
 
-- [x] **Task**: Update [`docs/30-fdd/fdd-003-second-pass-editorial-selection.md`](docs/30-fdd/fdd-003-second-pass-editorial-selection.md:1) to document: V2 scoring formula with all weights and penalties (metadata bonus, echo penalty, context-dependent penalty), semantic dedupe algorithm with threshold, editorial diagnostics output format. Include example with step-by-step score calculation.
+- [x] **Task**: Update [`docs/30-fdd/fdd-003-second-pass-editorial-selection.md`](../../30-fdd/fdd-003-second-pass-editorial-selection.md) to document: V2 scoring formula with all weights and penalties (metadata bonus, echo penalty, context-dependent penalty), semantic dedupe algorithm with threshold, editorial diagnostics output format. Include example with step-by-step score calculation.
 - **Rationale**: Pass 2 is intended to be deterministic and reusable (FDD-003 contract); documenting the exact rules makes quality work reviewable and reduces "mystery scoring" where operators cannot predict why a claim was dropped or kept.
 - **Regression Guard**: Documentation additive; does not change implementation
 - **Completion Criteria**: FDD-003 includes V2 scoring formula, penalty weights, dedupe algorithm, and worked example; `pnpm docs:build` succeeds
@@ -694,7 +694,7 @@ flowchart TD
 
 - [FDD-002: First-Pass YouTube Claim Mining](../../30-fdd/fdd-002-first-pass-youtube-claim-mining.md)
 - [FDD-003: Second-Pass Editorial Claim Selection](../../30-fdd/fdd-003-second-pass-editorial-selection.md)
-- [Task-003 v1 (Superseded): Original Task Plan](./task-003-fix-extraction-quality.md)
-- [Task-003-v2 (Superseded): Prior Task Breakdown](./task-003-fix-extraction-quality-v2.md)
-- [Gemini Baseline: `packages/praecis/youtube/out/gemini-web-claims-extraction.md`](../../../../packages/praecis/youtube/out/gemini-web-claims-extraction.md)
-- [Heuristic Output Sample: `packages/praecis/youtube/out/dossier-final.md`](../../../../packages/praecis/youtube/out/dossier-final.md)
+<!-- Superseded task files removed: task-003-fix-extraction-quality.md and task-003-fix-extraction-quality-v2.md no longer exist -->
+<!-- Package output samples are outside docs/ and not included in MkDocs build -->
+- Gemini Baseline: `packages/praecis/youtube/out/gemini-web-claims-extraction.md`
+- Heuristic Output Sample: `packages/praecis/youtube/out/dossier-final.md`
