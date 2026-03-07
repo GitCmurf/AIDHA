@@ -794,6 +794,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
+    // Even with unparsable response, record success before retry (LLM responded successfully)
+    // This prevents the circuit breaker from getting stuck in HalfOpen state
+    this.circuitBreaker.recordSuccess();
+
     // Check circuit breaker again before retry
     if (!this.circuitBreaker.canExecute()) {
       console.warn('[CIRCUIT-OPEN] Editor rewrite retry: Circuit breaker is open, skipping retry');
@@ -825,8 +829,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return retryParsed;
     }
 
-    // Parse failed - LLM returned invalid JSON structure
-    this.circuitBreaker.recordFailure();
+    // Even with unparsable retry response, record success (LLM responded successfully)
+    // This prevents the circuit breaker from getting stuck in HalfOpen state
+    this.circuitBreaker.recordSuccess();
     return null;
   }
 
