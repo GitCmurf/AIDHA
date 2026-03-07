@@ -24,15 +24,18 @@ export const BOILERPLATE_PATTERNS = [
   /\bspecial offer\b/i,
   /\bdiscount code\b/i,
   /\bpromo code\b/i,
-  /\buse code \w+\b/i,
-  /\blinked (below|in|down)/i,
-  /\blink (is|in the|below)/i,
+  /\buse code [A-Z0-9_-]{3,}\b/i,
+  /\blinked (?:below|down below)\b/i,
+  /\blink (?:below|down below|in the description)\b/i,
   /\baffiliate link\b/i,
   /\bsupport the (channel|show|podcast)\b/i,
   /\bclick (the link|link below|down below)\b/i,
   /\bcheck out (the description|below|my link)\b/i,
   /\bfollow me on\b/i,
   /\bjoin the (discord|community|patreon)\b/i,
+  /\byou can earn \d+(?:\.\d+)?%\s+apy\b/i,
+  /\bpartner banks?\b/i,
+  /\bwealthfront\b/i,
 ];
 
 /**

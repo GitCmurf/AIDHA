@@ -414,7 +414,7 @@ export function calculateNGramOverlap(text1: string, text2: string, n = 2): numb
 export function tokenize(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter(t => t.length > 0 && !STOPWORDS.has(t));
 }

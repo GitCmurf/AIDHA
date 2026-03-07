@@ -37,6 +37,11 @@ describe('verification', () => {
       expect(calculateTokenOverlap('some text', '')).toBe(0);
       expect(calculateTokenOverlap('', '')).toBe(0);
     });
+
+    it('preserves non-latin letters during tokenization', () => {
+      const overlap = calculateTokenOverlap('Привет мир', 'Привет, мир!');
+      expect(overlap).toBeGreaterThan(0);
+    });
   });
 
   describe('calculateNGramOverlap', () => {

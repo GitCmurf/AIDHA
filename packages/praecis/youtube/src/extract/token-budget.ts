@@ -62,8 +62,12 @@ export function calculateChunkBudget(transcriptText: string, chunkCount: number)
   // Cap total budget to prevent runaway costs
   const cappedTotal = Math.min(totalTokens, MAX_TOKENS_PER_VIDEO);
 
+  const requestedChunks = Math.max(1, chunkCount);
+  const requiredChunks = Math.max(1, Math.ceil(cappedTotal / MAX_TOKENS_PER_CHUNK));
+  const effectiveChunks = Math.max(requestedChunks, requiredChunks);
+
   // Calculate tokens per chunk if evenly distributed
-  const tokensPerChunk = Math.ceil(cappedTotal / Math.max(1, chunkCount));
+  const tokensPerChunk = Math.ceil(cappedTotal / effectiveChunks);
 
   // Apply per-chunk limit
   const boundedPerChunk = Math.min(tokensPerChunk, MAX_TOKENS_PER_CHUNK);
@@ -71,7 +75,7 @@ export function calculateChunkBudget(transcriptText: string, chunkCount: number)
   return {
     overBudget,
     budget: {
-      maxChunks: chunkCount,
+      maxChunks: effectiveChunks,
       targetTokensPerChunk: Math.min(TARGET_TOKENS_PER_CHUNK, boundedPerChunk),
       maxTokensPerChunk: boundedPerChunk,
       totalBudget: cappedTotal,

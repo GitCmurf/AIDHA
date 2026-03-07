@@ -67,6 +67,35 @@ describe('editorial ranking v2', () => {
     );
   });
 
+  it('deduplicates equivalent negated claims despite punctuation differences', () => {
+    const candidates: ClaimCandidate[] = [
+      {
+        text: 'High-carb diets do not increase endurance performance in trained cyclists.',
+        excerptIds: ['e1'],
+        startSeconds: 10,
+        chunkIndex: 0,
+        confidence: 0.8,
+      },
+      {
+        text: 'High-carb diets do not increase endurance performance in trained cyclists',
+        excerptIds: ['e2'],
+        startSeconds: 12,
+        chunkIndex: 0,
+        confidence: 0.75,
+      },
+    ];
+
+    const result = runEditorPassV2(candidates, {
+      maxClaims: 5,
+      chunkCount: 1,
+      semanticSimilarityThreshold: 0.75,
+      minWindows: 1,
+      dropThreshold: 0,
+    });
+
+    expect(result).toHaveLength(1);
+  });
+
   it('enforces multi-window coverage and max-per-window cap', () => {
     const candidates: ClaimCandidate[] = [
       {

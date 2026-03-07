@@ -126,6 +126,12 @@ describe('extractDiscourseMarkers', () => {
     expect(markers.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('preserves repeated discourse markers across sentences', () => {
+    const markers = extractDiscourseMarkers('However, we tried. However, we adapted.');
+    const howeverMarkers = markers.filter(marker => marker.marker === 'however');
+    expect(howeverMarkers).toHaveLength(2);
+  });
+
   it('detects multi-word markers', () => {
     const markers = extractDiscourseMarkers('On the other hand, this is different.');
     const contrastMarker = markers.find(m => m.marker.includes('other hand'));

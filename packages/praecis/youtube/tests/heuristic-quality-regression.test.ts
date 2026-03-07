@@ -123,6 +123,13 @@ describe('HeuristicClaimExtractor quality regression', () => {
     }
   });
 
+  it('treats percentages as units in heuristic confidence scoring', () => {
+    const scoreWithPercent = (extractor as any).computeHeuristicConfidence('Body fat dropped by 50% after the intervention.');
+    const scoreWithoutPercent = (extractor as any).computeHeuristicConfidence('Body fat dropped after the intervention.');
+
+    expect(scoreWithPercent).toBeGreaterThan(scoreWithoutPercent);
+  });
+
   it('assigns confidence scores based on content features', async () => {
     const candidates = await extractor.extractClaims({
       resource,

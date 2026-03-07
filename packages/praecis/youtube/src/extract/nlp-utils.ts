@@ -346,13 +346,7 @@ export function extractDiscourseMarkers(text: string): DiscourseMarker[] {
     }
   }
 
-  // Remove duplicates based on marker text
-  const seen = new Set<string>();
-  return markers.filter((m) => {
-    if (seen.has(m.marker)) return false;
-    seen.add(m.marker);
-    return true;
-  });
+  return markers;
 }
 
 /**

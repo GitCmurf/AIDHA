@@ -55,6 +55,14 @@ const ENV_VERBOSE = 'AIDHA_VERBOSE';
 const ERROR_PREFIX = '[error]';
 const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] === 'true';
 
+export function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/(["']?)(api[_-]?key|token|secret|authorization)\1\s*[:=]\s*(["'])([^"']+)\3/gi, '"$2": "[REDACTED]"')
+    .replace(/(["']?)(api[_-]?key|token|secret|authorization)\1\s*[:=]\s*([^\s,"'}\]]+)/gi, '$2=[REDACTED]')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/g, 'Bearer [REDACTED]')
+    .replace(/sk-[a-zA-Z0-9]{5,}/g, 'sk-[REDACTED]');
+}
+
 function parseVideoId(input: string): string {
   if (!input.includes('/') && !input.includes('.')) {
     return input;
@@ -1341,14 +1349,6 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
     err => {
       // Log only sanitized error information to avoid leaking sensitive data.
       // ENV_VERBOSE enables error name prefix but never prints full stacks.
-      const sanitizeErrorMessage = (message: string): string => {
-        return message
-          .replace(/(api[_-]?key|token|secret|authorization)\s*[:=]\s*["']?([^\s"']+)/gi, '$1=[REDACTED]')
-          .replace(/Bearer\s+[A-Za-z0-9._-]+/g, 'Bearer [REDACTED]')
-          .replace(/sk-[a-zA-Z0-9]{32,}/g, 'sk-[REDACTED]')
-          .replace(/['"][^'"]*api[_-]?key[^'"]*['"]/gi, '"[REDACTED]"');
-      };
-
       if (err instanceof Error) {
         const basicMessage = sanitizeErrorMessage(err.message || 'Unexpected error');
         if (VERBOSE) {

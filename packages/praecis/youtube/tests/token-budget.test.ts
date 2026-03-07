@@ -91,6 +91,17 @@ describe('token-budget', () => {
 
       expect(budget.maxTokensPerChunk).toBeLessThanOrEqual(10_000);
     });
+
+    it('increases maxChunks when requested chunks cannot fit the capped budget', () => {
+      const text = 'A'.repeat(200_000); // ~50k tokens after capping
+      const result = calculateChunkBudget(text, 1);
+      const budget = result.budget;
+
+      expect(budget.totalBudget).toBe(50_000);
+      expect(budget.maxTokensPerChunk).toBeLessThanOrEqual(10_000);
+      expect(budget.maxChunks).toBeGreaterThan(1);
+      expect(budget.maxChunks * budget.maxTokensPerChunk).toBeGreaterThanOrEqual(budget.totalBudget);
+    });
   });
 
   describe('exceedsTokenBudget', () => {

@@ -286,10 +286,20 @@ const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
 ]);
 
 function hasNegationOrQualifierDifference(text1: string, text2: string): boolean {
-  const normalized1 = normalizeText(text1).toLowerCase();
-  const normalized2 = normalizeText(text2).toLowerCase();
-  const words1 = new Set(normalized1.split(/\s+/).filter(Boolean));
-  const words2 = new Set(normalized2.split(/\s+/).filter(Boolean));
+  const words1 = new Set(
+    normalizeText(text1)
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+  );
+  const words2 = new Set(
+    normalizeText(text2)
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+  );
 
   for (const word of NEGATION_WORDS) {
     if (words1.has(word) !== words2.has(word)) {
