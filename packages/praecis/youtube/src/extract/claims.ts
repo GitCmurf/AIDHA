@@ -33,6 +33,11 @@ const NUMBER_REGEX = /\d+/;
 const UNIT_REGEX = /\b(%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds|degree|degrees)\b/i;
 
 /**
+ * Environment variable name for enabling NLP library features.
+ */
+const ENV_HEURISTIC_NLP_LIBRARY = 'AIDHA_HEURISTIC_NLP_LIBRARY';
+
+/**
  * Validates a claim candidate against the runtime schema.
  * Returns the validated claim or null if validation fails.
  */
@@ -106,6 +111,11 @@ interface MergedSegment {
  */
 export class HeuristicClaimExtractor implements ClaimExtractor {
   private lastEditorDiagnostics: EditorialDiagnostics | undefined;
+  private readonly useNlp: boolean;
+
+  constructor() {
+    this.useNlp = process.env[ENV_HEURISTIC_NLP_LIBRARY] === 'true';
+  }
 
   /**
    * Returns the editorial version used by this extractor.
@@ -239,7 +249,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           confidence: this.computeHeuristicConfidence(normalized),
           startSeconds: merged.startSeconds,
           method: 'heuristic',
-          extractorVersion: process.env['AIDHA_HEURISTIC_NLP_LIBRARY'] === 'true' ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
+          extractorVersion: this.useNlp ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
         });
       }
     }
@@ -335,28 +345,30 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     const fragmentCount = countFragmentIndicators(text);
     score -= fragmentCount * 0.1;
 
-    // NLP-enhanced scoring factors
-    // Bonus for grammatical completeness
-    if (isGrammaticallyComplete(text)) score += 0.1;
+    // NLP-enhanced scoring factors (only when enabled)
+    if (this.useNlp) {
+      // Bonus for grammatical completeness
+      if (isGrammaticallyComplete(text)) score += 0.1;
 
-    // Bonus for SVO structure
-    const svoTriples = extractSVOTriples(text);
-    if (svoTriples.length > 0) score += 0.1;
+      // Bonus for SVO structure
+      const svoTriples = extractSVOTriples(text);
+      if (svoTriples.length > 0) score += 0.1;
 
-    // Bonus for discourse markers (causal/contrastive indicate complex reasoning)
-    const discourseMarkers = extractDiscourseMarkers(text);
-    const hasComplexReasoning = discourseMarkers.some(
-      m => m.type === 'causal' || m.type === 'contrast'
-    );
-    if (hasComplexReasoning) score += 0.05;
+      // Bonus for discourse markers (causal/contrastive indicate complex reasoning)
+      const discourseMarkers = extractDiscourseMarkers(text);
+      const hasComplexReasoning = discourseMarkers.some(
+        m => m.type === 'causal' || m.type === 'contrast'
+      );
+      if (hasComplexReasoning) score += 0.05;
 
-    // Bonus for keyword richness (0.02-0.1 based on keyword count)
-    const keywords = extractKeywords(text, { maxKeywords: 10 });
-    const keywordScore = Math.min(keywords.length * 0.02, 0.1);
-    score += keywordScore;
+      // Bonus for keyword richness (0.02-0.1 based on keyword count)
+      const keywords = extractKeywords(text, { maxKeywords: 10 });
+      const keywordScore = Math.min(keywords.length * 0.02, 0.1);
+      score += keywordScore;
 
-    // Penalty for boilerplate POS patterns
-    if (hasBoilerplatePOSPattern(text)) score -= 0.15;
+      // Penalty for boilerplate POS patterns
+      if (hasBoilerplatePOSPattern(text)) score -= 0.15;
+    }
 
     return Math.min(0.95, Math.max(0.1, score));
   }

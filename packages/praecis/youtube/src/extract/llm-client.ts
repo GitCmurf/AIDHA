@@ -223,7 +223,7 @@ export class OpenAiCompatibleClient implements LlmClient {
       if (request.responseFormat && modelCapabilities.supportsStructuredOutput) {
         body['response_format'] = {
           type: 'json_schema',
-          json_schema: { schema: request.responseFormat.schema },
+          json_schema: { name: 'response', schema: request.responseFormat.schema },
         };
       }
 

@@ -41,7 +41,7 @@ export const DEFAULT_ECHO_DETECTION: Readonly<{
   overlapThreshold: number;
 }> = Object.freeze({
   mode: 'tag' as const,
-  overlapThreshold: 0.9,
+  overlapThreshold: DEFAULT_V2_ECHO_OVERLAP_THRESHOLD,
 });
 
 export type EditorialDropReason =

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import type { GraphNode } from '@aidha/graph-backend';
+import type { ResolvedConfig } from '@aidha/config';
 import type { Result } from '../pipeline/types.js';
 import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from './types.js';
 import { HeuristicClaimExtractor } from './claims.js';
@@ -109,8 +110,8 @@ export interface LlmClaimExtractorConfig {
   editorRewritePromptVersion?: string;
   editorRewriteMinKeywordOverlap?: number;
   editorRewriteMaxEditRatio?: number;
-  reasoningEffort?: string;
-  verbosity?: string;
+  reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+  verbosity?: ResolvedConfig['llm']['verbosity'];
   maxTokens?: number;
   fallback?: ClaimExtractor;
   circuitBreaker?: {
@@ -536,8 +537,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private editorRewritePromptVersion: string;
   private editorRewriteMinKeywordOverlap: number;
   private editorRewriteMaxEditRatio: number;
-  private reasoningEffort?: string;
-  private verbosity?: string;
+  private reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+  private verbosity?: ResolvedConfig['llm']['verbosity'];
   private maxTokens: number;
   private fallback?: ClaimExtractor;
   private circuitBreaker: CircuitBreaker;
@@ -1008,8 +1009,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
     chunk: ClaimChunk;
     excerptStartMap: Map<string, number>;
     strictRetry: boolean;
-    reasoningEffort?: string;
-    verbosity?: string;
+    reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+    verbosity?: ResolvedConfig['llm']['verbosity'];
   }): Promise<ClaimCandidate[]> {
     const { system, user, chunk, excerptStartMap, strictRetry, reasoningEffort, verbosity } = input;
 
