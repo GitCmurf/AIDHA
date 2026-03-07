@@ -153,6 +153,12 @@ describe('token-budget', () => {
       expect(chunks.length).toBeGreaterThan(1);
     });
 
+    it('does not overcount separator tokens when splitting long sentences into words', () => {
+      const chunks = chunkTextByTokenBudget('aa bb cc dd ee', 3);
+
+      expect(chunks).toEqual(['aa bb', 'cc dd', 'ee']);
+    });
+
     it('preserves all content across chunks', () => {
       const original = 'A'.repeat(5_000);
       const chunks = chunkTextByTokenBudget(original, 500);

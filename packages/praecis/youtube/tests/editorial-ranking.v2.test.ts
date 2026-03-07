@@ -400,6 +400,36 @@ describe('editorial ranking v2', () => {
       expect(result.length).toBe(2);
     });
 
+    it('preserves superlative claims with opposite meanings', () => {
+      const candidates: ClaimCandidate[] = [
+        {
+          text: 'This is the best option for improving recovery after intense training.',
+          excerptIds: ['e1'],
+          startSeconds: 10,
+          chunkIndex: 0,
+          confidence: 0.8,
+          domain: 'Recovery',
+        },
+        {
+          text: 'This is the worst option for improving recovery after intense training.',
+          excerptIds: ['e2'],
+          startSeconds: 20,
+          chunkIndex: 0,
+          confidence: 0.75,
+          domain: 'Recovery',
+        },
+      ];
+
+      const result = runEditorPassV2(candidates, {
+        maxClaims: 5,
+        chunkCount: 1,
+        semanticSimilarityThreshold: 0.75,
+        minWindows: 1,
+      });
+
+      expect(result).toHaveLength(2);
+    });
+
     it('semantic dedupe runs after exact match dedupe', () => {
       const candidates: ClaimCandidate[] = [
         {

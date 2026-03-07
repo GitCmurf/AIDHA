@@ -970,7 +970,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
       user,
       chunk,
       excerptStartMap,
-      strictRetry: true,
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
     });
@@ -1008,11 +1007,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     user: string;
     chunk: ClaimChunk;
     excerptStartMap: Map<string, number>;
-    strictRetry: boolean;
     reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
     verbosity?: ResolvedConfig['llm']['verbosity'];
   }): Promise<ClaimCandidate[]> {
-    const { system, user, chunk, excerptStartMap, strictRetry, reasoningEffort, verbosity } = input;
+    const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity } = input;
 
     // Check circuit breaker before calling LLM
     if (!this.circuitBreaker.canExecute()) {

@@ -116,14 +116,15 @@ export function chunkTextByTokenBudget(
       let tempTokens = 0;
 
       for (const word of words) {
-        const wordTokens = estimateTokens(word) + 1; // +1 for space
-        if (tempTokens + wordTokens > maxTokensPerChunk && tempChunk) {
+        const separatorTokens = tempChunk ? 1 : 0;
+        const wordTokens = estimateTokens(word);
+        if (tempTokens + separatorTokens + wordTokens > maxTokensPerChunk && tempChunk) {
           chunks.push(tempChunk.trim());
           tempChunk = word;
           tempTokens = wordTokens;
         } else {
           tempChunk += (tempChunk ? ' ' : '') + word;
-          tempTokens += wordTokens;
+          tempTokens += separatorTokens + wordTokens;
         }
       }
 
@@ -135,13 +136,14 @@ export function chunkTextByTokenBudget(
     }
 
     // Adding this sentence would exceed budget - save current chunk
-    if (currentTokens + sentenceTokens > maxTokensPerChunk && currentChunk) {
+    const separatorTokens = currentChunk ? 1 : 0;
+    if (currentTokens + separatorTokens + sentenceTokens > maxTokensPerChunk && currentChunk) {
       chunks.push(currentChunk.trim());
       currentChunk = sentence;
       currentTokens = sentenceTokens;
     } else {
       currentChunk += (currentChunk ? ' ' : '') + sentence;
-      currentTokens += sentenceTokens + (currentChunk ? 1 : 0);
+      currentTokens += separatorTokens + sentenceTokens;
     }
   }
 

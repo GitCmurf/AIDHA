@@ -282,7 +282,7 @@ const NEGATION_WORDS = new Set([
 ]);
 
 const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
-  'more', 'less', 'better', 'worse', 'highest', 'lowest', 'most', 'least'
+  'more', 'less', 'better', 'worse', 'best', 'worst', 'highest', 'lowest', 'most', 'least'
 ]);
 
 function hasNegationOrQualifierDifference(text1: string, text2: string): boolean {
