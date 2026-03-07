@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { GENERIC_TERMS, GENERIC_TERMS_MAX } from '../src/extract/keyphrases.js';
 import {
   TieredVerifier,
   calculateTokenOverlap,
@@ -65,6 +66,10 @@ describe('verification', () => {
   });
 
   describe('extractKeyPhrases', () => {
+    it('keeps GENERIC_TERMS within the curated cap', () => {
+      expect(GENERIC_TERMS.size).toBeLessThanOrEqual(GENERIC_TERMS_MAX);
+    });
+
     it('extracts capitalized proper nouns', () => {
       const phrases = extractKeyPhrases('Artificial Intelligence is transforming healthcare');
       expect(phrases).toContain('artificial intelligence');

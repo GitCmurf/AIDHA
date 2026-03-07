@@ -48,7 +48,7 @@ export interface VerificationConfig {
   readonly lexicalThreshold: number;
   /** Minimum similarity for semantic verification (default: 0.6) */
   readonly semanticThreshold: number;
-  /** Minimum score for entailment verification (default: 0.7) */
+  /** Minimum score for entailment verification (default: 0.48 = semanticThreshold × ENTAILMENT_SCALING_FACTOR) */
   readonly entailmentThreshold: number;
 }
 

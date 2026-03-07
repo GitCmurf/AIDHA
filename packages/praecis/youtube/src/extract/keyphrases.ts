@@ -39,7 +39,7 @@ export const GENERIC_TERMS = new Set([
 ]);
 
 /** Maximum curated cap for GENERIC_TERMS to prevent scope creep. */
-const GENERIC_TERMS_MAX = 100;
+export const GENERIC_TERMS_MAX = 100;
 
 const PROPER_NOUN_PATTERN = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g;
 const TOKEN_PATTERN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g;
