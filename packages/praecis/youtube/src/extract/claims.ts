@@ -169,7 +169,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
         confidence: this.computeHeuristicConfidence(segment.text),
         startSeconds: segment.startSeconds,
         method: 'heuristic',
-        extractorVersion: 'heuristic-v1',
+        extractorVersion: this.useNlp ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
       }));
 
       // Simple deduplication

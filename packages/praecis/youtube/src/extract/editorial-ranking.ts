@@ -276,6 +276,36 @@ function dedupeCandidates(
 }
 
 
+const NEGATION_WORDS = new Set([
+  'not', 'no', 'never', 'neither', 'none', 'without', 'lack', 'except',
+  'but', 'however', 'although', 'though'
+]);
+
+const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
+  'more', 'less', 'better', 'worse', 'highest', 'lowest', 'most', 'least'
+]);
+
+function hasNegationOrQualifierDifference(text1: string, text2: string): boolean {
+  const normalized1 = normalizeText(text1).toLowerCase();
+  const normalized2 = normalizeText(text2).toLowerCase();
+  const words1 = new Set(normalized1.split(/\s+/).filter(Boolean));
+  const words2 = new Set(normalized2.split(/\s+/).filter(Boolean));
+
+  for (const word of NEGATION_WORDS) {
+    if (words1.has(word) !== words2.has(word)) {
+      return true;
+    }
+  }
+
+  for (const word of COMPARATIVE_SUPERLATIVE_WORDS) {
+    if (words1.has(word) !== words2.has(word)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Performs semantic deduplication to catch paraphrased claims that escape exact matching.
  * Uses token set Jaccard similarity to identify claims with similar meaning but different wording.
@@ -307,7 +337,14 @@ function semanticDedupe(
       let intersect = 0;
       for (const t of candidateTokens) { if (existingTokens.has(t)) intersect++; }
       const union = candidateTokens.size + existingTokens.size - intersect;
-      return (intersect / union) >= semanticThreshold;
+      const overlap = intersect / union;
+      if (overlap >= semanticThreshold) {
+        if (hasNegationOrQualifierDifference(candidate.text, existing.text)) {
+          return false;
+        }
+        return true;
+      }
+      return false;
     });
 
     if (isDuplicate) {

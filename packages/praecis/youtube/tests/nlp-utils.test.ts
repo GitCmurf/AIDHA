@@ -3,7 +3,10 @@
  *
  * Tests linguistic analysis utilities using compromise.js.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+vi.mock('compromise', () => ({
+  default: require('./__mocks__/compromise.ts').default,
+}));
 import {
   extractSVOTriples,
   extractDiscourseMarkers,

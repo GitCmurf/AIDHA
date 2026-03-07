@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitest/config';
-import { resolve } from 'path';
 
 export default defineConfig({
   test: {
@@ -11,11 +10,6 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
       exclude: ['src/index.ts', 'src/cli.ts'],
-    },
-  },
-  resolve: {
-    alias: {
-      'compromise': resolve(__dirname, './tests/__mocks__/compromise.ts'),
     },
   },
 });
