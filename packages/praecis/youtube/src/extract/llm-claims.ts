@@ -8,7 +8,7 @@ import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from './typ
 import { HeuristicClaimExtractor } from './claims.js';
 import { runEditorPassV1, runEditorPassV2, DEFAULT_ECHO_DETECTION } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
-import { clamp, normalizeText, toNumber, buildExcerptTextsById } from './utils.js';
+import { clamp, normalizeText, toNumber } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
 import { normalizeClaimClassification, CLAIM_TYPES } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
