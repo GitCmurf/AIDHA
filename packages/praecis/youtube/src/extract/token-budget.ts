@@ -189,6 +189,7 @@ export const DEFAULT_COST_PER_1K_TOKENS = 0.01;
  */
 export interface TokenBudgetSummary {
   estimatedTokens: number;
+  budgetedTokens: number;
   chunkCount: number;
   tokensPerChunk: number;
   underBudget: boolean;
@@ -206,9 +207,11 @@ export function createTokenBudgetSummary(
 ): TokenBudgetSummary {
   const result = calculateChunkBudget(transcriptText, chunkCount);
   const budget = result.budget;
+  const actualEstimate = estimateTokens(transcriptText);
 
   return {
-    estimatedTokens: budget.totalBudget,
+    estimatedTokens: actualEstimate,
+    budgetedTokens: budget.totalBudget,
     chunkCount: budget.maxChunks,
     tokensPerChunk: budget.maxTokensPerChunk,
     underBudget: !result.overBudget,

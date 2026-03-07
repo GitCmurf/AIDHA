@@ -50,7 +50,7 @@ const COMMON_VERBS = new Set([
 const ADJECTIVES = new Set([
   'big', 'quick', 'brown', 'lazy', 'new', 'economic', 'scientific',
   'technological', 'artificial', 'intelligent', 'important', 'pleasant',
-  'blue', 'excited', 'dramatically', 'beautiful', 'happy', 'sad', 'angry',
+  'blue', 'excited', 'beautiful', 'happy', 'sad', 'angry',
   'tired', 'bored', 'interested', 'boring', 'interesting', 'amazing',
   'wonderful', 'terrible', 'awful', 'excellent', 'perfect', 'horrible',
   'quick', 'great', 'little', 'good', 'bad', 'small', 'old', 'young',
@@ -58,7 +58,7 @@ const ADJECTIVES = new Set([
   'national', 'right', 'early', 'possible', 'political', 'able', 'public',
   'second', 'late', 'available', 'financial', 'whole', 'free', 'health',
   'former', 'lower', 'military', 'original', 'successful', 'electric',
-  'new', 'species', 'amazon', 'rainforest',
+  'new',
 ]);
 
 const DETERMINERS = new Set(['the', 'a', 'an', 'this', 'that', 'these', 'those', 'our', 'my', 'your']);

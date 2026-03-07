@@ -101,9 +101,9 @@ describe('circuit-breaker', () => {
     it('includes remaining time in CircuitBreakerOpenError', async () => {
       try {
         await breaker.execute(async () => 'success');
-        expect.fail('Should have thrown');
+        throw new Error('Should have thrown CircuitBreakerOpenError');
       } catch (error) {
-        expect(error).toBeInstanceOf(CircuitBreakerOpenError);
+        if (!(error instanceof CircuitBreakerOpenError)) throw error;
         const openError = error as CircuitBreakerOpenError;
         expect(openError.remainingMs).toBeGreaterThan(0);
         expect(openError.remainingMs).toBeLessThanOrEqual(5000);
@@ -200,9 +200,9 @@ describe('circuit-breaker', () => {
 
       try {
         await breaker.execute(async () => 'success');
-        expect.fail('Should have thrown');
+        throw new Error('Should have thrown CircuitBreakerOpenError');
       } catch (error) {
-        expect(error).toBeInstanceOf(CircuitBreakerOpenError);
+        if (!(error instanceof CircuitBreakerOpenError)) throw error;
         const openError = error as CircuitBreakerOpenError;
         expect(openError.remainingMs).toBe(0);
         expect(openError.message).toContain('HALF_OPEN');

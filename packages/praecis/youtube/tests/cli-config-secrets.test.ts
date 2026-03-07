@@ -113,4 +113,10 @@ profiles:
     expect(sanitized).not.toContain('Bearer abc.def');
     expect(sanitized).toContain('[REDACTED]');
   });
+
+  it('redacts unquoted Authorization bearer values', () => {
+    const sanitized = sanitizeErrorMessage('Authorization: Bearer abc.def.ghi');
+    expect(sanitized).not.toContain('abc.def.ghi');
+    expect(sanitized).toContain('[REDACTED]');
+  });
 });

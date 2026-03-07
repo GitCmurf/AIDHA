@@ -46,7 +46,7 @@ export const CONJUNCTION_ENDINGS = ['and', 'but', 'so', 'or', 'then'] as const;
 /**
  * Filler words that indicate hesitation in speech.
  */
-export const FILLER_PATTERNS = [/\buh\b/gi, /\bum\b/gi] as const;
+export const FILLER_PATTERNS = [/\buh\b/i, /\bum\b/i] as const;
 
 /**
  * Pronouns that indicate decontextualized fragments when they start a claim.
@@ -136,6 +136,9 @@ export const CLAIM_METADATA_KEYS = {
 
 /**
  * Scoring weights for editorial pass v2.
+ * Primary weights intentionally sum to 0.85 rather than 1.0.
+ * The remaining headroom is reserved for metadata-richness bonuses so
+ * structurally richer LLM claims outrank otherwise similar heuristic claims.
  */
 export const EDITORIAL_V2_WEIGHTS = {
   CONFIDENCE: 0.20,

@@ -132,6 +132,17 @@ describe('extractDiscourseMarkers', () => {
     expect(howeverMarkers).toHaveLength(2);
   });
 
+  it('captures repeated multi-word markers within the same sentence', () => {
+    const markers = extractDiscourseMarkers('For example, this works and, for example, scales.');
+    const exampleMarkers = markers.filter(marker => marker.marker === 'for example');
+    expect(exampleMarkers).toHaveLength(2);
+  });
+
+  it('does not match multi-word markers inside unrelated words', () => {
+    const markers = extractDiscourseMarkers('The residue to solvent ratio changed gradually.');
+    expect(markers.find(marker => marker.marker === 'due to')).toBeUndefined();
+  });
+
   it('detects multi-word markers', () => {
     const markers = extractDiscourseMarkers('On the other hand, this is different.');
     const contrastMarker = markers.find(m => m.marker.includes('other hand'));

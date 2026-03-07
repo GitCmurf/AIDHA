@@ -153,7 +153,7 @@ Add/update tests in `packages/praecis/youtube/tests/verification.test.ts`:
 
 ## Acceptance Criteria
 
-1. All `packages/praecis/youtube/tests/verification.test.ts` tests pass.
+1. All tests pass in [packages/praecis/youtube/tests/verification.test.ts](packages/praecis/youtube/tests/verification.test.ts).
 2. No large uncurated noun list remains in `verification.ts`.
 3. `extractKeyPhrases` behavior demonstrates:
    - Proper nouns included.

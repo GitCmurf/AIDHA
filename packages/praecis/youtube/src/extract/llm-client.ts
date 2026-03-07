@@ -1,4 +1,5 @@
 import type { Result } from '../pipeline/types.js';
+import type { ResolvedConfig } from '@aidha/config';
 import { validateLength } from '@aidha/config';
 
 export interface LlmCompletionRequest {
@@ -7,8 +8,8 @@ export interface LlmCompletionRequest {
   user: string;
   temperature?: number;
   maxTokens?: number;
-  reasoningEffort?: string;
-  verbosity?: string;
+  reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+  verbosity?: ResolvedConfig['llm']['verbosity'];
   responseFormat?: { type: 'json_schema'; schema: Record<string, unknown> };
 }
 

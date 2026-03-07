@@ -30,6 +30,38 @@ export function normalizeText(text: string): string {
 }
 
 /**
+ * Escapes special characters in a string for use in a RegExp pattern.
+ * Follows the same escaping logic used elsewhere in the codebase.
+ *
+ * @param text - The text to escape
+ * @returns The escaped text safe for use in RegExp constructor
+ */
+export function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Checks if two ranges overlap (intersect).
+ * Uses half-open interval convention [start, end).
+ *
+ * @param start1 - Start of first range
+ * @param end1 - End of first range (exclusive)
+ * @param start2 - Start of second range
+ * @param end2 - End of second range (exclusive)
+ * @returns true if the ranges overlap, false otherwise
+ *
+ * @example
+ * ```ts
+ * rangesOverlap(0, 10, 5, 15); // true (0-10 overlaps 5-15)
+ * rangesOverlap(0, 5, 5, 10);  // false (adjacent but not overlapping)
+ * rangesOverlap(0, 5, 10, 15); // false (disjoint)
+ * ```
+ */
+export function rangesOverlap(start1: number, end1: number, start2: number, end2: number): boolean {
+  return start1 < end2 && end1 > start2;
+}
+
+/**
  * Deduplicates and sorts string arrays for consistent ordering.
  * Uses standard JS relational string comparison (a < b) which yields a
  * deterministic, environment-independent codepoint/binary ordering.
@@ -48,7 +80,6 @@ export function uniqueSortedStrings<T extends string>(items: readonly T[]): T[] 
  * - Case normalization
  * - Whitespace normalization
  * - Punctuation variants (commas, periods, quotes)
- * - Common stopwords removal for content comparison
  *
  * @param text - The text to normalize
  * @returns A normalized key suitable for deduplication

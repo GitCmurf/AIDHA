@@ -103,10 +103,9 @@ describe('Pass 1 v2 prompt contracts', () => {
       );
 
       expect(user).toContain('POSITIVE EXAMPLES');
-      expect(user).toContain('Domain: Protein Kinetics');
-      expect(user).toContain('Classification: Fact');
-      expect(user).toContain('Evidence Basis:');
-      expect(user).toContain('Confidence: High');
+      expect(user).toContain('"domain": "Protein Kinetics"');
+      expect(user).toContain('"classification": "fact"');
+      expect(user).toContain('"evidenceType":');
     });
 
     it('contains negative exemplars for intro, sponsor CTA, pronoun-only claims', () => {
@@ -126,7 +125,7 @@ describe('Pass 1 v2 prompt contracts', () => {
       expect(user).toContain('NEGATIVE EXAMPLES');
       expect(user).toContain('REJECT');
       expect(user).toContain('Welcome to the Huberman Lab podcast');
-      expect(user).toContain('Wealthfront');
+      expect(user).toContain('[SPONSOR]');
       expect(user).toContain('It depends on your goals');
     });
 
@@ -207,7 +206,7 @@ describe('Pass 1 v2 prompt contracts', () => {
           chunkStart: 120,
           minClaims: 5,
           maxClaims: 12,
-          excerptIds: ['e1', 'e2'],
+          excerptIds: ['e1'],
         },
         [{ id: 'e1', startSeconds: 0, text: 'test' }]
       );
@@ -227,7 +226,7 @@ describe('Pass 1 v2 prompt contracts', () => {
           chunkStart: 0,
           minClaims: 5,
           maxClaims: 10,
-          excerptIds: ['e1', 'e2'],
+          excerptIds: ['ex1', 'ex2'],
         },
         [
           { id: 'ex1', startSeconds: 10, text: 'First excerpt content.' },

@@ -84,7 +84,8 @@ def main() -> int:
                 # pip VCS URL form (git+https://...) is not a browsable HTTP endpoint.
                 continue
             cleaned = clean_url(match.group(0))
-            urls.add(cleaned)
+            if cleaned:
+                urls.add(cleaned)
     results = []
     failures = 0
     for url in sorted(urls):

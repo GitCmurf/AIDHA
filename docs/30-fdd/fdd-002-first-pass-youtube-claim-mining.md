@@ -67,7 +67,7 @@ This pass prioritizes high recall and auditability over strict precision.
       "type": "insight",
       "classification": "fact",
       "domain": "Software Engineering",
-      "evidenceType": "Physiological Consensus",
+      "evidenceType": "Meta-analysis",
       "confidence": 0.82
     }
   ]

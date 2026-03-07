@@ -63,7 +63,9 @@ describe('Full extraction pipeline integration', () => {
   });
 
   it('maintains idempotency across multiple extraction runs', async () => {
-    await ingestion.ingestVideo('test-video');
+    const ingestResult = await ingestion.ingestVideo('test-video');
+    expect(ingestResult.ok).toBe(true);
+    if (!ingestResult.ok) return;
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
 
@@ -84,10 +86,14 @@ describe('Full extraction pipeline integration', () => {
   });
 
   it('extracts claims with proper metadata and provenance', async () => {
-    await ingestion.ingestVideo('test-video');
+    const ingestResult = await ingestion.ingestVideo('test-video');
+    expect(ingestResult.ok).toBe(true);
+    if (!ingestResult.ok) return;
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    expect(claimResult.ok).toBe(true);
+    if (!claimResult.ok) return;
 
     const claims = await graphStore.queryNodes({ type: 'Claim' });
     expect(claims.ok).toBe(true);
@@ -108,10 +114,14 @@ describe('Full extraction pipeline integration', () => {
   });
 
   it('integrates with reference extraction pipeline', async () => {
-    await ingestion.ingestVideo('test-video');
+    const ingestResult = await ingestion.ingestVideo('test-video');
+    expect(ingestResult.ok).toBe(true);
+    if (!ingestResult.ok) return;
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    expect(claimResult.ok).toBe(true);
+    if (!claimResult.ok) return;
 
     // Extract references from claims
     const refPipeline = new ReferenceExtractionPipeline({ graphStore });
@@ -138,10 +148,14 @@ describe('Full extraction pipeline integration', () => {
   });
 
   it('updates resource metadata with extraction statistics', async () => {
-    await ingestion.ingestVideo('test-video');
+    const ingestResult = await ingestion.ingestVideo('test-video');
+    expect(ingestResult.ok).toBe(true);
+    if (!ingestResult.ok) return;
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    expect(claimResult.ok).toBe(true);
+    if (!claimResult.ok) return;
 
     const resource = await graphStore.getNode('youtube-test-video');
     expect(resource.ok).toBe(true);

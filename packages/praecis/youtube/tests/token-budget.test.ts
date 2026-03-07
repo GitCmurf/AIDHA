@@ -243,11 +243,12 @@ describe('token-budget', () => {
 
     it('flags when over budget', () => {
       // Create text that exceeds 50k tokens (at 4 chars/token = 200k chars)
-      const text = 'Word '.repeat(100_000); // ~600k characters = ~150k tokens
+      const text = 'Word '.repeat(100_000); // ~500k characters = ~125k tokens
       const summary = createTokenBudgetSummary(text, 10);
 
       expect(summary.underBudget).toBe(false);
-      expect(summary.estimatedTokens).toBe(50_000); // Capped
+      expect(summary.estimatedTokens).toBeGreaterThan(50_000); // Actual estimate
+      expect(summary.budgetedTokens).toBe(50_000); // Capped
     });
   });
 });

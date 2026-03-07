@@ -24,6 +24,7 @@
 
 import nlp from 'compromise';
 import { STOPWORDS, GENERIC_TERMS } from './keyphrases.js';
+import { escapeRegExp } from './utils.js';
 
 /**
  * Represents a Subject-Verb-Object triple extracted from text.
@@ -179,6 +180,19 @@ const MULTI_WORD_MARKERS = [
 ];
 
 /**
+ * Pre-compiled regex patterns for multi-word discourse marker detection.
+ * Compiled once at module load to avoid repeated regex compilation in hot path.
+ *
+ * Each entry contains the marker text and its pre-compiled pattern with word boundary detection.
+ * The type is pre-fetched from DISCOURSE_MARKERS to avoid repeated lookups.
+ */
+const MULTI_WORD_MARKER_PATTERNS = MULTI_WORD_MARKERS.map((marker) => ({
+  marker,
+  pattern: new RegExp(`(^|\\W)${escapeRegExp(marker)}(?=$|\\W)`, 'gi'),
+  type: DISCOURSE_MARKERS[marker] || 'unknown',
+}));
+
+/**
  * Extracts Subject-Verb-Object triples from text using compromise.
  *
  * @param text - The input text to analyze
@@ -252,8 +266,6 @@ export function extractSVOTriples(text: string): SVOTriple[] {
           }
           continue;
         }
-      } else {
-        break;
       }
 
       break;
@@ -307,11 +319,11 @@ export function extractDiscourseMarkers(text: string): DiscourseMarker[] {
     const terms = (sentence.terms || []) as Array<{ text: string }>;
     const termTexts = terms.map((t) => t.text.toLowerCase());
 
-    // Check for multi-word markers first
-    for (const marker of MULTI_WORD_MARKERS) {
-      const index = sentenceText.indexOf(marker);
-      if (index !== -1) {
-        const type = DISCOURSE_MARKERS[marker] || 'unknown';
+    // Check for multi-word markers using pre-compiled patterns
+    for (const { marker, pattern, type } of MULTI_WORD_MARKER_PATTERNS) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(sentenceText)) !== null) {
+        const index = match.index + (match[1]?.length ?? 0);
         let position: 'start' | 'middle' | 'end' = 'middle';
 
         if (index === 0 || sentenceText.substring(0, index).trim().length === 0) {
@@ -743,7 +755,7 @@ const BOILERPLATE_KEYWORDS = new Set([
  * Compiled once at module load to avoid repeated regex compilation in hot path.
  */
 const BOILERPLATE_KEYWORD_REGEXES = Array.from(BOILERPLATE_KEYWORDS).map((keyword) => {
-  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escaped = escapeRegExp(keyword);
   return new RegExp(`\\b${escaped}\\b`, 'i');
 });
 

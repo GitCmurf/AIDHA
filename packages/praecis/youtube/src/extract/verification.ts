@@ -89,6 +89,12 @@ interface EntailmentResult {
 const ENTAILMENT_SCALING_FACTOR = 0.8;
 
 /**
+ * Word count threshold for short claims that get exact-match handling.
+ * Claims with this many words or fewer are checked for exact string match before n-gram scoring.
+ */
+const SHORT_CLAIM_WORD_THRESHOLD = 2;
+
+/**
  * Default configuration values
  */
 const DEFAULT_CONFIG: VerificationConfig = {
@@ -189,11 +195,26 @@ export class TieredVerifier {
       return { similarity: 0, verified: false };
     }
 
+    const normalizedClaim = claim.trim().toLowerCase();
+    const claimWordCount = normalizedClaim.split(/\s+/).filter(Boolean).length;
+
     // Extract claim key phrases once (loop-invariant)
     const claimPhrases = extractKeyPhrases(claim);
     let maxSimilarity = 0;
 
     for (const source of sources) {
+      const normalizedSource = source.trim().toLowerCase();
+
+      // Special handling for very short claims: check exact match first
+      if (claimWordCount <= SHORT_CLAIM_WORD_THRESHOLD) {
+        // For short claims, exact match (case-insensitive, normalized whitespace) should pass
+        if (normalizedClaim === normalizedSource) {
+          // Exact match for short claim should get maximum similarity
+          maxSimilarity = 1.0;
+          break;
+        }
+      }
+
       // Use bigram overlap as primary semantic measure
       const bigramSim = calculateNGramOverlap(claim, source, 2);
       // Use trigram overlap for phrase-level matching

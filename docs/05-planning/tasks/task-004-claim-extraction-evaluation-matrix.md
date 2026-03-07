@@ -123,6 +123,14 @@ This task depends on AIDHA-TASK-003-ATOMIC delivering (minimum):
 
 Non-blocking: any optional heuristic enrichment work in AIDHA-TASK-003-ATOMIC that does not change the evaluation harness contract.
 
+## Acceptance Criteria
+
+1. No existing tests - validation defined in [Phase 4: Validation & CI Integration](#phase-4-validation--ci-integration) and references Phase 4 test tasks (4.1-4.6).
+2. Document-level artifacts defined:
+   - Cell-level extraction output
+   - Cell-level scoring output / ClaimSetScore
+   - Aggregated Reports
+
 ---
 
 ## Phase 1: Test Corpus & Infrastructure

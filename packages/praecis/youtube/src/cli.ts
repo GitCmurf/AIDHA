@@ -58,7 +58,8 @@ const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] ===
 export function sanitizeErrorMessage(message: string): string {
   return message
     .replace(/(["']?)(api[_-]?key|token|secret|authorization)\1\s*[:=]\s*(["'])([^"']+)\3/gi, '"$2": "[REDACTED]"')
-    .replace(/(["']?)(api[_-]?key|token|secret|authorization)\1\s*[:=]\s*([^\s,"'}\]]+)/gi, '$2=[REDACTED]')
+    .replace(/(["']?authorization\1\s*[:=]\s*)(Bearer\s+)?([^\r\n,}\]]+)/gi, '$1[REDACTED]')
+    .replace(/(["']?)(api[_-]?key|token|secret)\1\s*[:=]\s*([^\s,"'}\]]+)/gi, '$2=[REDACTED]')
     .replace(/Bearer\s+[A-Za-z0-9._-]+/g, 'Bearer [REDACTED]')
     .replace(/sk-[a-zA-Z0-9]{5,}/g, 'sk-[REDACTED]');
 }

@@ -14,6 +14,7 @@ import {
   countFragmentIndicators,
   startsWithConnector,
   buildExcerptTextsById,
+  rangesOverlap,
 } from './utils.js';
 import {
   extractSVOTriples,
@@ -103,6 +104,8 @@ interface MergedSegment {
   /** Start time of the last excerpt in this merged segment (used for gap calculation) */
   lastStartSeconds: number | undefined;
   excerptIndices: number[];
+  /** Character offset ranges for each excerpt within the merged text [start, end) */
+  excerptRanges: Array<{ start: number; end: number; index: number }>;
 }
 
 /**
@@ -195,6 +198,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       startSeconds: segments[0]!.startSeconds,
       lastStartSeconds: segments[0]!.startSeconds, // Initialize with first segment's start
       excerptIndices: [segments[0]!.originalIndex],
+      excerptRanges: [{ start: 0, end: segments[0]!.text.length, index: segments[0]!.originalIndex }],
     };
 
     for (let i = 1; i < segments.length; i++) {
@@ -209,8 +213,14 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
         (hasDanglingEnding(currentMerged.text) || startsWithConnector(segment.text));
 
       if (shouldMerge) {
+        const previousLength = currentMerged.text.length;
         currentMerged.text += ' ' + segment.text;
         currentMerged.excerptIndices.push(segment.originalIndex);
+        currentMerged.excerptRanges.push({
+          start: previousLength + 1, // +1 for the space we added
+          end: currentMerged.text.length,
+          index: segment.originalIndex,
+        });
         // Update lastStartSeconds to track the most recent segment's start time
         currentMerged.lastStartSeconds = segment.startSeconds;
       } else {
@@ -220,6 +230,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           startSeconds: segment.startSeconds,
           lastStartSeconds: segment.startSeconds,
           excerptIndices: [segment.originalIndex],
+          excerptRanges: [{ start: 0, end: segment.text.length, index: segment.originalIndex }],
         };
       }
     }
@@ -230,9 +241,20 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     for (const merged of mergedSegments) {
       const sentences = splitSentences(merged.text);
 
+      // Track current position incrementally since sentences are in order
+      let currentPosition = 0;
+
       for (const sentence of sentences) {
+        // Find this sentence's position in the merged text
+        // splitSentences returns sentences in order, so we can track position incrementally
+        const sentenceStart = merged.text.indexOf(sentence, currentPosition);
+        // Advance position for next iteration (even if we skip this sentence)
+        currentPosition = sentenceStart !== -1 ? sentenceStart + sentence.length : currentPosition;
+
         const normalized = normalizeText(sentence);
-        if (!normalized) continue;
+        if (!normalized) {
+          continue;
+        }
 
         // Check minimum length requirements to match editorial pass v2
         const words = normalized.split(/\s+/).filter(Boolean).length;
@@ -240,14 +262,50 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           continue; // Skip sentences that don't meet editorial pass minimums
         }
 
-        // Find the excerpt IDs that contributed to this merged segment
-        const excerptIds = merged.excerptIndices.map(idx => input.excerpts[idx]?.id).filter((id): id is string => typeof id === 'string');
+        // Handle fallback if sentence position couldn't be found
+        if (sentenceStart === -1) {
+          // Use all excerpt ids and start time as fallback
+          const excerptIds = merged.excerptIndices.map(idx => input.excerpts[idx]?.id).filter((id): id is string => typeof id === 'string');
+          sentenceCandidates.push({
+            text: normalized,
+            excerptIds,
+            confidence: this.computeHeuristicConfidence(normalized),
+            startSeconds: merged.startSeconds,
+            method: 'heuristic',
+            extractorVersion: this.useNlp ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
+          });
+          continue;
+        }
+
+        const sentenceEnd = sentenceStart + sentence.length;
+
+        // Find which excerpt(s) this sentence overlaps with
+        const matchedExcerpts = new Set<number>();
+        for (const range of merged.excerptRanges) {
+          if (rangesOverlap(sentenceStart, sentenceEnd, range.start, range.end)) {
+            matchedExcerpts.add(range.index);
+          }
+        }
+
+        // Map to excerpt IDs
+        const excerptIds = Array.from(matchedExcerpts)
+          .map(idx => input.excerpts[idx]?.id)
+          .filter((id): id is string => typeof id === 'string');
+
+        // Estimate startSeconds based on sentence position within merged text
+        // If the merged segment has a valid time range, interpolate proportionally
+        let estimatedStartSeconds = merged.startSeconds;
+        if (typeof merged.startSeconds === 'number' && typeof merged.lastStartSeconds === 'number' && merged.text.length > 0) {
+          const positionRatio = sentenceStart / merged.text.length;
+          const timeRange = merged.lastStartSeconds - merged.startSeconds;
+          estimatedStartSeconds = merged.startSeconds + (timeRange * positionRatio);
+        }
 
         sentenceCandidates.push({
           text: normalized,
           excerptIds,
           confidence: this.computeHeuristicConfidence(normalized),
-          startSeconds: merged.startSeconds,
+          startSeconds: estimatedStartSeconds,
           method: 'heuristic',
           extractorVersion: this.useNlp ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
         });

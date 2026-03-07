@@ -7,11 +7,11 @@ import type { ResolvedConfig } from '@aidha/config';
 import type { Result } from '../pipeline/types.js';
 import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from './types.js';
 import { HeuristicClaimExtractor } from './claims.js';
-import { runEditorPassV1, runEditorPassV2, DEFAULT_ECHO_DETECTION } from './editorial-ranking.js';
+import { runEditorPassV1, runEditorPassV2, runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics, DEFAULT_ECHO_DETECTION, type EditorialDiagnostics } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
 import { clamp, normalizeText, toNumber } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
-import { normalizeClaimClassification, CLAIM_TYPES, CLAIM_CLASSIFICATIONS } from './claim-candidate-schema.js';
+import { normalizeClaimClassification, normalizeClaimType, CLAIM_TYPES, CLAIM_CLASSIFICATIONS } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
 import { sanitizeForPrompt, escapeTripleQuoted } from './prompt-safety.js';
@@ -229,13 +229,6 @@ function extractJsonBlock(text: string): string | null {
   const last = candidate.lastIndexOf('}');
   if (first === -1 || last === -1 || last <= first) return null;
   return candidate.slice(first, last + 1);
-}
-
-function normalizeType(value?: string): string | undefined {
-  if (!value) return undefined;
-  const normalized = value.trim().toLowerCase();
-  if (CLAIM_TYPES.includes(normalized)) return normalized;
-  return normalized.length > 0 ? normalized : undefined;
 }
 
 async function readCache(path: string, metadata: CacheMetadata): Promise<ClaimCandidate[] | null> {
@@ -543,6 +536,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private fallback?: ClaimExtractor;
   private circuitBreaker: CircuitBreaker;
   private usesEditorRewriteV3: boolean;
+  private lastEditorDiagnostics: EditorialDiagnostics | undefined;
 
   constructor(config: LlmClaimExtractorConfig) {
     this.client = config.client;
@@ -597,6 +591,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     };
   }
 
+  getLastEditorDiagnostics(): EditorialDiagnostics | undefined {
+    return this.lastEditorDiagnostics;
+  }
+
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
     const maxClaims = input.maxClaims ?? this.maxClaims;
     const excerpts = input.excerpts;
@@ -634,7 +632,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         }
       }
 
-      selected = runEditorPassV2(allCandidates, {
+      const editorialResult = runEditorPassV2WithDiagnostics(allCandidates, {
         maxClaims,
         chunkCount: chunked.length,
         windowMinutes: this.editorWindowMinutes,
@@ -646,11 +644,15 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerptTextsById,
         echoDetection: DEFAULT_ECHO_DETECTION,
       });
+      this.lastEditorDiagnostics = editorialResult.diagnostics;
+      selected = editorialResult.selected;
     } else {
-      selected = runEditorPassV1(allCandidates, {
+      const editorialResult = runEditorPassV1WithDiagnostics(allCandidates, {
         maxClaims,
         chunkCount: chunked.length,
       });
+      this.lastEditorDiagnostics = editorialResult.diagnostics;
+      selected = editorialResult.selected;
     }
 
     if (this.editorLlm && selected.length > 0) {
@@ -1051,9 +1053,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
-    // Even with no parsed claims, record success before retry (LLM responded but no valid claims)
-    // This prevents the circuit breaker from getting stuck in HalfOpen state
-    this.circuitBreaker.recordSuccess();
+    // Malformed response - record as failure so circuit breaker can trip
+    this.circuitBreaker.recordFailure();
 
     // Enhanced retry with parse-error feedback
     // Sanitize parseError to prevent second-order prompt injection
@@ -1169,7 +1170,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerptIds,
         confidence: clamp(candidate.confidence ?? 0.7, 0, 1),
         startSeconds,
-        type: normalizeType(candidate.type),
+        type: normalizeClaimType(candidate.type),
         classification: normalizeClaimClassification(candidate.classification),
         domain: candidate.domain,
         why: candidate.why ? normalizeText(candidate.why) : undefined,

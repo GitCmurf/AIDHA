@@ -69,9 +69,8 @@ profiles:
 # Top-level sources defaults (Tier 3)
 sources:
   youtube:
-    youtube:
-      cookie: ${YOUTUBE_COOKIE}
-      innertube_api_key: ${YOUTUBE_INNERTUBE_API_KEY}
-      extraction:
-        chunk_minutes: 10
-        max_claims: 25
+    cookie: ${YOUTUBE_COOKIE}
+    innertube_api_key: ${YOUTUBE_INNERTUBE_API_KEY}
+    extraction:
+      chunk_minutes: 10
+      max_claims: 25
