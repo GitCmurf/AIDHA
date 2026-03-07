@@ -706,12 +706,20 @@ export function runEditorPassV2WithDiagnostics(
   };
 
   // Score cache to avoid redundant computation in hot paths
-  // Use stable string keys instead of object references to avoid issues with object mutation
+  // Use structured keys instead of object references to avoid mutation issues and delimiter collisions.
   // Cache key includes all fields that scoreCandidateV2 reads: startSeconds, text,
-  // excerptIds, confidence, domain, classification, evidenceType
+  // excerptIds, confidence, domain, classification, evidenceType.
   const scoreCache = new Map<string, number>();
   const getCacheKey = (candidate: ClaimCandidate): string => {
-    return `${candidate.startSeconds}:${candidate.text}:${candidate.excerptIds.join(',')}:${candidate.confidence ?? ''}:${candidate.domain ?? ''}:${candidate.classification ?? ''}:${candidate.evidenceType ?? ''}`;
+    return JSON.stringify([
+      candidate.startSeconds,
+      candidate.text,
+      uniqueSortedStrings(candidate.excerptIds),
+      candidate.confidence ?? null,
+      candidate.domain ?? null,
+      candidate.classification ?? null,
+      candidate.evidenceType ?? null,
+    ]);
   };
   const getScore = (candidate: ClaimCandidate): number => {
     const key = getCacheKey(candidate);

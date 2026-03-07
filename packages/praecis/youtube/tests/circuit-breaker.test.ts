@@ -194,6 +194,21 @@ describe('circuit-breaker', () => {
       const stats = breaker.getStats();
       expect(stats.successes).toBe(0); // Reset after transition to CLOSED
     });
+
+    it('reports probe-cap exhaustion without a misleading retry timer', async () => {
+      (breaker as any).halfOpenCallCount = 3;
+
+      try {
+        await breaker.execute(async () => 'success');
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CircuitBreakerOpenError);
+        const openError = error as CircuitBreakerOpenError;
+        expect(openError.remainingMs).toBe(0);
+        expect(openError.message).toContain('HALF_OPEN');
+        expect(openError.message.toLowerCase()).toContain('probe limit');
+      }
+    });
   });
 
   describe('HALF_OPEN state failure returns to OPEN', () => {

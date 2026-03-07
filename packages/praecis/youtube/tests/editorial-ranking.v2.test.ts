@@ -121,6 +121,40 @@ describe('editorial ranking v2', () => {
     }
   });
 
+  it('does not let score cache key delimiter collisions reorder candidates', () => {
+    const candidates: ClaimCandidate[] = [
+      {
+        text: 'Alpha: leucine threshold supports post-training muscle protein synthesis strongly.',
+        excerptIds: ['e1'],
+        startSeconds: 10,
+        chunkIndex: 0,
+        confidence: 0.8,
+        domain: 'Nutrition',
+        classification: 'Fact',
+      },
+      {
+        text: 'Alpha',
+        excerptIds: [' leucine threshold supports post-training muscle protein synthesis strongly.:e1'],
+        startSeconds: 10,
+        chunkIndex: 0,
+        confidence: 0.8,
+        domain: 'Nutrition',
+        classification: 'Fact',
+      },
+    ];
+
+    const result = runEditorPassV2(candidates, {
+      maxClaims: 1,
+      chunkCount: 1,
+      minWindows: 1,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.text).toBe(
+      'Alpha: leucine threshold supports post-training muscle protein synthesis strongly.'
+    );
+  });
+
   it('is deterministic for equivalent candidate sets', () => {
     const candidates: ClaimCandidate[] = [
       {

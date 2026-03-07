@@ -64,7 +64,7 @@ export interface CircuitBreakerStats {
 }
 
 /**
- * Error thrown when the circuit breaker is OPEN and blocks execution.
+ * Error thrown when the circuit breaker blocks execution.
  */
 export class CircuitBreakerOpenError extends Error {
   /**
@@ -72,8 +72,8 @@ export class CircuitBreakerOpenError extends Error {
    */
   readonly remainingMs: number;
 
-  constructor(remainingMs: number) {
-    super(`Circuit breaker is OPEN. Retry after ${remainingMs}ms`);
+  constructor(remainingMs: number, message?: string) {
+    super(message ?? `Circuit breaker is OPEN. Retry after ${remainingMs}ms`);
     this.name = 'CircuitBreakerOpenError';
     this.remainingMs = remainingMs;
   }
@@ -288,7 +288,10 @@ export class CircuitBreaker {
     const stateBefore = this.state;
     if (!this.canExecute()) {
       if (stateBefore === CircuitBreakerState.HalfOpen) {
-        throw new CircuitBreakerOpenError(this.config.resetTimeoutMs);
+        throw new CircuitBreakerOpenError(
+          0,
+          'Circuit breaker is HALF_OPEN. Probe limit reached; wait for in-flight probe results.'
+        );
       }
       const remaining = this.config.resetTimeoutMs - (Date.now() - (this.lastFailureTime ?? 0));
       throw new CircuitBreakerOpenError(Math.max(0, remaining));
