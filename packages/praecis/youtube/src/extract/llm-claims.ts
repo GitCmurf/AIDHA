@@ -10,7 +10,7 @@ import { runEditorPassV1, runEditorPassV2, DEFAULT_ECHO_DETECTION } from './edit
 import type { LlmClient } from './llm-client.js';
 import { clamp, normalizeText, toNumber } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
-import { normalizeClaimClassification, CLAIM_TYPES } from './claim-candidate-schema.js';
+import { normalizeClaimClassification, CLAIM_TYPES, CLAIM_CLASSIFICATIONS } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
 import { sanitizeForPrompt, escapeTripleQuoted } from './prompt-safety.js';
@@ -941,7 +941,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
         `VIDEO_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(resource.label, 200))}"""`,
         `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
         `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
-        `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion","domain":string,"confidence":0-1,"why":string}]}`,
+        // Legacy prompt path (non-PROMPT_V2_VERSION)
+        `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion"|"Warning"|"Instruction"|"Insight","domain":string,"confidence":0-1,"why":string}]}`,
         `Allowed types: ${CLAIM_TYPES.join(', ')}`,
         'Requirement: If you find a generic claim, replace it with a more specific one from the same text.',
         'Requirement: Include the physiological Domain (e.g. "Protein Kinetics", "Lipidology") and Classification.',

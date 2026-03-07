@@ -141,7 +141,7 @@ export function chunkTextByTokenBudget(
       currentTokens = sentenceTokens;
     } else {
       currentChunk += (currentChunk ? ' ' : '') + sentence;
-      currentTokens += sentenceTokens;
+      currentTokens += sentenceTokens + (currentChunk ? 1 : 0);
     }
   }
 
@@ -204,7 +204,7 @@ export function createTokenBudgetSummary(
   return {
     estimatedTokens: budget.totalBudget,
     chunkCount: budget.maxChunks,
-    tokensPerChunk: budget.targetTokensPerChunk,
+    tokensPerChunk: budget.maxTokensPerChunk,
     underBudget: !result.overBudget,
     ...(pricePer1kTokens !== undefined && {
       estimatedCostUsd: estimateCost(budget.totalBudget, pricePer1kTokens),

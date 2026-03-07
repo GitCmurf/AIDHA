@@ -321,7 +321,6 @@ export function extractDiscourseMarkers(text: string): DiscourseMarker[] {
         }
 
         markers.push({ marker, position, type });
-        break; // Avoid duplicate detections for overlapping markers
       }
     }
 
@@ -633,7 +632,7 @@ export function extractKeywords(text: string, options: KeywordExtractionOptions 
     const term = terms[i];
     if (!term || !term.text) continue;
 
-    const word = term.text.toLowerCase().replace(/[^a-z]/g, '');
+    const word = term.text.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (word.length < 3) continue;
 
     // Use shared STOPWORDS and GENERIC_TERMS from keyphrases.ts
@@ -819,7 +818,7 @@ export function hasBoilerplatePOSPattern(text: string): boolean {
     const firstTerm = terms[0];
     if (!firstTerm) return false;
 
-    const firstTags = firstTerm.tags || [];
+    const firstTags = normalizeTags(firstTerm.tags);
     return firstTags.includes('Verb') && !firstTags.includes('Pronoun');
   });
 

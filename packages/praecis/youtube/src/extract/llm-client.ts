@@ -63,12 +63,13 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
   const normalized = model.toLowerCase().trim();
 
   // GPT-5 family - has all advanced features
+  // Note: 4096 tokens for claim extraction (5-12 richly populated claims), higher than typical default
   if (normalized.startsWith('gpt-5')) {
     return {
       supportsReasoningEffort: true,
       supportsVerbosity: true,
       supportsStructuredOutput: true,
-      defaultMaxTokens: 900,
+      defaultMaxTokens: 4096,
     };
   }
 
@@ -220,7 +221,10 @@ export class OpenAiCompatibleClient implements LlmClient {
       // OpenAI-compatible structured output
       // Only add for models that support it to avoid breaking other providers
       if (request.responseFormat && modelCapabilities.supportsStructuredOutput) {
-        body['response_format'] = request.responseFormat;
+        body['response_format'] = {
+          type: 'json_schema',
+          json_schema: { schema: request.responseFormat.schema },
+        };
       }
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {

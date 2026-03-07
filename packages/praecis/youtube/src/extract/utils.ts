@@ -59,7 +59,7 @@ export function normalizeKey(text: string): string {
     // Remove common punctuation variants (including trailing periods)
     .replace(/[.",;:!?()[\]{}]/g, '')
     // Normalize apostrophes and quotes
-    .replace(/[''"""]/g, '')
+    .replace(/[''""\u2018\u2019\u201c\u201d]/g, '')
     // Normalize multiple spaces
     .replace(/\s+/g, ' ')
     .trim();
@@ -292,10 +292,8 @@ export function isCompleteSentence(text: string): boolean {
     if (lastChar && !/[.!?]$/.test(lastChar)) return false;
   }
 
-  // Should not have dangling ending (but we check this separately for quotes)
-  // Strip common ending patterns before checking for dangling
-  const stripped = trimmed.replace(/[.!?][\"'\])]?$/, '');
-  const notDangling = !hasDanglingEnding(stripped);
+  // Check dangling ending against original text (hasDanglingEnding handles its own stripping)
+  const notDangling = !hasDanglingEnding(trimmed);
 
   return startsProperly && endsProperly && notDangling;
 }

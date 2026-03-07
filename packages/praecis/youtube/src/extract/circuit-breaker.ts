@@ -284,7 +284,12 @@ export class CircuitBreaker {
    * ```
    */
   async execute<T>(fn: () => Promise<T>): Promise<T> {
+    // Capture state before canExecute() (which may transition Open→HalfOpen)
+    const stateBefore = this.state;
     if (!this.canExecute()) {
+      if (stateBefore === CircuitBreakerState.HalfOpen) {
+        throw new CircuitBreakerOpenError(this.config.resetTimeoutMs);
+      }
       const remaining = this.config.resetTimeoutMs - (Date.now() - (this.lastFailureTime ?? 0));
       throw new CircuitBreakerOpenError(Math.max(0, remaining));
     }

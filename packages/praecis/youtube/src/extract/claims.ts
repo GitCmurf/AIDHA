@@ -30,7 +30,7 @@ import { ClaimCandidateSchema } from './claim-candidate-schema.js';
  * Compiled once at module load to avoid repeated regex compilation in hot path.
  */
 const NUMBER_REGEX = /\d+/;
-const UNIT_REGEX = /%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds|degree|degrees/i;
+const UNIT_REGEX = /\b(%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds|degree|degrees)\b/i;
 
 /**
  * Validates a claim candidate against the runtime schema.

@@ -28,39 +28,54 @@ export interface PromptOutput {
  */
 const POSITIVE_EXEMPLARS = `
 === POSITIVE EXAMPLES ===
-
-Example 1 - Protein Kinetics:
-Claim: "Muscle protein synthesis (MPS) does not plateau at 25-30g; 100g of slow-digesting protein elicits significantly greater MPS than 25g."
-- Domain: Protein Kinetics
-- Classification: Fact
-- Evidence Basis: (RCTs)
-- Confidence: High
-- Contains: Specific numbers (25-30g, 100g), technical term (MPS), comparison
-
-Example 2 - Protein Kinetics:
-Claim: "If total daily protein reaches ~1.6g/kg (0.7g/lb), precise timing relative to training is statistically irrelevant to hypertrophy."
-- Domain: Protein Kinetics
-- Classification: Fact
-- Evidence Basis: (Meta-analysis)
-- Confidence: High
-- Contains: Specific threshold (1.6g/kg, 0.7g/lb), statistical conclusion
-
-Example 3 - Bioenergetics:
-Claim: "Ketogenic and high-carb diets yield identical fat loss when calories and protein are equated; keto's efficacy stems from spontaneous caloric restriction (400-900 kcal/day deficit)."
-- Domain: Bioenergetics
-- Classification: Fact
-- Evidence Basis: (Metabolic Ward)
-- Confidence: High
-- Contains: Specific mechanism (spontaneous caloric restriction), numerical range (400-900 kcal/day)
-
-Example 4 - Lipidology:
-Claim: "Cream is lipid-neutral due to the presence of Milk Fat Globule Membrane (MFGM); churning butter removes MFGM, altering its mechanics and causing butter to elevate LDL cholesterol."
-- Domain: Lipidology
-- Classification: Fact
-- Evidence Basis: (Mechanistic explanation)
-- Confidence: Moderate/High
-- Contains: Specific mechanism (MFGM), clear causal chain
-
+{
+  "claims": [
+    {
+      "text": "Muscle protein synthesis (MPS) does not plateau at 25-30g; 100g of slow-digesting protein elicits significantly greater MPS than 25g.",
+      "excerptIds": ["ex1"],
+      "startSeconds": 120,
+      "type": "fact",
+      "classification": "fact",
+      "domain": "Protein Kinetics",
+      "confidence": 0.9,
+      "why": "Multiple RCTs demonstrate dose-response relationship between protein intake and MPS, with no observed plateau at 25-30g when using slow-digesting protein sources.",
+      "evidenceType": "RCTs"
+    },
+    {
+      "text": "If total daily protein reaches ~1.6g/kg (0.7g/lb), precise timing relative to training is statistically irrelevant to hypertrophy.",
+      "excerptIds": ["ex2"],
+      "startSeconds": 300,
+      "type": "fact",
+      "classification": "fact",
+      "domain": "Protein Kinetics",
+      "confidence": 0.85,
+      "why": "Meta-analysis of multiple studies shows no significant interaction between protein timing and muscle hypertrophy when total daily protein intake is adequate.",
+      "evidenceType": "Meta-analysis"
+    },
+    {
+      "text": "Ketogenic and high-carb diets yield identical fat loss when calories and protein are equated; keto's efficacy stems from spontaneous caloric restriction (400-900 kcal/day deficit).",
+      "excerptIds": ["ex3"],
+      "startSeconds": 450,
+      "type": "fact",
+      "classification": "fact",
+      "domain": "Bioenergetics",
+      "confidence": 0.8,
+      "why": "Metabolic ward studies controlling for calories and protein demonstrate equivalent fat loss between diets, with keto's effectiveness mediated by spontaneous reduction in caloric intake.",
+      "evidenceType": "Metabolic Ward"
+    },
+    {
+      "text": "Cream is lipid-neutral due to the presence of Milk Fat Globule Membrane (MFGM); churning butter removes MFGM, altering its mechanics and causing butter to elevate LDL cholesterol.",
+      "excerptIds": ["ex4"],
+      "startSeconds": 600,
+      "type": "mechanism",
+      "classification": "fact",
+      "domain": "Lipidology",
+      "confidence": 0.75,
+      "why": "The MFGM in cream prevents lipid absorption disruption, while churning process physically removes this membrane in butter production, changing its physiological effect.",
+      "evidenceType": "Mechanistic explanation"
+    }
+  ]
+}
 === END POSITIVE EXAMPLES ===
 `;
 

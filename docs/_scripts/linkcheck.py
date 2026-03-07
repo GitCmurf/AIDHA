@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Simple link checker for Markdown files under docs/."""
+
 from __future__ import annotations
 
 import json
@@ -13,8 +14,10 @@ from typing import Dict, Any
 
 DOCS = pathlib.Path(__file__).resolve().parents[2] / "docs"
 REPORT = DOCS / "01-indices" / "linkcheck-report.json"
-URL_PATTERN = re.compile(r"https?://[\w\-._~:/?#@!$&'()*+,;=%]+", re.IGNORECASE)
-SKIP_HOST_PATTERN = re.compile(r"^https?://(?:www\.)?(youtube\.com|youtu\.be)/", re.IGNORECASE)
+URL_PATTERN = re.compile(r"https?://[\w\-._~:/?#\[\]@!$&'()*+,;=%]+", re.IGNORECASE)
+SKIP_HOST_PATTERN = re.compile(
+    r"^https?://(?:www\.)?(youtube\.com|youtu\.be)/", re.IGNORECASE
+)
 SKIP_EXACT_URLS = {
     # Service endpoints and schema IDs can be valid yet unavailable/rate-limited in CI.
     "https://api.openai.com/v1",
@@ -45,7 +48,9 @@ def check_url(url: str) -> Dict[str, Any]:
     result = {
         "url": url,
         "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "status": "ok" if status and (200 <= status < 400 or status in reachable_statuses) else "fail",
+        "status": "ok"
+        if status and (200 <= status < 400 or status in reachable_statuses)
+        else "fail",
         "http_status": status,
         "error": error,
     }
@@ -59,9 +64,9 @@ def clean_url(url: str) -> str:
         last = url[-1]
         if last in '".,]':
             url = url[:-1]
-        elif last == ')':
+        elif last == ")":
             # Only strip trailing ')' if it's likely a markdown link artifact (unbalanced).
-            if url.count('(') < url.count(')'):
+            if url.count("(") < url.count(")"):
                 url = url[:-1]
             else:
                 break
@@ -75,7 +80,7 @@ def main() -> int:
     for md in DOCS.rglob("*.md"):
         text = md.read_text(encoding="utf-8", errors="ignore")
         for match in URL_PATTERN.finditer(text):
-            if match.start() >= 4 and text[match.start() - 4:match.start()] == "git+":
+            if match.start() >= 4 and text[match.start() - 4 : match.start()] == "git+":
                 # pip VCS URL form (git+https://...) is not a browsable HTTP endpoint.
                 continue
             cleaned = clean_url(match.group(0))
@@ -122,7 +127,9 @@ def main() -> int:
         results.append(res)
     REPORT.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     if failures:
-        print(f"Linkcheck found {failures} failing URL(s). See {REPORT}.", file=sys.stderr)
+        print(
+            f"Linkcheck found {failures} failing URL(s). See {REPORT}.", file=sys.stderr
+        )
         return 1
     print(f"Linkcheck OK ({len(results)} URLs). Report saved to {REPORT}.")
     return 0
