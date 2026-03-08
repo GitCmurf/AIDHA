@@ -32,6 +32,16 @@ describe('editorial metrics', () => {
     expect(countBoilerplate(candidates)).toBe(2);
   });
 
+  it('counts Wealthfront-style sponsor CTA as boilerplate', () => {
+    const candidates: ClaimCandidate[] = [
+      { text: "I've been using Wealthfront for my savings and my investing for nearly a decade.", excerptIds: ['a'] },
+      { text: 'You can earn 4% APY on your cash from partner banks.', excerptIds: ['b'] },
+      { text: 'Deterministic hashing prevents duplicate claim nodes.', excerptIds: ['c'] },
+    ];
+
+    expect(countBoilerplate(candidates)).toBe(2);
+  });
+
   it('computes timeline coverage by window', () => {
     const candidates: ClaimCandidate[] = [
       { text: 'A', excerptIds: ['a'], startSeconds: 0 },

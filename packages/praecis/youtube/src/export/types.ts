@@ -9,8 +9,17 @@ export interface DossierClaim {
   excerptId?: string;
   referenceUrls: string[];
   type?: string;
+  classification?: string;
+  domain?: string;
+  evidenceType?: string;
   confidence?: number;
   method?: string;
+  /**
+   * The maximum token overlap ratio between this claim and its source excerpts.
+   * Values closer to 1.0 indicate near-exact transcript copies ("echoes").
+   * Values closer to 0.0 indicate synthesized/rewritten assertions.
+   */
+  echoOverlapRatio?: number;
 }
 
 export interface VideoDossier {

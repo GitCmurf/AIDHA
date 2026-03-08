@@ -20,7 +20,7 @@ Commands:
   aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]
-  aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>] [--editor-version <v1|v2>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>] [--editor-llm]
+  aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>] [--editor-version <v1|v2>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>] [--editor-llm] [--editorial-diagnostics]
   aidha-youtube extract refs <videoIdOrUrl> [--db <path>]
   aidha-youtube claims purge <videoIdOrUrl> [--db <path>]
   aidha-youtube export dossier video <videoIdOrUrl> [--db <path>] [--out <path>] [--source-prefix <prefix>] [--states <accepted|draft|rejected>] [--include-drafts] [--include-rejected] [--split-states]

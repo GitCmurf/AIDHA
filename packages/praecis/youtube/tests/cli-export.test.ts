@@ -4,8 +4,9 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
+import { describeIfSqlite } from './test-utils.js';
 
-describe('CLI export flows', () => {
+describeIfSqlite('CLI export flows', () => {
   let tempRoot = '';
   let dbPath = '';
   let originalCwd = '';

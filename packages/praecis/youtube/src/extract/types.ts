@@ -7,12 +7,23 @@ export interface ClaimCandidate {
   confidence?: number;
   startSeconds?: number;
   type?: string;
+  classification?: string;
+  domain?: string;
   why?: string;
-  method?: 'heuristic' | 'llm';
+  evidenceType?: string;
+  method?: 'heuristic' | 'heuristic-fallback' | 'llm';
   chunkIndex?: number;
   model?: string;
   promptVersion?: string;
+  extractorVersion?: string;
   state?: ClaimState;
+  /**
+   * The maximum token overlap ratio between this claim and its source excerpts.
+   * Values closer to 1.0 indicate near-exact transcript copies ("echoes").
+   * Values closer to 0.0 indicate synthesized/rewritten assertions.
+   * Undefined means echo detection was not run or no excerpt texts were available.
+   */
+  echoOverlapRatio?: number;
 }
 
 export interface ClaimExtractionInput {

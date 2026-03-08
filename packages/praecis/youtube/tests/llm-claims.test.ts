@@ -10,6 +10,7 @@ import type { Result } from '../src/pipeline/types.js';
 import { ClaimExtractionPipeline } from '../src/extract/claims.js';
 import type { LlmClient, LlmCompletionRequest } from '../src/extract/llm-client.js';
 import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
+import { HeuristicClaimExtractor } from '../src/extract/claims.js';
 
 class StubLlmClient implements LlmClient {
   calls = 0;
@@ -173,6 +174,112 @@ describe('LLM claim extraction', () => {
     expect(claim?.metadata?.method).toBe('llm');
     expect(claim?.metadata?.model).toBe('test-model');
     expect(claim?.metadata?.promptVersion).toBe('v1');
+  });
+
+  it('does not record valid empty claim sets as circuit-breaker failures', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-empty-ok');
+    const client = new StubLlmClient(['{"claims": []}']);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      chunkMinutes: 10,
+      circuitBreaker: {
+        failureThreshold: 2,
+        resetTimeoutMs: 1000,
+      },
+    });
+
+    const result = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(result).toEqual([]);
+    expect(client.calls).toBe(1);
+    expect((extractor as any).circuitBreaker.getStats().failures).toBe(0);
+  });
+
+  it('clears stale LLM run metadata when a later run has no model, prompt, or diagnostics', async () => {
+    const resourceId = 'youtube-metadata-clear';
+    await store.upsertNode(
+      'Resource',
+      resourceId,
+      {
+        label: 'Metadata Clear Video',
+        metadata: {
+          videoId: 'metadata-clear',
+          url: 'https://www.youtube.com/watch?v=metadata-clear',
+        },
+      },
+      { detectNoop: true }
+    );
+
+    const excerptFixtures = [
+      { id: 'meta-excerpt-1', start: 0, text: 'Deterministic identifiers prevent duplicate claim nodes across repeated ingestion runs.' },
+      { id: 'meta-excerpt-2', start: 30, text: 'Stable field hashing keeps provenance and timestamps aligned for every extracted assertion.' },
+    ];
+
+    for (const [index, excerpt] of excerptFixtures.entries()) {
+      await store.upsertNode(
+        'Excerpt',
+        excerpt.id,
+        {
+          label: `Excerpt metadata-clear #${index + 1}`,
+          content: excerpt.text,
+          metadata: {
+            resourceId,
+            videoId: 'metadata-clear',
+            start: excerpt.start,
+            duration: 5,
+            sequence: index,
+          },
+        },
+        { detectNoop: true }
+      );
+    }
+
+    const llmExtractor = new LlmClaimExtractor({
+      client: new StubLlmClient([
+        JSON.stringify({
+          claims: [
+            {
+              text: 'Deterministic identifiers prevent duplicate claim nodes across repeated ingestion runs.',
+              excerptIds: ['meta-excerpt-1'],
+              startSeconds: 0,
+              type: 'insight',
+              confidence: 0.9,
+            },
+          ],
+        }),
+      ]),
+      model: 'test-model',
+      promptVersion: 'v1',
+      chunkMinutes: 10,
+    });
+
+    const llmPipeline = new ClaimExtractionPipeline({ graphStore: store, extractor: llmExtractor });
+    const llmResult = await llmPipeline.extractClaimsForVideo('metadata-clear', { maxClaims: 5 });
+    expect(llmResult.ok).toBe(true);
+
+    const afterLlm = await store.getNode(resourceId);
+    expect(afterLlm.ok).toBe(true);
+    if (!afterLlm.ok || !afterLlm.value) return;
+    expect(afterLlm.value.metadata?.['lastClaimRunModel']).toBe('test-model');
+    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toBe('v1');
+    expect(afterLlm.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeTypeOf('string');
+
+    const heuristicPipeline = new ClaimExtractionPipeline({
+      graphStore: store,
+      extractor: new HeuristicClaimExtractor(),
+    });
+    const heuristicResult = await heuristicPipeline.extractClaimsForVideo('metadata-clear', { maxClaims: 5 });
+    expect(heuristicResult.ok).toBe(true);
+
+    const afterHeuristic = await store.getNode(resourceId);
+    expect(afterHeuristic.ok).toBe(true);
+    if (!afterHeuristic.ok || !afterHeuristic.value) return;
+    expect(afterHeuristic.value.metadata?.['lastClaimRunModel']).toBeUndefined();
+    expect(afterHeuristic.value.metadata?.['lastClaimRunPromptVersion']).toBeUndefined();
+    expect(afterHeuristic.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeUndefined();
   });
 
   it('invalidates cache when prompt version or model changes', async () => {

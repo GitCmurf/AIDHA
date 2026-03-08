@@ -2,6 +2,7 @@ import type { GraphNode, GraphStore } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
 import type { ClaimState } from '../utils/claim-state.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
+import { buildTimestampUrl, formatTimestamp, toNumber } from '../extract/utils.js';
 
 export interface SearchOptions {
   query: string;
@@ -32,31 +33,6 @@ interface FtsCapableGraphStore extends GraphStore {
 
 function normalize(text: string | undefined): string {
   return (text ?? '').toLowerCase();
-}
-
-function formatTimestamp(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const hrs = Math.floor(total / 3600);
-  const mins = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  if (hrs > 0) {
-    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function buildTimestampUrl(baseUrl: string, seconds: number): string {
-  const separator = baseUrl.includes('?') ? '&' : '?';
-  return `${baseUrl}${separator}t=${Math.max(0, Math.floor(seconds))}s`;
-}
-
-function toNumber(value: unknown, fallback: number): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? fallback : parsed;
-  }
-  return fallback;
 }
 
 function selectExcerpt(excerpts: GraphNode[]): GraphNode | undefined {

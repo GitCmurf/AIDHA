@@ -365,6 +365,20 @@
     }
   },
   {
+    "path": "05-planning/plan-006-verification-keyphrase-refactor.md",
+    "title": "Verification and Keyphrase Extraction Refactor",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-006",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-03-05",
+      "title": "Verification and Keyphrase Extraction Refactor",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "05-planning/plan-002-mvp-delivery-and-documentation-reconciliation.md",
     "title": "MVP Delivery Plan and Documentation Reconciliation",
     "front_matter": {
@@ -620,6 +634,20 @@
     }
   },
   {
+    "path": "05-planning/tasks/task-004-claim-extraction-evaluation-matrix.md",
+    "title": "Claim Extraction Evaluation Matrix",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-004",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "0.6",
+      "last_updated": "2026-03-03",
+      "title": "Claim Extraction Evaluation Matrix",
+      "type": "TASK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "05-planning/tasks/task-001-public-repo.md",
     "title": "Public Repository Readiness — Task List & Strategy",
     "front_matter": {
@@ -629,6 +657,34 @@
       "version": "1.10",
       "last_updated": "2026-02-27",
       "title": "Public Repository Readiness — Task List & Strategy",
+      "type": "TASK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/tasks/task-003-extraction-quality-atomic-breakdown.md",
+    "title": "YouTube Claim Extraction - Production-Grade Atomic Task Breakdown",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-003-ATOMIC",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "1.2",
+      "last_updated": "2026-03-03",
+      "title": "YouTube Claim Extraction - Production-Grade Atomic Task Breakdown",
+      "type": "TASK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/tasks/task-005-deferred-claim-improvements.md",
+    "title": "Task 005: Deferred Claim Extraction Improvements",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-005",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "1.1",
+      "last_updated": "2026-03-05",
+      "title": "Deferred Claim Extraction Improvements",
       "type": "TASK",
       "docops_version": "2.0"
     }

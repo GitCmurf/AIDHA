@@ -5,39 +5,73 @@
 config_version: 1
 
 # Optional: Load environment variables from .env files
-# env:
-#   dotenv_files:
-#     - .env
+env:
+  dotenv_files:
+    - .env
+    - .env.local
 
-default_profile: local
+default_profile: default
 
 profiles:
-    # Local development profile
-    local:
-        llm:
-            model: gpt-3.5-turbo
-            # api_key: ${AIDHA_LLM_API_KEY} # Best practice: use env var
-            timeout_ms: 30000
-        # youtube:
-        #     cookie: ${YOUTUBE_COOKIE}
-        ytdlp:
-            keep_files: true
+  # System-wide baseline
+  default:
+    llm:
+      model: gpt-5-mini
+      api_key: ${AIDHA_OPENAI_API_KEY}
+      base_url: https://api.openai.com/v1
+      reasoning_effort: medium
+      verbosity: medium
+    db: ./out/aidha.sqlite
 
-    # Production/High-Quality profile
-    production:
-        llm:
-            model: gpt-4
-            timeout_ms: 60000
-        db: ./prod.sqlite
-        editor:
-            min_chars: 100
+  # flagship quality / GPT-5.2
+  pro:
+    llm:
+      model: gpt-5.2
+      reasoning_effort: high
+      verbosity: high
+
+  # ultra-fast / low cost
+  fast:
+    llm:
+      model: gpt-5-nano
+      reasoning_effort: minimal
+      verbosity: low
+
+  # Google Gemini 3.1 Pro
+  gemini:
+    llm:
+      model: gemini-3.1-pro
+      api_key: ${AIDHA_GOOGLE_API_KEY}
+      # Gemini's OpenAI-compatible endpoint
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai
+
+  # OpenRouter (Aggregator)
+  openrouter:
+    llm:
+      model: openrouter/google/gemini-pro-1.5
+      api_key: ${AIDHA_OPENROUTER_API_KEY}
+      base_url: https://openrouter.ai/api/v1
+
+  # Xiaomi Example
+  xiaomi:
+    llm:
+      model: mi-llm-3
+      api_key: ${AIDHA_XIAOMI_API_KEY}
+      base_url: https://api.xiaomi.ai/v1
+
+  # z.AI Example
+  zai:
+    llm:
+      model: z-pro
+      api_key: ${AIDHA_ZAI_API_KEY}
+      base_url: https://api.z.ai/v1
 
 # Top-level sources defaults (Tier 3)
-# Note: SourceDefaults have the same shape as Profile, so configs are nested.
 sources:
-    rss:
-        rss:
-            poll_interval_minutes: 60
+  youtube:
     youtube:
-        youtube:
-            cookie: ${YOUTUBE_COOKIE}
+      cookie: ${YOUTUBE_COOKIE}
+      innertube_api_key: ${YOUTUBE_INNERTUBE_API_KEY}
+    extraction:
+      chunk_minutes: 10
+      max_claims: 25

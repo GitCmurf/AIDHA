@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SQLiteStore } from '@aidha/graph-backend';
 import { runCli } from '../src/cli.js';
+import { describeIfSqlite } from './test-utils.js';
 
-describe('CLI area/goal/project helpers', () => {
+describeIfSqlite('CLI area/goal/project helpers', () => {
   let tempRoot = '';
   let dbPath = '';
 

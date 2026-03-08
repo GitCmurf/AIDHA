@@ -1,23 +1,11 @@
 import type { ClaimCandidate } from './types.js';
 import type { EditorialDiagnostics, EditorialDropReason } from './editorial-ranking.js';
 import { normalizeText } from './utils.js';
+import { BOILERPLATE_PATTERNS, CONJUNCTION_ENDINGS } from './constants.js';
 
 const DEFAULT_FRAGMENT_MIN_WORDS = 8;
 const DEFAULT_FRAGMENT_MIN_CHARS = 50;
 const DEFAULT_WINDOW_MINUTES = 5;
-const CONJUNCTION_ENDINGS = ['and', 'but', 'so', 'or', 'then'];
-
-const DEFAULT_BOILERPLATE_PATTERNS = [
-  /subscribe/i,
-  /like and subscribe/i,
-  /smash that (like|subscribe)/i,
-  /sponsor/i,
-  /patreon/i,
-  /thanks for watching/i,
-  /welcome back/i,
-  /intro/i,
-  /outro/i,
-];
 
 export interface FragmentRules {
   minWords?: number;
@@ -42,14 +30,14 @@ export function countFragments(
     const words = text.split(/\s+/).filter(Boolean);
     if (words.length < minWords) return true;
     const lastWord = words[words.length - 1]?.toLowerCase();
-    if (lastWord && CONJUNCTION_ENDINGS.includes(lastWord)) return true;
+    if (lastWord && (CONJUNCTION_ENDINGS as readonly string[]).includes(lastWord)) return true;
     return text.includes('...');
   }).length;
 }
 
 export function countBoilerplate(
   candidates: ClaimCandidate[],
-  patterns: RegExp[] = DEFAULT_BOILERPLATE_PATTERNS
+  patterns: RegExp[] = BOILERPLATE_PATTERNS
 ): number {
   return candidates.filter(candidate => patterns.some(pattern => pattern.test(candidate.text))).length;
 }

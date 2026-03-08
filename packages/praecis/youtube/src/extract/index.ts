@@ -26,3 +26,46 @@ export type { FragmentRules, CoverageSummary } from './editorial-metrics.js';
 export type { LlmClient, LlmCompletionRequest } from './llm-client.js';
 export { OpenAiCompatibleClient } from './llm-client.js';
 export { ReferenceExtractionPipeline } from './references.js';
+export type {
+  VerificationResult,
+  VerificationConfig,
+  VerificationTier,
+} from './verification.js';
+export {
+  TieredVerifier,
+  calculateTokenOverlap,
+  calculateNGramOverlap,
+  extractKeyPhrases,
+} from './verification.js';
+
+// Circuit breaker exports
+export type { CircuitBreakerConfig } from './circuit-breaker.js';
+export {
+  CircuitBreaker,
+  CircuitBreakerState,
+  CircuitBreakerOpenError,
+} from './circuit-breaker.js';
+
+// Claim candidate schema exports
+export {
+  ClaimCandidateSchema,
+  CLAIM_TYPES,
+  CLAIM_CLASSIFICATIONS,
+  CLAIM_STATES,
+  CLAIM_METHODS,
+  validateClaimCandidate,
+  isValidClaimCandidate,
+  normalizeClaimType,
+  normalizeClaimClassification,
+} from './claim-candidate-schema.js';
+
+// NLP utilities exports
+export {
+  extractSVOTriples,
+  extractDiscourseMarkers,
+  hasPOSPattern,
+  getPOSPattern,
+  isGrammaticallyComplete,
+  extractKeywords,
+  hasBoilerplatePOSPattern,
+} from './nlp-utils.js';

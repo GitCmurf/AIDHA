@@ -656,10 +656,10 @@ sources:
 
       // If it fails with "No config loaded", code is 1. If "Key not found", code is 1.
       // But we want it to NOT fail with "No config loaded".
-      // llm.model is in defaults? Yes: DEFAULTS.profiles.default.llm.model = 'gpt-4o-mini'
+      // llm.model is in defaults? Yes: DEFAULTS.profiles.default.llm.model = 'gpt-5-mini'
 
       expect(code).toBe(0);
-      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('gpt-4o-mini'));
+      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('gpt-5-mini'));
       expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Hardcoded'));
     });
 
@@ -674,7 +674,7 @@ sources:
     });
   });
 
-  test('config get resolves RSS defaults (Active Source)', async () => {
+  it('config get resolves RSS defaults (Active Source)', async () => {
     // Prove RSS config is "live" via --source defaults
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
     const code = await runCli(['config', 'get', 'rss.pollIntervalMinutes', '--source', 'rss']);

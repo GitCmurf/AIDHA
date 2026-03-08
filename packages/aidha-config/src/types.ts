@@ -25,6 +25,8 @@ export interface LlmConfig {
   base_url: string;
   timeout_ms: number;
   cache_dir: string;
+  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+  verbosity?: 'low' | 'medium' | 'high';
 }
 
 /** Editor tuning parameters. */
@@ -134,6 +136,8 @@ export interface ResolvedConfig {
     baseUrl: string;
     timeoutMs: number;
     cacheDir: string;
+    reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+    verbosity?: 'low' | 'medium' | 'high';
   };
   editor: {
     version: string;
