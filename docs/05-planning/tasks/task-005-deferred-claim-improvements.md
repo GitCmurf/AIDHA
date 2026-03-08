@@ -97,7 +97,7 @@ const COMMON_NOUNS = new Set([
 - [ ] All entries are genuinely generic (not domain-specific)
 - [ ] No duplicate entries
 - [ ] File is human-readable and maintainable
-- [ ] All tests pass in [packages/praecis/youtube/tests/verification.test.ts](packages/praecis/youtube/tests/verification.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
   - [ ] Test: `keeps GENERIC_TERMS within the curated cap`
   - [ ] Test: `suppresses ultra-generic terms`
 
@@ -143,7 +143,7 @@ Also update line 267:
 
 - [ ] Custom configs with `semanticThreshold` override derive correct `entailmentThreshold`
 - [ ] Hardcoded `0.8` replaced with `ENTAILMENT_SCALING_FACTOR` constant
-- [ ] All tests pass in [packages/praecis/youtube/tests/verification.test.ts](packages/praecis/youtube/tests/verification.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
   - [ ] Test: `uses default config when none provided`
   - [ ] Test: `allows custom thresholds`
 
@@ -185,7 +185,7 @@ for (const source of sources) {
 
 - [ ] `extractKeyPhrases(claim)` called once before source loop
 - [ ] No functional changes to verification results
-- [ ] All tests pass in [packages/praecis/youtube/tests/verification.test.ts](packages/praecis/youtube/tests/verification.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
   - [ ] Test: `verifySemantic` -> `extracts claim key phrases once (loop-invariant)`
 
 ---
@@ -223,7 +223,7 @@ function extractNgrams(tokens: string[], n: number): string[] {
 
 - [ ] Invalid `n` values throw `RangeError`
 - [ ] Edge cases (n=0, negative, non-integer) are handled
-- [ ] All tests pass in [packages/praecis/youtube/tests/verification.test.ts](packages/praecis/youtube/tests/verification.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
   - [ ] Test: `calculateNGramOverlap` -> `validates n parameter`
 
 ---
@@ -278,7 +278,7 @@ if (projectedCost > COST_WARNING_THRESHOLD_USD) {
 
 - [ ] Constants defined at module level with clear names
 - [ ] Hard-coded numbers replaced with references
-- [ ] All tests pass in [packages/praecis/youtube/tests/llm-claims.test.ts](packages/praecis/youtube/tests/llm-claims.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/llm-claims.test.ts`
   - [ ] Test: `token-budget-warning` (or similar logging/telemetry test)
 
 ---
@@ -311,7 +311,7 @@ cached = await readCache(join(cacheDir, `${legacyCacheKey}.json`), metadata);
 
 - [ ] Misleading condition removed or clarified
 - [ ] Behavior remains identical
-- [ ] All tests pass in [packages/praecis/youtube/tests/llm-claims.test.ts](packages/praecis/youtube/tests/llm-claims.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/llm-claims.test.ts`
   - [ ] Test: `checks legacy cache key on miss`
 
 ---
@@ -345,7 +345,7 @@ const echoThreshold = clamp(
 
 - [ ] Uses `DEFAULT_ECHO_DETECTION` constants directly
 - [ ] Reduces duplication of default values
-- [ ] All tests pass in [packages/praecis/youtube/tests/editorial-ranking.v2.test.ts](packages/praecis/youtube/tests/editorial-ranking.v2.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/editorial-ranking.v2.test.ts`
   - [ ] Test: `echo detection` -> `uses default settings`
 
 ---
@@ -379,7 +379,7 @@ const getScore = (candidate: ClaimCandidate): number => {
 
 - [ ] Score caching implemented in hot paths
 - [ ] Performance improvement measurable for large claim sets
-- [ ] All tests pass in [packages/praecis/youtube/tests/editorial-ranking.v2.test.ts](packages/praecis/youtube/tests/editorial-ranking.v2.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/editorial-ranking.v2.test.ts`
   - [ ] Test: `caching` -> `avoids redundant score computations`
 
 ---
@@ -404,7 +404,7 @@ export const COST_WARNING_THRESHOLD_USD = 0.50;
 
 - [ ] Constants exported from `token-budget.ts`
 - [ ] All modules import from shared location
-- [ ] All tests pass in [packages/praecis/youtube/tests/token-budget.test.ts](packages/praecis/youtube/tests/token-budget.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/token-budget.test.ts`
 
 ---
 
@@ -494,7 +494,7 @@ const memoizedScore = memoize(
 - [ ] Shared `memoize()` utility added to `utils.ts` or new `memo.ts`
 - [ ] Optional `memoizeLRU()` variant with size limits
 - [ ] Editorial ranking updated to use shared utility (optional refactoring)
-- [ ] All tests pass in [packages/praecis/youtube/tests/utils.test.ts](packages/praecis/youtube/tests/utils.test.ts)
+- [ ] All tests pass in `packages/praecis/youtube/tests/utils.test.ts`
   - [ ] Test: `memoize` -> `caches function results`
   - [ ] Test: `memoizeLRU` -> `evicts oldest entries`
 

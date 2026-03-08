@@ -214,8 +214,12 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       baseUrl: (llm['base_url'] as string) ?? '',
       timeoutMs: (llm['timeout_ms'] as number) ?? 0,
       cacheDir: resolvePathValue((llm['cache_dir'] as string) ?? '', baseDir),
-      reasoningEffort: llm['reasoning_effort'] as ResolvedConfig['llm']['reasoningEffort'],
-      verbosity: llm['verbosity'] as ResolvedConfig['llm']['verbosity'],
+      reasoningEffort: (['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).find(
+        value => value === llm['reasoning_effort']
+      ),
+      verbosity: (['low', 'medium', 'high'] as const).find(
+        value => value === llm['verbosity']
+      ),
     },
     editor: {
       version: (editor['version'] as string) ?? '',

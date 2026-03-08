@@ -130,6 +130,9 @@ export interface CachedClaimsLoadOptions {
   chunkMinutes?: number;
   maxChunks?: number;
   cacheDir?: string;
+  reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+  verbosity?: ResolvedConfig['llm']['verbosity'];
+  maxTokens?: number;
 }
 
 export interface CachedClaimsLoadResult {
@@ -392,6 +395,9 @@ function cacheKeyForChunk(input: {
   transcriptHash: string;
   model: string;
   promptVersion: string;
+  reasoningEffort?: string;
+  verbosity?: string;
+  maxTokens?: number;
 }): string {
   return hashId('llm-claims', [
     input.videoId,
@@ -401,6 +407,9 @@ function cacheKeyForChunk(input: {
     input.transcriptHash,
     input.model,
     input.promptVersion,
+    input.reasoningEffort ?? 'default',
+    input.verbosity ?? 'default',
+    input.maxTokens ?? 'default',
     CURRENT_SCHEMA_VERSION,
   ]);
 }
@@ -466,6 +475,9 @@ export async function loadCachedClaimCandidates(
       transcriptHash,
       model: input.model,
       promptVersion: input.promptVersion,
+      reasoningEffort: input.reasoningEffort,
+      verbosity: input.verbosity,
+      maxTokens: input.maxTokens,
     });
     const legacyCacheKey = legacyCacheKeyForChunk({
       videoId,
@@ -684,6 +696,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       setHash,
       this.model,
       this.editorRewritePromptVersion,
+      this.reasoningEffort ?? 'default',
+      this.verbosity ?? 'default',
+      this.maxTokens,
     ]);
     const cachePath = join(this.cacheDir, `${cacheKey}.rewrite.json`);
     const metadata: RewriteCacheMetadata = {
@@ -797,9 +812,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
-    // Even with unparsable response, record success before retry (LLM responded successfully)
-    // This prevents the circuit breaker from getting stuck in HalfOpen state
-    this.circuitBreaker.recordSuccess();
+    // Even with unparsable response, record failure to properly trigger circuit breaker
+    this.circuitBreaker.recordFailure();
 
     // Check circuit breaker again before retry
     if (!this.circuitBreaker.canExecute()) {
@@ -869,6 +883,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       transcriptHash,
       model: this.model,
       promptVersion: this.promptVersion,
+      reasoningEffort: this.reasoningEffort,
+      verbosity: this.verbosity,
+      maxTokens: this.maxTokens,
     });
     const legacyCacheKey = legacyCacheKeyForChunk({
       videoId,
@@ -1047,10 +1064,19 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return [];
     }
 
-    const parsed = this.parseResponse(response.value, chunk, excerptStartMap);
+    const parseError = this.getParseError(response.value);
+    const parsed = parseError === null
+      ? this.parseResponse(response.value, chunk, excerptStartMap)
+      : [];
     if (parsed.length > 0) {
       this.circuitBreaker.recordSuccess();
       return parsed;
+    }
+
+    if (parseError === null) {
+      // Valid JSON/schema with no extractable claims is a healthy provider response.
+      this.circuitBreaker.recordSuccess();
+      return [];
     }
 
     // Malformed response - record as failure so circuit breaker can trip
@@ -1058,7 +1084,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Enhanced retry with parse-error feedback
     // Sanitize parseError to prevent second-order prompt injection
-    const parseError = this.getParseError(response.value);
     const sanitizedFeedback = parseError
       ? parseError
           .replace(/```/g, '\'\'\'') // Prevent code fence injection
@@ -1095,12 +1120,17 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return [];
     }
 
-    const retryParsed = this.parseResponse(retry.value, chunk, excerptStartMap);
+    const retryParseError = this.getParseError(retry.value);
+    const retryParsed = retryParseError === null
+      ? this.parseResponse(retry.value, chunk, excerptStartMap)
+      : [];
     if (retryParsed.length > 0) {
       this.circuitBreaker.recordSuccess();
-    } else {
+    } else if (retryParseError === null) {
       // LLM responded successfully but extracted no claims - not a service failure
       this.circuitBreaker.recordSuccess();
+    } else {
+      this.circuitBreaker.recordFailure();
     }
     return retryParsed;
   }

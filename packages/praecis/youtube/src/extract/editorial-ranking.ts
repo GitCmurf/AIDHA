@@ -278,7 +278,6 @@ function dedupeCandidates(
 
 const NEGATION_WORDS = new Set([
   'not', 'no', 'never', 'neither', 'none', 'without', 'lack', 'except',
-  'but', 'however', 'although', 'though'
 ]);
 
 const COMPARATIVE_SUPERLATIVE_WORDS = new Set([

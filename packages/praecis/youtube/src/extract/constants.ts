@@ -46,7 +46,7 @@ export const CONJUNCTION_ENDINGS = ['and', 'but', 'so', 'or', 'then'] as const;
 /**
  * Filler words that indicate hesitation in speech.
  */
-export const FILLER_PATTERNS = [/\buh\b/i, /\bum\b/i] as const;
+export const FILLER_PATTERNS = [/\buh\b/gi, /\bum\b/gi] as const;
 
 /**
  * Pronouns that indicate decontextualized fragments when they start a claim.

@@ -219,6 +219,24 @@ describe('resolveConfig — edge cases', () => {
     expect(resolved.llm.cacheDir).toBe(resolve(baseDir, './out/cache/claims'));
     expect(resolved.export.outDir).toBe(resolve(baseDir, './out'));
   });
+
+  it('should discard invalid reasoning_effort and verbosity values during resolution', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          llm: {
+            model: 'config-default-model',
+            reasoning_effort: 'ultra' as never,
+            verbosity: 'verbose' as never,
+          },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({ rawConfig: config });
+    expect(resolved.llm.reasoningEffort).toBeUndefined();
+    expect(resolved.llm.verbosity).toBeUndefined();
+  });
 });
 
 // ── Extensions ───────────────────────────────────────────────────────────────

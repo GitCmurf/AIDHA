@@ -130,6 +130,47 @@ describe('HeuristicClaimExtractor quality regression', () => {
     expect(scoreWithPercent).toBeGreaterThan(scoreWithoutPercent);
   });
 
+  it('preserves sentence provenance when merged excerpts contain repeated whitespace', async () => {
+    const candidates = await extractor.extractClaims({
+      resource,
+      excerpts: [
+        {
+          id: 'excerpt-1',
+          type: 'Excerpt',
+          label: 'Excerpt @0:00',
+          content: 'First  explanatory sentence about protein timing after evening resistance training.',
+          metadata: { start: 0, duration: 5, videoId: 'test-educational' },
+        },
+        {
+          id: 'excerpt-2',
+          type: 'Excerpt',
+          label: 'Excerpt @0:10',
+          content: 'Then second explanatory sentence about recovery windows after heavy lifting sessions.',
+          metadata: { start: 10, duration: 5, videoId: 'test-educational' },
+        },
+        {
+          id: 'excerpt-3',
+          type: 'Excerpt',
+          label: 'Excerpt @1:00',
+          content: 'Third standalone sentence for the >2 segment path.',
+          metadata: { start: 60, duration: 5, videoId: 'test-educational' },
+        },
+      ],
+      maxClaims: 20,
+    });
+
+    const first = candidates.find(
+      candidate => candidate.text === 'First explanatory sentence about protein timing after evening resistance training.'
+    );
+    const second = candidates.find(
+      candidate => candidate.text === 'Then second explanatory sentence about recovery windows after heavy lifting sessions.'
+    );
+
+    expect(first?.excerptIds).toEqual(['excerpt-1']);
+    expect(second?.excerptIds).toEqual(['excerpt-2']);
+    expect(second?.startSeconds).toBeGreaterThanOrEqual(10);
+  });
+
   it('assigns confidence scores based on content features', async () => {
     const candidates = await extractor.extractClaims({
       resource,

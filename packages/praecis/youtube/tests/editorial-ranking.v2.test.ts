@@ -96,6 +96,35 @@ describe('editorial ranking v2', () => {
     expect(result).toHaveLength(1);
   });
 
+  it('does not treat contrasting conjunctions as negation differences', () => {
+    const candidates: ClaimCandidate[] = [
+      {
+        text: 'Protein synthesis increases with resistance training in healthy adults over time.',
+        excerptIds: ['e1'],
+        startSeconds: 10,
+        chunkIndex: 0,
+        confidence: 0.8,
+      },
+      {
+        text: 'However, protein synthesis increases with resistance training in healthy adults over time.',
+        excerptIds: ['e2'],
+        startSeconds: 12,
+        chunkIndex: 0,
+        confidence: 0.75,
+      },
+    ];
+
+    const result = runEditorPassV2(candidates, {
+      maxClaims: 5,
+      chunkCount: 1,
+      semanticSimilarityThreshold: 0.75,
+      minWindows: 1,
+      dropThreshold: 0,
+    });
+
+    expect(result).toHaveLength(1);
+  });
+
   it('enforces multi-window coverage and max-per-window cap', () => {
     const candidates: ClaimCandidate[] = [
       {

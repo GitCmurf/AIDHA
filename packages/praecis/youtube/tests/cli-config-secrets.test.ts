@@ -119,4 +119,10 @@ profiles:
     expect(sanitized).not.toContain('abc.def.ghi');
     expect(sanitized).toContain('[REDACTED]');
   });
+
+  it('redacts quoted authorization bearer values without leaking trailing quotes', () => {
+    const sanitized = sanitizeErrorMessage("'authorization': 'Bearer sk-abc123'");
+    expect(sanitized).not.toContain('sk-abc123');
+    expect(sanitized).toContain("'authorization': [REDACTED]");
+  });
 });

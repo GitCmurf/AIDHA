@@ -142,7 +142,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     // Step 1: Convert excerpts to mergeable segments, keeping track of original indices
     const segments: Array<MergeableSegment & { originalIndex: number }> = input.excerpts
       .map((excerpt, index) => ({
-        text: excerpt.content?.trim() ?? '',
+        text: normalizeText(excerpt.content ?? ''),
         startSeconds: typeof excerpt.metadata?.['start'] === 'number'
           ? (excerpt.metadata?.['start'] as number)
           : undefined,
@@ -585,12 +585,18 @@ export class ClaimExtractionPipeline {
       }
       if (firstModel) {
         runMetadata['lastClaimRunModel'] = firstModel;
+      } else {
+        delete runMetadata['lastClaimRunModel'];
       }
       if (firstPromptVersion) {
         runMetadata['lastClaimRunPromptVersion'] = firstPromptVersion;
+      } else {
+        delete runMetadata['lastClaimRunPromptVersion'];
       }
       if (editorialDiagnostics) {
         runMetadata['lastClaimRunEditorDiagnostics'] = JSON.stringify(editorialDiagnostics);
+      } else {
+        delete runMetadata['lastClaimRunEditorDiagnostics'];
       }
 
       const resourceUpdate = await this.graphStore.upsertNode(
