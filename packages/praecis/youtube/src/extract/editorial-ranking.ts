@@ -278,7 +278,7 @@ function dedupeCandidates(
 
 const NEGATION_WORDS = new Set([
   'not', 'no', 'never', 'neither', 'none', 'without', 'lack', 'except', 'cannot',
-  'won', 'can', 'don', 'didn', 'doesn', 'isn', 'aren', 'wasn', 'weren',
+  'won', 'don', 'didn', 'doesn', 'isn', 'aren', 'wasn', 'weren',
   'haven', 'hasn', 'hadn', 'shouldn', 'wouldn', 'couldn',
 ]);
 
@@ -290,7 +290,6 @@ const CONTRACTION_EXPANSIONS: Record<string, string> = {
   "won't": "will not",
   "won": "will not",
   "can't": "cannot",
-  "can": "can not",
   "don't": "do not",
   "don": "do not",
   "doesn't": "does not",
@@ -384,14 +383,14 @@ function hasNegationOrQualifierDifference(text1: string, text2: string): boolean
   return false;
 }
 
-function hasNumericalDifference(text1: string, text2: string): boolean {
+export function hasNumericalDifference(text1: string, text2: string): boolean {
   const nums1 = new Set(text1.match(/\d+(?:\.\d+)?/g) || []);
   const nums2 = new Set(text2.match(/\d+(?:\.\d+)?/g) || []);
-  if (nums1.size > 0 && nums2.size > 0) {
-    return nums1.size !== nums2.size ||
-           [...nums1].some(n => !nums2.has(n));
-  }
-  return false;
+
+  if (nums1.size !== nums2.size) return true;
+  if (nums1.size === 0) return false;
+
+  return [...nums1].some(n => !nums2.has(n));
 }
 
 /**
