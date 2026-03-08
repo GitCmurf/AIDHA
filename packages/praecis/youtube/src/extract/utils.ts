@@ -241,25 +241,17 @@ export function splitSentences(text: string): string[] {
 
       // Sentence end conditions:
       // 1. End of string
-      // 2. Followed by space and capital letter (or quote/paren)
+      // 2. Followed by space (even if next token is lowercase)
       // 3. Not part of decimal number (e.g., 1.5)
       // 4. Not a known abbreviation
       const isEndOfString = i === normalized.length - 1;
-      const isFollowedBySpaceAndCapital = nextChar === ' ' && (
-        nextNextChar && (
-          nextNextChar === nextNextChar.toUpperCase() ||
-          nextNextChar === '"' ||
-          nextNextChar === "'" ||
-          nextNextChar === '(' ||
-          nextNextChar === '['
-        )
-      );
+      const isFollowedBySpace = nextChar === ' ';
       const isNotDecimal = nextChar !== '0' && nextChar !== '1' &&
         nextChar !== '2' && nextChar !== '3' && nextChar !== '4' &&
         nextChar !== '5' && nextChar !== '6' && nextChar !== '7' &&
         nextChar !== '8' && nextChar !== '9';
 
-      if (!isAbbreviation && (isEndOfString || (isFollowedBySpaceAndCapital && isNotDecimal))) {
+      if (!isAbbreviation && (isEndOfString || (isFollowedBySpace && isNotDecimal))) {
         const sentence = current.trim();
         if (sentence) {
           sentences.push(sentence);

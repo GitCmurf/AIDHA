@@ -332,13 +332,16 @@ const CONTRACTION_EXPANSIONS: Record<string, string> = {
   "they're": "they are",
 };
 
-function expandContractions(text: string): string {
+export function expandContractions(text: string): string {
   let expanded = text.toLowerCase();
   const sortedContractions = Object.entries(CONTRACTION_EXPANSIONS).sort(
     (a, b) => b[0].length - a[0].length
   );
   for (const [contraction, expansion] of sortedContractions) {
-    expanded = expanded.replace(new RegExp(contraction, 'g'), expansion);
+    // Escape contraction for regex and wrap in word boundaries
+    const escaped = contraction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'g');
+    expanded = expanded.replace(regex, expansion);
   }
   return expanded;
 }
