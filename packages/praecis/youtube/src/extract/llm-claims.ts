@@ -871,6 +871,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return retryParsed;
     }
 
+    // Even with unparsable retry response, record failure to properly trigger circuit breaker
+    this.circuitBreaker.recordFailure();
     return null;
   }
 

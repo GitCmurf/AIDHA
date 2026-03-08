@@ -277,7 +277,9 @@ function dedupeCandidates(
 
 
 const NEGATION_WORDS = new Set([
-  'not', 'no', 'never', 'neither', 'none', 'without', 'lack', 'except',
+  'not', 'no', 'never', 'neither', 'none', 'without', 'lack', 'except', 'cannot',
+  'won', 'can', 'don', 'didn', 'doesn', 'isn', 'aren', 'wasn', 'weren',
+  'haven', 'hasn', 'hadn', 'shouldn', 'wouldn', 'couldn',
 ]);
 
 const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
@@ -287,7 +289,7 @@ const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
 function getWordCounts(text: string): Map<string, number> {
   const words = normalizeText(text)
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s']/gu, ' ')
     .split(/\s+/)
     .filter(Boolean);
   const counts = new Map<string, number>();
