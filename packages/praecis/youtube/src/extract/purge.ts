@@ -14,6 +14,9 @@ const CLAIM_RUN_METADATA_KEYS = [
   'lastClaimRunEditorVersion',
   'lastClaimRunModel',
   'lastClaimRunPromptVersion',
+  'lastClaimRunValidated',
+  'lastClaimRunValidationErrors',
+  'lastClaimRunEditorDiagnostics',
 ] as const;
 
 interface TransactionalStore {

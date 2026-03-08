@@ -42,7 +42,7 @@ export const GENERIC_TERMS = new Set([
 export const GENERIC_TERMS_MAX = 100;
 
 const PROPER_NOUN_PATTERN = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g;
-const TOKEN_PATTERN = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g;
+const TOKEN_PATTERN = /[\p{L}0-9]+(?:-[\p{L}0-9]+)*/gu;
 
 /**
  * Normalizes a word by lowercasing and stripping leading/trailing non-alphanumeric chars.
@@ -71,11 +71,7 @@ function normalizeWord(raw: string): string {
  * Inline for performance to avoid regex overhead.
  */
 function isAlphaNumeric(char: string): boolean {
-  const code = char.charCodeAt(0);
-  return (
-    (code >= 48 && code <= 57) || // 0-9
-    (code >= 97 && code <= 122)   // a-z
-  );
+  return /[\p{L}0-9]/u.test(char);
 }
 
 function isAcronym(raw: string): boolean {

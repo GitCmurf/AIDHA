@@ -276,15 +276,12 @@ export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmCli
     return { ok: false, error: new Error('llm.base_url is not configured') };
   }
   try {
-    // Detect model capabilities from the configured model name
-    const capabilities = detectModelCapabilities(cfg.model);
     return {
       ok: true,
       value: new OpenAiCompatibleClient({
         baseUrl: cfg.baseUrl,
         apiKey: cfg.apiKey || undefined,
         timeoutMs: cfg.timeoutMs ?? 60_000,
-        modelCapabilities: capabilities,
       }),
     };
   } catch (error) {

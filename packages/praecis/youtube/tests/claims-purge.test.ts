@@ -116,6 +116,9 @@ describe('purgeClaimsForVideo', () => {
         keep: 'me',
         lastClaimRunAt: '2026-02-10T00:00:00.000Z',
         lastClaimRunCreated: 1,
+        lastClaimRunValidated: 1,
+        lastClaimRunValidationErrors: 0,
+        lastClaimRunEditorDiagnostics: '{}',
       },
     });
     await store.upsertNode('Excerpt', 'excerpt-purge-1', {
@@ -146,6 +149,9 @@ describe('purgeClaimsForVideo', () => {
     expect(resource.value?.metadata?.['concurrentMetadata']).toBe('keep-me');
     expect(resource.value?.metadata?.['lastClaimRunAt']).toBeUndefined();
     expect(resource.value?.metadata?.['lastClaimRunCreated']).toBeUndefined();
+    expect(resource.value?.metadata?.['lastClaimRunValidated']).toBeUndefined();
+    expect(resource.value?.metadata?.['lastClaimRunValidationErrors']).toBeUndefined();
+    expect(resource.value?.metadata?.['lastClaimRunEditorDiagnostics']).toBeUndefined();
 
     await store.close();
   });

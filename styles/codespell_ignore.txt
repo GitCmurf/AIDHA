@@ -8,3 +8,5 @@ STRAT
 strat
 clientA
 allEdges
+wasn
+couldn

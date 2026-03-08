@@ -162,36 +162,8 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
       return [];
     }
 
-    // For very short transcripts (test fixtures), use original behavior for compatibility
-    if (segments.length <= 2) {
-      this.lastEditorDiagnostics = undefined;
-
-      const candidates: ClaimCandidate[] = segments.map(segment => ({
-        text: segment.text,
-        excerptIds: [input.excerpts[segment.originalIndex]?.id].filter((id): id is string => typeof id === 'string'),
-        confidence: this.computeHeuristicConfidence(segment.text),
-        startSeconds: segment.startSeconds,
-        method: 'heuristic',
-        extractorVersion: this.useNlp ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
-      }));
-
-      // Simple deduplication
-      const seen = new Set<string>();
-      const unique = candidates.filter(candidate => {
-        const key = normalizeKey(candidate.text);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      // Sort by timestamp for predictable ordering
-      return unique
-        .sort((a, b) => (a.startSeconds ?? 0) - (b.startSeconds ?? 0))
-        .slice(0, maxClaims);
-    }
-
     // Step 2: Merge adjacent excerpts within the gap window, tracking which excerpts contributed
-    // segments.length > 2 here, so segments[0] and segments[i] are always defined
+    // Handle first segment to initialize currentMerged
     const mergedSegments: MergedSegment[] = [];
     let currentMerged: MergedSegment = {
       text: segments[0]!.text,
@@ -293,6 +265,11 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           .map(idx => input.excerpts[idx]?.id)
           .filter((id): id is string => typeof id === 'string');
 
+        // Ensure we always have at least one excerpt ID to satisfy schema requirements
+        const finalExcerptIds = excerptIds.length > 0
+          ? excerptIds
+          : merged.excerptIndices.map(idx => input.excerpts[idx]?.id).filter((id): id is string => typeof id === 'string');
+
         // Estimate startSeconds based on sentence position within merged text
         // If the merged segment has a valid time range, interpolate proportionally
         let estimatedStartSeconds = merged.startSeconds;
@@ -304,7 +281,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
 
         sentenceCandidates.push({
           text: normalized,
-          excerptIds,
+          excerptIds: finalExcerptIds,
           confidence: this.computeHeuristicConfidence(normalized),
           startSeconds: estimatedStartSeconds,
           chunkIndex: mergedIndex,
@@ -359,7 +336,12 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
 
     // Store diagnostics for retrieval
     this.lastEditorDiagnostics = editorialResult.diagnostics;
-    const editorialFiltered = editorialResult.selected;
+
+    // Fallback to all unique candidates if editorial pass drops everything
+    // This ensures we still return heuristic results for short/tutorial videos
+    const editorialFiltered = editorialResult.selected.length > 0
+      ? editorialResult.selected
+      : unique;
 
     // Step 6: Sort by quality (higher confidence first) and limit
     const sorted = editorialFiltered.sort((a, b) => {
@@ -510,11 +492,12 @@ export class ClaimExtractionPipeline {
     const lastClaimRunAt = new Date().toISOString();
     const writeResult = await runAtomically(this.graphStore, async () => {
       for (const claim of persistenceCandidates) {
-        // Use normalized key for claim ID to ensure punctuation variants map to same node
+        // Use original text for claim ID to ensure punctuation differences (e.g. "5.0 g" vs "50 g")
+        // result in distinct IDs. Normalized keys for deduping should happen during candidate extraction,
+        // not during ID generation for persistence.
         // Sort excerptIds to ensure consistent hashing regardless of order
-        const normalizedClaimKey = normalizeKey(claim.text);
         const sortedExcerptIds = uniqueSortedStrings(claim.excerptIds);
-        const claimId = hashId('claim', [resourceId, normalizedClaimKey, ...sortedExcerptIds]);
+        const claimId = hashId('claim', [resourceId, claim.text, ...sortedExcerptIds]);
         const label = claim.text.length > 120 ? `${claim.text.slice(0, 117)}...` : claim.text;
         const metadata: Record<string, unknown> = {
           resourceId,

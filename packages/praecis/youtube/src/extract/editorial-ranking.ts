@@ -286,12 +286,71 @@ const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
   'more', 'less', 'better', 'worse', 'best', 'worst', 'highest', 'lowest', 'most', 'least'
 ]);
 
+const CONTRACTION_EXPANSIONS: Record<string, string> = {
+  "won't": "will not",
+  "won": "will not",
+  "can't": "cannot",
+  "can": "can not",
+  "don't": "do not",
+  "don": "do not",
+  "doesn't": "does not",
+  "doesn": "does not",
+  "didn't": "did not",
+  "didn": "did not",
+  "isn't": "is not",
+  "isn": "is not",
+  "aren't": "are not",
+  "aren": "are not",
+  "wasn't": "was not",
+  "wasn": "was not",
+  "weren't": "were not",
+  "weren": "were not",
+  "haven't": "have not",
+  "haven": "have not",
+  "hasn't": "has not",
+  "hasn": "has not",
+  "hadn't": "had not",
+  "hadn": "had not",
+  "shouldn't": "should not",
+  "shouldn": "should not",
+  "wouldn't": "would not",
+  "wouldn": "would not",
+  "couldn't": "could not",
+  "couldn": "could not",
+  "i'm": "i am",
+  "i've": "i have",
+  "i'll": "i will",
+  "i'd": "i would",
+  "you're": "you are",
+  "you've": "you have",
+  "you'll": "you will",
+  "you'd": "you would",
+  "he's": "he is",
+  "she's": "she is",
+  "it's": "it is",
+  "we're": "we are",
+  "they're": "they are",
+};
+
+function expandContractions(text: string): string {
+  let expanded = text.toLowerCase();
+  const sortedContractions = Object.entries(CONTRACTION_EXPANSIONS).sort(
+    (a, b) => b[0].length - a[0].length
+  );
+  for (const [contraction, expansion] of sortedContractions) {
+    expanded = expanded.replace(new RegExp(contraction, 'g'), expansion);
+  }
+  return expanded;
+}
+
 function getWordCounts(text: string): Map<string, number> {
-  const words = normalizeText(text)
+  const expanded = expandContractions(text);
+  const normalized = normalizeText(expanded)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s']/gu, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
+    .replace(/'/g, '');
+
+  const words = normalized.split(/\s+/).filter(Boolean);
   const counts = new Map<string, number>();
   for (const word of words) {
     counts.set(word, (counts.get(word) ?? 0) + 1);
@@ -319,6 +378,16 @@ function hasNegationOrQualifierDifference(text1: string, text2: string): boolean
     }
   }
 
+  return false;
+}
+
+function hasNumericalDifference(text1: string, text2: string): boolean {
+  const nums1 = new Set(text1.match(/\d+(?:\.\d+)?/g) || []);
+  const nums2 = new Set(text2.match(/\d+(?:\.\d+)?/g) || []);
+  if (nums1.size > 0 && nums2.size > 0) {
+    return nums1.size !== nums2.size ||
+           [...nums1].some(n => !nums2.has(n));
+  }
   return false;
 }
 
@@ -356,6 +425,9 @@ function semanticDedupe(
       const overlap = intersect / union;
       if (overlap >= semanticThreshold) {
         if (hasNegationOrQualifierDifference(candidate.text, existing.text)) {
+          return false;
+        }
+        if (hasNumericalDifference(candidate.text, existing.text)) {
           return false;
         }
         return true;

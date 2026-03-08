@@ -9,6 +9,7 @@ import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from './typ
 import { HeuristicClaimExtractor } from './claims.js';
 import { runEditorPassV1, runEditorPassV2, runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics, DEFAULT_ECHO_DETECTION, type EditorialDiagnostics } from './editorial-ranking.js';
 import type { LlmClient } from './llm-client.js';
+import { detectModelCapabilities } from './llm-client.js';
 import { clamp, normalizeText, toNumber } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
 import { normalizeClaimClassification, normalizeClaimType, CLAIM_TYPES, CLAIM_CLASSIFICATIONS } from './claim-candidate-schema.js';
@@ -101,10 +102,10 @@ function usesDefaultRequestTuning(input: {
   reasoningEffort?: string;
   verbosity?: string;
   maxTokens?: number;
-}): boolean {
-  return input.reasoningEffort === undefined
-    && input.verbosity === undefined
-    && (input.maxTokens === undefined || input.maxTokens === DEFAULT_MAX_TOKENS);
+}, defaultMaxTokens: number = DEFAULT_MAX_TOKENS): boolean {
+  return (input.reasoningEffort === undefined || input.reasoningEffort === 'medium')
+    && (input.verbosity === undefined || input.verbosity === 'medium')
+    && (input.maxTokens === undefined || input.maxTokens === DEFAULT_MAX_TOKENS || input.maxTokens === defaultMaxTokens);
 }
 
 export interface LlmClaimExtractorConfig {
@@ -508,9 +509,13 @@ export async function loadCachedClaimCandidates(
       chunk,
     });
 
+    // Detect model capabilities to determine the expected default max tokens for this model
+    const capabilities = detectModelCapabilities(input.model);
+    const defaultMaxTokens = capabilities.defaultMaxTokens;
+
     // Try new cache key first, then fall back to legacy key for backward compatibility
     let cached = await readCache(join(cacheDir, `${cacheKey}.json`), metadata);
-    if (!cached && usesDefaultRequestTuning(input) && cacheKey !== legacyCacheKey) {
+    if (!cached && usesDefaultRequestTuning(input, defaultMaxTokens) && cacheKey !== legacyCacheKey) {
       cached = await readCache(join(cacheDir, `${legacyCacheKey}.json`), metadata);
     }
 
@@ -627,9 +632,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
    * Used to determine whether legacy cache fallback is appropriate.
    */
   private usesDefaultRequestTuning(): boolean {
-    return this.reasoningEffort === undefined
-      && this.verbosity === undefined
-      && this.maxTokens === DEFAULT_MAX_TOKENS;
+    const capabilities = detectModelCapabilities(this.model);
+    const defaultMaxTokens = capabilities.defaultMaxTokens;
+    return (this.reasoningEffort === undefined || this.reasoningEffort === 'medium')
+      && (this.verbosity === undefined || this.verbosity === 'medium')
+      && (this.maxTokens === DEFAULT_MAX_TOKENS || this.maxTokens === defaultMaxTokens);
   }
 
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {

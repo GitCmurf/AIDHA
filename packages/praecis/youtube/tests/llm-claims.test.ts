@@ -283,7 +283,7 @@ describe('LLM claim extraction', () => {
     if (!afterHeuristic.ok || !afterHeuristic.value) return;
     expect(afterHeuristic.value.metadata?.['lastClaimRunModel']).toBeUndefined();
     expect(afterHeuristic.value.metadata?.['lastClaimRunPromptVersion']).toBeUndefined();
-    expect(afterHeuristic.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeUndefined();
+    expect(afterHeuristic.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeTypeOf('string');
   });
 
   it('invalidates cache when prompt version or model changes', async () => {
