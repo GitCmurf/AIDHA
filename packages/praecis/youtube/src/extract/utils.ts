@@ -226,13 +226,19 @@ export function splitSentences(text: string): string[] {
     const char = normalized.charAt(i);
     current += char;
 
-    // Check for sentence-ending punctuation
-    if (char === '.' || char === '!' || char === '?') {
+    // Check for sentence-ending punctuation (or punctuation followed by closing quote/paren)
+    const prevChar = i > 0 ? normalized.charAt(i - 1) : '';
+    const isPunctuation = char === '.' || char === '!' || char === '?';
+    const isClosingPunctuation = char === '"' || char === "'" || char === ')' || char === ']' || char === '}';
+    const isPrevPunctuation = prevChar === '.' || prevChar === '!' || prevChar === '?';
+
+    if (isPunctuation || (isClosingPunctuation && isPrevPunctuation)) {
       // Look ahead to see if this is truly a sentence end
       const nextChar = normalized.charAt(i + 1);
-      const nextNextChar = normalized.charAt(i + 2);
 
-      // Check if current "word" ending with period is an abbreviation
+      // We only consider the word for abbreviation check if we are at the punctuation itself.
+      // If we are at the closing quote, the "word" has a quote on it, but the abbreviation check
+      // strips non-alphanumeric chars anyway, so it should still work.
       const currentWords = current.trim().split(/\s+/);
       const lastWordRaw = currentWords[currentWords.length - 1];
       // Strip all non-alphanumeric characters to match "e.g." → "eg", "i.e." → "ie"
@@ -246,10 +252,10 @@ export function splitSentences(text: string): string[] {
       // 4. Not a known abbreviation
       const isEndOfString = i === normalized.length - 1;
       const isFollowedBySpace = nextChar === ' ';
-      const isNotDecimal = nextChar !== '0' && nextChar !== '1' &&
+      const isNotDecimal = isPunctuation ? (nextChar !== '0' && nextChar !== '1' &&
         nextChar !== '2' && nextChar !== '3' && nextChar !== '4' &&
         nextChar !== '5' && nextChar !== '6' && nextChar !== '7' &&
-        nextChar !== '8' && nextChar !== '9';
+        nextChar !== '8' && nextChar !== '9') : true;
 
       if (!isAbbreviation && (isEndOfString || (isFollowedBySpace && isNotDecimal))) {
         const sentence = current.trim();

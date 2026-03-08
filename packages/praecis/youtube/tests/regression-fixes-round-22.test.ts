@@ -29,10 +29,20 @@ describe('Regression Fixes Round 22', () => {
       expect(hasSubjectOrPredicateChange(s1, s2)).toBe(true);
     });
 
-    it('returns false for single-token non-stopword differences (including women/men) to allow minor paraphrasing', () => {
+    it('does not merge opposite-direction claims (increases vs decreases)', () => {
+      const s1 = "creatine increases muscle damage";
+      const s2 = "creatine decreases muscle damage";
+      expect(hasSubjectOrPredicateChange(s1, s2)).toBe(true);
+
+      const s3 = "raises blood pressure significantly";
+      const s4 = "lowers blood pressure significantly";
+      expect(hasSubjectOrPredicateChange(s3, s4)).toBe(true);
+    });
+
+    it('returns true for single-token non-stopword differences (including women/men) to preserve distinct claims', () => {
       const s1 = "vitamin d reduces falls in elderly women";
       const s2 = "vitamin d reduces falls in elderly men";
-      expect(hasSubjectOrPredicateChange(s1, s2)).toBe(false);
+      expect(hasSubjectOrPredicateChange(s1, s2)).toBe(true);
     });
   });
 
@@ -45,6 +55,10 @@ describe('Regression Fixes Round 22', () => {
       expect(expandContractions("donation")).toBe("donation");
       expect(expandContractions("scan")).toBe("scan");
       expect(expandContractions("wonder")).toBe("wonder");
+    });
+
+    it('does NOT treat bare "won" as a contraction in normal prose', () => {
+      expect(expandContractions("i won the game")).toBe("i won the game");
     });
 
     it('does NOT treat bare "can" as a negation contraction (Regression 5)', () => {
@@ -63,6 +77,12 @@ describe('Regression Fixes Round 22', () => {
         "third sentence!",
         "last one"
       ]);
+    });
+
+    it('handles punctuation followed by closing quotes/parens/brackets before the space', () => {
+      expect(splitSentences('"Hello." Then he left.')).toEqual(['"Hello."', 'Then he left.']);
+      expect(splitSentences("It works (mostly). However...")).toEqual(["It works (mostly).", "However..."]);
+      expect(splitSentences("Step 1 [done]. Step 2...")).toEqual(["Step 1 [done].", "Step 2..."]);
     });
 
     it('splits on min. and max. at end of sentence (Regression 9)', () => {

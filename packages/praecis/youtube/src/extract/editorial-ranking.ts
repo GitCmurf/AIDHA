@@ -288,7 +288,6 @@ const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
 
 const CONTRACTION_EXPANSIONS: Record<string, string> = {
   "won't": "will not",
-  "won": "will not",
   "can't": "cannot",
   "don't": "do not",
   "don": "do not",
@@ -401,8 +400,7 @@ const DEDUPE_STOPWORDS = new Set([
   'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
   'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some',
   'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can',
-  'will', 'just', 'should', 'now', 'reduces', 'lowers', 'increases', 'raises',
-  'helps', 'aids', 'improves', 'enhances', 'decreases', 'diminishes'
+  'will', 'just', 'should', 'now'
 ]);
 
 function tokenizeForDedupe(text: string): string[] {
@@ -417,7 +415,7 @@ function tokenizeForDedupe(text: string): string[] {
  * Checks if two claims have a material subject or predicate change.
  * This catch material differences like "women" vs "men" that Jaccard similarity might miss.
  */
-export function hasSubjectOrPredicateChange(text1: string, text2: string): boolean {
+export function hasSubjectOrPredicateChange(text1: string, text2: string, semanticThreshold: number = 0.75): boolean {
   const tokens1 = tokenizeForDedupe(text1);
   const tokens2 = tokenizeForDedupe(text2);
   if (tokens1.length === 0 || tokens2.length === 0) return false;
@@ -431,13 +429,10 @@ export function hasSubjectOrPredicateChange(text1: string, text2: string): boole
   const overlap = intersect / union;
 
   // We want to detect if the substantive meaning changed.
-  // We use a moderate threshold (0.6) for substantive tokens.
-  // This ensures that swapping multiple material words
-  // will result in a return of true, preserving them as distinct claims.
-  // however, we also check if more than 1 substantive token is unique to either side
-  // to allow for minor synonyms or paraphrasing.
-  const diffCount = Math.max(tokens1.length, tokens2.length) - intersect;
-  return overlap < 0.6 && diffCount > 1;
+  // By using tokenizeForDedupe (which strips more stopwords), the overlap drops
+  // significantly for short claims with single-word substantive changes,
+  // making this guard effective even if overall Jaccard similarity is high.
+  return overlap < semanticThreshold;
 }
 
 /**
@@ -457,7 +452,7 @@ function semanticDedupe(
   // Pre-tokenize all candidates once to avoid repeated Set creation
   const tokenSets = new Map<ClaimCandidate, Set<string>>();
   for (const c of ranked) {
-    tokenSets.set(c, new Set(tokenizeForDedupe(c.text)));
+    tokenSets.set(c, new Set(tokenize(c.text)));
   }
 
   const deduped: ClaimCandidate[] = [];
@@ -479,7 +474,7 @@ function semanticDedupe(
         if (hasNumericalDifference(candidate.text, existing.text)) {
           return false;
         }
-        if (hasSubjectOrPredicateChange(candidate.text, existing.text)) {
+        if (hasSubjectOrPredicateChange(candidate.text, existing.text, semanticThreshold)) {
           return false;
         }
         return true;

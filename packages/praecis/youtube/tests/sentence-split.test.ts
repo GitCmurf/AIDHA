@@ -51,11 +51,9 @@ describe('sentence splitter', () => {
     it('handles quotations at sentence boundaries', () => {
       const text = 'He said "Hello world." She said "Goodbye."';
       const sentences = splitSentences(text);
-      // Note: The current implementation treats this as one sentence since
-      // there's no space+capital after the period before the closing quote
-      // This is acceptable for our use case as we process transcript segments
       expect(sentences).toEqual([
-        'He said "Hello world." She said "Goodbye."',
+        'He said "Hello world."',
+        'She said "Goodbye."',
       ]);
     });
 
