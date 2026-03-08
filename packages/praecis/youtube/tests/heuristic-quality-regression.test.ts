@@ -171,6 +171,45 @@ describe('HeuristicClaimExtractor quality regression', () => {
     expect(second?.startSeconds).toBeGreaterThanOrEqual(10);
   });
 
+  it('does not collapse untimestamped excerpts into a single editorial window', async () => {
+    const candidates = await extractor.extractClaims({
+      resource,
+      excerpts: [
+        {
+          id: 'untimed-1',
+          type: 'Excerpt',
+          label: 'Untimed 1',
+          content: 'First substantive claim about deterministic hashing for repeated ingestion runs.',
+          metadata: { videoId: 'test-educational' },
+        },
+        {
+          id: 'untimed-2',
+          type: 'Excerpt',
+          label: 'Untimed 2',
+          content: 'Second substantive claim about transcript provenance for every extracted sentence.',
+          metadata: { videoId: 'test-educational' },
+        },
+        {
+          id: 'untimed-3',
+          type: 'Excerpt',
+          label: 'Untimed 3',
+          content: 'Third substantive claim about editorial ranking and semantic duplicate suppression.',
+          metadata: { videoId: 'test-educational' },
+        },
+        {
+          id: 'untimed-4',
+          type: 'Excerpt',
+          label: 'Untimed 4',
+          content: 'Fourth substantive claim about recovery windows and evidence-linked retrieval quality.',
+          metadata: { videoId: 'test-educational' },
+        },
+      ],
+      maxClaims: 10,
+    });
+
+    expect(candidates).toHaveLength(4);
+  });
+
   it('assigns confidence scores based on content features', async () => {
     const candidates = await extractor.extractClaims({
       resource,

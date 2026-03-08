@@ -423,6 +423,62 @@ describe('LLM claim extraction', () => {
     await rm(cacheDir, { recursive: true, force: true });
   });
 
+  it('does not fall back to legacy cache entries when custom tuning is enabled', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-custom-cache');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+
+    const extractorDefault = new LlmClaimExtractor({
+      client: new StubLlmClient([
+        JSON.stringify({
+          claims: [
+            {
+              text: 'Default cached claim should not be reused for custom tuning.',
+              excerptIds: ['excerpt-2'],
+              startSeconds: 30,
+              confidence: 0.8,
+              type: 'insight',
+            },
+          ],
+        }),
+      ]),
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+
+    await extractorDefault.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    const clientCustom = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Custom tuning should bypass legacy cache fallback.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            confidence: 0.82,
+            type: 'instruction',
+          },
+        ],
+      }),
+    ]);
+
+    const extractorCustom = new LlmClaimExtractor({
+      client: clientCustom,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      reasoningEffort: 'high',
+    });
+
+    const result = await extractorCustom.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(clientCustom.calls).toBe(1);
+    expect(result[0]?.text).toContain('Custom tuning');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
   it('deterministically edits and deduplicates candidates', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-video-5');
     const cacheDirA = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));

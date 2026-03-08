@@ -238,7 +238,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
 
     // Step 3: Split each merged segment into sentences and create candidates
     const sentenceCandidates: ClaimCandidate[] = [];
-    for (const merged of mergedSegments) {
+    for (const [mergedIndex, merged] of mergedSegments.entries()) {
       const sentences = splitSentences(merged.text);
 
       // Track current position incrementally since sentences are in order
@@ -271,6 +271,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
             excerptIds,
             confidence: this.computeHeuristicConfidence(normalized),
             startSeconds: merged.startSeconds,
+            chunkIndex: mergedIndex,
             method: 'heuristic',
             extractorVersion: this.useNlp ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
           });
@@ -306,6 +307,7 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           excerptIds,
           confidence: this.computeHeuristicConfidence(normalized),
           startSeconds: estimatedStartSeconds,
+          chunkIndex: mergedIndex,
           method: 'heuristic',
           extractorVersion: this.useNlp ? 'heuristic-v1.1-nlp' : 'heuristic-v1.1',
         });

@@ -390,6 +390,9 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
             for (const coverage of diagnostics.windowCoverage) {
               console.log(`    Window ${coverage.windowIndex}: ${coverage.selectedCount} claims`);
             }
+            if (diagnostics.echoAnalyzedCount > 0) {
+              console.log(`  Echo detection: analyzed=${diagnostics.echoAnalyzedCount} tagged=${diagnostics.echoTaggedCount}`);
+            }
           } catch {
             console.log('  (Unable to parse diagnostics)');
           }

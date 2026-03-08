@@ -92,6 +92,16 @@ interface ClaimChunk {
 type CacheMetadata = z.infer<typeof CacheMetadataSchema>;
 type RewriteCacheMetadata = z.infer<typeof RewriteCacheMetadataSchema>;
 
+function usesDefaultRequestTuning(input: {
+  reasoningEffort?: string;
+  verbosity?: string;
+  maxTokens?: number;
+}): boolean {
+  return input.reasoningEffort === undefined
+    && input.verbosity === undefined
+    && (input.maxTokens === undefined || input.maxTokens === DEFAULT_MAX_TOKENS);
+}
+
 export interface LlmClaimExtractorConfig {
   client: LlmClient;
   model: string;
@@ -409,7 +419,7 @@ function cacheKeyForChunk(input: {
     input.promptVersion,
     input.reasoningEffort ?? 'default',
     input.verbosity ?? 'default',
-    input.maxTokens ?? 'default',
+    input.maxTokens ?? DEFAULT_MAX_TOKENS,
     CURRENT_SCHEMA_VERSION,
   ]);
 }
@@ -495,7 +505,7 @@ export async function loadCachedClaimCandidates(
 
     // Try new cache key first, then fall back to legacy key for backward compatibility
     let cached = await readCache(join(cacheDir, `${cacheKey}.json`), metadata);
-    if (!cached && cacheKey !== legacyCacheKey) {
+    if (!cached && usesDefaultRequestTuning(input) && cacheKey !== legacyCacheKey) {
       cached = await readCache(join(cacheDir, `${legacyCacheKey}.json`), metadata);
     }
 
@@ -605,6 +615,16 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
   getLastEditorDiagnostics(): EditorialDiagnostics | undefined {
     return this.lastEditorDiagnostics;
+  }
+
+  /**
+   * Checks if this extractor instance uses default request tuning parameters.
+   * Used to determine whether legacy cache fallback is appropriate.
+   */
+  private usesDefaultRequestTuning(): boolean {
+    return this.reasoningEffort === undefined
+      && this.verbosity === undefined
+      && (this.maxTokens === undefined || this.maxTokens === DEFAULT_MAX_TOKENS);
   }
 
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
@@ -904,7 +924,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Try new cache key first, then fall back to legacy key for backward compatibility
     let cached = await readCache(cachePath, cacheMetadata);
-    if (!cached && cacheKey !== legacyCacheKey) {
+    if (!cached && this.usesDefaultRequestTuning() && cacheKey !== legacyCacheKey) {
       cached = await readCache(join(this.cacheDir, `${legacyCacheKey}.json`), cacheMetadata);
     }
 
