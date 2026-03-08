@@ -624,7 +624,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private usesDefaultRequestTuning(): boolean {
     return this.reasoningEffort === undefined
       && this.verbosity === undefined
-      && (this.maxTokens === undefined || this.maxTokens === DEFAULT_MAX_TOKENS);
+      && this.maxTokens === DEFAULT_MAX_TOKENS;
   }
 
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
