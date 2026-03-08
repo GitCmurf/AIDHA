@@ -82,6 +82,11 @@ const RewriteCacheSchema = z.object({
   claims: z.array(RewriteClaimSchema),
 });
 
+interface FetchResult {
+  claims: ClaimCandidate[];
+  success: boolean;
+}
+
 interface ClaimChunk {
   index: number;
   start: number;
@@ -1001,7 +1006,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       console.warn(`[COST-WARNING] Chunk ${chunk.index} projected cost ($${projectedCost.toFixed(2)}) exceeds single-chunk warning threshold.`);
     }
 
-    const parsed = await this.fetchAndParseClaims({
+    const { claims: parsed, success } = await this.fetchAndParseClaims({
       system,
       user,
       chunk,
@@ -1015,13 +1020,14 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
-    if (this.fallback) {
+    // Only fallback if LLM actually failed; successful empty results should be cached
+    if (!success && this.fallback) {
       const videoId = typeof resource.metadata?.['videoId'] === 'string'
         ? (resource.metadata?.['videoId'] as string)
         : resource.id;
       console.warn(
         `[LLM-FALLBACK] video=${videoId} chunk=${chunk.index} ` +
-        `LLM extraction failed or returned no results; falling back to heuristic extraction`
+        `LLM extraction failed; falling back to heuristic extraction`
       );
       const fallbackClaims = await this.fallback.extractClaims({
         resource,
@@ -1035,6 +1041,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
       }));
     }
 
+    // LLM succeeded but returned no claims - cache the empty result
+    if (success) {
+      await writeCache(cachePath, cacheMetadata, []);
+    }
+
     return [];
   }
 
@@ -1045,13 +1056,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
     excerptStartMap: Map<string, number>;
     reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
     verbosity?: ResolvedConfig['llm']['verbosity'];
-  }): Promise<ClaimCandidate[]> {
+  }): Promise<FetchResult> {
     const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity } = input;
 
     // Check circuit breaker before calling LLM
     if (!this.circuitBreaker.canExecute()) {
       console.warn(`[CIRCUIT-OPEN] Chunk ${chunk.index}: Circuit breaker is open, skipping LLM call`);
-      return [];
+      return { claims: [], success: false };
     }
 
     // Increment half-open call counter for manual circuit breaker usage
@@ -1072,13 +1083,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
     } catch (error) {
       this.circuitBreaker.recordFailure();
       console.error(`LLM error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
-      return [];
+      return { claims: [], success: false };
     }
 
     if (!response.ok) {
       this.circuitBreaker.recordFailure();
       console.error(`LLM error in chunk ${chunk.index}: ${response.error.message}`);
-      return [];
+      return { claims: [], success: false };
     }
 
     const parseError = this.getParseError(response.value);
@@ -1087,13 +1098,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
       : [];
     if (parsed.length > 0) {
       this.circuitBreaker.recordSuccess();
-      return parsed;
+      return { claims: parsed, success: true };
     }
 
     if (parseError === null) {
       // Valid JSON/schema with no extractable claims is a healthy provider response.
       this.circuitBreaker.recordSuccess();
-      return [];
+      return { claims: [], success: true };
     }
 
     // Malformed response - record as failure so circuit breaker can trip
@@ -1102,10 +1113,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     // Enhanced retry with parse-error feedback
     // Sanitize parseError to prevent second-order prompt injection
     const sanitizedFeedback = parseError
-      ? parseError
-          .replace(/```/g, '\'\'\'') // Prevent code fence injection
+      ? sanitizeForPrompt(parseError, 500)
+          .replace(/```/g, '\'\'\'') // belt-and-suspenders for code fences
           .replace(/"/g, "'") // Prevent quote injection
-          .slice(0, 500) // Limit length to prevent overflow attacks
       : null;
 
     const retryUser = sanitizedFeedback
@@ -1115,7 +1125,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     // Check circuit breaker again before retry (respects HalfOpen call limits)
     if (!this.circuitBreaker.canExecute()) {
       // Circuit breaker blocked the retry
-      return [];
+      return { claims: [], success: false };
     }
     this.circuitBreaker.incrementHalfOpenCallCount();
 
@@ -1128,13 +1138,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
     } catch (error) {
       this.circuitBreaker.recordFailure();
       console.error(`LLM retry error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
-      return [];
+      return { claims: [], success: false };
     }
 
     if (!retry.ok) {
       this.circuitBreaker.recordFailure();
       console.error(`LLM retry error in chunk ${chunk.index}: ${retry.error.message}`);
-      return [];
+      return { claims: [], success: false };
     }
 
     const retryParseError = this.getParseError(retry.value);
@@ -1143,13 +1153,15 @@ export class LlmClaimExtractor implements ClaimExtractor {
       : [];
     if (retryParsed.length > 0) {
       this.circuitBreaker.recordSuccess();
+      return { claims: retryParsed, success: true };
     } else if (retryParseError === null) {
       // LLM responded successfully but extracted no claims - not a service failure
       this.circuitBreaker.recordSuccess();
+      return { claims: [], success: true };
     } else {
       this.circuitBreaker.recordFailure();
+      return { claims: [], success: false };
     }
-    return retryParsed;
   }
 
   /**

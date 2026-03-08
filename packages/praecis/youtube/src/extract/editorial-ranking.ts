@@ -284,30 +284,35 @@ const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
   'more', 'less', 'better', 'worse', 'best', 'worst', 'highest', 'lowest', 'most', 'least'
 ]);
 
+function getWordCounts(text: string): Map<string, number> {
+  const words = normalizeText(text)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const counts = new Map<string, number>();
+  for (const word of words) {
+    counts.set(word, (counts.get(word) ?? 0) + 1);
+  }
+  return counts;
+}
+
 function hasNegationOrQualifierDifference(text1: string, text2: string): boolean {
-  const words1 = new Set(
-    normalizeText(text1)
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      .split(/\s+/)
-      .filter(Boolean)
-  );
-  const words2 = new Set(
-    normalizeText(text2)
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      .split(/\s+/)
-      .filter(Boolean)
-  );
+  const counts1 = getWordCounts(text1);
+  const counts2 = getWordCounts(text2);
 
   for (const word of NEGATION_WORDS) {
-    if (words1.has(word) !== words2.has(word)) {
+    const count1 = counts1.get(word) ?? 0;
+    const count2 = counts2.get(word) ?? 0;
+    if (count1 !== count2) {
       return true;
     }
   }
 
   for (const word of COMPARATIVE_SUPERLATIVE_WORDS) {
-    if (words1.has(word) !== words2.has(word)) {
+    const count1 = counts1.get(word) ?? 0;
+    const count2 = counts2.get(word) ?? 0;
+    if (count1 !== count2) {
       return true;
     }
   }

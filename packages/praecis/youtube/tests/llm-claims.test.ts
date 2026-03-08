@@ -178,12 +178,14 @@ describe('LLM claim extraction', () => {
 
   it('does not record valid empty claim sets as circuit-breaker failures', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-empty-ok');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
     const client = new StubLlmClient(['{"claims": []}']);
 
     const extractor = new LlmClaimExtractor({
       client,
       model: 'test-model',
       promptVersion: 'v1',
+      cacheDir,
       chunkMinutes: 10,
       circuitBreaker: {
         failureThreshold: 2,
@@ -196,6 +198,8 @@ describe('LLM claim extraction', () => {
     expect(result).toEqual([]);
     expect(client.calls).toBe(1);
     expect((extractor as any).circuitBreaker.getStats().failures).toBe(0);
+
+    await rm(cacheDir, { recursive: true, force: true });
   });
 
   it('clears stale LLM run metadata when a later run has no model, prompt, or diagnostics', async () => {

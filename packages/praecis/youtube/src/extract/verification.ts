@@ -410,6 +410,11 @@ export function calculateNGramOverlap(text1: string, text2: string, n = 2): numb
   const tokens2 = tokenize(text2);
 
   if (tokens1.length < n || tokens2.length < n) {
+    if (tokens1.length >= 1 && tokens2.length >= 1) {
+      const s1 = new Set(tokens1), s2 = new Set(tokens2);
+      const inter = new Set([...s1].filter(t => s2.has(t)));
+      return inter.size / new Set([...s1, ...s2]).size;
+    }
     return 0;
   }
 
