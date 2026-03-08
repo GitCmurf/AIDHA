@@ -866,9 +866,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return retryParsed;
     }
 
-    // Even with unparsable retry response, record success (LLM responded successfully)
-    // This prevents the circuit breaker from getting stuck in HalfOpen state
-    this.circuitBreaker.recordSuccess();
     return null;
   }
 

@@ -760,10 +760,6 @@ export function runEditorPassV2WithDiagnostics(
     ? candidates.map(candidate => {
         const overlapRatio = calculateEchoOverlapRatio(candidate, excerptTexts);
         if (overlapRatio !== undefined) {
-          echoAnalyzedCount++;
-          if (overlapRatio >= echoThreshold) {
-            echoTaggedCount++;
-          }
           return { ...candidate, echoOverlapRatio: overlapRatio };
         }
         return candidate;
@@ -788,6 +784,18 @@ export function runEditorPassV2WithDiagnostics(
       continue;
     }
     filtered.push(candidate);
+  }
+
+  // Count echo statistics over filtered results (not pre-filter candidates)
+  if (echoMode !== 'off' && excerptTexts) {
+    for (const candidate of filtered) {
+      if ('echoOverlapRatio' in candidate && candidate.echoOverlapRatio !== undefined) {
+        echoAnalyzedCount++;
+        if (candidate.echoOverlapRatio >= echoThreshold) {
+          echoTaggedCount++;
+        }
+      }
+    }
   }
 
   // First pass: exact match and excerpt overlap deduplication
