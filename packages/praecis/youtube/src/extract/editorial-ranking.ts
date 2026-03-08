@@ -393,6 +393,53 @@ export function hasNumericalDifference(text1: string, text2: string): boolean {
   return [...nums1].some(n => !nums2.has(n));
 }
 
+const DEDUPE_STOPWORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+  'be', 'been', 'being', 'in', 'on', 'at', 'by', 'for', 'with', 'about',
+  'against', 'between', 'into', 'through', 'during', 'before', 'after',
+  'above', 'below', 'to', 'from', 'up', 'down', 'out', 'off', 'over', 'under',
+  'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
+  'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some',
+  'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can',
+  'will', 'just', 'should', 'now', 'reduces', 'lowers', 'increases', 'raises',
+  'helps', 'aids', 'improves', 'enhances', 'decreases', 'diminishes'
+]);
+
+function tokenizeForDedupe(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 0 && !DEDUPE_STOPWORDS.has(t));
+}
+
+/**
+ * Checks if two claims have a material subject or predicate change.
+ * This catch material differences like "women" vs "men" that Jaccard similarity might miss.
+ */
+export function hasSubjectOrPredicateChange(text1: string, text2: string): boolean {
+  const tokens1 = tokenizeForDedupe(text1);
+  const tokens2 = tokenizeForDedupe(text2);
+  if (tokens1.length === 0 || tokens2.length === 0) return false;
+
+  const set1 = new Set(tokens1);
+  const set2 = new Set(tokens2);
+
+  let intersect = 0;
+  for (const t of set1) { if (set2.has(t)) intersect++; }
+  const union = set1.size + set2.size - intersect;
+  const overlap = intersect / union;
+
+  // We want to detect if the substantive meaning changed.
+  // We use a moderate threshold (0.6) for substantive tokens.
+  // This ensures that swapping multiple material words
+  // will result in a return of true, preserving them as distinct claims.
+  // however, we also check if more than 1 substantive token is unique to either side
+  // to allow for minor synonyms or paraphrasing.
+  const diffCount = Math.max(tokens1.length, tokens2.length) - intersect;
+  return overlap < 0.6 && diffCount > 1;
+}
+
 /**
  * Performs semantic deduplication to catch paraphrased claims that escape exact matching.
  * Uses token set Jaccard similarity to identify claims with similar meaning but different wording.
@@ -410,7 +457,7 @@ function semanticDedupe(
   // Pre-tokenize all candidates once to avoid repeated Set creation
   const tokenSets = new Map<ClaimCandidate, Set<string>>();
   for (const c of ranked) {
-    tokenSets.set(c, new Set(tokenize(c.text)));
+    tokenSets.set(c, new Set(tokenizeForDedupe(c.text)));
   }
 
   const deduped: ClaimCandidate[] = [];
@@ -430,6 +477,9 @@ function semanticDedupe(
           return false;
         }
         if (hasNumericalDifference(candidate.text, existing.text)) {
+          return false;
+        }
+        if (hasSubjectOrPredicateChange(candidate.text, existing.text)) {
           return false;
         }
         return true;

@@ -26,6 +26,12 @@ class StubLlmClient implements LlmClient {
     void request;
     return { ok: true, value: response };
   }
+
+  async complete(request: any): Promise<any> {
+    const result = await this.generate(request);
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, text: result.value };
+  }
 }
 
 async function seedVideo(store: InMemoryStore, videoId: string) {
@@ -193,11 +199,12 @@ describe('LLM claim extraction', () => {
       },
     });
 
-    const result = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+    const result = await extractor.extractClaims({ excerpts, resourceId: resource.id, maxClaims: 10 });
 
     expect(result).toEqual([]);
-    expect(client.calls).toBe(1);
+    expect(client.calls).toBe(2);
     expect((extractor as any).circuitBreaker.getStats().failures).toBe(0);
+
 
     await rm(cacheDir, { recursive: true, force: true });
   });

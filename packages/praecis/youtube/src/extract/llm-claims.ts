@@ -718,9 +718,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     selected: ClaimCandidate[];
   }): Promise<ClaimCandidate[]> {
     const { resource, excerpts, transcriptHash, selected } = input;
-    const videoId = typeof resource.metadata?.['videoId'] === 'string'
+    const videoId = typeof resource?.metadata?.['videoId'] === 'string'
       ? (resource.metadata?.['videoId'] as string)
-      : resource.id;
+      : (resource?.id || 'unknown');
     const setHash = candidateSetHash(selected);
     const cacheKey = hashId('llm-editor-rewrite', [
       videoId,
@@ -905,9 +905,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     chunkCount: number;
   }): Promise<ClaimCandidate[]> {
     const { resource, chunk, transcriptHash, excerptStartMap, chunkCount } = input;
-    const videoId = typeof resource.metadata?.['videoId'] === 'string'
+    const videoId = typeof resource?.metadata?.['videoId'] === 'string'
       ? (resource.metadata?.['videoId'] as string)
-      : resource.id;
+      : (resource?.id || 'unknown');
     const cacheKey = cacheKeyForChunk({
       videoId,
       chunk,
@@ -989,7 +989,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
       ].join(' ');
       user = [
-        `VIDEO_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(resource.label, 200))}"""`,
+        `VIDEO_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(resource?.label || 'Unknown Video', 200))}"""`,
         `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
         `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
         // Legacy prompt path (non-PROMPT_V2_VERSION)
@@ -1110,26 +1110,18 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return { claims: parsed, success: true };
     }
 
-    if (parseError === null) {
-      // Valid JSON/schema with no extractable claims is a healthy provider response.
-      this.circuitBreaker.recordSuccess();
-      return { claims: [], success: true };
-    }
-
-    // Malformed response - record as failure so circuit breaker can trip
+    // Response parsed correctly into JSON but yielded no valid claims after domain-level parsing/validation
+    // This often happens if the model hallucinates excerpt IDs or returns empty claim sets.
+    // Treat as failure to trigger retry/fallback.
     this.circuitBreaker.recordFailure();
 
     // Enhanced retry with parse-error feedback
-    // Sanitize parseError to prevent second-order prompt injection
-    const sanitizedFeedback = parseError
-      ? sanitizeForPrompt(parseError, 500)
-          .replace(/```/g, '\'\'\'') // belt-and-suspenders for code fences
-          .replace(/"/g, "'") // Prevent quote injection
-      : null;
+    const feedback = parseError || 'The previous response contained no extractable claims for the provided chunk and excerpt IDs. Please ensure you are extracting specific, substantive claims and using the exact excerpt IDs from the provided context.';
+    const sanitizedFeedback = sanitizeForPrompt(feedback, 500)
+      .replace(/```/g, '\'\'\'') // belt-and-suspenders for code fences
+      .replace(/"/g, "'"); // Prevent quote injection
 
-    const retryUser = sanitizedFeedback
-      ? `${user}\n\nPARSE ERROR FEEDBACK:\n${sanitizedFeedback}\n\nPlease fix the above issues and return ONLY valid JSON. Do not include commentary or markdown.`
-      : `${user}\n\nReturn ONLY valid JSON matching the schema. Do not include commentary or markdown.`;
+    const retryUser = `${user}\n\nRETRY FEEDBACK:\n${sanitizedFeedback}\n\nPlease fix the above issues and return ONLY valid JSON. Do not include commentary or markdown.`;
 
     // Check circuit breaker again before retry (respects HalfOpen call limits)
     if (!this.circuitBreaker.canExecute()) {

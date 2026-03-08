@@ -4,7 +4,7 @@
 const ABBREVIATIONS = new Set([
   'dr', 'mr', 'mrs', 'ms', 'prof', 'sr', 'jr', 'rep', 'sen',
   'gen', 'col', 'maj', 'capt', 'lt', 'st', 'ave', 'blvd', 'rd',
-  'etc', 'eg', 'ie', 'vs', 'approx', 'est', 'min', 'max',
+  'etc', 'eg', 'ie', 'vs', 'approx', 'est',
 ]);
 
 /**

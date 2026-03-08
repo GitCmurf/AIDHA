@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandContractions, hasNumericalDifference } from '../src/extract/editorial-ranking.js';
+import { expandContractions, hasNumericalDifference, hasSubjectOrPredicateChange } from '../src/extract/editorial-ranking.js';
 import { splitSentences } from '../src/extract/utils.js';
 
 describe('Regression Fixes Round 22', () => {
@@ -22,6 +22,20 @@ describe('Regression Fixes Round 22', () => {
     });
   });
 
+  describe('hasSubjectOrPredicateChange (Regression 8)', () => {
+    it('detects material changes (like "MPS" vs "metabolism") that Jaccard similarity might miss', () => {
+      const s1 = "leucine threshold is critical for MPS stimulation";
+      const s2 = "leucine threshold is critical for metabolism regulation";
+      expect(hasSubjectOrPredicateChange(s1, s2)).toBe(true);
+    });
+
+    it('returns false for single-token non-stopword differences (including women/men) to allow minor paraphrasing', () => {
+      const s1 = "vitamin d reduces falls in elderly women";
+      const s2 = "vitamin d reduces falls in elderly men";
+      expect(hasSubjectOrPredicateChange(s1, s2)).toBe(false);
+    });
+  });
+
   describe('expandContractions (Regression 3 & 5)', () => {
     it('only expands contractions at word boundaries', () => {
       // Should expand
@@ -38,7 +52,8 @@ describe('Regression Fixes Round 22', () => {
       expect(expandContractions("creatine can improve strength")).toBe("creatine can improve strength");
     });
   });
-  describe('splitSentences (Regression 4)', () => {
+
+  describe('splitSentences (Regression 4 & 9)', () => {
     it('splits sentences even when next sentence is lowercase (ASR transcripts)', () => {
       const input = "first sentence. second sentence? third sentence! last one";
       const result = splitSentences(input);
@@ -47,6 +62,19 @@ describe('Regression Fixes Round 22', () => {
         "second sentence?",
         "third sentence!",
         "last one"
+      ]);
+    });
+
+    it('splits on min. and max. at end of sentence (Regression 9)', () => {
+      const input1 = "we ran for 5 min. then stopped.";
+      expect(splitSentences(input1)).toEqual([
+        "we ran for 5 min.",
+        "then stopped."
+      ]);
+      const input2 = "set the dial to max. then wait.";
+      expect(splitSentences(input2)).toEqual([
+        "set the dial to max.",
+        "then wait."
       ]);
     });
 
