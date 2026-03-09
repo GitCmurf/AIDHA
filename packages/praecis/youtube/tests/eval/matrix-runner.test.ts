@@ -58,10 +58,16 @@ describe("Matrix Runner Integration", () => {
 
     // Mock fs.existsSync and fs.readFileSync for transcripts
     (fs.existsSync as any).mockReturnValue(true);
-    (fs.readFileSync as any).mockReturnValue(JSON.stringify({
-      segments: [{ start: 0, duration: 10, text: "segment 1" }],
-      fullText: "full text"
-    }));
+    (fs.readFileSync as any).mockImplementation((filePath: string) => {
+      // Extract videoId from path like "out/test/transcripts/v5.json"
+      const videoId = path.basename(filePath, '.json');
+      return JSON.stringify({
+        videoId,
+        language: "en",
+        segments: [{ start: 0, duration: 10, text: "segment 1" }],
+        fullText: "full text"
+      });
+    });
 
     const mockJudgeClient = {
       generate: vi.fn().mockResolvedValue({

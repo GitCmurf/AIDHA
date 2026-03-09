@@ -1,4 +1,23 @@
-import type { MatrixReport } from "./matrix-aggregator.js";
+import type { MatrixReport, DimensionStats } from "./matrix-aggregator.js";
+
+const dimensions = [
+  { key: "overallScore", title: "Overall Score" },
+  { key: "completeness", title: "Completeness" },
+  { key: "accuracy", title: "Accuracy" },
+  { key: "topicCoverage", title: "Topic Coverage" },
+  { key: "atomicity", title: "Atomicity" }
+] as const;
+
+function renderScorecardTable(stats: { dimensions: DimensionStats }): string {
+  let md = `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
+  md += `| --- | --- | --- | --- | --- | --- |\n`;
+  for (const { key } of dimensions) {
+    const dimStat = stats.dimensions[key];
+    if (!dimStat) continue;
+    md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
+  }
+  return md;
+}
 
 export function renderMatrixReport(report: MatrixReport): string {
   let md = `# Claim Extraction Evaluation Matrix Report\n\n`;
@@ -11,14 +30,6 @@ export function renderMatrixReport(report: MatrixReport): string {
 
   // Leaderboards
   md += `## Leaderboards\n\n`;
-  const dimensions = [
-    { key: "overallScore", title: "Overall Score" },
-    { key: "completeness", title: "Completeness" },
-    { key: "accuracy", title: "Accuracy" },
-    { key: "topicCoverage", title: "Topic Coverage" },
-    { key: "atomicity", title: "Atomicity" }
-  ] as const;
-
   for (const { key, title } of dimensions) {
     md += `### ${title}\n\n`;
     md += `| Rank | Model | Score |\n`;
@@ -39,13 +50,7 @@ export function renderMatrixReport(report: MatrixReport): string {
     const stats = report.modelStats[modelId];
     if (!stats) continue;
     md += `### ${modelId}\n\n`;
-    md += `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
-    md += `| --- | --- | --- | --- | --- | --- |\n`;
-    for (const { key } of dimensions) {
-      const dimStat = stats.dimensions[key];
-      if (!dimStat) continue;
-      md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
-    }
+    md += renderScorecardTable(stats);
     md += `\n`;
   }
 
@@ -56,13 +61,7 @@ export function renderMatrixReport(report: MatrixReport): string {
     const stats = report.variantStats[variantId];
     if (!stats) continue;
     md += `### ${variantId}\n\n`;
-    md += `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
-    md += `| --- | --- | --- | --- | --- | --- |\n`;
-    for (const { key } of dimensions) {
-      const dimStat = stats.dimensions[key];
-      if (!dimStat) continue;
-      md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
-    }
+    md += renderScorecardTable(stats);
     md += `\n`;
   }
 
@@ -73,13 +72,7 @@ export function renderMatrixReport(report: MatrixReport): string {
     const stats = report.videoStats[videoId];
     if (!stats) continue;
     md += `### ${videoId}\n\n`;
-    md += `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
-    md += `| --- | --- | --- | --- | --- | --- |\n`;
-    for (const { key } of dimensions) {
-      const dimStat = stats.dimensions[key];
-      if (!dimStat) continue;
-      md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
-    }
+    md += renderScorecardTable(stats);
     md += `\n`;
   }
 

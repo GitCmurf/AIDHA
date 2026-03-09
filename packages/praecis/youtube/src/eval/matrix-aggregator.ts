@@ -138,24 +138,24 @@ function calculateDimensionStats(scores: Record<ScoreDimension, number[]>): Dime
       result[dim] = { mean: 0, median: 0, min: 0, max: 0, stddev: 0 };
       continue;
     }
-    values.sort((a, b) => a - b);
-    const sum = values.reduce((a, b) => a + b, 0);
-    const mean = sum / values.length;
-    const min = values[0] ?? 0;
-    const max = values[values.length - 1] ?? 0;
-    const mid = Math.floor(values.length / 2);
+    const sorted = [...values].sort((a, b) => a - b);
+    const sum = sorted.reduce((a, b) => a + b, 0);
+    const mean = sum / sorted.length;
+    const min = sorted[0] ?? 0;
+    const max = sorted[sorted.length - 1] ?? 0;
+    const mid = Math.floor(sorted.length / 2);
 
     let median = 0;
-    if (values.length % 2 !== 0) {
-      median = values[mid] ?? 0;
+    if (sorted.length % 2 !== 0) {
+      median = sorted[mid] ?? 0;
     } else {
-      const v1 = values[mid - 1] ?? 0;
-      const v2 = values[mid] ?? 0;
+      const v1 = sorted[mid - 1] ?? 0;
+      const v2 = sorted[mid] ?? 0;
       median = (v1 + v2) / 2;
     }
 
-    const squareDiffs = values.map(v => Math.pow(v - mean, 2));
-    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / values.length;
+    const squareDiffs = sorted.map(v => Math.pow(v - mean, 2));
+    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / sorted.length;
     const stddev = Math.sqrt(avgSquareDiff);
 
     result[dim] = { mean, median, min, max, stddev };

@@ -11,48 +11,48 @@ import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema } from "./eval/corpus-schema.js";
 
-async function invalidateCache(cleanOptions: CliOptions): Promise<number | undefined> {
-  const invalidateRun = optionString(cleanOptions, "invalidate-run", "");
-  if (!invalidateRun) return undefined;
-
-  console.log(`Invalidating run: ${invalidateRun}`);
-  const cacheDir = ".cache/extraction";
-  if (existsSync(cacheDir)) {
-    // Run-specific invalidation is not yet implemented, so we require --yes to clear all
-    if (optionBool(cleanOptions, "yes")) {
-      console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
-      rmSync(cacheDir, { recursive: true, force: true });
-    } else {
-      console.error("Error: --invalidate-run currently clears the entire evaluation cache.");
-      console.error("Please provide --yes to confirm you want to delete all cached extractions and scores.");
-      return 1;
-    }
-  } else {
-    console.log("No cache directory found to invalidate.");
-  }
-  return 0;
-}
-
-function loadCorpus(corpusPath: string) {
-  try {
-    const raw = JSON.parse(readFileSync(corpusPath, "utf-8"));
-    const parsed = CorpusSchema.safeParse(raw);
-    if (!parsed.success) {
-      console.error("Corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
-      return { ok: false, error: 1 };
-    }
-    return { ok: true, data: parsed.data };
-  } catch (err) {
-    console.error(`Failed to read or validate corpus file at ${corpusPath}:`, err);
-    return { ok: false, error: 1 };
-  }
-}
-
 export async function runEvalMatrix(
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
   config: ResolvedConfig
 ): Promise<number> {
+  function invalidateCache(cleanOptions: CliOptions): number | undefined {
+    const invalidateRun = optionString(cleanOptions, "invalidate-run", "");
+    if (!invalidateRun) return undefined;
+
+    console.log(`Invalidating run: ${invalidateRun}`);
+    const cacheDir = ".cache/extraction";
+    if (existsSync(cacheDir)) {
+      // Run-specific invalidation is not yet implemented, so we require --yes to clear all
+      if (optionBool(cleanOptions, "yes")) {
+        console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
+        rmSync(cacheDir, { recursive: true, force: true });
+      } else {
+        console.error("Error: --invalidate-run currently clears the entire evaluation cache.");
+        console.error("Please provide --yes to confirm you want to delete all cached extractions and scores.");
+        return 1;
+      }
+    } else {
+      console.log("No cache directory found to invalidate.");
+    }
+    return 0;
+  }
+
+  function loadCorpus(corpusPath: string) {
+    try {
+      const raw = JSON.parse(readFileSync(corpusPath, "utf-8"));
+      const parsed = CorpusSchema.safeParse(raw);
+      if (!parsed.success) {
+        console.error("Corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
+        return { ok: false, error: 1 };
+      }
+      return { ok: true, data: parsed.data };
+    } catch (err) {
+      console.error(`Failed to read or validate corpus file at ${corpusPath}:`, err);
+      return { ok: false, error: 1 };
+    }
+  }
+
   try {
     const mode = positionals[1]; // matrix
     if (mode !== "matrix") {
@@ -66,7 +66,7 @@ export async function runEvalMatrix(
       if (v !== undefined) cleanOptions[k] = v;
     }
 
-    const cacheInvalidationResult = await invalidateCache(cleanOptions);
+    const cacheInvalidationResult = invalidateCache(cleanOptions);
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
 
     const dryRun = optionBool(cleanOptions, "dry-run");
@@ -136,8 +136,9 @@ export async function runEvalMatrix(
     console.log("Running matrix evaluation...");
 
     const corpusResult = loadCorpus(corpusPath);
-    if (!corpusResult.ok) return corpusResult.error!;
-    const corpusData = corpusResult.data!;
+    if (!corpusResult.ok) return corpusResult.error ?? 1;
+    const corpusData = corpusResult.data;
+    if (!corpusData) return 1;
 
     const models = modelIds.map(id => {
       const model = getModel(id);
@@ -179,6 +180,10 @@ export async function runEvalMatrix(
 
     if (dryRun) {
       console.log("Dry run complete. No real LLM calls were made.");
+      if (result.metadata.failedCellCount > 0) {
+        console.warn(`Dry run detected ${result.metadata.failedCellCount} failed cells (e.g. missing transcripts). Resolve before a real run.`);
+        return 1;
+      }
       return 0;
     }
 
