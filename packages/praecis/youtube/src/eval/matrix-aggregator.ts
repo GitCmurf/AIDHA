@@ -6,12 +6,14 @@ export type DimensionStats = Record<ScoreDimension, Record<StatName, number>>;
 export interface MatrixReport {
   summary: { bestModel: string; worstModel: string; hardestVideo: string };
   modelStats: Record<string, { dimensions: DimensionStats; estimatedCostUsd?: number }>;
+  variantStats: Record<string, { dimensions: DimensionStats }>;
   videoStats: Record<string, { dimensions: DimensionStats }>;
   leaderboards: Record<ScoreDimension, { modelId: string; score: number }[]>;
 }
 
 export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   const modelScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
+  const variantScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const videoScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
 
   const dimensions: ScoreDimension[] = [
@@ -36,7 +38,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
 
     for (const score of cell.scores) {
       for (const dim of dimensions) {
-        aggregatedScore[dim] += score[dim] || 0;
+        aggregatedScore[dim] += (score as any)[dim] || 0;
       }
     }
 
@@ -48,6 +50,9 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     if (!modelScores[cell.modelId]) {
       modelScores[cell.modelId] = { completeness: [], accuracy: [], topicCoverage: [], atomicity: [], overallScore: [] };
     }
+    if (!variantScores[cell.extractorVariantId]) {
+      variantScores[cell.extractorVariantId] = { completeness: [], accuracy: [], topicCoverage: [], atomicity: [], overallScore: [] };
+    }
     if (!videoScores[cell.videoId]) {
       videoScores[cell.videoId] = { completeness: [], accuracy: [], topicCoverage: [], atomicity: [], overallScore: [] };
     }
@@ -56,6 +61,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
       const dimScore = aggregatedScore[dim];
       if (dimScore !== undefined) {
         modelScores[cell.modelId]![dim].push(dimScore);
+        variantScores[cell.extractorVariantId]![dim].push(dimScore);
         videoScores[cell.videoId]![dim].push(dimScore);
       }
     }
@@ -64,6 +70,11 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   const modelStats: Record<string, { dimensions: DimensionStats }> = {};
   for (const [modelId, scores] of Object.entries(modelScores)) {
     modelStats[modelId] = { dimensions: calculateDimensionStats(scores) };
+  }
+
+  const variantStats: Record<string, { dimensions: DimensionStats }> = {};
+  for (const [variantId, scores] of Object.entries(variantScores)) {
+    variantStats[variantId] = { dimensions: calculateDimensionStats(scores) };
   }
 
   const videoStats: Record<string, { dimensions: DimensionStats }> = {};
@@ -104,6 +115,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   return {
     summary: { bestModel, worstModel, hardestVideo },
     modelStats,
+    variantStats,
     videoStats,
     leaderboards,
   };

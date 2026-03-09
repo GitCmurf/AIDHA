@@ -1,6 +1,11 @@
-[
-  { "startMs": 0, "endMs": 5000, "text": "Welcome back to the channel." },
-  { "startMs": 5000, "endMs": 15000, "text": "Today I want to tell you that eating 50 grams of protein after a workout increases muscle synthesis by 20%." },
-  { "startMs": 15000, "endMs": 25000, "text": "This is based on a new study from the University of Muscle." },
-  { "startMs": 25000, "endMs": 30000, "text": "Don't forget to like and subscribe." }
-]
+{
+  "videoId": "short_solo_1",
+  "language": "en",
+  "segments": [
+    { "start": 0, "duration": 5, "text": "Welcome back to the channel." },
+    { "start": 5, "duration": 10, "text": "Today I want to tell you that eating 50 grams of protein after a workout increases muscle synthesis by 20%." },
+    { "start": 15, "duration": 10, "text": "This is based on a new study from the University of Muscle." },
+    { "start": 25, "duration": 5, "text": "Don't forget to like and subscribe." }
+  ],
+  "fullText": "Welcome back to the channel. Today I want to tell you that eating 50 grams of protein after a workout increases muscle synthesis by 20%. This is based on a new study from the University of Muscle. Don't forget to like and subscribe."
+}

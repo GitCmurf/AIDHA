@@ -48,6 +48,18 @@ describe("Scoring Rubric Schema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("should validate scores at the 0 boundary", () => {
+    const boundaryScore = { ...validScore, completeness: 0, accuracy: 0, topicCoverage: 0, atomicity: 0, overallScore: 0 };
+    const result = ClaimSetScoreSchema.safeParse(boundaryScore);
+    expect(result.success).toBe(true);
+  });
+
+  it("should validate scores at the 10 boundary", () => {
+    const boundaryScore = { ...validScore, completeness: 10, accuracy: 10, topicCoverage: 10, atomicity: 10, overallScore: 10 };
+    const result = ClaimSetScoreSchema.safeParse(boundaryScore);
+    expect(result.success).toBe(true);
+  });
+
   it("should reject if required arrays are missing", () => {
     const { missingClaims, ...rest } = validScore;
     const result = ClaimSetScoreSchema.safeParse(rest);

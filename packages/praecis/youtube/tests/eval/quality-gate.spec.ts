@@ -34,15 +34,18 @@ describe("CI Quality Gate", () => {
 
     const dimensions = ["completeness", "accuracy", "topicCoverage", "atomicity", "overallScore"];
 
-    for (const [modelId, stats] of Object.entries(latest.modelStats)) {
-      if (baseline.modelStats[modelId]) {
-        for (const dim of dimensions) {
-          const baselineScore = baseline.modelStats[modelId].dimensions[dim].mean;
-          const latestScore = (stats as any).dimensions[dim].mean;
+    for (const [modelId, baselineStats] of Object.entries(baseline.modelStats)) {
+      const latestStats = latest.modelStats[modelId];
+      if (!latestStats) {
+        throw new Error(`Model ${modelId} present in baseline but missing from latest report`);
+      }
 
-          if (baselineScore - latestScore > tolerance) {
-            throw new Error(`Regression detected for ${modelId} on ${dim}: dropped from ${baselineScore} to ${latestScore} (tolerance: ${tolerance})`);
-          }
+      for (const dim of dimensions) {
+        const baselineScore = (baselineStats as any).dimensions[dim].mean;
+        const latestScore = (latestStats as any).dimensions[dim].mean;
+
+        if (baselineScore - latestScore > tolerance) {
+          throw new Error(`Regression detected for ${modelId} on ${dim}: dropped from ${baselineScore} to ${latestScore} (tolerance: ${tolerance})`);
         }
       }
     }

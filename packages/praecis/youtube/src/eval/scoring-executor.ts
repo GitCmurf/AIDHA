@@ -18,6 +18,10 @@ export async function scoreClaimSet(
   // First attempt
   const result1 = await executeAndParse(judgeClient, judgeModel, system, user, maxTokens);
   if (result1.ok) {
+    result1.value.judgeMeta = {
+      judgeModelId: judgeModel,
+      judgePromptVersion: "v1" // Should probably be passed in
+    };
     return result1;
   }
 
@@ -26,6 +30,10 @@ export async function scoreClaimSet(
 
   const result2 = await executeAndParse(judgeClient, judgeModel, system, retryUser, maxTokens);
   if (result2.ok) {
+    result2.value.judgeMeta = {
+      judgeModelId: judgeModel,
+      judgePromptVersion: "v1"
+    };
     return result2;
   }
 

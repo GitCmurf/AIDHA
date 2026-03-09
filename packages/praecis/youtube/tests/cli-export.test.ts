@@ -22,7 +22,20 @@ describeIfSqlite('CLI export flows', () => {
       process.chdir(originalCwd);
     }
     if (tempRoot) {
-      await rm(tempRoot, { recursive: true, force: true });
+      // Retry removal with delay to handle file handle cleanup (e.g., SQLite WAL files)
+      for (let i = 0; i < 3; i++) {
+        try {
+          await rm(tempRoot, { recursive: true, force: true });
+          break;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOTEMPTY' && i < 2) {
+            // Wait a bit for file handles to close
+            await new Promise(resolve => setTimeout(resolve, 100));
+            continue;
+          }
+          throw error;
+        }
+      }
     }
   });
 

@@ -13,6 +13,11 @@ export const ClaimSetScoreSchema = z.object({
   gapAreas: z.array(z.object({ area: z.string().min(1) })),
 });
 
+/**
+ * Represents the structured score for a set of extracted claims.
+ * Note: judgeMeta is internal process metadata (judge ID and prompt version) that is
+ * injected by the scoring harness after parsing the LLM response.
+ */
 export type ClaimSetScore = z.infer<typeof ClaimSetScoreSchema> & {
   judgeMeta?: {
     judgeModelId: string;

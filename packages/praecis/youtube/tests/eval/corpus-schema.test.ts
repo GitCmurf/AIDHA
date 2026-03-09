@@ -42,15 +42,14 @@ describe("Corpus Schema Validation", () => {
 
   it("should validate the actual corpus.json file", () => {
     const corpusPath = path.join(__dirname, "../fixtures/eval-matrix/corpus.json");
-    if (fs.existsSync(corpusPath)) {
-      const data = JSON.parse(fs.readFileSync(corpusPath, "utf-8"));
-      const result = CorpusSchema.safeParse(data);
-      expect(result.success).toBe(true);
-      if (!result.success) {
-        console.error(result.error);
-      }
-    } else {
-      console.warn("corpus.json not found, skipping validation test");
+    if (!fs.existsSync(corpusPath)) {
+      throw new Error(`corpus.json not found at ${corpusPath}`);
     }
+    const data = JSON.parse(fs.readFileSync(corpusPath, "utf-8"));
+    const result = CorpusSchema.safeParse(data);
+    if (!result.success) {
+      console.error(JSON.stringify(result.error.format(), null, 2));
+    }
+    expect(result.success).toBe(true);
   });
 });

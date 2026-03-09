@@ -43,13 +43,13 @@ Accuracy: Are extracted claims faithful to the source material without hallucina
 Topic Coverage: Do the claims proportionally cover the video's topic distribution and timeline?
 Atomicity: Are claims single, indivisible assertions without redundancy?
 
-You must return a JSON object with the following structure:
+You must return a JSON object with the following structure (overallScore must be the average of the 4 dimension scores):
 {
   "completeness": number,
   "accuracy": number,
   "topicCoverage": number,
   "atomicity": number,
-  "overallScore": number, // average of the above 4
+  "overallScore": number,
   "reasoning": "string explaining your scores",
   "missingClaims": [{ "text": "claim text" }],
   "hallucinations": [{ "text": "claim text" }],

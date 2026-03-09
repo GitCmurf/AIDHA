@@ -18,6 +18,18 @@ describe("Matrix Runner Integration", () => {
       {
         videoId: "v2", url: "http://v2", title: "Video 2", channelName: "Channel 2",
         durationMinutes: 20, topicDomain: "Test", expectedClaimDensity: "medium" as const, rationale: "test"
+      },
+      {
+        videoId: "v3", url: "http://v3", title: "Video 3", channelName: "Channel 3",
+        durationMinutes: 30, topicDomain: "Test", expectedClaimDensity: "high" as const, rationale: "test"
+      },
+      {
+        videoId: "v4", url: "http://v4", title: "Video 4", channelName: "Channel 4",
+        durationMinutes: 40, topicDomain: "Test", expectedClaimDensity: "low" as const, rationale: "test"
+      },
+      {
+        videoId: "v5", url: "http://v5", title: "Video 5", channelName: "Channel 5",
+        durationMinutes: 50, topicDomain: "Test", expectedClaimDensity: "medium" as const, rationale: "test"
       }
     ];
 
@@ -68,7 +80,7 @@ describe("Matrix Runner Integration", () => {
 
     const result = await runEvaluationMatrix(corpus, models, options);
 
-    expect(result.cells.length).toBe(4); // 2 videos x 2 models x 1 variant
+    expect(result.cells.length).toBe(10); // 5 videos x 2 models x 1 variant
     for (const cell of result.cells) {
       expect(cell.scores).toBeDefined();
       expect(cell.scores!.length).toBeGreaterThan(0);
@@ -82,6 +94,9 @@ describe("Matrix Runner Integration", () => {
     const md = renderMatrixReport(report);
     expect(md).toContain("Video Heatmap");
     expect(md).toContain(models[0].id);
+    expect(md).toContain(`| 1 | ${models[0].id} | 8.50 |`);
+    expect(md).toContain("### v1");
+    expect(md).toContain("| completeness | 8.00 | 8.00 | 8.00 | 8.00 | 0.00 |");
   });
 
   it("should average scores from multiple judges", () => {

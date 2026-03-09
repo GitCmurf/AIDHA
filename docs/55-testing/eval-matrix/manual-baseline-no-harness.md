@@ -34,6 +34,8 @@ This document describes the procedure to extract claims directly via external UI
 
 To sanity-check what content is extractable independent of our harness, prompts, post-processing, and editorial wrappers, to answer: "Are we consistently excluding valuable content because of our pipeline, independent of the base model?"
 
+This procedure is protected by the evaluation framework tests in `packages/praecis/youtube/tests/eval/matrix-runner.test.ts`.
+
 ## Procedure
 
 1. Copy the exact transcript excerpt from `packages/praecis/youtube/tests/fixtures/eval-matrix/transcript-excerpts/`.

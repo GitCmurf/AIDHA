@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CorpusEntrySchema = z.object({
+export const CorpusEntrySchema = z.strictObject({
   videoId: z.string().min(1),
   url: z.string().url(),
   title: z.string().min(1),

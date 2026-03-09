@@ -99,8 +99,10 @@ export async function runEvaluationMatrix(
       topicDomain: video.topicDomain,
     };
 
+    const fullText = transcriptData.fullText || transcriptData.segments.map((s: any) => s.text).join(" ");
+
     const excerpts = transcriptData.segments.map((s: any, i: number) => ({
-      id: `excerpt-${video.videoId}-${i}`,
+      id: s.id || `excerpt-${video.videoId}-${i}`,
       type: "Excerpt",
       content: s.text,
       metadata: {
@@ -113,7 +115,7 @@ export async function runEvaluationMatrix(
       id: `youtube-${video.videoId}`,
       type: "Resource",
       label: video.title,
-      content: transcriptData.fullText,
+      content: fullText,
       metadata: {
         videoId: video.videoId,
         channelName: video.channelName,
@@ -220,11 +222,6 @@ export async function runEvaluationMatrix(
 
             if (scoreResult.ok) {
               const score = scoreResult.value;
-              // Inject judgeMeta as it's required by schema but LLM doesn't output it
-              score.judgeMeta = {
-                judgeModelId,
-                judgePromptVersion,
-              };
               scores.push(score);
               await setCachedScore(
                 video.videoId,
@@ -252,7 +249,7 @@ export async function runEvaluationMatrix(
     metadata: {
       startedAt,
       completedAt: new Date().toISOString(),
-      config: options,
+      config: JSON.parse(JSON.stringify(options)),
       failedCellCount,
     },
   };

@@ -53,6 +53,19 @@ export function renderMatrixReport(report: MatrixReport): string {
     md += `\n`;
   }
 
+  // Variant Stats Breakdown
+  md += `## Variant Scorecards\n\n`;
+  for (const [variantId, stats] of Object.entries(report.variantStats)) {
+    md += `### ${variantId}\n\n`;
+    md += `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
+    md += `| --- | --- | --- | --- | --- | --- |\n`;
+    for (const { key } of dimensions) {
+      const dimStat = stats.dimensions[key];
+      md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
+    }
+    md += `\n`;
+  }
+
   // Video Stats Breakdown
   md += `## Video Heatmap\n\n`;
   for (const [videoId, stats] of Object.entries(report.videoStats)) {

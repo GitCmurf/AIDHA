@@ -35,10 +35,15 @@ corpus.forEach(entry => {
         pnpm --dir packages/praecis/youtube cli ingest video "$url" --db "$TEMP_DB"
 
         # Export the transcript to our local cache dir as JSON
-        pnpm --dir packages/praecis/youtube --silent cli diagnose transcript "$videoId" --json > "$TARGET_FILE"
-
-        if [ ! -s "$TARGET_FILE" ]; then
-            echo "Warning: Failed to export transcript for $videoId to $TARGET_FILE"
+        # We use a temporary file to avoid truncated cache files on failure.
+        TEMP_EXPORT_FILE=$(mktemp)
+        if pnpm --dir packages/praecis/youtube --silent cli export transcript video "$videoId" --db "$TEMP_DB" --out "$TEMP_EXPORT_FILE" --pretty; then
+            mv "$TEMP_EXPORT_FILE" "$TARGET_FILE"
+            echo "Successfully cached transcript for $videoId"
+        else
+            rm -f "$TEMP_EXPORT_FILE"
+            echo "Error: Failed to export transcript for $videoId"
+            exit 1
         fi
     fi
 done
