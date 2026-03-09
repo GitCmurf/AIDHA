@@ -25,6 +25,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   ];
 
   for (const cell of cells) {
+    if (cell.error) continue;
     if (!cell.scores || cell.scores.length === 0) continue;
 
     // Aggregate consensus if multiple judges

@@ -5,12 +5,28 @@ import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
 import { MODEL_REGISTRY } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
+import { LlmClaimExtractor } from "../../src/extract/llm-claims";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn().mockResolvedValue(undefined),
   writeFile: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
+}));
+
+vi.mock("../../src/extract/llm-claims", () => ({
+  LlmClaimExtractor: vi.fn().mockImplementation(() => ({
+    extractClaims: vi.fn().mockResolvedValue([{
+      text: "Mock claim",
+      excerptIds: ["excerpt-1"],
+      startSeconds: 0,
+      type: "Fact",
+      classification: "Fact",
+      domain: "Test",
+      confidence: 1,
+      why: "reason"
+    }])
+  }))
 }));
 
 describe("Matrix Runner Integration", () => {
@@ -47,24 +63,6 @@ describe("Matrix Runner Integration", () => {
       fullText: "full text"
     }));
 
-    const mockExtractorClient = {
-      generate: vi.fn().mockResolvedValue({
-        ok: true,
-        value: JSON.stringify({
-          claims: [{
-            text: "Mock claim",
-            excerptIds: ["excerpt-1"],
-            startSeconds: 0,
-            type: "Fact",
-            classification: "Fact",
-            domain: "Test",
-            confidence: 1,
-            why: "reason"
-          }]
-        })
-      })
-    };
-
     const mockJudgeClient = {
       generate: vi.fn().mockResolvedValue({
         ok: true,
@@ -83,10 +81,6 @@ describe("Matrix Runner Integration", () => {
       })
     };
 
-    // Also need to mock LlmClaimExtractor internal logic or just let it run if it doesn't do real LLM calls
-    // But LlmClaimExtractor DOES do real LLM calls via client.
-    // So we provide the mockClient.
-
     const options = {
       outputDir: "out/test",
       cacheDir: "out/test/cache",
@@ -97,7 +91,7 @@ describe("Matrix Runner Integration", () => {
       judgeModels: ["gpt-4o"],
       maxConcurrency: 1,
       timeoutMs: 1000,
-      extractorClientFactory: () => mockExtractorClient as any,
+      extractorClientFactory: () => ({}) as any,
       judgeClientFactory: () => mockJudgeClient as any,
     };
 

@@ -27,7 +27,7 @@ export async function scoreClaimSet(
   }
 
   // Retry once with error feedback
-  const retryUser = `${user}\n\nYour previous response failed validation with the following error:\n${result1.error.message}\n\nPlease fix the errors and return strictly valid JSON matching the requested schema.`;
+  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nReturn ONLY a corrected JSON object matching the schema. Do not include explanatory text.`;
 
   const result2 = await executeAndParse(judgeClient, judgeModel, system, retryUser, maxTokens, signal);
   if (result2.ok) {

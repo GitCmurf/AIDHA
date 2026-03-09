@@ -269,6 +269,13 @@ export async function runEvaluationMatrix(
             }
 
             // Scoring
+            if (cell.claimSet.length === 0) {
+              console.warn(`[skip-scoring] No claims extracted for ${video.videoId} / ${model.id}, skipping judge.`);
+              cell.scores = [];
+              cells.push(cell);
+              return;
+            }
+
             const claimSetHash = computeClaimSetHash(cell.claimSet);
             const judgePromptVersion = JUDGE_PROMPT_VERSION;
 
@@ -331,18 +338,12 @@ export async function runEvaluationMatrix(
                     : (err instanceof Error ? err.message : String(err));
                   console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
                   cellHasScoringFailure = true;
-                  // Store error metadata instead of fake scores
-                  scores.push({
-                    completeness: 0, accuracy: 0, topicCoverage: 0, atomicity: 0, overallScore: 0,
-                    reasoning: `ERROR: ${message}`,
-                    missingClaims: [], hallucinations: [], redundancies: [], gapAreas: [],
-                    judgeMeta: { judgeModelId, judgePromptVersion }
-                  } as any); // cast to allow error marker
                 } finally {
                   clearTimeout(timeout);
                 }
               }
             }
+
             if (cellHasScoringFailure) {
               cell.error = { message: "One or more judge scorings failed" };
               failedCellCount++;
