@@ -7,13 +7,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 describe("CI Quality Gate", () => {
-  it("should not regress beyond allowed tolerance against pinned baseline", () => {
+  it("should not regress beyond allowed tolerance against pinned baseline", (ctx) => {
     const baselinePath = path.join(__dirname, "../fixtures/eval-matrix/baseline-report.json");
     if (!fs.existsSync(baselinePath)) {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
         throw new Error("Baseline not found, failing quality gate. Create a baseline-report.json to enable this test.");
       }
-      console.warn("Baseline not found, skipping quality gate.");
+      ctx.skip();
       return;
     }
 
@@ -23,7 +23,7 @@ describe("CI Quality Gate", () => {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
         throw new Error(`Latest report not found at ${reportPath}, failing quality gate. Run matrix evaluation first.`);
       }
-      console.warn(`Latest report not found at ${reportPath}, skipping quality gate.`);
+      ctx.skip();
       return;
     }
 

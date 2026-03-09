@@ -8,6 +8,9 @@ export const GoldenAnnotationSchema = z.array(z.object({
       quote: z.string().optional(),
       startMs: z.number().nonnegative(),
       endMs: z.number().nonnegative(),
+    }).refine(data => data.endMs >= data.startMs, {
+      message: "endMs must be greater than or equal to startMs",
+      path: ["endMs"],
     }).optional(),
   })),
   rejectedClaims: z.array(z.object({

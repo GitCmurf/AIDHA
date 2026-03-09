@@ -25,13 +25,9 @@ export async function getCachedExtraction(
 
   try {
     const data = await fs.readFile(filePath, "utf-8");
-    // Just cast for extraction cell for now until we have full MatrixCell Zod schema
     return JSON.parse(data) as MatrixCell;
   } catch (error) {
-    if ((error as any).code === "ENOENT") {
-      return null;
-    }
-    throw error;
+    return null;
   }
 }
 
@@ -65,12 +61,10 @@ export async function getCachedScore(
   try {
     const data = await fs.readFile(filePath, "utf-8");
     const parsed = JSON.parse(data);
-    return ClaimSetScoreSchema.array().parse(parsed);
+    // Use passthrough() to preserve judgeMeta attached before caching
+    return ClaimSetScoreSchema.passthrough().array().parse(parsed);
   } catch (error) {
-    if ((error as any).code === "ENOENT") {
-      return null;
-    }
-    throw error;
+    return null;
   }
 }
 

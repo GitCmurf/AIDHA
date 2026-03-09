@@ -23,4 +23,38 @@ describe("Golden Annotations Validation", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("should reject invalid idealClaims (endMs < startMs)", () => {
+    const invalidData = [
+      {
+        videoId: "v1",
+        idealClaims: [
+          {
+            text: "invalid range",
+            evidence: { startMs: 100, endMs: 50 }
+          }
+        ],
+        rejectedClaims: []
+      }
+    ];
+    const result = GoldenAnnotationSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject invalid rejection reasons", () => {
+    const invalidData = [
+      {
+        videoId: "v1",
+        idealClaims: [],
+        rejectedClaims: [
+          {
+            text: "bad reason",
+            reason: "not-a-reason"
+          }
+        ]
+      }
+    ];
+    const result = GoldenAnnotationSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+  });
 });

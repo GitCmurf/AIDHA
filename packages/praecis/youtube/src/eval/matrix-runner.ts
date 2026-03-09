@@ -9,6 +9,8 @@ import { getCachedExtraction, setCachedExtraction, getCachedScore, setCachedScor
 import { scoreClaimSet } from "./scoring-executor.js";
 import { LlmClaimExtractor } from "../extract/llm-claims.js";
 import type { LlmClient } from "../extract/llm-client.js";
+import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
+import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 
 export interface VideoContext {
   videoId: string;
@@ -61,9 +63,35 @@ export interface MatrixResult {
   metadata: {
     startedAt: string;
     completedAt?: string;
-    config: MatrixOptions;
+    config: any; // Serializable config
     failedCellCount: number;
   };
+}
+
+class Semaphore {
+  private count: number;
+  private waiting: (() => void)[] = [];
+
+  constructor(count: number) {
+    this.count = count;
+  }
+
+  async acquire(): Promise<void> {
+    if (this.count > 0) {
+      this.count--;
+      return;
+    }
+    return new Promise(resolve => this.waiting.push(resolve));
+  }
+
+  release(): void {
+    this.count++;
+    const next = this.waiting.shift();
+    if (next) {
+      this.count--;
+      next();
+    }
+  }
 }
 
 export async function runEvaluationMatrix(
@@ -74,6 +102,10 @@ export async function runEvaluationMatrix(
   const startedAt = new Date().toISOString();
   const cells: MatrixCell[] = [];
   let failedCellCount = 0;
+
+  const semaphore = new Semaphore(options.maxConcurrency || 1);
+
+  const tasks: Promise<void>[] = [];
 
   for (const video of corpus) {
     const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
@@ -97,11 +129,13 @@ export async function runEvaluationMatrix(
       url: video.url,
       durationMinutes: video.durationMinutes,
       topicDomain: video.topicDomain,
+      description: video.description,
     };
 
-    const fullText = transcriptData.fullText || transcriptData.segments.map((s: any) => s.text).join(" ");
+    const segments = transcriptData.segments || [];
+    const fullText = transcriptData.fullText || segments.map((s: any) => s.text).join(" ");
 
-    const excerpts = transcriptData.segments.map((s: any, i: number) => ({
+    const excerpts = segments.map((s: any, i: number) => ({
       id: s.id || `excerpt-${video.videoId}-${i}`,
       type: "Excerpt",
       content: s.text,
@@ -125,131 +159,161 @@ export async function runEvaluationMatrix(
 
     for (const model of models) {
       for (const variant of options.variants) {
-        console.log(`[cell] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
-
-        const promptVersion = "v2"; // Default
-        const extractorVersion = "v1"; // Default
-
-        // Check cache for extraction
-        let cell: MatrixCell | null = null;
-        if (options.resume) {
-          cell = await getCachedExtraction(
-            video.videoId,
-            model.id,
-            variant,
-            promptVersion,
-            extractorVersion,
-            { cacheDir: options.cacheDir }
-          );
-        }
-
-        if (!cell) {
+        tasks.push((async () => {
+          await semaphore.acquire();
           try {
-            const client = options.extractorClientFactory(model.id);
-            const extractor = new LlmClaimExtractor({
-              client,
-              model: model.id,
-              promptVersion,
-              cacheDir: options.cacheDir,
-              editorVersion: variant === "editorial-pass-v1" ? "v1" : "v2",
-              // "raw" variant doesn't strictly exist in LlmClaimExtractor yet,
-              // but we can simulate it by setting maxClaims high or similar,
-              // or just use v1/v2 as specified.
-              // For now, let's just use what's available.
-            });
+            console.log(`[cell] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
-            const claims = await extractor.extractClaims({
-              resource: resource as any,
-              excerpts: excerpts as any,
-            });
+            const promptVersion = EXTRACT_PROMPT_VERSION;
+            const extractorVersion = "v1";
 
-            cell = {
-              videoId: video.videoId,
-              modelId: model.id,
-              extractorVariantId: variant,
-              claimSet: claims,
-            };
+            // Check cache for extraction
+            let cell: MatrixCell | null = null;
+            if (options.resume) {
+              cell = await getCachedExtraction(
+                video.videoId,
+                model.id,
+                variant,
+                promptVersion,
+                extractorVersion,
+                { cacheDir: options.cacheDir }
+              );
+            }
 
-            await setCachedExtraction(
-              video.videoId,
-              model.id,
-              variant,
-              promptVersion,
-              extractorVersion,
-              cell,
-              { cacheDir: options.cacheDir }
-            );
-          } catch (err) {
-            console.error(`Extraction failed for ${video.videoId} / ${model.id}:`, err);
-            cells.push({
-              videoId: video.videoId,
-              modelId: model.id,
-              extractorVariantId: variant,
-              claimSet: [],
-              error: { message: err instanceof Error ? err.message : String(err) },
-            });
-            failedCellCount++;
-            continue;
-          }
-        }
+            if (!cell) {
+              if (options.dryRun) {
+                console.log(`[dry-run] Would extract claims for ${video.videoId} using ${model.id}`);
+                cell = {
+                  videoId: video.videoId,
+                  modelId: model.id,
+                  extractorVariantId: variant,
+                  claimSet: [],
+                };
+              } else {
+                try {
+                  const client = options.extractorClientFactory(model.id);
+                  const extractor = new LlmClaimExtractor({
+                    client,
+                    model: model.id,
+                    promptVersion,
+                    cacheDir: options.cacheDir,
+                    editorVersion: variant === "editorial-pass-v1" ? "v1" : "v2",
+                    maxTokens: options.extractionMaxTokens,
+                    maxChunks: options.extractionMaxChunks,
+                  });
 
-        // Scoring
-        const claimSetHash = computeClaimSetHash(cell.claimSet);
-        const judgePromptVersion = "v1";
+                  const claims = await extractor.extractClaims({
+                    resource: resource as any,
+                    excerpts: excerpts as any,
+                  });
 
-        let scores: ClaimSetScore[] = [];
-        for (const judgeModelId of options.judgeModels) {
-          let cachedScores = await getCachedScore(
-            video.videoId,
-            model.id,
-            judgeModelId,
-            claimSetHash,
-            judgePromptVersion,
-            { cacheDir: options.cacheDir }
-          );
+                  cell = {
+                    videoId: video.videoId,
+                    modelId: model.id,
+                    extractorVariantId: variant,
+                    claimSet: claims,
+                  };
 
-          if (cachedScores && options.resume) {
-            scores.push(...cachedScores);
-          } else {
-            const judgeClient = options.judgeClientFactory(judgeModelId);
-            const scoreResult = await scoreClaimSet(
-              judgeClient,
-              judgeModelId,
-              transcriptData.fullText,
-              cell.claimSet,
-              videoContext
-            );
+                  await setCachedExtraction(
+                    video.videoId,
+                    model.id,
+                    variant,
+                    promptVersion,
+                    extractorVersion,
+                    cell,
+                    { cacheDir: options.cacheDir }
+                  );
+                } catch (err) {
+                  console.error(`Extraction failed for ${video.videoId} / ${model.id}:`, err);
+                  cells.push({
+                    videoId: video.videoId,
+                    modelId: model.id,
+                    extractorVariantId: variant,
+                    claimSet: [],
+                    error: { message: err instanceof Error ? err.message : String(err) },
+                  });
+                  failedCellCount++;
+                  return;
+                }
+              }
+            }
 
-            if (scoreResult.ok) {
-              const score = scoreResult.value;
-              scores.push(score);
-              await setCachedScore(
+            // Scoring
+            const claimSetHash = computeClaimSetHash(cell.claimSet);
+            const judgePromptVersion = JUDGE_PROMPT_VERSION;
+
+            let scores: ClaimSetScore[] = [];
+            let cellHasScoringFailure = false;
+
+            for (const judgeModelId of options.judgeModels) {
+              let cachedScores = await getCachedScore(
                 video.videoId,
                 model.id,
                 judgeModelId,
                 claimSetHash,
                 judgePromptVersion,
-                [score],
                 { cacheDir: options.cacheDir }
               );
-            } else {
-              console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, scoreResult.error);
-            }
-          }
-        }
 
-        cell.scores = scores;
-        cells.push(cell);
+              if (cachedScores && options.resume) {
+                scores.push(...cachedScores);
+              } else if (options.dryRun) {
+                console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
+              } else {
+                const judgeClient = options.judgeClientFactory(judgeModelId);
+                const scoreResult = await scoreClaimSet(
+                  judgeClient,
+                  judgeModelId,
+                  fullText,
+                  cell.claimSet,
+                  videoContext
+                );
+
+                if (scoreResult.ok) {
+                  const score = scoreResult.value;
+                  scores.push(score);
+                  await setCachedScore(
+                    video.videoId,
+                    model.id,
+                    judgeModelId,
+                    claimSetHash,
+                    judgePromptVersion,
+                    [score],
+                    { cacheDir: options.cacheDir }
+                  );
+                } else {
+                  console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, scoreResult.error);
+                  cellHasScoringFailure = true;
+                }
+              }
+            }
+
+            if (cellHasScoringFailure) {
+              cell.error = { message: "One or more judge scorings failed" };
+              failedCellCount++;
+            }
+
+            cell.scores = scores;
+            cells.push(cell);
+          } finally {
+            semaphore.release();
+          }
+        })());
       }
     }
   }
+
+  await Promise.all(tasks);
+
+  // Filter out any functions from options for metadata
+  const { extractorClientFactory, judgeClientFactory, ...serializableConfig } = options;
 
   return {
     cells,
     metadata: {
       startedAt,
       completedAt: new Date().toISOString(),
-      config: JSON.parse(JSON.stringify(options)),
+      config: serializableConfig,
       failedCellCount,
     },
   };

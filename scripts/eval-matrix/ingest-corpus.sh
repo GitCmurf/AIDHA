@@ -18,13 +18,8 @@ fi
 
 echo "Ingesting transcripts for corpus videos into $CACHE_DIR..."
 
-node --eval "
-const fs = require('fs');
-const corpus = JSON.parse(fs.readFileSync('$CORPUS_JSON', 'utf-8'));
-corpus.forEach(entry => {
-    console.log(entry.videoId + ' ' + entry.url);
-});
-" | while read -r videoId url; do
+# Use process substitution to avoid subshell so exit 1 works correctly
+while read -r videoId url; do
     TARGET_FILE="$CACHE_DIR/${videoId}.json"
     if [ -f "$TARGET_FILE" ] && [ -s "$TARGET_FILE" ]; then
         echo "Skipping $videoId - already cached"
@@ -46,6 +41,12 @@ corpus.forEach(entry => {
             exit 1
         fi
     fi
-done
+done < <(node --eval "
+const fs = require('fs');
+const corpus = JSON.parse(fs.readFileSync('$CORPUS_JSON', 'utf-8'));
+corpus.forEach(entry => {
+    console.log(entry.videoId + ' ' + entry.url);
+});
+")
 
 echo "Done."

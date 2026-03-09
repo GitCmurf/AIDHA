@@ -1,6 +1,8 @@
 import type { ClaimCandidate } from "../../extract/types.js";
 import type { VideoContext } from "../matrix-runner.js";
 
+export const JUDGE_PROMPT_VERSION = "v1";
+
 function sanitizePromptInput(text: string): string {
   return text.replace(/<\/TRANSCRIPT>/gi, "< /TRANSCRIPT>");
 }

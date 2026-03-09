@@ -42,7 +42,10 @@ export function renderMatrixReport(report: MatrixReport): string {
 
   // Model Stats Breakdown
   md += `## Model Scorecards\n\n`;
-  for (const [modelId, stats] of Object.entries(report.modelStats)) {
+  const sortedModelIds = Object.keys(report.modelStats).sort();
+  for (const modelId of sortedModelIds) {
+    const stats = report.modelStats[modelId];
+    if (!stats) continue;
     md += `### ${modelId}\n\n`;
     md += `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
     md += `| --- | --- | --- | --- | --- | --- |\n`;
@@ -55,7 +58,10 @@ export function renderMatrixReport(report: MatrixReport): string {
 
   // Variant Stats Breakdown
   md += `## Variant Scorecards\n\n`;
-  for (const [variantId, stats] of Object.entries(report.variantStats)) {
+  const sortedVariantIds = Object.keys(report.variantStats).sort();
+  for (const variantId of sortedVariantIds) {
+    const stats = report.variantStats[variantId];
+    if (!stats) continue;
     md += `### ${variantId}\n\n`;
     md += `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
     md += `| --- | --- | --- | --- | --- | --- |\n`;
@@ -68,7 +74,10 @@ export function renderMatrixReport(report: MatrixReport): string {
 
   // Video Stats Breakdown
   md += `## Video Heatmap\n\n`;
-  for (const [videoId, stats] of Object.entries(report.videoStats)) {
+  const sortedVideoIds = Object.keys(report.videoStats).sort();
+  for (const videoId of sortedVideoIds) {
+    const stats = report.videoStats[videoId];
+    if (!stats) continue;
     md += `### ${videoId}\n\n`;
     md += `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
     md += `| --- | --- | --- | --- | --- | --- |\n`;

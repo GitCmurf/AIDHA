@@ -13,10 +13,6 @@ describe("Scoring Rubric Schema", () => {
     hallucinations: [],
     redundancies: [],
     gapAreas: [{ area: "Sleep" }],
-    judgeMeta: {
-      judgeModelId: "gpt-4o",
-      judgePromptVersion: "v1"
-    }
   };
 
   it("should validate a completely valid score object", () => {

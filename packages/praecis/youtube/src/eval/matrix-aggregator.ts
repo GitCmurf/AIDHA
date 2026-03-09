@@ -109,7 +109,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
         const mean = videoStats[videoId]?.dimensions.overallScore?.mean ?? 0;
         return { videoId, score: mean };
     })
-    .sort((a, b) => a.score - b.score);
+    .sort((a, b) => a.score - b.score || a.videoId.localeCompare(b.videoId));
   const hardestVideo = videoLeaderboard.length > 0 ? (videoLeaderboard[0]?.videoId ?? "None") : "None";
 
   return {

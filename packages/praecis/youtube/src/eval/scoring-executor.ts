@@ -2,7 +2,7 @@ import type { LlmClient } from "../extract/llm-client.js";
 import type { ClaimCandidate } from "../extract/types.js";
 import type { Result } from "../pipeline/types.js";
 import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
-import { buildJudgePrompt } from "./prompts/judge-claim-quality.js";
+import { buildJudgePrompt, JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 import type { VideoContext } from "./matrix-runner.js";
 
 export async function scoreClaimSet(
@@ -20,7 +20,7 @@ export async function scoreClaimSet(
   if (result1.ok) {
     result1.value.judgeMeta = {
       judgeModelId: judgeModel,
-      judgePromptVersion: "v1" // Should probably be passed in
+      judgePromptVersion: JUDGE_PROMPT_VERSION
     };
     return result1;
   }
@@ -32,7 +32,7 @@ export async function scoreClaimSet(
   if (result2.ok) {
     result2.value.judgeMeta = {
       judgeModelId: judgeModel,
-      judgePromptVersion: "v1"
+      judgePromptVersion: JUDGE_PROMPT_VERSION
     };
     return result2;
   }
