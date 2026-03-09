@@ -11,6 +11,7 @@ import type {
 } from './types.js';
 import type { ClaimState } from '../utils/claim-state.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
+import { getStringMetadata, getNumberMetadata, formatTimestamp, buildTimestampUrl, normalizeText, truncateText, toNumber, uniqueSortedStrings } from '../extract/utils.js';
 
 export interface DossierExporterConfig {
   graphStore: GraphStore;
@@ -22,40 +23,6 @@ export interface DossierBuildOptions {
 
 export interface JsonExportOptions {
   pretty?: boolean;
-}
-
-function formatTimestamp(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const hrs = Math.floor(total / 3600);
-  const mins = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  if (hrs > 0) {
-    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function buildTimestampUrl(baseUrl: string, seconds: number): string {
-  const separator = baseUrl.includes('?') ? '&' : '?';
-  return `${baseUrl}${separator}t=${Math.max(0, Math.floor(seconds))}s`;
-}
-
-function normalizeText(text: string | undefined): string {
-  return (text ?? '').replace(/\s+/g, ' ').trim();
-}
-
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength - 1)}…`;
-}
-
-function toNumber(value: unknown, fallback: number): number {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? fallback : parsed;
-  }
-  return fallback;
 }
 
 function sortClaims(claims: DossierClaim[]): DossierClaim[] {
@@ -73,7 +40,7 @@ function sortTranscriptSegments(segments: TranscriptSegmentExport[]): Transcript
 }
 
 function sortReferences(refs: string[]): string[] {
-  return Array.from(new Set(refs)).sort((a, b) => a.localeCompare(b));
+  return uniqueSortedStrings(refs);
 }
 
 function renderVideoMarkdown(dossier: VideoDossier): string {
@@ -95,11 +62,22 @@ function renderVideoMarkdown(dossier: VideoDossier): string {
       const statePrefix = claim.state === 'accepted' ? '' : `[${claim.state}] `;
       lines.push(`${index + 1}. [${claim.timestampLabel}](${claim.timestampUrl}) ${statePrefix}${claim.text}`);
       lines.push(`   - Excerpt: ${claim.excerptText}`);
-      if (claim.type || typeof claim.confidence === 'number' || claim.method) {
+      if (claim.domain || claim.classification) {
+        const resolutionBits = [
+          claim.domain ? `**Domain:** ${claim.domain}` : null,
+          claim.classification ? `**Classification:** ${claim.classification}` : null,
+        ].filter(Boolean);
+        lines.push(`   - ${resolutionBits.join(' | ')}`);
+      }
+      if (claim.evidenceType) {
+        lines.push(`   - **Evidence:** ${claim.evidenceType}`);
+      }
+      if (claim.type || typeof claim.confidence === 'number' || claim.method || typeof claim.echoOverlapRatio === 'number') {
         const metaBits = [
           claim.type ? `type=${claim.type}` : null,
           typeof claim.confidence === 'number' ? `confidence=${claim.confidence.toFixed(2)}` : null,
           claim.method ? `method=${claim.method}` : null,
+          typeof claim.echoOverlapRatio === 'number' ? `echo=${(claim.echoOverlapRatio * 100).toFixed(0)}%` : null,
         ].filter(Boolean);
         if (metaBits.length > 0) {
           lines.push(`   - Meta: ${metaBits.join(', ')}`);
@@ -162,11 +140,22 @@ function renderPlaylistMarkdown(dossier: PlaylistDossier): string {
         const statePrefix = claim.state === 'accepted' ? '' : `[${claim.state}] `;
         lines.push(`${index + 1}. [${claim.timestampLabel}](${claim.timestampUrl}) ${statePrefix}${claim.text}`);
         lines.push(`   - Excerpt: ${claim.excerptText}`);
-        if (claim.type || typeof claim.confidence === 'number' || claim.method) {
+        if (claim.domain || claim.classification) {
+          const resolutionBits = [
+            claim.domain ? `**Domain:** ${claim.domain}` : null,
+            claim.classification ? `**Classification:** ${claim.classification}` : null,
+          ].filter(Boolean);
+          lines.push(`   - ${resolutionBits.join(' | ')}`);
+        }
+        if (claim.evidenceType) {
+          lines.push(`   - **Evidence:** ${claim.evidenceType}`);
+        }
+        if (claim.type || typeof claim.confidence === 'number' || claim.method || typeof claim.echoOverlapRatio === 'number') {
           const metaBits = [
             claim.type ? `type=${claim.type}` : null,
             typeof claim.confidence === 'number' ? `confidence=${claim.confidence.toFixed(2)}` : null,
             claim.method ? `method=${claim.method}` : null,
+            typeof claim.echoOverlapRatio === 'number' ? `echo=${(claim.echoOverlapRatio * 100).toFixed(0)}%` : null,
           ].filter(Boolean);
           if (metaBits.length > 0) {
             lines.push(`   - Meta: ${metaBits.join(', ')}`);
@@ -264,7 +253,7 @@ export class DossierExporter {
       const timestampSeconds = excerpt
         ? toNumber(excerpt.metadata?.['start'], 0)
         : toNumber(claim.metadata?.['startSeconds'], 0);
-      const excerptText = excerpt ? normalizeText(excerpt.content) : '';
+      const excerptText = excerpt ? normalizeText(excerpt.content ?? '') : '';
 
       const referenceEdges = await this.graphStore.getEdges({
         predicate: 'claimMentionsReference',
@@ -287,11 +276,13 @@ export class DossierExporter {
         excerptText: truncateText(excerptText, 220),
         excerptId: excerpt?.id,
         referenceUrls,
-        type: typeof claim.metadata?.['type'] === 'string' ? (claim.metadata?.['type'] as string) : undefined,
-        confidence: typeof claim.metadata?.['confidence'] === 'number'
-          ? (claim.metadata?.['confidence'] as number)
-          : undefined,
-        method: typeof claim.metadata?.['method'] === 'string' ? (claim.metadata?.['method'] as string) : undefined,
+        type: getStringMetadata(claim.metadata, 'type'),
+        classification: getStringMetadata(claim.metadata, 'classification'),
+        domain: getStringMetadata(claim.metadata, 'domain'),
+        evidenceType: getStringMetadata(claim.metadata, 'evidenceType'),
+        confidence: getNumberMetadata(claim.metadata, 'confidence'),
+        method: getStringMetadata(claim.metadata, 'method'),
+        echoOverlapRatio: getNumberMetadata(claim.metadata, 'echoOverlapRatio'),
       });
     }
 
@@ -382,7 +373,7 @@ export class DossierExporter {
           start,
           end,
           duration: Math.max(0, duration),
-          text: normalizeText(excerpt.content),
+          text: normalizeText(excerpt.content ?? ''),
         };
       })
     );

@@ -10,6 +10,7 @@ import type { Result } from '../src/pipeline/types.js';
 import { ClaimExtractionPipeline } from '../src/extract/claims.js';
 import type { LlmClient, LlmCompletionRequest } from '../src/extract/llm-client.js';
 import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
+import { HeuristicClaimExtractor } from '../src/extract/claims.js';
 
 class StubLlmClient implements LlmClient {
   calls = 0;
@@ -24,6 +25,12 @@ class StubLlmClient implements LlmClient {
     this.calls += 1;
     void request;
     return { ok: true, value: response };
+  }
+
+  async complete(request: any): Promise<any> {
+    const result = await this.generate(request);
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, text: result.value };
   }
 }
 
@@ -175,6 +182,117 @@ describe('LLM claim extraction', () => {
     expect(claim?.metadata?.promptVersion).toBe('v1');
   });
 
+  it('does not record valid empty claim sets as circuit-breaker failures', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-empty-ok');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+    const client = new StubLlmClient(['{"claims": []}']);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      circuitBreaker: {
+        failureThreshold: 2,
+        resetTimeoutMs: 1000,
+      },
+    });
+
+    const result = await extractor.extractClaims({ excerpts, resourceId: resource.id, maxClaims: 10 });
+
+    expect(result).toEqual([]);
+    expect(client.calls).toBe(2);
+    expect((extractor as any).circuitBreaker.getStats().failures).toBe(0);
+
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('clears stale LLM run metadata when a later run has no model, prompt, or diagnostics', async () => {
+    const resourceId = 'youtube-metadata-clear';
+    await store.upsertNode(
+      'Resource',
+      resourceId,
+      {
+        label: 'Metadata Clear Video',
+        metadata: {
+          videoId: 'metadata-clear',
+          url: 'https://www.youtube.com/watch?v=metadata-clear',
+        },
+      },
+      { detectNoop: true }
+    );
+
+    const excerptFixtures = [
+      { id: 'meta-excerpt-1', start: 0, text: 'Deterministic identifiers prevent duplicate claim nodes across repeated ingestion runs.' },
+      { id: 'meta-excerpt-2', start: 30, text: 'Stable field hashing keeps provenance and timestamps aligned for every extracted assertion.' },
+    ];
+
+    for (const [index, excerpt] of excerptFixtures.entries()) {
+      await store.upsertNode(
+        'Excerpt',
+        excerpt.id,
+        {
+          label: `Excerpt metadata-clear #${index + 1}`,
+          content: excerpt.text,
+          metadata: {
+            resourceId,
+            videoId: 'metadata-clear',
+            start: excerpt.start,
+            duration: 5,
+            sequence: index,
+          },
+        },
+        { detectNoop: true }
+      );
+    }
+
+    const llmExtractor = new LlmClaimExtractor({
+      client: new StubLlmClient([
+        JSON.stringify({
+          claims: [
+            {
+              text: 'Deterministic identifiers prevent duplicate claim nodes across repeated ingestion runs.',
+              excerptIds: ['meta-excerpt-1'],
+              startSeconds: 0,
+              type: 'insight',
+              confidence: 0.9,
+            },
+          ],
+        }),
+      ]),
+      model: 'test-model',
+      promptVersion: 'v1',
+      chunkMinutes: 10,
+    });
+
+    const llmPipeline = new ClaimExtractionPipeline({ graphStore: store, extractor: llmExtractor });
+    const llmResult = await llmPipeline.extractClaimsForVideo('metadata-clear', { maxClaims: 5 });
+    expect(llmResult.ok).toBe(true);
+
+    const afterLlm = await store.getNode(resourceId);
+    expect(afterLlm.ok).toBe(true);
+    if (!afterLlm.ok || !afterLlm.value) return;
+    expect(afterLlm.value.metadata?.['lastClaimRunModel']).toBe('test-model');
+    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toBe('v1');
+    expect(afterLlm.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeTypeOf('string');
+
+    const heuristicPipeline = new ClaimExtractionPipeline({
+      graphStore: store,
+      extractor: new HeuristicClaimExtractor(),
+    });
+    const heuristicResult = await heuristicPipeline.extractClaimsForVideo('metadata-clear', { maxClaims: 5 });
+    expect(heuristicResult.ok).toBe(true);
+
+    const afterHeuristic = await store.getNode(resourceId);
+    expect(afterHeuristic.ok).toBe(true);
+    if (!afterHeuristic.ok || !afterHeuristic.value) return;
+    expect(afterHeuristic.value.metadata?.['lastClaimRunModel']).toBeUndefined();
+    expect(afterHeuristic.value.metadata?.['lastClaimRunPromptVersion']).toBeUndefined();
+    expect(afterHeuristic.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeTypeOf('string');
+  });
+
   it('invalidates cache when prompt version or model changes', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-video-3');
     const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
@@ -313,6 +431,62 @@ describe('LLM claim extraction', () => {
     });
 
     expect(client.calls).toBe(2);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('does not fall back to legacy cache entries when custom tuning is enabled', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-custom-cache');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
+
+    const extractorDefault = new LlmClaimExtractor({
+      client: new StubLlmClient([
+        JSON.stringify({
+          claims: [
+            {
+              text: 'Default cached claim should not be reused for custom tuning.',
+              excerptIds: ['excerpt-2'],
+              startSeconds: 30,
+              confidence: 0.8,
+              type: 'insight',
+            },
+          ],
+        }),
+      ]),
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+
+    await extractorDefault.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    const clientCustom = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Custom tuning should bypass legacy cache fallback.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            confidence: 0.82,
+            type: 'instruction',
+          },
+        ],
+      }),
+    ]);
+
+    const extractorCustom = new LlmClaimExtractor({
+      client: clientCustom,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      reasoningEffort: 'high',
+    });
+
+    const result = await extractorCustom.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(clientCustom.calls).toBe(1);
+    expect(result[0]?.text).toContain('Custom tuning');
     await rm(cacheDir, { recursive: true, force: true });
   });
 

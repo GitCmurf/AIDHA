@@ -71,7 +71,7 @@ describe('resolveConfig — five-tier merge', () => {
   it('should return hardcoded defaults when no config file or overrides', () => {
     const resolved = resolveConfig();
     // These come from hardcoded DEFAULTS (Tier 5)
-    expect(resolved.llm.model).toBe('gpt-4o-mini');
+    expect(resolved.llm.model).toBe('gpt-5-mini');
     expect(resolved.editor.version).toBe('v2');
     expect(resolved.extraction.maxClaims).toBe(15);
     expect(resolved.db).toBe(resolve(process.cwd(), './out/aidha.sqlite'));
@@ -179,7 +179,7 @@ describe('resolveConfig — five-tier merge', () => {
 describe('resolveConfig — edge cases', () => {
   it('should handle null rawConfig gracefully', () => {
     const resolved = resolveConfig({ rawConfig: null });
-    expect(resolved.llm.model).toBe('gpt-4o-mini'); // hardcoded
+    expect(resolved.llm.model).toBe('gpt-5-mini'); // updated default
   });
 
   it('should handle missing profile name gracefully', () => {
@@ -218,6 +218,24 @@ describe('resolveConfig — edge cases', () => {
     expect(resolved.db).toBe(resolve(baseDir, './out/aidha.sqlite'));
     expect(resolved.llm.cacheDir).toBe(resolve(baseDir, './out/cache/claims'));
     expect(resolved.export.outDir).toBe(resolve(baseDir, './out'));
+  });
+
+  it('should discard invalid reasoning_effort and verbosity values during resolution', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          llm: {
+            model: 'config-default-model',
+            reasoning_effort: 'ultra' as never,
+            verbosity: 'verbose' as never,
+          },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({ rawConfig: config });
+    expect(resolved.llm.reasoningEffort).toBeUndefined();
+    expect(resolved.llm.verbosity).toBeUndefined();
   });
 });
 

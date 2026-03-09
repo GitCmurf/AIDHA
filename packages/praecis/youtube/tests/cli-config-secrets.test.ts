@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { runCli } from '../src/cli.js';
+import { runCli, sanitizeErrorMessage } from '../src/cli.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -105,5 +105,24 @@ profiles:
     expect(code).toBe(1);
     expect(mockRl.question).toHaveBeenCalledWith(expect.stringContaining('expose sensitive data'), expect.any(Function));
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('Aborted'));
+  });
+
+  it('redacts JSON-formatted secrets in error messages', () => {
+    const sanitized = sanitizeErrorMessage('{"api_key":"sk-12345","authorization":"Bearer abc.def"}');
+    expect(sanitized).not.toContain('sk-12345');
+    expect(sanitized).not.toContain('Bearer abc.def');
+    expect(sanitized).toContain('[REDACTED]');
+  });
+
+  it('redacts unquoted Authorization bearer values', () => {
+    const sanitized = sanitizeErrorMessage('Authorization: Bearer abc.def.ghi');
+    expect(sanitized).not.toContain('abc.def.ghi');
+    expect(sanitized).toContain('[REDACTED]');
+  });
+
+  it('redacts quoted authorization bearer values without leaking trailing quotes', () => {
+    const sanitized = sanitizeErrorMessage("'authorization': 'Bearer sk-abc123'");
+    expect(sanitized).not.toContain('sk-abc123');
+    expect(sanitized).toContain("'authorization': [REDACTED]");
   });
 });

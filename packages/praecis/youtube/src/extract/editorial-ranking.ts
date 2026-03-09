@@ -1,47 +1,17 @@
 import type { ClaimCandidate } from './types.js';
-import { clamp, normalizeText } from './utils.js';
-
-const LOW_VALUE_PATTERNS = [
-  /subscribe/i,
-  /like and subscribe/i,
-  /smash that (like|subscribe)/i,
-  /sponsor/i,
-  /patreon/i,
-  /thanks for watching/i,
-  /welcome back/i,
-  /intro/i,
-  /outro/i,
-];
-
-const ACTION_MARKERS = [
-  'do',
-  'avoid',
-  'use',
-  'try',
-  'stop',
-  'start',
-  'increase',
-  'decrease',
-  'step',
-  'rule',
-  'create',
-  'set',
-  'measure',
-  'track',
-];
-
-const STEP_PATTERNS = [
-  /\bstep\s+\d+\b/i,
-  /\bfirst\b/i,
-  /\bthen\b/i,
-  /\bnext\b/i,
-  /\bfinally\b/i,
-];
-
-const CONJUNCTION_ENDINGS = ['and', 'but', 'so', 'or', 'then'];
-const FILLER_PATTERNS = [/\buh\b/gi, /\bum\b/gi];
-const NUMBER_OR_UNIT_PATTERN = /\b\d+(?:\.\d+)?(?:%|mg|g|kg|ml|l|hour|hours|min|minute|minutes|sec|seconds)?\b/i;
-const ALL_CAPS_TOKEN_PATTERN = /^[A-Z]{2,}$/;
+import { clamp, normalizeText, normalizeKey, uniqueSortedStrings } from './utils.js';
+import { calculateTokenOverlap, tokenize } from './verification.js';
+import {
+  BOILERPLATE_PATTERNS,
+  ACTION_MARKERS,
+  STEP_PATTERNS,
+  CONJUNCTION_ENDINGS,
+  FILLER_PATTERNS,
+  CONTEXT_DEPENDENT_PRONOUNS,
+  NUMBER_OR_UNIT_PATTERN,
+  ALL_CAPS_TOKEN_PATTERN,
+  EDITORIAL_V2_WEIGHTS,
+} from './constants.js';
 
 const DEFAULT_WINDOW_MINUTES = 5;
 const DEFAULT_MAX_PER_WINDOW = 3;
@@ -49,9 +19,30 @@ const DEFAULT_MIN_WINDOWS = 4;
 const DEFAULT_V2_MIN_WORDS = 8;
 const DEFAULT_V2_MIN_CHARS = 50;
 const DEFAULT_V2_DEDUPE_OVERLAP = 0.8;
+const DEFAULT_V2_SEMANTIC_SIMILARITY_THRESHOLD = 0.75;
 const DEFAULT_V2_BOILERPLATE_PENALTY = 0.55;
 const DEFAULT_V2_FRAGMENT_PENALTY = 0.5;
 const DEFAULT_V2_DROP_THRESHOLD = 0.2;
+const DEFAULT_V2_ECHO_OVERLAP_THRESHOLD = 0.9;
+
+/**
+ * Echo detection mode controls how transcript echoes are handled.
+ * - 'off': Disable echo detection entirely
+ * - 'tag': Calculate and tag claims with overlap ratio (preserves all claims)
+ */
+export type EchoDetectionMode = 'off' | 'tag';
+
+/**
+ * Default echo detection configuration.
+ * Used when caller doesn't provide explicit settings.
+ */
+export const DEFAULT_ECHO_DETECTION: Readonly<{
+  mode: EchoDetectionMode;
+  overlapThreshold: number;
+}> = Object.freeze({
+  mode: 'tag' as const,
+  overlapThreshold: DEFAULT_V2_ECHO_OVERLAP_THRESHOLD,
+});
 
 export type EditorialDropReason =
   | 'empty'
@@ -66,6 +57,10 @@ export interface EditorialDiagnostics {
   selectedCount: number;
   droppedCounts: Record<EditorialDropReason, number>;
   windowCoverage: Array<{ windowIndex: number; selectedCount: number }>;
+  /** Count of claims tagged as transcript echoes (overlap ≥ threshold) */
+  echoTaggedCount: number;
+  /** Count of claims analyzed for echo (including zero overlap ratio) */
+  echoAnalyzedCount: number;
 }
 
 export interface EditorialPassV1Options {
@@ -82,10 +77,21 @@ export interface EditorialPassV2Options {
   minWords?: number;
   minChars?: number;
   dedupeOverlapThreshold?: number;
+  semanticSimilarityThreshold?: number;
   boilerplatePenalty?: number;
   fragmentPenalty?: number;
   dropThreshold?: number;
   excerptTextLengthById?: Map<string, number>;
+  excerptTextsById?: Map<string, string>;
+  /**
+   * Echo detection configuration.
+   * - mode: 'off' to disable, 'tag' to calculate overlap without penalizing
+   * - overlapThreshold: minimum overlap ratio to consider a claim an "echo" (default 0.9)
+   */
+  echoDetection?: {
+    mode?: EchoDetectionMode;
+    overlapThreshold?: number;
+  };
 }
 
 interface ScoredCandidate {
@@ -99,12 +105,48 @@ interface DedupeResult {
   duplicateCount: number;
 }
 
-function normalizeKey(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+/**
+ * Calculates token overlap ratio between two strings.
+ * Uses Jaccard similarity (intersection / union) via calculateTokenOverlap.
+ * Delegates to the verification module which implements the actual computation.
+ */
+function tokenOverlapRatio(str1: string, str2: string): number {
+  return calculateTokenOverlap(str1, str2);
+}
+
+/**
+ * Calculates the maximum token overlap ratio between a claim and its source excerpts.
+ * Returns a value between 0 and 1, where higher values indicate more similarity to the transcript.
+ * Returns undefined if no excerpt texts are available or the claim is too short to analyze.
+ *
+ * This helps distinguish between:
+ * - High ratios (>0.9): Near-exact transcript copies ("echoes")
+ * - Medium ratios (0.5-0.9): Partially rewritten claims
+ * - Low ratios (<0.5): Highly synthesized/assertions
+ */
+function calculateEchoOverlapRatio(
+  candidate: ClaimCandidate,
+  excerptTexts: Map<string, string>
+): number | undefined {
+  const normalizedClaim = normalizeText(candidate.text).toLowerCase();
+  if (normalizedClaim.length < 20) return undefined; // Short claims can't reliably be analyzed
+
+  let maxOverlap = 0;
+  let hasExcerpt = false;
+  for (const excerptId of candidate.excerptIds) {
+    const excerptText = excerptTexts.get(excerptId);
+    if (excerptText) {
+      hasExcerpt = true;
+      const overlap = tokenOverlapRatio(normalizedClaim, excerptText);
+      maxOverlap = Math.max(maxOverlap, overlap);
+    }
+  }
+
+  return hasExcerpt ? maxOverlap : undefined;
 }
 
 function stableExcerptKey(candidate: ClaimCandidate): string {
-  return Array.from(new Set(candidate.excerptIds)).sort((a, b) => a.localeCompare(b)).join('|');
+  return uniqueSortedStrings(candidate.excerptIds).join('|');
 }
 
 function candidateStart(candidate: ClaimCandidate): number {
@@ -130,7 +172,7 @@ function compareCandidateOutputOrder(a: ClaimCandidate, b: ClaimCandidate): numb
 }
 
 function isLowValue(text: string): boolean {
-  return LOW_VALUE_PATTERNS.some(pattern => pattern.test(text));
+  return BOILERPLATE_PATTERNS.some(pattern => pattern.test(text));
 }
 
 function isTooShortV1(text: string): boolean {
@@ -143,7 +185,7 @@ function endsWithConjunction(text: string): boolean {
   const words = normalizeText(text).split(/\s+/).filter(Boolean);
   const lastWord = words[words.length - 1]?.toLowerCase();
   if (!lastWord) return false;
-  return CONJUNCTION_ENDINGS.includes(lastWord);
+  return (CONJUNCTION_ENDINGS as readonly string[]).includes(lastWord);
 }
 
 function hasTooMuchFiller(text: string): boolean {
@@ -162,6 +204,28 @@ function isTooShortV2(text: string, minWords: number, minChars: number): boolean
   if (endsWithConjunction(trimmed)) return true;
   if (trimmed.includes('...')) return true;
   if (hasTooMuchFiller(trimmed)) return true;
+  return false;
+}
+
+/**
+ * Detects if a claim starts with a context-dependent pronoun.
+ * These claims are often fragments that lack clear antecedents.
+ */
+function startsWithPronoun(text: string): boolean {
+  const normalized = normalizeText(text);
+  const firstWord = normalized.split(/\s+/)[0]?.toLowerCase();
+  if (!firstWord) return false;
+
+  // Check for pronouns that indicate missing context
+  if ((CONTEXT_DEPENDENT_PRONOUNS as readonly string[]).includes(firstWord)) {
+    return true;
+  }
+
+  // Check for "which" or "who" clauses (relative pronouns starting fragments)
+  if (firstWord === 'which' || firstWord === 'who' || firstWord === 'whose') {
+    return true;
+  }
+
   return false;
 }
 
@@ -211,6 +275,223 @@ function dedupeCandidates(
   return { duplicateCount, deduped: deduped.sort(compareCandidateOutputOrder) };
 }
 
+
+const NEGATION_WORDS = new Set([
+  'not', 'no', 'never', 'neither', 'none', 'without', 'lack', 'except', 'cannot',
+  'won', 'don', 'didn', 'doesn', 'isn', 'aren', 'wasn', 'weren',
+  'haven', 'hasn', 'hadn', 'shouldn', 'wouldn', 'couldn',
+]);
+
+const COMPARATIVE_SUPERLATIVE_WORDS = new Set([
+  'more', 'less', 'better', 'worse', 'best', 'worst', 'highest', 'lowest', 'most', 'least'
+]);
+
+const CONTRACTION_EXPANSIONS: Record<string, string> = {
+  "won't": "will not",
+  "can't": "cannot",
+  "don't": "do not",
+  "don": "do not",
+  "doesn't": "does not",
+  "doesn": "does not",
+  "didn't": "did not",
+  "didn": "did not",
+  "isn't": "is not",
+  "isn": "is not",
+  "aren't": "are not",
+  "aren": "are not",
+  "wasn't": "was not",
+  "wasn": "was not",
+  "weren't": "were not",
+  "weren": "were not",
+  "haven't": "have not",
+  "haven": "have not",
+  "hasn't": "has not",
+  "hasn": "has not",
+  "hadn't": "had not",
+  "hadn": "had not",
+  "shouldn't": "should not",
+  "shouldn": "should not",
+  "wouldn't": "would not",
+  "wouldn": "would not",
+  "couldn't": "could not",
+  "couldn": "could not",
+  "i'm": "i am",
+  "i've": "i have",
+  "i'll": "i will",
+  "i'd": "i would",
+  "you're": "you are",
+  "you've": "you have",
+  "you'll": "you will",
+  "you'd": "you would",
+  "he's": "he is",
+  "she's": "she is",
+  "it's": "it is",
+  "we're": "we are",
+  "they're": "they are",
+};
+
+export function expandContractions(text: string): string {
+  let expanded = text.toLowerCase();
+  const sortedContractions = Object.entries(CONTRACTION_EXPANSIONS).sort(
+    (a, b) => b[0].length - a[0].length
+  );
+  for (const [contraction, expansion] of sortedContractions) {
+    // Escape contraction for regex and wrap in word boundaries
+    const escaped = contraction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'g');
+    expanded = expanded.replace(regex, expansion);
+  }
+  return expanded;
+}
+
+function getWordCounts(text: string): Map<string, number> {
+  const expanded = expandContractions(text);
+  const normalized = normalizeText(expanded)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s']/gu, ' ')
+    .replace(/'/g, '');
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const counts = new Map<string, number>();
+  for (const word of words) {
+    counts.set(word, (counts.get(word) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function hasNegationOrQualifierDifference(text1: string, text2: string): boolean {
+  const counts1 = getWordCounts(text1);
+  const counts2 = getWordCounts(text2);
+
+  for (const word of NEGATION_WORDS) {
+    const count1 = counts1.get(word) ?? 0;
+    const count2 = counts2.get(word) ?? 0;
+    if (count1 !== count2) {
+      return true;
+    }
+  }
+
+  for (const word of COMPARATIVE_SUPERLATIVE_WORDS) {
+    const count1 = counts1.get(word) ?? 0;
+    const count2 = counts2.get(word) ?? 0;
+    if (count1 !== count2) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function hasNumericalDifference(text1: string, text2: string): boolean {
+  const nums1 = new Set(text1.match(/\d+(?:\.\d+)?/g) || []);
+  const nums2 = new Set(text2.match(/\d+(?:\.\d+)?/g) || []);
+
+  if (nums1.size !== nums2.size) return true;
+  if (nums1.size === 0) return false;
+
+  return [...nums1].some(n => !nums2.has(n));
+}
+
+const DEDUPE_STOPWORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+  'be', 'been', 'being', 'in', 'on', 'at', 'by', 'for', 'with', 'about',
+  'against', 'between', 'into', 'through', 'during', 'before', 'after',
+  'above', 'below', 'to', 'from', 'up', 'down', 'out', 'off', 'over', 'under',
+  'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
+  'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some',
+  'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can',
+  'will', 'just', 'should', 'now'
+]);
+
+function tokenizeForDedupe(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 0 && !DEDUPE_STOPWORDS.has(t));
+}
+
+/**
+ * Checks if two claims have a material subject or predicate change.
+ * This catch material differences like "women" vs "men" that Jaccard similarity might miss.
+ */
+export function hasSubjectOrPredicateChange(text1: string, text2: string, semanticThreshold: number = 0.75): boolean {
+  const tokens1 = tokenizeForDedupe(text1);
+  const tokens2 = tokenizeForDedupe(text2);
+  if (tokens1.length === 0 || tokens2.length === 0) return false;
+
+  const set1 = new Set(tokens1);
+  const set2 = new Set(tokens2);
+
+  let intersect = 0;
+  for (const t of set1) { if (set2.has(t)) intersect++; }
+  const union = set1.size + set2.size - intersect;
+  const overlap = intersect / union;
+
+  // We want to detect if the substantive meaning changed.
+  // By using tokenizeForDedupe (which strips more stopwords), the overlap drops
+  // significantly for short claims with single-word substantive changes,
+  // making this guard effective even if overall Jaccard similarity is high.
+  return overlap < semanticThreshold;
+}
+
+/**
+ * Performs semantic deduplication to catch paraphrased claims that escape exact matching.
+ * Uses token set Jaccard similarity to identify claims with similar meaning but different wording.
+ *
+ * Performance: Pre-tokenizes all candidates once to avoid repeated Set allocation in O(n²) loop.
+ * For 144 candidates with ~50 tokens each, this reduces ~20,000 Set allocations to just 144.
+ */
+function semanticDedupe(
+  candidates: ClaimCandidate[],
+  comparePriority: (a: ClaimCandidate, b: ClaimCandidate) => number,
+  semanticThreshold: number
+): DedupeResult {
+  const ranked = candidates.slice().sort(comparePriority);
+
+  // Pre-tokenize all candidates once to avoid repeated Set creation
+  const tokenSets = new Map<ClaimCandidate, Set<string>>();
+  for (const c of ranked) {
+    tokenSets.set(c, new Set(tokenize(c.text)));
+  }
+
+  const deduped: ClaimCandidate[] = [];
+  let duplicateCount = 0;
+
+  for (const candidate of ranked) {
+    const candidateTokens = tokenSets.get(candidate)!;
+    const isDuplicate = deduped.some(existing => {
+      const existingTokens = tokenSets.get(existing)!;
+      if (candidateTokens.size === 0 || existingTokens.size === 0) return false;
+      let intersect = 0;
+      for (const t of candidateTokens) { if (existingTokens.has(t)) intersect++; }
+      const union = candidateTokens.size + existingTokens.size - intersect;
+      const overlap = intersect / union;
+      if (overlap >= semanticThreshold) {
+        if (hasNegationOrQualifierDifference(candidate.text, existing.text)) {
+          return false;
+        }
+        if (hasNumericalDifference(candidate.text, existing.text)) {
+          return false;
+        }
+        if (hasSubjectOrPredicateChange(candidate.text, existing.text, semanticThreshold)) {
+          return false;
+        }
+        return true;
+      }
+      return false;
+    });
+
+    if (isDuplicate) {
+      duplicateCount++;
+    } else {
+      deduped.push(candidate);
+    }
+  }
+
+  return { duplicateCount, deduped: deduped.sort(compareCandidateOutputOrder) };
+}
+
 function scoreCandidateV1(candidate: ClaimCandidate): number {
   const confidence = clamp(candidate.confidence ?? 0.6, 0, 1);
   const lengthScore = clamp((candidate.text.length ?? 0) / 180, 0, 1);
@@ -219,10 +500,10 @@ function scoreCandidateV1(candidate: ClaimCandidate): number {
 
 function actionabilityScore(text: string): number {
   const normalized = normalizeText(text).toLowerCase();
-  const words = normalized.split(/\s+/).filter(Boolean);
+  const wordSet = new Set(normalized.split(/\s+/).filter(Boolean));
   let markers = 0;
   for (const marker of ACTION_MARKERS) {
-    if (words.includes(marker)) markers += 1;
+    if (wordSet.has(marker)) markers += 1;
   }
   for (const pattern of STEP_PATTERNS) {
     if (pattern.test(normalized)) markers += 1;
@@ -291,12 +572,23 @@ function scoreCandidateV2(
   const evidence = evidenceDensityScore(candidate, options.excerptTextLengthById);
 
   let score = (
-    confidence * 0.25 +
-    lengthScore * 0.1 +
-    actionScore * 0.25 +
-    specificity * 0.2 +
-    evidence * 0.2
+    confidence * EDITORIAL_V2_WEIGHTS.CONFIDENCE +
+    lengthScore * EDITORIAL_V2_WEIGHTS.LENGTH +
+    actionScore * EDITORIAL_V2_WEIGHTS.ACTIONABILITY +
+    specificity * EDITORIAL_V2_WEIGHTS.SPECIFICITY +
+    evidence * EDITORIAL_V2_WEIGHTS.EVIDENCE
   );
+
+  // Metadata richness bonus - favors claims with rich metadata matching Gemini baseline
+  if (candidate.domain) {
+    score += EDITORIAL_V2_WEIGHTS.DOMAIN_BONUS;
+  }
+  if (candidate.classification) {
+    score += EDITORIAL_V2_WEIGHTS.CLASSIFICATION_BONUS;
+  }
+  if (candidate.evidenceType) {
+    score += EDITORIAL_V2_WEIGHTS.EVIDENCE_TYPE_BONUS;
+  }
 
   if (isLowValue(text)) {
     score -= options.boilerplatePenalty;
@@ -304,6 +596,12 @@ function scoreCandidateV2(
   if (isTooShortV2(text, options.minWords, options.minChars)) {
     score -= options.fragmentPenalty;
   }
+
+  // Context-dependent pronoun-led fragment penalty
+  if (startsWithPronoun(text)) {
+    score -= EDITORIAL_V2_WEIGHTS.PRONOUN_FRAGMENT_PENALTY;
+  }
+
   return clamp(score, 0, 1);
 }
 
@@ -375,11 +673,9 @@ function resolveWindowIndex(
 }
 
 function selectV2DiverseCandidates(
-  candidates: ClaimCandidate[],
   scoredCandidates: ScoredCandidate[],
   options: EditorialPassV2Options
 ): ClaimCandidate[] {
-  void candidates;
   const maxClaims = options.maxClaims;
   const maxPerWindow = Math.max(1, options.maxPerWindow ?? DEFAULT_MAX_PER_WINDOW);
   const minWindows = Math.max(1, options.minWindows ?? DEFAULT_MIN_WINDOWS);
@@ -489,6 +785,8 @@ export function runEditorPassV1WithDiagnostics(
         selected,
         candidate => (typeof candidate.chunkIndex === 'number' ? candidate.chunkIndex : -1)
       ),
+      echoTaggedCount: 0, // v1 does not support echo detection
+      echoAnalyzedCount: 0,
     },
   };
 }
@@ -520,21 +818,88 @@ export function runEditorPassV2WithDiagnostics(
     0,
     1
   );
+  const semanticSimilarityThreshold = clamp(
+    options.semanticSimilarityThreshold ?? DEFAULT_V2_SEMANTIC_SIMILARITY_THRESHOLD,
+    0,
+    1
+  );
 
-  for (const candidate of candidates) {
+  // Echo detection configuration
+  const echoMode = options.echoDetection?.mode ?? 'tag';
+  const echoThreshold = clamp(
+    options.echoDetection?.overlapThreshold ?? DEFAULT_V2_ECHO_OVERLAP_THRESHOLD,
+    0,
+    1
+  );
+
+  const scoreOptions = {
+    excerptTextLengthById: options.excerptTextLengthById,
+    boilerplatePenalty,
+    fragmentPenalty,
+    minWords,
+    minChars,
+  };
+
+  // Score cache to avoid redundant computation in hot paths
+  // Use structured keys instead of object references to avoid mutation issues and delimiter collisions.
+  // Cache key includes all fields that scoreCandidateV2 reads: startSeconds, text,
+  // excerptIds, confidence, domain, classification, evidenceType.
+  const scoreCache = new Map<string, number>();
+  const getCacheKey = (candidate: ClaimCandidate): string => {
+    return JSON.stringify([
+      candidate.startSeconds,
+      candidate.text,
+      uniqueSortedStrings(candidate.excerptIds),
+      candidate.confidence ?? null,
+      candidate.domain ?? null,
+      candidate.classification ?? null,
+      candidate.evidenceType ?? null,
+    ]);
+  };
+  const getScore = (candidate: ClaimCandidate): number => {
+    const key = getCacheKey(candidate);
+    const cached = scoreCache.get(key);
+    if (cached !== undefined) return cached;
+    const score = scoreCandidateV2(candidate, scoreOptions);
+    scoreCache.set(key, score);
+    return score;
+  };
+
+  const comparePriority = (left: ClaimCandidate, right: ClaimCandidate): number => {
+    const scoreDiff = getScore(right) - getScore(left);
+    if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
+    const startDiff = candidateStart(left) - candidateStart(right);
+    if (startDiff !== 0) return startDiff;
+    const textDiff = left.text.localeCompare(right.text);
+    if (textDiff !== 0) return textDiff;
+    return stableExcerptKey(left).localeCompare(stableExcerptKey(right));
+  };
+
+  // Track echo statistics
+  let echoTaggedCount = 0;
+  let echoAnalyzedCount = 0;
+
+  // Phase 1: Apply quality filters and calculate echo overlap ratios
+  // Only create new array if echo detection is enabled and excerpt texts are available
+  const excerptTexts = options.excerptTextsById;
+  const candidatesWithEcho = (echoMode !== 'off' && excerptTexts)
+    ? candidates.map(candidate => {
+        const overlapRatio = calculateEchoOverlapRatio(candidate, excerptTexts);
+        if (overlapRatio !== undefined) {
+          return { ...candidate, echoOverlapRatio: overlapRatio };
+        }
+        return candidate;
+      })
+    : candidates; // Use original array when echo detection is disabled
+
+  for (const candidate of candidatesWithEcho) {
     const text = normalizeText(candidate.text);
     if (text.length === 0) {
       droppedCounts.empty += 1;
       continue;
     }
 
-    const score = scoreCandidateV2(candidate, {
-      excerptTextLengthById: options.excerptTextLengthById,
-      boilerplatePenalty,
-      fragmentPenalty,
-      minWords,
-      minChars,
-    });
+    const score = getScore(candidate);
 
     if (isLowValue(text) && score <= dropThreshold) {
       droppedCounts.boilerplate += 1;
@@ -547,55 +912,44 @@ export function runEditorPassV2WithDiagnostics(
     filtered.push(candidate);
   }
 
-  const deduped = dedupeCandidates(
-    filtered,
-    (left, right) => {
-      const leftScore = scoreCandidateV2(left, {
-        excerptTextLengthById: options.excerptTextLengthById,
-        boilerplatePenalty,
-        fragmentPenalty,
-        minWords,
-        minChars,
-      });
-      const rightScore = scoreCandidateV2(right, {
-        excerptTextLengthById: options.excerptTextLengthById,
-        boilerplatePenalty,
-        fragmentPenalty,
-        minWords,
-        minChars,
-      });
-      const scoreDiff = rightScore - leftScore;
-      if (Math.abs(scoreDiff) > 0.000001) return scoreDiff;
-      const startDiff = candidateStart(left) - candidateStart(right);
-      if (startDiff !== 0) return startDiff;
-      const textDiff = left.text.localeCompare(right.text);
-      if (textDiff !== 0) return textDiff;
-      return stableExcerptKey(left).localeCompare(stableExcerptKey(right));
-    },
-    dedupeOverlapThreshold
-  );
+  // Count echo statistics over filtered results (not pre-filter candidates)
+  if (echoMode !== 'off' && excerptTexts) {
+    for (const candidate of filtered) {
+      if ('echoOverlapRatio' in candidate && candidate.echoOverlapRatio !== undefined) {
+        echoAnalyzedCount++;
+        if (candidate.echoOverlapRatio >= echoThreshold) {
+          echoTaggedCount++;
+        }
+      }
+    }
+  }
+
+  // First pass: exact match and excerpt overlap deduplication
+  const deduped = dedupeCandidates(filtered, comparePriority, dedupeOverlapThreshold);
   droppedCounts.duplicate += deduped.duplicateCount;
+
+  // Second pass: semantic similarity deduplication for paraphrases
+  const semanticDeduped = semanticDedupe(
+    deduped.deduped,
+    comparePriority,
+    semanticSimilarityThreshold
+  );
+  droppedCounts.duplicate += semanticDeduped.duplicateCount;
 
   const windowSeconds = Math.max(
     60,
     Math.floor((options.windowMinutes ?? DEFAULT_WINDOW_MINUTES) * 60)
   );
-  const scoredCandidates = deduped.deduped
+  const scoredCandidates = semanticDeduped.deduped
     .map(candidate => ({
       candidate,
-      score: scoreCandidateV2(candidate, {
-        excerptTextLengthById: options.excerptTextLengthById,
-        boilerplatePenalty,
-        fragmentPenalty,
-        minWords,
-        minChars,
-      }),
+      score: getScore(candidate),
       windowIndex: resolveWindowIndex(candidate, windowSeconds),
     }))
     .sort(compareScoredCandidatePriority);
 
-  const selected = selectV2DiverseCandidates(deduped.deduped, scoredCandidates, options);
-  droppedCounts.coverage += deduped.deduped.length - selected.length;
+  const selected = selectV2DiverseCandidates(scoredCandidates, options);
+  droppedCounts.coverage += semanticDeduped.deduped.length - selected.length;
 
   return {
     selected,
@@ -608,6 +962,8 @@ export function runEditorPassV2WithDiagnostics(
         selected,
         candidate => resolveWindowIndex(candidate, windowSeconds)
       ),
+      echoTaggedCount,
+      echoAnalyzedCount,
     },
   };
 }

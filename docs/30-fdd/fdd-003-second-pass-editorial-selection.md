@@ -40,10 +40,21 @@ This pass is designed to be reusable across transcript sources, not only YouTube
   - Remove short claims below readability thresholds.
   - Deduplicate candidates using normalized text equivalence and excerpt overlap.
   - Ensure diversity by selecting best-per-chunk first, then filling by rank.
-- `v2` editor behavior (opt-in mode):
+- `v2` editor behavior (default mode):
   - Uses deterministic heuristic scoring for actionability, specificity, and evidence density.
-  - Uses time-window diversity selection with max-per-window limits.
-  - Keeps dedupe rules equivalent to `v1` by default for migration safety.
+  - Scoring Weights:
+    - Actionability: 0.25
+    - Confidence: 0.20
+    - Specificity (numbers/units): 0.15
+    - Evidence Density: 0.15
+    - Domain/Classification Bonus: 0.15/0.10
+  - Penalties:
+    - Boilerplate POS Pattern: -0.55
+    - Fragment Indicator: -0.50
+    - Transcript Echo (>90% overlap): -0.25
+    - Context-dependent pronoun start: -0.15
+  - Uses time-window diversity selection with max-per-window limits (default 3 claims per 5 mins).
+  - Semantic similarity deduplication (threshold 0.8 token overlap).
 - Optional rewrite behavior (opt-in via `--editor-llm`):
   - Applies only after deterministic pass 2 selection.
   - Uses strict JSON schema (`index`, `text`) and deterministic cache keying.

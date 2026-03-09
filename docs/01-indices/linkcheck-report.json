@@ -1,42 +1,98 @@
 [
   {
     "url": "http://localhost:11434/v1",
-    "checked_at": "2026-02-23T14:50:45Z",
+    "checked_at": "2026-03-06T03:57:19Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_localhost"
   },
   {
     "url": "https://api.openai.com/v1",
-    "checked_at": "2026-02-23T14:50:45Z",
+    "checked_at": "2026-03-06T03:57:19Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_known_endpoint"
+  },
+  {
+    "url": "https://cla-assistant.io/",
+    "checked_at": "2026-03-06T03:57:20Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://github.com/GitCmurf",
+    "checked_at": "2026-03-06T03:57:20Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://github.com/GitCmurf/AIDHA",
+    "checked_at": "2026-03-06T03:57:21Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://github.com/GitCmurf/AIDHA.git",
+    "checked_at": "2026-03-06T03:57:22Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
   },
   {
     "url": "https://github.com/GitCmurf/AIDHA/blob/main/packages/aidha-config/schema/config.schema.json",
-    "checked_at": "2026-02-23T14:50:45Z",
+    "checked_at": "2026-03-06T03:57:22Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_known_endpoint"
   },
   {
-    "url": "https://www.youtube.com/watch?v=IN6w6GnN-Ic",
-    "checked_at": "2026-02-23T14:50:45Z",
+    "url": "https://github.com/LIAAD/yake",
+    "checked_at": "2026-03-06T03:57:23Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://github.com/spencermountain/compromise",
+    "checked_at": "2026-03-06T03:57:23Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://github.com/winkjs/wink-nlp",
+    "checked_at": "2026-03-06T03:57:24Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://img.shields.io/badge/License-Apache_2.0-blue.svg",
+    "checked_at": "2026-03-06T03:57:25Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=UepWRYgBpv0",
+    "checked_at": "2026-03-06T03:57:25Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_unstable_host"
   },
   {
-    "url": "https://www.youtube.com/watch?v=UepWRYgBpv0",
-    "checked_at": "2026-02-23T14:50:45Z",
+    "url": "https://www.youtube.com/watch?v=h_1zlead9ZU",
+    "checked_at": "2026-03-06T03:57:25Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_unstable_host"
   },
   {
     "url": "https://youtu.be/f4cdu-QiKHo",
-    "checked_at": "2026-02-23T14:50:45Z",
+    "checked_at": "2026-03-06T03:57:25Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_unstable_host"

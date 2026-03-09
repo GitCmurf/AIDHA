@@ -55,6 +55,16 @@ const ENV_VERBOSE = 'AIDHA_VERBOSE';
 const ERROR_PREFIX = '[error]';
 const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] === 'true';
 
+export function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/(["'])(authorization)\1\s*[:=]\s*(["'])(Bearer\s+)?([^"']+)\3/gi, '$1$2$1: [REDACTED]')
+    .replace(/(["'])(api[_-]?key|token|secret)\1\s*[:=]\s*(["'])([^"']+)\3/gi, '$1$2$1: [REDACTED]')
+    .replace(/(["']?)(authorization)\1\s*[:=]\s*(Bearer\s+)?([^\r\n,}\]]+)/gi, '$1$2$1: [REDACTED]')
+    .replace(/(["']?)(api[_-]?key|token|secret)\1\s*[:=]\s*([^\s,"'}\]]+)/gi, '$2=[REDACTED]')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/g, 'Bearer [REDACTED]')
+    .replace(/sk-[a-zA-Z0-9]{5,}/g, 'sk-[REDACTED]');
+}
+
 function parseVideoId(input: string): string {
   if (!input.includes('/') && !input.includes('.')) {
     return input;
@@ -317,6 +327,7 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
   if (mode === 'claims') {
     const useLlm = optionBool(options, 'llm');
     const editorLlm = optionBool(options, 'editor-llm');
+    const showEditorDiagnostics = optionBool(options, 'editorial-diagnostics');
 
     let extractor: LlmClaimExtractor | undefined;
     if (useLlm) {
@@ -346,8 +357,9 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
         editorMinWindows: config.editor.minWindows > 0 ? config.editor.minWindows : undefined,
         editorMinWords: config.editor.minWords > 0 ? config.editor.minWords : undefined,
         editorMinChars: config.editor.minChars > 0 ? config.editor.minChars : undefined,
-        editorLlm: config.editor.editorLlm || editorLlm, // Allow flag to override if not set in config? (Flag is already in config via overrides)
-        // config.editor.editorLlm comes from ResolvedConfig which includes cli overrides.
+        editorLlm: config.editor.editorLlm || editorLlm,
+        reasoningEffort: config.llm.reasoningEffort,
+        verbosity: config.llm.verbosity,
       });
     }
 
@@ -361,6 +373,34 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
       return 1;
     }
     console.log(`Claims: created=${result.value.claimsCreated} updated=${result.value.claimsUpdated} noop=${result.value.claimsNoop}`);
+
+    if (showEditorDiagnostics) {
+      const resourceId = `youtube-${videoId}`;
+      const resourceResult = await store.getNode(resourceId);
+      if (resourceResult.ok && resourceResult.value) {
+        const diagnosticsJson = resourceResult.value.metadata?.['lastClaimRunEditorDiagnostics'];
+        if (typeof diagnosticsJson === 'string') {
+          try {
+            const diagnostics = JSON.parse(diagnosticsJson) as import('./extract/editorial-ranking.js').EditorialDiagnostics;
+            console.log('\nEditorial Diagnostics:');
+            console.log(`  Total candidates: ${diagnostics.totalCandidates}`);
+            console.log(`  Selected: ${diagnostics.selectedCount}`);
+            console.log(`  Dropped: ${Object.entries(diagnostics.droppedCounts).map(([reason, count]) => `${reason}=${count}`).join(', ')}`);
+            console.log('  Window coverage:');
+            for (const coverage of diagnostics.windowCoverage) {
+              console.log(`    Window ${coverage.windowIndex}: ${coverage.selectedCount} claims`);
+            }
+            if (diagnostics.echoAnalyzedCount > 0) {
+              console.log(`  Echo detection: analyzed=${diagnostics.echoAnalyzedCount} tagged=${diagnostics.echoTaggedCount}`);
+            }
+          } catch {
+            console.log('  (Unable to parse diagnostics)');
+          }
+        } else {
+          console.log('  (No diagnostics available)');
+        }
+      }
+    }
   } else if (mode === 'refs') {
     const pipeline = new ReferenceExtractionPipeline({ graphStore: store });
     const result = await pipeline.extractReferencesForVideo(videoId);
@@ -1315,14 +1355,14 @@ if (isCliEntrypoint(import.meta.url, process.argv[1])) {
       // Log only sanitized error information to avoid leaking sensitive data.
       // ENV_VERBOSE enables error name prefix but never prints full stacks.
       if (err instanceof Error) {
-        const basicMessage = err.message || 'Unexpected error';
+        const basicMessage = sanitizeErrorMessage(err.message || 'Unexpected error');
         if (VERBOSE) {
           console.error(`${ERROR_PREFIX} ${err.name}: ${basicMessage}`);
         } else {
           console.error(basicMessage);
         }
       } else {
-        const message = String(err);
+        const message = sanitizeErrorMessage(String(err));
         console.error(VERBOSE ? `${ERROR_PREFIX} ${message}` : message);
       }
       process.exit(1);
