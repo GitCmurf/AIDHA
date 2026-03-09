@@ -11,10 +11,11 @@ export const ClaimSetScoreSchema = z.object({
   hallucinations: z.array(z.object({ text: z.string().min(1) })),
   redundancies: z.array(z.object({ text: z.string().min(1) })),
   gapAreas: z.array(z.object({ area: z.string().min(1) })),
-  judgeMeta: z.object({
-    judgeModelId: z.string().min(1),
-    judgePromptVersion: z.string().min(1),
-  }).optional(),
 });
 
-export type ClaimSetScore = z.infer<typeof ClaimSetScoreSchema>;
+export type ClaimSetScore = z.infer<typeof ClaimSetScoreSchema> & {
+  judgeMeta?: {
+    judgeModelId: string;
+    judgePromptVersion: string;
+  };
+};

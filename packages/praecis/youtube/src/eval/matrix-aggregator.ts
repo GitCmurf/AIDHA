@@ -11,8 +11,8 @@ export interface MatrixReport {
 }
 
 export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
-  const modelScores: Record<string, Record<ScoreDimension, number[]>> = {};
-  const videoScores: Record<string, Record<ScoreDimension, number[]>> = {};
+  const modelScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
+  const videoScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
 
   const dimensions: ScoreDimension[] = [
     "completeness",

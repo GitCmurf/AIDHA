@@ -20,7 +20,7 @@ export async function getCachedExtraction(
   extractorVersion: string,
   options: CacheOptions
 ): Promise<MatrixCell | null> {
-  const key = hashString(`${videoId}-${modelId}-${extractorVariantId}-${promptVersion}-${extractorVersion}`);
+  const key = hashString([videoId, modelId, extractorVariantId, promptVersion, extractorVersion].join('\x00'));
   const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
 
   try {
@@ -44,7 +44,7 @@ export async function setCachedExtraction(
   cell: MatrixCell,
   options: CacheOptions
 ): Promise<void> {
-  const key = hashString(`${videoId}-${modelId}-${extractorVariantId}-${promptVersion}-${extractorVersion}`);
+  const key = hashString([videoId, modelId, extractorVariantId, promptVersion, extractorVersion].join('\x00'));
   const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
 
   await fs.mkdir(options.cacheDir, { recursive: true });
@@ -59,7 +59,7 @@ export async function getCachedScore(
   judgePromptVersion: string,
   options: CacheOptions
 ): Promise<ClaimSetScore[] | null> {
-  const key = hashString(`${videoId}-${extractionModelId}-${judgeModelId}-${claimSetHash}-${judgePromptVersion}`);
+  const key = hashString([videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion].join('\x00'));
   const filePath = path.join(options.cacheDir, `score-${key}.json`);
 
   try {
@@ -83,7 +83,7 @@ export async function setCachedScore(
   scores: ClaimSetScore[],
   options: CacheOptions
 ): Promise<void> {
-  const key = hashString(`${videoId}-${extractionModelId}-${judgeModelId}-${claimSetHash}-${judgePromptVersion}`);
+  const key = hashString([videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion].join('\x00'));
   const filePath = path.join(options.cacheDir, `score-${key}.json`);
 
   await fs.mkdir(options.cacheDir, { recursive: true });

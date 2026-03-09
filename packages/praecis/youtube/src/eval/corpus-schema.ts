@@ -8,6 +8,7 @@ export const CorpusEntrySchema = z.object({
   durationMinutes: z.number().min(0),
   topicDomain: z.string().min(1),
   expectedClaimDensity: z.enum(["low", "medium", "high"]),
+  description: z.string().optional(),
   language: z.string().min(1).optional(),
   captionSource: z.enum(["manual", "auto", "unknown"]).optional(),
   speakerStyle: z.enum(["solo", "interview", "panel", "unknown"]).optional(),
