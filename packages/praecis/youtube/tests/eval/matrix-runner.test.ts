@@ -1,22 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
-import * as fs from "node:fs";
-import * as fsPromises from "node:fs/promises";
-import * as path from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { readFile as readFileAsync } from "node:fs/promises";
+import { basename } from "node:path";
 import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
 import { MODEL_REGISTRY } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
-import { LlmClaimExtractor } from "../../src/extract/llm-claims";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(),
-  writeFile: vi.fn().mockResolvedValue(),
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 vi.mock("fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(),
-  writeFile: vi.fn().mockResolvedValue(),
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 
@@ -62,20 +61,23 @@ describe("Matrix Runner Integration", () => {
 
     const models = MODEL_REGISTRY.slice(0, 2);
 
-    // Mock fs.existsSync and fs.readFileSync for transcripts
-    (fs.existsSync as any).mockReturnValue(true);
-    const mockTranscriptImplementation = (filePath: string) => {
+    // Mock existsSync and readFileSync for transcripts
+    vi.mocked(existsSync).mockReturnValue(true);
+    const mockTranscriptImplementation = (filePath: string | URL | number): string => {
+      const pathStr = typeof filePath === "string" ? filePath : String(filePath);
       // Extract videoId from path like "out/test/transcripts/v5.json"
-      const videoId = path.basename(filePath, '.json');
+      const videoId = basename(pathStr, ".json");
       return JSON.stringify({
         videoId,
         language: "en",
         segments: [{ start: 0, duration: 10, text: "segment 1" }],
-        fullText: "full text"
+        fullText: "full text",
       });
     };
-    (fs.readFileSync as any).mockImplementation(mockTranscriptImplementation);
-    (fsPromises.readFile as any).mockImplementation((path: string) => Promise.resolve(mockTranscriptImplementation(path)));
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as any);
+    vi.mocked(readFileAsync).mockImplementation((path: any) =>
+      Promise.resolve(mockTranscriptImplementation(path as string))
+    );
 
     const mockJudgeClient = {
       generate: vi.fn().mockResolvedValue({

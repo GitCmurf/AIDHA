@@ -1,5 +1,4 @@
-import * as fs from "node:fs";
-import * as fsPromises from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import * as path from "node:path";
 import type { GraphNode } from "@aidha/graph-backend";
 import { Transcript } from "../schema/transcript.js";
@@ -8,10 +7,15 @@ import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { ClaimSetScore } from "./scoring-rubric.js";
 import type { CorpusEntry } from "./corpus-schema.js";
 import type { EvalModel } from "./model-registry.js";
-import { getCachedExtraction, setCachedExtraction, getCachedScore, setCachedScore, computeClaimSetHash } from "./matrix-cache.js";
+import {
+  getCachedExtraction,
+  setCachedExtraction,
+  getCachedScore,
+  setCachedScore,
+  computeClaimSetHash,
+} from "./matrix-cache.js";
 import { scoreClaimSet } from "./scoring-executor.js";
 import { LlmClaimExtractor } from "../extract/llm-claims.js";
-import type { YouTubeClient } from "../client/types.js";
 import type { LlmClient } from "../extract/llm-client.js";
 import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
@@ -88,7 +92,7 @@ class Semaphore {
       this.count--;
       return;
     }
-    return new Promise(resolve => this.waiting.push(resolve));
+    return new Promise((resolve) => this.waiting.push(resolve));
   }
 
   release(): void {
@@ -221,9 +225,10 @@ const getScoresForCell = async (
           console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
         }
       } catch (err) {
-        const message = err instanceof Error && err.name === "AbortError"
-          ? `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`
-          : (err instanceof Error ? err.message : String(err));
+        const message =
+          err instanceof Error && err.name === "AbortError"
+            ? `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`
+            : (err instanceof Error ? err.message : String(err));
         console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
         cellHasScoringFailure = true;
       }
@@ -301,12 +306,88 @@ const getExtractionForCell = async (
 
     return newCell;
   } catch (err) {
-    const message = err instanceof Error && err.name === "AbortError"
-      ? `Extraction timeout for ${video.videoId} / ${model.id}`
-      : (err instanceof Error ? err.message : String(err));
+    const message =
+      err instanceof Error && err.name === "AbortError"
+        ? `Extraction timeout for ${video.videoId} / ${model.id}`
+        : (err instanceof Error ? err.message : String(err));
     console.error(message);
     return { error: { message } };
   }
+};
+
+const prepareTranscriptDataAsync = async (
+  video: CorpusEntry,
+  options: MatrixOptions
+): Promise<
+  | {
+      videoContext: VideoContext;
+      excerpts: GraphNode[];
+      resource: GraphNode;
+      fullText: string;
+    }
+  | { error: number }
+> => {
+  const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
+
+  let transcriptData: Transcript;
+  try {
+    const raw = await readFile(transcriptPath, "utf-8");
+    const parsed = Transcript.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      console.error(`Invalid transcript format for ${video.videoId}:`, parsed.error.format());
+      return { error: 1 };
+    }
+    transcriptData = parsed.data;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      console.warn(`Transcript not found for ${video.videoId} at ${transcriptPath}, skipping.`);
+    } else {
+      console.error(`Failed to read or parse transcript for ${video.videoId}:`, err);
+    }
+    return { error: 1 };
+  }
+
+  const videoContext: VideoContext = {
+    videoId: video.videoId,
+    title: video.title,
+    channelName: video.channelName,
+    url: video.url,
+    durationMinutes: video.durationMinutes,
+    topicDomain: video.topicDomain,
+    description: video.description,
+  };
+
+  const segments = transcriptData.segments;
+  const fullText = transcriptData.fullText;
+
+  const excerpts = segments.map((s, i: number) => ({
+    id: `excerpt-${video.videoId}-${i}`,
+    type: "Excerpt" as const,
+    label: `Excerpt ${i}`,
+    content: s.text,
+    metadata: {
+      start: s.start,
+      duration: s.duration,
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }));
+
+  const resource = {
+    id: `youtube-${video.videoId}`,
+    type: "Resource" as const,
+    label: video.title,
+    content: fullText,
+    metadata: {
+      videoId: video.videoId,
+      channelName: video.channelName,
+      description: video.description || "",
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  return { videoContext, excerpts, resource, fullText };
 };
 
 const processCell = async (
@@ -314,6 +395,14 @@ const processCell = async (
   model: EvalModel,
   variant: ExtractorVariantId,
   options: MatrixOptions,
+  transcriptDataResult:
+    | {
+        videoContext: VideoContext;
+        excerpts: GraphNode[];
+        resource: GraphNode;
+        fullText: string;
+      }
+    | { error: number },
   semaphore: Semaphore,
   cells: MatrixCell[],
   onFailure: () => void
@@ -322,8 +411,14 @@ const processCell = async (
   try {
     console.log(`[cell] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
-    const transcriptDataResult = await prepareTranscriptDataAsync(video, options);
     if ("error" in transcriptDataResult) {
+      cells.push({
+        videoId: video.videoId,
+        modelId: model.id,
+        extractorVariantId: variant,
+        claimSet: [],
+        error: { message: `Transcript unavailable or malformed for ${video.videoId}` },
+      });
       onFailure();
       return;
     }
@@ -391,86 +486,11 @@ const processCell = async (
   }
 };
 
-const prepareTranscriptDataAsync = async (
-  video: CorpusEntry,
-  options: MatrixOptions
-): Promise<
-  | {
-      videoContext: VideoContext;
-      excerpts: GraphNode[];
-      resource: GraphNode;
-      fullText: string;
-    }
-  | { error: number }
-> => {
-  const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
-
-  let transcriptData: Transcript;
-  try {
-    const raw = await fsPromises.readFile(transcriptPath, "utf-8");
-    const parsed = Transcript.safeParse(JSON.parse(raw));
-    if (!parsed.success) {
-      console.error(`Invalid transcript format for ${video.videoId}:`, parsed.error.format());
-      return { error: 1 };
-    }
-    transcriptData = parsed.data;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      console.warn(`Transcript not found for ${video.videoId} at ${transcriptPath}, skipping.`);
-    } else {
-      console.error(`Failed to read or parse transcript for ${video.videoId}:`, err);
-    }
-    return { error: 1 };
-  }
-
-  const videoContext: VideoContext = {
-    videoId: video.videoId,
-    title: video.title,
-    channelName: video.channelName,
-    url: video.url,
-    durationMinutes: video.durationMinutes,
-    topicDomain: video.topicDomain,
-    description: video.description,
-  };
-
-  const segments = transcriptData.segments;
-  const fullText = transcriptData.fullText;
-
-  const excerpts = segments.map((s, i: number) => ({
-    id: `excerpt-${video.videoId}-${i}`,
-    type: "Excerpt" as const,
-    label: `Excerpt ${i}`,
-    content: s.text,
-    metadata: {
-      start: s.start,
-      duration: s.duration,
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }));
-
-  const resource = {
-    id: `youtube-${video.videoId}`,
-    type: "Resource" as const,
-    label: video.title,
-    content: fullText,
-    metadata: {
-      videoId: video.videoId,
-      channelName: video.channelName,
-      description: video.description || "",
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  return { videoContext, excerpts, resource, fullText };
-};
-
-export async function runEvaluationMatrix(
+export const runEvaluationMatrix = async (
   corpus: CorpusEntry[],
   models: EvalModel[],
   options: MatrixOptions
-): Promise<MatrixResult> {
+): Promise<MatrixResult> => {
   const startedAt = new Date().toISOString();
   const cells: MatrixCell[] = [];
   let failedCellCount = 0;
@@ -478,7 +498,25 @@ export async function runEvaluationMatrix(
   const semaphore = new Semaphore(options.maxConcurrency || 1);
   const tasks: Promise<void>[] = [];
 
+  // Pre-load transcripts once per video to avoid redundant I/O and event loop blocking
+  const transcriptCache = new Map<
+    string,
+    | {
+        videoContext: VideoContext;
+        excerpts: GraphNode[];
+        resource: GraphNode;
+        fullText: string;
+      }
+    | { error: number }
+  >();
+
   for (const video of corpus) {
+    transcriptCache.set(video.videoId, await prepareTranscriptDataAsync(video, options));
+  }
+
+  for (const video of corpus) {
+    const transcriptDataResult = transcriptCache.get(video.videoId)!;
+
     for (const model of models) {
       for (const variant of options.variants) {
         tasks.push(
@@ -487,6 +525,7 @@ export async function runEvaluationMatrix(
             model,
             variant,
             options,
+            transcriptDataResult,
             semaphore,
             cells,
             () => {
@@ -508,9 +547,8 @@ export async function runEvaluationMatrix(
     metadata: {
       startedAt,
       completedAt: new Date().toISOString(),
-      config: serializableConfig,
+      config: serializableConfig as Record<string, unknown>,
       failedCellCount,
     },
   };
-}
-// LOUD CHANGE: ASYNC I/O ENABLED
+};
