@@ -7,6 +7,11 @@ import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
 
 vi.mock("node:fs");
+vi.mock("node:fs/promises", () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined),
+  readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
+}));
 
 describe("Matrix Runner Integration", () => {
   it("should run a 2-video x 2-model matrix and generate report", async () => {

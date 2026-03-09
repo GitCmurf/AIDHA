@@ -28,7 +28,7 @@ ${sanitizePromptInput(transcript)}
 </TRANSCRIPT>
 
 Here is the set of extracted claims to evaluate:
-${JSON.stringify(claims, null, 2)}
+${JSON.stringify(claims.map(c => ({ text: c.text, excerptIds: c.excerptIds, confidence: c.confidence, type: c.type })), null, 2)}
 
 CALIBRATION EXAMPLES:
 Consider these examples when scoring.

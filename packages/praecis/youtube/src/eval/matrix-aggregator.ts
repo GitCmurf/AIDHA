@@ -38,7 +38,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
 
     for (const score of cell.scores) {
       for (const dim of dimensions) {
-        aggregatedScore[dim] += (score as any)[dim] || 0;
+        aggregatedScore[dim] += score[dim] || 0;
       }
     }
 

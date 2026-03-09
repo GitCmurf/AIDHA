@@ -51,6 +51,7 @@ export function renderMatrixReport(report: MatrixReport): string {
     md += `| --- | --- | --- | --- | --- | --- |\n`;
     for (const { key } of dimensions) {
       const dimStat = stats.dimensions[key];
+      if (!dimStat) continue;
       md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
     }
     md += `\n`;
@@ -67,6 +68,7 @@ export function renderMatrixReport(report: MatrixReport): string {
     md += `| --- | --- | --- | --- | --- | --- |\n`;
     for (const { key } of dimensions) {
       const dimStat = stats.dimensions[key];
+      if (!dimStat) continue;
       md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
     }
     md += `\n`;
@@ -83,6 +85,7 @@ export function renderMatrixReport(report: MatrixReport): string {
     md += `| --- | --- | --- | --- | --- | --- |\n`;
     for (const { key } of dimensions) {
       const dimStat = stats.dimensions[key];
+      if (!dimStat) continue;
       md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
     }
     md += `\n`;

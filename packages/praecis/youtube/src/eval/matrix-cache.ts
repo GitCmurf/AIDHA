@@ -25,7 +25,12 @@ export async function getCachedExtraction(
 
   try {
     const data = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(data) as MatrixCell;
+    const parsed = JSON.parse(data);
+    // Ideally we'd have a MatrixCellSchema here, but for now we validate key fields
+    if (parsed && typeof parsed === 'object' && 'videoId' in parsed && 'modelId' in parsed && 'claimSet' in parsed) {
+      return parsed as MatrixCell;
+    }
+    return null;
   } catch (error) {
     return null;
   }
@@ -61,8 +66,12 @@ export async function getCachedScore(
   try {
     const data = await fs.readFile(filePath, "utf-8");
     const parsed = JSON.parse(data);
-    // Use passthrough() to preserve judgeMeta attached before caching
-    return ClaimSetScoreSchema.passthrough().array().parse(parsed);
+    const result = ClaimSetScoreSchema.array().safeParse(parsed);
+    if (!result.success) {
+      return null;
+    }
+    // Return original parsed data cast to ClaimSetScore[] to keep judgeMeta which is hidden in the schema
+    return parsed as ClaimSetScore[];
   } catch (error) {
     return null;
   }

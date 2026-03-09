@@ -8,9 +8,12 @@ import type { EvalModel } from "./model-registry.js";
 import { getCachedExtraction, setCachedExtraction, getCachedScore, setCachedScore, computeClaimSetHash } from "./matrix-cache.js";
 import { scoreClaimSet } from "./scoring-executor.js";
 import { LlmClaimExtractor } from "../extract/llm-claims.js";
+import type { YouTubeClient } from "../client/types.js";
 import type { LlmClient } from "../extract/llm-client.js";
 import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
+
+export const EXTRACTOR_VERSION = "v1";
 
 export interface VideoContext {
   videoId: string;
@@ -133,21 +136,28 @@ export async function runEvaluationMatrix(
     };
 
     const segments = transcriptData.segments || [];
+    if (segments.length === 0 && !transcriptData.fullText) {
+      console.warn(`Transcript for ${video.videoId} has no segments and no fullText, skipping.`);
+      continue;
+    }
     const fullText = transcriptData.fullText || segments.map((s: any) => s.text).join(" ");
 
     const excerpts = segments.map((s: any, i: number) => ({
       id: s.id || `excerpt-${video.videoId}-${i}`,
-      type: "Excerpt",
+      type: "Excerpt" as const,
+      label: `Excerpt ${i}`,
       content: s.text,
       metadata: {
         start: s.start,
         duration: s.duration,
       },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }));
 
     const resource = {
       id: `youtube-${video.videoId}`,
-      type: "Resource",
+      type: "Resource" as const,
       label: video.title,
       content: fullText,
       metadata: {
@@ -155,6 +165,8 @@ export async function runEvaluationMatrix(
         channelName: video.channelName,
         description: video.description || "",
       },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     for (const model of models) {
@@ -165,7 +177,7 @@ export async function runEvaluationMatrix(
             console.log(`[cell] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
             const promptVersion = EXTRACT_PROMPT_VERSION;
-            const extractorVersion = "v1";
+            const extractorVersion = EXTRACTOR_VERSION;
 
             // Check cache for extraction
             let cell: MatrixCell | null = null;
@@ -203,8 +215,8 @@ export async function runEvaluationMatrix(
                   });
 
                   const claims = await extractor.extractClaims({
-                    resource: resource as any,
-                    excerpts: excerpts as any,
+                    resource,
+                    excerpts,
                   });
 
                   cell = {
@@ -214,15 +226,19 @@ export async function runEvaluationMatrix(
                     claimSet: claims,
                   };
 
-                  await setCachedExtraction(
-                    video.videoId,
-                    model.id,
-                    variant,
-                    promptVersion,
-                    extractorVersion,
-                    cell,
-                    { cacheDir: options.cacheDir }
-                  );
+                  try {
+                    await setCachedExtraction(
+                      video.videoId,
+                      model.id,
+                      variant,
+                      promptVersion,
+                      extractorVersion,
+                      cell,
+                      { cacheDir: options.cacheDir }
+                    );
+                  } catch (cacheErr) {
+                    console.warn(`Failed to cache extraction for ${video.videoId} / ${model.id}: ${cacheErr}`);
+                  }
                 } catch (err) {
                   console.error(`Extraction failed for ${video.videoId} / ${model.id}:`, err);
                   cells.push({
@@ -246,16 +262,18 @@ export async function runEvaluationMatrix(
             let cellHasScoringFailure = false;
 
             for (const judgeModelId of options.judgeModels) {
-              let cachedScores = await getCachedScore(
-                video.videoId,
-                model.id,
-                judgeModelId,
-                claimSetHash,
-                judgePromptVersion,
-                { cacheDir: options.cacheDir }
-              );
+              const cachedScores = options.resume
+                ? await getCachedScore(
+                    video.videoId,
+                    model.id,
+                    judgeModelId,
+                    claimSetHash,
+                    judgePromptVersion,
+                    { cacheDir: options.cacheDir }
+                  )
+                : null;
 
-              if (cachedScores && options.resume) {
+              if (cachedScores) {
                 scores.push(...cachedScores);
               } else if (options.dryRun) {
                 console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
@@ -272,15 +290,19 @@ export async function runEvaluationMatrix(
                 if (scoreResult.ok) {
                   const score = scoreResult.value;
                   scores.push(score);
-                  await setCachedScore(
-                    video.videoId,
-                    model.id,
-                    judgeModelId,
-                    claimSetHash,
-                    judgePromptVersion,
-                    [score],
-                    { cacheDir: options.cacheDir }
-                  );
+                  try {
+                    await setCachedScore(
+                      video.videoId,
+                      model.id,
+                      judgeModelId,
+                      claimSetHash,
+                      judgePromptVersion,
+                      [score],
+                      { cacheDir: options.cacheDir }
+                    );
+                  } catch (cacheErr) {
+                    console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
+                  }
                 } else {
                   console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, scoreResult.error);
                   cellHasScoringFailure = true;
@@ -301,8 +323,7 @@ export async function runEvaluationMatrix(
         })());
       }
     }
-  }
-
+    }
   await Promise.all(tasks);
 
   // Filter out any functions from options for metadata
