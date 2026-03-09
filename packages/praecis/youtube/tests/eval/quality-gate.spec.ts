@@ -10,13 +10,20 @@ describe("CI Quality Gate", () => {
   it("should not regress beyond allowed tolerance against pinned baseline", () => {
     const baselinePath = path.join(__dirname, "../fixtures/eval-matrix/baseline-report.json");
     if (!fs.existsSync(baselinePath)) {
-      console.warn("Baseline not found, skipping quality gate. Create a baseline-report.json to enable this test.");
+      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
+        throw new Error("Baseline not found, failing quality gate. Create a baseline-report.json to enable this test.");
+      }
+      console.warn("Baseline not found, skipping quality gate.");
       return;
     }
 
-    const reportPath = path.join(__dirname, "../../../out/eval-matrix/reports/latest.json");
+    // path relative to packages/praecis/youtube/tests/eval is ../../../../../out/...
+    const reportPath = path.join(__dirname, "../../../../../out/eval-matrix/reports/latest.json");
     if (!fs.existsSync(reportPath)) {
-      console.warn("Latest report not found, skipping quality gate. Run matrix evaluation first.");
+      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
+        throw new Error(`Latest report not found at ${reportPath}, failing quality gate. Run matrix evaluation first.`);
+      }
+      console.warn(`Latest report not found at ${reportPath}, skipping quality gate.`);
       return;
     }
 

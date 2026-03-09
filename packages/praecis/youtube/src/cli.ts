@@ -118,7 +118,8 @@ export function resolveSourceId(positionals: string[], options: CliOptions): str
     command === 'project' ||
     command === 'diagnose' ||
     command === 'preflight' ||
-    command === 'fixtures'
+    command === 'fixtures' ||
+    command === 'eval'
     // command === 'config' // Removed in Phase 2A Round 3 fix
   ) {
     return 'youtube';

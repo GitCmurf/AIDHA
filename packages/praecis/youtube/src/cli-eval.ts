@@ -1,8 +1,33 @@
 import type { ResolvedConfig } from "@aidha/config";
-import { optionString, optionBool, optionNumber } from "./cli.js";
+import * as fs from "fs";
+import * as path from "path";
+import { runEvaluationMatrix, type MatrixOptions } from "./eval/matrix-runner.js";
+import { getModel } from "./eval/model-registry.js";
+import { aggregateMatrixResults } from "./eval/matrix-aggregator.js";
+import { renderMatrixReport } from "./eval/report-markdown.js";
+import { exportMatrixJson } from "./eval/report-json.js";
+import { EXTRACTOR_VARIANTS, isValidVariant } from "./eval/extractor-variants.js";
 
-// Minimal definition to match cli.ts CliOptions without importing it if it's not exported
 type CliOptions = Record<string, string | boolean>;
+
+function optionString(options: CliOptions, key: string, fallback: string): string {
+  const value = options[key];
+  return typeof value === 'string' && value.length > 0 ? value : fallback;
+}
+
+function optionNumber(options: CliOptions, key: string, fallback: number): number {
+  const value = options[key];
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  }
+  return typeof value === 'number' ? value : fallback;
+}
+
+function optionBool(options: CliOptions, key: string): boolean {
+  const value = options[key];
+  return value === true || value === 'true';
+}
 
 export async function runEvalMatrix(
   positionals: string[],
@@ -26,25 +51,36 @@ export async function runEvalMatrix(
 
   if (invalidateRun) {
     console.log(`Invalidating run: ${invalidateRun}`);
-    // Implementation for invalidate-run
+    // Implementation for invalidate-run (currently a placeholder as per initial spec)
     return 0;
   }
 
-  const corpus = optionString(cleanOptions, "corpus", "packages/praecis/youtube/tests/fixtures/eval-matrix/corpus.json");
-  const models = optionString(cleanOptions, "models", "gpt-4o-mini").split(",");
+  const corpusPath = optionString(cleanOptions, "corpus", "packages/praecis/youtube/tests/fixtures/eval-matrix/corpus.json");
+  const modelsStr = optionString(cleanOptions, "models", "gpt-4o-mini");
   const tier = optionString(cleanOptions, "tier", "");
-  const judgeModels = optionString(cleanOptions, "judge-models", "gpt-4o").split(",");
-  const variants = optionString(cleanOptions, "variants", "raw,editorial-pass-v1").split(",");
+  const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o");
+  const variantsStr = optionString(cleanOptions, "variants", "raw,editorial-pass-v1");
   const outputDir = optionString(cleanOptions, "output-dir", "out/eval-matrix/reports");
   const format = optionString(cleanOptions, "format", "both");
   const resume = optionBool(cleanOptions, "resume");
   const maxConcurrency = optionNumber(cleanOptions, "max-concurrency", 1);
 
+  const modelIds = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+  const judgeModels = judgeModelsStr.split(",").map(s => s.trim()).filter(Boolean);
+  const variantIds = variantsStr.split(",").map(s => s.trim()).filter(Boolean);
+
+  const invalidVariants = variantIds.filter(v => !isValidVariant(v));
+  if (invalidVariants.length > 0) {
+    console.error(`Invalid variants provided: ${invalidVariants.join(", ")}`);
+    console.error(`Valid variants: ${EXTRACTOR_VARIANTS.join(", ")}`);
+    return 1;
+  }
+
   console.log(`Evaluation Matrix Plan:
-  Corpus: ${corpus}
-  Models: ${models.join(", ")}
+  Corpus: ${corpusPath}
+  Models: ${modelIds.join(", ")}
   Judge Models: ${judgeModels.join(", ")}
-  Variants: ${variants.join(", ")}
+  Variants: ${variantIds.join(", ")}
   Output Dir: ${outputDir}
   `);
 
@@ -53,8 +89,50 @@ export async function runEvalMatrix(
     return 0;
   }
 
-  console.log("Running matrix... (mock implementation)");
-  // TODO: call runEvaluationMatrix, aggregate, export
+  console.log("Running matrix evaluation...");
+
+  let corpusData;
+  try {
+    corpusData = JSON.parse(fs.readFileSync(corpusPath, "utf-8"));
+  } catch (err) {
+    console.error(`Failed to read corpus file at ${corpusPath}:`, err);
+    return 1;
+  }
+
+  const models = modelIds.map(id => {
+    const m = getModel(id);
+    if (!m) {
+      throw new Error(`Model ${id} not found in registry`);
+    }
+    return m;
+  });
+
+  const matrixOptions: MatrixOptions = {
+    outputDir,
+    resume,
+    dryRun,
+    variants: variantIds as any[],
+    judgeModels,
+    maxConcurrency,
+    timeoutMs: 60000,
+  };
+
+  const result = await runEvaluationMatrix(corpusData, models, matrixOptions);
+  const report = aggregateMatrixResults(result.cells);
+
+  fs.mkdirSync(outputDir, { recursive: true });
+
+  if (format === "both" || format === "json") {
+    const jsonPath = path.join(outputDir, "latest.json");
+    fs.writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
+    console.log(`Wrote JSON report to ${jsonPath}`);
+  }
+
+  if (format === "both" || format === "md") {
+    const mdPath = path.join(outputDir, "latest.md");
+    fs.writeFileSync(mdPath, renderMatrixReport(report));
+    console.log(`Wrote Markdown report to ${mdPath}`);
+  }
 
   return 0;
 }
