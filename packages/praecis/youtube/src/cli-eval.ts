@@ -2,8 +2,8 @@ import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { runEvaluationMatrix, type MatrixOptions } from "./eval/matrix-runner.js";
-import { getModel, MODEL_REGISTRY } from "./eval/model-registry.js";
-import { aggregateMatrixResults } from "./eval/matrix-aggregator.js";
+import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
+import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggregator.js";
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
 import { EXTRACTOR_VARIANTS, isValidVariant } from "./eval/extractor-variants.js";
@@ -16,7 +16,7 @@ export async function runEvalMatrix(
   options: Record<string, string | boolean | undefined>,
   config: ResolvedConfig
 ): Promise<number> {
-  function invalidateCache(cleanOptions: CliOptions): number | undefined {
+  const invalidateCache = (cleanOptions: CliOptions): number | undefined => {
     const invalidateRun = optionString(cleanOptions, "invalidate-run", "");
     if (!invalidateRun) return undefined;
 
@@ -36,9 +36,9 @@ export async function runEvalMatrix(
       console.log("No cache directory found to invalidate.");
     }
     return 0;
-  }
+  };
 
-  function loadCorpus(corpusPath: string) {
+  const loadCorpusData = (corpusPath: string) => {
     try {
       const raw = JSON.parse(readFileSync(corpusPath, "utf-8"));
       const parsed = CorpusSchema.safeParse(raw);
@@ -51,7 +51,49 @@ export async function runEvalMatrix(
       console.error(`Failed to read or validate corpus file at ${corpusPath}:`, err);
       return { ok: false, error: 1 };
     }
-  }
+  };
+
+  const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | number => {
+    let modelIds: string[] = [];
+    if (modelsStr) {
+      modelIds = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+    } else if (tier) {
+      modelIds = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
+      if (modelIds.length === 0) {
+        console.error(`No models found for tier: ${tier}`);
+        return 1;
+      }
+    } else {
+      modelIds = ["gpt-4o-mini"];
+    }
+
+    try {
+      return modelIds.map(id => {
+        const model = getModel(id);
+        if (!model) throw new Error(`Model ${id} not found in registry`);
+        return model;
+      });
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      return 1;
+    }
+  };
+
+  const writeReports = (report: MatrixReport, outputDir: string, format: string) => {
+    mkdirSync(outputDir, { recursive: true });
+
+    if (format === "both" || format === "json") {
+      const jsonPath = join(outputDir, "latest.json");
+      writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
+      console.log(`Wrote JSON report to ${jsonPath}`);
+    }
+
+    if (format === "both" || format === "md") {
+      const mdPath = join(outputDir, "latest.md");
+      writeFileSync(mdPath, renderMatrixReport(report));
+      console.log(`Wrote Markdown report to ${mdPath}`);
+    }
+  };
 
   try {
     const mode = positionals[1]; // matrix
@@ -83,6 +125,7 @@ export async function runEvalMatrix(
     const extractionMaxTokens = optionNumber(cleanOptions, "extraction-max-tokens", 0) || undefined;
     const extractionMaxChunks = optionNumber(cleanOptions, "extraction-max-chunks", 0) || undefined;
     const judgeMaxTokens = optionNumber(cleanOptions, "judge-max-tokens", 4000);
+    const timeoutMs = optionNumber(cleanOptions, "timeout-ms", 60000);
 
     if (!["both", "json", "md"].includes(format)) {
       console.error(`Invalid format: ${format}. Must be one of: both, json, md`);
@@ -94,19 +137,8 @@ export async function runEvalMatrix(
       return 1;
     }
 
-    let modelIds: string[] = [];
-    if (modelsStr) {
-      modelIds = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
-    } else if (tier) {
-      modelIds = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
-      if (modelIds.length === 0) {
-        console.error(`No models found for tier: ${tier}`);
-        return 1;
-      }
-    } else {
-      // Default to gpt-4o-mini if nothing specified
-      modelIds = ["gpt-4o-mini"];
-    }
+    const models = getModelsFromIdsOrTier(modelsStr, tier);
+    if (typeof models === "number") return models;
 
     const judgeModels = judgeModelsStr.split(",").map(s => s.trim()).filter(Boolean);
     const variantIds = variantsStr.split(",").map(s => s.trim()).filter(Boolean);
@@ -120,7 +152,7 @@ export async function runEvalMatrix(
 
     console.log(`Evaluation Matrix Plan:
   Corpus: ${corpusPath}
-  Models: ${modelIds.join(", ")}
+  Models: ${models.map(m => m.id).join(", ")}
   Tier: ${tier || 'all'}
   Judge Models: ${judgeModels.join(", ")}
   Variants: ${variantIds.join(", ")}
@@ -131,22 +163,14 @@ export async function runEvalMatrix(
   Extraction Max Tokens: ${extractionMaxTokens || 'default'}
   Extraction Max Chunks: ${extractionMaxChunks || 'default'}
   Judge Max Tokens: ${judgeMaxTokens}
+  Timeout: ${timeoutMs}ms
   `);
 
     console.log("Running matrix evaluation...");
 
-    const corpusResult = loadCorpus(corpusPath);
-    if (!corpusResult.ok) return corpusResult.error ?? 1;
+    const corpusResult = loadCorpusData(corpusPath);
+    if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
     const corpusData = corpusResult.data;
-    if (!corpusData) return 1;
-
-    const models = modelIds.map(id => {
-      const model = getModel(id);
-      if (!model) {
-        throw new Error(`Model ${id} not found in registry`);
-      }
-      return model;
-    });
 
     const matrixOptions: MatrixOptions = {
       outputDir,
@@ -157,19 +181,16 @@ export async function runEvalMatrix(
       variants: variantIds as any[],
       judgeModels,
       maxConcurrency,
-      timeoutMs: 60000,
+      timeoutMs,
       extractionMaxTokens,
       extractionMaxChunks,
       judgeMaxTokens,
       extractorClientFactory: (_modelId: string) => {
-        // TODO: route to per-model config once multi-provider support lands;
-        // for now all models share config.llm which only supports one provider at a time
         const clientResult = createLlmClientFromConfig(config.llm);
         if (!clientResult.ok) throw clientResult.error;
         return clientResult.value;
       },
       judgeClientFactory: (_modelId: string) => {
-        // TODO: route to per-model config once multi-provider support lands
         const clientResult = createLlmClientFromConfig(config.llm);
         if (!clientResult.ok) throw clientResult.error;
         return clientResult.value;
@@ -188,20 +209,7 @@ export async function runEvalMatrix(
     }
 
     const report = aggregateMatrixResults(result.cells);
-
-    mkdirSync(outputDir, { recursive: true });
-
-    if (format === "both" || format === "json") {
-      const jsonPath = join(outputDir, "latest.json");
-      writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
-      console.log(`Wrote JSON report to ${jsonPath}`);
-    }
-
-    if (format === "both" || format === "md") {
-      const mdPath = join(outputDir, "latest.md");
-      writeFileSync(mdPath, renderMatrixReport(report));
-      console.log(`Wrote Markdown report to ${mdPath}`);
-    }
+    writeReports(report, outputDir, format);
 
     if (result.metadata.failedCellCount > 0) {
       console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);

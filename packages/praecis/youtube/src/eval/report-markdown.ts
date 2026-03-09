@@ -8,73 +8,78 @@ const dimensions = [
   { key: "atomicity", title: "Atomicity" }
 ] as const;
 
-function renderScorecardTable(stats: { dimensions: DimensionStats }): string {
-  let md = `| Dimension | Mean | Median | Min | Max | StdDev |\n`;
-  md += `| --- | --- | --- | --- | --- | --- |\n`;
+const renderScorecardTable = (stats: { dimensions: DimensionStats }): string => {
+  let md = "| Dimension | Mean | Median | Min | Max | StdDev |\n";
+  md += "| --- | --- | --- | --- | --- | --- |\n";
   for (const { key } of dimensions) {
     const dimStat = stats.dimensions[key];
     if (!dimStat) continue;
     md += `| ${key} | ${dimStat.mean.toFixed(2)} | ${dimStat.median.toFixed(2)} | ${dimStat.min.toFixed(2)} | ${dimStat.max.toFixed(2)} | ${dimStat.stddev.toFixed(2)} |\n`;
   }
   return md;
-}
+};
 
-export function renderMatrixReport(report: MatrixReport): string {
-  let md = `# Claim Extraction Evaluation Matrix Report\n\n`;
-
-  // Summary
-  md += `## Executive Summary\n\n`;
-  md += `- **Best Model Overall:** ${report.summary.bestModel}\n`;
-  md += `- **Worst Model Overall:** ${report.summary.worstModel}\n`;
-  md += `- **Hardest Video:** ${report.summary.hardestVideo}\n\n`;
-
-  // Leaderboards
-  md += `## Leaderboards\n\n`;
+const renderLeaderboards = (report: MatrixReport): string => {
+  let md = "## Leaderboards\n\n";
   for (const { key, title } of dimensions) {
     md += `### ${title}\n\n`;
-    md += `| Rank | Model | Score |\n`;
-    md += `| --- | --- | --- |\n`;
+    md += "| Rank | Model | Score |\n";
+    md += "| --- | --- | --- |\n";
     const ranks = report.leaderboards[key];
     if (ranks) {
       ranks.forEach((entry, i) => {
         md += `| ${i + 1} | ${entry.modelId} | ${entry.score.toFixed(2)} |\n`;
       });
     }
-    md += `\n`;
+    md += "\n";
   }
+  return md;
+};
+
+export const renderMatrixReport = (report: MatrixReport): string => {
+  let md = "# Claim Extraction Evaluation Matrix Report\n\n";
+
+  // Summary
+  md += "## Executive Summary\n\n";
+  md += `- **Best Model Overall:** ${report.summary.bestModel}\n`;
+  md += `- **Worst Model Overall:** ${report.summary.worstModel}\n`;
+  md += `- **Hardest Video:** ${report.summary.hardestVideo}\n\n`;
+
+  // Leaderboards
+  md += renderLeaderboards(report);
 
   // Model Stats Breakdown
-  md += `## Model Scorecards\n\n`;
+  md += "## Model Scorecards\n\n";
   const sortedModelIds = Object.keys(report.modelStats).sort();
   for (const modelId of sortedModelIds) {
     const stats = report.modelStats[modelId];
     if (!stats) continue;
     md += `### ${modelId}\n\n`;
     md += renderScorecardTable(stats);
-    md += `\n`;
+    md += "\n";
   }
 
   // Variant Stats Breakdown
-  md += `## Variant Scorecards\n\n`;
+  md += "## Variant Scorecards\n\n";
   const sortedVariantIds = Object.keys(report.variantStats).sort();
   for (const variantId of sortedVariantIds) {
     const stats = report.variantStats[variantId];
     if (!stats) continue;
     md += `### ${variantId}\n\n`;
     md += renderScorecardTable(stats);
-    md += `\n`;
+    md += "\n";
   }
 
   // Video Stats Breakdown
-  md += `## Video Heatmap\n\n`;
+  md += "## Video Heatmap\n\n";
   const sortedVideoIds = Object.keys(report.videoStats).sort();
   for (const videoId of sortedVideoIds) {
     const stats = report.videoStats[videoId];
     if (!stats) continue;
     md += `### ${videoId}\n\n`;
     md += renderScorecardTable(stats);
-    md += `\n`;
+    md += "\n";
   }
 
   return md;
-}
+};
