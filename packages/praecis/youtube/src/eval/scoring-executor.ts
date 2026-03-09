@@ -17,7 +17,20 @@ export async function scoreClaimSet(
   const { system, user } = buildJudgePrompt(transcript, claims, videoContext);
 
   // First attempt
-  const result1 = await executeAndParse(judgeClient, judgeModel, system, user, maxTokens, signal);
+  const llmResult1 = await judgeClient.generate({
+    model: judgeModel,
+    system,
+    user,
+    maxTokens,
+    temperature: 0.1,
+    signal,
+  });
+
+  if (!llmResult1.ok) {
+    return llmResult1;
+  }
+
+  const result1 = parseAndValidate(llmResult1.value);
   if (result1.ok) {
     result1.value.judgeMeta = {
       judgeModelId: judgeModel,
@@ -26,10 +39,23 @@ export async function scoreClaimSet(
     return result1;
   }
 
-  // Retry once with error feedback
-  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nReturn ONLY a corrected JSON object matching the schema. Do not include explanatory text.`;
+  // Retry once with error feedback AND original context
+  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nOriginal task context:\n${user}\n\nReturn ONLY a corrected JSON object matching the schema. Do not include explanatory text.`;
 
-  const result2 = await executeAndParse(judgeClient, judgeModel, system, retryUser, maxTokens, signal);
+  const llmResult2 = await judgeClient.generate({
+    model: judgeModel,
+    system,
+    user: retryUser,
+    maxTokens,
+    temperature: 0.1,
+    signal,
+  });
+
+  if (!llmResult2.ok) {
+    return llmResult2;
+  }
+
+  const result2 = parseAndValidate(llmResult2.value);
   if (result2.ok) {
     result2.value.judgeMeta = {
       judgeModelId: judgeModel,
@@ -41,30 +67,9 @@ export async function scoreClaimSet(
   return { ok: false, error: new Error(`Failed to parse judge score after retry. Last error: ${result2.error.message}`) };
 }
 
-async function executeAndParse(
-  client: LlmClient,
-  model: string,
-  system: string,
-  user: string,
-  maxTokens: number,
-  signal?: AbortSignal
-): Promise<Result<ClaimSetScore>> {
-  const llmResult = await client.generate({
-    model,
-    system,
-    user,
-    maxTokens,
-    temperature: 0.1, // Low temperature for more deterministic scoring
-    signal,
-    // In a real implementation we would also set responseFormat for models that support it
-  });
-
-  if (!llmResult.ok) {
-    return llmResult;
-  }
-
+function parseAndValidate(content: string): Result<ClaimSetScore> {
   try {
-    let text = llmResult.value.trim();
+    let text = content.trim();
     // Strip markdown code blocks if present
     if (text.startsWith("```json")) {
       text = text.replace(/^```json/, "").replace(/```$/, "").trim();

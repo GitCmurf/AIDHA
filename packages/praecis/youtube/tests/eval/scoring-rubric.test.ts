@@ -56,6 +56,15 @@ describe("Scoring Rubric Schema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("should reject overallScore that is not the mean of the four dimensions", () => {
+    // Mean of 8+9+7+10 = 8.5; overallScore 5 is off by 3.5 > tolerance 0.15
+    const inconsistentScore = { ...validScore, overallScore: 5 };
+    const result = ClaimSetScoreSchema.safeParse(inconsistentScore);
+    expect(result.success).toBe(false);
+    const issues = (result as any).error?.issues ?? [];
+    expect(issues.some((i: any) => i.path.includes("overallScore"))).toBe(true);
+  });
+
   it("should reject if required arrays are missing", () => {
     const { missingClaims, ...rest } = validScore;
     const result = ClaimSetScoreSchema.safeParse(rest);
