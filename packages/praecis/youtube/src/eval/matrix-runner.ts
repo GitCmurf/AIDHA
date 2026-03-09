@@ -37,6 +37,7 @@ export interface MatrixOptions {
   timeoutMs: number;
   extractionMaxTokens?: number;
   extractionMaxChunks?: number;
+  judgeMaxTokens?: number;
   extractorClientFactory: (modelId: string) => LlmClient;
   judgeClientFactory: (modelId: string) => LlmClient;
 }
@@ -309,7 +310,7 @@ export async function runEvaluationMatrix(
                     fullText,
                     cell.claimSet,
                     videoContext,
-                    4000,
+                    options.judgeMaxTokens || 4000,
                     controller.signal
                   );
 

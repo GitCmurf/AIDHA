@@ -5,7 +5,7 @@ export type DimensionStats = Record<ScoreDimension, Record<StatName, number>>;
 
 export interface MatrixReport {
   summary: { bestModel: string; worstModel: string; hardestVideo: string };
-  modelStats: Record<string, { dimensions: DimensionStats; estimatedCostUsd?: number }>;
+  modelStats: Record<string, { dimensions: DimensionStats }>;
   variantStats: Record<string, { dimensions: DimensionStats }>;
   videoStats: Record<string, { dimensions: DimensionStats }>;
   leaderboards: Record<ScoreDimension, { modelId: string; score: number }[]>;

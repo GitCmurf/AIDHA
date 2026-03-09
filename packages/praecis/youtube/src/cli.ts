@@ -1266,10 +1266,6 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
 
   const cliOverrides = buildCliOverrides(parsed.options);
 
-
-  let config: ResolvedConfig | undefined;
-  let loadResult: import('@aidha/config').LoadResult;
-
   const resolution = await resolveCliConfig({
     configPath: typeof parsed.options['config'] === 'string' ? parsed.options['config'] : undefined,
     profile: typeof parsed.options['profile'] === 'string' ? parsed.options['profile'] : undefined,
@@ -1277,7 +1273,8 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     cliOverrides,
   });
 
-  loadResult = resolution.loadResult;
+  const loadResult = resolution.loadResult;
+  let config: ResolvedConfig | undefined;
 
   if (resolution.ok) {
     config = resolution.config;
@@ -1288,6 +1285,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     } else {
       throw resolution.error;
     }
+  }
+
+  if (!config && command !== 'config') {
+    // This should be unreachable if resolution.ok is true, but satisfies type checker
+    console.error('Configuration not loaded.');
+    return 1;
   }
 
   let exitCode = 0;
@@ -1337,13 +1340,14 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
     case 'eval':
       exitCode = await runEvalMatrix(parsed.positionals, parsed.options, config!);
       break;
-    case 'config':
+    case 'config': {
       // config <subcommand> -> positionals[1]
       // loadResult is always populated (full or partial). config may be undefined.
       // Pass error if resolution failed.
       const error = !resolution.ok ? resolution.error : undefined;
-      exitCode = await runConfig(parsed.positionals.slice(1), parsed.options, loadResult!, config, error);
+      exitCode = await runConfig(parsed.positionals.slice(1), parsed.options, loadResult, config, error);
       break;
+    }
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();

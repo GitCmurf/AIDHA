@@ -1,6 +1,6 @@
 import type { ResolvedConfig } from "@aidha/config";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { runEvaluationMatrix, type MatrixOptions } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY } from "./eval/model-registry.js";
 import { aggregateMatrixResults } from "./eval/matrix-aggregator.js";
@@ -10,6 +10,43 @@ import { EXTRACTOR_VARIANTS, isValidVariant } from "./eval/extractor-variants.js
 import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema } from "./eval/corpus-schema.js";
+
+async function invalidateCache(cleanOptions: CliOptions): Promise<number | undefined> {
+  const invalidateRun = optionString(cleanOptions, "invalidate-run", "");
+  if (!invalidateRun) return undefined;
+
+  console.log(`Invalidating run: ${invalidateRun}`);
+  const cacheDir = ".cache/extraction";
+  if (existsSync(cacheDir)) {
+    // Run-specific invalidation is not yet implemented, so we require --yes to clear all
+    if (optionBool(cleanOptions, "yes")) {
+      console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
+      rmSync(cacheDir, { recursive: true, force: true });
+    } else {
+      console.error("Error: --invalidate-run currently clears the entire evaluation cache.");
+      console.error("Please provide --yes to confirm you want to delete all cached extractions and scores.");
+      return 1;
+    }
+  } else {
+    console.log("No cache directory found to invalidate.");
+  }
+  return 0;
+}
+
+function loadCorpus(corpusPath: string) {
+  try {
+    const raw = JSON.parse(readFileSync(corpusPath, "utf-8"));
+    const parsed = CorpusSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("Corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
+      return { ok: false, error: 1 };
+    }
+    return { ok: true, data: parsed.data };
+  } catch (err) {
+    console.error(`Failed to read or validate corpus file at ${corpusPath}:`, err);
+    return { ok: false, error: 1 };
+  }
+}
 
 export async function runEvalMatrix(
   positionals: string[],
@@ -29,28 +66,10 @@ export async function runEvalMatrix(
       if (v !== undefined) cleanOptions[k] = v;
     }
 
+    const cacheInvalidationResult = await invalidateCache(cleanOptions);
+    if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
+
     const dryRun = optionBool(cleanOptions, "dry-run");
-    const invalidateRun = optionString(cleanOptions, "invalidate-run", "");
-
-    if (invalidateRun) {
-      console.log(`Invalidating run: ${invalidateRun}`);
-      const cacheDir = ".cache/extraction";
-      if (fs.existsSync(cacheDir)) {
-        // Run-specific invalidation is not yet implemented, so we require --yes to clear all
-        if (optionBool(cleanOptions, "yes")) {
-          console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
-          fs.rmSync(cacheDir, { recursive: true, force: true });
-        } else {
-          console.error("Error: --invalidate-run currently clears the entire evaluation cache.");
-          console.error("Please provide --yes to confirm you want to delete all cached extractions and scores.");
-          return 1;
-        }
-      } else {
-        console.log("No cache directory found to invalidate.");
-      }
-      return 0;
-    }
-
     const corpusPath = optionString(cleanOptions, "corpus", "");
     const transcriptDir = optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts");
     const modelsStr = optionString(cleanOptions, "models", "");
@@ -61,6 +80,9 @@ export async function runEvalMatrix(
     const format = optionString(cleanOptions, "format", "both");
     const resume = optionBool(cleanOptions, "resume");
     const maxConcurrency = optionNumber(cleanOptions, "max-concurrency", 1);
+    const extractionMaxTokens = optionNumber(cleanOptions, "extraction-max-tokens", 0) || undefined;
+    const extractionMaxChunks = optionNumber(cleanOptions, "extraction-max-chunks", 0) || undefined;
+    const judgeMaxTokens = optionNumber(cleanOptions, "judge-max-tokens", 4000);
 
     if (!["both", "json", "md"].includes(format)) {
       console.error(`Invalid format: ${format}. Must be one of: both, json, md`);
@@ -106,30 +128,23 @@ export async function runEvalMatrix(
   Format: ${format}
   Resume: ${resume}
   Max Concurrency: ${maxConcurrency}
+  Extraction Max Tokens: ${extractionMaxTokens || 'default'}
+  Extraction Max Chunks: ${extractionMaxChunks || 'default'}
+  Judge Max Tokens: ${judgeMaxTokens}
   `);
 
     console.log("Running matrix evaluation...");
 
-    let corpusData;
-    try {
-      const raw = JSON.parse(fs.readFileSync(corpusPath, "utf-8"));
-      const parsed = CorpusSchema.safeParse(raw);
-      if (!parsed.success) {
-        console.error("Corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
-        return 1;
-      }
-      corpusData = parsed.data;
-    } catch (err) {
-      console.error(`Failed to read or validate corpus file at ${corpusPath}:`, err);
-      return 1;
-    }
+    const corpusResult = loadCorpus(corpusPath);
+    if (!corpusResult.ok) return corpusResult.error!;
+    const corpusData = corpusResult.data!;
 
     const models = modelIds.map(id => {
-      const m = getModel(id);
-      if (!m) {
+      const model = getModel(id);
+      if (!model) {
         throw new Error(`Model ${id} not found in registry`);
       }
-      return m;
+      return model;
     });
 
     const matrixOptions: MatrixOptions = {
@@ -142,14 +157,17 @@ export async function runEvalMatrix(
       judgeModels,
       maxConcurrency,
       timeoutMs: 60000,
-      extractorClientFactory: (modelId: string) => {
+      extractionMaxTokens,
+      extractionMaxChunks,
+      judgeMaxTokens,
+      extractorClientFactory: (_modelId: string) => {
         // TODO: route to per-model config once multi-provider support lands;
         // for now all models share config.llm which only supports one provider at a time
         const clientResult = createLlmClientFromConfig(config.llm);
         if (!clientResult.ok) throw clientResult.error;
         return clientResult.value;
       },
-      judgeClientFactory: (modelId: string) => {
+      judgeClientFactory: (_modelId: string) => {
         // TODO: route to per-model config once multi-provider support lands
         const clientResult = createLlmClientFromConfig(config.llm);
         if (!clientResult.ok) throw clientResult.error;
@@ -166,17 +184,17 @@ export async function runEvalMatrix(
 
     const report = aggregateMatrixResults(result.cells);
 
-    fs.mkdirSync(outputDir, { recursive: true });
+    mkdirSync(outputDir, { recursive: true });
 
     if (format === "both" || format === "json") {
-      const jsonPath = path.join(outputDir, "latest.json");
-      fs.writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
+      const jsonPath = join(outputDir, "latest.json");
+      writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
       console.log(`Wrote JSON report to ${jsonPath}`);
     }
 
     if (format === "both" || format === "md") {
-      const mdPath = path.join(outputDir, "latest.md");
-      fs.writeFileSync(mdPath, renderMatrixReport(report));
+      const mdPath = join(outputDir, "latest.md");
+      writeFileSync(mdPath, renderMatrixReport(report));
       console.log(`Wrote Markdown report to ${mdPath}`);
     }
 
