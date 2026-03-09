@@ -9,13 +9,13 @@ import { renderMatrixReport } from "../../src/eval/report-markdown";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(undefined),
-  writeFile: vi.fn().mockResolvedValue(undefined),
+  mkdir: vi.fn().mockResolvedValue(),
+  writeFile: vi.fn().mockResolvedValue(),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 vi.mock("fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(undefined),
-  writeFile: vi.fn().mockResolvedValue(undefined),
+  mkdir: vi.fn().mockResolvedValue(),
+  writeFile: vi.fn().mockResolvedValue(),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 
@@ -74,9 +74,9 @@ describe("Matrix Runner Integration", () => {
         fullText: "full text",
       });
     };
-    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as any);
-    vi.mocked(readFileAsync).mockImplementation((path: any) =>
-      Promise.resolve(mockTranscriptImplementation(path as string))
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => any);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as any
     );
 
     const mockJudgeClient = {

@@ -92,7 +92,7 @@ class Semaphore {
       this.count--;
       return;
     }
-    return new Promise((resolve) => this.waiting.push(resolve));
+    await new Promise<void>((resolve) => this.waiting.push(resolve));
   }
 
   release(): void {
@@ -510,12 +510,16 @@ export const runEvaluationMatrix = async (
     | { error: number }
   >();
 
-  for (const video of corpus) {
-    transcriptCache.set(video.videoId, await prepareTranscriptDataAsync(video, options));
-  }
+  await Promise.all(
+    corpus.map(async (video) => {
+      const data = await prepareTranscriptDataAsync(video, options);
+      transcriptCache.set(video.videoId, data);
+    })
+  );
 
   for (const video of corpus) {
-    const transcriptDataResult = transcriptCache.get(video.videoId)!;
+    const transcriptDataResult = transcriptCache.get(video.videoId);
+    if (!transcriptDataResult) continue;
 
     for (const model of models) {
       for (const variant of options.variants) {
