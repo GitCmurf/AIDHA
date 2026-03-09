@@ -47,7 +47,25 @@ describe("Matrix Runner Integration", () => {
       fullText: "full text"
     }));
 
-    const mockClient = {
+    const mockExtractorClient = {
+      generate: vi.fn().mockResolvedValue({
+        ok: true,
+        value: JSON.stringify({
+          claims: [{
+            text: "Mock claim",
+            excerptIds: ["excerpt-1"],
+            startSeconds: 0,
+            type: "Fact",
+            classification: "Fact",
+            domain: "Test",
+            confidence: 1,
+            why: "reason"
+          }]
+        })
+      })
+    };
+
+    const mockJudgeClient = {
       generate: vi.fn().mockResolvedValue({
         ok: true,
         value: JSON.stringify({
@@ -79,8 +97,8 @@ describe("Matrix Runner Integration", () => {
       judgeModels: ["gpt-4o"],
       maxConcurrency: 1,
       timeoutMs: 1000,
-      extractorClientFactory: () => mockClient as any,
-      judgeClientFactory: () => mockClient as any,
+      extractorClientFactory: () => mockExtractorClient as any,
+      judgeClientFactory: () => mockJudgeClient as any,
     };
 
     const result = await runEvaluationMatrix(corpus, models, options);

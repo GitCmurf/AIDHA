@@ -11,12 +11,13 @@ export async function scoreClaimSet(
   transcript: string,
   claims: ClaimCandidate[],
   videoContext: VideoContext,
-  maxTokens: number = 4000
+  maxTokens: number = 4000,
+  signal?: AbortSignal
 ): Promise<Result<ClaimSetScore>> {
   const { system, user } = buildJudgePrompt(transcript, claims, videoContext);
 
   // First attempt
-  const result1 = await executeAndParse(judgeClient, judgeModel, system, user, maxTokens);
+  const result1 = await executeAndParse(judgeClient, judgeModel, system, user, maxTokens, signal);
   if (result1.ok) {
     result1.value.judgeMeta = {
       judgeModelId: judgeModel,
@@ -28,7 +29,7 @@ export async function scoreClaimSet(
   // Retry once with error feedback
   const retryUser = `${user}\n\nYour previous response failed validation with the following error:\n${result1.error.message}\n\nPlease fix the errors and return strictly valid JSON matching the requested schema.`;
 
-  const result2 = await executeAndParse(judgeClient, judgeModel, system, retryUser, maxTokens);
+  const result2 = await executeAndParse(judgeClient, judgeModel, system, retryUser, maxTokens, signal);
   if (result2.ok) {
     result2.value.judgeMeta = {
       judgeModelId: judgeModel,
@@ -45,7 +46,8 @@ async function executeAndParse(
   model: string,
   system: string,
   user: string,
-  maxTokens: number
+  maxTokens: number,
+  signal?: AbortSignal
 ): Promise<Result<ClaimSetScore>> {
   const llmResult = await client.generate({
     model,
@@ -53,6 +55,7 @@ async function executeAndParse(
     user,
     maxTokens,
     temperature: 0.1, // Low temperature for more deterministic scoring
+    signal,
     // In a real implementation we would also set responseFormat for models that support it
   });
 

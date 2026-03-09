@@ -36,8 +36,10 @@ export function renderMatrixReport(report: MatrixReport): string {
   md += `## Cost Analysis\n\n`;
   md += `| Model | Estimated Cost (USD) |\n`;
   md += `| --- | --- |\n`;
-  for (const [modelId, stats] of Object.entries(report.modelStats)) {
-    const cost = stats.estimatedCostUsd !== undefined ? `$${stats.estimatedCostUsd.toFixed(4)}` : "N/A";
+  const sortedStatsModelIds = Object.keys(report.modelStats).sort();
+  for (const modelId of sortedStatsModelIds) {
+    const stats = report.modelStats[modelId];
+    const cost = stats?.estimatedCostUsd !== undefined ? `$${stats.estimatedCostUsd.toFixed(4)}` : "N/A";
     md += `| ${modelId} | ${cost} |\n`;
   }
   md += `\n`;

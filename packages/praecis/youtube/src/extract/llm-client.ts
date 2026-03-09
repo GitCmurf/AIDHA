@@ -9,8 +9,12 @@ export interface LlmCompletionRequest {
   temperature?: number;
   maxTokens?: number;
   reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+  /** Model verbosity (only for reasoning models) */
   verbosity?: ResolvedConfig['llm']['verbosity'];
+  /** Optional response format schema */
   responseFormat?: { type: 'json_schema'; schema: Record<string, unknown> };
+  /** Optional AbortSignal for request cancellation */
+  signal?: AbortSignal;
 }
 
 export interface LlmClient {
@@ -180,6 +184,10 @@ export class OpenAiCompatibleClient implements LlmClient {
     let timeout: NodeJS.Timeout | undefined;
     if (this.timeoutMs > 0) {
       timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    }
+
+    if (request.signal) {
+      request.signal.addEventListener('abort', () => controller.abort());
     }
 
     try {

@@ -30,6 +30,8 @@ export interface ClaimExtractionInput {
   resource: GraphNode;
   excerpts: GraphNode[];
   maxClaims?: number;
+  /** Optional AbortSignal for cancellation */
+  signal?: AbortSignal;
 }
 
 export interface ClaimExtractor {

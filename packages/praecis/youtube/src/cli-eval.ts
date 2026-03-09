@@ -51,7 +51,8 @@ export async function runEvalMatrix(
       return 0;
     }
 
-    const corpusPath = optionString(cleanOptions, "corpus", "packages/praecis/youtube/tests/fixtures/eval-matrix/corpus.json");
+    const corpusPath = optionString(cleanOptions, "corpus", "");
+    const transcriptDir = optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts");
     const modelsStr = optionString(cleanOptions, "models", "");
     const tier = optionString(cleanOptions, "tier", "");
     const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o");
@@ -63,6 +64,11 @@ export async function runEvalMatrix(
 
     if (!["both", "json", "md"].includes(format)) {
       console.error(`Invalid format: ${format}. Must be one of: both, json, md`);
+      return 1;
+    }
+
+    if (!corpusPath) {
+      console.error("Error: --corpus <path> is required.");
       return 1;
     }
 
@@ -129,7 +135,7 @@ export async function runEvalMatrix(
     const matrixOptions: MatrixOptions = {
       outputDir,
       cacheDir: ".cache/extraction",
-      transcriptDir: "out/eval-matrix/transcripts",
+      transcriptDir,
       resume,
       dryRun,
       variants: variantIds as any[],

@@ -660,6 +660,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         transcriptHash,
         excerptStartMap,
         chunkCount: chunked.length,
+        signal: input.signal,
       });
       allCandidates.push(...chunkCandidates);
     }
@@ -705,6 +706,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerpts,
         transcriptHash,
         selected,
+        signal: input.signal,
       });
     }
 
@@ -716,8 +718,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     excerpts: GraphNode[];
     transcriptHash: string;
     selected: ClaimCandidate[];
+    signal?: AbortSignal;
   }): Promise<ClaimCandidate[]> {
-    const { resource, excerpts, transcriptHash, selected } = input;
+    const { resource, excerpts, transcriptHash, selected, signal } = input;
     const videoId = typeof resource?.metadata?.['videoId'] === 'string'
       ? (resource.metadata?.['videoId'] as string)
       : (resource?.id || 'unknown');
@@ -742,7 +745,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     let rewrites = await readRewriteCache(cachePath, metadata);
     if (!rewrites) {
-      rewrites = await this.fetchRewriteCandidates({ resource, excerpts, selected });
+      rewrites = await this.fetchRewriteCandidates({ resource, excerpts, selected, signal });
       if (rewrites && rewrites.length > 0) {
         await writeRewriteCache(cachePath, metadata, rewrites);
       }
@@ -784,7 +787,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     resource: GraphNode;
     excerpts: GraphNode[];
     selected: ClaimCandidate[];
+    signal?: AbortSignal;
   }): Promise<Array<{ index: number; text: string }> | null> {
+    const { signal } = input;
     const excerptTextById = new Map(input.excerpts.map(excerpt => [excerpt.id, excerpt.content ?? '']));
     const claimsPayload = input.selected.map((candidate, index) => ({
       index,
@@ -814,6 +819,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       maxTokens: this.maxTokens,
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
+      signal,
     };
 
     // Check circuit breaker before first LLM call
@@ -903,8 +909,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     transcriptHash: string;
     excerptStartMap: Map<string, number>;
     chunkCount: number;
+    signal?: AbortSignal;
   }): Promise<ClaimCandidate[]> {
-    const { resource, chunk, transcriptHash, excerptStartMap, chunkCount } = input;
+    const { resource, chunk, transcriptHash, excerptStartMap, chunkCount, signal } = input;
     const videoId = typeof resource?.metadata?.['videoId'] === 'string'
       ? (resource.metadata?.['videoId'] as string)
       : (resource?.id || 'unknown');
@@ -1015,18 +1022,19 @@ export class LlmClaimExtractor implements ClaimExtractor {
       console.warn(`[COST-WARNING] Chunk ${chunk.index} projected cost ($${projectedCost.toFixed(2)}) exceeds single-chunk warning threshold.`);
     }
 
-    const { claims: parsed, success } = await this.fetchAndParseClaims({
+    const { claims, success } = await this.fetchAndParseClaims({
       system,
       user,
       chunk,
       excerptStartMap,
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
+      signal,
     });
 
-    if (parsed.length > 0) {
-      await writeCache(cachePath, cacheMetadata, parsed);
-      return parsed;
+    if (claims.length > 0) {
+      await writeCache(cachePath, cacheMetadata, claims);
+      return claims;
     }
 
     // Only fallback if LLM actually failed; successful empty results should be cached
@@ -1065,8 +1073,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     excerptStartMap: Map<string, number>;
     reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
     verbosity?: ResolvedConfig['llm']['verbosity'];
+    signal?: AbortSignal;
   }): Promise<FetchResult> {
-    const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity } = input;
+    const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity, signal } = input;
 
     // Check circuit breaker before calling LLM
     if (!this.circuitBreaker.canExecute()) {
@@ -1084,6 +1093,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       reasoningEffort,
       verbosity,
       maxTokens: this.maxTokens,
+      signal,
     };
 
     let response;

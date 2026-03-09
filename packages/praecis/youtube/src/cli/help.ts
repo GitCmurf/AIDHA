@@ -44,7 +44,7 @@ Commands:
   aidha-youtube export gephi [--db <path>] [--out <dir>] [--predicate <p1,p2>] [--node-type <t1,t2>] [--include-labels]
   aidha-youtube preflight youtube [--json] [--probe-url <url>]
   aidha-youtube fixtures import-ttml <path> [--video-id <id>] [--source-url <url>] [--track <name>] [--out <path>] [--pretty]
-  aidha-youtube eval matrix [--corpus <path>] [--models <id,id>] [--judge-models <id,id>] [--variants <id,id>] [--output-dir <path>] [--format <both|json|md>] [--dry-run] [--resume]
+  aidha-youtube eval matrix --corpus <path> [--models <id,id>] [--judge-models <id,id>] [--variants <id,id>] [--output-dir <path>] [--transcript-dir <path>] [--format <both|json|md>] [--dry-run] [--resume]
 
 Defaults:
   --db ./out/aidha.sqlite

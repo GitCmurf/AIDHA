@@ -205,6 +205,8 @@ export async function runEvaluationMatrix(
                   claimSet: [],
                 };
               } else {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
                 try {
                   const client = options.extractorClientFactory(model.id);
                   const extractor = new LlmClaimExtractor({
@@ -214,16 +216,17 @@ export async function runEvaluationMatrix(
                     cacheDir: options.cacheDir,
                     editorVersion: variant === "editorial-pass-v1" ? "v1" : "v2",
                     editorLlm: variant !== "raw", // Disable LLM rewrite for raw variant
+                    // TODO: 'raw' and 'single-pass' not yet fully differentiated
+                    // 'raw' should ideally bypass heuristic filtering too
                     maxTokens: options.extractionMaxTokens,
                     maxChunks: options.extractionMaxChunks,
                   });
 
-                  const extractPromise = extractor.extractClaims({
+                  const claims = await extractor.extractClaims({
                     resource,
                     excerpts,
+                    signal: controller.signal,
                   });
-
-                  const claims = await withTimeout(extractPromise, options.timeoutMs, `Extraction timeout for ${video.videoId} / ${model.id}`);
 
                   cell = {
                     videoId: video.videoId,
@@ -246,16 +249,21 @@ export async function runEvaluationMatrix(
                     console.warn(`Failed to cache extraction for ${video.videoId} / ${model.id}: ${cacheErr}`);
                   }
                 } catch (err) {
-                  console.error(`Extraction failed for ${video.videoId} / ${model.id}:`, err);
+                  const message = err instanceof Error && err.name === 'AbortError'
+                    ? `Extraction timeout for ${video.videoId} / ${model.id}`
+                    : (err instanceof Error ? err.message : String(err));
+                  console.error(message);
                   cells.push({
                     videoId: video.videoId,
                     modelId: model.id,
                     extractorVariantId: variant,
                     claimSet: [],
-                    error: { message: err instanceof Error ? err.message : String(err) },
+                    error: { message },
                   });
                   failedCellCount++;
                   return;
+                } finally {
+                  clearTimeout(timeout);
                 }
               }
             }
@@ -284,48 +292,57 @@ export async function runEvaluationMatrix(
               } else if (options.dryRun) {
                 console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
               } else {
-                const judgeClient = options.judgeClientFactory(judgeModelId);
-                const scorePromise = scoreClaimSet(
-                  judgeClient,
-                  judgeModelId,
-                  fullText,
-                  cell.claimSet,
-                  videoContext
-                );
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+                try {
+                  const judgeClient = options.judgeClientFactory(judgeModelId);
+                  const scoreResult = await scoreClaimSet(
+                    judgeClient,
+                    judgeModelId,
+                    fullText,
+                    cell.claimSet,
+                    videoContext,
+                    4000,
+                    controller.signal
+                  );
 
-                const scoreResult = await withTimeout(scorePromise, options.timeoutMs, `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`)
-                  .catch(err => ({ ok: false as const, error: err }));
-
-                if (scoreResult.ok) {
-                  const score = scoreResult.value;
-                  scores.push(score);
-                  try {
-                    await setCachedScore(
-                      video.videoId,
-                      model.id,
-                      judgeModelId,
-                      claimSetHash,
-                      judgePromptVersion,
-                      [score],
-                      { cacheDir: options.cacheDir }
-                    );
-                  } catch (cacheErr) {
-                    console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
+                  if (scoreResult.ok) {
+                    const score = scoreResult.value;
+                    scores.push(score);
+                    try {
+                      await setCachedScore(
+                        video.videoId,
+                        model.id,
+                        judgeModelId,
+                        claimSetHash,
+                        judgePromptVersion,
+                        [score],
+                        { cacheDir: options.cacheDir }
+                      );
+                    } catch (cacheErr) {
+                      console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
+                    }
+                  } else {
+                    throw scoreResult.error;
                   }
-                } else {
-                  console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, scoreResult.error);
+                } catch (err) {
+                  const message = err instanceof Error && err.name === 'AbortError'
+                    ? `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`
+                    : (err instanceof Error ? err.message : String(err));
+                  console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
                   cellHasScoringFailure = true;
-                  // Push a dummy score with error info to preserve array length and judge identity
+                  // Store error metadata instead of fake scores
                   scores.push({
                     completeness: 0, accuracy: 0, topicCoverage: 0, atomicity: 0, overallScore: 0,
-                    reasoning: `ERROR: ${scoreResult.error.message}`,
+                    reasoning: `ERROR: ${message}`,
                     missingClaims: [], hallucinations: [], redundancies: [], gapAreas: [],
                     judgeMeta: { judgeModelId, judgePromptVersion }
-                  });
+                  } as any); // cast to allow error marker
+                } finally {
+                  clearTimeout(timeout);
                 }
               }
             }
-
             if (cellHasScoringFailure) {
               cell.error = { message: "One or more judge scorings failed" };
               failedCellCount++;
@@ -354,17 +371,4 @@ export async function runEvaluationMatrix(
       failedCellCount,
     },
   };
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timer: NodeJS.Timeout;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    clearTimeout(timer!);
-  }
 }
