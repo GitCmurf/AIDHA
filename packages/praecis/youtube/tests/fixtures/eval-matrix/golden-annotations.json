@@ -1,0 +1,47 @@
+[
+  {
+    "videoId": "short_solo_1",
+    "idealClaims": [
+      {
+        "text": "Eating 50 grams of protein after a workout increases muscle synthesis by 20%.",
+        "evidence": {
+          "quote": "eating 50 grams of protein after a workout increases muscle synthesis by 20%",
+          "startMs": 5000,
+          "endMs": 15000
+        }
+      },
+      {
+        "text": "A new study from the University of Muscle states that post-workout protein increases muscle synthesis.",
+        "evidence": {
+          "quote": "This is based on a new study from the University of Muscle.",
+          "startMs": 15000,
+          "endMs": 25000
+        }
+      }
+    ],
+    "rejectedClaims": [
+      {
+        "text": "You should like and subscribe to the channel.",
+        "reason": "topic-drift"
+      }
+    ]
+  },
+  {
+    "videoId": "h_1zlead9ZU",
+    "idealClaims": [
+      {
+        "text": "Consuming 30 grams of protein within 30 minutes of waking up can assist with weight loss.",
+        "evidence": {
+          "startMs": 120000,
+          "endMs": 135000
+        }
+      }
+    ],
+    "rejectedClaims": [
+      {
+        "text": "Dr. Huberman welcomes his guest.",
+        "reason": "fragment"
+      }
+    ]
+  }
+]

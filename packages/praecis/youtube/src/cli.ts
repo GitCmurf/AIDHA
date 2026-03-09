@@ -5,6 +5,7 @@ import { realpathSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runEvalMatrix } from './cli-eval.js';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { SQLiteStore } from '@aidha/graph-backend';
 import {
@@ -140,12 +141,12 @@ export function isCliEntrypoint(importMetaUrl: string, argv1?: string): boolean 
   return normalizeEntrypointPath(fileURLToPath(importMetaUrl)) === normalizeEntrypointPath(argv1);
 }
 
-function optionString(options: CliOptions, key: string, fallback: string): string {
+export function optionString(options: CliOptions, key: string, fallback: string): string {
   const value = options[key];
   return typeof value === 'string' && value.length > 0 ? value : fallback;
 }
 
-function optionNumber(options: CliOptions, key: string, fallback: number): number {
+export function optionNumber(options: CliOptions, key: string, fallback: number): number {
   const value = options[key];
   if (typeof value === 'string') {
     const parsed = Number.parseInt(value, 10);
@@ -154,7 +155,7 @@ function optionNumber(options: CliOptions, key: string, fallback: number): numbe
   return fallback;
 }
 
-function optionBool(options: CliOptions, key: string): boolean {
+export function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
@@ -1331,6 +1332,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<nu
       break;
     case 'fixtures':
       exitCode = await runFixtures(parsed.positionals, parsed.options, config!);
+      break;
+    case 'eval':
+      exitCode = await runEvalMatrix(parsed.positionals, parsed.options, config!);
       break;
     case 'config':
       // config <subcommand> -> positionals[1]

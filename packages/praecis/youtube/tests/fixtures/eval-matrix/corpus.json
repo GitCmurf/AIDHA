@@ -1,0 +1,67 @@
+[
+  {
+    "videoId": "h_1zlead9ZU",
+    "url": "https://www.youtube.com/watch?v=h_1zlead9ZU",
+    "title": "Dr. Andrew Huberman: The Science of Nutrition...",
+    "channelName": "Huberman Lab",
+    "durationMinutes": 124,
+    "topicDomain": "Nutrition",
+    "expectedClaimDensity": "high",
+    "language": "en",
+    "captionSource": "manual",
+    "speakerStyle": "interview",
+    "rationale": "High-density scientific assertions; multi-speaker debate."
+  },
+  {
+    "videoId": "short_solo_1",
+    "url": "https://www.youtube.com/watch?v=short_solo_1",
+    "title": "5 Minute Workout",
+    "channelName": "Fitness Quick",
+    "durationMinutes": 5,
+    "topicDomain": "Exercise",
+    "expectedClaimDensity": "medium",
+    "language": "en",
+    "captionSource": "auto",
+    "speakerStyle": "solo",
+    "rationale": "Short duration, solo speaker, medium density."
+  },
+  {
+    "videoId": "panel_neuro_1",
+    "url": "https://www.youtube.com/watch?v=panel_neuro_1",
+    "title": "Neuroscience Panel Discussion",
+    "channelName": "Brain Science Foundation",
+    "durationMinutes": 45,
+    "topicDomain": "Neuroscience",
+    "expectedClaimDensity": "low",
+    "language": "en",
+    "captionSource": "manual",
+    "speakerStyle": "panel",
+    "rationale": "Multi-speaker panel with sparse actionable claims, testing topic coverage over longer periods."
+  },
+  {
+    "videoId": "noisy_captions_1",
+    "url": "https://www.youtube.com/watch?v=noisy_captions_1",
+    "title": "Street Interview on Diets",
+    "channelName": "Street Science",
+    "durationMinutes": 15,
+    "topicDomain": "Nutrition",
+    "expectedClaimDensity": "low",
+    "language": "en",
+    "captionSource": "auto",
+    "speakerStyle": "interview",
+    "rationale": "Noisy auto-captions and informal speech, testing robustness to transcription errors."
+  },
+  {
+    "videoId": "long_solo_exercise_1",
+    "url": "https://www.youtube.com/watch?v=long_solo_exercise_1",
+    "title": "Complete Guide to Hypertrophy",
+    "channelName": "Muscle Academy",
+    "durationMinutes": 95,
+    "topicDomain": "Exercise",
+    "expectedClaimDensity": "high",
+    "language": "en",
+    "captionSource": "manual",
+    "speakerStyle": "solo",
+    "rationale": "Long solo lecture format, testing continuous claim extraction and context tracking over time."
+  }
+]
