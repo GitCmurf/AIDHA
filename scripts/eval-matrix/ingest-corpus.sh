@@ -8,8 +8,8 @@ CORPUS_JSON="packages/praecis/youtube/tests/fixtures/eval-matrix/corpus.json"
 CACHE_DIR="out/eval-matrix/transcripts"
 TEMP_DB="out/eval-matrix/aidha-eval.sqlite"
 
-mkdir --parents "$CACHE_DIR"
-mkdir --parents "$(dirname "$TEMP_DB")"
+mkdir -p "$CACHE_DIR"
+mkdir -p "$(dirname "$TEMP_DB")"
 
 if [ ! -f "$CORPUS_JSON" ]; then
     echo "Error: Corpus file not found at $CORPUS_JSON"

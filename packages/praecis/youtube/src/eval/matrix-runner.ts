@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import * as path from "node:path";
 import type { GraphNode } from "@aidha/graph-backend";
 import { Transcript } from "../schema/transcript.js";
@@ -313,10 +314,6 @@ const processCell = async (
   model: EvalModel,
   variant: ExtractorVariantId,
   options: MatrixOptions,
-  videoContext: VideoContext,
-  excerpts: GraphNode[],
-  resource: GraphNode,
-  fullText: string,
   semaphore: Semaphore,
   cells: MatrixCell[],
   onFailure: () => void
@@ -325,6 +322,13 @@ const processCell = async (
   try {
     console.log(`[cell] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
+    const transcriptDataResult = await prepareTranscriptDataAsync(video, options);
+    if ("error" in transcriptDataResult) {
+      onFailure();
+      return;
+    }
+
+    const { videoContext, excerpts, resource, fullText } = transcriptDataResult;
     const promptVersion = EXTRACT_PROMPT_VERSION;
     const extractorVersion = EXTRACTOR_VERSION;
 
@@ -387,23 +391,24 @@ const processCell = async (
   }
 };
 
-const prepareTranscriptData = (
+const prepareTranscriptDataAsync = async (
   video: CorpusEntry,
   options: MatrixOptions
-):
+): Promise<
   | {
       videoContext: VideoContext;
       excerpts: GraphNode[];
       resource: GraphNode;
       fullText: string;
     }
-  | { error: number } => {
+  | { error: number }
+> => {
   const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
 
   let transcriptData: Transcript;
   try {
-    const raw = JSON.parse(fs.readFileSync(transcriptPath, "utf-8"));
-    const parsed = Transcript.safeParse(raw);
+    const raw = await fsPromises.readFile(transcriptPath, "utf-8");
+    const parsed = Transcript.safeParse(JSON.parse(raw));
     if (!parsed.success) {
       console.error(`Invalid transcript format for ${video.videoId}:`, parsed.error.format());
       return { error: 1 };
@@ -474,14 +479,6 @@ export async function runEvaluationMatrix(
   const tasks: Promise<void>[] = [];
 
   for (const video of corpus) {
-    const data = prepareTranscriptData(video, options);
-    if ("error" in data) {
-      failedCellCount += models.length * options.variants.length;
-      continue;
-    }
-
-    const { videoContext, excerpts, resource, fullText } = data;
-
     for (const model of models) {
       for (const variant of options.variants) {
         tasks.push(
@@ -490,10 +487,6 @@ export async function runEvaluationMatrix(
             model,
             variant,
             options,
-            videoContext,
-            excerpts,
-            resource,
-            fullText,
             semaphore,
             cells,
             () => {

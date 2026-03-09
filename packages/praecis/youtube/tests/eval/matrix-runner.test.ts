@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import * as fs from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import * as path from "node:path";
 import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
 import { MODEL_REGISTRY } from "../../src/eval/model-registry";
@@ -9,13 +10,13 @@ import { LlmClaimExtractor } from "../../src/extract/llm-claims";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(undefined),
-  writeFile: vi.fn().mockResolvedValue(undefined),
+  mkdir: vi.fn().mockResolvedValue(),
+  writeFile: vi.fn().mockResolvedValue(),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 vi.mock("fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(undefined),
-  writeFile: vi.fn().mockResolvedValue(undefined),
+  mkdir: vi.fn().mockResolvedValue(),
+  writeFile: vi.fn().mockResolvedValue(),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 
@@ -63,7 +64,7 @@ describe("Matrix Runner Integration", () => {
 
     // Mock fs.existsSync and fs.readFileSync for transcripts
     (fs.existsSync as any).mockReturnValue(true);
-    (fs.readFileSync as any).mockImplementation((filePath: string) => {
+    const mockTranscriptImplementation = (filePath: string) => {
       // Extract videoId from path like "out/test/transcripts/v5.json"
       const videoId = path.basename(filePath, '.json');
       return JSON.stringify({
@@ -72,7 +73,9 @@ describe("Matrix Runner Integration", () => {
         segments: [{ start: 0, duration: 10, text: "segment 1" }],
         fullText: "full text"
       });
-    });
+    };
+    (fs.readFileSync as any).mockImplementation(mockTranscriptImplementation);
+    (fsPromises.readFile as any).mockImplementation((path: string) => Promise.resolve(mockTranscriptImplementation(path)));
 
     const mockJudgeClient = {
       generate: vi.fn().mockResolvedValue({
