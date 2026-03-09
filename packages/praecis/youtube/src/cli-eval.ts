@@ -9,6 +9,7 @@ import { exportMatrixJson } from "./eval/report-json.js";
 import { EXTRACTOR_VARIANTS, isValidVariant } from "./eval/extractor-variants.js";
 import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
+import { CorpusSchema } from "./eval/corpus-schema.js";
 
 export async function runEvalMatrix(
   positionals: string[],
@@ -35,11 +36,17 @@ export async function runEvalMatrix(
       console.log(`Invalidating run: ${invalidateRun}`);
       const cacheDir = ".cache/extraction";
       if (fs.existsSync(cacheDir)) {
-        // This is a very basic invalidation that just clears the whole cache
-        // for now as runId mapping to cache keys is not yet fully robustly implemented.
-        // In a real implementation we would match cache keys to the runId.
-        console.log(`Clearing cache directory: ${cacheDir}`);
-        fs.rmSync(cacheDir, { recursive: true, force: true });
+        // Run-specific invalidation is not yet implemented, so we require --yes to clear all
+        if (optionBool(cleanOptions, "yes")) {
+          console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
+          fs.rmSync(cacheDir, { recursive: true, force: true });
+        } else {
+          console.error("Error: --invalidate-run currently clears the entire evaluation cache.");
+          console.error("Please provide --yes to confirm you want to delete all cached extractions and scores.");
+          return 1;
+        }
+      } else {
+        console.log("No cache directory found to invalidate.");
       }
       return 0;
     }
@@ -99,9 +106,15 @@ export async function runEvalMatrix(
 
     let corpusData;
     try {
-      corpusData = JSON.parse(fs.readFileSync(corpusPath, "utf-8"));
+      const raw = JSON.parse(fs.readFileSync(corpusPath, "utf-8"));
+      const parsed = CorpusSchema.safeParse(raw);
+      if (!parsed.success) {
+        console.error("Corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
+        return 1;
+      }
+      corpusData = parsed.data;
     } catch (err) {
-      console.error(`Failed to read corpus file at ${corpusPath}:`, err);
+      console.error(`Failed to read or validate corpus file at ${corpusPath}:`, err);
       return 1;
     }
 
@@ -159,6 +172,11 @@ export async function runEvalMatrix(
       const mdPath = path.join(outputDir, "latest.md");
       fs.writeFileSync(mdPath, renderMatrixReport(report));
       console.log(`Wrote Markdown report to ${mdPath}`);
+    }
+
+    if (result.metadata.failedCellCount > 0) {
+      console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
+      return 1;
     }
 
     return 0;

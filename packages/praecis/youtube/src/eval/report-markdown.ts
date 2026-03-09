@@ -24,9 +24,11 @@ export function renderMatrixReport(report: MatrixReport): string {
     md += `| Rank | Model | Score |\n`;
     md += `| --- | --- | --- |\n`;
     const ranks = report.leaderboards[key];
-    ranks.forEach((entry, i) => {
-      md += `| ${i + 1} | ${entry.modelId} | ${entry.score.toFixed(2)} |\n`;
-    });
+    if (ranks) {
+      ranks.forEach((entry, i) => {
+        md += `| ${i + 1} | ${entry.modelId} | ${entry.score.toFixed(2)} |\n`;
+      });
+    }
     md += `\n`;
   }
 

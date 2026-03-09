@@ -14,7 +14,7 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 describe("Matrix Runner Integration", () => {
-  it("should run a 2-video x 2-model matrix and generate report", async () => {
+  it("should run a 5-video x 2-model matrix and generate report", async () => {
     const corpus = [
       {
         videoId: "v1", url: "http://v1", title: "Video 1", channelName: "Channel 1",

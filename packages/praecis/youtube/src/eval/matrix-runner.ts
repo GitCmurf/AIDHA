@@ -76,7 +76,7 @@ class Semaphore {
   private waiting: (() => void)[] = [];
 
   constructor(count: number) {
-    this.count = count;
+    this.count = Math.max(1, count);
   }
 
   async acquire(): Promise<void> {
@@ -114,6 +114,7 @@ export async function runEvaluationMatrix(
     const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
     if (!fs.existsSync(transcriptPath)) {
       console.warn(`Transcript not found for ${video.videoId} at ${transcriptPath}, skipping.`);
+      failedCellCount += models.length * options.variants.length;
       continue;
     }
 
@@ -122,6 +123,7 @@ export async function runEvaluationMatrix(
       transcriptData = JSON.parse(fs.readFileSync(transcriptPath, "utf-8"));
     } catch (err) {
       console.error(`Failed to parse transcript for ${video.videoId}:`, err);
+      failedCellCount += models.length * options.variants.length;
       continue;
     }
 
@@ -138,6 +140,7 @@ export async function runEvaluationMatrix(
     const segments = transcriptData.segments || [];
     if (segments.length === 0 && !transcriptData.fullText) {
       console.warn(`Transcript for ${video.videoId} has no segments and no fullText, skipping.`);
+      failedCellCount += models.length * options.variants.length;
       continue;
     }
     const fullText = transcriptData.fullText || segments.map((s: any) => s.text).join(" ");
@@ -210,14 +213,17 @@ export async function runEvaluationMatrix(
                     promptVersion,
                     cacheDir: options.cacheDir,
                     editorVersion: variant === "editorial-pass-v1" ? "v1" : "v2",
+                    editorLlm: variant !== "raw", // Disable LLM rewrite for raw variant
                     maxTokens: options.extractionMaxTokens,
                     maxChunks: options.extractionMaxChunks,
                   });
 
-                  const claims = await extractor.extractClaims({
+                  const extractPromise = extractor.extractClaims({
                     resource,
                     excerpts,
                   });
+
+                  const claims = await withTimeout(extractPromise, options.timeoutMs, `Extraction timeout for ${video.videoId} / ${model.id}`);
 
                   cell = {
                     videoId: video.videoId,
@@ -279,13 +285,16 @@ export async function runEvaluationMatrix(
                 console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
               } else {
                 const judgeClient = options.judgeClientFactory(judgeModelId);
-                const scoreResult = await scoreClaimSet(
+                const scorePromise = scoreClaimSet(
                   judgeClient,
                   judgeModelId,
                   fullText,
                   cell.claimSet,
                   videoContext
                 );
+
+                const scoreResult = await withTimeout(scorePromise, options.timeoutMs, `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`)
+                  .catch(err => ({ ok: false as const, error: err }));
 
                 if (scoreResult.ok) {
                   const score = scoreResult.value;
@@ -306,6 +315,13 @@ export async function runEvaluationMatrix(
                 } else {
                   console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, scoreResult.error);
                   cellHasScoringFailure = true;
+                  // Push a dummy score with error info to preserve array length and judge identity
+                  scores.push({
+                    completeness: 0, accuracy: 0, topicCoverage: 0, atomicity: 0, overallScore: 0,
+                    reasoning: `ERROR: ${scoreResult.error.message}`,
+                    missingClaims: [], hallucinations: [], redundancies: [], gapAreas: [],
+                    judgeMeta: { judgeModelId, judgePromptVersion }
+                  });
                 }
               }
             }
@@ -338,4 +354,17 @@ export async function runEvaluationMatrix(
       failedCellCount,
     },
   };
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer!);
+  }
 }
