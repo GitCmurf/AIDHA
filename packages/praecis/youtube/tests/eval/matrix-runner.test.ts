@@ -1,8 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
 import { MODEL_REGISTRY } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
+
+vi.mock("node:fs");
 
 describe("Matrix Runner Integration", () => {
   it("should run a 2-video x 2-model matrix and generate report", async () => {
@@ -19,14 +23,47 @@ describe("Matrix Runner Integration", () => {
 
     const models = MODEL_REGISTRY.slice(0, 2);
 
+    // Mock fs.existsSync and fs.readFileSync for transcripts
+    (fs.existsSync as any).mockReturnValue(true);
+    (fs.readFileSync as any).mockReturnValue(JSON.stringify({
+      segments: [{ start: 0, duration: 10, text: "segment 1" }],
+      fullText: "full text"
+    }));
+
+    const mockClient = {
+      generate: vi.fn().mockResolvedValue({
+        ok: true,
+        value: JSON.stringify({
+          completeness: 8,
+          accuracy: 9,
+          topicCoverage: 7,
+          atomicity: 10,
+          overallScore: 8.5,
+          reasoning: "Mock reasoning that is long enough",
+          missingClaims: [],
+          hallucinations: [],
+          redundancies: [],
+          gapAreas: []
+        })
+      })
+    };
+
+    // Also need to mock LlmClaimExtractor internal logic or just let it run if it doesn't do real LLM calls
+    // But LlmClaimExtractor DOES do real LLM calls via client.
+    // So we provide the mockClient.
+
     const options = {
       outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
       resume: false,
       dryRun: false,
       variants: ["raw" as const],
       judgeModels: ["gpt-4o"],
       maxConcurrency: 1,
       timeoutMs: 1000,
+      extractorClientFactory: () => mockClient as any,
+      judgeClientFactory: () => mockClient as any,
     };
 
     const result = await runEvaluationMatrix(corpus, models, options);
@@ -45,5 +82,23 @@ describe("Matrix Runner Integration", () => {
     const md = renderMatrixReport(report);
     expect(md).toContain("Video Heatmap");
     expect(md).toContain(models[0].id);
+  });
+
+  it("should average scores from multiple judges", () => {
+    const cells: any[] = [
+      {
+        videoId: "v1",
+        modelId: "m1",
+        extractorVariantId: "raw",
+        scores: [
+          { completeness: 10, accuracy: 10, topicCoverage: 10, atomicity: 10, overallScore: 10 },
+          { completeness: 0, accuracy: 0, topicCoverage: 0, atomicity: 0, overallScore: 0 }
+        ]
+      }
+    ];
+
+    const report = aggregateMatrixResults(cells);
+    expect(report.modelStats["m1"].dimensions.overallScore.mean).toBe(5);
+    expect(report.modelStats["m1"].dimensions.completeness.mean).toBe(5);
   });
 });

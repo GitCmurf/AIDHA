@@ -1,12 +1,13 @@
 import type { ResolvedConfig } from "@aidha/config";
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { runEvaluationMatrix, type MatrixOptions } from "./eval/matrix-runner.js";
 import { getModel } from "./eval/model-registry.js";
 import { aggregateMatrixResults } from "./eval/matrix-aggregator.js";
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
 import { EXTRACTOR_VARIANTS, isValidVariant } from "./eval/extractor-variants.js";
+import { createLlmClientFromConfig } from "./extract/llm-client.js";
 
 type CliOptions = Record<string, string | boolean>;
 
@@ -113,12 +114,24 @@ export async function runEvalMatrix(
 
   const matrixOptions: MatrixOptions = {
     outputDir,
+    cacheDir: ".cache/extraction",
+    transcriptDir: "out/eval-matrix/transcripts",
     resume,
     dryRun,
     variants: variantIds as any[],
     judgeModels,
     maxConcurrency,
     timeoutMs: 60000,
+    extractorClientFactory: (modelId: string) => {
+      const clientResult = createLlmClientFromConfig(config.llm);
+      if (!clientResult.ok) throw clientResult.error;
+      return clientResult.value;
+    },
+    judgeClientFactory: (modelId: string) => {
+      const clientResult = createLlmClientFromConfig(config.llm);
+      if (!clientResult.ok) throw clientResult.error;
+      return clientResult.value;
+    }
   };
 
   const result = await runEvaluationMatrix(corpusData, models, matrixOptions);

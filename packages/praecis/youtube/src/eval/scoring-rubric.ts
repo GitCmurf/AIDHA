@@ -14,7 +14,7 @@ export const ClaimSetScoreSchema = z.object({
   judgeMeta: z.object({
     judgeModelId: z.string().min(1),
     judgePromptVersion: z.string().min(1),
-  }),
+  }).optional(),
 });
 
 export type ClaimSetScore = z.infer<typeof ClaimSetScoreSchema>;

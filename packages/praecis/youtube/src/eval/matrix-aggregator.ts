@@ -25,9 +25,25 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   for (const cell of cells) {
     if (!cell.scores || cell.scores.length === 0) continue;
 
-    // Using single judge score for simplicity in aggregation
-    const score = cell.scores[0];
-    if (!score) continue;
+    // Aggregate consensus if multiple judges
+    const aggregatedScore: Record<ScoreDimension, number> = {
+      completeness: 0,
+      accuracy: 0,
+      topicCoverage: 0,
+      atomicity: 0,
+      overallScore: 0
+    };
+
+    for (const score of cell.scores) {
+      for (const dim of dimensions) {
+        aggregatedScore[dim] += score[dim] || 0;
+      }
+    }
+
+    const judgeCount = cell.scores.length;
+    for (const dim of dimensions) {
+      aggregatedScore[dim] /= judgeCount;
+    }
 
     if (!modelScores[cell.modelId]) {
       modelScores[cell.modelId] = { completeness: [], accuracy: [], topicCoverage: [], atomicity: [], overallScore: [] };
@@ -37,7 +53,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     }
 
     for (const dim of dimensions) {
-      const dimScore = score[dim];
+      const dimScore = aggregatedScore[dim];
       if (dimScore !== undefined) {
         modelScores[cell.modelId]![dim].push(dimScore);
         videoScores[cell.videoId]![dim].push(dimScore);

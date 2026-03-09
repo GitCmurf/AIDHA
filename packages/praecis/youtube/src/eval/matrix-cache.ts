@@ -2,7 +2,7 @@ import * as crypto from "crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 import type { MatrixCell } from "./matrix-runner.js";
-import type { ClaimSetScore } from "./scoring-rubric.js";
+import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
 
 export interface CacheOptions {
   cacheDir: string;
@@ -25,6 +25,7 @@ export async function getCachedExtraction(
 
   try {
     const data = await fs.readFile(filePath, "utf-8");
+    // Just cast for extraction cell for now until we have full MatrixCell Zod schema
     return JSON.parse(data) as MatrixCell;
   } catch (error) {
     if ((error as any).code === "ENOENT") {
@@ -63,7 +64,8 @@ export async function getCachedScore(
 
   try {
     const data = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(data) as ClaimSetScore[];
+    const parsed = JSON.parse(data);
+    return ClaimSetScoreSchema.array().parse(parsed);
   } catch (error) {
     if ((error as any).code === "ENOENT") {
       return null;
