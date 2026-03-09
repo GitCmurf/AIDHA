@@ -1,6 +1,10 @@
 import type { ClaimCandidate } from "../../extract/types.js";
 import type { VideoContext } from "../matrix-runner.js";
 
+function sanitizePromptInput(text: string): string {
+  return text.replace(/<\/TRANSCRIPT>/gi, "< /TRANSCRIPT>");
+}
+
 export function buildJudgePrompt(
   transcript: string,
   claims: ClaimCandidate[],
@@ -12,13 +16,13 @@ You must output ONLY valid JSON matching the exact schema requested.
 Do not assume ordering of claims implies importance.`;
 
   const user = `Here is the transcript context:
-Title: ${videoContext.title}
-Channel: ${videoContext.channelName}
-Domain: ${videoContext.topicDomain || "Unknown"}
-Description: ${videoContext.description || "N/A"}
+Title: ${sanitizePromptInput(videoContext.title)}
+Channel: ${sanitizePromptInput(videoContext.channelName)}
+Domain: ${sanitizePromptInput(videoContext.topicDomain || "Unknown")}
+Description: ${sanitizePromptInput(videoContext.description || "N/A")}
 
 <TRANSCRIPT>
-${transcript}
+${sanitizePromptInput(transcript)}
 </TRANSCRIPT>
 
 Here is the set of extracted claims to evaluate:

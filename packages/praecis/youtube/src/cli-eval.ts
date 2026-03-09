@@ -79,9 +79,13 @@ export async function runEvalMatrix(
   console.log(`Evaluation Matrix Plan:
   Corpus: ${corpusPath}
   Models: ${modelIds.join(", ")}
+  Tier: ${tier || 'all'}
   Judge Models: ${judgeModels.join(", ")}
   Variants: ${variantIds.join(", ")}
   Output Dir: ${outputDir}
+  Format: ${format}
+  Resume: ${resume}
+  Max Concurrency: ${maxConcurrency}
   `);
 
   if (dryRun) {
