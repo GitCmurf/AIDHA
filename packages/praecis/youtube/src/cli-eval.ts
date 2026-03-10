@@ -298,7 +298,7 @@ export async function runEvalMatrix(
     }
 
     const report = aggregateMatrixResults(result.cells);
-    writeReports(report, outputDir, format);
+    writeReports(report, finalOutputDir, format);
 
     if (result.metadata.failedCellCount > 0) {
       console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
