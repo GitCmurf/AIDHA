@@ -118,7 +118,10 @@ class Semaphore {
   }
 }
 
+const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
+
 const performExtraction = async (
+
   modelId: string,
   variant: ExtractorVariantId,
   options: MatrixOptions,
@@ -275,8 +278,6 @@ const getScoresForCell = async (
 
   return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, traces };
 };
-
-const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
 
 const getExtractionForCell = async (
   video: CorpusEntry,

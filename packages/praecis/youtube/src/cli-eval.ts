@@ -47,11 +47,36 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
   return clientResult.value;
 };
 
-export async function runEvalMatrix(
+export const runEvalMatrix = async (
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
   config: ResolvedConfig
-): Promise<number> {
+): Promise<number> => {
+  const handleClearAll = (cleanOptions: CliOptions, cacheDir: string): number => {
+    if (optionBool(cleanOptions, "yes")) {
+      console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
+      rmSync(cacheDir, { recursive: true, force: true });
+      return 0;
+    }
+    console.error("Error: --clear-all requires --yes to confirm you want to delete all cached extractions and scores.");
+    return 1;
+  };
+
+  const handleInvalidateRun = (invalidateRun: string, cacheDir: string): number => {
+    if (!/^[a-zA-Z0-9_-]+$/.test(invalidateRun)) {
+      console.error("Error: --invalidate-run must contain only alphanumeric characters, hyphens, and underscores.");
+      return 1;
+    }
+    const runDir = join(cacheDir, invalidateRun);
+    if (existsSync(runDir)) {
+      console.log(`Invalidating cache for run: ${invalidateRun}`);
+      rmSync(runDir, { recursive: true, force: true });
+    } else {
+      console.warn(`Cache for run '${invalidateRun}' not found.`);
+    }
+    return 0;
+  };
+
   const invalidateCache = (cleanOptions: CliOptions): number | undefined => {
     const invalidateRun = optionString(cleanOptions, "invalidate-run", "");
     const clearAll = optionBool(cleanOptions, "clear-all");
@@ -64,32 +89,8 @@ export async function runEvalMatrix(
       return 0;
     }
 
-    if (clearAll) {
-      if (optionBool(cleanOptions, "yes")) {
-        console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
-        rmSync(cacheDir, { recursive: true, force: true });
-        return 0;
-      } else {
-        console.error("Error: --clear-all requires --yes to confirm you want to delete all cached extractions and scores.");
-        return 1;
-      }
-    }
-
-    if (invalidateRun) {
-      if (!/^[a-zA-Z0-9_-]+$/.test(invalidateRun)) {
-        console.error("Error: --invalidate-run must contain only alphanumeric characters, hyphens, and underscores.");
-        return 1;
-      }
-      const runDir = join(cacheDir, invalidateRun);
-      if (existsSync(runDir)) {
-        console.log(`Invalidating cache for run: ${invalidateRun}`);
-        rmSync(runDir, { recursive: true, force: true });
-        return 0;
-      } else {
-        console.warn(`Cache for run '${invalidateRun}' not found.`);
-        return 0;
-      }
-    }
+    if (clearAll) return handleClearAll(cleanOptions, cacheDir);
+    if (invalidateRun) return handleInvalidateRun(invalidateRun, cacheDir);
 
     return 0;
   };

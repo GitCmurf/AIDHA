@@ -1,5 +1,5 @@
 import { getModel } from "./model-registry.js";
-import { SCORE_DIMENSIONS } from "./scoring-rubric.js";
+import { SCORE_DIMENSIONS, type ClaimSetScore } from "./scoring-rubric.js";
 import type { MatrixCell, ScoreDimension } from "./matrix-runner.js";
 
 export type StatName = "mean" | "median" | "min" | "max" | "stddev";
@@ -38,7 +38,7 @@ function createEmptyScoreRecord(): Record<ScoreDimension, number[]> {
   };
 }
 
-const aggregateCellScores = (scores: any[]): Record<ScoreDimension, number> => {
+const aggregateCellScores = (scores: ClaimSetScore[]): Record<ScoreDimension, number> => {
   const aggregated: Record<ScoreDimension, number> = {
     completeness: 0,
     accuracy: 0,
@@ -77,20 +77,26 @@ const recordCellScore = (
   }
 };
 
+const accumulateCosts = (cells: MatrixCell[]) => {
+  let extractionUsd = 0;
+  let judgeUsd = 0;
+  for (const cell of cells) {
+    if (cell.costEstimate) {
+      extractionUsd += cell.costEstimate.extractionUsd;
+      judgeUsd += cell.costEstimate.judgeUsd;
+    }
+  }
+  return { extractionUsd, judgeUsd };
+};
+
 const processCells = (cells: MatrixCell[]) => {
   const modelScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const variantScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const videoScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
 
-  let totalExtractionUsd = 0;
-  let totalJudgeUsd = 0;
+  const { extractionUsd: totalExtractionUsd, judgeUsd: totalJudgeUsd } = accumulateCosts(cells);
 
   for (const cell of cells) {
-    if (cell.costEstimate) {
-      totalExtractionUsd += cell.costEstimate.extractionUsd;
-      totalJudgeUsd += cell.costEstimate.judgeUsd;
-    }
-
     if (cell.error || !cell.scores || cell.scores.length === 0) continue;
 
     const aggregatedScore = aggregateCellScores(cell.scores);
@@ -102,7 +108,18 @@ const processCells = (cells: MatrixCell[]) => {
   return { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd };
 };
 
-function calculateDimensionStats(scores: Record<ScoreDimension, number[]>): DimensionStats {
+const calculateMedian = (sorted: number[]): number => {
+  if (sorted.length === 0) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 !== 0) {
+    return sorted[mid] ?? 0;
+  }
+  const v1 = sorted[mid - 1] ?? 0;
+  const v2 = sorted[mid] ?? 0;
+  return (v1 + v2) / 2;
+};
+
+const calculateDimensionStats = (scores: Record<ScoreDimension, number[]>): DimensionStats => {
   const result: Partial<DimensionStats> = {};
 
   for (const dim of SCORE_DIMENSIONS) {
@@ -116,16 +133,7 @@ function calculateDimensionStats(scores: Record<ScoreDimension, number[]>): Dime
     const mean = sum / sorted.length;
     const min = sorted[0] ?? 0;
     const max = sorted[sorted.length - 1] ?? 0;
-    const mid = Math.floor(sorted.length / 2);
-
-    let median = 0;
-    if (sorted.length % 2 !== 0) {
-      median = sorted[mid] ?? 0;
-    } else {
-      const v1 = sorted[mid - 1] ?? 0;
-      const v2 = sorted[mid] ?? 0;
-      median = (v1 + v2) / 2;
-    }
+    const median = calculateMedian(sorted);
 
     const squareDiffs = sorted.map(v => Math.pow(v - mean, 2));
     const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / sorted.length;
@@ -135,7 +143,7 @@ function calculateDimensionStats(scores: Record<ScoreDimension, number[]>): Dime
   }
 
   return result as DimensionStats;
-}
+};
 
 const calculateAllStats = (scoresMap: Record<string, Record<ScoreDimension, number[]>>): Record<string, { dimensions: DimensionStats }> => {
   const stats: Record<string, { dimensions: DimensionStats }> = {};
