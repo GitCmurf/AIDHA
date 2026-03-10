@@ -54,23 +54,39 @@ export async function runEvalMatrix(
 ): Promise<number> {
   const invalidateCache = (cleanOptions: CliOptions): number | undefined => {
     const invalidateRun = optionString(cleanOptions, "invalidate-run", "");
-    if (!invalidateRun) return undefined;
+    const clearAll = optionBool(cleanOptions, "clear-all");
 
-    console.log(`Invalidating run: ${invalidateRun}`);
+    if (!invalidateRun && !clearAll) return undefined;
+
     const cacheDir = ".cache/extraction";
-    if (existsSync(cacheDir)) {
-      // Run-specific invalidation is not yet implemented, so we require --yes to clear all
+    if (!existsSync(cacheDir)) {
+      console.log("No cache directory found to invalidate.");
+      return 0;
+    }
+
+    if (clearAll) {
       if (optionBool(cleanOptions, "yes")) {
         console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
         rmSync(cacheDir, { recursive: true, force: true });
+        return 0;
       } else {
-        console.error("Error: --invalidate-run currently clears the entire evaluation cache.");
-        console.error("Please provide --yes to confirm you want to delete all cached extractions and scores.");
+        console.error("Error: --clear-all requires --yes to confirm you want to delete all cached extractions and scores.");
         return 1;
       }
-    } else {
-      console.log("No cache directory found to invalidate.");
     }
+
+    if (invalidateRun) {
+      const runDir = join(cacheDir, invalidateRun);
+      if (existsSync(runDir)) {
+        console.log(`Invalidating cache for run: ${invalidateRun}`);
+        rmSync(runDir, { recursive: true, force: true });
+        return 0;
+      } else {
+        console.warn(`Cache for run '${invalidateRun}' not found.`);
+        return 0;
+      }
+    }
+
     return 0;
   };
 
@@ -129,6 +145,16 @@ export async function runEvalMatrix(
       writeFileSync(mdPath, renderMatrixReport(report));
       console.log(`Wrote Markdown report to ${mdPath}`);
     }
+
+    // Write per-cell artifacts
+    const cellsDir = join(outputDir, "cells");
+    mkdirSync(cellsDir, { recursive: true });
+    for (const cell of report.cells) {
+      const cellFileName = `${cell.videoId}-${cell.modelId}-${cell.extractorVariantId}.json`;
+      const cellPath = join(cellsDir, cellFileName);
+      writeFileSync(cellPath, JSON.stringify(cell, null, 2));
+    }
+    console.log(`Wrote ${report.cells.length} cell artifacts to ${cellsDir}`);
   };
 
   try {
@@ -148,13 +174,14 @@ export async function runEvalMatrix(
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
 
     const dryRun = optionBool(cleanOptions, "dry-run");
+    const runId = optionString(cleanOptions, "run-id", "");
     const corpusPath = optionString(cleanOptions, "corpus", "");
     const transcriptDir = optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts");
     const modelsStr = optionString(cleanOptions, "models", "");
     const tier = optionString(cleanOptions, "tier", "");
     const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o");
     const variantsStr = optionString(cleanOptions, "variants", "raw,editorial-pass-v1");
-    const outputDir = optionString(cleanOptions, "output-dir", "out/eval-matrix/reports");
+    const outputDir = optionString(cleanOptions, "output-dir", "");
     const format = optionString(cleanOptions, "format", "both");
     const resume = optionBool(cleanOptions, "resume");
     const maxConcurrency = optionNumber(cleanOptions, "max-concurrency", 1);
@@ -186,13 +213,20 @@ export async function runEvalMatrix(
       return 1;
     }
 
+    // Determine the actual cache dir: segregate by runId if provided, else use default.
+    const runCacheDir = runId ? join(".cache/extraction", runId) : ".cache/extraction";
+    // Determine the actual output dir: segregate by runId if provided, else use default.
+    const finalOutputDir = outputDir || (runId ? join("out/eval-matrix/runs", runId) : "out/eval-matrix/reports");
+
     console.log(`Evaluation Matrix Plan:
+  Run ID: ${runId || 'default'}
   Corpus: ${corpusPath}
   Models: ${models.map(m => m.id).join(", ")}
   Tier: ${tier || 'all'}
   Judge Models: ${judgeModels.join(", ")}
   Variants: ${variantIds.join(", ")}
-  Output Dir: ${outputDir}
+  Output Dir: ${finalOutputDir}
+  Cache Dir: ${runCacheDir}
   Format: ${format}
   Resume: ${resume}
   Max Concurrency: ${maxConcurrency}
@@ -209,8 +243,9 @@ export async function runEvalMatrix(
     const corpusData = corpusResult.data;
 
     const matrixOptions: MatrixOptions = {
-      outputDir,
-      cacheDir: ".cache/extraction",
+      outputDir: finalOutputDir,
+      cacheDir: runCacheDir,
+      runId,
       transcriptDir,
       resume,
       dryRun,

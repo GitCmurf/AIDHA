@@ -32,6 +32,8 @@ export interface ClaimExtractionInput {
   maxClaims?: number;
   /** Optional AbortSignal for cancellation */
   signal?: AbortSignal;
+  /** If true, the extractor should collect and return traces if supported */
+  collectTraces?: boolean;
 }
 
 export interface ClaimExtractor {

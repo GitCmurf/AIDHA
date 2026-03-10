@@ -569,6 +569,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private circuitBreaker: CircuitBreaker;
   private usesEditorRewriteV3: boolean;
   private lastEditorDiagnostics: EditorialDiagnostics | undefined;
+  private lastTraces: Array<{ prompt: { system: string; user: string }; response: string }> = [];
 
   constructor(config: LlmClaimExtractorConfig) {
     this.client = config.client;
@@ -627,6 +628,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     return this.lastEditorDiagnostics;
   }
 
+  getLastTraces(): Array<{ prompt: { system: string; user: string }; response: string }> {
+    return this.lastTraces;
+  }
+
   /**
    * Checks if this extractor instance uses default request tuning parameters.
    * Used to determine whether legacy cache fallback is appropriate.
@@ -645,6 +650,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
     const resource = input.resource;
     const chunked = buildChunks(excerpts, this.chunkMinutes, this.maxChunks);
     const transcriptHash = hashTranscript(excerpts);
+
+    this.lastTraces = [];
 
     const excerptStartMap = new Map<string, number>();
     for (const excerpt of excerpts) {
@@ -832,6 +839,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let response;
     try {
       response = await this.client.generate(request);
+      this.lastTraces.push({
+        prompt: { system: request.system, user: request.user },
+        response: response.ok ? response.value : `Error: ${response.error.message}`
+      });
     } catch (error) {
       this.circuitBreaker.recordFailure();
       console.error(`Editor rewrite error: ${error instanceof Error ? error.message : String(error)}`);
@@ -862,9 +873,14 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     let retry;
     try {
-      retry = await this.client.generate({
+      const retryRequest = {
         ...request,
         user: `${prompt.user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
+      };
+      retry = await this.client.generate(retryRequest);
+      this.lastTraces.push({
+        prompt: { system: retryRequest.system, user: retryRequest.user },
+        response: retry.ok ? retry.value : `Error: ${retry.error.message}`
       });
     } catch (error) {
       this.circuitBreaker.recordFailure();
@@ -1099,6 +1115,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let response;
     try {
       response = await this.client.generate(request);
+      this.lastTraces.push({
+        prompt: { system: request.system, user: request.user },
+        response: response.ok ? response.value : `Error: ${response.error.message}`
+      });
     } catch (error) {
       this.circuitBreaker.recordFailure();
       console.error(`LLM error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
@@ -1142,9 +1162,14 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     let retry;
     try {
-      retry = await this.client.generate({
+      const retryRequest = {
         ...request,
         user: retryUser,
+      };
+      retry = await this.client.generate(retryRequest);
+      this.lastTraces.push({
+        prompt: { system: retryRequest.system, user: retryRequest.user },
+        response: retry.ok ? retry.value : `Error: ${retry.error.message}`
       });
     } catch (error) {
       this.circuitBreaker.recordFailure();

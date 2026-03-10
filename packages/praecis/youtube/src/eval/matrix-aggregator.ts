@@ -1,3 +1,4 @@
+import { getModel } from "./model-registry.js";
 import type { MatrixCell, ScoreDimension } from "./matrix-runner.js";
 
 export type StatName = "mean" | "median" | "min" | "max" | "stddev";
@@ -20,6 +21,7 @@ export interface MatrixReport {
   variantStats: Record<string, { dimensions: DimensionStats }>;
   videoStats: Record<string, { dimensions: DimensionStats }>;
   leaderboards: Record<ScoreDimension, { modelId: string; score: number }[]>;
+  cells: MatrixCell[];
 }
 
 export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
@@ -137,7 +139,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     .map(variantId => ({ variantId, score: variantStats[variantId]?.dimensions.overallScore?.mean ?? 0 }))
     .sort((a, b) => b.score - a.score)[0]?.variantId ?? "None";
 
-  const budgetModels = overallLeaderboard.filter(m => m.modelId.includes("mini") || m.modelId.includes("flash") || m.modelId.includes("r1") || m.modelId.includes("8b"));
+  const budgetModels = overallLeaderboard.filter(m => getModel(m.modelId)?.tier === "budget");
   const bestBudgetModel = budgetModels.length > 0 ? budgetModels[0]!.modelId : "None";
 
   const caveats: string[] = [];
@@ -146,6 +148,11 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   }
   if (cells.length > 0 && cells[0]?.scores && cells[0]!.scores!.length > 1) {
     caveats.push("Multiple judges were used; scores are averaged consensus.");
+  }
+  for (const cell of cells) {
+    if (cell.consensusScore?.isHighVariance) {
+      caveats.push(`Cell ${cell.videoId} / ${cell.modelId} has high score variance.`);
+    }
   }
 
   return {
@@ -165,6 +172,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     variantStats,
     videoStats,
     leaderboards,
+    cells,
   };
 }
 

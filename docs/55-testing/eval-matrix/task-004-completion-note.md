@@ -34,10 +34,25 @@ docops_version: "2.0"
 
 - **Cost Estimation & Dry-Run Planning**: Dry-run mode (`--dry-run`) now calculates and emits
   precise cost estimates for both extraction and judge steps using the latest `costPer1kTokens`
-  model registry pricing. The budget ceiling of $0.50 is actively enforced and warned against.
+  model registry pricing. The Task 004 full-matrix budget ceiling of $25.00 is actively enforced
+  and warned against.
 
 - **Asynchronous I/O**: Transcript loading was refactored to be non-blocking and fully asynchronous
   across large corpora, avoiding main-thread stall issues during batch validation.
+
+- **Run-Scoped Invalidation**: Implemented targeted cache clearing via `--run-id` and
+  `--invalidate-run <runId>`, allowing engineers to re-run specific evaluation slices without
+  wiping the global cache.
+
+- **Consensus & Variance Reporting**: Multi-judge evaluations now automatically compute per-cell
+  consensus mean scores and per-dimension variance. High-variance cells (disagreement between
+  judges where variance > 2.0 on any dimension) are flagged with ⚠️ warnings in the report for
+  manual auditing.
+
+- **Artifact Traces & Structured Logs**: Every evaluation cell now captures the exact
+  prompt/response pairs for extraction and scoring steps. These are exported as stable,
+  machine-readable artifacts under `out/eval-matrix/runs/<runId>/cells/`. Progress is logged with
+  index/total and per-cell durations for better operational visibility.
 
 - **Baseline CI Integration**: A deterministic quality gate is active, failing builds that deviate
   beyond the tolerance threshold when compared to `baseline-report.json`.

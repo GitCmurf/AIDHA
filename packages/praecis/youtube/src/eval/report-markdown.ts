@@ -39,11 +39,23 @@ const renderLeaderboards = (report: MatrixReport): string => {
 export const renderMatrixReport = (report: MatrixReport): string => {
   let md = "# Claim Extraction Evaluation Matrix Report\n\n";
 
-  // Summary
+  // Executive Summary
   md += "## Executive Summary\n\n";
   md += `- **Best Model Overall:** ${report.summary.bestModel}\n`;
   md += `- **Worst Model Overall:** ${report.summary.worstModel}\n`;
   md += `- **Hardest Video:** ${report.summary.hardestVideo}\n\n`;
+
+  const highVarianceCells = report.recommendations?.caveats.filter(c => c.includes("high score variance")) || [];
+  if (highVarianceCells.length > 0) {
+    md += "### ⚠️ High Variance Alerts\n\n";
+    md += "The following cells showed high disagreement between judges and should be manually reviewed:\n\n";
+    for (const caveat of report.recommendations!.caveats) {
+      if (caveat.includes("Cell ")) {
+        md += `- ${caveat}\n`;
+      }
+    }
+    md += "\n";
+  }
 
   if (report.recommendations) {
     md += "### Recommendations for Defaults\n\n";

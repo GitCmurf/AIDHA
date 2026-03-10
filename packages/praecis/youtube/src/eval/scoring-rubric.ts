@@ -32,4 +32,5 @@ export type ClaimSetScore = z.infer<typeof ClaimSetScoreSchema> & {
     judgeModelId: string;
     judgePromptVersion: string;
   };
+  traces?: Array<{ prompt: { system: string; user: string }; response: string }>;
 };

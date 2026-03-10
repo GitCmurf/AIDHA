@@ -13,8 +13,9 @@ export async function scoreClaimSet(
   videoContext: VideoContext,
   maxTokens: number = 4000,
   signal?: AbortSignal
-): Promise<Result<ClaimSetScore>> {
+): Promise<Result<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }> }>> {
   const { system, user } = buildJudgePrompt(transcript, claims, videoContext);
+  const traces: Array<{ prompt: { system: string; user: string }; response: string }> = [];
 
   // First attempt
   const llmResult1 = await judgeClient.generate({
@@ -26,8 +27,10 @@ export async function scoreClaimSet(
     signal,
   });
 
+  traces.push({ prompt: { system, user }, response: llmResult1.ok ? llmResult1.value : `Error: ${llmResult1.error.message}` });
+
   if (!llmResult1.ok) {
-    return llmResult1;
+    return llmResult1 as any; // Cast because Result type is slightly different now but error is same
   }
 
   const result1 = parseAndValidate(llmResult1.value);
@@ -36,7 +39,8 @@ export async function scoreClaimSet(
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    return result1;
+    result1.value.traces = traces;
+    return { ok: true, value: { score: result1.value, traces } };
   }
 
   // Retry once with error feedback AND original context
@@ -51,8 +55,10 @@ export async function scoreClaimSet(
     signal,
   });
 
+  traces.push({ prompt: { system, user: retryUser }, response: llmResult2.ok ? llmResult2.value : `Error: ${llmResult2.error.message}` });
+
   if (!llmResult2.ok) {
-    return llmResult2;
+    return llmResult2 as any;
   }
 
   const result2 = parseAndValidate(llmResult2.value);
@@ -61,7 +67,8 @@ export async function scoreClaimSet(
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    return result2;
+    result2.value.traces = traces;
+    return { ok: true, value: { score: result2.value, traces } };
   }
 
   return { ok: false, error: new Error(`Failed to parse judge score after retry. Last error: ${result2.error.message}`) };

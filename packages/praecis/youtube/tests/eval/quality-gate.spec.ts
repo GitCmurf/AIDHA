@@ -8,10 +8,10 @@ const __dirname = path.dirname(__filename);
 
 describe("CI Quality Gate", () => {
   it("should not regress beyond allowed tolerance against pinned baseline", (ctx) => {
-    const baselinePath = path.join(__dirname, "../fixtures/eval-matrix/baseline-report.json");
-    if (!fs.existsSync(baselinePath)) {
+    const latestPath = path.join(__dirname, "../../../out/eval-matrix/reports/latest.json");
+    if (!fs.existsSync(latestPath)) {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error("Baseline not found, failing quality gate. Create a baseline-report.json to enable this test.");
+        throw new Error("Required 'latest.json' report not found. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.");
       }
       ctx.skip();
       return;

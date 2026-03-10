@@ -26,7 +26,8 @@ vi.mock("../../src/extract/llm-claims", () => ({
       domain: "Test",
       confidence: 1,
       why: "reason"
-    }])
+    }]),
+    getLastTraces: vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }])
   }))
 }));
 

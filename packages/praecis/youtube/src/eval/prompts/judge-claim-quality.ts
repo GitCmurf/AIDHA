@@ -5,8 +5,11 @@ export const JUDGE_PROMPT_VERSION = "v1";
 
 function sanitizePromptInput(text: string): string {
   return text
+    .replace(/<TRANSCRIPT>/gi, "< TRANSCRIPT>")
     .replace(/<\/TRANSCRIPT>/gi, "< /TRANSCRIPT>")
+    .replace(/<VIDEO_METADATA>/gi, "< VIDEO_METADATA>")
     .replace(/<\/VIDEO_METADATA>/gi, "< /VIDEO_METADATA>")
+    .replace(/<CANDIDATE_CLAIMS>/gi, "< CANDIDATE_CLAIMS>")
     .replace(/<\/CANDIDATE_CLAIMS>/gi, "< /CANDIDATE_CLAIMS>");
 }
 

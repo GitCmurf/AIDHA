@@ -34,6 +34,9 @@ pipeline. To prevent regressions, we maintain a pinned baseline report.
 The CI quality gate (`tests/eval/quality-gate.spec.ts`) compares the `latest.json` report against
 `baseline-report.json`.
 
+**Prerequisite:** You must run the evaluation matrix (step 2 below) to generate `latest.json`
+before running this test.
+
 It fails if:
 
 - A model's score drops by more than the allowed tolerance (default: 1.0 points).
@@ -69,8 +72,15 @@ baseline needs to be refreshed.
 
 3. **Verify the new report:**
 
-   Check `out/eval-matrix/reports/latest.json` and `latest.md`. Review the scorecard and ensure the
-   scores are acceptable and truly reflect an improvement (or an expected change).
+   Check the run output directory (default: `out/eval-matrix/reports/` or
+   `out/eval-matrix/runs/<runId>/`).
+
+   Review:
+   - `latest.md`: Executive summary and scorecards.
+   - `latest.json`: Machine-readable aggregate data.
+   - `cells/*.json`: Per-cell detailed artifacts including extraction/scoring traces.
+
+   Ensure the scores are acceptable and truly reflect an improvement (or an expected change).
 
 4. **Pin the new baseline:**
 

@@ -15,6 +15,7 @@ import {
   computeClaimSetHash,
 } from "./matrix-cache.js";
 import { scoreClaimSet } from "./scoring-executor.js";
+import { computeConsensus } from "./consensus-scorer.js";
 import { LlmClaimExtractor } from "../extract/llm-claims.js";
 import type { LlmClient } from "../extract/llm-client.js";
 import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
@@ -38,6 +39,7 @@ export interface MatrixOptions {
   transcriptDir: string;
   resume: boolean;
   dryRun: boolean;
+  runId?: string;
   variants: ExtractorVariantId[];
   judgeModels: string[];
   maxConcurrency: number;
@@ -65,12 +67,17 @@ export interface MatrixCell {
   consensusScore?: {
     mean: ClaimSetScore;
     variance: Partial<Record<ScoreDimension, number>>;
+    isHighVariance: boolean;
   };
   error?: { message: string; code?: string };
   costEstimate?: {
     extractionUsd: number;
     judgeUsd: number;
     totalUsd: number;
+  };
+  traces?: {
+    extraction?: { prompt: { system: string; user: string }; response: string }[];
+    scoring?: Record<string, { prompt: { system: string; user: string }; response: string }[]>;
   };
 }
 
@@ -79,6 +86,7 @@ export interface MatrixResult {
   metadata: {
     startedAt: string;
     completedAt?: string;
+    runId?: string;
     config: Record<string, unknown>; // Serializable config
     failedCellCount: number;
   };
@@ -117,7 +125,7 @@ const performExtraction = async (
   resource: GraphNode,
   excerpts: GraphNode[],
   promptVersion: string
-): Promise<ClaimCandidate[]> => {
+): Promise<{ claims: ClaimCandidate[]; traces: { prompt: { system: string; user: string }; response: string }[] }> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
@@ -133,11 +141,14 @@ const performExtraction = async (
       maxChunks: options.extractionMaxChunks,
     });
 
-    return await extractor.extractClaims({
+    const claims = await extractor.extractClaims({
       resource,
       excerpts,
       signal: controller.signal,
+      collectTraces: true,
     });
+
+    return { claims, traces: extractor.getLastTraces() };
   } finally {
     clearTimeout(timeout);
   }
@@ -150,7 +161,7 @@ const performScoring = async (
   claimSet: ClaimCandidate[],
   videoContext: VideoContext,
   options: MatrixOptions
-): Promise<ClaimSetScore> => {
+): Promise<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }> }> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
@@ -184,10 +195,16 @@ const getScoresForCell = async (
   videoContext: VideoContext,
   claimSetHash: string,
   judgePromptVersion: string
-): Promise<{ scores: ClaimSetScore[]; hasFailure: boolean; judgeUsdEstimate: number }> => {
+): Promise<{
+  scores: ClaimSetScore[];
+  hasFailure: boolean;
+  judgeUsdEstimate: number;
+  traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>>;
+}> => {
   const scores: ClaimSetScore[] = [];
   let cellHasScoringFailure = false;
   let judgeUsdEstimate = 0;
+  const traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>> = {};
 
   for (const judgeModelId of options.judgeModels) {
     const judgeModel = getModel(judgeModelId);
@@ -218,7 +235,7 @@ const getScoresForCell = async (
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     } else {
       try {
-        const score = await performScoring(
+        const scoreResult = await performScoring(
           model.id,
           judgeModelId,
           fullText,
@@ -226,6 +243,9 @@ const getScoresForCell = async (
           videoContext,
           options
         );
+
+        const score = scoreResult.score;
+        traces[judgeModelId] = scoreResult.traces;
 
         scores.push(score);
         try {
@@ -252,7 +272,7 @@ const getScoresForCell = async (
     }
   }
 
-  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate };
+  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, traces };
 };
 
 const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
@@ -305,7 +325,7 @@ const getExtractionForCell = async (
   }
 
   try {
-    const claims = await performExtraction(
+    const extractionResult = await performExtraction(
       model.id,
       variant,
       options,
@@ -318,8 +338,11 @@ const getExtractionForCell = async (
       videoId: video.videoId,
       modelId: model.id,
       extractorVariantId: variant,
-      claimSet: claims,
+      claimSet: extractionResult.claims,
       costEstimate,
+      traces: {
+        extraction: extractionResult.traces,
+      }
     };
 
     try {
@@ -423,6 +446,8 @@ const prepareTranscriptDataAsync = async (
 };
 
 const processCell = async (
+  cellIndex: number,
+  totalCells: number,
   video: CorpusEntry,
   model: EvalModel,
   variant: ExtractorVariantId,
@@ -440,8 +465,9 @@ const processCell = async (
   onFailure: () => void
 ) => {
   await semaphore.acquire();
+  const cellStartedAt = Date.now();
   try {
-    console.log(`[cell] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
+    console.log(`[cell ${cellIndex + 1}/${totalCells}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
     if ("error" in transcriptDataResult) {
       cells.push({
@@ -495,7 +521,7 @@ const processCell = async (
     const claimSetHash = computeClaimSetHash(cell.claimSet);
     const judgePromptVersion = JUDGE_PROMPT_VERSION;
 
-    const { scores, hasFailure, judgeUsdEstimate } = await getScoresForCell(
+    const { scores, hasFailure, judgeUsdEstimate, traces: scoringTraces } = await getScoresForCell(
       video,
       model,
       cell,
@@ -517,7 +543,28 @@ const processCell = async (
     }
 
     cell.scores = scores;
+    if (scoringTraces && Object.keys(scoringTraces).length > 0) {
+      cell.traces = {
+        ...cell.traces,
+        scoring: scoringTraces,
+      };
+    }
+
+    const consensus = computeConsensus(scores);
+    if (consensus) {
+      cell.consensusScore = {
+        mean: consensus.mean,
+        variance: consensus.variance,
+        isHighVariance: consensus.isHighVariance,
+      };
+      if (consensus.isHighVariance) {
+        console.warn(`[high-variance] Cell ${video.videoId} / ${model.id} has high score variance between judges.`);
+      }
+    }
+
     cells.push(cell);
+    const durationMs = Date.now() - cellStartedAt;
+    console.log(`[cell ${cellIndex + 1}/${totalCells}] done in ${durationMs}ms`);
   } finally {
     semaphore.release();
   }
@@ -554,6 +601,9 @@ export const runEvaluationMatrix = async (
     })
   );
 
+  const totalCells = corpus.length * models.length * options.variants.length;
+  let currentCellIndex = 0;
+
   for (const video of corpus) {
     const transcriptDataResult = transcriptCache.get(video.videoId);
     if (!transcriptDataResult) continue;
@@ -562,6 +612,8 @@ export const runEvaluationMatrix = async (
       for (const variant of options.variants) {
         tasks.push(
           processCell(
+            currentCellIndex++,
+            totalCells,
             video,
             model,
             variant,
@@ -588,6 +640,7 @@ export const runEvaluationMatrix = async (
     metadata: {
       startedAt,
       completedAt: new Date().toISOString(),
+      runId: options.runId,
       config: serializableConfig as Record<string, unknown>,
       failedCellCount,
     },
