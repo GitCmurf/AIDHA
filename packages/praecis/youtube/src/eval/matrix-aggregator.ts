@@ -1,4 +1,5 @@
 import { getModel } from "./model-registry.js";
+import { SCORE_DIMENSIONS } from "./scoring-rubric.js";
 import type { MatrixCell, ScoreDimension } from "./matrix-runner.js";
 
 export type StatName = "mean" | "median" | "min" | "max" | "stddev";
@@ -24,6 +25,19 @@ export interface MatrixReport {
   cells: MatrixCell[];
 }
 
+/**
+ * Creates an empty score record with all dimensions initialized to empty arrays.
+ */
+function createEmptyScoreRecord(): Record<ScoreDimension, number[]> {
+  return {
+    completeness: [],
+    accuracy: [],
+    topicCoverage: [],
+    atomicity: [],
+    overallScore: []
+  };
+}
+
 export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   const modelScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const variantScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
@@ -31,14 +45,6 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
 
   let totalExtractionUsd = 0;
   let totalJudgeUsd = 0;
-
-  const dimensions: ScoreDimension[] = [
-    "completeness",
-    "accuracy",
-    "topicCoverage",
-    "atomicity",
-    "overallScore",
-  ];
 
   for (const cell of cells) {
     if (cell.costEstimate) {
@@ -59,27 +65,27 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     };
 
     for (const score of cell.scores) {
-      for (const dim of dimensions) {
+      for (const dim of SCORE_DIMENSIONS) {
         aggregatedScore[dim] += score[dim] || 0;
       }
     }
 
     const judgeCount = cell.scores.length;
-    for (const dim of dimensions) {
+    for (const dim of SCORE_DIMENSIONS) {
       aggregatedScore[dim] /= judgeCount;
     }
 
     if (!modelScores[cell.modelId]) {
-      modelScores[cell.modelId] = { completeness: [], accuracy: [], topicCoverage: [], atomicity: [], overallScore: [] };
+      modelScores[cell.modelId] = createEmptyScoreRecord();
     }
     if (!variantScores[cell.extractorVariantId]) {
-      variantScores[cell.extractorVariantId] = { completeness: [], accuracy: [], topicCoverage: [], atomicity: [], overallScore: [] };
+      variantScores[cell.extractorVariantId] = createEmptyScoreRecord();
     }
     if (!videoScores[cell.videoId]) {
-      videoScores[cell.videoId] = { completeness: [], accuracy: [], topicCoverage: [], atomicity: [], overallScore: [] };
+      videoScores[cell.videoId] = createEmptyScoreRecord();
     }
 
-    for (const dim of dimensions) {
+    for (const dim of SCORE_DIMENSIONS) {
       const dimScore = aggregatedScore[dim];
       if (dimScore !== undefined) {
         modelScores[cell.modelId]![dim].push(dimScore);
@@ -112,7 +118,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     overallScore: []
   };
 
-  for (const dim of dimensions) {
+  for (const dim of SCORE_DIMENSIONS) {
     const sorted = Object.keys(modelStats)
       .map(modelId => {
         const mean = modelStats[modelId]?.dimensions[dim]?.mean ?? 0;
@@ -178,15 +184,8 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
 
 function calculateDimensionStats(scores: Record<ScoreDimension, number[]>): DimensionStats {
   const result: Partial<DimensionStats> = {};
-  const dimensions: ScoreDimension[] = [
-    "completeness",
-    "accuracy",
-    "topicCoverage",
-    "atomicity",
-    "overallScore",
-  ];
 
-  for (const dim of dimensions) {
+  for (const dim of SCORE_DIMENSIONS) {
     const values = scores[dim];
     if (!values || values.length === 0) {
       result[dim] = { mean: 0, median: 0, min: 0, max: 0, stddev: 0 };

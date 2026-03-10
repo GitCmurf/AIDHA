@@ -1,19 +1,11 @@
 import type { ClaimSetScore } from "./scoring-rubric.js";
-import type { ScoreDimension } from "./matrix-runner.js";
+import { SCORE_DIMENSIONS } from "./scoring-rubric.js";
 
 export interface ConsensusResult {
   mean: ClaimSetScore;
-  variance: Partial<Record<ScoreDimension, number>>;
+  variance: Partial<keyof ClaimSetScore, number>;
   isHighVariance: boolean;
 }
-
-const DIMENSIONS: ScoreDimension[] = [
-  "completeness",
-  "accuracy",
-  "topicCoverage",
-  "atomicity",
-  "overallScore",
-];
 
 export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | null => {
   if (scores.length === 0) return null;
@@ -30,7 +22,7 @@ export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | nul
   let isHighVariance = false;
   const VARIANCE_THRESHOLD = 2.0; // Variance > 2.0 as per Task 004
 
-  for (const dim of DIMENSIONS) {
+  for (const dim of SCORE_DIMENSIONS) {
     const values = scores.map((s) => s[dim]);
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
     mean[dim] = Number(avg.toFixed(2));

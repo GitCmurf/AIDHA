@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+/**
+ * Canonical list of score dimensions used across the evaluation system.
+ * Import this wherever you need to iterate over score dimensions.
+ */
+export const SCORE_DIMENSIONS = ["completeness", "accuracy", "topicCoverage", "atomicity", "overallScore"] as const;
+export type ScoreDimension = (typeof SCORE_DIMENSIONS)[number];
+
 export const ClaimSetScoreSchema = z.object({
   completeness: z.number().min(0).max(10),
   accuracy: z.number().min(0).max(10),

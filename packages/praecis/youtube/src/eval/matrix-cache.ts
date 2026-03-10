@@ -1,6 +1,6 @@
-import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { hashId } from "../utils/ids.js";
 import type { MatrixCell } from "./matrix-runner.js";
 import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
 
@@ -8,8 +8,14 @@ export interface CacheOptions {
   cacheDir: string;
 }
 
-function hashString(str: string): string {
-  return crypto.createHash("sha256").update(str).digest("hex");
+// Track if cache directory has been created to avoid redundant mkdir calls
+let cacheDirInitialized = false;
+
+async function ensureCacheDir(cacheDir: string): Promise<void> {
+  if (!cacheDirInitialized) {
+    await fs.mkdir(cacheDir, { recursive: true });
+    cacheDirInitialized = true;
+  }
 }
 
 export async function getCachedExtraction(
@@ -20,7 +26,7 @@ export async function getCachedExtraction(
   extractorVersion: string,
   options: CacheOptions
 ): Promise<MatrixCell | null> {
-  const key = hashString([videoId, modelId, extractorVariantId, promptVersion, extractorVersion].join('\x00'));
+  const key = hashId("extraction", [videoId, modelId, extractorVariantId, promptVersion, extractorVersion]);
   const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
 
   try {
@@ -45,10 +51,10 @@ export async function setCachedExtraction(
   cell: MatrixCell,
   options: CacheOptions
 ): Promise<void> {
-  const key = hashString([videoId, modelId, extractorVariantId, promptVersion, extractorVersion].join('\x00'));
+  const key = hashId("extraction", [videoId, modelId, extractorVariantId, promptVersion, extractorVersion]);
   const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
 
-  await fs.mkdir(options.cacheDir, { recursive: true });
+  await ensureCacheDir(options.cacheDir);
   await fs.writeFile(filePath, JSON.stringify(cell, null, 2), "utf-8");
 }
 
@@ -60,7 +66,7 @@ export async function getCachedScore(
   judgePromptVersion: string,
   options: CacheOptions
 ): Promise<ClaimSetScore[] | null> {
-  const key = hashString([videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion].join('\x00'));
+  const key = hashId("score", [videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion]);
   const filePath = path.join(options.cacheDir, `score-${key}.json`);
 
   try {
@@ -86,13 +92,13 @@ export async function setCachedScore(
   scores: ClaimSetScore[],
   options: CacheOptions
 ): Promise<void> {
-  const key = hashString([videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion].join('\x00'));
+  const key = hashId("score", [videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion]);
   const filePath = path.join(options.cacheDir, `score-${key}.json`);
 
-  await fs.mkdir(options.cacheDir, { recursive: true });
+  await ensureCacheDir(options.cacheDir);
   await fs.writeFile(filePath, JSON.stringify(scores, null, 2), "utf-8");
 }
 
 export function computeClaimSetHash(claims: any[]): string {
-  return hashString(JSON.stringify(claims));
+  return hashId("claims", [JSON.stringify(claims)]);
 }
