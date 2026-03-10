@@ -6,14 +6,10 @@ import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
 import { MODEL_REGISTRY } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
+import type { LlmClient } from "../../src/extract/llm-client";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(),
-  writeFile: vi.fn().mockResolvedValue(),
-  readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
-}));
-vi.mock("fs/promises", () => ({
   mkdir: vi.fn().mockResolvedValue(),
   writeFile: vi.fn().mockResolvedValue(),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
@@ -35,28 +31,31 @@ vi.mock("../../src/extract/llm-claims", () => ({
 }));
 
 describe("Matrix Runner Integration", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+  const createTestVideo = (
+    id: string,
+    duration: number,
+    density: "low" | "medium" | "high"
+  ) => ({
+    videoId: id,
+    url: `http://${id}`,
+    title: `Video ${id.replace("v", "")}`,
+    channelName: `Channel ${id.replace("v", "")}`,
+    durationMinutes: duration,
+    topicDomain: "Test",
+    expectedClaimDensity: density as const,
+    rationale: "test",
+  });
+
   it("should run a 5-video x 2-model matrix and generate report", async () => {
     const corpus = [
-      {
-        videoId: "v1", url: "http://v1", title: "Video 1", channelName: "Channel 1",
-        durationMinutes: 10, topicDomain: "Test", expectedClaimDensity: "low" as const, rationale: "test"
-      },
-      {
-        videoId: "v2", url: "http://v2", title: "Video 2", channelName: "Channel 2",
-        durationMinutes: 20, topicDomain: "Test", expectedClaimDensity: "medium" as const, rationale: "test"
-      },
-      {
-        videoId: "v3", url: "http://v3", title: "Video 3", channelName: "Channel 3",
-        durationMinutes: 30, topicDomain: "Test", expectedClaimDensity: "high" as const, rationale: "test"
-      },
-      {
-        videoId: "v4", url: "http://v4", title: "Video 4", channelName: "Channel 4",
-        durationMinutes: 40, topicDomain: "Test", expectedClaimDensity: "low" as const, rationale: "test"
-      },
-      {
-        videoId: "v5", url: "http://v5", title: "Video 5", channelName: "Channel 5",
-        durationMinutes: 50, topicDomain: "Test", expectedClaimDensity: "medium" as const, rationale: "test"
-      }
+      createTestVideo("v1", 10, "low"),
+      createTestVideo("v2", 20, "medium"),
+      createTestVideo("v3", 30, "high"),
+      createTestVideo("v4", 40, "low"),
+      createTestVideo("v5", 50, "medium"),
     ];
 
     const models = MODEL_REGISTRY.slice(0, 2);
@@ -105,10 +104,10 @@ describe("Matrix Runner Integration", () => {
       dryRun: false,
       variants: ["raw" as const],
       judgeModels: ["gpt-4o"],
-      maxConcurrency: 1,
+      maxConcurrency: 2,
       timeoutMs: 1000,
-      extractorClientFactory: () => ({}) as unknown as any,
-      judgeClientFactory: () => mockJudgeClient as unknown as any,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: () => mockJudgeClient as unknown as LlmClient,
     };
 
     const result = await runEvaluationMatrix(corpus, models, options);
