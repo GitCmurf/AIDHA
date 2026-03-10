@@ -64,20 +64,25 @@ const loadCorpusData = (corpusPath: string) => {
   }
 };
 
-const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | number => {
-  let modelIds: string[] = [];
+const resolveModelIds = (modelsStr: string, tier: string): string[] | number => {
   if (modelsStr) {
-    modelIds = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
-  } else if (tier) {
-    modelIds = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
-    if (modelIds.length === 0) {
+    return modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  if (tier) {
+    const ids = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
+    if (ids.length === 0) {
       // skipcq: JS-0002
       console.error(`No models found for tier: ${tier}`);
       return 1;
     }
-  } else {
-    modelIds = ["gpt-4o-mini"];
+    return ids;
   }
+  return ["gpt-4o-mini"];
+};
+
+const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | number => {
+  const modelIds = resolveModelIds(modelsStr, tier);
+  if (typeof modelIds === "number") return modelIds;
 
   try {
     return modelIds.map(id => {
@@ -90,6 +95,18 @@ const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | 
     console.error(err instanceof Error ? err.message : String(err));
     return 1;
   }
+};
+
+const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => {
+  const cellsDir = join(outputDir, "cells");
+  mkdirSync(cellsDir, { recursive: true });
+  for (const cell of cells) {
+    const cellFileName = `${cell.videoId}-${cell.modelId}-${cell.extractorVariantId}.json`;
+    const cellPath = join(cellsDir, cellFileName);
+    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
+  }
+  // skipcq: JS-0002
+  console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
 };
 
 const writeReports = (report: MatrixReport, outputDir: string, format: string) => {
@@ -109,16 +126,7 @@ const writeReports = (report: MatrixReport, outputDir: string, format: string) =
     console.log(`Wrote Markdown report to ${mdPath}`);
   }
 
-  // Write per-cell artifacts
-  const cellsDir = join(outputDir, "cells");
-  mkdirSync(cellsDir, { recursive: true });
-  for (const cell of report.cells) {
-    const cellFileName = `${cell.videoId}-${cell.modelId}-${cell.extractorVariantId}.json`;
-    const cellPath = join(cellsDir, cellFileName);
-    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
-  }
-  // skipcq: JS-0002
-  console.log(`Wrote ${report.cells.length} cell artifacts to ${cellsDir}`);
+  writeCellArtifacts(report.cells, outputDir);
 };
 
 interface PrintPlanArgs {
@@ -265,6 +273,54 @@ const handleCostReporting = (matrixResult: MatrixResult, isDryRun: boolean) => {
   }
 };
 
+const validateBasicInputs = (parsedOpts: any, variantIds: string[]) => {
+  if (!["both", "json", "md"].includes(parsedOpts.format)) {
+    // skipcq: JS-0002
+    console.error(`Invalid format: ${parsedOpts.format}. Must be one of: both, json, md`);
+    return 1;
+  }
+
+  if (!parsedOpts.corpusPath) {
+    // skipcq: JS-0002
+    console.error("Error: --corpus <path> is required.");
+    return 1;
+  }
+
+  const invalidVariants = variantIds.filter(v => !isValidVariant(v));
+  if (invalidVariants.length > 0) {
+    // skipcq: JS-0002
+    console.error(`Invalid variants provided: ${invalidVariants.join(", ")}`);
+    // skipcq: JS-0002
+    console.error(`Valid variants: ${EXTRACTOR_VARIANTS.join(", ")}`);
+    return 1;
+  }
+  return 0;
+};
+
+const handleExecutionResult = (result: MatrixResult, parsedOpts: any, finalOutputDir: string) => {
+  if (parsedOpts.dryRun) {
+    // skipcq: JS-0002
+    console.log("Dry run complete. No real LLM calls were made.");
+    if (result.metadata.failedCellCount > 0) {
+      // skipcq: JS-0002
+      console.warn(`Dry run detected ${result.metadata.failedCellCount} failed cells (e.g. missing transcripts). Resolve before a real run.`);
+      return 1;
+    }
+    return 0;
+  }
+
+  const report = aggregateMatrixResults(result.cells);
+  writeReports(report, finalOutputDir, parsedOpts.format);
+
+  if (result.metadata.failedCellCount > 0) {
+    // skipcq: JS-0002
+    console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
+    return 1;
+  }
+
+  return 0;
+};
+
 export const runEvalMatrix = async (
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
@@ -287,33 +343,15 @@ export const runEvalMatrix = async (
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
 
     const parsedOpts = parseRunOptions(cleanOptions);
+    const variantIds = parsedOpts.variantsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
 
-    if (!["both", "json", "md"].includes(parsedOpts.format)) {
-      // skipcq: JS-0002
-      console.error(`Invalid format: ${parsedOpts.format}. Must be one of: both, json, md`);
-      return 1;
-    }
-
-    if (!parsedOpts.corpusPath) {
-      // skipcq: JS-0002
-      console.error("Error: --corpus <path> is required.");
-      return 1;
-    }
+    const validationError = validateBasicInputs(parsedOpts, variantIds);
+    if (validationError !== 0) return validationError;
 
     const models = getModelsFromIdsOrTier(parsedOpts.modelsStr, parsedOpts.tier);
     if (typeof models === "number") return models;
 
-    const judgeModels = parsedOpts.judgeModelsStr.split(",").map(s => s.trim()).filter(Boolean);
-    const variantIds = parsedOpts.variantsStr.split(",").map(s => s.trim()).filter(Boolean);
-
-    const invalidVariants = variantIds.filter(v => !isValidVariant(v));
-    if (invalidVariants.length > 0) {
-      // skipcq: JS-0002
-      console.error(`Invalid variants provided: ${invalidVariants.join(", ")}`);
-      // skipcq: JS-0002
-      console.error(`Valid variants: ${EXTRACTOR_VARIANTS.join(", ")}`);
-      return 1;
-    }
+    const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
 
     const runCacheDir = parsedOpts.runId ? join(".cache/extraction", parsedOpts.runId) : ".cache/extraction";
     const finalOutputDir = parsedOpts.outputDir || (parsedOpts.runId ? join("out/eval-matrix/runs", parsedOpts.runId) : "out/eval-matrix/reports");
@@ -325,7 +363,6 @@ export const runEvalMatrix = async (
 
     const corpusResult = loadCorpusData(parsedOpts.corpusPath);
     if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
-    const corpusData = corpusResult.data;
 
     const matrixOptions: MatrixOptions = {
       outputDir: finalOutputDir,
@@ -341,38 +378,14 @@ export const runEvalMatrix = async (
       extractionMaxTokens: parsedOpts.extractionMaxTokens,
       extractionMaxChunks: parsedOpts.extractionMaxChunks,
       judgeMaxTokens: parsedOpts.judgeMaxTokens,
-      extractorClientFactory: (modelId: string) => {
-        return createProviderAwareClient(modelId, config.llm);
-      },
-      judgeClientFactory: (modelId: string) => {
-        return createProviderAwareClient(modelId, config.llm);
-      }
+      extractorClientFactory: (modelId: string) => createProviderAwareClient(modelId, config.llm),
+      judgeClientFactory: (modelId: string) => createProviderAwareClient(modelId, config.llm)
     };
 
-    const result = await runEvaluationMatrix(corpusData, models, matrixOptions);
+    const result = await runEvaluationMatrix(corpusResult.data, models, matrixOptions);
     handleCostReporting(result, parsedOpts.dryRun);
 
-    if (parsedOpts.dryRun) {
-      // skipcq: JS-0002
-      console.log("Dry run complete. No real LLM calls were made.");
-      if (result.metadata.failedCellCount > 0) {
-        // skipcq: JS-0002
-        console.warn(`Dry run detected ${result.metadata.failedCellCount} failed cells (e.g. missing transcripts). Resolve before a real run.`);
-        return 1;
-      }
-      return 0;
-    }
-
-    const report = aggregateMatrixResults(result.cells);
-    writeReports(report, finalOutputDir, parsedOpts.format);
-
-    if (result.metadata.failedCellCount > 0) {
-      // skipcq: JS-0002
-      console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
-      return 1;
-    }
-
-    return 0;
+    return handleExecutionResult(result, parsedOpts, finalOutputDir);
   } catch (error) {
     // skipcq: JS-0002
     console.error("Evaluation failed:", error);
