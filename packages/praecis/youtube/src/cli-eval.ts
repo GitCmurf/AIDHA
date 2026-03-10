@@ -1,15 +1,15 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { runEvaluationMatrix, type MatrixOptions } from "./eval/matrix-runner.js";
+import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
 import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggregator.js";
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
-import { EXTRACTOR_VARIANTS, isValidVariant } from "./eval/extractor-variants.js";
+import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./eval/extractor-variants.js";
 import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
-import { CorpusSchema } from "./eval/corpus-schema.js";
+import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 
 export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
   const model = getModel(modelId);
@@ -95,6 +95,19 @@ const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | 
     console.error(err instanceof Error ? err.message : String(err));
     return 1;
   }
+};
+
+const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => {
+  const cellsDir = join(outputDir, "cells");
+  mkdirSync(cellsDir, { recursive: true });
+  for (const cell of cells) {
+    const safeModelId = cell.modelId.replace(/[/\\]/g, "_");
+    const cellFileName = `${cell.videoId}-${safeModelId}-${cell.extractorVariantId}.json`;
+    const cellPath = join(cellsDir, cellFileName);
+    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
+  }
+  // skipcq: JS-0002
+  console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
 };
 
 const writeReports = (report: MatrixReport, outputDir: string, format: string) => {
@@ -280,19 +293,6 @@ const handleCostReporting = (matrixResult: MatrixResult, isDryRun: boolean) => {
   }
 };
 
-const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => {
-  const cellsDir = join(outputDir, "cells");
-  mkdirSync(cellsDir, { recursive: true });
-  for (const cell of cells) {
-    const safeModelId = cell.modelId.replace(/[/\\]/g, "_");
-    const cellFileName = `${cell.videoId}-${safeModelId}-${cell.extractorVariantId}.json`;
-    const cellPath = join(cellsDir, cellFileName);
-    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
-  }
-  // skipcq: JS-0002
-  console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
-};
-
 const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) => {
   if (!["both", "json", "md"].includes(parsedOpts.format)) {
     // skipcq: JS-0002
@@ -342,7 +342,7 @@ const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions,
 };
 
 const executeMatrixEvaluation = async (
-  corpusData: any,
+  corpusData: CorpusEntry[],
   models: EvalModel[],
   parsedOpts: EvalRunOptions,
   variantIds: string[],
@@ -358,7 +358,7 @@ const executeMatrixEvaluation = async (
     transcriptDir: parsedOpts.transcriptDir,
     resume: parsedOpts.resume,
     dryRun: parsedOpts.dryRun,
-    variants: variantIds as any[],
+    variants: variantIds as ExtractorVariantId[],
     judgeModels,
     maxConcurrency: parsedOpts.maxConcurrency,
     timeoutMs: parsedOpts.timeoutMs,
