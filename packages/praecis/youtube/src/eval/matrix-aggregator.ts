@@ -5,6 +5,17 @@ export type DimensionStats = Record<ScoreDimension, Record<StatName, number>>;
 
 export interface MatrixReport {
   summary: { bestModel: string; worstModel: string; hardestVideo: string };
+  recommendations?: {
+    bestDefaultModel: string;
+    bestBudgetModel: string;
+    bestVariant: string;
+    caveats: string[];
+  };
+  costEstimate?: {
+    extractionUsd: number;
+    judgeUsd: number;
+    totalUsd: number;
+  };
   modelStats: Record<string, { dimensions: DimensionStats }>;
   variantStats: Record<string, { dimensions: DimensionStats }>;
   videoStats: Record<string, { dimensions: DimensionStats }>;
@@ -16,6 +27,9 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   const variantScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const videoScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
 
+  let totalExtractionUsd = 0;
+  let totalJudgeUsd = 0;
+
   const dimensions: ScoreDimension[] = [
     "completeness",
     "accuracy",
@@ -25,6 +39,11 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
   ];
 
   for (const cell of cells) {
+    if (cell.costEstimate) {
+      totalExtractionUsd += cell.costEstimate.extractionUsd;
+      totalJudgeUsd += cell.costEstimate.judgeUsd;
+    }
+
     if (cell.error) continue;
     if (!cell.scores || cell.scores.length === 0) continue;
 
@@ -113,8 +132,35 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     .sort((a, b) => a.score - b.score || a.videoId.localeCompare(b.videoId));
   const hardestVideo = videoLeaderboard.length > 0 ? (videoLeaderboard[0]?.videoId ?? "None") : "None";
 
+  // Recommendation Logic
+  const bestVariant = Object.keys(variantStats)
+    .map(variantId => ({ variantId, score: variantStats[variantId]?.dimensions.overallScore?.mean ?? 0 }))
+    .sort((a, b) => b.score - a.score)[0]?.variantId ?? "None";
+
+  const budgetModels = overallLeaderboard.filter(m => m.modelId.includes("mini") || m.modelId.includes("flash") || m.modelId.includes("r1") || m.modelId.includes("8b"));
+  const bestBudgetModel = budgetModels.length > 0 ? budgetModels[0]!.modelId : "None";
+
+  const caveats: string[] = [];
+  if (cells.some(c => c.error)) {
+    caveats.push("Some cells failed during extraction or scoring, which may skew the results.");
+  }
+  if (cells.length > 0 && cells[0]?.scores && cells[0]!.scores!.length > 1) {
+    caveats.push("Multiple judges were used; scores are averaged consensus.");
+  }
+
   return {
     summary: { bestModel, worstModel, hardestVideo },
+    recommendations: {
+      bestDefaultModel: bestModel,
+      bestBudgetModel,
+      bestVariant,
+      caveats,
+    },
+    costEstimate: {
+      extractionUsd: totalExtractionUsd,
+      judgeUsd: totalJudgeUsd,
+      totalUsd: totalExtractionUsd + totalJudgeUsd
+    },
     modelStats,
     variantStats,
     videoStats,

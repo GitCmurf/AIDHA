@@ -6,7 +6,7 @@ import type { ClaimCandidate } from "../extract/types.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { ClaimSetScore } from "./scoring-rubric.js";
 import type { CorpusEntry } from "./corpus-schema.js";
-import type { EvalModel } from "./model-registry.js";
+import { getModel, type EvalModel } from "./model-registry.js";
 import {
   getCachedExtraction,
   setCachedExtraction,
@@ -67,6 +67,11 @@ export interface MatrixCell {
     variance: Partial<Record<ScoreDimension, number>>;
   };
   error?: { message: string; code?: string };
+  costEstimate?: {
+    extractionUsd: number;
+    judgeUsd: number;
+    totalUsd: number;
+  };
 }
 
 export interface MatrixResult {
@@ -179,11 +184,23 @@ const getScoresForCell = async (
   videoContext: VideoContext,
   claimSetHash: string,
   judgePromptVersion: string
-): Promise<{ scores: ClaimSetScore[]; hasFailure: boolean }> => {
+): Promise<{ scores: ClaimSetScore[]; hasFailure: boolean; judgeUsdEstimate: number }> => {
   const scores: ClaimSetScore[] = [];
   let cellHasScoringFailure = false;
+  let judgeUsdEstimate = 0;
 
   for (const judgeModelId of options.judgeModels) {
+    const judgeModel = getModel(judgeModelId);
+    if (judgeModel) {
+      // Estimate judge cost (assume 1k prompt tokens + text + claims, ~200 output tokens)
+      const claimTextLen = cell.claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
+      const inputTokens = estimateTokens(fullText) + estimateTokens(String(claimTextLen)) + 1000;
+      const outputTokens = 200;
+      judgeUsdEstimate +=
+        (inputTokens / 1000) * judgeModel.costPer1kTokens.input +
+        (outputTokens / 1000) * judgeModel.costPer1kTokens.output;
+    }
+
     const cachedScores = options.resume
       ? await getCachedScore(
           video.videoId,
@@ -235,8 +252,10 @@ const getScoresForCell = async (
     }
   }
 
-  return { scores, hasFailure: cellHasScoringFailure };
+  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate };
 };
+
+const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
 
 const getExtractionForCell = async (
   video: CorpusEntry,
@@ -263,6 +282,17 @@ const getExtractionForCell = async (
 
   if (cell) return cell;
 
+  const inputTokens = estimateTokens(resource.content as string) + 1000; // roughly 1k for prompt
+  const outputTokens = 500;
+  const extractionUsd =
+    (inputTokens / 1000) * model.costPer1kTokens.input +
+    (outputTokens / 1000) * model.costPer1kTokens.output;
+  const costEstimate = {
+    extractionUsd,
+    judgeUsd: 0,
+    totalUsd: extractionUsd,
+  };
+
   if (options.dryRun) {
     console.log(`[dry-run] Would extract claims for ${video.videoId} using ${model.id}`);
     return {
@@ -270,6 +300,7 @@ const getExtractionForCell = async (
       modelId: model.id,
       extractorVariantId: variant,
       claimSet: [],
+      costEstimate,
     };
   }
 
@@ -288,6 +319,7 @@ const getExtractionForCell = async (
       modelId: model.id,
       extractorVariantId: variant,
       claimSet: claims,
+      costEstimate,
     };
 
     try {
@@ -453,7 +485,7 @@ const processCell = async (
     const cell = extractionResult;
 
     // Scoring
-    if (cell.claimSet.length === 0) {
+    if (!options.dryRun && cell.claimSet.length === 0) {
       console.warn(`[skip-scoring] No claims extracted for ${video.videoId} / ${model.id}, skipping judge.`);
       cell.scores = [];
       cells.push(cell);
@@ -463,7 +495,7 @@ const processCell = async (
     const claimSetHash = computeClaimSetHash(cell.claimSet);
     const judgePromptVersion = JUDGE_PROMPT_VERSION;
 
-    const { scores, hasFailure } = await getScoresForCell(
+    const { scores, hasFailure, judgeUsdEstimate } = await getScoresForCell(
       video,
       model,
       cell,
@@ -477,6 +509,11 @@ const processCell = async (
     if (hasFailure) {
       cell.error = { message: "One or more judge scorings failed" };
       onFailure();
+    }
+
+    if (cell.costEstimate) {
+      cell.costEstimate.judgeUsd = judgeUsdEstimate;
+      cell.costEstimate.totalUsd += judgeUsdEstimate;
     }
 
     cell.scores = scores;

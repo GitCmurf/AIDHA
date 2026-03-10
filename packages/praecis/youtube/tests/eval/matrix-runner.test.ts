@@ -131,6 +131,39 @@ describe("Matrix Runner Integration", () => {
     expect(md).toContain("| completeness | 8.00 | 8.00 | 8.00 | 8.00 | 0.00 |");
   });
 
+  it("should estimate cost in dry-run mode without scoring", async () => {
+    const corpus = [
+      {
+        videoId: "v1", url: "http://v1", title: "Video 1", channelName: "Channel 1",
+        durationMinutes: 10, topicDomain: "Test", expectedClaimDensity: "low" as const, rationale: "test"
+      }
+    ];
+
+    const models = MODEL_REGISTRY.slice(0, 1);
+
+    const options = {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: false,
+      dryRun: true,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o"],
+      maxConcurrency: 1,
+      timeoutMs: 1000,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: () => ({}) as unknown as LlmClient,
+    };
+
+    const result = await runEvaluationMatrix(corpus, models, options);
+
+    expect(result.cells.length).toBe(1);
+    expect(result.cells[0].costEstimate).toBeDefined();
+    expect(result.cells[0].costEstimate!.totalUsd).toBeGreaterThan(0);
+    // In dry run, it shouldn't actually call the judge so scores will be empty (or undefined since extraction didn't really run)
+    expect(result.cells[0].scores).toEqual([]);
+  });
+
   it("should average scores from multiple judges", () => {
     const createMockScore = (score: number) => ({
       completeness: score,

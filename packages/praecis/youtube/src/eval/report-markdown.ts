@@ -45,6 +45,27 @@ export const renderMatrixReport = (report: MatrixReport): string => {
   md += `- **Worst Model Overall:** ${report.summary.worstModel}\n`;
   md += `- **Hardest Video:** ${report.summary.hardestVideo}\n\n`;
 
+  if (report.recommendations) {
+    md += "### Recommendations for Defaults\n\n";
+    md += `- **Best Default Extraction Model:** ${report.recommendations.bestDefaultModel}\n`;
+    md += `- **Best Budget Model:** ${report.recommendations.bestBudgetModel}\n`;
+    md += `- **Best Variant:** ${report.recommendations.bestVariant}\n`;
+    if (report.recommendations.caveats.length > 0) {
+      md += "\n**Caveats:**\n";
+      for (const caveat of report.recommendations.caveats) {
+        md += `- ${caveat}\n`;
+      }
+    }
+    md += "\n";
+  }
+
+  if (report.costEstimate && report.costEstimate.totalUsd > 0) {
+    md += "### Cost Estimate\n\n";
+    md += `- **Extraction:** $${report.costEstimate.extractionUsd.toFixed(4)}\n`;
+    md += `- **Judge:** $${report.costEstimate.judgeUsd.toFixed(4)}\n`;
+    md += `- **Total:** $${report.costEstimate.totalUsd.toFixed(4)}\n\n`;
+  }
+
   // Leaderboards
   md += renderLeaderboards(report);
 

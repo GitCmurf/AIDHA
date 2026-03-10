@@ -1,0 +1,41 @@
+{
+  "summary": {
+    "bestModel": "gpt-4o",
+    "worstModel": "gpt-4o-mini",
+    "hardestVideo": "h_1zlead9ZU"
+  },
+  "costEstimate": {
+    "extractionUsd": 0.05,
+    "judgeUsd": 0.02,
+    "totalUsd": 0.07
+  },
+  "modelStats": {
+    "gpt-4o": {
+      "dimensions": {
+        "completeness": { "mean": 8.5, "median": 8.5, "min": 8.0, "max": 9.0, "stddev": 0.5 },
+        "accuracy": { "mean": 9.0, "median": 9.0, "min": 8.5, "max": 9.5, "stddev": 0.5 },
+        "topicCoverage": { "mean": 8.0, "median": 8.0, "min": 7.5, "max": 8.5, "stddev": 0.5 },
+        "atomicity": { "mean": 9.0, "median": 9.0, "min": 8.0, "max": 10.0, "stddev": 1.0 },
+        "overallScore": { "mean": 8.6, "median": 8.6, "min": 8.0, "max": 9.0, "stddev": 0.5 }
+      }
+    },
+    "gpt-4o-mini": {
+      "dimensions": {
+        "completeness": { "mean": 6.5, "median": 6.5, "min": 6.0, "max": 7.0, "stddev": 0.5 },
+        "accuracy": { "mean": 7.0, "median": 7.0, "min": 6.5, "max": 7.5, "stddev": 0.5 },
+        "topicCoverage": { "mean": 6.0, "median": 6.0, "min": 5.5, "max": 6.5, "stddev": 0.5 },
+        "atomicity": { "mean": 7.0, "median": 7.0, "min": 6.0, "max": 8.0, "stddev": 1.0 },
+        "overallScore": { "mean": 6.6, "median": 6.6, "min": 6.0, "max": 7.0, "stddev": 0.5 }
+      }
+    }
+  },
+  "variantStats": {},
+  "videoStats": {},
+  "leaderboards": {
+    "overallScore": [],
+    "completeness": [],
+    "accuracy": [],
+    "topicCoverage": [],
+    "atomicity": []
+  }
+}

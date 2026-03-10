@@ -11,6 +11,42 @@ import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema } from "./eval/corpus-schema.js";
 
+export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
+  const model = getModel(modelId);
+  const provider = model?.provider || "openai";
+
+  let apiKey = baseConfig.apiKey;
+  // ONLY inherit baseConfig.baseUrl if the provider is openai, otherwise it might send Anthropic requests to OpenAI
+  let baseUrl = model?.baseUrl;
+
+  if (provider === "openai") {
+    apiKey = process.env["OPENAI_API_KEY"] || apiKey;
+    baseUrl = baseUrl || baseConfig.baseUrl || "https://api.openai.com/v1";
+  } else if (provider === "anthropic" || provider === "google" || provider === "meta" || provider === "openrouter") {
+    apiKey = process.env["OPENROUTER_API_KEY"] || apiKey;
+    baseUrl = baseUrl || "https://openrouter.ai/api/v1";
+  } else if (provider === "deepseek") {
+    apiKey = process.env["DEEPSEEK_API_KEY"] || apiKey;
+    baseUrl = baseUrl || "https://api.deepseek.com/beta";
+  } else {
+    throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
+  }
+
+  if (!baseUrl) {
+    throw new Error(`Failed to resolve baseUrl for model ${modelId} (provider: ${provider})`);
+  }
+
+  const clientResult = createLlmClientFromConfig({
+    ...baseConfig,
+    model: modelId,
+    apiKey,
+    baseUrl,
+  });
+
+  if (!clientResult.ok) throw clientResult.error;
+  return clientResult.value;
+};
+
 export async function runEvalMatrix(
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
@@ -185,19 +221,37 @@ export async function runEvalMatrix(
       extractionMaxTokens,
       extractionMaxChunks,
       judgeMaxTokens,
-      extractorClientFactory: (_modelId: string) => {
-        const clientResult = createLlmClientFromConfig(config.llm);
-        if (!clientResult.ok) throw clientResult.error;
-        return clientResult.value;
+      extractorClientFactory: (modelId: string) => {
+        return createProviderAwareClient(modelId, config.llm);
       },
-      judgeClientFactory: (_modelId: string) => {
-        const clientResult = createLlmClientFromConfig(config.llm);
-        if (!clientResult.ok) throw clientResult.error;
-        return clientResult.value;
+      judgeClientFactory: (modelId: string) => {
+        return createProviderAwareClient(modelId, config.llm);
       }
     };
 
     const result = await runEvaluationMatrix(corpusData, models, matrixOptions);
+
+    let totalExtractionUsd = 0;
+    let totalJudgeUsd = 0;
+    for (const cell of result.cells) {
+      if (cell.costEstimate) {
+        totalExtractionUsd += cell.costEstimate.extractionUsd;
+        totalJudgeUsd += cell.costEstimate.judgeUsd;
+      }
+    }
+    const totalUsd = totalExtractionUsd + totalJudgeUsd;
+
+    if (dryRun || totalUsd > 0) {
+      console.log("\nEstimated Cost Summary:");
+      console.log(`  Extraction: $${totalExtractionUsd.toFixed(4)}`);
+      console.log(`  Judge:      $${totalJudgeUsd.toFixed(4)}`);
+      console.log(`  Total:      $${totalUsd.toFixed(4)}`);
+
+      const BUDGET_CEILING = 25.00; // $25.00 as per Task 004 full-matrix budget
+      if (totalUsd > BUDGET_CEILING) {
+         console.warn(`\nWARNING: Estimated cost ($${totalUsd.toFixed(4)}) exceeds Task 004 full-matrix budget ceiling ($${BUDGET_CEILING.toFixed(2)}).`);
+      }
+    }
 
     if (dryRun) {
       console.log("Dry run complete. No real LLM calls were made.");
