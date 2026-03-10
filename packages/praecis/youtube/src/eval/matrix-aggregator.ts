@@ -39,6 +39,33 @@ function createEmptyScoreRecord(): Record<ScoreDimension, number[]> {
 }
 
 export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
+  const { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd } = processCells(cells);
+
+  const modelStats = calculateAllStats(modelScores);
+  const variantStats = calculateAllStats(variantScores);
+  const videoStats = calculateAllStats(videoScores);
+
+  const leaderboards = generateLeaderboards(modelStats);
+  const summary = determineSummary(leaderboards, videoStats);
+  const recommendations = generateRecommendations(cells, leaderboards, variantStats);
+
+  return {
+    summary,
+    recommendations,
+    costEstimate: {
+      extractionUsd: totalExtractionUsd,
+      judgeUsd: totalJudgeUsd,
+      totalUsd: totalExtractionUsd + totalJudgeUsd
+    },
+    modelStats,
+    variantStats,
+    videoStats,
+    leaderboards,
+    cells,
+  };
+}
+
+function processCells(cells: MatrixCell[]) {
   const modelScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const variantScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const videoScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
@@ -52,102 +79,112 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
       totalJudgeUsd += cell.costEstimate.judgeUsd;
     }
 
-    if (cell.error) continue;
-    if (!cell.scores || cell.scores.length === 0) continue;
+    if (cell.error || !cell.scores || cell.scores.length === 0) continue;
 
-    // Aggregate consensus if multiple judges
-    const aggregatedScore: Record<ScoreDimension, number> = {
-      completeness: 0,
-      accuracy: 0,
-      topicCoverage: 0,
-      atomicity: 0,
-      overallScore: 0
-    };
+    const aggregatedScore = aggregateCellScores(cell.scores);
 
-    for (const score of cell.scores) {
-      for (const dim of SCORE_DIMENSIONS) {
-        aggregatedScore[dim] += score[dim] || 0;
-      }
-    }
-
-    const judgeCount = cell.scores.length;
-    for (const dim of SCORE_DIMENSIONS) {
-      aggregatedScore[dim] /= judgeCount;
-    }
-
-    if (!modelScores[cell.modelId]) {
-      modelScores[cell.modelId] = createEmptyScoreRecord();
-    }
-    if (!variantScores[cell.extractorVariantId]) {
-      variantScores[cell.extractorVariantId] = createEmptyScoreRecord();
-    }
-    if (!videoScores[cell.videoId]) {
-      videoScores[cell.videoId] = createEmptyScoreRecord();
-    }
+    if (!modelScores[cell.modelId]) modelScores[cell.modelId] = createEmptyScoreRecord();
+    if (!variantScores[cell.extractorVariantId]) variantScores[cell.extractorVariantId] = createEmptyScoreRecord();
+    if (!videoScores[cell.videoId]) videoScores[cell.videoId] = createEmptyScoreRecord();
 
     for (const dim of SCORE_DIMENSIONS) {
       const dimScore = aggregatedScore[dim];
-      if (dimScore !== undefined) {
-        modelScores[cell.modelId]![dim].push(dimScore);
-        variantScores[cell.extractorVariantId]![dim].push(dimScore);
-        videoScores[cell.videoId]![dim].push(dimScore);
-      }
+      modelScores[cell.modelId]![dim].push(dimScore);
+      variantScores[cell.extractorVariantId]![dim].push(dimScore);
+      videoScores[cell.videoId]![dim].push(dimScore);
     }
   }
 
-  const modelStats: Record<string, { dimensions: DimensionStats }> = {};
-  for (const [modelId, scores] of Object.entries(modelScores)) {
-    modelStats[modelId] = { dimensions: calculateDimensionStats(scores) };
-  }
+  return { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd };
+}
 
-  const variantStats: Record<string, { dimensions: DimensionStats }> = {};
-  for (const [variantId, scores] of Object.entries(variantScores)) {
-    variantStats[variantId] = { dimensions: calculateDimensionStats(scores) };
-  }
-
-  const videoStats: Record<string, { dimensions: DimensionStats }> = {};
-  for (const [videoId, scores] of Object.entries(videoScores)) {
-    videoStats[videoId] = { dimensions: calculateDimensionStats(scores) };
-  }
-
-  const leaderboards: Record<ScoreDimension, { modelId: string; score: number }[]> = {
-    completeness: [],
-    accuracy: [],
-    topicCoverage: [],
-    atomicity: [],
-    overallScore: []
+function aggregateCellScores(scores: any[]): Record<ScoreDimension, number> {
+  const aggregated: Record<ScoreDimension, number> = {
+    completeness: 0,
+    accuracy: 0,
+    topicCoverage: 0,
+    atomicity: 0,
+    overallScore: 0
   };
 
-  for (const dim of SCORE_DIMENSIONS) {
-    const sorted = Object.keys(modelStats)
-      .map(modelId => {
-        const mean = modelStats[modelId]?.dimensions[dim]?.mean ?? 0;
-        return { modelId, score: mean };
-      })
-      .sort((a, b) => b.score - a.score || a.modelId.localeCompare(b.modelId)); // tiebreaker by name
-    leaderboards[dim] = sorted;
+  for (const score of scores) {
+    for (const dim of SCORE_DIMENSIONS) {
+      aggregated[dim] += score[dim] || 0;
+    }
   }
 
-  const overallLeaderboard = leaderboards.overallScore;
-  const bestModel = overallLeaderboard.length > 0 ? (overallLeaderboard[0]?.modelId ?? "None") : "None";
-  const worstModel = overallLeaderboard.length > 0 ? (overallLeaderboard[overallLeaderboard.length - 1]?.modelId ?? "None") : "None";
+  const count = scores.length;
+  for (const dim of SCORE_DIMENSIONS) {
+    aggregated[dim] /= count;
+  }
+
+  return aggregated;
+}
+
+function calculateAllStats(scoresMap: Record<string, Record<ScoreDimension, number[]>>): Record<string, { dimensions: DimensionStats }> {
+  const stats: Record<string, { dimensions: DimensionStats }> = {};
+  for (const [id, scores] of Object.entries(scoresMap)) {
+    stats[id] = { dimensions: calculateDimensionStats(scores) };
+  }
+  return stats;
+}
+
+function generateLeaderboards(modelStats: Record<string, { dimensions: DimensionStats }>): Record<ScoreDimension, { modelId: string; score: number }[]> {
+  const leaderboards: any = {};
+
+  for (const dim of SCORE_DIMENSIONS) {
+    leaderboards[dim] = Object.keys(modelStats)
+      .map(modelId => ({
+        modelId,
+        score: modelStats[modelId]?.dimensions[dim]?.mean ?? 0
+      }))
+      .sort((a, b) => b.score - a.score || a.modelId.localeCompare(b.modelId));
+  }
+
+  return leaderboards;
+}
+
+function determineSummary(leaderboards: Record<ScoreDimension, { modelId: string; score: number }[]>, videoStats: Record<string, { dimensions: DimensionStats }>) {
+  const overall = leaderboards.overallScore;
+  const bestModel = overall.length > 0 ? (overall[0]?.modelId ?? "None") : "None";
+  const worstModel = overall.length > 0 ? (overall[overall.length - 1]?.modelId ?? "None") : "None";
 
   const videoLeaderboard = Object.keys(videoStats)
-    .map(videoId => {
-        const mean = videoStats[videoId]?.dimensions.overallScore?.mean ?? 0;
-        return { videoId, score: mean };
-    })
+    .map(videoId => ({
+      videoId,
+      score: videoStats[videoId]?.dimensions.overallScore?.mean ?? 0
+    }))
     .sort((a, b) => a.score - b.score || a.videoId.localeCompare(b.videoId));
+
   const hardestVideo = videoLeaderboard.length > 0 ? (videoLeaderboard[0]?.videoId ?? "None") : "None";
 
-  // Recommendation Logic
+  return { bestModel, worstModel, hardestVideo };
+}
+
+function generateRecommendations(cells: MatrixCell[], leaderboards: Record<ScoreDimension, { modelId: string; score: number }[]>, variantStats: Record<string, { dimensions: DimensionStats }>) {
+  const bestModel = leaderboards.overallScore[0]?.modelId ?? "None";
+
   const bestVariant = Object.keys(variantStats)
-    .map(variantId => ({ variantId, score: variantStats[variantId]?.dimensions.overallScore?.mean ?? 0 }))
+    .map(variantId => ({
+      variantId,
+      score: variantStats[variantId]?.dimensions.overallScore?.mean ?? 0
+    }))
     .sort((a, b) => b.score - a.score)[0]?.variantId ?? "None";
 
-  const budgetModels = overallLeaderboard.filter(m => getModel(m.modelId)?.tier === "budget");
+  const budgetModels = leaderboards.overallScore.filter(m => getModel(m.modelId)?.tier === "budget");
   const bestBudgetModel = budgetModels.length > 0 ? budgetModels[0]?.modelId ?? "None" : "None";
 
+  const caveats = collectCaveats(cells);
+
+  return {
+    bestDefaultModel: bestModel,
+    bestBudgetModel,
+    bestVariant,
+    caveats,
+  };
+}
+
+function collectCaveats(cells: MatrixCell[]): string[] {
   const caveats: string[] = [];
   if (cells.some(c => c.error)) {
     caveats.push("Some cells failed during extraction or scoring, which may skew the results.");
@@ -160,26 +197,7 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
       caveats.push(`Cell ${cell.videoId} / ${cell.modelId} has high score variance.`);
     }
   }
-
-  return {
-    summary: { bestModel, worstModel, hardestVideo },
-    recommendations: {
-      bestDefaultModel: bestModel,
-      bestBudgetModel,
-      bestVariant,
-      caveats,
-    },
-    costEstimate: {
-      extractionUsd: totalExtractionUsd,
-      judgeUsd: totalJudgeUsd,
-      totalUsd: totalExtractionUsd + totalJudgeUsd
-    },
-    modelStats,
-    variantStats,
-    videoStats,
-    leaderboards,
-    cells,
-  };
+  return caveats;
 }
 
 function calculateDimensionStats(scores: Record<ScoreDimension, number[]>): DimensionStats {

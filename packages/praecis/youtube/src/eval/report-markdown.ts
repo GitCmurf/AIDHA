@@ -39,78 +39,82 @@ const renderLeaderboards = (report: MatrixReport): string => {
 export const renderMatrixReport = (report: MatrixReport): string => {
   let md = "# Claim Extraction Evaluation Matrix Report\n\n";
 
-  // Executive Summary
-  md += "## Executive Summary\n\n";
-  md += `- **Best Model Overall:** ${report.summary.bestModel}\n`;
-  md += `- **Worst Model Overall:** ${report.summary.worstModel}\n`;
-  md += `- **Hardest Video:** ${report.summary.hardestVideo}\n\n`;
+  md += renderExecutiveSummary(report.summary);
+  md += renderHighVarianceAlerts(report.recommendations?.caveats);
+  md += renderRecommendations(report.recommendations);
+  md += renderCostEstimate(report.costEstimate);
+  md += renderLeaderboards(report);
+  md += renderAllScorecards(report);
 
-  const highVarianceCells = report.recommendations?.caveats.filter(c => c.includes("high score variance")) || [];
-  if (highVarianceCells.length > 0) {
-    md += "### ⚠️ High Variance Alerts\n\n";
-    md += "The following cells showed high disagreement between judges and should be manually reviewed:\n\n";
-    for (const caveat of highVarianceCells) {
+  return md;
+};
+
+const renderExecutiveSummary = (summary: MatrixReport["summary"]): string => {
+  let md = "## Executive Summary\n\n";
+  md += `- **Best Model Overall:** ${summary.bestModel}\n`;
+  md += `- **Worst Model Overall:** ${summary.worstModel}\n`;
+  md += `- **Hardest Video:** ${summary.hardestVideo}\n\n`;
+  return md;
+};
+
+const renderHighVarianceAlerts = (caveats: string[] | undefined): string => {
+  const highVarianceCells = caveats?.filter(c => c.includes("high score variance")) || [];
+  if (highVarianceCells.length === 0) return "";
+
+  let md = "### ⚠️ High Variance Alerts\n\n";
+  md += "The following cells showed high disagreement between judges and should be manually reviewed:\n\n";
+  for (const caveat of highVarianceCells) {
+    md += `- ${caveat}\n`;
+  }
+  md += "\n";
+  return md;
+};
+
+const renderRecommendations = (recommendations: MatrixReport["recommendations"]): string => {
+  if (!recommendations) return "";
+
+  let md = "### Recommendations for Defaults\n\n";
+  md += `- **Best Default Extraction Model:** ${recommendations.bestDefaultModel}\n`;
+  md += `- **Best Budget Model:** ${recommendations.bestBudgetModel}\n`;
+  md += `- **Best Variant:** ${recommendations.bestVariant}\n`;
+
+  if (recommendations.caveats.length > 0) {
+    md += "\n**Caveats:**\n";
+    for (const caveat of recommendations.caveats) {
       md += `- ${caveat}\n`;
     }
-    md += "\n";
   }
+  md += "\n";
+  return md;
+};
 
-  if (report.recommendations) {
-    md += "### Recommendations for Defaults\n\n";
-    md += `- **Best Default Extraction Model:** ${report.recommendations.bestDefaultModel}\n`;
-    md += `- **Best Budget Model:** ${report.recommendations.bestBudgetModel}\n`;
-    md += `- **Best Variant:** ${report.recommendations.bestVariant}\n`;
-    if (report.recommendations.caveats.length > 0) {
-      md += "\n**Caveats:**\n";
-      for (const caveat of report.recommendations.caveats) {
-        md += `- ${caveat}\n`;
-      }
-    }
-    md += "\n";
-  }
+const renderCostEstimate = (cost: MatrixReport["costEstimate"]): string => {
+  if (!cost || cost.totalUsd === 0) return "";
 
-  if (report.costEstimate && report.costEstimate.totalUsd > 0) {
-    md += "### Cost Estimate\n\n";
-    md += `- **Extraction:** $${report.costEstimate.extractionUsd.toFixed(4)}\n`;
-    md += `- **Judge:** $${report.costEstimate.judgeUsd.toFixed(4)}\n`;
-    md += `- **Total:** $${report.costEstimate.totalUsd.toFixed(4)}\n\n`;
-  }
+  let md = "### Cost Estimate\n\n";
+  md += `- **Extraction:** $${cost.extractionUsd.toFixed(4)}\n`;
+  md += `- **Judge:** $${cost.judgeUsd.toFixed(4)}\n`;
+  md += `- **Total:** $${cost.totalUsd.toFixed(4)}\n\n`;
+  return md;
+};
 
-  // Leaderboards
-  md += renderLeaderboards(report);
+const renderAllScorecards = (report: MatrixReport): string => {
+  let md = "";
+  md += renderScorecardSection("Model Scorecards", report.modelStats);
+  md += renderScorecardSection("Variant Scorecards", report.variantStats);
+  md += renderScorecardSection("Video Heatmap", report.videoStats);
+  return md;
+};
 
-  // Model Stats Breakdown
-  md += "## Model Scorecards\n\n";
-  const sortedModelIds = Object.keys(report.modelStats).sort();
-  for (const modelId of sortedModelIds) {
-    const stats = report.modelStats[modelId];
+const renderScorecardSection = (title: string, statsMap: Record<string, { dimensions: DimensionStats }>, headerLevel: string = "##"): string => {
+  let md = `${headerLevel} ${title}\n\n`;
+  const sortedIds = Object.keys(statsMap).sort();
+  for (const id of sortedIds) {
+    const stats = statsMap[id];
     if (!stats) continue;
-    md += `### ${modelId}\n\n`;
+    md += `### ${id}\n\n`;
     md += renderScorecardTable(stats);
     md += "\n";
   }
-
-  // Variant Stats Breakdown
-  md += "## Variant Scorecards\n\n";
-  const sortedVariantIds = Object.keys(report.variantStats).sort();
-  for (const variantId of sortedVariantIds) {
-    const stats = report.variantStats[variantId];
-    if (!stats) continue;
-    md += `### ${variantId}\n\n`;
-    md += renderScorecardTable(stats);
-    md += "\n";
-  }
-
-  // Video Stats Breakdown
-  md += "## Video Heatmap\n\n";
-  const sortedVideoIds = Object.keys(report.videoStats).sort();
-  for (const videoId of sortedVideoIds) {
-    const stats = report.videoStats[videoId];
-    if (!stats) continue;
-    md += `### ${videoId}\n\n`;
-    md += renderScorecardTable(stats);
-    md += "\n";
-  }
-
   return md;
 };
