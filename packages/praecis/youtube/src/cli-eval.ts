@@ -76,6 +76,10 @@ export async function runEvalMatrix(
     }
 
     if (invalidateRun) {
+      if (!/^[a-zA-Z0-9_-]+$/.test(invalidateRun)) {
+        console.error("Error: --invalidate-run must contain only alphanumeric characters, hyphens, and underscores.");
+        return 1;
+      }
       const runDir = join(cacheDir, invalidateRun);
       if (existsSync(runDir)) {
         console.log(`Invalidating cache for run: ${invalidateRun}`);

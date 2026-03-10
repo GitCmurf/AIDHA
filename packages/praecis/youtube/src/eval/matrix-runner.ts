@@ -211,7 +211,8 @@ const getScoresForCell = async (
     if (judgeModel) {
       // Estimate judge cost (assume 1k prompt tokens + text + claims, ~200 output tokens)
       const claimTextLen = cell.claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
-      const inputTokens = estimateTokens(fullText) + estimateTokens(String(claimTextLen)) + 1000;
+      const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
+      const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + 1000;
       const outputTokens = 200;
       judgeUsdEstimate +=
         (inputTokens / 1000) * judgeModel.costPer1kTokens.input +
