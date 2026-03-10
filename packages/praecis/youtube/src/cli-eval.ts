@@ -54,24 +54,29 @@ export const runEvalMatrix = async (
 ): Promise<number> => {
   const handleClearAll = (cleanOptions: CliOptions, cacheDir: string): number => {
     if (optionBool(cleanOptions, "yes")) {
+      // skipcq: JS-0002
       console.log(`Clearing ALL evaluation cache in: ${cacheDir}`);
       rmSync(cacheDir, { recursive: true, force: true });
       return 0;
     }
+    // skipcq: JS-0002
     console.error("Error: --clear-all requires --yes to confirm you want to delete all cached extractions and scores.");
     return 1;
   };
 
   const handleInvalidateRun = (invalidateRun: string, cacheDir: string): number => {
     if (!/^[a-zA-Z0-9_-]+$/.test(invalidateRun)) {
+      // skipcq: JS-0002
       console.error("Error: --invalidate-run must contain only alphanumeric characters, hyphens, and underscores.");
       return 1;
     }
     const runDir = join(cacheDir, invalidateRun);
     if (existsSync(runDir)) {
+      // skipcq: JS-0002
       console.log(`Invalidating cache for run: ${invalidateRun}`);
       rmSync(runDir, { recursive: true, force: true });
     } else {
+      // skipcq: JS-0002
       console.warn(`Cache for run '${invalidateRun}' not found.`);
     }
     return 0;
@@ -85,14 +90,12 @@ export const runEvalMatrix = async (
 
     const cacheDir = ".cache/extraction";
     if (!existsSync(cacheDir)) {
+      // skipcq: JS-0002
       console.log("No cache directory found to invalidate.");
       return 0;
     }
 
-    if (clearAll) return handleClearAll(cleanOptions, cacheDir);
-    if (invalidateRun) return handleInvalidateRun(invalidateRun, cacheDir);
-
-    return 0;
+    return clearAll ? handleClearAll(cleanOptions, cacheDir) : handleInvalidateRun(invalidateRun, cacheDir);
   };
 
   const loadCorpusData = (corpusPath: string) => {
@@ -117,6 +120,7 @@ export const runEvalMatrix = async (
     } else if (tier) {
       modelIds = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
       if (modelIds.length === 0) {
+        // skipcq: JS-0002
         console.error(`No models found for tier: ${tier}`);
         return 1;
       }
@@ -131,6 +135,7 @@ export const runEvalMatrix = async (
         return model;
       });
     } catch (err) {
+      // skipcq: JS-0002
       console.error(err instanceof Error ? err.message : String(err));
       return 1;
     }
@@ -142,12 +147,14 @@ export const runEvalMatrix = async (
     if (format === "both" || format === "json") {
       const jsonPath = join(outputDir, "latest.json");
       writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
+      // skipcq: JS-0002
       console.log(`Wrote JSON report to ${jsonPath}`);
     }
 
     if (format === "both" || format === "md") {
       const mdPath = join(outputDir, "latest.md");
       writeFileSync(mdPath, renderMatrixReport(report));
+      // skipcq: JS-0002
       console.log(`Wrote Markdown report to ${mdPath}`);
     }
 
@@ -159,25 +166,11 @@ export const runEvalMatrix = async (
       const cellPath = join(cellsDir, cellFileName);
       writeFileSync(cellPath, JSON.stringify(cell, null, 2));
     }
+    // skipcq: JS-0002
     console.log(`Wrote ${report.cells.length} cell artifacts to ${cellsDir}`);
   };
 
-  try {
-    const mode = positionals[1]; // matrix
-    if (mode !== "matrix") {
-      console.error("Usage: eval matrix [options]");
-      return 1;
-    }
-
-    // Cast options to satisfy CliOptions
-    const cleanOptions: CliOptions = {};
-    for (const [k, v] of Object.entries(options)) {
-      if (v !== undefined) cleanOptions[k] = v;
-    }
-
-    const cacheInvalidationResult = invalidateCache(cleanOptions);
-    if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
-
+  const parseRunOptions = (cleanOptions: CliOptions) => {
     const dryRun = optionBool(cleanOptions, "dry-run");
     const runId = optionString(cleanOptions, "run-id", "");
     const corpusPath = optionString(cleanOptions, "corpus", "");
@@ -195,72 +188,106 @@ export const runEvalMatrix = async (
     const judgeMaxTokens = optionNumber(cleanOptions, "judge-max-tokens", 4000);
     const timeoutMs = optionNumber(cleanOptions, "timeout-ms", 60000);
 
-    if (!["both", "json", "md"].includes(format)) {
-      console.error(`Invalid format: ${format}. Must be one of: both, json, md`);
+    return {
+      dryRun, runId, corpusPath, transcriptDir, modelsStr, tier, judgeModelsStr,
+      variantsStr, outputDir, format, resume, maxConcurrency, extractionMaxTokens,
+      extractionMaxChunks, judgeMaxTokens, timeoutMs
+    };
+  };
+
+  const printPlan = (planArgs: Record<string, any>) => {
+    // skipcq: JS-0002
+    console.log(`Evaluation Matrix Plan:
+  Run ID: ${planArgs.runId || 'default'}
+  Corpus: ${planArgs.corpusPath}
+  Models: ${planArgs.models.map((m: any) => m.id).join(", ")}
+  Tier: ${planArgs.tier || 'all'}
+  Judge Models: ${planArgs.judgeModels.join(", ")}
+  Variants: ${planArgs.variantIds.join(", ")}
+  Output Dir: ${planArgs.finalOutputDir}
+  Cache Dir: ${planArgs.runCacheDir}
+  Format: ${planArgs.format}
+  Resume: ${planArgs.resume}
+  Max Concurrency: ${planArgs.maxConcurrency}
+  Extraction Max Tokens: ${planArgs.extractionMaxTokens || 'default'}
+  Extraction Max Chunks: ${planArgs.extractionMaxChunks || 'default'}
+  Judge Max Tokens: ${planArgs.judgeMaxTokens}
+  Timeout: ${planArgs.timeoutMs}ms
+  `);
+  };
+
+  try {
+    const mode = positionals[1]; // matrix
+    if (mode !== "matrix") {
+      // skipcq: JS-0002
+      console.error("Usage: eval matrix [options]");
       return 1;
     }
 
-    if (!corpusPath) {
+    // Cast options to satisfy CliOptions
+    const cleanOptions: CliOptions = {};
+    for (const [k, v] of Object.entries(options)) {
+      if (v !== undefined) cleanOptions[k] = v;
+    }
+
+    const cacheInvalidationResult = invalidateCache(cleanOptions);
+    if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
+
+    const parsedOpts = parseRunOptions(cleanOptions);
+
+    if (!["both", "json", "md"].includes(parsedOpts.format)) {
+      // skipcq: JS-0002
+      console.error(`Invalid format: ${parsedOpts.format}. Must be one of: both, json, md`);
+      return 1;
+    }
+
+    if (!parsedOpts.corpusPath) {
+      // skipcq: JS-0002
       console.error("Error: --corpus <path> is required.");
       return 1;
     }
 
-    const models = getModelsFromIdsOrTier(modelsStr, tier);
+    const models = getModelsFromIdsOrTier(parsedOpts.modelsStr, parsedOpts.tier);
     if (typeof models === "number") return models;
 
-    const judgeModels = judgeModelsStr.split(",").map(s => s.trim()).filter(Boolean);
-    const variantIds = variantsStr.split(",").map(s => s.trim()).filter(Boolean);
+    const judgeModels = parsedOpts.judgeModelsStr.split(",").map(s => s.trim()).filter(Boolean);
+    const variantIds = parsedOpts.variantsStr.split(",").map(s => s.trim()).filter(Boolean);
 
     const invalidVariants = variantIds.filter(v => !isValidVariant(v));
     if (invalidVariants.length > 0) {
+      // skipcq: JS-0002
       console.error(`Invalid variants provided: ${invalidVariants.join(", ")}`);
+      // skipcq: JS-0002
       console.error(`Valid variants: ${EXTRACTOR_VARIANTS.join(", ")}`);
       return 1;
     }
 
-    // Determine the actual cache dir: segregate by runId if provided, else use default.
-    const runCacheDir = runId ? join(".cache/extraction", runId) : ".cache/extraction";
-    // Determine the actual output dir: segregate by runId if provided, else use default.
-    const finalOutputDir = outputDir || (runId ? join("out/eval-matrix/runs", runId) : "out/eval-matrix/reports");
+    const runCacheDir = parsedOpts.runId ? join(".cache/extraction", parsedOpts.runId) : ".cache/extraction";
+    const finalOutputDir = parsedOpts.outputDir || (parsedOpts.runId ? join("out/eval-matrix/runs", parsedOpts.runId) : "out/eval-matrix/reports");
 
-    console.log(`Evaluation Matrix Plan:
-  Run ID: ${runId || 'default'}
-  Corpus: ${corpusPath}
-  Models: ${models.map(m => m.id).join(", ")}
-  Tier: ${tier || 'all'}
-  Judge Models: ${judgeModels.join(", ")}
-  Variants: ${variantIds.join(", ")}
-  Output Dir: ${finalOutputDir}
-  Cache Dir: ${runCacheDir}
-  Format: ${format}
-  Resume: ${resume}
-  Max Concurrency: ${maxConcurrency}
-  Extraction Max Tokens: ${extractionMaxTokens || 'default'}
-  Extraction Max Chunks: ${extractionMaxChunks || 'default'}
-  Judge Max Tokens: ${judgeMaxTokens}
-  Timeout: ${timeoutMs}ms
-  `);
+    printPlan({ ...parsedOpts, models, judgeModels, variantIds, finalOutputDir, runCacheDir });
 
+    // skipcq: JS-0002
     console.log("Running matrix evaluation...");
 
-    const corpusResult = loadCorpusData(corpusPath);
+    const corpusResult = loadCorpusData(parsedOpts.corpusPath);
     if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
     const corpusData = corpusResult.data;
 
     const matrixOptions: MatrixOptions = {
       outputDir: finalOutputDir,
       cacheDir: runCacheDir,
-      runId,
-      transcriptDir,
-      resume,
-      dryRun,
+      runId: parsedOpts.runId,
+      transcriptDir: parsedOpts.transcriptDir,
+      resume: parsedOpts.resume,
+      dryRun: parsedOpts.dryRun,
       variants: variantIds as any[],
       judgeModels,
-      maxConcurrency,
-      timeoutMs,
-      extractionMaxTokens,
-      extractionMaxChunks,
-      judgeMaxTokens,
+      maxConcurrency: parsedOpts.maxConcurrency,
+      timeoutMs: parsedOpts.timeoutMs,
+      extractionMaxTokens: parsedOpts.extractionMaxTokens,
+      extractionMaxChunks: parsedOpts.extractionMaxChunks,
+      judgeMaxTokens: parsedOpts.judgeMaxTokens,
       extractorClientFactory: (modelId: string) => {
         return createProviderAwareClient(modelId, config.llm);
       },
@@ -271,31 +298,42 @@ export const runEvalMatrix = async (
 
     const result = await runEvaluationMatrix(corpusData, models, matrixOptions);
 
-    let totalExtractionUsd = 0;
-    let totalJudgeUsd = 0;
-    for (const cell of result.cells) {
-      if (cell.costEstimate) {
-        totalExtractionUsd += cell.costEstimate.extractionUsd;
-        totalJudgeUsd += cell.costEstimate.judgeUsd;
+    const handleCostReporting = (matrixResult: MatrixResult, isDryRun: boolean) => {
+      let totalExtractionUsd = 0;
+      let totalJudgeUsd = 0;
+      for (const cell of matrixResult.cells) {
+        if (cell.costEstimate) {
+          totalExtractionUsd += cell.costEstimate.extractionUsd;
+          totalJudgeUsd += cell.costEstimate.judgeUsd;
+        }
       }
-    }
-    const totalUsd = totalExtractionUsd + totalJudgeUsd;
+      const totalUsd = totalExtractionUsd + totalJudgeUsd;
 
-    if (dryRun || totalUsd > 0) {
-      console.log("\nEstimated Cost Summary:");
-      console.log(`  Extraction: $${totalExtractionUsd.toFixed(4)}`);
-      console.log(`  Judge:      $${totalJudgeUsd.toFixed(4)}`);
-      console.log(`  Total:      $${totalUsd.toFixed(4)}`);
+      if (isDryRun || totalUsd > 0) {
+        // skipcq: JS-0002
+        console.log("\nEstimated Cost Summary:");
+        // skipcq: JS-0002
+        console.log(`  Extraction: $${totalExtractionUsd.toFixed(4)}`);
+        // skipcq: JS-0002
+        console.log(`  Judge:      $${totalJudgeUsd.toFixed(4)}`);
+        // skipcq: JS-0002
+        console.log(`  Total:      $${totalUsd.toFixed(4)}`);
 
-      const BUDGET_CEILING = 25.00; // $25.00 as per Task 004 full-matrix budget
-      if (totalUsd > BUDGET_CEILING) {
-         console.warn(`\nWARNING: Estimated cost ($${totalUsd.toFixed(4)}) exceeds Task 004 full-matrix budget ceiling ($${BUDGET_CEILING.toFixed(2)}).`);
+        const BUDGET_CEILING = 25.00; // $25.00 as per Task 004 full-matrix budget
+        if (totalUsd > BUDGET_CEILING) {
+           // skipcq: JS-0002
+           console.warn(`\nWARNING: Estimated cost ($${totalUsd.toFixed(4)}) exceeds Task 004 full-matrix budget ceiling ($${BUDGET_CEILING.toFixed(2)}).`);
+        }
       }
-    }
+    };
 
-    if (dryRun) {
+    handleCostReporting(result, parsedOpts.dryRun);
+
+    if (parsedOpts.dryRun) {
+      // skipcq: JS-0002
       console.log("Dry run complete. No real LLM calls were made.");
       if (result.metadata.failedCellCount > 0) {
+        // skipcq: JS-0002
         console.warn(`Dry run detected ${result.metadata.failedCellCount} failed cells (e.g. missing transcripts). Resolve before a real run.`);
         return 1;
       }
@@ -303,16 +341,18 @@ export const runEvalMatrix = async (
     }
 
     const report = aggregateMatrixResults(result.cells);
-    writeReports(report, finalOutputDir, format);
+    writeReports(report, finalOutputDir, parsedOpts.format);
 
     if (result.metadata.failedCellCount > 0) {
+      // skipcq: JS-0002
       console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
       return 1;
     }
 
     return 0;
   } catch (error) {
+    // skipcq: JS-0002
     console.error("Evaluation failed:", error);
     return 1;
   }
-}
+};

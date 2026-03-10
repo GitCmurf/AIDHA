@@ -111,37 +111,34 @@ const processCells = (cells: MatrixCell[]) => {
 const calculateMedian = (sorted: number[]): number => {
   if (sorted.length === 0) return 0;
   const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 !== 0) {
-    return sorted[mid] ?? 0;
+  return sorted.length % 2 !== 0
+    ? (sorted[mid] ?? 0)
+    : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+};
+
+const calculateSingleDimensionStat = (values: number[] | undefined): Record<StatName, number> => {
+  if (!values || values.length === 0) {
+    return { mean: 0, median: 0, min: 0, max: 0, stddev: 0 };
   }
-  const v1 = sorted[mid - 1] ?? 0;
-  const v2 = sorted[mid] ?? 0;
-  return (v1 + v2) / 2;
+  const sorted = [...values].sort((a, b) => a - b);
+  const sum = sorted.reduce((a, b) => a + b, 0);
+  const mean = sum / sorted.length;
+  const min = sorted[0] ?? 0;
+  const max = sorted[sorted.length - 1] ?? 0;
+  const median = calculateMedian(sorted);
+
+  const squareDiffs = sorted.map(v => Math.pow(v - mean, 2));
+  const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / sorted.length;
+  const stddev = Math.sqrt(avgSquareDiff);
+
+  return { mean, median, min, max, stddev };
 };
 
 const calculateDimensionStats = (scores: Record<ScoreDimension, number[]>): DimensionStats => {
   const result: Partial<DimensionStats> = {};
-
   for (const dim of SCORE_DIMENSIONS) {
-    const values = scores[dim];
-    if (!values || values.length === 0) {
-      result[dim] = { mean: 0, median: 0, min: 0, max: 0, stddev: 0 };
-      continue;
-    }
-    const sorted = [...values].sort((a, b) => a - b);
-    const sum = sorted.reduce((a, b) => a + b, 0);
-    const mean = sum / sorted.length;
-    const min = sorted[0] ?? 0;
-    const max = sorted[sorted.length - 1] ?? 0;
-    const median = calculateMedian(sorted);
-
-    const squareDiffs = sorted.map(v => Math.pow(v - mean, 2));
-    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / sorted.length;
-    const stddev = Math.sqrt(avgSquareDiff);
-
-    result[dim] = { mean, median, min, max, stddev };
+    result[dim] = calculateSingleDimensionStat(scores[dim]);
   }
-
   return result as DimensionStats;
 };
 
