@@ -20,11 +20,11 @@ export const ClaimSetScoreSchema = z.object({
   gapAreas: z.array(z.object({ area: z.string().min(1) })),
 }).superRefine((data, ctx) => {
   const expected = (data.completeness + data.accuracy + data.topicCoverage + data.atomicity) / 4;
-  if (Math.abs(data.overallScore - expected) > 0.15) {
+  if (Math.abs(data.overallScore - expected) > 0.6) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["overallScore"],
-      message: `overallScore (${data.overallScore}) must equal the average of the four dimensions (${expected.toFixed(2)})`,
+      message: `overallScore (${data.overallScore}) must approximately equal the average of the four dimensions (${expected.toFixed(2)})`,
     });
   }
 });

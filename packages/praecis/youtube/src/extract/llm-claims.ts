@@ -844,6 +844,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
         response: response.ok ? response.value : `Error: ${response.error.message}`
       });
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
       this.circuitBreaker.recordFailure();
       console.error(`Editor rewrite error: ${error instanceof Error ? error.message : String(error)}`);
       return null;
@@ -883,6 +886,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
         response: retry.ok ? retry.value : `Error: ${retry.error.message}`
       });
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
       this.circuitBreaker.recordFailure();
       console.error(`Editor rewrite retry error: ${error instanceof Error ? error.message : String(error)}`);
       return null;

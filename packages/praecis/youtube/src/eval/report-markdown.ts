@@ -19,6 +19,27 @@ const renderScorecardTable = (stats: { dimensions: DimensionStats }): string => 
   return md;
 };
 
+const renderScorecardSection = (title: string, statsMap: Record<string, { dimensions: DimensionStats }>, headerLevel = "##"): string => {
+  let md = `${headerLevel} ${title}\n\n`;
+  const sortedIds = Object.keys(statsMap).sort();
+  for (const id of sortedIds) {
+    const stats = statsMap[id];
+    if (!stats) continue;
+    md += `### ${id}\n\n`;
+    md += renderScorecardTable(stats);
+    md += "\n";
+  }
+  return md;
+};
+
+const renderAllScorecards = (report: MatrixReport): string => {
+  let md = "";
+  md += renderScorecardSection("Model Scorecards", report.modelStats);
+  md += renderScorecardSection("Variant Scorecards", report.variantStats);
+  md += renderScorecardSection("Video Heatmap", report.videoStats);
+  return md;
+};
+
 const renderLeaderboards = (report: MatrixReport): string => {
   let md = "## Leaderboards\n\n";
   for (const { key, title } of dimensions) {
@@ -33,19 +54,6 @@ const renderLeaderboards = (report: MatrixReport): string => {
     }
     md += "\n";
   }
-  return md;
-};
-
-export const renderMatrixReport = (report: MatrixReport): string => {
-  let md = "# Claim Extraction Evaluation Matrix Report\n\n";
-
-  md += renderExecutiveSummary(report.summary);
-  md += renderHighVarianceAlerts(report.recommendations?.caveats);
-  md += renderRecommendations(report.recommendations);
-  md += renderCostEstimate(report.costEstimate);
-  md += renderLeaderboards(report);
-  md += renderAllScorecards(report);
-
   return md;
 };
 
@@ -98,23 +106,15 @@ const renderCostEstimate = (cost: MatrixReport["costEstimate"]): string => {
   return md;
 };
 
-const renderAllScorecards = (report: MatrixReport): string => {
-  let md = "";
-  md += renderScorecardSection("Model Scorecards", report.modelStats);
-  md += renderScorecardSection("Variant Scorecards", report.variantStats);
-  md += renderScorecardSection("Video Heatmap", report.videoStats);
-  return md;
-};
+export const renderMatrixReport = (report: MatrixReport): string => {
+  let md = "# Claim Extraction Evaluation Matrix Report\n\n";
 
-const renderScorecardSection = (title: string, statsMap: Record<string, { dimensions: DimensionStats }>, headerLevel: string = "##"): string => {
-  let md = `${headerLevel} ${title}\n\n`;
-  const sortedIds = Object.keys(statsMap).sort();
-  for (const id of sortedIds) {
-    const stats = statsMap[id];
-    if (!stats) continue;
-    md += `### ${id}\n\n`;
-    md += renderScorecardTable(stats);
-    md += "\n";
-  }
+  md += renderExecutiveSummary(report.summary);
+  md += renderHighVarianceAlerts(report.recommendations?.caveats);
+  md += renderRecommendations(report.recommendations);
+  md += renderCostEstimate(report.costEstimate);
+  md += renderLeaderboards(report);
+  md += renderAllScorecards(report);
+
   return md;
 };
