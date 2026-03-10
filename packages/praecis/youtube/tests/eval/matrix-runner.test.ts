@@ -74,9 +74,9 @@ describe("Matrix Runner Integration", () => {
         fullText: "full text",
       });
     };
-    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => any);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
     vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
-      Promise.resolve(mockTranscriptImplementation(path as string)) as any
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
     );
 
     const mockJudgeClient = {
@@ -107,8 +107,8 @@ describe("Matrix Runner Integration", () => {
       judgeModels: ["gpt-4o"],
       maxConcurrency: 1,
       timeoutMs: 1000,
-      extractorClientFactory: () => ({}) as any,
-      judgeClientFactory: () => mockJudgeClient as any,
+      extractorClientFactory: () => ({}) as unknown as any,
+      judgeClientFactory: () => mockJudgeClient as unknown as any,
     };
 
     const result = await runEvaluationMatrix(corpus, models, options);
@@ -133,15 +133,25 @@ describe("Matrix Runner Integration", () => {
   });
 
   it("should average scores from multiple judges", () => {
-    const cells: any[] = [
+    const createMockScore = (score: number) => ({
+      completeness: score,
+      accuracy: score,
+      topicCoverage: score,
+      atomicity: score,
+      overallScore: score,
+      reasoning: "r",
+      missingClaims: [],
+      hallucinations: [],
+      redundancies: [],
+      gapAreas: []
+    });
+
+    const cells = [
       {
         videoId: "v1",
         modelId: "m1",
-        extractorVariantId: "raw",
-        scores: [
-          { completeness: 10, accuracy: 10, topicCoverage: 10, atomicity: 10, overallScore: 10 },
-          { completeness: 0, accuracy: 0, topicCoverage: 0, atomicity: 0, overallScore: 0 }
-        ]
+        extractorVariantId: "raw" as const,
+        scores: [createMockScore(10), createMockScore(0)]
       }
     ];
 
