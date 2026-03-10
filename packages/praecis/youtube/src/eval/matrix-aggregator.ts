@@ -146,13 +146,13 @@ export function aggregateMatrixResults(cells: MatrixCell[]): MatrixReport {
     .sort((a, b) => b.score - a.score)[0]?.variantId ?? "None";
 
   const budgetModels = overallLeaderboard.filter(m => getModel(m.modelId)?.tier === "budget");
-  const bestBudgetModel = budgetModels.length > 0 ? budgetModels[0]!.modelId : "None";
+  const bestBudgetModel = budgetModels.length > 0 ? budgetModels[0]?.modelId ?? "None" : "None";
 
   const caveats: string[] = [];
   if (cells.some(c => c.error)) {
     caveats.push("Some cells failed during extraction or scoring, which may skew the results.");
   }
-  if (cells.length > 0 && cells[0]?.scores && cells[0]!.scores!.length > 1) {
+  if (cells.length > 0 && cells[0]?.scores && (cells[0].scores?.length ?? 0) > 1) {
     caveats.push("Multiple judges were used; scores are averaged consensus.");
   }
   for (const cell of cells) {

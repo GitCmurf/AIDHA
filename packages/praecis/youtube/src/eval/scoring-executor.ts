@@ -30,7 +30,7 @@ export async function scoreClaimSet(
   traces.push({ prompt: { system, user }, response: llmResult1.ok ? llmResult1.value : `Error: ${llmResult1.error.message}` });
 
   if (!llmResult1.ok) {
-    return llmResult1 as any; // Cast because Result type is slightly different now but error is same
+    return { ok: false, error: llmResult1.error };
   }
 
   const result1 = parseAndValidate(llmResult1.value);
@@ -58,7 +58,7 @@ export async function scoreClaimSet(
   traces.push({ prompt: { system, user: retryUser }, response: llmResult2.ok ? llmResult2.value : `Error: ${llmResult2.error.message}` });
 
   if (!llmResult2.ok) {
-    return llmResult2 as any;
+    return { ok: false, error: llmResult2.error };
   }
 
   const result2 = parseAndValidate(llmResult2.value);

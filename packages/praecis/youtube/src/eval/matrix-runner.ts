@@ -135,8 +135,8 @@ const performExtraction = async (
       model: modelId,
       promptVersion,
       cacheDir: options.cacheDir,
-      editorVersion: variant === "editorial-pass-v1" ? "v1" : "v2",
-      editorLlm: variant !== "raw", // Disable LLM rewrite for raw variant
+      editorVersion: variant === "editorial-pass-v1" ? "v1" : variant === "editorial-pass-v2" ? "v2" : undefined,
+      editorLlm: variant.startsWith("editorial-pass-"),
       maxTokens: options.extractionMaxTokens,
       maxChunks: options.extractionMaxChunks,
     });

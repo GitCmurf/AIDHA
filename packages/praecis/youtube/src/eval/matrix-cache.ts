@@ -8,13 +8,13 @@ export interface CacheOptions {
   cacheDir: string;
 }
 
-// Track if cache directory has been created to avoid redundant mkdir calls
-let cacheDirInitialized = false;
+// Track which cache directories have been created to avoid redundant mkdir calls
+const initializedCacheDirs = new Set<string>();
 
 async function ensureCacheDir(cacheDir: string): Promise<void> {
-  if (!cacheDirInitialized) {
+  if (!initializedCacheDirs.has(cacheDir)) {
     await fs.mkdir(cacheDir, { recursive: true });
-    cacheDirInitialized = true;
+    initializedCacheDirs.add(cacheDir);
   }
 }
 

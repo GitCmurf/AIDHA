@@ -1,16 +1,21 @@
-import type { ClaimSetScore } from "./scoring-rubric.js";
+import type { ClaimSetScore, ScoreDimension } from "./scoring-rubric.js";
 import { SCORE_DIMENSIONS } from "./scoring-rubric.js";
 
 export interface ConsensusResult {
   mean: ClaimSetScore;
-  variance: Partial<keyof ClaimSetScore, number>;
+  variance: Partial<Record<ScoreDimension, number>>;
   isHighVariance: boolean;
 }
 
 export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | null => {
   if (scores.length === 0) return null;
 
-  const mean: any = {
+  const mean: ClaimSetScore = {
+    completeness: 0,
+    accuracy: 0,
+    topicCoverage: 0,
+    atomicity: 0,
+    overallScore: 0,
     reasoning: "Consensus of multiple judges",
     missingClaims: [],
     hallucinations: [],
@@ -28,9 +33,9 @@ export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | nul
     mean[dim] = Number(avg.toFixed(2));
 
     if (values.length > 1) {
-      const v = values.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / values.length;
-      variance[dim] = Number(v.toFixed(2));
-      if (v > VARIANCE_THRESHOLD) {
+      const varianceValue = values.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / values.length;
+      variance[dim] = Number(varianceValue.toFixed(2));
+      if (varianceValue > VARIANCE_THRESHOLD) {
         isHighVariance = true;
       }
     } else {

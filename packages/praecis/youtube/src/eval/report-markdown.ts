@@ -49,10 +49,8 @@ export const renderMatrixReport = (report: MatrixReport): string => {
   if (highVarianceCells.length > 0) {
     md += "### ⚠️ High Variance Alerts\n\n";
     md += "The following cells showed high disagreement between judges and should be manually reviewed:\n\n";
-    for (const caveat of report.recommendations!.caveats) {
-      if (caveat.includes("Cell ")) {
-        md += `- ${caveat}\n`;
-      }
+    for (const caveat of highVarianceCells) {
+      md += `- ${caveat}\n`;
     }
     md += "\n";
   }

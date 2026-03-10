@@ -1120,6 +1120,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
         response: response.ok ? response.value : `Error: ${response.error.message}`
       });
     } catch (error) {
+      // Don't record user cancellations as circuit breaker failures
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
       this.circuitBreaker.recordFailure();
       console.error(`LLM error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
       return { claims: [], success: false };
