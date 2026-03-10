@@ -97,18 +97,6 @@ const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | 
   }
 };
 
-const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => {
-  const cellsDir = join(outputDir, "cells");
-  mkdirSync(cellsDir, { recursive: true });
-  for (const cell of cells) {
-    const cellFileName = `${cell.videoId}-${cell.modelId}-${cell.extractorVariantId}.json`;
-    const cellPath = join(cellsDir, cellFileName);
-    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
-  }
-  // skipcq: JS-0002
-  console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
-};
-
 const writeReports = (report: MatrixReport, outputDir: string, format: string) => {
   mkdirSync(outputDir, { recursive: true });
 
@@ -168,7 +156,26 @@ Timeout: ${planArgs.timeoutMs}ms
 `);
 };
 
-const parseRunOptions = (cleanOptions: CliOptions) => {
+interface EvalRunOptions {
+  dryRun: boolean;
+  runId: string;
+  corpusPath: string;
+  transcriptDir: string;
+  modelsStr: string;
+  tier: string;
+  judgeModelsStr: string;
+  variantsStr: string;
+  outputDir: string;
+  format: string;
+  resume: boolean;
+  maxConcurrency: number;
+  extractionMaxTokens?: number;
+  extractionMaxChunks?: number;
+  judgeMaxTokens: number;
+  timeoutMs: number;
+}
+
+const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
   const dryRun = optionBool(cleanOptions, "dry-run");
   const runId = optionString(cleanOptions, "run-id", "");
   const corpusPath = optionString(cleanOptions, "corpus", "");
@@ -265,7 +272,7 @@ const handleCostReporting = (matrixResult: MatrixResult, isDryRun: boolean) => {
     // skipcq: JS-0002
     console.log(`  Total:      $${totalUsd.toFixed(4)}`);
 
-    const BUDGET_CEILING = 25.00; // $25.00 as per Task 004 full-matrix budget
+    const BUDGET_CEILING = 25.00;
     if (totalUsd > BUDGET_CEILING) {
        // skipcq: JS-0002
        console.warn(`\nWARNING: Estimated cost ($${totalUsd.toFixed(4)}) exceeds Task 004 full-matrix budget ceiling ($${BUDGET_CEILING.toFixed(2)}).`);
@@ -273,7 +280,20 @@ const handleCostReporting = (matrixResult: MatrixResult, isDryRun: boolean) => {
   }
 };
 
-const validateBasicInputs = (parsedOpts: any, variantIds: string[]) => {
+const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => {
+  const cellsDir = join(outputDir, "cells");
+  mkdirSync(cellsDir, { recursive: true });
+  for (const cell of cells) {
+    const safeModelId = cell.modelId.replace(/[/\\]/g, "_");
+    const cellFileName = `${cell.videoId}-${safeModelId}-${cell.extractorVariantId}.json`;
+    const cellPath = join(cellsDir, cellFileName);
+    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
+  }
+  // skipcq: JS-0002
+  console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
+};
+
+const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) => {
   if (!["both", "json", "md"].includes(parsedOpts.format)) {
     // skipcq: JS-0002
     console.error(`Invalid format: ${parsedOpts.format}. Must be one of: both, json, md`);
@@ -297,7 +317,7 @@ const validateBasicInputs = (parsedOpts: any, variantIds: string[]) => {
   return 0;
 };
 
-const handleExecutionResult = (result: MatrixResult, parsedOpts: any, finalOutputDir: string) => {
+const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions, finalOutputDir: string) => {
   if (parsedOpts.dryRun) {
     // skipcq: JS-0002
     console.log("Dry run complete. No real LLM calls were made.");
@@ -321,14 +341,46 @@ const handleExecutionResult = (result: MatrixResult, parsedOpts: any, finalOutpu
   return 0;
 };
 
+const executeMatrixEvaluation = async (
+  corpusData: any,
+  models: EvalModel[],
+  parsedOpts: EvalRunOptions,
+  variantIds: string[],
+  judgeModels: string[],
+  runCacheDir: string,
+  finalOutputDir: string,
+  config: ResolvedConfig
+) => {
+  const matrixOptions: MatrixOptions = {
+    outputDir: finalOutputDir,
+    cacheDir: runCacheDir,
+    runId: parsedOpts.runId,
+    transcriptDir: parsedOpts.transcriptDir,
+    resume: parsedOpts.resume,
+    dryRun: parsedOpts.dryRun,
+    variants: variantIds as any[],
+    judgeModels,
+    maxConcurrency: parsedOpts.maxConcurrency,
+    timeoutMs: parsedOpts.timeoutMs,
+    extractionMaxTokens: parsedOpts.extractionMaxTokens,
+    extractionMaxChunks: parsedOpts.extractionMaxChunks,
+    judgeMaxTokens: parsedOpts.judgeMaxTokens,
+    extractorClientFactory: (modelId: string) => createProviderAwareClient(modelId, config.llm),
+    judgeClientFactory: (modelId: string) => createProviderAwareClient(modelId, config.llm)
+  };
+
+  const result = await runEvaluationMatrix(corpusData, models, matrixOptions);
+  handleCostReporting(result, parsedOpts.dryRun);
+  return result;
+};
+
 export const runEvalMatrix = async (
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
   config: ResolvedConfig
 ): Promise<number> => {
   try {
-    const mode = positionals[1]; // matrix
-    if (mode !== "matrix") {
+    if (positionals[1] !== "matrix") {
       // skipcq: JS-0002
       console.error("Usage: eval matrix [options]");
       return 1;
@@ -352,7 +404,6 @@ export const runEvalMatrix = async (
     if (typeof models === "number") return models;
 
     const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
-
     const runCacheDir = parsedOpts.runId ? join(".cache/extraction", parsedOpts.runId) : ".cache/extraction";
     const finalOutputDir = parsedOpts.outputDir || (parsedOpts.runId ? join("out/eval-matrix/runs", parsedOpts.runId) : "out/eval-matrix/reports");
 
@@ -364,26 +415,9 @@ export const runEvalMatrix = async (
     const corpusResult = loadCorpusData(parsedOpts.corpusPath);
     if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
 
-    const matrixOptions: MatrixOptions = {
-      outputDir: finalOutputDir,
-      cacheDir: runCacheDir,
-      runId: parsedOpts.runId,
-      transcriptDir: parsedOpts.transcriptDir,
-      resume: parsedOpts.resume,
-      dryRun: parsedOpts.dryRun,
-      variants: variantIds as any[],
-      judgeModels,
-      maxConcurrency: parsedOpts.maxConcurrency,
-      timeoutMs: parsedOpts.timeoutMs,
-      extractionMaxTokens: parsedOpts.extractionMaxTokens,
-      extractionMaxChunks: parsedOpts.extractionMaxChunks,
-      judgeMaxTokens: parsedOpts.judgeMaxTokens,
-      extractorClientFactory: (modelId: string) => createProviderAwareClient(modelId, config.llm),
-      judgeClientFactory: (modelId: string) => createProviderAwareClient(modelId, config.llm)
-    };
-
-    const result = await runEvaluationMatrix(corpusResult.data, models, matrixOptions);
-    handleCostReporting(result, parsedOpts.dryRun);
+    const result = await executeMatrixEvaluation(
+      corpusResult.data, models, parsedOpts, variantIds, judgeModels, runCacheDir, finalOutputDir, config
+    );
 
     return handleExecutionResult(result, parsedOpts, finalOutputDir);
   } catch (error) {
