@@ -45,6 +45,7 @@ import { parseTranscriptTtml } from './client/transcript.js';
 import {
   resolveCliConfig,
   buildCliOverrides,
+  type ConfigBridgeResult,
 } from './cli/config-bridge.js';
 import type { ResolvedConfig } from '@aidha/config';
 import { createLlmClientFromConfig } from './extract/llm-client.js';
@@ -1238,7 +1239,7 @@ async function runFixtures(positionals: string[], options: CliOptions, config: R
   }
 }
 
-const resolveConfigForCommand = async (command: string, positionals: string[], options: CliOptions) => {
+const resolveConfigForCommand = async (command: string, positionals: string[], options: CliOptions): Promise<ConfigBridgeResult | null> => {
   const cliOverrides = buildCliOverrides(options);
   const resolution = await resolveCliConfig({
     configPath: typeof options['config'] === 'string' ? options['config'] : undefined,
@@ -1252,6 +1253,7 @@ const resolveConfigForCommand = async (command: string, positionals: string[], o
   }
 
   if (!resolution.config && command !== 'config') {
+    // skipcq: JS-0002
     console.error('Configuration not loaded.');
     return null;
   }
@@ -1259,10 +1261,7 @@ const resolveConfigForCommand = async (command: string, positionals: string[], o
   return resolution;
 };
 
-const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: any): Promise<number> => {
-  const config = resolution.config!;
-  const loadResult = resolution.loadResult;
-
+const runCoreCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
   switch (command) {
     case 'ingest': return runIngest(positionals, options, config);
     case 'extract': return runExtract(positionals, options, config);
@@ -1272,22 +1271,61 @@ const executeCommand = async (command: string, positionals: string[], options: C
     case 'related': return runRelated(positionals, options, config);
     case 'review': return runReview(positionals, options, config);
     case 'task': return runTask(positionals, options, config);
+    default: return null;
+  }
+};
+
+const runProjectCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
     case 'area': return runArea(positionals, options, config);
     case 'goal': return runGoal(positionals, options, config);
     case 'project': return runProject(positionals, options, config);
+    default: return null;
+  }
+};
+
+const runDiagnosisCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
     case 'diagnose': return runDiagnose(positionals, options, config);
     case 'preflight': return runPreflight(positionals, options, config);
+    default: return null;
+  }
+};
+
+const runSystemCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
     case 'fixtures': return runFixtures(positionals, options, config);
     case 'eval': return runEvalMatrix(positionals, options, config);
-    case 'config': {
-      const error = !resolution.ok ? resolution.error : undefined;
-      return runConfig(positionals.slice(1), options, loadResult, resolution.config, error);
-    }
-    default:
-      console.error(`Unknown command: ${command}`);
-      printHelp();
-      return 1;
+    default: return null;
   }
+};
+
+const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
+  const config = resolution.config;
+
+  if (config) {
+    const coreResult = await runCoreCommand(command, positionals, options, config);
+    if (coreResult !== null) return coreResult;
+
+    const projectResult = await runProjectCommand(command, positionals, options, config);
+    if (projectResult !== null) return projectResult;
+
+    const diagResult = await runDiagnosisCommand(command, positionals, options, config);
+    if (diagResult !== null) return diagResult;
+
+    const systemResult = await runSystemCommand(command, positionals, options, config);
+    if (systemResult !== null) return systemResult;
+  }
+
+  if (command === 'config') {
+    const error = !resolution.ok ? resolution.error : undefined;
+    return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.config ?? undefined, error);
+  }
+
+  // skipcq: JS-0002
+  console.error(`Unknown command: ${command}`);
+  printHelp();
+  return 1;
 };
 
 export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<number> => {
