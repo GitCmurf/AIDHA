@@ -109,7 +109,7 @@ export const resolveSourceId = (positionals: string[], options: CliOptions): str
     'task', 'area', 'goal', 'project', 'diagnose', 'preflight', 'fixtures', 'eval'
   ]);
 
-  if (YOUTUBE_COMMANDS.has(positionals[0])) {
+  if (positionals[0] && YOUTUBE_COMMANDS.has(positionals[0])) {
     return 'youtube';
   }
 
@@ -1252,7 +1252,7 @@ const resolveConfigForCommand = async (command: string, positionals: string[], o
     throw resolution.error;
   }
 
-  if (!resolution.config && command !== 'config') {
+  if (!resolution.ok || !resolution.config) {
     // skipcq: JS-0002
     console.error('Configuration not loaded.');
     return null;
@@ -1324,11 +1324,11 @@ const runMatchingRunner = async (command: string, positionals: string[], options
 
 const handleConfigCommand = (positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
   const error = !resolution.ok ? resolution.error : undefined;
-  return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.config ?? undefined, error);
+  return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.ok ? resolution.config : undefined, error);
 };
 
 const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
-  const config = resolution.config;
+  const config = resolution.ok ? resolution.config : undefined;
 
   if (config) {
     const result = await runMatchingRunner(command, positionals, options, config);
