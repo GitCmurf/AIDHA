@@ -1314,19 +1314,29 @@ const COMMAND_RUNNERS = [
   runSystemCommand,
 ];
 
+const runMatchingRunner = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  for (const runner of COMMAND_RUNNERS) {
+    const result = await runner(command, positionals, options, config);
+    if (result !== null) return result;
+  }
+  return null;
+};
+
+const handleConfigCommand = (positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
+  const error = !resolution.ok ? resolution.error : undefined;
+  return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.config ?? undefined, error);
+};
+
 const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
   const config = resolution.config;
 
   if (config) {
-    for (const runner of COMMAND_RUNNERS) {
-      const result = await runner(command, positionals, options, config);
-      if (result !== null) return result;
-    }
+    const result = await runMatchingRunner(command, positionals, options, config);
+    if (result !== null) return result;
   }
 
   if (command === 'config') {
-    const error = !resolution.ok ? resolution.error : undefined;
-    return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.config ?? undefined, error);
+    return handleConfigCommand(positionals, options, resolution);
   }
 
   // skipcq: JS-0002

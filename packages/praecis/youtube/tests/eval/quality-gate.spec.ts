@@ -8,20 +8,21 @@ const __dirname = path.dirname(__filename);
 
 describe("CI Quality Gate", () => {
   it("should not regress beyond allowed tolerance against pinned baseline", (ctx) => {
-    const latestPath = path.join(__dirname, "../../../out/eval-matrix/reports/latest.json");
-    if (!fs.existsSync(latestPath)) {
+    // Path relative to packages/praecis/youtube/tests/eval is ../../../../../out/...
+    const reportPath = path.join(__dirname, "../../../../../out/eval-matrix/reports/latest.json");
+    const baselinePath = path.join(__dirname, "../../../../../out/eval-matrix/reports/baseline.json");
+
+    if (!fs.existsSync(reportPath)) {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error("Required 'latest.json' report not found. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.");
+        throw new Error(`Required 'latest.json' report not found at ${reportPath}. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.`);
       }
       ctx.skip();
       return;
     }
 
-    // path relative to packages/praecis/youtube/tests/eval is ../../../../../out/...
-    const reportPath = path.join(__dirname, "../../../../../out/eval-matrix/reports/latest.json");
-    if (!fs.existsSync(reportPath)) {
+    if (!fs.existsSync(baselinePath)) {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error(`Latest report not found at ${reportPath}, failing quality gate. Run matrix evaluation first.`);
+        throw new Error(`Required 'baseline.json' report not found at ${baselinePath}, failing quality gate. Run matrix evaluation and pin a baseline first.`);
       }
       ctx.skip();
       return;

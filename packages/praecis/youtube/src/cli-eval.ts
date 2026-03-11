@@ -76,7 +76,8 @@ const loadCorpusData = (corpusPath: string) => {
 
 const resolveModelIds = (modelsStr: string, tier: string): string[] | number => {
   if (modelsStr) {
-    return modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+    const ids = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+    if (ids.length > 0) return ids;
   }
   if (tier) {
     const ids = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
