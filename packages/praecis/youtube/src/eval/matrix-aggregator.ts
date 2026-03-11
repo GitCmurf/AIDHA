@@ -28,7 +28,7 @@ export interface MatrixReport {
 /**
  * Creates an empty score record with all dimensions initialized to empty arrays.
  */
-function createEmptyScoreRecord(): Record<ScoreDimension, number[]> {
+const createEmptyScoreRecord = (): Record<ScoreDimension, number[]> => {
   return {
     completeness: [],
     accuracy: [],
@@ -36,7 +36,7 @@ function createEmptyScoreRecord(): Record<ScoreDimension, number[]> {
     atomicity: [],
     overallScore: []
   };
-}
+};
 
 const aggregateCellScores = (scores: ClaimSetScore[]): Record<ScoreDimension, number> => {
   const aggregated: Record<ScoreDimension, number> = {
@@ -151,7 +151,7 @@ const calculateAllStats = (scoresMap: Record<string, Record<ScoreDimension, numb
 };
 
 const generateLeaderboards = (modelStats: Record<string, { dimensions: DimensionStats }>): Record<ScoreDimension, { modelId: string; score: number }[]> => {
-  const leaderboards: any = {};
+  const leaderboards = {} as Record<ScoreDimension, { modelId: string; score: number }[]>;
 
   for (const dim of SCORE_DIMENSIONS) {
     leaderboards[dim] = Object.keys(modelStats)

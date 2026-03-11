@@ -7,6 +7,6 @@ export const EXTRACTOR_VARIANTS: ExtractorVariantId[] = [
   "single-pass"
 ];
 
-export function isValidVariant(variant: string): variant is ExtractorVariantId {
+export const isValidVariant = (variant: string): variant is ExtractorVariantId => {
   return EXTRACTOR_VARIANTS.includes(variant as ExtractorVariantId);
-}
+};

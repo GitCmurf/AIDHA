@@ -1253,9 +1253,11 @@ const resolveConfigForCommand = async (command: string, positionals: string[], o
   }
 
   if (!resolution.ok || !resolution.config) {
-    // skipcq: JS-0002
-    console.error('Configuration not loaded.');
-    return null;
+    if (command !== 'config') {
+      // skipcq: JS-0002
+      console.error('Configuration not loaded.');
+      return null;
+    }
   }
 
   return resolution;
@@ -1345,19 +1347,31 @@ const executeCommand = async (command: string, positionals: string[], options: C
   return 1;
 };
 
-export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<number> => {
+const parseCliArgs = (argv: string[]) => {
   const parsed = parseArgs(argv);
   const [command] = parsed.positionals;
+  return { parsed, command };
+};
 
-  if (!command || command === 'help' || command === '--help' || parsed.options['help'] === true) {
+const handleHelpAndMissingCommand = (command: string | undefined, options: CliOptions): boolean => {
+  if (!command || command === 'help' || command === '--help' || options['help'] === true) {
     printHelp();
+    return true;
+  }
+  return false;
+};
+
+export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<number> => {
+  const { parsed, command } = parseCliArgs(argv);
+
+  if (handleHelpAndMissingCommand(command, parsed.options)) {
     return 0;
   }
 
-  const resolution = await resolveConfigForCommand(command, parsed.positionals, parsed.options);
+  const resolution = await resolveConfigForCommand(command!, parsed.positionals, parsed.options);
   if (!resolution) return 1;
 
-  return executeCommand(command, parsed.positionals, parsed.options, resolution);
+  return executeCommand(command!, parsed.positionals, parsed.options, resolution);
 };
 
 if (isCliEntrypoint(import.meta.url, process.argv[1])) {

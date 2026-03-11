@@ -1,4 +1,4 @@
-import * as fs from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { hashId } from "../utils/ids.js";
 import type { MatrixCell } from "./matrix-runner.js";
@@ -13,7 +13,7 @@ const initializedCacheDirs = new Set<string>();
 
 async function ensureCacheDir(cacheDir: string): Promise<void> {
   if (!initializedCacheDirs.has(cacheDir)) {
-    await fs.mkdir(cacheDir, { recursive: true });
+    await mkdir(cacheDir, { recursive: true });
     initializedCacheDirs.add(cacheDir);
   }
 }
@@ -30,7 +30,7 @@ export async function getCachedExtraction(
   const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
 
   try {
-    const data = await fs.readFile(filePath, "utf-8");
+    const data = await readFile(filePath, "utf-8");
     const parsed = JSON.parse(data);
     // Ideally we'd have a MatrixCellSchema here, but for now we validate key fields
     if (parsed && typeof parsed === 'object' && 'videoId' in parsed && 'modelId' in parsed && 'claimSet' in parsed) {
@@ -55,7 +55,7 @@ export async function setCachedExtraction(
   const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
 
   await ensureCacheDir(options.cacheDir);
-  await fs.writeFile(filePath, JSON.stringify(cell, null, 2), "utf-8");
+  await writeFile(filePath, JSON.stringify(cell, null, 2), "utf-8");
 }
 
 export async function getCachedScore(
@@ -70,7 +70,7 @@ export async function getCachedScore(
   const filePath = path.join(options.cacheDir, `score-${key}.json`);
 
   try {
-    const data = await fs.readFile(filePath, "utf-8");
+    const data = await readFile(filePath, "utf-8");
     const parsed = JSON.parse(data);
     const result = ClaimSetScoreSchema.array().safeParse(parsed);
     if (!result.success) {
@@ -96,7 +96,7 @@ export async function setCachedScore(
   const filePath = path.join(options.cacheDir, `score-${key}.json`);
 
   await ensureCacheDir(options.cacheDir);
-  await fs.writeFile(filePath, JSON.stringify(scores, null, 2), "utf-8");
+  await writeFile(filePath, JSON.stringify(scores, null, 2), "utf-8");
 }
 
 export function computeClaimSetHash(claims: any[]): string {

@@ -385,22 +385,37 @@ const executeMatrixEvaluation = async (
   return result;
 };
 
+const parseEvalOptions = (positionals: string[], options: Record<string, string | boolean | undefined>): { mode: string; cleanOptions: CliOptions } | number => {
+  const mode = positionals[1];
+  if (mode !== "matrix") {
+    // skipcq: JS-0002
+    console.error("Usage: eval matrix [options]");
+    return 1;
+  }
+
+  const cleanOptions: CliOptions = {};
+  for (const [k, v] of Object.entries(options)) {
+    if (v !== undefined) cleanOptions[k] = v;
+  }
+  return { mode, cleanOptions };
+};
+
+const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions, models: EvalModel[], variantIds: string[], judgeModels: string[]) => {
+  const runCacheDir = parsedOpts.runId ? join(".cache/extraction", parsedOpts.runId) : ".cache/extraction";
+  const finalOutputDir = parsedOpts.outputDir || (parsedOpts.runId ? join("out/eval-matrix/runs", parsedOpts.runId) : "out/eval-matrix/reports");
+
+  return { runCacheDir, finalOutputDir };
+};
+
 export const runEvalMatrix = async (
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
   config: ResolvedConfig
 ): Promise<number> => {
   try {
-    if (positionals[1] !== "matrix") {
-      // skipcq: JS-0002
-      console.error("Usage: eval matrix [options]");
-      return 1;
-    }
-
-    const cleanOptions: CliOptions = {};
-    for (const [k, v] of Object.entries(options)) {
-      if (v !== undefined) cleanOptions[k] = v;
-    }
+    const parseResult = parseEvalOptions(positionals, options);
+    if (typeof parseResult === "number") return parseResult;
+    const { cleanOptions } = parseResult;
 
     const cacheInvalidationResult = invalidateCache(cleanOptions);
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
@@ -415,8 +430,7 @@ export const runEvalMatrix = async (
     if (typeof models === "number") return models;
 
     const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
-    const runCacheDir = parsedOpts.runId ? join(".cache/extraction", parsedOpts.runId) : ".cache/extraction";
-    const finalOutputDir = parsedOpts.outputDir || (parsedOpts.runId ? join("out/eval-matrix/runs", parsedOpts.runId) : "out/eval-matrix/reports");
+    const { runCacheDir, finalOutputDir } = resolveEvalExecutionParams(parsedOpts, models, variantIds, judgeModels);
 
     printPlan({ ...parsedOpts, models, judgeModels, variantIds, finalOutputDir, runCacheDir });
 
