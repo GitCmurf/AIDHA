@@ -414,26 +414,6 @@ const loadExecutionData = (parsedOpts: EvalRunOptions) => {
   return { corpusResult, models };
 };
 
-const performMatrixExecution = (
-  corpusData: CorpusEntry[],
-  models: EvalModel[],
-  parsedOpts: EvalRunOptions,
-  variantIds: string[],
-  judgeModels: string[],
-  runCacheDir: string,
-  finalOutputDir: string,
-  config: ResolvedConfig
-) => {
-  printPlan({ ...parsedOpts, models, judgeModels, variantIds, finalOutputDir, runCacheDir });
-
-  // skipcq: JS-0002
-  console.log("Running matrix evaluation...");
-
-  return executeMatrixEvaluation(
-    corpusData, models, parsedOpts, variantIds, judgeModels, runCacheDir, finalOutputDir, config
-  );
-};
-
 export const runEvalMatrix = async (
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
@@ -460,7 +440,12 @@ export const runEvalMatrix = async (
     const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
     const { runCacheDir, finalOutputDir } = resolveEvalExecutionParams(parsedOpts);
 
-    const result = await performMatrixExecution(
+    printPlan({ ...parsedOpts, models, judgeModels, variantIds, finalOutputDir, runCacheDir });
+
+    // skipcq: JS-0002
+    console.log("Running matrix evaluation...");
+
+    const result = await executeMatrixEvaluation(
       corpusResult.data, models, parsedOpts, variantIds, judgeModels, runCacheDir, finalOutputDir, config
     );
 

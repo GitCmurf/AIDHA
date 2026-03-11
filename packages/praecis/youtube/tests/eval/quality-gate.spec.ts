@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SCORE_DIMENSIONS } from "../../src/eval/scoring-rubric";
 
 interface ModelStats {
   dimensions: Record<string, { mean: number; median: number; min: number; max: number; stddev: number }>;
@@ -16,15 +17,10 @@ describe("CI Quality Gate", () => {
     const reportPath = join(__dirname, "../../../../../out/eval-matrix/reports/latest.json");
     const baselinePath = join(__dirname, "../../../../../out/eval-matrix/reports/baseline.json");
 
-    if (!existsSync(reportPath)) {
-      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error(`Required 'latest.json' report not found at ${reportPath}. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.`);
-      }
-      ctx.skip();
-      return;
-    }
-
-    if (!existsSync(baselinePath)) {
+    let baseline: unknown, latest: unknown;
+    try {
+      baseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
+    } catch {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
         throw new Error(`Required 'baseline.json' report not found at ${baselinePath}, failing quality gate. Run matrix evaluation and pin a baseline first.`);
       }
@@ -32,12 +28,17 @@ describe("CI Quality Gate", () => {
       return;
     }
 
-    const baseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
-    const latest = JSON.parse(readFileSync(reportPath, "utf-8"));
+    try {
+      latest = JSON.parse(readFileSync(reportPath, "utf-8"));
+    } catch {
+      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
+        throw new Error(`Required 'latest.json' report not found at ${reportPath}. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.`);
+      }
+      ctx.skip();
+      return;
+    }
 
     const tolerance = 1.0; // max allowed drop in dimension score
-
-    const dimensions = ["completeness", "accuracy", "topicCoverage", "atomicity", "overallScore"];
 
     for (const [modelId, baselineStats] of Object.entries(baseline.modelStats)) {
       const latestStats = latest.modelStats[modelId];
@@ -45,7 +46,7 @@ describe("CI Quality Gate", () => {
         throw new Error(`Model ${modelId} present in baseline but missing from latest report`);
       }
 
-      for (const dim of dimensions) {
+      for (const dim of SCORE_DIMENSIONS) {
         const baselineScore = (baselineStats as ModelStats).dimensions[dim]?.mean ?? 0;
         const latestScore = (latestStats as ModelStats).dimensions[dim]?.mean ?? 0;
 
