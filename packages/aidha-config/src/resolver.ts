@@ -243,6 +243,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     ytdlp: {
       bin: resolvePathValue((ytdlp['bin'] as string) ?? '', baseDir),
       cookiesFile: resolvePathValue((ytdlp['cookies_file'] as string) ?? '', baseDir),
+      remoteComponents: (ytdlp['remote_components'] as string) ?? '',
       timeoutMs: (ytdlp['timeout_ms'] as number) ?? 0,
       jsRuntimes: (ytdlp['js_runtimes'] as string) ?? '',
       keepFiles: (ytdlp['keep_files'] as boolean) ?? false,

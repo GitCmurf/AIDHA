@@ -4,7 +4,7 @@
 import type { GraphStore, NodeDataInput, NodeType, GraphNode } from '@aidha/graph-backend';
 import type { TaxonomyRegistry } from '@aidha/taxonomy';
 import type { YouTubeClient } from '../client/types.js';
-import type { PipelineConfig, IngestionResult, Result } from './types.js';
+import type { PipelineConfig, IngestionResult, Result, IngestVideoOptions } from './types.js';
 import type { IngestionJob, JobError, Transcript } from '../schema/index.js';
 import { hashId } from '../utils/ids.js';
 
@@ -117,14 +117,20 @@ export class IngestionPipeline {
   /**
    * Ingest a single YouTube video.
    */
-  async ingestVideo(videoId: string): Promise<Result<{ nodeId: string; tagsAssigned: number; created: boolean }>> {
-    return this.processVideo(videoId);
+  async ingestVideo(
+    videoId: string,
+    options: IngestVideoOptions = {},
+  ): Promise<Result<{ nodeId: string; tagsAssigned: number; created: boolean }>> {
+    return this.processVideo(videoId, options);
   }
 
   /**
    * Process a single video.
    */
-  private async processVideo(videoId: string): Promise<
+  private async processVideo(
+    videoId: string,
+    options: IngestVideoOptions = {},
+  ): Promise<
     Result<{ nodeId: string; tagsAssigned: number; created: boolean }>
   > {
     const nodeId = `youtube-${videoId}`;
@@ -146,7 +152,14 @@ export class IngestionPipeline {
       const hasExcerpts = excerptsResult.value.items.length > 0;
       const transcriptStatus = resource.metadata?.['transcriptStatus'];
 
-      if (!hasExcerpts || transcriptStatus !== 'available') {
+      if (options.refreshTranscript && hasExcerpts) {
+        const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
+        if (!purgeResult.ok) {
+          return { ok: false, error: purgeResult.error };
+        }
+      }
+
+      if (options.refreshTranscript || !hasExcerpts || transcriptStatus !== 'available') {
         const transcriptResult = await this.youtubeClient.fetchTranscript(videoId);
         const transcript = transcriptResult.ok ? transcriptResult.value : null;
 
@@ -324,5 +337,29 @@ export class IngestionPipeline {
     }
 
     return { ok: true, value: { created } };
+  }
+
+  private async deleteTranscriptExcerpts(resourceId: string): Promise<Result<{ deleted: number }>> {
+    const excerptsResult = await this.graphStore.queryNodes({
+      type: 'Excerpt',
+      filters: { resourceId },
+    });
+    if (!excerptsResult.ok) return excerptsResult;
+
+    const items = excerptsResult.value.items;
+    if (items.length === 0) {
+      return { ok: true, value: { deleted: 0 } };
+    }
+
+    // Delete concurrently for better performance
+    const deleteResults = await Promise.all(
+      items.map(excerpt => this.graphStore.deleteNode(excerpt.id, { cascade: true }))
+    );
+
+    // Check for any failures
+    const firstFailure = deleteResults.find(result => !result.ok);
+    if (firstFailure) return firstFailure as Result<{ deleted: number }>;
+
+    return { ok: true, value: { deleted: items.length } };
   }
 }

@@ -276,7 +276,9 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
     console.log(output);
   } else if (mode === 'video') {
     const videoId = parseVideoId(target);
-    const result = await pipeline.ingestVideo(videoId);
+    const result = await pipeline.ingestVideo(videoId, {
+      refreshTranscript: optionBool(options, 'refresh-transcript') ?? false,
+    });
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();

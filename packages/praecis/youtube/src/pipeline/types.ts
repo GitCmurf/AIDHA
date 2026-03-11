@@ -35,3 +35,7 @@ export interface PipelineConfig {
   taxonomyRegistry: import('@aidha/taxonomy').TaxonomyRegistry;
   youtubeClient: import('../client/types.js').YouTubeClient;
 }
+
+export interface IngestVideoOptions {
+  refreshTranscript?: boolean;
+}

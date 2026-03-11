@@ -58,6 +58,7 @@ export interface ExportConfig {
 export interface YtdlpConfig {
   bin: string;
   cookies_file: string;
+  remote_components?: string;
   timeout_ms: number;
   js_runtimes: string;
   keep_files: boolean;
@@ -161,6 +162,7 @@ export interface ResolvedConfig {
   ytdlp: {
     bin: string;
     cookiesFile: string;
+    remoteComponents: string;
     timeoutMs: number;
     jsRuntimes: string;
     keepFiles: boolean;
