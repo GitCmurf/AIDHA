@@ -11,36 +11,46 @@ import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 
+const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
+  apiKey: process.env["OPENAI_API_KEY"] || apiKey,
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
+});
+
+const getOpenRouterConfig = (apiKey: string, baseUrl?: string) => ({
+  apiKey: process.env["OPENROUTER_API_KEY"] || apiKey,
+  baseUrl: baseUrl || "https://openrouter.ai/api/v1"
+});
+
+const getDeepSeekConfig = (apiKey: string, baseUrl?: string) => ({
+  apiKey: process.env["DEEPSEEK_API_KEY"] || apiKey,
+  baseUrl: baseUrl || "https://api.deepseek.com/beta"
+});
+
+const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
+  if (provider === "openai") return getOpenAiConfig(apiKey, baseUrl, baseConfigBaseUrl);
+  if (["anthropic", "google", "meta", "openrouter"].includes(provider)) return getOpenRouterConfig(apiKey, baseUrl);
+  if (provider === "deepseek") return getDeepSeekConfig(apiKey, baseUrl);
+  return null;
+};
+
 export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
   const model = getModel(modelId);
   const provider = model?.provider || "openai";
 
-  let apiKey = baseConfig.apiKey;
-  // ONLY inherit baseConfig.baseUrl if the provider is openai, otherwise it might send Anthropic requests to OpenAI
-  let baseUrl = model?.baseUrl;
-
-  if (provider === "openai") {
-    apiKey = process.env["OPENAI_API_KEY"] || apiKey;
-    baseUrl = baseUrl || baseConfig.baseUrl || "https://api.openai.com/v1";
-  } else if (provider === "anthropic" || provider === "google" || provider === "meta" || provider === "openrouter") {
-    apiKey = process.env["OPENROUTER_API_KEY"] || apiKey;
-    baseUrl = baseUrl || "https://openrouter.ai/api/v1";
-  } else if (provider === "deepseek") {
-    apiKey = process.env["DEEPSEEK_API_KEY"] || apiKey;
-    baseUrl = baseUrl || "https://api.deepseek.com/beta";
-  } else {
+  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model?.baseUrl, baseConfig.baseUrl);
+  if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
   }
 
-  if (!baseUrl) {
+  if (!resolved.baseUrl) {
     throw new Error(`Failed to resolve baseUrl for model ${modelId} (provider: ${provider})`);
   }
 
   const clientResult = createLlmClientFromConfig({
     ...baseConfig,
     model: modelId,
-    apiKey,
-    baseUrl,
+    apiKey: resolved.apiKey,
+    baseUrl: resolved.baseUrl,
   });
 
   if (!clientResult.ok) throw clientResult.error;
