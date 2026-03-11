@@ -1261,60 +1261,67 @@ const resolveConfigForCommand = async (command: string, positionals: string[], o
   return resolution;
 };
 
-const runCoreCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runIngestCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
   switch (command) {
     case 'ingest': return runIngest(positionals, options, config);
     case 'extract': return runExtract(positionals, options, config);
     case 'claims': return runClaims(positionals, options, config);
     case 'export': return runExport(positionals, options, config);
+    default: return Promise.resolve(null);
+  }
+};
+
+const runAnalysisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
     case 'query': return runQuery(positionals, options, config);
     case 'related': return runRelated(positionals, options, config);
     case 'review': return runReview(positionals, options, config);
     case 'task': return runTask(positionals, options, config);
-    default: return null;
+    default: return Promise.resolve(null);
   }
 };
 
-const runProjectCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runProjectCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
   switch (command) {
     case 'area': return runArea(positionals, options, config);
     case 'goal': return runGoal(positionals, options, config);
     case 'project': return runProject(positionals, options, config);
-    default: return null;
+    default: return Promise.resolve(null);
   }
 };
 
-const runDiagnosisCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runDiagnosisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
   switch (command) {
     case 'diagnose': return runDiagnose(positionals, options, config);
     case 'preflight': return runPreflight(positionals, options, config);
-    default: return null;
+    default: return Promise.resolve(null);
   }
 };
 
-const runSystemCommand = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runSystemCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
   switch (command) {
     case 'fixtures': return runFixtures(positionals, options, config);
     case 'eval': return runEvalMatrix(positionals, options, config);
-    default: return null;
+    default: return Promise.resolve(null);
   }
 };
+
+const COMMAND_RUNNERS = [
+  runIngestCommand,
+  runAnalysisCommand,
+  runProjectCommand,
+  runDiagnosisCommand,
+  runSystemCommand,
+];
 
 const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
   const config = resolution.config;
 
   if (config) {
-    const coreResult = await runCoreCommand(command, positionals, options, config);
-    if (coreResult !== null) return coreResult;
-
-    const projectResult = await runProjectCommand(command, positionals, options, config);
-    if (projectResult !== null) return projectResult;
-
-    const diagResult = await runDiagnosisCommand(command, positionals, options, config);
-    if (diagResult !== null) return diagResult;
-
-    const systemResult = await runSystemCommand(command, positionals, options, config);
-    if (systemResult !== null) return systemResult;
+    for (const runner of COMMAND_RUNNERS) {
+      const result = await runner(command, positionals, options, config);
+      if (result !== null) return result;
+    }
   }
 
   if (command === 'config') {
