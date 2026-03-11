@@ -1240,16 +1240,18 @@ async function runFixtures(positionals: string[], options: CliOptions, config: R
 }
 
 const handleResolutionFailure = (command: string, resolution: ConfigBridgeResult): ConfigBridgeResult | null => {
-  if (!resolution.ok && command !== 'config') {
+  if (command === 'config') {
+    return resolution;
+  }
+
+  if (!resolution.ok) {
     throw resolution.error;
   }
 
-  if (!resolution.ok || !resolution.config) {
-    if (command !== 'config') {
-      // skipcq: JS-0002
-      console.error('Configuration not loaded.');
-      return null;
-    }
+  if (!resolution.config) {
+    // skipcq: JS-0002
+    console.error('Configuration not loaded.');
+    return null;
   }
 
   return resolution;
