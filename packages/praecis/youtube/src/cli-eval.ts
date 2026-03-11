@@ -414,7 +414,7 @@ const loadExecutionData = (parsedOpts: EvalRunOptions) => {
   return { corpusResult, models };
 };
 
-const performMatrixExecution = async (
+const performMatrixExecution = (
   corpusData: CorpusEntry[],
   models: EvalModel[],
   parsedOpts: EvalRunOptions,

@@ -1239,15 +1239,7 @@ async function runFixtures(positionals: string[], options: CliOptions, config: R
   }
 }
 
-const resolveConfigForCommand = async (command: string, positionals: string[], options: CliOptions): Promise<ConfigBridgeResult | null> => {
-  const cliOverrides = buildCliOverrides(options);
-  const resolution = await resolveCliConfig({
-    configPath: typeof options['config'] === 'string' ? options['config'] : undefined,
-    profile: typeof options['profile'] === 'string' ? options['profile'] : undefined,
-    source: resolveSourceId(positionals, options),
-    cliOverrides,
-  });
-
+const handleResolutionFailure = (command: string, resolution: ConfigBridgeResult): ConfigBridgeResult | null => {
   if (!resolution.ok && command !== 'config') {
     throw resolution.error;
   }
@@ -1261,6 +1253,18 @@ const resolveConfigForCommand = async (command: string, positionals: string[], o
   }
 
   return resolution;
+};
+
+const resolveConfigForCommand = async (command: string, positionals: string[], options: CliOptions): Promise<ConfigBridgeResult | null> => {
+  const cliOverrides = buildCliOverrides(options);
+  const resolution = await resolveCliConfig({
+    configPath: typeof options['config'] === 'string' ? options['config'] : undefined,
+    profile: typeof options['profile'] === 'string' ? options['profile'] : undefined,
+    source: resolveSourceId(positionals, options),
+    cliOverrides,
+  });
+
+  return handleResolutionFailure(command, resolution);
 };
 
 const runIngestCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
@@ -1368,10 +1372,11 @@ export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<nu
     return 0;
   }
 
-  const resolution = await resolveConfigForCommand(command!, parsed.positionals, parsed.options);
+  const safeCommand = command || '';
+  const resolution = await resolveConfigForCommand(safeCommand, parsed.positionals, parsed.options);
   if (!resolution) return 1;
 
-  return executeCommand(command!, parsed.positionals, parsed.options, resolution);
+  return executeCommand(safeCommand, parsed.positionals, parsed.options, resolution);
 };
 
 if (isCliEntrypoint(import.meta.url, process.argv[1])) {
