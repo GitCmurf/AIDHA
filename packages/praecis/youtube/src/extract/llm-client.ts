@@ -9,8 +9,12 @@ export interface LlmCompletionRequest {
   temperature?: number;
   maxTokens?: number;
   reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+  /** Model verbosity (only for reasoning models) */
   verbosity?: ResolvedConfig['llm']['verbosity'];
+  /** Optional response format schema */
   responseFormat?: { type: 'json_schema'; schema: Record<string, unknown> };
+  /** Optional AbortSignal for request cancellation */
+  signal?: AbortSignal;
 }
 
 export interface LlmClient {
@@ -176,11 +180,15 @@ export class OpenAiCompatibleClient implements LlmClient {
   }
 
   async generate(request: LlmCompletionRequest): Promise<Result<string>> {
-    const controller = new AbortController();
-    let timeout: NodeJS.Timeout | undefined;
+    const signals: AbortSignal[] = [];
     if (this.timeoutMs > 0) {
-      timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+      signals.push(AbortSignal.timeout(this.timeoutMs));
     }
+    if (request.signal) {
+      signals.push(request.signal);
+    }
+
+    const combinedSignal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
 
     try {
       const body: Record<string, unknown> = {
@@ -235,7 +243,7 @@ export class OpenAiCompatibleClient implements LlmClient {
           ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         },
         body: JSON.stringify(body),
-        signal: controller.signal,
+        signal: combinedSignal,
       });
 
       if (!response.ok) {
@@ -253,8 +261,6 @@ export class OpenAiCompatibleClient implements LlmClient {
       return { ok: true, value: content };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
-    } finally {
-      clearTimeout(timeout);
     }
   }
 }

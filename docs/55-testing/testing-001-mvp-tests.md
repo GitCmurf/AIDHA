@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-001
 owner: Engineering
 status: Draft
-version: '0.15'
-last_updated: 2026-02-09
+version: '0.16'
+last_updated: 2026-03-09
 title: MVP Test Suite Map and Hardening Coverage
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.15
-> **Last Updated:** 2026-02-09
+> **Version:** 0.16
+> **Last Updated:** 2026-03-09
 > **Type:** TESTING
 
 # MVP Test Suite Map and Hardening Coverage
@@ -38,6 +38,7 @@ docops_version: '2.0'
 | 0.13    | 2026-02-09 | AI     | Add fixture import and query regression coverage notes | — | Draft | — |
 | 0.14    | 2026-02-09 | AI     | Add claim purge unit + CLI coverage | — | Draft | — |
 | 0.15    | 2026-02-09 | AI     | Add export source-prefix default filename coverage | — | Draft | — |
+| 0.16    | 2026-03-09 | AI     | Add claim extraction evaluation matrix tests | — | Draft | AIDHA-TASK-004 |
 
 ## Purpose
 
@@ -59,6 +60,9 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
 
 ### `packages/praecis/youtube`
 
+- `tests/eval/corpus-schema.test.ts`, `tests/eval/model-registry.test.ts`, `tests/eval/scoring-rubric.test.ts`,
+  `tests/eval/judge-prompt.test.ts`, `tests/eval/matrix-runner.test.ts`, `tests/eval/quality-gate.spec.ts`:
+  Evaluation matrix framework and quality guardrails.
 - `tests/pipeline.test.ts`: ingestion flow coverage.
 - `tests/extraction.test.ts`: claim/reference extraction invariants and metadata handling.
 - `tests/llm-claims.test.ts`: two-pass extraction, cache invalidation, rewrite-cache behavior,

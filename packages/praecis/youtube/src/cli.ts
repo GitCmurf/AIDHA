@@ -5,6 +5,7 @@ import { realpathSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runEvalMatrix } from './cli-eval.js';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { SQLiteStore } from '@aidha/graph-backend';
 import {
@@ -44,6 +45,7 @@ import { parseTranscriptTtml } from './client/transcript.js';
 import {
   resolveCliConfig,
   buildCliOverrides,
+  type ConfigBridgeResult,
 } from './cli/config-bridge.js';
 import type { ResolvedConfig } from '@aidha/config';
 import { createLlmClientFromConfig } from './extract/llm-client.js';
@@ -96,35 +98,23 @@ function parsePlaylistId(input: string): string {
   }
 }
 
-export function resolveSourceId(positionals: string[], options: CliOptions): string | undefined {
+export const resolveSourceId = (positionals: string[], options: CliOptions): string | undefined => {
   const explicit = options['source'];
   if (typeof explicit === 'string' && explicit.trim().length > 0) {
     return explicit.trim();
   }
 
-  const command = positionals[0];
-  if (
-    command === 'ingest' ||
-    command === 'extract' ||
-    command === 'claims' ||
-    command === 'export' ||
-    command === 'query' ||
-    command === 'related' ||
-    command === 'review' ||
-    command === 'task' ||
-    command === 'area' ||
-    command === 'goal' ||
-    command === 'project' ||
-    command === 'diagnose' ||
-    command === 'preflight' ||
-    command === 'fixtures'
-    // command === 'config' // Removed in Phase 2A Round 3 fix
-  ) {
+  const YOUTUBE_COMMANDS = new Set([
+    'ingest', 'extract', 'claims', 'export', 'query', 'related', 'review',
+    'task', 'area', 'goal', 'project', 'diagnose', 'preflight', 'fixtures', 'eval'
+  ]);
+
+  if (positionals[0] && YOUTUBE_COMMANDS.has(positionals[0])) {
     return 'youtube';
   }
 
   return undefined;
-}
+};
 
 function normalizeEntrypointPath(pathValue: string): string {
   const absolute = resolve(pathValue);
@@ -135,28 +125,28 @@ function normalizeEntrypointPath(pathValue: string): string {
   }
 }
 
-export function isCliEntrypoint(importMetaUrl: string, argv1?: string): boolean {
+export const isCliEntrypoint = (importMetaUrl: string, argv1?: string): boolean => {
   if (!argv1) return false;
   return normalizeEntrypointPath(fileURLToPath(importMetaUrl)) === normalizeEntrypointPath(argv1);
-}
+};
 
-function optionString(options: CliOptions, key: string, fallback: string): string {
+export const optionString = (options: CliOptions, key: string, fallback: string): string => {
   const value = options[key];
   return typeof value === 'string' && value.length > 0 ? value : fallback;
-}
+};
 
-function optionNumber(options: CliOptions, key: string, fallback: number): number {
+export const optionNumber = (options: CliOptions, key: string, fallback: number): number => {
   const value = options[key];
   if (typeof value === 'string') {
     const parsed = Number.parseInt(value, 10);
     return Number.isNaN(parsed) ? fallback : parsed;
   }
   return fallback;
-}
+};
 
-function optionBool(options: CliOptions, key: string): boolean {
+export const optionBool = (options: CliOptions, key: string): boolean => {
   return options[key] === true;
-}
+};
 
 function resolveSourcePrefix(options: CliOptions, fallback: string): string {
   const raw = options['source-prefix'];
@@ -1249,104 +1239,147 @@ async function runFixtures(positionals: string[], options: CliOptions, config: R
   }
 }
 
-export async function runCli(argv: string[] = process.argv.slice(2)): Promise<number> {
-  const parsed = parseArgs(argv);
-  const [command] = parsed.positionals;
-  if (parsed.options['help'] === true) {
-    printHelp();
-    return 0;
+const handleResolutionFailure = (command: string, resolution: ConfigBridgeResult): ConfigBridgeResult | null => {
+  if (command === 'config') {
+    return resolution;
   }
 
-  if (!command || command === 'help' || command === '--help') {
-    printHelp();
-    return 0;
+  if (!resolution.ok) {
+    throw resolution.error;
   }
 
-  const cliOverrides = buildCliOverrides(parsed.options);
+  if (!resolution.config) {
+    // skipcq: JS-0002
+    console.error('Configuration not loaded.');
+    return null;
+  }
 
+  return resolution;
+};
 
-  let config: ResolvedConfig | undefined;
-  let loadResult: import('@aidha/config').LoadResult;
-
+const resolveConfigForCommand = async (command: string, positionals: string[], options: CliOptions): Promise<ConfigBridgeResult | null> => {
+  const cliOverrides = buildCliOverrides(options);
   const resolution = await resolveCliConfig({
-    configPath: typeof parsed.options['config'] === 'string' ? parsed.options['config'] : undefined,
-    profile: typeof parsed.options['profile'] === 'string' ? parsed.options['profile'] : undefined,
-    source: resolveSourceId(parsed.positionals, parsed.options),
+    configPath: typeof options['config'] === 'string' ? options['config'] : undefined,
+    profile: typeof options['profile'] === 'string' ? options['profile'] : undefined,
+    source: resolveSourceId(positionals, options),
     cliOverrides,
   });
 
-  loadResult = resolution.loadResult;
+  return handleResolutionFailure(command, resolution);
+};
 
-  if (resolution.ok) {
-    config = resolution.config;
-  } else {
-    if (command === 'config') {
-      // Phase 2A Round 7: Config commands handle their own errors.
-      // We pass the (possibly failed) loadResult to runConfig.
-    } else {
-      throw resolution.error;
-    }
-  }
-
-  let exitCode = 0;
+const runIngestCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
   switch (command) {
-    case 'ingest':
-      exitCode = await runIngest(parsed.positionals, parsed.options, config!);
-      break;
-    case 'extract':
-      exitCode = await runExtract(parsed.positionals, parsed.options, config!);
-      break;
-    case 'claims':
-      exitCode = await runClaims(parsed.positionals, parsed.options, config!);
-      break;
-    case 'export':
-      exitCode = await runExport(parsed.positionals, parsed.options, config!);
-      break;
-    case 'query':
-      exitCode = await runQuery(parsed.positionals, parsed.options, config!);
-      break;
-    case 'related':
-      exitCode = await runRelated(parsed.positionals, parsed.options, config!);
-      break;
-    case 'review':
-      exitCode = await runReview(parsed.positionals, parsed.options, config!);
-      break;
-    case 'task':
-      exitCode = await runTask(parsed.positionals, parsed.options, config!);
-      break;
-    case 'area':
-      exitCode = await runArea(parsed.positionals, parsed.options, config!);
-      break;
-    case 'goal':
-      exitCode = await runGoal(parsed.positionals, parsed.options, config!);
-      break;
-    case 'project':
-      exitCode = await runProject(parsed.positionals, parsed.options, config!);
-      break;
-    case 'diagnose':
-      exitCode = await runDiagnose(parsed.positionals, parsed.options, config!);
-      break;
-    case 'preflight':
-      exitCode = await runPreflight(parsed.positionals, parsed.options, config!);
-      break;
-    case 'fixtures':
-      exitCode = await runFixtures(parsed.positionals, parsed.options, config!);
-      break;
-    case 'config':
-      // config <subcommand> -> positionals[1]
-      // loadResult is always populated (full or partial). config may be undefined.
-      // Pass error if resolution failed.
-      const error = !resolution.ok ? resolution.error : undefined;
-      exitCode = await runConfig(parsed.positionals.slice(1), parsed.options, loadResult!, config, error);
-      break;
-    default:
-      console.error(`Unknown command: ${command}`);
-      printHelp();
-      exitCode = 1;
+    case 'ingest': return runIngest(positionals, options, config);
+    case 'extract': return runExtract(positionals, options, config);
+    case 'claims': return runClaims(positionals, options, config);
+    case 'export': return runExport(positionals, options, config);
+    default: return Promise.resolve(null);
+  }
+};
+
+const runAnalysisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
+    case 'query': return runQuery(positionals, options, config);
+    case 'related': return runRelated(positionals, options, config);
+    case 'review': return runReview(positionals, options, config);
+    case 'task': return runTask(positionals, options, config);
+    default: return Promise.resolve(null);
+  }
+};
+
+const runProjectCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
+    case 'area': return runArea(positionals, options, config);
+    case 'goal': return runGoal(positionals, options, config);
+    case 'project': return runProject(positionals, options, config);
+    default: return Promise.resolve(null);
+  }
+};
+
+const runDiagnosisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
+    case 'diagnose': return runDiagnose(positionals, options, config);
+    case 'preflight': return runPreflight(positionals, options, config);
+    default: return Promise.resolve(null);
+  }
+};
+
+const runSystemCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  switch (command) {
+    case 'fixtures': return runFixtures(positionals, options, config);
+    case 'eval': return runEvalMatrix(positionals, options, config);
+    default: return Promise.resolve(null);
+  }
+};
+
+const COMMAND_RUNNERS = [
+  runIngestCommand,
+  runAnalysisCommand,
+  runProjectCommand,
+  runDiagnosisCommand,
+  runSystemCommand,
+];
+
+const runMatchingRunner = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+  for (const runner of COMMAND_RUNNERS) {
+    const result = await runner(command, positionals, options, config);
+    if (result !== null) return result;
+  }
+  return null;
+};
+
+const handleConfigCommand = (positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
+  const error = !resolution.ok ? resolution.error : undefined;
+  return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.ok ? resolution.config : undefined, error);
+};
+
+const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
+  const config = resolution.ok ? resolution.config : undefined;
+
+  if (config) {
+    const result = await runMatchingRunner(command, positionals, options, config);
+    if (result !== null) return result;
   }
 
-  return exitCode;
-}
+  if (command === 'config') {
+    return handleConfigCommand(positionals, options, resolution);
+  }
+
+  // skipcq: JS-0002
+  console.error(`Unknown command: ${command}`);
+  printHelp();
+  return 1;
+};
+
+const parseCliArgs = (argv: string[]) => {
+  const parsed = parseArgs(argv);
+  const [command] = parsed.positionals;
+  return { parsed, command };
+};
+
+const handleHelpAndMissingCommand = (command: string | undefined, options: CliOptions): boolean => {
+  if (!command || command === 'help' || command === '--help' || options['help'] === true) {
+    printHelp();
+    return true;
+  }
+  return false;
+};
+
+export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<number> => {
+  const { parsed, command } = parseCliArgs(argv);
+
+  if (handleHelpAndMissingCommand(command, parsed.options)) {
+    return 0;
+  }
+
+  const safeCommand = command || '';
+  const resolution = await resolveConfigForCommand(safeCommand, parsed.positionals, parsed.options);
+  if (!resolution) return 1;
+
+  return executeCommand(safeCommand, parsed.positionals, parsed.options, resolution);
+};
 
 if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   runCli().then(
