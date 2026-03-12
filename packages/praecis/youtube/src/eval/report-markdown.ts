@@ -1,6 +1,7 @@
 import type { MatrixReport, DimensionStats } from "./matrix-aggregator.js";
 
-const escapeMdTableCell = (s: string): string => s.replace(/\|/g, "\\|");
+const escapeMdTableCell = (s: string): string =>
+  s.replace(/([\\|])/g, "\\$1");
 
 const dimensions = [
   { key: "overallScore", title: "Overall Score" },

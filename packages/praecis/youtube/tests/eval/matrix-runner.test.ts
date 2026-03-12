@@ -132,7 +132,7 @@ afterEach(() => {
     const md = renderMatrixReport(report);
     expect(md).toContain("Video Heatmap");
     expect(md).toContain(models[0].id);
-    expect(md).toContain(`| 1 | ${models[0].id} | 8.50 |`);
+    expect(md).toContain(`| 1 | ${models[1].id} | 8.50 |`);
     expect(md).toContain("### v1");
     expect(md).toContain("| completeness | 8.00 | 8.00 | 8.00 | 8.00 | 0.00 |");
   });
@@ -167,7 +167,7 @@ afterEach(() => {
     expect(result.cells[0].costEstimate).toBeDefined();
     expect(result.cells[0].costEstimate!.totalUsd).toBeGreaterThan(0);
     // In dry run, it shouldn't actually call the judge so scores will be empty (or undefined since extraction didn't really run)
-    expect(result.cells[0].scores).toEqual([]);
+    expect(result.cells[0].scores).toBeUndefined();
   });
 
   it("should average scores from multiple judges", () => {

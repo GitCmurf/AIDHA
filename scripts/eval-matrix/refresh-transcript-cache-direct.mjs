@@ -48,7 +48,7 @@ function parseArgs(argv) {
 function coverageScore(segments) {
     if (!segments.length) return 0;
     const last = segments[segments.length - 1];
-    const end = (last.start || 0) + (last.duration || 0);
+    const end = Number(last.start || 0) + Number(last.duration || 0);
     return (end * 1000) + segments.length;
 }
 

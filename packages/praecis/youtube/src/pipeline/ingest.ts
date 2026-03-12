@@ -159,16 +159,16 @@ export class IngestionPipeline {
 
         const atomicResult = await runAtomically(this.graphStore, async () => {
           if (transcriptResult.ok && transcript) {
-            const excerptResult = await this.storeTranscriptExcerpts(nodeId, videoId, transcript);
-            if (!excerptResult.ok) {
-              return { ok: false, error: excerptResult.error };
-            }
-
             if (hasExcerpts) {
               const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
               if (!purgeResult.ok) {
                 return { ok: false, error: purgeResult.error };
               }
+            }
+
+            const excerptResult = await this.storeTranscriptExcerpts(nodeId, videoId, transcript);
+            if (!excerptResult.ok) {
+              return { ok: false, error: excerptResult.error };
             }
 
             if (transcript.fullText) {

@@ -302,8 +302,8 @@ const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
   const format = optionString(cleanOptions, "format", "both");
   const resume = optionBool(cleanOptions, "resume");
   const maxConcurrency = optionNumber(cleanOptions, "max-concurrency", 1);
-  const extractionMaxTokens = optionNumber(cleanOptions, "extraction-max-tokens", 0) || undefined;
-  const extractionMaxChunks = optionNumber(cleanOptions, "extraction-max-chunks", 0) || undefined;
+  const extractionMaxTokens = optionNumber(cleanOptions, "extraction-max-tokens", 0);
+  const extractionMaxChunks = optionNumber(cleanOptions, "extraction-max-chunks", 0);
   const judgeMaxTokens = optionNumber(cleanOptions, "judge-max-tokens", 4000);
   const timeoutMs = optionNumber(cleanOptions, "timeout-ms", 60000);
 
