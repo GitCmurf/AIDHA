@@ -2,11 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SCORE_DIMENSIONS } from "../../src/eval/scoring-rubric";
-
-interface ModelStats {
-  dimensions: Record<string, { mean: number; median: number; min: number; max: number; stddev: number }>;
-}
+import { SCORE_DIMENSIONS, type ScoreDimension } from "../../src/eval/scoring-rubric";
+import type { MatrixReport, DimensionStats } from "../../src/eval/matrix-aggregator";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,7 +14,7 @@ describe("CI Quality Gate", () => {
     const reportPath = join(__dirname, "../../../../../out/eval-matrix/reports/latest.json");
     const baselinePath = join(__dirname, "../../../../../out/eval-matrix/reports/baseline.json");
 
-    let baseline: unknown, latest: unknown;
+    let baseline: MatrixReport | null, latest: MatrixReport | null;
     try {
       baseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
     } catch {
@@ -38,6 +35,10 @@ describe("CI Quality Gate", () => {
       return;
     }
 
+    if (!baseline?.modelStats || !latest?.modelStats) {
+      throw new Error("Report files missing modelStats data");
+    }
+
     const tolerance = 1.0; // max allowed drop in dimension score
 
     for (const [modelId, baselineStats] of Object.entries(baseline.modelStats)) {
@@ -47,8 +48,8 @@ describe("CI Quality Gate", () => {
       }
 
       for (const dim of SCORE_DIMENSIONS) {
-        const baselineScore = (baselineStats as ModelStats).dimensions[dim]?.mean ?? 0;
-        const latestScore = (latestStats as ModelStats).dimensions[dim]?.mean ?? 0;
+        const baselineScore = baselineStats[dim]?.mean ?? 0;
+        const latestScore = latestStats[dim]?.mean ?? 0;
 
         if (baselineScore - latestScore > tolerance) {
           throw new Error(`Regression detected for ${modelId} on ${dim}: dropped from ${baselineScore} to ${latestScore} (tolerance: ${tolerance})`);

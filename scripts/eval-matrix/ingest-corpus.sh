@@ -180,13 +180,14 @@ while read -r videoId url; do
     fi
 done < <(node --eval "
 const fs = require('fs');
-const corpus = JSON.parse(fs.readFileSync('$CORPUS_JSON', 'utf-8'));
-const filterVideoId = '$VIDEO_ID_FILTER';
+const corpusPath = process.argv[1];
+const filterVideoId = process.argv[2];
+const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8'));
 corpus.forEach(entry => {
     if (!filterVideoId || entry.videoId === filterVideoId) {
         console.log(entry.videoId + ' ' + entry.url);
     }
 });
-")
+" "$CORPUS_JSON" "$VIDEO_ID_FILTER")
 
 echo "Done."

@@ -12,6 +12,11 @@ function usage() {
     process.exit(1);
 }
 
+function requireValue(flag, value) {
+    if (!value) throw new Error(`${flag} requires a value`);
+    return value;
+}
+
 function parseArgs(argv) {
     const opts = {
         corpusPath: "",
@@ -24,11 +29,11 @@ function parseArgs(argv) {
         const arg = argv[i];
         const value = argv[i + 1];
         switch (arg) {
-            case "--corpus": opts.corpusPath = value || ""; i += 1; break;
-            case "--cache-dir": opts.cacheDir = value || ""; i += 1; break;
-            case "--video-id": opts.videoId = value || ""; i += 1; break;
-            case "--cookies": opts.cookiesPath = value || ""; i += 1; break;
-            case "--backup-root": opts.backupRoot = value || ""; i += 1; break;
+            case "--corpus": opts.corpusPath = requireValue("--corpus", value); i += 1; break;
+            case "--cache-dir": opts.cacheDir = requireValue("--cache-dir", value); i += 1; break;
+            case "--video-id": opts.videoId = requireValue("--video-id", value); i += 1; break;
+            case "--cookies": opts.cookiesPath = requireValue("--cookies", value); i += 1; break;
+            case "--backup-root": opts.backupRoot = requireValue("--backup-root", value); i += 1; break;
             case "--help": usage(); break;
             default: throw new Error(`Unknown option: ${arg}`);
         }
@@ -122,6 +127,7 @@ async function main() {
     }
 
     const backupDir = createNextBackupDir(opts.backupRoot);
+    fs.mkdirSync(opts.cacheDir, { recursive: true });
     const cachePath = path.join(opts.cacheDir, `${opts.videoId}.json`);
     if (fs.existsSync(cachePath)) {
         fs.copyFileSync(cachePath, path.join(backupDir, `${opts.videoId}.json`));

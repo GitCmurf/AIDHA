@@ -26,7 +26,7 @@ export function deriveSpeakerStyle(metadata) {
 
     if (/\b(panel|roundtable|symposium)\b/.test(text)) return "panel";
     if (/\b(interview|podcast|conversation|with\b| q&a\b| q and a\b)\b/.test(text)) return "interview";
-    if (/\blecture|guide|explainer|masterclass|workout|tutorial\b/.test(text)) return "solo";
+    if (/\b(lecture|guide|explainer|masterclass|workout|tutorial)\b/.test(text)) return "solo";
     return "unknown";
 }
 
