@@ -45,11 +45,12 @@ export function validateSafeId(id: string): string | null {
  * ```
  */
 export function sanitizeFilename(id: string): string {
-  const sanitized = id.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
-  if (sanitized === '' || sanitized === CURRENT_DIR_MARKER || sanitized === PARENT_DIR_MARKER) {
+  // Single pass: replace unsafe filesystem characters and control characters
+  const result = id.replace(/[<>:"/\\|?*]|[\x00-\x1F]/g, "_");
+  if (result === '' || result === CURRENT_DIR_MARKER || result === PARENT_DIR_MARKER) {
     return '_';
   }
-  return sanitized;
+  return result;
 }
 
 export function hashId(prefix: string, parts: Array<string | number | undefined>): string {

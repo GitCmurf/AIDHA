@@ -32,7 +32,7 @@ pipeline. To prevent regressions, we maintain a pinned baseline report.
 ## CI Quality Gate
 
 The CI quality gate
-([tests/eval/quality-gate.spec.ts](../../packages/praecis/youtube/tests/eval/quality-gate.spec.ts))
+([tests/eval/quality-gate.spec.ts](../../../packages/praecis/youtube/tests/eval/quality-gate.spec.ts))
 compares the `latest.json` report against `baseline.json`.
 
 **Prerequisite:** You must run the evaluation matrix (step 2 below) to generate `latest.json`

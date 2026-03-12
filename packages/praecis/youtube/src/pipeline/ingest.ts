@@ -7,6 +7,7 @@ import type { YouTubeClient } from '../client/types.js';
 import type { PipelineConfig, IngestionResult, Result, IngestVideoOptions } from './types.js';
 import type { IngestionJob, JobError, Transcript } from '../schema/index.js';
 import { hashId } from '../utils/ids.js';
+import { runAtomically } from '../utils/store.js';
 
 /**
  * Generate unique ID.
@@ -156,40 +157,50 @@ export class IngestionPipeline {
         const transcriptResult = await this.youtubeClient.fetchTranscript(videoId);
         const transcript = transcriptResult.ok ? transcriptResult.value : null;
 
-        if (transcriptResult.ok && transcript) {
-          if (hasExcerpts) {
-            const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
-            if (!purgeResult.ok) {
-              return { ok: false, error: purgeResult.error };
+        const atomicResult = await runAtomically(this.graphStore, async () => {
+          if (transcriptResult.ok && transcript) {
+            const excerptResult = await this.storeTranscriptExcerpts(nodeId, videoId, transcript);
+            if (!excerptResult.ok) {
+              return { ok: false, error: excerptResult.error };
+            }
+
+            if (hasExcerpts) {
+              const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
+              if (!purgeResult.ok) {
+                return { ok: false, error: purgeResult.error };
+              }
+            }
+
+            if (transcript.fullText) {
+              tagsAssigned = await this.assignTags(nodeId, transcript.fullText);
             }
           }
 
-          const excerptResult = await this.storeTranscriptExcerpts(nodeId, videoId, transcript);
-          if (!excerptResult.ok) {
-            return { ok: false, error: excerptResult.error };
+          const updatedMetadata: Record<string, unknown> = {
+            ...(resource.metadata as Record<string, unknown>),
+            transcriptStatus: transcriptResult.ok ? 'available' : 'missing',
+            transcriptError: transcriptResult.ok ? undefined : transcriptResult.error.message,
+            transcriptLanguage: transcript?.language,
+          };
+
+          const updateData: NodeDataInput = {
+            label: resource.label,
+            content: transcript?.fullText ?? resource.content,
+            metadata: updatedMetadata,
+          };
+
+          const updateResult = await this.graphStore.upsertNode('Resource', nodeId, updateData, { detectNoop: true });
+          if (!updateResult.ok) {
+            return { ok: false, error: updateResult.error };
           }
-          if (transcript.fullText) {
-            tagsAssigned = await this.assignTags(nodeId, transcript.fullText);
-          }
+
+          return { ok: true, value: { tagsAssigned } };
+        });
+
+        if (!atomicResult.ok) {
+          return { ok: false, error: atomicResult.error };
         }
-
-        const updatedMetadata: Record<string, unknown> = {
-          ...(resource.metadata as Record<string, unknown>),
-          transcriptStatus: transcriptResult.ok ? 'available' : 'missing',
-          transcriptError: transcriptResult.ok ? undefined : transcriptResult.error.message,
-          transcriptLanguage: transcript?.language,
-        };
-
-        const updateData: NodeDataInput = {
-          label: resource.label,
-          content: transcript?.fullText ?? resource.content,
-          metadata: updatedMetadata,
-        };
-
-        const updateResult = await this.graphStore.upsertNode('Resource', nodeId, updateData, { detectNoop: true });
-        if (!updateResult.ok) {
-          return { ok: false, error: updateResult.error };
-        }
+        tagsAssigned = atomicResult.value.tagsAssigned;
       }
 
       return {

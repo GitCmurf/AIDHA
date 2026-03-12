@@ -1,5 +1,7 @@
 import type { MatrixReport, DimensionStats } from "./matrix-aggregator.js";
 
+const escapeMdTableCell = (s: string): string => s.replace(/\|/g, "\\|");
+
 const dimensions = [
   { key: "overallScore", title: "Overall Score" },
   { key: "completeness", title: "Completeness" },
@@ -49,7 +51,7 @@ const renderLeaderboards = (report: MatrixReport): string => {
     const ranks = report.leaderboards[key];
     if (ranks) {
       ranks.forEach((entry, i) => {
-        md += `| ${i + 1} | ${entry.modelId} | ${entry.score.toFixed(2)} |\n`;
+        md += `| ${i + 1} | ${escapeMdTableCell(entry.modelId)} | ${entry.score.toFixed(2)} |\n`;
       });
     }
     md += "\n";
@@ -59,9 +61,9 @@ const renderLeaderboards = (report: MatrixReport): string => {
 
 const renderExecutiveSummary = (summary: MatrixReport["summary"]): string => {
   let md = "## Executive Summary\n\n";
-  md += `- **Best Model Overall:** ${summary.bestModel}\n`;
-  md += `- **Worst Model Overall:** ${summary.worstModel}\n`;
-  md += `- **Hardest Video:** ${summary.hardestVideo}\n\n`;
+  md += `- **Best Model Overall:** ${escapeMdTableCell(summary.bestModel)}\n`;
+  md += `- **Worst Model Overall:** ${escapeMdTableCell(summary.worstModel)}\n`;
+  md += `- **Hardest Video:** ${escapeMdTableCell(summary.hardestVideo)}\n\n`;
   return md;
 };
 
@@ -72,7 +74,7 @@ const renderHighVarianceAlerts = (caveats: string[] | undefined): string => {
   let md = "### ⚠️ High Variance Alerts\n\n";
   md += "The following cells showed high disagreement between judges and should be manually reviewed:\n\n";
   for (const caveat of highVarianceCells) {
-    md += `- ${caveat}\n`;
+    md += `- ${escapeMdTableCell(caveat)}\n`;
   }
   md += "\n";
   return md;
@@ -89,7 +91,7 @@ const renderRecommendations = (recommendations: MatrixReport["recommendations"])
   if (recommendations.caveats.length > 0) {
     md += "\n**Caveats:**\n";
     for (const caveat of recommendations.caveats) {
-      md += `- ${caveat}\n`;
+      md += `- ${escapeMdTableCell(caveat)}\n`;
     }
   }
   md += "\n";

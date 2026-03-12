@@ -70,7 +70,7 @@ export interface MatrixCell {
     variance: Partial<Record<ScoreDimension, number>>;
     isHighVariance: boolean;
   };
-  error?: { message: string; code?: string };
+  error?: { message: string; code?: string; details?: Record<string, string> };
   costEstimate?: {
     extractionUsd: number;
     judgeUsd: number;
@@ -204,11 +204,13 @@ const getScoresForCell = async (
   hasFailure: boolean;
   judgeUsdEstimate: number;
   traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>>;
+  failures: Record<string, string>;
 }> => {
   const scores: ClaimSetScore[] = [];
   let cellHasScoringFailure = false;
   let judgeUsdEstimate = 0;
   const traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>> = {};
+  const judgeFailures: Record<string, string> = {};
 
   for (const judgeModelId of options.judgeModels) {
     const judgeModel = getModel(judgeModelId);
@@ -223,7 +225,7 @@ const getScoresForCell = async (
         (outputTokens / 1000) * judgeModel.costPer1kTokens.output;
     }
 
-    const cachedScores = options.resume
+    const cachedScores = options.resume && !options.dryRun
       ? await getCachedScore(
           video.videoId,
           model.id,
@@ -275,11 +277,12 @@ const getScoresForCell = async (
             : (err instanceof Error ? err.message : String(err));
         console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
         cellHasScoringFailure = true;
+        judgeFailures[judgeModelId] = message;
       }
     }
   }
 
-  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, traces };
+  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, traces, failures: judgeFailures };
 };
 
 const getExtractionForCell = async (
@@ -534,7 +537,7 @@ const processCell = async (
     const claimSetHash = computeClaimSetHash(cell.claimSet);
     const judgePromptVersion = JUDGE_PROMPT_VERSION;
 
-    const { scores, hasFailure, judgeUsdEstimate, traces: scoringTraces } = await getScoresForCell(
+    const { scores, hasFailure, judgeUsdEstimate, traces: scoringTraces, failures: judgeFailures } = await getScoresForCell(
       video,
       model,
       cell,
@@ -547,7 +550,10 @@ const processCell = async (
 
     if (hasFailure) {
       if (scores.length === 0) {
-        cell.error = { message: "All judge scorings failed" };
+        cell.error = {
+          message: "All judge scorings failed",
+          details: judgeFailures
+        };
         onFailure();
       } else {
         console.warn(

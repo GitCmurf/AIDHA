@@ -9,14 +9,8 @@ export interface CacheOptions {
   cacheDir: string;
 }
 
-// Track which cache directories have been created to avoid redundant mkdir calls
-const initializedCacheDirs = new Set<string>();
-
 async function ensureCacheDir(cacheDir: string): Promise<void> {
-  if (!initializedCacheDirs.has(cacheDir)) {
-    await mkdir(cacheDir, { recursive: true });
-    initializedCacheDirs.add(cacheDir);
-  }
+  await mkdir(cacheDir, { recursive: true });
 }
 
 export async function getCachedExtraction(
