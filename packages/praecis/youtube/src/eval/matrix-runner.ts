@@ -24,6 +24,9 @@ import { isValidSafeId } from "../utils/ids.js";
 
 export const EXTRACTOR_VERSION = "v1";
 
+// Log prefixes for consistent formatting
+const LOG_PREFIX_PARTIAL_SCORING = "[partial-scoring]";
+
 export interface VideoContext {
   videoId: string;
   title: string;
@@ -90,6 +93,7 @@ export interface MatrixResult {
     runId?: string;
     config: Record<string, unknown>; // Serializable config
     failedCellCount: number;
+    partialFailureCount: number;
   };
 }
 
@@ -476,7 +480,8 @@ const processCell = async (
     | { error: number },
   semaphore: Semaphore,
   cells: MatrixCell[],
-  onFailure: () => void
+  onFailure: () => void,
+  onPartialFailure: () => void
 ) => {
   await semaphore.acquire();
   const cellStartedAt = Date.now();
@@ -557,8 +562,9 @@ const processCell = async (
         onFailure();
       } else {
         console.warn(
-          `[partial-scoring] ${scores.length}/${options.judgeModels.length} judges succeeded for ${video.videoId} / ${model.id}`
+          `${LOG_PREFIX_PARTIAL_SCORING} ${scores.length}/${options.judgeModels.length} judges succeeded for ${video.videoId} / ${model.id}`
         );
+        onPartialFailure();
       }
     }
 
@@ -619,6 +625,7 @@ export const runEvaluationMatrix = async (
   const startedAt = new Date().toISOString();
   const cells: MatrixCell[] = [];
   let failedCellCount = 0;
+  let partialFailureCount = 0;
 
   const semaphore = new Semaphore(options.maxConcurrency || 1);
   const tasks: Promise<void>[] = [];
@@ -664,6 +671,9 @@ export const runEvaluationMatrix = async (
             cells,
             () => {
               failedCellCount++;
+            },
+            () => {
+              partialFailureCount++;
             }
           )
         );
@@ -693,6 +703,7 @@ export const runEvaluationMatrix = async (
       runId: options.runId,
       config: serializableConfig as Record<string, unknown>,
       failedCellCount,
+      partialFailureCount,
     },
   };
 };

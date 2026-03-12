@@ -362,16 +362,18 @@ const invalidateCache = (cleanOptions: CliOptions): number | undefined => {
 
   if (!invalidateRun && !clearAll) return undefined;
 
-  const runId = optionString(cleanOptions, "run-id", "");
-  const cacheDir = resolveCacheDir(runId);
+  const baseCacheDir = ".cache/extraction";
 
-  if (!existsSync(cacheDir)) {
-    // skipcq: JS-0002
-    console.log("No cache directory found to invalidate.");
-    return 0;
+  if (clearAll) {
+    if (!existsSync(baseCacheDir)) {
+      // skipcq: JS-0002
+      console.log("No cache directory found to invalidate.");
+      return 0;
+    }
+    return handleClearAll(cleanOptions, baseCacheDir);
   }
 
-  return clearAll ? handleClearAll(cleanOptions, cacheDir) : handleInvalidateRun(invalidateRun, cacheDir);
+  return handleInvalidateRun(invalidateRun, baseCacheDir);
 };
 
 const calculateTotalCosts = (cells: MatrixResult["cells"]) => {
