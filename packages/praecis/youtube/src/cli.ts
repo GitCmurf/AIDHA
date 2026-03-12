@@ -1369,7 +1369,7 @@ const handleHelpAndMissingCommand = (command: string | undefined, options: CliOp
   return false;
 };
 
-const SUPPORTED_COMMANDS = ['config', 'ingest', 'export', 'eval', 'fixtures', 'preflight'];
+const SUPPORTED_COMMANDS = ['config', 'ingest', 'extract', 'claims', 'export', 'query', 'related', 'review', 'task', 'area', 'goal', 'project', 'diagnose', 'eval', 'fixtures', 'preflight'];
 
 export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<number> => {
   const { parsed, command } = parseCliArgs(argv);

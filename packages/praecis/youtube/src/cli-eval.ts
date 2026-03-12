@@ -21,35 +21,33 @@ const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: s
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
 });
 
-const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string) => ({
+const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["GOOGLE_AISTUDIO_API_KEY"] || apiKey,
-  baseUrl: baseUrl || "https://generativelanguage.googleapis.com/v1beta"
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://generativelanguage.googleapis.com/v1beta"
 });
 
-const getZaiConfig = (apiKey: string, baseUrl?: string) => ({
+const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["ZAI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || "https://api.zai.ai/v1"
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.zai.ai/v1"
 });
 
-const getXiaomiConfig = (apiKey: string, baseUrl?: string) => ({
+const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["XIAOMI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || "https://api.xiaomi.com/v1"
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.xiaomi.com/v1"
 });
 
-const getOpenRouterConfig = (apiKey: string, baseUrl?: string) => ({
+const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["OPENROUTER_API_KEY"] || apiKey,
-  baseUrl: baseUrl || "https://openrouter.ai/api/v1"
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1"
 });
 
+// Only these four providers are supported (matching ModelProvider in model-registry.ts)
+// anthropic, google, meta, openrouter were removed as dead code - they were unreachable
 const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => { apiKey: string; baseUrl: string } | null> = {
   openai: getOpenAiConfig,
   "google-aistudio": getGoogleAiStudioConfig,
   zai: getZaiConfig,
   xiaomi: getXiaomiConfig,
-  anthropic: getOpenRouterConfig,
-  google: getOpenRouterConfig,
-  meta: getOpenRouterConfig,
-  openrouter: getOpenRouterConfig,
 };
 
 const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
@@ -512,6 +510,15 @@ export const runEvalMatrix = async (
     if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
 
     const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+
+    // Validate judge models against registry
+    const unknownJudgeModels = judgeModels.filter(id => !getModel(id));
+    if (unknownJudgeModels.length > 0) {
+      // skipcq: JS-0002
+      console.error(`Unknown judge model(s): ${unknownJudgeModels.join(", ")}. Check MODEL_REGISTRY for valid IDs.`);
+      return 1;
+    }
+
     const { runCacheDir, finalOutputDir, error: runParamsError } = resolveEvalExecutionParams(parsedOpts);
     if (runParamsError !== 0 || runCacheDir === null || finalOutputDir === null) return runParamsError ?? 1;
 

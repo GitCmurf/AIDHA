@@ -44,7 +44,7 @@ export async function scoreClaimSet(
   }
 
   // Retry once with error feedback AND original context
-  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nReturn ONLY a corrected JSON object with these fields:
+  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nHere is the original evaluation context again:\n\n${user}\n\nReturn ONLY a corrected JSON object with these fields:
 - completeness, accuracy, topicCoverage, atomicity, overallScore (numbers 0-10)
 - reasoning (string, min 10 chars)
 - missingClaims, hallucinations, redundancies (arrays of {text: string})

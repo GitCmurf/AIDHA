@@ -189,6 +189,7 @@ afterEach(() => {
         videoId: "v1",
         modelId: "m1",
         extractorVariantId: "raw" as const,
+        claimSet: [],
         scores: [createMockScore(10), createMockScore(0)]
       }
     ];
