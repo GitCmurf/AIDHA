@@ -154,7 +154,11 @@ while read -r videoId url; do
         if [ -n "$YTDLP_COOKIES" ]; then
             INGEST_ARGS+=(--ytdlp-cookies "$YTDLP_COOKIES")
         fi
-        pnpm "${INGEST_ARGS[@]}"
+        if ! pnpm "${INGEST_ARGS[@]}"; then
+            echo "Error: Failed to ingest $videoId" >&2
+            sleep_after_failure
+            exit 1
+        fi
 
         # Export the transcript to our local cache dir as JSON
         # We use a temporary file to avoid truncated cache files on failure.

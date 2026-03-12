@@ -32,7 +32,7 @@ pipeline. To prevent regressions, we maintain a pinned baseline report.
 ## CI Quality Gate
 
 The CI quality gate (`tests/eval/quality-gate.spec.ts`) compares the `latest.json` report against
-`baseline-report.json`.
+`baseline.json`.
 
 **Prerequisite:** You must run the evaluation matrix (step 2 below) to generate `latest.json`
 before running this test.
@@ -55,7 +55,8 @@ baseline needs to be refreshed.
 1. **Clear old evaluation caches (optional but recommended):**
 
    ```bash
-   pnpm run eval matrix --invalidate-run &lt;runId&gt; --yes
+   # Clear all caches (or use --invalidate-run <runId> for a specific run)
+   pnpm run eval matrix --clear-all --yes
    ```
 
 2. **Run a full evaluation matrix:**
@@ -72,8 +73,8 @@ baseline needs to be refreshed.
 
 3. **Verify the new report:**
 
-   Check the run output directory (default: `out/eval-matrix/reports/` or
-   `out/eval-matrix/runs/<runId>/`).
+   Check the run output directory (default: `out/eval-matrix/reports/`;
+   if a run ID is provided via `--run-id`, use `out/eval-matrix/runs/<runId>/`).
 
    Review:
    - `latest.md`: Executive summary and scorecards.
@@ -88,13 +89,13 @@ baseline needs to be refreshed.
 
    ```bash
    cp out/eval-matrix/reports/latest.json \
-     packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json
+      packages/praecis/youtube/tests/fixtures/eval-matrix/baseline.json
    ```
 
 5. **Commit the baseline:**
 
    ```bash
-   git add packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json
+   git add packages/praecis/youtube/tests/fixtures/eval-matrix/baseline.json
    git commit -m "chore(eval): update extraction matrix baseline"
    ```
 

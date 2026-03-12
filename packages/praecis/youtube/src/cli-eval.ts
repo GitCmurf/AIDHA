@@ -11,6 +11,7 @@ import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 import { validateSafeId } from "./utils/ids.js";
+import { sanitizeFilename } from "./utils/ids.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider Configuration
@@ -143,8 +144,10 @@ const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => 
   const cellsDir = join(outputDir, "cells");
   mkdirSync(cellsDir, { recursive: true });
   for (const cell of cells) {
-    const safeModelId = cell.modelId.replace(/[<>:"/\\|?*]/g, "_");
-    const cellFileName = `${cell.videoId}-${safeModelId}-${cell.extractorVariantId}.json`;
+    const safeVideoId = sanitizeFilename(cell.videoId);
+    const safeModelId = sanitizeFilename(cell.modelId);
+    const safeVariantId = sanitizeFilename(cell.extractorVariantId);
+    const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}.json`;
     const cellPath = join(cellsDir, cellFileName);
     writeFileSync(cellPath, JSON.stringify(cell, null, 2));
   }

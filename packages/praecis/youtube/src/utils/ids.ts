@@ -27,6 +27,23 @@ export function validateSafeId(id: string): string | null {
   return id;
 }
 
+/**
+ * Sanitizes a string for safe use as a filename by replacing filesystem-unsafe characters.
+ * Replaces Windows reserved characters and other unsafe characters with underscores.
+ *
+ * @param id - The identifier to sanitize
+ * @returns A sanitized identifier safe for use in file paths
+ *
+ * @example
+ * ```ts
+ * sanitizeFilename("video:1"); // "video_1"
+ * sanitizeFilename("a<b>c:d|e?f*g"); // "a_b_c_d_e_f_g"
+ * ```
+ */
+export function sanitizeFilename(id: string): string {
+  return id.replace(/[<>:"/\\|?*]/g, "_");
+}
+
 export function hashId(prefix: string, parts: Array<string | number | undefined>): string {
   const input = [prefix, ...parts.map(part => (part === undefined ? '' : String(part)))].join('|');
   const digest = createHash('sha256').update(input).digest('hex').slice(0, 16);

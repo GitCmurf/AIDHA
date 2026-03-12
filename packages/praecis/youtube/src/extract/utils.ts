@@ -86,7 +86,7 @@ export function uniqueSortedStrings<T extends string>(items: readonly T[]): T[] 
  * ```ts
  * const items = [{ id: 'a', val: 1 }, { id: 'b', val: 2 }, { id: 'a', val: 3 }];
  * const unique = deduplicateByKey(items, x => x.id);
- * // Result: [{ id: 'b', val: 2 }, { id: 'a', val: 3 }] (last 'a' wins)
+ * // Result: [{ id: 'a', val: 3 }, { id: 'b', val: 2 }] (last 'a' value wins, key order preserved)
  * ```
  */
 export function deduplicateByKey<T>(items: readonly T[], keyFn: (item: T) => string): T[] {

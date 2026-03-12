@@ -361,6 +361,8 @@ async function parseSubtitleFile(filePath: string): Promise<{ segments: Transcri
 }
 
 function transcriptCoverageScore(segments: Transcript['segments']): number {
+  // Score prioritizes transcripts by coverage duration (how far into the video they extend),
+  // with segment count as a tiebreaker. Longer, more detailed transcripts score higher.
   if (segments.length === 0) return 0;
   const last = segments[segments.length - 1];
   if (!last) return 0;

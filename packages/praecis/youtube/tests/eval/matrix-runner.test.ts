@@ -177,7 +177,7 @@ afterEach(() => {
       topicCoverage: score,
       atomicity: score,
       overallScore: score,
-      reasoning: "r",
+      reasoning: "Mock reasoning long enough",
       missingClaims: [],
       hallucinations: [],
       redundancies: [],

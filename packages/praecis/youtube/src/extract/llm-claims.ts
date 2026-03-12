@@ -629,7 +629,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
   }
 
   getLastTraces(): Array<{ prompt: { system: string; user: string }; response: string }> {
-    return this.lastTraces;
+    // Return a copy to prevent external mutation from affecting diagnostics
+    return [...this.lastTraces];
   }
 
   /**
@@ -1102,7 +1103,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // LLM succeeded but returned no claims - cache the empty result
     if (success) {
-      await writeCache(cachePath, cacheMetadata, []);
+      try {
+        await writeCache(cachePath, cacheMetadata, []);
+      } catch (cacheError) {
+        // skipcq: JS-0002
+        console.warn(`Failed to write cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+      }
     }
 
     return [];
