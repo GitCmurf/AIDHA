@@ -3,6 +3,10 @@ import { createHash } from 'node:crypto';
 const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const MAX_ID_LENGTH = 100;
 
+// Special filesystem marker values
+const CURRENT_DIR_MARKER = '.';
+const PARENT_DIR_MARKER = '..';
+
 /**
  * Validates that an identifier is safe for use in file paths and API calls.
  * Checks for: string type, length limits, path traversal sequences, and valid characters.
@@ -41,7 +45,11 @@ export function validateSafeId(id: string): string | null {
  * ```
  */
 export function sanitizeFilename(id: string): string {
-  return id.replace(/[<>:"/\\|?*]/g, "_");
+  const sanitized = id.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
+  if (sanitized === '' || sanitized === CURRENT_DIR_MARKER || sanitized === PARENT_DIR_MARKER) {
+    return '_';
+  }
+  return sanitized;
 }
 
 export function hashId(prefix: string, parts: Array<string | number | undefined>): string {

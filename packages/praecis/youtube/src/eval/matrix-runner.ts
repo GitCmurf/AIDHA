@@ -546,8 +546,14 @@ const processCell = async (
     );
 
     if (hasFailure) {
-      cell.error = { message: "One or more judge scorings failed" };
-      onFailure();
+      if (scores.length === 0) {
+        cell.error = { message: "All judge scorings failed" };
+        onFailure();
+      } else {
+        console.warn(
+          `[partial-scoring] ${scores.length}/${options.judgeModels.length} judges succeeded for ${video.videoId} / ${model.id}`
+        );
+      }
     }
 
     if (cell.costEstimate) {

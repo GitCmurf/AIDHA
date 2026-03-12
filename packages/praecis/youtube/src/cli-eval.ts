@@ -52,6 +52,58 @@ const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, b
   xiaomi: getXiaomiConfig,
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CLI Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Exit codes for the CLI.
+ * 0 = Success
+ * 1 = Error (validation failed, execution failed)
+ * 3 = Dry run completed with no failed cells
+ */
+const EXIT_SUCCESS = 0;
+const EXIT_ERROR = 1;
+const EXIT_DRY_RUN = 3;
+
+/**
+ * Parses a comma-separated list string into an array of trimmed, non-empty values.
+ * Used for parsing --variants, --judge-models, and similar options.
+ */
+function parseCsvList(csvStr: string): string[] {
+  return csvStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Validates that a list is non-empty and returns an appropriate error code if not.
+ * @param items - The list to validate
+ * @param optionName - The CLI option name for error messages
+ * @returns EXIT_SUCCESS if valid, EXIT_ERROR if invalid
+ */
+function validateNonEmptyList(items: string[], optionName: string): number {
+  if (items.length === 0) {
+    // skipcq: JS-0002
+    console.error(`Error: ${optionName} must contain at least one valid value.`);
+    return EXIT_ERROR;
+  }
+  return EXIT_SUCCESS;
+}
+
+/**
+ * Validates that a number is positive (>= 1).
+ * @param value - The value to validate
+ * @param optionName - The CLI option name for error messages
+ * @returns EXIT_SUCCESS if valid, EXIT_ERROR if invalid
+ */
+function validatePositiveNumber(value: number | undefined, optionName: string): number {
+  if (value !== undefined && value < 1) {
+    // skipcq: JS-0002
+    console.error(`Error: ${optionName} must be a positive number.`);
+    return EXIT_ERROR;
+  }
+  return EXIT_SUCCESS;
+}
+
 const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
   const getter = providerConfigGetters[provider];
   return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl) : null;
@@ -346,14 +398,17 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
   if (!["both", "json", "md"].includes(parsedOpts.format)) {
     // skipcq: JS-0002
     console.error(`Invalid format: ${parsedOpts.format}. Must be one of: both, json, md`);
-    return 1;
+    return EXIT_ERROR;
   }
 
   if (!parsedOpts.corpusPath) {
     // skipcq: JS-0002
     console.error("Error: --corpus <path> is required.");
-    return 1;
+    return EXIT_ERROR;
   }
+
+  const emptyVariantsError = validateNonEmptyList(variantIds, "--variants");
+  if (emptyVariantsError !== EXIT_SUCCESS) return emptyVariantsError;
 
   const invalidVariants = variantIds.filter(v => !isValidVariant(v));
   if (invalidVariants.length > 0) {
@@ -361,9 +416,22 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
     console.error(`Invalid variants provided: ${invalidVariants.join(", ")}`);
     // skipcq: JS-0002
     console.error(`Valid variants: ${EXTRACTOR_VARIANTS.join(", ")}`);
-    return 1;
+    return EXIT_ERROR;
   }
-  return 0;
+
+  // Validate positive numeric options
+  const error1 = validatePositiveNumber(parsedOpts.maxConcurrency, "--max-concurrency");
+  if (error1 !== 0) return error1;
+  const error2 = validatePositiveNumber(parsedOpts.timeoutMs, "--timeout");
+  if (error2 !== 0) return error2;
+  const error3 = validatePositiveNumber(parsedOpts.judgeMaxTokens, "--judge-max-tokens");
+  if (error3 !== 0) return error3;
+  const error4 = validatePositiveNumber(parsedOpts.extractionMaxTokens, "--extraction-max-tokens");
+  if (error4 !== 0) return error4;
+  const error5 = validatePositiveNumber(parsedOpts.extractionMaxChunks, "--extraction-max-chunks");
+  if (error5 !== 0) return error5;
+
+  return EXIT_SUCCESS;
 };
 
 const validateRunId = (runId: string): string | null => {
@@ -394,9 +462,9 @@ const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions,
     if (result.metadata.failedCellCount > 0) {
       // skipcq: JS-0002
       console.warn(`Dry run detected ${result.metadata.failedCellCount} failed cells (e.g. missing transcripts). Resolve before a real run.`);
-      return 1;
+      return EXIT_ERROR;
     }
-    return 0;
+    return EXIT_DRY_RUN;
   }
 
   const report = aggregateMatrixResults(result.cells);
@@ -507,7 +575,7 @@ export const runEvalMatrix = async (
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
 
     const parsedOpts = parseRunOptions(cleanOptions);
-    const variantIds = parsedOpts.variantsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+    const variantIds = parseCsvList(parsedOpts.variantsStr);
 
     const validationError = validateBasicInputs(parsedOpts, variantIds);
     if (validationError !== 0) return validationError;
@@ -516,7 +584,10 @@ export const runEvalMatrix = async (
     if (typeof models === "number") return models;
     if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
 
-    const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+    const judgeModels = parseCsvList(parsedOpts.judgeModelsStr);
+
+    const emptyJudgeModelsError = validateNonEmptyList(judgeModels, "--judge-models");
+    if (emptyJudgeModelsError !== EXIT_SUCCESS) return emptyJudgeModelsError;
 
     // Validate judge models against registry
     const unknownJudgeModels = judgeModels.filter(id => !getModel(id));

@@ -39,13 +39,17 @@ function parseArgs(argv) {
         }
     }
     if (!opts.corpusPath || !opts.videoId) usage();
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(opts.videoId) || opts.videoId.includes("..")) {
+        throw new Error(`Invalid videoId: ${opts.videoId}`);
+    }
     return opts;
 }
 
 function coverageScore(segments) {
     if (!segments.length) return 0;
     const last = segments[segments.length - 1];
-    return ((last.start + last.duration) * 1000) + segments.length;
+    const end = (last.start || 0) + (last.duration || 0);
+    return (end * 1000) + segments.length;
 }
 
 async function main() {
@@ -80,8 +84,11 @@ async function main() {
         "--no-progress",
         "--output", outputTemplate,
         "--js-runtimes", "node",
-        "--remote-components", "ejs:github",
     ];
+    const remoteComponents = process.env.AIDHA_YTDLP_REMOTE_COMPONENTS || process.env.YTDLP_REMOTE_COMPONENTS || "";
+    if (remoteComponents) {
+        args.push("--remote-components", remoteComponents);
+    }
     if (opts.cookiesPath) {
         args.push("--cookies", opts.cookiesPath);
     }

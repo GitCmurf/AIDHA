@@ -14,7 +14,13 @@ function usage() {
 
 const transcriptDir = process.argv[2];
 const backupRootIndex = process.argv.indexOf("--backup-root");
-const backupRoot = backupRootIndex >= 0 ? process.argv[backupRootIndex + 1] : "out/eval-matrix/transcript-backups";
+let backupRoot = "out/eval-matrix/transcript-backups";
+if (backupRootIndex >= 0) {
+    backupRoot = process.argv[backupRootIndex + 1];
+    if (!backupRoot) {
+        usage();
+    }
+}
 
 if (!transcriptDir) {
     usage();

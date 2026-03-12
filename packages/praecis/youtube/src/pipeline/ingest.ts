@@ -358,7 +358,9 @@ export class IngestionPipeline {
 
     // Check for any failures
     const firstFailure = deleteResults.find(result => !result.ok);
-    if (firstFailure) return firstFailure as Result<{ deleted: number }>;
+    if (firstFailure) {
+      return { ok: false, error: firstFailure.error };
+    }
 
     return { ok: true, value: { deleted: items.length } };
   }

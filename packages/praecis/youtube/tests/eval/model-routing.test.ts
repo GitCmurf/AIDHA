@@ -100,10 +100,11 @@ describe("Model-Aware Runtime Wiring", () => {
     }).toThrowError(/Unsupported provider 'alien'/);
   });
 
-  it("should fallback to base config if model is not in registry (treated as openai)", () => {
-    const client = createProviderAwareClient("test-unknown", mockBaseConfig) as any;
-
-    expect(client.config.apiKey).toBe("base-key");
-    expect(client.config.baseUrl).toBe("https://base.url");
+  it("should throw if model is not in registry", () => {
+    // Strict validation: unknown models should fail fast rather than silently falling back
+    // This prevents configuration errors from propagating to runtime
+    expect(() => {
+      createProviderAwareClient("test-unknown", mockBaseConfig);
+    }).toThrowError(/Model 'test-unknown' not found in the evaluation registry/);
   });
 });

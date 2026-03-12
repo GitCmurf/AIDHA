@@ -1,7 +1,7 @@
 ---
 document_id: AIDHA-EVAL-BASELINE
 owner: Ingestion Engineering Lead
-status: Draft
+status: Published
 version: "0.1"
 last_updated: 2026-03-09
 title: Evaluation Matrix Baseline Workflow
@@ -13,7 +13,7 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-EVAL-BASELINE
 > **Owner:** Ingestion Engineering Lead
-> **Status:** Draft
+> **Status:** Published
 > **Version:** 0.1
 > **Last Updated:** 2026-03-09
 > **Type:** TESTING
@@ -24,7 +24,7 @@ docops_version: "2.0"
 
 | Version | Date       | Author      | Change Summary                                                  | Reviewers | Status | Reference             |
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | ------ | --------------------- |
-| 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Draft  | AIDHA-TASK-004        |
+| 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Published | AIDHA-TASK-004        |
 
 The evaluation matrix (`eval matrix`) provides a quantitative assessment of the LLM extraction
 pipeline. To prevent regressions, we maintain a pinned baseline report.
