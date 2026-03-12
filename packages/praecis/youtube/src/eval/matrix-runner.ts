@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import * as path from "node:path";
+import { join } from "node:path";
 import type { GraphNode } from "@aidha/graph-backend";
 import { Transcript } from "../schema/transcript.js";
 import type { ClaimCandidate } from "../extract/types.js";
@@ -237,6 +237,7 @@ const getScoresForCell = async (
     if (cachedScores) {
       scores.push(...cachedScores);
     } else if (options.dryRun) {
+      // skipcq: JS-0002
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     } else {
       try {
@@ -264,6 +265,7 @@ const getScoresForCell = async (
             { cacheDir: options.cacheDir }
           );
         } catch (cacheErr) {
+          // skipcq: JS-0002
           console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
         }
       } catch (err) {
@@ -317,6 +319,7 @@ const getExtractionForCell = async (
   };
 
   if (options.dryRun) {
+    // skipcq: JS-0002
     console.log(`[dry-run] Would extract claims for ${video.videoId} using ${model.id}`);
     return {
       videoId: video.videoId,
@@ -359,6 +362,7 @@ const getExtractionForCell = async (
         { cacheDir: options.cacheDir }
       );
     } catch (cacheErr) {
+      // skipcq: JS-0002
       console.warn(`Failed to cache extraction for ${video.videoId} / ${model.id}: ${cacheErr}`);
     }
 
@@ -389,7 +393,7 @@ const prepareTranscriptDataAsync = async (
     console.error(`Invalid videoId: ${video.videoId}`);
     return { error: 1 };
   }
-  const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
+  const transcriptPath = join(options.transcriptDir, `${video.videoId}.json`);
 
   let transcriptData: Transcript;
   try {
@@ -474,6 +478,7 @@ const processCell = async (
   await semaphore.acquire();
   const cellStartedAt = Date.now();
   try {
+    // skipcq: JS-0002
     console.log(`[cell ${cellIndex + 1}/${totalCells}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
     if ("error" in transcriptDataResult) {
@@ -519,6 +524,7 @@ const processCell = async (
 
     // Scoring
     if (!options.dryRun && cell.claimSet.length === 0) {
+      // skipcq: JS-0002
       console.warn(`[skip-scoring] No claims extracted for ${video.videoId} / ${model.id}, skipping judge.`);
       cell.scores = [];
       cells.push(cell);
@@ -565,12 +571,14 @@ const processCell = async (
         isHighVariance: consensus.isHighVariance,
       };
       if (consensus.isHighVariance) {
+        // skipcq: JS-0002
         console.warn(`[high-variance] Cell ${video.videoId} / ${model.id} has high score variance between judges.`);
       }
     }
 
     cells.push(cell);
     const durationMs = Date.now() - cellStartedAt;
+    // skipcq: JS-0002
     console.log(`[cell ${cellIndex + 1}/${totalCells}] done in ${durationMs}ms`);
   } finally {
     semaphore.release();
@@ -640,7 +648,7 @@ export const runEvaluationMatrix = async (
   await Promise.all(tasks);
 
   // Filter out any functions from options for metadata
-  const { extractorClientFactory, judgeClientFactory, ...serializableConfig } = options;
+  const { extractorClientFactory: _extractorClientFactory, judgeClientFactory: _judgeClientFactory, ...serializableConfig } = options;
 
   return {
     cells,

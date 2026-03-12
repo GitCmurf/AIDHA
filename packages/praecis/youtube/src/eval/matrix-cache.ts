@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import * as path from "node:path";
+import { join } from "node:path";
 import { hashId } from "../utils/ids.js";
 import type { MatrixCell } from "./matrix-runner.js";
 import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
+import type { ClaimCandidate } from "../extract/types.js";
 
 export interface CacheOptions {
   cacheDir: string;
@@ -27,7 +28,7 @@ export async function getCachedExtraction(
   options: CacheOptions
 ): Promise<MatrixCell | null> {
   const key = hashId("extraction", [videoId, modelId, extractorVariantId, promptVersion, extractorVersion]);
-  const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
+  const filePath = join(options.cacheDir, `extraction-${key}.json`);
 
   try {
     const data = await readFile(filePath, "utf-8");
@@ -37,7 +38,7 @@ export async function getCachedExtraction(
       return parsed as MatrixCell;
     }
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -52,7 +53,7 @@ export async function setCachedExtraction(
   options: CacheOptions
 ): Promise<void> {
   const key = hashId("extraction", [videoId, modelId, extractorVariantId, promptVersion, extractorVersion]);
-  const filePath = path.join(options.cacheDir, `extraction-${key}.json`);
+  const filePath = join(options.cacheDir, `extraction-${key}.json`);
 
   await ensureCacheDir(options.cacheDir);
   await writeFile(filePath, JSON.stringify(cell, null, 2), "utf-8");
@@ -67,7 +68,7 @@ export async function getCachedScore(
   options: CacheOptions
 ): Promise<ClaimSetScore[] | null> {
   const key = hashId("score", [videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion]);
-  const filePath = path.join(options.cacheDir, `score-${key}.json`);
+  const filePath = join(options.cacheDir, `score-${key}.json`);
 
   try {
     const data = await readFile(filePath, "utf-8");
@@ -78,7 +79,7 @@ export async function getCachedScore(
     }
     // Return original parsed data cast to ClaimSetScore[] to keep judgeMeta which is hidden in the schema
     return parsed as ClaimSetScore[];
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -93,12 +94,12 @@ export async function setCachedScore(
   options: CacheOptions
 ): Promise<void> {
   const key = hashId("score", [videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion]);
-  const filePath = path.join(options.cacheDir, `score-${key}.json`);
+  const filePath = join(options.cacheDir, `score-${key}.json`);
 
   await ensureCacheDir(options.cacheDir);
   await writeFile(filePath, JSON.stringify(scores, null, 2), "utf-8");
 }
 
-export function computeClaimSetHash(claims: any[]): string {
+export function computeClaimSetHash(claims: ClaimCandidate[]): string {
   return hashId("claims", [JSON.stringify(claims)]);
 }

@@ -41,13 +41,20 @@ const getOpenRouterConfig = (apiKey: string, baseUrl?: string) => ({
   baseUrl: baseUrl || "https://openrouter.ai/api/v1"
 });
 
+const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => { apiKey: string; baseUrl: string } | null> = {
+  openai: getOpenAiConfig,
+  "google-aistudio": getGoogleAiStudioConfig,
+  zai: getZaiConfig,
+  xiaomi: getXiaomiConfig,
+  anthropic: getOpenRouterConfig,
+  google: getOpenRouterConfig,
+  meta: getOpenRouterConfig,
+  openrouter: getOpenRouterConfig,
+};
+
 const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
-  if (provider === "openai") return getOpenAiConfig(apiKey, baseUrl, baseConfigBaseUrl);
-  if (provider === "google-aistudio") return getGoogleAiStudioConfig(apiKey, baseUrl);
-  if (provider === "zai") return getZaiConfig(apiKey, baseUrl);
-  if (provider === "xiaomi") return getXiaomiConfig(apiKey, baseUrl);
-  if (["anthropic", "google", "meta", "openrouter"].includes(provider)) return getOpenRouterConfig(apiKey, baseUrl);
-  return null;
+  const getter = providerConfigGetters[provider];
+  return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl) : null;
 };
 
 export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
