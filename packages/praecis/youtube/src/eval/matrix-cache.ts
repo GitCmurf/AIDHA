@@ -33,7 +33,7 @@ export async function getCachedExtraction(
     const data = await readFile(filePath, "utf-8");
     const parsed = JSON.parse(data);
     // Ideally we'd have a MatrixCellSchema here, but for now we validate key fields
-    if (parsed && typeof parsed === 'object' && 'videoId' in parsed && 'modelId' in parsed && 'claimSet' in parsed) {
+    if (parsed && typeof parsed === 'object' && 'videoId' in parsed && 'modelId' in parsed && 'claimSet' in parsed && Array.isArray(parsed.claimSet)) {
       return parsed as MatrixCell;
     }
     return null;

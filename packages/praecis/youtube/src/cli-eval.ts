@@ -10,6 +10,7 @@ import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./e
 import { createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
+import { validateSafeId } from "./utils/ids.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider Configuration
@@ -344,6 +345,27 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
   return 0;
 };
 
+const validateRunId = (runId: string): string | null => {
+  if (typeof runId !== "string") {
+    return null;
+  }
+
+  // Empty run ID is valid (uses default paths)
+  if (runId.length === 0) {
+    return runId;
+  }
+
+  // Use shared validation, but provide custom error messages for CLI context
+  const validated = validateSafeId(runId);
+  if (!validated) {
+    // skipcq: JS-0002
+    console.error("Error: --run-id must be 100 characters or less, contain only alphanumeric characters, hyphens, and underscores, and must not contain path traversal sequences ('..').");
+    return null;
+  }
+
+  return validated;
+};
+
 const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions, finalOutputDir: string) => {
   if (parsedOpts.dryRun) {
     // skipcq: JS-0002
@@ -417,10 +439,15 @@ const parseEvalOptions = (positionals: string[], options: Record<string, string 
 };
 
 const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
-  const runCacheDir = parsedOpts.runId ? join(".cache/extraction", parsedOpts.runId) : ".cache/extraction";
-  const finalOutputDir = parsedOpts.outputDir || (parsedOpts.runId ? join("out/eval-matrix/runs", parsedOpts.runId) : "out/eval-matrix/reports");
+  const validatedRunId = validateRunId(parsedOpts.runId);
+  if (validatedRunId === null) {
+    return { runCacheDir: null, finalOutputDir: null, error: 1 };
+  }
 
-  return { runCacheDir, finalOutputDir };
+  const runCacheDir = validatedRunId ? join(".cache/extraction", validatedRunId) : ".cache/extraction";
+  const finalOutputDir = parsedOpts.outputDir || (validatedRunId ? join("out/eval-matrix/runs", validatedRunId) : "out/eval-matrix/reports");
+
+  return { runCacheDir, finalOutputDir, error: 0 };
 };
 
 const loadExecutionData = (parsedOpts: EvalRunOptions) => {
@@ -454,7 +481,8 @@ export const runEvalMatrix = async (
     if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
 
     const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
-    const { runCacheDir, finalOutputDir } = resolveEvalExecutionParams(parsedOpts);
+    const { runCacheDir, finalOutputDir, error: runParamsError } = resolveEvalExecutionParams(parsedOpts);
+    if (runParamsError !== 0 || runCacheDir === null || finalOutputDir === null) return runParamsError ?? 1;
 
     printPlan({ ...parsedOpts, models, judgeModels, variantIds, finalOutputDir, runCacheDir });
 

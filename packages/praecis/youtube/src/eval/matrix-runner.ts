@@ -20,6 +20,7 @@ import { LlmClaimExtractor } from "../extract/llm-claims.js";
 import type { LlmClient } from "../extract/llm-client.js";
 import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
+import { isValidSafeId } from "../utils/ids.js";
 
 export const EXTRACTOR_VERSION = "v1";
 
@@ -384,6 +385,10 @@ const prepareTranscriptDataAsync = async (
     }
   | { error: number }
 > => {
+  if (!isValidSafeId(video.videoId)) {
+    console.error(`Invalid videoId: ${video.videoId}`);
+    return { error: 1 };
+  }
   const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
 
   let transcriptData: Transcript;

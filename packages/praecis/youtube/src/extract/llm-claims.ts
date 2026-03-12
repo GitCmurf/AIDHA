@@ -668,6 +668,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerptStartMap,
         chunkCount: chunked.length,
         signal: input.signal,
+        collectTraces: input.collectTraces,
       });
       allCandidates.push(...chunkCandidates);
     }
@@ -714,6 +715,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         transcriptHash,
         selected,
         signal: input.signal,
+        collectTraces: input.collectTraces,
       });
     }
 
@@ -726,6 +728,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     transcriptHash: string;
     selected: ClaimCandidate[];
     signal?: AbortSignal;
+    collectTraces?: boolean;
   }): Promise<ClaimCandidate[]> {
     const { resource, excerpts, transcriptHash, selected, signal } = input;
     const videoId = typeof resource?.metadata?.['videoId'] === 'string'
@@ -752,7 +755,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     let rewrites = await readRewriteCache(cachePath, metadata);
     if (!rewrites) {
-      rewrites = await this.fetchRewriteCandidates({ resource, excerpts, selected, signal });
+      rewrites = await this.fetchRewriteCandidates({ resource, excerpts, selected, signal, collectTraces: input.collectTraces });
       if (rewrites && rewrites.length > 0) {
         await writeRewriteCache(cachePath, metadata, rewrites);
       }
@@ -795,6 +798,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     excerpts: GraphNode[];
     selected: ClaimCandidate[];
     signal?: AbortSignal;
+    collectTraces?: boolean;
   }): Promise<Array<{ index: number; text: string }> | null> {
     const { signal } = input;
     const excerptTextById = new Map(input.excerpts.map(excerpt => [excerpt.id, excerpt.content ?? '']));
@@ -839,10 +843,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let response;
     try {
       response = await this.client.generate(request);
-      this.lastTraces.push({
-        prompt: { system: request.system, user: request.user },
-        response: response.ok ? response.value : `Error: ${response.error.message}`
-      });
+      if (input.collectTraces) {
+        this.lastTraces.push({
+          prompt: { system: request.system, user: request.user },
+          response: response.ok ? response.value : `Error: ${response.error.message}`
+        });
+      }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw error;
@@ -881,10 +887,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
         user: `${prompt.user}\nReturn ONLY valid JSON. Do not include commentary or markdown.`,
       };
       retry = await this.client.generate(retryRequest);
-      this.lastTraces.push({
-        prompt: { system: retryRequest.system, user: retryRequest.user },
-        response: retry.ok ? retry.value : `Error: ${retry.error.message}`
-      });
+      if (input.collectTraces) {
+        this.lastTraces.push({
+          prompt: { system: retryRequest.system, user: retryRequest.user },
+          response: retry.ok ? retry.value : `Error: ${retry.error.message}`
+        });
+      }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw error;
@@ -932,8 +940,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     excerptStartMap: Map<string, number>;
     chunkCount: number;
     signal?: AbortSignal;
+    collectTraces?: boolean;
   }): Promise<ClaimCandidate[]> {
-    const { resource, chunk, transcriptHash, excerptStartMap, chunkCount, signal } = input;
+    const { resource, chunk, transcriptHash, excerptStartMap, chunkCount, signal, collectTraces } = input;
     const videoId = typeof resource?.metadata?.['videoId'] === 'string'
       ? (resource.metadata?.['videoId'] as string)
       : (resource?.id || 'unknown');
@@ -1052,6 +1061,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
       signal,
+      collectTraces,
     });
 
     if (claims.length > 0) {
@@ -1096,8 +1106,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
     verbosity?: ResolvedConfig['llm']['verbosity'];
     signal?: AbortSignal;
+    collectTraces?: boolean;
   }): Promise<FetchResult> {
-    const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity, signal } = input;
+    const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity, signal, collectTraces } = input;
 
     // Check circuit breaker before calling LLM
     if (!this.circuitBreaker.canExecute()) {
@@ -1121,10 +1132,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let response;
     try {
       response = await this.client.generate(request);
-      this.lastTraces.push({
-        prompt: { system: request.system, user: request.user },
-        response: response.ok ? response.value : `Error: ${response.error.message}`
-      });
+      if (collectTraces) {
+        this.lastTraces.push({
+          prompt: { system: request.system, user: request.user },
+          response: response.ok ? response.value : `Error: ${response.error.message}`
+        });
+      }
     } catch (error) {
       // Don't record user cancellations as circuit breaker failures
       if (error instanceof Error && error.name === 'AbortError') {
@@ -1177,10 +1190,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
         user: retryUser,
       };
       retry = await this.client.generate(retryRequest);
-      this.lastTraces.push({
-        prompt: { system: retryRequest.system, user: retryRequest.user },
-        response: retry.ok ? retry.value : `Error: ${retry.error.message}`
-      });
+      if (collectTraces) {
+        this.lastTraces.push({
+          prompt: { system: retryRequest.system, user: retryRequest.user },
+          response: retry.ok ? retry.value : `Error: ${retry.error.message}`
+        });
+      }
     } catch (error) {
       this.circuitBreaker.recordFailure();
       console.error(`LLM retry error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
