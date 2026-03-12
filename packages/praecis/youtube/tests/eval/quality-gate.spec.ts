@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SCORE_DIMENSIONS, type ScoreDimension } from "../../src/eval/scoring-rubric";
-import type { MatrixReport, DimensionStats } from "../../src/eval/matrix-aggregator";
+import type { MatrixReport } from "../../src/eval/matrix-aggregator";
+import { getDimensionMean } from "../../src/eval/matrix-aggregator";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,8 +49,8 @@ describe("CI Quality Gate", () => {
       }
 
       for (const dim of SCORE_DIMENSIONS) {
-        const baselineScore = baselineStats[dim]?.mean ?? 0;
-        const latestScore = latestStats[dim]?.mean ?? 0;
+        const baselineScore = getDimensionMean(baselineStats, dim);
+        const latestScore = getDimensionMean(latestStats, dim);
 
         if (baselineScore - latestScore > tolerance) {
           throw new Error(`Regression detected for ${modelId} on ${dim}: dropped from ${baselineScore} to ${latestScore} (tolerance: ${tolerance})`);

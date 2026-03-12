@@ -150,6 +150,14 @@ const calculateAllStats = (scoresMap: Record<string, Record<ScoreDimension, numb
   return stats;
 };
 
+/**
+ * Helper to extract the mean score for a dimension from stats with proper null handling.
+ */
+export const getDimensionMean = (
+  stats: { dimensions: DimensionStats } | undefined,
+  dimension: ScoreDimension
+): number => stats?.dimensions[dimension]?.mean ?? 0;
+
 const generateLeaderboards = (modelStats: Record<string, { dimensions: DimensionStats }>): Record<ScoreDimension, { modelId: string; score: number }[]> => {
   const leaderboards = {} as Record<ScoreDimension, { modelId: string; score: number }[]>;
 
@@ -157,7 +165,7 @@ const generateLeaderboards = (modelStats: Record<string, { dimensions: Dimension
     leaderboards[dim] = Object.keys(modelStats)
       .map(modelId => ({
         modelId,
-        score: modelStats[modelId]?.dimensions[dim]?.mean ?? 0
+        score: getDimensionMean(modelStats[modelId], dim)
       }))
       .sort((a, b) => b.score - a.score || a.modelId.localeCompare(b.modelId));
   }

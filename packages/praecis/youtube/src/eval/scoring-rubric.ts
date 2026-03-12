@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 /**
+ * Tolerance for overallScore validation against the average of four dimensions.
+ * The overallScore must be within this tolerance of the average.
+ */
+export const OVERALL_SCORE_TOLERANCE = 0.25;
+
+/**
  * Canonical list of score dimensions used across the evaluation system.
  * Import this wherever you need to iterate over score dimensions.
  */
@@ -18,26 +24,26 @@ export const ClaimSetScoreSchema = z.object({
   hallucinations: z.array(z.object({ text: z.string().min(1) })),
   redundancies: z.array(z.object({ text: z.string().min(1) })),
   gapAreas: z.array(z.object({ area: z.string().min(1) })),
+  judgeMeta: z.object({
+    judgeModelId: z.string(),
+    judgePromptVersion: z.string(),
+  }).optional(),
+  traces: z.array(z.object({
+    prompt: z.object({ system: z.string(), user: z.string() }),
+    response: z.string(),
+  })).optional(),
 }).superRefine((data, ctx) => {
   const expected = (data.completeness + data.accuracy + data.topicCoverage + data.atomicity) / 4;
-  if (Math.abs(data.overallScore - expected) > 0.6) {
+  if (Math.abs(data.overallScore - expected) > OVERALL_SCORE_TOLERANCE) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["overallScore"],
-      message: `overallScore (${data.overallScore}) must approximately equal the average of the four dimensions (${expected.toFixed(2)})`,
+      message: `overallScore (${data.overallScore}) must be the average of the other four dimensions. Expected ~${expected.toFixed(2)}, got ${data.overallScore}.`,
     });
   }
 });
 
 /**
  * Represents the structured score for a set of extracted claims.
- * Note: judgeMeta is internal process metadata (judge ID and prompt version) that is
- * injected by the scoring harness after parsing the LLM response.
  */
-export type ClaimSetScore = z.infer<typeof ClaimSetScoreSchema> & {
-  judgeMeta?: {
-    judgeModelId: string;
-    judgePromptVersion: string;
-  };
-  traces?: Array<{ prompt: { system: string; user: string }; response: string }>;
-};
+export type ClaimSetScore = z.infer<typeof ClaimSetScoreSchema>;

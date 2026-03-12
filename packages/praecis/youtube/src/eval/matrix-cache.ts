@@ -77,8 +77,7 @@ export async function getCachedScore(
     if (!result.success) {
       return null;
     }
-    // Return original parsed data cast to ClaimSetScore[] to keep judgeMeta which is hidden in the schema
-    return parsed as ClaimSetScore[];
+    return result.data;
   } catch {
     return null;
   }
