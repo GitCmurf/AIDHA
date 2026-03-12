@@ -585,6 +585,20 @@ const processCell = async (
   }
 };
 
+/**
+ * Runs an evaluation matrix across a corpus of videos and multiple models.
+ *
+ * @param corpus - Array of video entries from the evaluation corpus
+ * @param models - Array of evaluation models to test
+ * @param options - Configuration options including output dir, concurrency, variants, etc.
+ * @returns MatrixResult containing cells with extraction/scoring results and metadata
+ *
+ * Behavior:
+ * - Processes cells concurrently up to maxConcurrency limit
+ * - Uses caching for extraction and scoring when available
+ * - Supports dry-run mode that prints actions without executing
+ * - Returns cells sorted by videoId, modelId, extractorVariantId for deterministic output
+ */
 export const runEvaluationMatrix = async (
   corpus: CorpusEntry[],
   models: EvalModel[],
@@ -646,6 +660,15 @@ export const runEvaluationMatrix = async (
   }
 
   await Promise.all(tasks);
+
+  // Sort cells for deterministic output order
+  cells.sort((a, b) => {
+    const videoCompare = a.videoId.localeCompare(b.videoId);
+    if (videoCompare !== 0) return videoCompare;
+    const modelCompare = a.modelId.localeCompare(b.modelId);
+    if (modelCompare !== 0) return modelCompare;
+    return a.extractorVariantId.localeCompare(b.extractorVariantId);
+  });
 
   // Filter out any functions from options for metadata
   const { extractorClientFactory: _extractorClientFactory, judgeClientFactory: _judgeClientFactory, ...serializableConfig } = options;

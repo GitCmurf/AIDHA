@@ -1,9 +1,10 @@
 export type ModelTier = "frontier" | "midtier" | "budget";
 export type ModelAvailability = "stable" | "experimental" | "free-tier";
+export type ModelProvider = "openai" | "google-aistudio" | "zai" | "xiaomi";
 
 export interface EvalModel {
   id: string;
-  provider: string;
+  provider: ModelProvider;
   baseUrl?: string;
   modelName: string;
   contextWindow: number;
@@ -17,7 +18,7 @@ export interface EvalModel {
   availability: ModelAvailability;
 }
 
-export const MODEL_REGISTRY: EvalModel[] = [
+export const MODEL_REGISTRY: readonly EvalModel[] = [
   // ─────────────────────────────────────────────────────────────────────────────
   // OpenAI (direct API)
   // ─────────────────────────────────────────────────────────────────────────────
@@ -171,7 +172,7 @@ export const MODEL_REGISTRY: EvalModel[] = [
     availability: "experimental",
     notes: "Xiaomi's MiMo V2 Flash model",
   },
-];
+] as const;
 
 export function getModel(id: string): EvalModel | undefined {
   return MODEL_REGISTRY.find(m => m.id === id);

@@ -61,7 +61,8 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
 ### `packages/praecis/youtube`
 
 - `tests/eval/corpus-schema.test.ts`, `tests/eval/model-registry.test.ts`, `tests/eval/scoring-rubric.test.ts`,
-  `tests/eval/judge-prompt.test.ts`, `tests/eval/matrix-runner.test.ts`, `tests/eval/quality-gate.spec.ts`:
+  `tests/eval/judge-prompt.test.ts`, `tests/eval/matrix-runner.test.ts`, `tests/eval/cli-eval-path.test.ts`,
+  `tests/eval/quality-gate.spec.ts`:
   Evaluation matrix framework and quality guardrails.
 - `tests/pipeline.test.ts`: ingestion flow coverage.
 - `tests/extraction.test.ts`: claim/reference extraction invariants and metadata handling.

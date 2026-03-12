@@ -49,7 +49,9 @@ function coverageScore(segments) {
 }
 
 async function main() {
-    const opts = parseArgs(process.argv.slice(2));
+    let tmpDir;
+    try {
+        const opts = parseArgs(process.argv.slice(2));
     const corpus = JSON.parse(fs.readFileSync(opts.corpusPath, "utf-8"));
     const entry = corpus.find(item => item.videoId === opts.videoId);
     if (!entry) {
@@ -66,7 +68,7 @@ async function main() {
         ".json": transcriptModule.parseTranscriptJson,
     };
 
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aidha-direct-ytdlp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aidha-direct-ytdlp-"));
     const outputTemplate = path.join(tmpDir, "%(id)s.%(ext)s");
     const args = [
         "--skip-download",
@@ -134,6 +136,16 @@ async function main() {
     }
     fs.writeFileSync(cachePath, JSON.stringify(normalized, null, 2) + "\n", "utf-8");
     console.log(JSON.stringify({ videoId: opts.videoId, sourceFile: path.basename(best.file), summary, backupDir }, null, 2));
+    } finally {
+        // Clean up temp directory
+        if (tmpDir) {
+            try {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            } catch (cleanupError) {
+                console.error(`Warning: Failed to clean up temp directory ${tmpDir}:`, cleanupError);
+            }
+        }
+    }
 }
 
 main().catch(error => {

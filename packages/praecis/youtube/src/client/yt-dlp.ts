@@ -386,6 +386,7 @@ export async function fetchTranscriptWithYtDlp(
   const outputTemplate = join(tmpPath, '%(id)s.%(ext)s');
   const args = [
     '--skip-download',
+    '--no-playlist',
     '--write-subs',
     '--write-auto-subs',
     '--ignore-errors',

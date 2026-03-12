@@ -2,12 +2,38 @@ function normalizeWhitespace(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+const YOUTUBE_HOSTS = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'];
+const YOUTUBE_SHORT_PATH_REGEX = /^\/(embed|shorts)\/([a-zA-Z0-9_-]{11})/;
+
 export function sanitizeYouTubeUrl(rawUrl) {
-    const parsed = new URL(String(rawUrl).trim());
-    const videoId = parsed.searchParams.get("v");
+    const urlStr = String(rawUrl).trim();
+    const parsed = new URL(urlStr);
+
+    if (!YOUTUBE_HOSTS.includes(parsed.hostname)) {
+        throw new Error(`URL is not a YouTube URL: ${rawUrl}`);
+    }
+
+    let videoId = parsed.searchParams.get("v");
+
+    if (!videoId && parsed.hostname === 'youtu.be') {
+        videoId = parsed.pathname.slice(1);
+    }
+
+    if (!videoId) {
+        const match = parsed.pathname.match(YOUTUBE_SHORT_PATH_REGEX);
+        if (match) {
+            videoId = match[2];
+        }
+    }
+
     if (!videoId) {
         throw new Error(`URL is missing a YouTube video id: ${rawUrl}`);
     }
+
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        throw new Error(`Invalid YouTube video id: ${videoId}`);
+    }
+
     return `https://www.youtube.com/watch?v=${videoId}`;
 }
 

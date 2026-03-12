@@ -85,9 +85,19 @@ function parseAndValidate(content: string): Result<ClaimSetScore> {
     let text = content.trim();
     // Strip markdown code blocks if present
     if (text.startsWith("```json")) {
-      text = text.replace(/^```json/, "").replace(/```$/, "").trim();
+      text = text.slice(7); // Remove ```json
+      const endIdx = text.lastIndexOf("```");
+      if (endIdx !== -1) {
+        text = text.slice(0, endIdx);
+      }
+      text = text.trim();
     } else if (text.startsWith("```")) {
-      text = text.replace(/^```/, "").replace(/```$/, "").trim();
+      text = text.slice(3); // Remove ```
+      const endIdx = text.lastIndexOf("```");
+      if (endIdx !== -1) {
+        text = text.slice(0, endIdx);
+      }
+      text = text.trim();
     }
 
     const parsed = JSON.parse(text);

@@ -220,7 +220,10 @@ const generateRecommendations = (cells: MatrixCell[], leaderboards: Record<Score
       variantId,
       score: variantStats[variantId]?.dimensions.overallScore?.mean ?? 0
     }))
-    .sort((a, b) => b.score - a.score)[0]?.variantId ?? "None";
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.variantId.localeCompare(b.variantId);
+    })[0]?.variantId ?? "None";
 
   const budgetModels = leaderboards.overallScore.filter(m => getModel(m.modelId)?.tier === "budget");
   const bestBudgetModel = budgetModels[0]?.modelId ?? "None";

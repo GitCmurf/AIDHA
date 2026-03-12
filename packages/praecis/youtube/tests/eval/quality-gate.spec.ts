@@ -6,6 +6,27 @@ import { SCORE_DIMENSIONS, type ScoreDimension } from "../../src/eval/scoring-ru
 import type { MatrixReport } from "../../src/eval/matrix-aggregator";
 import { getDimensionMean } from "../../src/eval/matrix-aggregator";
 
+interface EvalReport {
+  summary: { bestModel: string; worstModel: string; hardestVideo: string };
+  modelStats: Record<string, { dimensions: Record<string, { mean: number; median: number; min: number; max: number; stddev: number }> }>;
+}
+
+function readJsonFile(filePath: string): { data: EvalReport | null; errorType: 'ENOENT' | 'PARSE' | null } {
+  try {
+    const data = readFileSync(filePath, "utf-8");
+    try {
+      return { data: JSON.parse(data) as EvalReport, errorType: null };
+    } catch {
+      return { data: null, errorType: 'PARSE' };
+    }
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { data: null, errorType: 'ENOENT' };
+    }
+    return { data: null, errorType: 'PARSE' };
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -16,25 +37,31 @@ describe("CI Quality Gate", () => {
     const baselinePath = join(__dirname, "../../../../../out/eval-matrix/reports/baseline.json");
 
     let baseline: MatrixReport | null, latest: MatrixReport | null;
-    try {
-      baseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
-    } catch {
+    const baselineResult = readJsonFile(baselinePath);
+    if (baselineResult.errorType === 'PARSE') {
+      throw new Error(`Corrupt baseline report at ${baselinePath}`);
+    }
+    if (baselineResult.errorType === 'ENOENT') {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
         throw new Error(`Required 'baseline.json' report not found at ${baselinePath}, failing quality gate. Run matrix evaluation and pin a baseline first.`);
       }
       ctx.skip();
       return;
     }
+    baseline = baselineResult.data as MatrixReport;
 
-    try {
-      latest = JSON.parse(readFileSync(reportPath, "utf-8"));
-    } catch {
+    const latestResult = readJsonFile(reportPath);
+    if (latestResult.errorType === 'PARSE') {
+      throw new Error(`Corrupt report at ${reportPath}`);
+    }
+    if (latestResult.errorType === 'ENOENT') {
       if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
         throw new Error(`Required 'latest.json' report not found at ${reportPath}. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.`);
       }
       ctx.skip();
       return;
     }
+    latest = latestResult.data as MatrixReport;
 
     if (!baseline?.modelStats || !latest?.modelStats) {
       throw new Error("Report files missing modelStats data");

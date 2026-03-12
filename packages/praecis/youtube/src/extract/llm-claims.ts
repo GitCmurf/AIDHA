@@ -757,7 +757,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
     if (!rewrites) {
       rewrites = await this.fetchRewriteCandidates({ resource, excerpts, selected, signal, collectTraces: input.collectTraces });
       if (rewrites && rewrites.length > 0) {
-        await writeRewriteCache(cachePath, metadata, rewrites);
+        try {
+          await writeRewriteCache(cachePath, metadata, rewrites);
+        } catch (cacheError) {
+          // skipcq: JS-0002
+          console.warn(`Failed to write rewrite cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+        }
       }
     }
     if (!rewrites || rewrites.length === 0) return selected;
@@ -1065,7 +1070,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
     });
 
     if (claims.length > 0) {
-      await writeCache(cachePath, cacheMetadata, claims);
+      try {
+        await writeCache(cachePath, cacheMetadata, claims);
+      } catch (cacheError) {
+        // skipcq: JS-0002
+        console.warn(`Failed to write cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+      }
       return claims;
     }
 

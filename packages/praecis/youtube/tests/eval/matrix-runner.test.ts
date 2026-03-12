@@ -37,9 +37,9 @@ vi.mock("../../src/extract/llm-claims", () => ({
 }));
 
 describe("Matrix Runner Integration", () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
+afterEach(() => {
+  vi.resetAllMocks();
+});
   const createTestVideo = (
     id: string,
     duration: number,

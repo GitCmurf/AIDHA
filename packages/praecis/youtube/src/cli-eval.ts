@@ -57,6 +57,15 @@ const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: strin
   return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl) : null;
 };
 
+/**
+ * Creates an LLM client configured for a specific model by resolving the appropriate
+ * provider configuration (API key, base URL) based on the model's provider.
+ *
+ * @param modelId - The model ID from the evaluation registry
+ * @param baseConfig - Base LLM configuration containing API keys and default settings
+ * @returns Configured LLM client for the given model
+ * @throws Error if the provider is unsupported or baseUrl cannot be resolved
+ */
 export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
   const model = getModel(modelId);
   const provider = model?.provider || "openai";
@@ -136,7 +145,7 @@ const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => 
   const cellsDir = join(outputDir, "cells");
   mkdirSync(cellsDir, { recursive: true });
   for (const cell of cells) {
-    const safeModelId = cell.modelId.replace(/[/\\]/g, "_");
+    const safeModelId = cell.modelId.replace(/[<>:"/\\|?*]/g, "_");
     const cellFileName = `${cell.videoId}-${safeModelId}-${cell.extractorVariantId}.json`;
     const cellPath = join(cellsDir, cellFileName);
     writeFileSync(cellPath, JSON.stringify(cell, null, 2));
@@ -464,6 +473,21 @@ const loadExecutionData = (parsedOpts: EvalRunOptions) => {
   return { corpusResult, models };
 };
 
+/**
+ * Main entry point for the CLI evaluation matrix command.
+ * Parses options, validates inputs, runs the evaluation matrix, and generates reports.
+ *
+ * @param positionals - Positional CLI arguments (currently unused)
+ * @param options - CLI options from commander
+ * @param config - Resolved AIDHA configuration
+ * @returns Exit code (0 for success, non-zero for errors)
+ *
+ * Exit codes:
+ * - 0: Success
+ * - 1: General error
+ * - 2: Invalid options
+ * - 3: Dry-run mode (no execution)
+ */
 export const runEvalMatrix = async (
   positionals: string[],
   options: Record<string, string | boolean | undefined>,

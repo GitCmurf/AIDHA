@@ -26,6 +26,7 @@ if (rawLines.length === 0) {
 }
 
 const entries = [];
+const failures = [];
 
 for (const rawUrl of rawLines) {
     const sanitizedUrl = sanitizeYouTubeUrl(rawUrl);
@@ -52,26 +53,50 @@ for (const rawUrl of rawLines) {
     );
 
     if (result.error) {
-        throw new Error(`yt-dlp failed for ${sanitizedUrl}: ${result.error.message}`);
+        console.error(`Warning: yt-dlp error for ${sanitizedUrl}: ${result.error.message}`);
+        failures.push({ url: sanitizedUrl, error: result.error.message });
+        continue;
     }
 
     if (result.status !== 0) {
-        throw new Error(`yt-dlp failed for ${sanitizedUrl}: ${result.stderr || result.stdout}`);
+        console.error(`Warning: yt-dlp failed for ${sanitizedUrl}: ${result.stderr || result.stdout}`);
+        failures.push({ url: sanitizedUrl, error: result.stderr || result.stdout });
+        continue;
     }
 
-    const metadata = JSON.parse(result.stdout);
-    entries.push(buildCorpusEntry({
-        videoId: metadata.id,
-        sourceUrl: sanitizedUrl,
-        title: metadata.title,
-        channelName: metadata.channel || metadata.uploader || metadata.uploader_id,
-        durationSeconds: metadata.duration || 0,
-        description: metadata.description || "",
-        language: metadata.language || "en",
-    }));
+    try {
+        const metadata = JSON.parse(result.stdout);
+        entries.push(buildCorpusEntry({
+            videoId: metadata.id,
+            sourceUrl: sanitizedUrl,
+            title: metadata.title,
+            channelName: metadata.channel || metadata.uploader || metadata.uploader_id,
+            durationSeconds: metadata.duration || 0,
+            description: metadata.description || "",
+            language: metadata.language || "en",
+        }));
+    } catch (parseError) {
+        console.error(`Warning: Failed to parse metadata for ${sanitizedUrl}: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        failures.push({ url: sanitizedUrl, error: `Parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}` });
+    }
+}
+
+if (failures.length > 0) {
+    console.error(`\n${failures.length} URL(s) failed:`);
+    for (const f of failures) {
+        console.error(`  - ${f.url}: ${f.error}`);
+    }
+}
+
+if (entries.length === 0) {
+    throw new Error("No entries could be processed successfully");
 }
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, JSON.stringify(entries, null, 2) + "\n", "utf-8");
 
 console.log(`Wrote ${entries.length} corpus entries to ${outputPath}`);
+
+if (failures.length > 0) {
+    process.exit(1);
+}

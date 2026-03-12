@@ -97,3 +97,17 @@ By aggregating scores across 5 core dimensions (completeness, accuracy, topicCov
 overallScore) and automatically identifying the best budget and overall models, engineering
 leadership can immediately choose baseline defaults from the automated markdown output without
 manually parsing the heatmap.
+
+## Acceptance Criteria (Protected by Tests)
+
+The following tests guard the evaluation matrix framework and should pass before merging any changes:
+
+- `packages/praecis/youtube/tests/eval/corpus-schema.test.ts` - Validates corpus JSON schema
+- `packages/praecis/youtube/tests/eval/model-registry.test.ts` - Validates model registry entries
+- `packages/praecis/youtube/tests/eval/scoring-rubric.test.ts` - Validates scoring schema
+- `packages/praecis/youtube/tests/eval/judge-prompt.test.ts` - Validates judge prompt template
+- `packages/praecis/youtube/tests/eval/matrix-runner.test.ts` - Integration test for matrix runner
+- `packages/praecis/youtube/tests/eval/cli-eval-path.test.ts` - Tests CLI argument parsing
+- `packages/praecis/youtube/tests/eval/quality-gate.spec.ts` - CI quality gate for regression detection
+
+Run tests with: `pnpm test --filter praecis-youtube -- eval`

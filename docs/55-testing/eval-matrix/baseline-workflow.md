@@ -55,7 +55,7 @@ baseline needs to be refreshed.
 1. **Clear old evaluation caches (optional but recommended):**
 
    ```bash
-   pnpm run eval matrix --invalidate-run --yes
+   pnpm run eval matrix --invalidate-run &lt;runId&gt; --yes
    ```
 
 2. **Run a full evaluation matrix:**
@@ -67,7 +67,7 @@ baseline needs to be refreshed.
      --corpus packages/praecis/youtube/tests/fixtures/eval-matrix/corpus.json \
      --tier budget \
      --judge-models gpt-4o \
-     --format json
+     --format both
    ```
 
 3. **Verify the new report:**
