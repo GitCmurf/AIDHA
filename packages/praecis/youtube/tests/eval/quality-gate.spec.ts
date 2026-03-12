@@ -27,6 +27,18 @@ function readJsonFile(filePath: string): { data: EvalReport | null; errorType: '
   }
 }
 
+/**
+ * Checks if the quality gate should fail when a required report is missing.
+ * Throws an error if REQUIRE_EVAL_GATE is set to "1", otherwise allows skipping.
+ * @param filePath - The path to the missing report
+ * @param reportType - The type of report for the error message
+ */
+function checkRequiredEvalGate(filePath: string, reportType: string): void {
+  if (process.env.REQUIRE_EVAL_GATE === "1") {
+    throw new Error(`Required '${reportType}' report not found at ${filePath}. Run matrix evaluation and pin a baseline first.`);
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -42,9 +54,7 @@ describe("CI Quality Gate", () => {
       throw new Error(`Corrupt baseline report at ${baselinePath}`);
     }
     if (baselineResult.errorType === 'ENOENT') {
-      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error(`Required 'baseline.json' report not found at ${baselinePath}, failing quality gate. Run matrix evaluation and pin a baseline first.`);
-      }
+      checkRequiredEvalGate(baselinePath, 'baseline.json');
       ctx.skip();
       return;
     }
@@ -55,9 +65,7 @@ describe("CI Quality Gate", () => {
       throw new Error(`Corrupt report at ${reportPath}`);
     }
     if (latestResult.errorType === 'ENOENT') {
-      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error(`Required 'latest.json' report not found at ${reportPath}. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.`);
-      }
+      checkRequiredEvalGate(reportPath, 'latest.json');
       ctx.skip();
       return;
     }

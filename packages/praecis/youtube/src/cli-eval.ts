@@ -180,10 +180,12 @@ const resolveModelIds = (modelsStr: string, tier: string): string[] | number => 
     if (ids.length > 0) return ids;
   }
   if (tier) {
-    const ids = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
+    const ids = MODEL_REGISTRY
+      .filter(m => m.tier === tier && m.availability !== "experimental")
+      .map(m => m.id);
     if (ids.length === 0) {
       // skipcq: JS-0002
-      console.error(`No models found for tier: ${tier}`);
+      console.error(`No verified models found for tier: ${tier}. Use explicit --models to include experimental models.`);
       return 1;
     }
     return ids;

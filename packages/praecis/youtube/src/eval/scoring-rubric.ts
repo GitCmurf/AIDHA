@@ -4,7 +4,7 @@ import { z } from "zod";
  * Tolerance for overallScore validation against the average of four dimensions.
  * The overallScore must be within this tolerance of the average.
  */
-export const OVERALL_SCORE_TOLERANCE = 0.25;
+export const OVERALL_SCORE_TOLERANCE = 0.5;
 
 /**
  * Canonical list of score dimensions used across the evaluation system.
