@@ -47,6 +47,8 @@ const aggregateCellScores = (scores: ClaimSetScore[]): Record<ScoreDimension, nu
     overallScore: 0
   };
 
+  if (scores.length === 0) return aggregated;
+
   for (const score of scores) {
     for (const dim of SCORE_DIMENSIONS) {
       aggregated[dim] += score[dim] || 0;

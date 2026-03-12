@@ -104,6 +104,18 @@ function validatePositiveNumber(value: number | undefined, optionName: string): 
   return EXIT_SUCCESS;
 }
 
+/**
+ * Resolves the cache directory path for a given run ID.
+ * If a run ID is provided, returns a run-specific cache directory.
+ * Otherwise, returns the default extraction cache directory.
+ *
+ * @param runId - The optional run ID
+ * @returns The resolved cache directory path
+ */
+function resolveCacheDir(runId: string): string {
+  return runId ? join(".cache/extraction", runId) : ".cache/extraction";
+}
+
 const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
   const getter = providerConfigGetters[provider];
   return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl) : null;
@@ -350,7 +362,9 @@ const invalidateCache = (cleanOptions: CliOptions): number | undefined => {
 
   if (!invalidateRun && !clearAll) return undefined;
 
-  const cacheDir = ".cache/extraction";
+  const runId = optionString(cleanOptions, "run-id", "");
+  const cacheDir = resolveCacheDir(runId);
+
   if (!existsSync(cacheDir)) {
     // skipcq: JS-0002
     console.log("No cache directory found to invalidate.");
@@ -533,7 +547,7 @@ const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
     return { runCacheDir: null, finalOutputDir: null, error: 1 };
   }
 
-  const runCacheDir = validatedRunId ? join(".cache/extraction", validatedRunId) : ".cache/extraction";
+  const runCacheDir = resolveCacheDir(validatedRunId);
   const finalOutputDir = parsedOpts.outputDir || (validatedRunId ? join("out/eval-matrix/runs", validatedRunId) : "out/eval-matrix/reports");
 
   return { runCacheDir, finalOutputDir, error: 0 };
