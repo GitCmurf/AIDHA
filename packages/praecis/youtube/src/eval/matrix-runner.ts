@@ -301,7 +301,7 @@ const getExtractionForCell = async (
 ): Promise<MatrixCell | { error: { message: string } }> => {
   // Check cache for extraction
   let cell: MatrixCell | null = null;
-  if (options.resume) {
+  if (options.resume && !options.dryRun) {
     cell = await getCachedExtraction(
       video.videoId,
       model.id,
