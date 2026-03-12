@@ -44,7 +44,13 @@ export async function scoreClaimSet(
   }
 
   // Retry once with error feedback AND original context
-  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nOriginal task context:\n${user}\n\nReturn ONLY a corrected JSON object matching the schema. Do not include explanatory text.`;
+  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nReturn ONLY a corrected JSON object with these fields:
+- completeness, accuracy, topicCoverage, atomicity, overallScore (numbers 0-10)
+- reasoning (string, min 10 chars)
+- missingClaims, hallucinations, redundancies (arrays of {text: string})
+- gapAreas (array of {area: string})
+
+Do not include explanatory text.`;
 
   const llmResult2 = await judgeClient.generate({
     model: judgeModel,

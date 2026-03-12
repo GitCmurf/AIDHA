@@ -178,16 +178,16 @@ while read -r videoId url; do
 
         sleep_between_requests
     fi
-done < <(node --eval "
+done < <(CORPUS_JSON="$CORPUS_JSON" VIDEO_ID_FILTER="$VIDEO_ID_FILTER" node --eval "
 const fs = require('fs');
-const corpusPath = process.argv[1];
-const filterVideoId = process.argv[2];
+const corpusPath = process.env.CORPUS_JSON;
+const filterVideoId = process.env.VIDEO_ID_FILTER || '';
 const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8'));
 corpus.forEach(entry => {
     if (!filterVideoId || entry.videoId === filterVideoId) {
         console.log(entry.videoId + ' ' + entry.url);
     }
 });
-" "$CORPUS_JSON" "$VIDEO_ID_FILTER")
+")
 
 echo "Done."

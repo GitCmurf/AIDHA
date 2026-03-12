@@ -1,5 +1,6 @@
 import type { ClaimSetScore, ScoreDimension } from "./scoring-rubric.js";
 import { SCORE_DIMENSIONS } from "./scoring-rubric.js";
+import { deduplicateByKey } from "../extract/utils.js";
 
 export interface ConsensusResult {
   mean: ClaimSetScore;
@@ -42,6 +43,17 @@ export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | nul
       variance[dim] = 0;
     }
   }
+
+  // Aggregate qualitative arrays (union, deduplicated by field value)
+  const mergedMissing = deduplicateByKey(scores.flatMap(s => s.missingClaims), c => c.text);
+  const mergedHallucinations = deduplicateByKey(scores.flatMap(s => s.hallucinations), c => c.text);
+  const mergedRedundancies = deduplicateByKey(scores.flatMap(s => s.redundancies), c => c.text);
+  const mergedGapAreas = deduplicateByKey(scores.flatMap(s => s.gapAreas), c => c.area);
+
+  mean.missingClaims = mergedMissing;
+  mean.hallucinations = mergedHallucinations;
+  mean.redundancies = mergedRedundancies;
+  mean.gapAreas = mergedGapAreas;
 
   return {
     mean: mean as ClaimSetScore,

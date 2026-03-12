@@ -21,6 +21,13 @@ export const MODEL_REGISTRY: EvalModel[] = [
   // ─────────────────────────────────────────────────────────────────────────────
   // OpenAI (direct API)
   // ─────────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ⚠️ SPECULATIVE/FORWARD-LOOKING ENTRIES
+  // The following GPT-5 model IDs and pricing are placeholders that must be
+  // verified against the OpenAI API before production use. These entries are
+  // included for planning purposes but may cause runtime errors if the API
+  // does not recognize the IDs, and pricing may differ from actual rates.
+  // ─────────────────────────────────────────────────────────────────────────────
   {
     id: "gpt-5.4",
     provider: "openai",
@@ -30,7 +37,7 @@ export const MODEL_REGISTRY: EvalModel[] = [
     costPer1kTokens: { input: 0.005, output: 0.015 },
     tier: "frontier",
     availability: "experimental",
-    notes: "Newest GPT-5 model",
+    notes: "PLACEHOLDER: Verify ID and pricing before use",
   },
   {
     id: "gpt-5-mini",
@@ -41,7 +48,7 @@ export const MODEL_REGISTRY: EvalModel[] = [
     costPer1kTokens: { input: 0.0005, output: 0.0015 },
     tier: "midtier",
     availability: "experimental",
-    notes: "Compact GPT-5 model",
+    notes: "PLACEHOLDER: Verify ID and pricing before use",
   },
   {
     id: "gpt-4o-mini",
@@ -62,7 +69,7 @@ export const MODEL_REGISTRY: EvalModel[] = [
     costPer1kTokens: { input: 0.00005, output: 0.0002 },
     tier: "budget",
     availability: "experimental",
-    notes: "Ultra-compact GPT-5 model",
+    notes: "PLACEHOLDER: Verify ID and pricing before use",
   },
 
   // ─────────────────────────────────────────────────────────────────────────────
