@@ -16,11 +16,11 @@ export function isValidSafeId(id: unknown): id is string {
 
 /**
  * Validates an identifier and returns it if valid, or null if invalid.
- * Empty string is considered valid (for optional IDs).
+ * Empty string is rejected for consistency with isValidSafeId.
  */
 export function validateSafeId(id: string): string | null {
   if (typeof id !== 'string') return null;
-  if (id.length === 0) return id; // Empty is valid
+  if (id.length === 0) return null; // Reject empty, align with isValidSafeId
   if (id.length > MAX_ID_LENGTH) return null;
   if (id.includes('..')) return null;
   if (!SAFE_ID_PATTERN.test(id)) return null;

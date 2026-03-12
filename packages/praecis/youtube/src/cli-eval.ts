@@ -37,6 +37,7 @@ const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: s
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.xiaomi.com/v1"
 });
 
+// Reserved for future use - OpenRouter support when ModelProvider is expanded
 const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["OPENROUTER_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1"
@@ -67,9 +68,12 @@ const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: strin
  */
 export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
   const model = getModel(modelId);
-  const provider = model?.provider || "openai";
+  if (!model) {
+    throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
+  }
+  const provider = model.provider;
 
-  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model?.baseUrl, baseConfig.baseUrl);
+  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
   }
@@ -240,7 +244,7 @@ const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
   const transcriptDir = optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts");
   const modelsStr = optionString(cleanOptions, "models", "");
   const tier = optionString(cleanOptions, "tier", "");
-  const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o");
+  const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o-mini");
   const variantsStr = optionString(cleanOptions, "variants", "raw,editorial-pass-v1");
   const outputDir = optionString(cleanOptions, "output-dir", "");
   const format = optionString(cleanOptions, "format", "both");
@@ -536,8 +540,10 @@ export const runEvalMatrix = async (
 
     return handleExecutionResult(result, parsedOpts, finalOutputDir);
   } catch (error) {
+    // Log sanitized message only - full error may contain secrets
+    const message = error instanceof Error ? error.message : String(error);
     // skipcq: JS-0002
-    console.error("Evaluation failed:", error);
+    console.error("Evaluation failed:", message);
     return 1;
   }
 };

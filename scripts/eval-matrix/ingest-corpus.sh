@@ -132,6 +132,26 @@ sleep_after_failure() {
     fi
 }
 
+CORPUS_OUTPUT=$(CORPUS_JSON="$CORPUS_JSON" VIDEO_ID_FILTER="$VIDEO_ID_FILTER" node --eval "
+const fs = require('fs');
+const corpusPath = process.env.CORPUS_JSON;
+const filterVideoId = process.env.VIDEO_ID_FILTER || '';
+const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8'));
+corpus.forEach(entry => {
+    if (!filterVideoId || entry.videoId === filterVideoId) {
+        console.log(entry.videoId + ' ' + entry.url);
+    }
+});
+" 2>&1) || {
+    echo "Error: Failed to read or parse corpus JSON" >&2
+    exit 1
+}
+
+if [ -z "$CORPUS_OUTPUT" ]; then
+    echo "Error: No matching videos found in corpus" >&2
+    exit 1
+fi
+
 # Use process substitution to avoid subshell so exit 1 works correctly
 while read -r videoId url; do
     TARGET_FILE="$CACHE_DIR/${videoId}.json"
@@ -182,26 +202,6 @@ while read -r videoId url; do
 
         sleep_between_requests
     fi
-CORPUS_OUTPUT=$(CORPUS_JSON="$CORPUS_JSON" VIDEO_ID_FILTER="$VIDEO_ID_FILTER" node --eval "
-const fs = require('fs');
-const corpusPath = process.env.CORPUS_JSON;
-const filterVideoId = process.env.VIDEO_ID_FILTER || '';
-const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8'));
-corpus.forEach(entry => {
-    if (!filterVideoId || entry.videoId === filterVideoId) {
-        console.log(entry.videoId + ' ' + entry.url);
-    }
-});
-" 2>&1) || {
-    echo "Error: Failed to read or parse corpus JSON" >&2
-    exit 1
-}
-
-if [ -z "$CORPUS_OUTPUT" ]; then
-    echo "Error: No matching videos found in corpus" >&2
-    exit 1
-fi
-
 done < <(echo "$CORPUS_OUTPUT")
 
 echo "Done."

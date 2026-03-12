@@ -31,8 +31,9 @@ pipeline. To prevent regressions, we maintain a pinned baseline report.
 
 ## CI Quality Gate
 
-The CI quality gate (`tests/eval/quality-gate.spec.ts`) compares the `latest.json` report against
-`baseline.json`.
+The CI quality gate
+([tests/eval/quality-gate.spec.ts](../../packages/praecis/youtube/tests/eval/quality-gate.spec.ts))
+compares the `latest.json` report against `baseline.json`.
 
 **Prerequisite:** You must run the evaluation matrix (step 2 below) to generate `latest.json`
 before running this test.
@@ -44,6 +45,16 @@ It fails if:
 - Required models are missing from the latest run.
 
 If `REQUIRE_EVAL_GATE=1` or `CI=true` is set, the gate requires both reports to exist.
+
+### Acceptance Criteria
+
+This test protects against:
+
+- **Score regression**: Model quality drops beyond tolerance threshold
+- **Schema invalid**: Report structure changes break downstream consumers
+- **Missing models**: Baseline and latest must have comparable models
+
+Run the test with: `pnpm test --filter praecis-youtube -- quality-gate`
 
 ## Refreshing the Baseline
 
