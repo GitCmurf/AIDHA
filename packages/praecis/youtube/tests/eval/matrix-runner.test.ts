@@ -37,9 +37,10 @@ vi.mock("../../src/extract/llm-claims", () => ({
 }));
 
 describe("Matrix Runner Integration", () => {
-afterEach(() => {
-  vi.resetAllMocks();
-});
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
   const createTestVideo = (
     id: string,
     duration: number,
@@ -54,6 +55,19 @@ afterEach(() => {
     expectedClaimDensity: density as const,
     rationale: "test",
   });
+
+  // Shared helper for creating mock transcript data
+  const mockTranscriptImplementation = (filePath: string | URL | number): string => {
+    const pathStr = typeof filePath === "string" ? filePath : String(filePath);
+    // Extract videoId from path like "out/test/transcripts/v5.json"
+    const videoId = basename(pathStr, ".json");
+    return JSON.stringify({
+      videoId,
+      language: "en",
+      segments: [{ start: 0, duration: 10, text: "segment 1" }],
+      fullText: "full text",
+    });
+  };
 
   it("should run a 5-video x 2-model matrix and generate report", async () => {
     const corpus = [
@@ -71,17 +85,6 @@ afterEach(() => {
 
     // Mock existsSync and readFileSync for transcripts
     vi.mocked(existsSync).mockReturnValue(true);
-    const mockTranscriptImplementation = (filePath: string | URL | number): string => {
-      const pathStr = typeof filePath === "string" ? filePath : String(filePath);
-      // Extract videoId from path like "out/test/transcripts/v5.json"
-      const videoId = basename(pathStr, ".json");
-      return JSON.stringify({
-        videoId,
-        language: "en",
-        segments: [{ start: 0, duration: 10, text: "segment 1" }],
-        fullText: "full text",
-      });
-    };
     vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
     vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
       Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
@@ -150,6 +153,11 @@ afterEach(() => {
 
     const models = [getModel("gpt-4o-mini")!];
 
+    // Mock readFileAsync to return a valid transcript for dry-run test
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
     const options = {
       outputDir: "out/test",
       cacheDir: "out/test/cache",
@@ -169,8 +177,8 @@ afterEach(() => {
     expect(result.cells.length).toBe(1);
     expect(result.cells[0].costEstimate).toBeDefined();
     expect(result.cells[0].costEstimate!.totalUsd).toBeGreaterThan(0);
-    // In dry run, it shouldn't actually call the judge so scores will be empty (or undefined since extraction didn't really run)
-    expect(result.cells[0].scores).toBeUndefined();
+    // In dry run, it shouldn't actually call the judge so scores is empty array
+    expect(result.cells[0].scores).toEqual([]);
   });
 
   it("should average scores from multiple judges", () => {
