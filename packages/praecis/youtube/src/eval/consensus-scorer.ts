@@ -2,6 +2,8 @@ import type { ClaimSetScore, ScoreDimension } from "./scoring-rubric.js";
 import { SCORE_DIMENSIONS } from "./scoring-rubric.js";
 import { deduplicateByKey } from "../extract/utils.js";
 
+const DEFAULT_CONSENSUS_REASONING = "Consensus of multiple judges";
+
 export interface ConsensusResult {
   mean: ClaimSetScore;
   variance: Partial<Record<ScoreDimension, number>>;
@@ -17,7 +19,9 @@ export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | nul
     topicCoverage: 0,
     atomicity: 0,
     overallScore: 0,
-    reasoning: "Consensus of multiple judges",
+    reasoning: scores.length === 1
+      ? scores[0]!.reasoning
+      : DEFAULT_CONSENSUS_REASONING,
     missingClaims: [],
     hallucinations: [],
     redundancies: [],
