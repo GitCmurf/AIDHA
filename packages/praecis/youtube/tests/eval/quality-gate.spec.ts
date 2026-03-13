@@ -23,7 +23,7 @@ function readJsonFile(filePath: string): { data: EvalReport | null; errorType: '
     if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
       return { data: null, errorType: 'ENOENT' };
     }
-    return { data: null, errorType: 'PARSE' };
+    throw err;
   }
 }
 

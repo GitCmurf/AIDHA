@@ -218,16 +218,6 @@ const getScoresForCell = async (
 
   for (const judgeModelId of options.judgeModels) {
     const judgeModel = getModel(judgeModelId);
-    if (judgeModel) {
-      // Estimate judge cost (assume 1k prompt tokens + text + claims, ~200 output tokens)
-      const claimTextLen = cell.claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
-      const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
-      const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + 1000;
-      const outputTokens = 200;
-      judgeUsdEstimate +=
-        (inputTokens / 1000) * judgeModel.costPer1kTokens.input +
-        (outputTokens / 1000) * judgeModel.costPer1kTokens.output;
-    }
 
     const cachedScores = options.resume && !options.dryRun
       ? await getCachedScore(
@@ -246,6 +236,15 @@ const getScoresForCell = async (
       // skipcq: JS-0002
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     } else {
+      if (judgeModel) {
+        const claimTextLen = cell.claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
+        const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
+        const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + 1000;
+        const outputTokens = 200;
+        judgeUsdEstimate +=
+          (inputTokens / 1000) * judgeModel.costPer1kTokens.input +
+          (outputTokens / 1000) * judgeModel.costPer1kTokens.output;
+      }
       try {
         const scoreResult = await performScoring(
           model.id,

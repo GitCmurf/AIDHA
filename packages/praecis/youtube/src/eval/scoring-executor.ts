@@ -39,7 +39,6 @@ export async function scoreClaimSet(
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    result1.value.traces = traces;
     return { ok: true, value: { score: result1.value, traces } };
   }
 
@@ -73,7 +72,6 @@ Do not include explanatory text.`;
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    result2.value.traces = traces;
     return { ok: true, value: { score: result2.value, traces } };
   }
 

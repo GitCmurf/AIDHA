@@ -11,7 +11,7 @@ vi.mock("../../src/eval/matrix-runner", () => ({
       extractorVariantId: "raw",
       claimSet: []
     }],
-    metadata: { failedCellCount: 0 }
+    metadata: { failedCellCount: 0, partialFailureCount: 0 }
   })
 }));
 
