@@ -4,6 +4,10 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { buildSingleVideoIngestArgs, selectPendingVideoIds, transcriptPath } from "./ingest-runner-lib.mjs";
 
+function isValidVideoId(id) {
+    return typeof id === "string" && /^[a-zA-Z0-9_-]{1,100}$/.test(id) && !id.includes("..");
+}
+
 function usage() {
     console.error("Usage: node scripts/eval-matrix/run-ingest-corpus-sequential.mjs --corpus <path> [--cache-dir <path>] [--db <path>] [--config <path>] [--request-delay-seconds <n>] [--failure-delay-seconds <n>] [--max-retries <n>] [--video-id <id>]");
     process.exit(1);
@@ -114,6 +118,11 @@ function runSingleVideo(options, videoId) {
 function main() {
     const options = parseArgs(process.argv.slice(2));
     const corpus = JSON.parse(fs.readFileSync(options.corpusPath, "utf-8"));
+    for (const entry of corpus) {
+        if (!isValidVideoId(entry.videoId)) {
+            throw new Error(`Invalid videoId in corpus: ${JSON.stringify(entry.videoId)}`);
+        }
+    }
     const cachedVideoIds = new Set(
         corpus
             .map(entry => entry.videoId)

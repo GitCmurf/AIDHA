@@ -654,7 +654,12 @@ export const runEvaluationMatrix = async (
 
   for (const video of corpus) {
     const transcriptDataResult = transcriptCache.get(video.videoId);
-    if (!transcriptDataResult) continue;
+    // Defensive: this should never be undefined since we populated the cache above
+    if (transcriptDataResult === undefined) {
+      // skipcq: JS-0002
+      console.error(`[internal] No transcript cache entry for ${video.videoId} — this is a bug`);
+      continue;
+    }
 
     for (const model of models) {
       for (const variant of options.variants) {
