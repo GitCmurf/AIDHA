@@ -84,7 +84,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
     supportsJsonMode: true,
     costPer1kTokens: { input: 0.0035, output: 0.0105 },
     tier: "frontier",
-    availability: "experimental",
+    availability: "stable",
     notes: "Latest Gemini 3.1 Pro via Google AI Studio",
   },
   {

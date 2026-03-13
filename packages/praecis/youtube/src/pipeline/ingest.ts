@@ -158,6 +158,7 @@ export class IngestionPipeline {
         const transcript = transcriptResult.ok ? transcriptResult.value : null;
 
         const atomicResult = await runAtomically(this.graphStore, async () => {
+          let localTagsAssigned = 0;
           if (transcriptResult.ok && transcript) {
             if (hasExcerpts) {
               const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
@@ -172,7 +173,7 @@ export class IngestionPipeline {
             }
 
             if (transcript.fullText) {
-              tagsAssigned = await this.assignTags(nodeId, transcript.fullText);
+              localTagsAssigned = await this.assignTags(nodeId, transcript.fullText);
             }
           }
 
@@ -194,7 +195,7 @@ export class IngestionPipeline {
             return { ok: false, error: updateResult.error };
           }
 
-          return { ok: true, value: { tagsAssigned } };
+          return { ok: true, value: { tagsAssigned: localTagsAssigned } };
         });
 
         if (!atomicResult.ok) {
