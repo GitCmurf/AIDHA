@@ -20,7 +20,7 @@ export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | nul
     atomicity: 0,
     overallScore: 0,
     reasoning: scores.length === 1
-      ? scores[0]!.reasoning
+      ? (scores[0]?.reasoning ?? DEFAULT_CONSENSUS_REASONING)
       : DEFAULT_CONSENSUS_REASONING,
     missingClaims: [],
     hallucinations: [],

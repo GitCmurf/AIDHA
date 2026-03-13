@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { readFile as readFileAsync } from "node:fs/promises";
 import { basename } from "node:path";
 import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
-import { MODEL_REGISTRY } from "../../src/eval/model-registry";
+import { getModel } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
 import type { LlmClient } from "../../src/extract/llm-client";
@@ -64,7 +64,10 @@ afterEach(() => {
       createTestVideo("v5", 50, "medium"),
     ];
 
-    const models = MODEL_REGISTRY.slice(0, 2);
+    const models = [
+      getModel("gpt-4o-mini")!,
+      getModel("gemini-2.5-flash")!,
+    ];
 
     // Mock existsSync and readFileSync for transcripts
     vi.mocked(existsSync).mockReturnValue(true);
@@ -145,7 +148,7 @@ afterEach(() => {
       }
     ];
 
-    const models = MODEL_REGISTRY.slice(0, 1);
+    const models = [getModel("gpt-4o-mini")!];
 
     const options = {
       outputDir: "out/test",
