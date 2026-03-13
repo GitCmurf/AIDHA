@@ -490,6 +490,11 @@ const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions,
   const report = aggregateMatrixResults(result.cells);
   writeReports(report, finalOutputDir, parsedOpts.format);
 
+  if (result.metadata.partialFailureCount > 0) {
+    // skipcq: JS-0002
+    console.warn(`Evaluation completed with ${result.metadata.partialFailureCount} partial-failure cell(s) (some judges failed but partial scores were kept).`);
+  }
+
   if (result.metadata.failedCellCount > 0) {
     // skipcq: JS-0002
     console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
