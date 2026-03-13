@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-001
 owner: Engineering
 status: Draft
-version: '0.16'
-last_updated: 2026-03-09
+version: '0.17'
+last_updated: 2026-03-13
 title: MVP Test Suite Map and Hardening Coverage
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.16
-> **Last Updated:** 2026-03-09
+> **Version:** 0.17
+> **Last Updated:** 2026-03-13
 > **Type:** TESTING
 
 # MVP Test Suite Map and Hardening Coverage
@@ -39,6 +39,7 @@ docops_version: '2.0'
 | 0.14    | 2026-02-09 | AI     | Add claim purge unit + CLI coverage | — | Draft | — |
 | 0.15    | 2026-02-09 | AI     | Add export source-prefix default filename coverage | — | Draft | — |
 | 0.16    | 2026-03-09 | AI     | Add claim extraction evaluation matrix tests | — | Draft | AIDHA-TASK-004 |
+| 0.17    | 2026-03-13 | AI     | Replace non-doc test-file links with MkDocs-safe code references | — | Draft | AIDHA-TASK-004 |
 
 ## Purpose
 
@@ -60,13 +61,13 @@ used to protect refactors in graph storage, ingestion, extraction, and review wo
 
 ### `packages/praecis/youtube`
 
-- [corpus-schema.test.ts](../../packages/praecis/youtube/tests/eval/corpus-schema.test.ts),
-  [model-registry.test.ts](../../packages/praecis/youtube/tests/eval/model-registry.test.ts),
-  [scoring-rubric.test.ts](../../packages/praecis/youtube/tests/eval/scoring-rubric.test.ts),
-  [judge-prompt.test.ts](../../packages/praecis/youtube/tests/eval/judge-prompt.test.ts),
-  [matrix-runner.test.ts](../../packages/praecis/youtube/tests/eval/matrix-runner.test.ts),
-  [cli-eval-path.test.ts](../../packages/praecis/youtube/tests/eval/cli-eval-path.test.ts),
-  [quality-gate.spec.ts](../../packages/praecis/youtube/tests/eval/quality-gate.spec.ts):
+- `packages/praecis/youtube/tests/eval/corpus-schema.test.ts`,
+  `packages/praecis/youtube/tests/eval/model-registry.test.ts`,
+  `packages/praecis/youtube/tests/eval/scoring-rubric.test.ts`,
+  `packages/praecis/youtube/tests/eval/judge-prompt.test.ts`,
+  `packages/praecis/youtube/tests/eval/matrix-runner.test.ts`,
+  `packages/praecis/youtube/tests/eval/cli-eval-path.test.ts`,
+  `packages/praecis/youtube/tests/eval/quality-gate.spec.ts`:
   Evaluation matrix framework and quality guardrails.
 - `tests/pipeline.test.ts`: ingestion flow coverage.
 - `tests/extraction.test.ts`: claim/reference extraction invariants and metadata handling.

@@ -24,7 +24,9 @@ if (!validateNormalizedTranscript(normalized)) {
     process.exit(1);
 }
 
-const summary = summarizeTranscriptQuality(normalized, Number(entry.durationMinutes || 0));
+const parsedDurationMinutes = Number(entry.durationMinutes);
+const safeDurationMinutes = Number.isFinite(parsedDurationMinutes) ? parsedDurationMinutes : 0;
+const summary = summarizeTranscriptQuality(normalized, safeDurationMinutes);
 if (!summary.acceptable) {
     console.error(JSON.stringify({ videoId, summary }, null, 2));
     process.exit(1);

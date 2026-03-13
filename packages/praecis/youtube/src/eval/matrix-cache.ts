@@ -5,6 +5,25 @@ import type { MatrixCell } from "./matrix-runner.js";
 import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
 import type { ClaimCandidate } from "../extract/types.js";
 
+/**
+ * Serializes a value to a stable string representation for hashing.
+ * Unlike JSON.stringify(), object keys are sorted alphabetically to ensure
+ * consistent output regardless of insertion order.
+ */
+function stableSerialize(value: unknown): string {
+  return JSON.stringify(value, (_, v) => {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      const sorted = Object.keys(v).sort();
+      const sortedObj: Record<string, unknown> = {};
+      for (const key of sorted) {
+        sortedObj[key] = (v as Record<string, unknown>)[key];
+      }
+      return sortedObj;
+    }
+    return v;
+  });
+}
+
 export interface CacheOptions {
   cacheDir: string;
 }
@@ -94,5 +113,5 @@ export async function setCachedScore(
 }
 
 export function computeClaimSetHash(claims: ClaimCandidate[]): string {
-  return hashId("claims", [JSON.stringify(claims)]);
+  return hashId("claims", [stableSerialize(claims)]);
 }

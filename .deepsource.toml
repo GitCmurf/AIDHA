@@ -1,9 +1,9 @@
 version = 1
 
-[analyzer]
+[[analyzers]]
 name = "javascript"
 enabled = true
 environment = "nodejs"
 
-  [analyzer.meta]
+  [analyzers.meta]
   plugins = ["typescript"]

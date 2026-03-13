@@ -5,6 +5,16 @@ function normalizeWhitespace(value) {
 const YOUTUBE_HOSTS = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'];
 const YOUTUBE_SHORT_PATH_REGEX = /^\/(embed|shorts)\/([a-zA-Z0-9_-]{11})/;
 
+export function extractYouTubeVideoId(rawUrl) {
+    const sanitizedUrl = sanitizeYouTubeUrl(rawUrl);
+    const parsed = new URL(sanitizedUrl);
+    const videoId = parsed.searchParams.get("v");
+    if (!videoId) {
+        throw new Error(`URL is missing a YouTube video id: ${rawUrl}`);
+    }
+    return videoId;
+}
+
 export function sanitizeYouTubeUrl(rawUrl) {
     const urlStr = String(rawUrl).trim();
     const parsed = new URL(urlStr);
@@ -51,7 +61,8 @@ export function deriveSpeakerStyle(metadata) {
     ].map(normalizeWhitespace).join(" ").toLowerCase();
 
     if (/\b(panel|roundtable|symposium)\b/.test(text)) return "panel";
-    if (/\b(interview|podcast|conversation|with\b|q&a\b|q and a\b)\b/.test(text)) return "interview";
+    if (/\b(interview|podcast|q&a|q and a)\b/.test(text)) return "interview";
+    if (/\b(conversation with|interview with)\b/.test(text)) return "interview";
     if (/\b(lecture|guide|explainer|masterclass|workout|tutorial)\b/.test(text)) return "solo";
     return "unknown";
 }
@@ -70,15 +81,17 @@ export function inferTopicDomain(metadata) {
 }
 
 export function buildCorpusEntry(metadata) {
+    const url = sanitizeYouTubeUrl(metadata.sourceUrl);
+    const videoId = extractYouTubeVideoId(url);
     const durationMinutes = Number(((metadata.durationSeconds || 0) / 60).toFixed(1));
     const topicDomain = inferTopicDomain(metadata);
     const speakerStyle = deriveSpeakerStyle(metadata);
     const expectedClaimDensity = deriveExpectedClaimDensity(durationMinutes);
 
     return {
-        videoId: metadata.videoId,
-        url: sanitizeYouTubeUrl(metadata.sourceUrl),
-        title: normalizeWhitespace(metadata.title || metadata.videoId),
+        videoId,
+        url,
+        title: normalizeWhitespace(metadata.title || videoId),
         channelName: normalizeWhitespace(metadata.channelName || "Unknown Channel"),
         durationMinutes,
         topicDomain,

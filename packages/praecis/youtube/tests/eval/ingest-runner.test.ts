@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildSingleVideoIngestArgs,
@@ -28,11 +29,12 @@ describe("eval ingest runner helpers", () => {
   });
 
   it("builds a single-video ingest invocation with batch delays disabled", () => {
+    const configPath = path.join(".aidha", "config.yaml");
     const args = buildSingleVideoIngestArgs({
       corpusPath: "out/eval-matrix/corpus.generated.json",
       cacheDir: "out/eval-matrix/transcripts",
       dbPath: "out/eval-matrix/aidha-eval.sqlite",
-      configPath: "/home/cmf/code/AIDHA/.aidha/config.yaml",
+      configPath,
     }, "video-c");
 
     expect(args).toEqual([
@@ -40,7 +42,7 @@ describe("eval ingest runner helpers", () => {
       "--corpus", "out/eval-matrix/corpus.generated.json",
       "--cache-dir", "out/eval-matrix/transcripts",
       "--db", "out/eval-matrix/aidha-eval.sqlite",
-      "--config", "/home/cmf/code/AIDHA/.aidha/config.yaml",
+      "--config", configPath,
       "--video-id", "video-c",
       "--request-delay-seconds", "0",
       "--failure-delay-seconds", "0",

@@ -59,11 +59,13 @@ const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, b
 /**
  * Exit codes for the CLI.
  * 0 = Success
- * 1 = Error (validation failed, execution failed)
+ * 1 = Error (execution failed)
+ * 2 = Invalid options
  * 3 = Dry run completed with no failed cells
  */
 const EXIT_SUCCESS = 0;
 const EXIT_ERROR = 1;
+const EXIT_INVALID_OPTIONS = 2;
 const EXIT_DRY_RUN = 3;
 
 /**
@@ -78,13 +80,13 @@ function parseCsvList(csvStr: string): string[] {
  * Validates that a list is non-empty and returns an appropriate error code if not.
  * @param items - The list to validate
  * @param optionName - The CLI option name for error messages
- * @returns EXIT_SUCCESS if valid, EXIT_ERROR if invalid
+ * @returns EXIT_SUCCESS if valid, EXIT_INVALID_OPTIONS if invalid
  */
 function validateNonEmptyList(items: string[], optionName: string): number {
   if (items.length === 0) {
     // skipcq: JS-0002
     console.error(`Error: ${optionName} must contain at least one valid value.`);
-    return EXIT_ERROR;
+    return EXIT_INVALID_OPTIONS;
   }
   return EXIT_SUCCESS;
 }
@@ -93,13 +95,13 @@ function validateNonEmptyList(items: string[], optionName: string): number {
  * Validates that a number is positive (>= 1).
  * @param value - The value to validate
  * @param optionName - The CLI option name for error messages
- * @returns EXIT_SUCCESS if valid, EXIT_ERROR if invalid
+ * @returns EXIT_SUCCESS if valid, EXIT_INVALID_OPTIONS if invalid
  */
 function validatePositiveNumber(value: number | undefined, optionName: string): number {
   if (value !== undefined && value < 1) {
     // skipcq: JS-0002
     console.error(`Error: ${optionName} must be a positive number.`);
-    return EXIT_ERROR;
+    return EXIT_INVALID_OPTIONS;
   }
   return EXIT_SUCCESS;
 }
@@ -339,14 +341,14 @@ const handleClearAll = (cleanOptions: CliOptions, cacheDir: string): number => {
   }
   // skipcq: JS-0002
   console.error("Error: --clear-all requires --yes to confirm you want to delete all cached extractions and scores.");
-  return 1;
+  return EXIT_INVALID_OPTIONS;
 };
 
 const handleInvalidateRun = (invalidateRun: string, cacheDir: string): number => {
   if (!/^[a-zA-Z0-9_-]+$/.test(invalidateRun)) {
     // skipcq: JS-0002
     console.error("Error: --invalidate-run must contain only alphanumeric characters, hyphens, and underscores.");
-    return 1;
+    return EXIT_INVALID_OPTIONS;
   }
   const runDir = join(cacheDir, invalidateRun);
   if (existsSync(runDir)) {
@@ -418,13 +420,13 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
   if (!["both", "json", "md"].includes(parsedOpts.format)) {
     // skipcq: JS-0002
     console.error(`Invalid format: ${parsedOpts.format}. Must be one of: both, json, md`);
-    return EXIT_ERROR;
+    return EXIT_INVALID_OPTIONS;
   }
 
   if (!parsedOpts.corpusPath) {
     // skipcq: JS-0002
     console.error("Error: --corpus <path> is required.");
-    return EXIT_ERROR;
+    return EXIT_INVALID_OPTIONS;
   }
 
   const emptyVariantsError = validateNonEmptyList(variantIds, "--variants");
@@ -436,7 +438,7 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
     console.error(`Invalid variants provided: ${invalidVariants.join(", ")}`);
     // skipcq: JS-0002
     console.error(`Valid variants: ${EXTRACTOR_VARIANTS.join(", ")}`);
-    return EXIT_ERROR;
+    return EXIT_INVALID_OPTIONS;
   }
 
   // Validate positive numeric options

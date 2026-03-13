@@ -2,8 +2,8 @@
 document_id: AIDHA-EVAL-BASELINE
 owner: Ingestion Engineering Lead
 status: Published
-version: "0.1"
-last_updated: 2026-03-09
+version: "0.2"
+last_updated: 2026-03-13
 title: Evaluation Matrix Baseline Workflow
 type: TESTING
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-EVAL-BASELINE
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Published
-> **Version:** 0.1
-> **Last Updated:** 2026-03-09
+> **Version:** 0.2
+> **Last Updated:** 2026-03-13
 > **Type:** TESTING
 
 # Evaluation Matrix Baseline Workflow
@@ -25,15 +25,15 @@ docops_version: "2.0"
 | Version | Date       | Author      | Change Summary                                                  | Reviewers | Status | Reference             |
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | ------ | --------------------- |
 | 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Published | AIDHA-TASK-004        |
+| 0.2     | 2026-03-13 | AI-assisted | Replace non-doc quality-gate link with MkDocs-safe code reference | —         | Published | AIDHA-TASK-004        |
 
 The evaluation matrix (`eval matrix`) provides a quantitative assessment of the LLM extraction
 pipeline. To prevent regressions, we maintain a pinned baseline report.
 
 ## CI Quality Gate
 
-The CI quality gate
-([tests/eval/quality-gate.spec.ts](../../../packages/praecis/youtube/tests/eval/quality-gate.spec.ts))
-compares the `latest.json` report against `baseline.json`.
+The CI quality gate in `packages/praecis/youtube/tests/eval/quality-gate.spec.ts` compares the
+`latest.json` report against `baseline.json`.
 
 **Prerequisite:** You must run the evaluation matrix (step 2 below) to generate `latest.json`
 before running this test.

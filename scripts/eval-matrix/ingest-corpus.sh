@@ -36,41 +36,60 @@ Options:
 EOF
 }
 
+require_option_value() {
+    local option_name="$1"
+    local option_value="${2:-}"
+    if [ -z "$option_value" ]; then
+        echo "Error: $option_name requires a value." >&2
+        usage >&2
+        exit 1
+    fi
+}
+
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --corpus)
+            require_option_value "$1" "${2:-}"
             CORPUS_JSON="${2:-}"
             shift 2
             ;;
         --cache-dir)
+            require_option_value "$1" "${2:-}"
             CACHE_DIR="${2:-}"
             shift 2
             ;;
         --db)
+            require_option_value "$1" "${2:-}"
             TEMP_DB="${2:-}"
             shift 2
             ;;
         --config)
+            require_option_value "$1" "${2:-}"
             CONFIG_PATH="${2:-}"
             shift 2
             ;;
         --ytdlp-js-runtimes)
+            require_option_value "$1" "${2:-}"
             YTDLP_JS_RUNTIMES="${2:-}"
             shift 2
             ;;
         --ytdlp-cookies)
+            require_option_value "$1" "${2:-}"
             YTDLP_COOKIES="${2:-}"
             shift 2
             ;;
         --request-delay-seconds)
+            require_option_value "$1" "${2:-}"
             REQUEST_DELAY_SECONDS="${2:-}"
             shift 2
             ;;
         --failure-delay-seconds)
+            require_option_value "$1" "${2:-}"
             FAILURE_DELAY_SECONDS="${2:-}"
             shift 2
             ;;
         --video-id)
+            require_option_value "$1" "${2:-}"
             VIDEO_ID_FILTER="${2:-}"
             shift 2
             ;;
@@ -132,7 +151,7 @@ sleep_after_failure() {
     fi
 }
 
-CORPUS_OUTPUT=$(CORPUS_JSON="$CORPUS_JSON" VIDEO_ID_FILTER="$VIDEO_ID_FILTER" node --eval "
+if ! CORPUS_OUTPUT=$(CORPUS_JSON="$CORPUS_JSON" VIDEO_ID_FILTER="$VIDEO_ID_FILTER" node --eval "
 const fs = require('fs');
 const corpusPath = process.env.CORPUS_JSON;
 const filterVideoId = process.env.VIDEO_ID_FILTER || '';
@@ -142,10 +161,10 @@ corpus.forEach(entry => {
         console.log(entry.videoId + ' ' + entry.url);
     }
 });
-" 2>&1) || {
+" ); then
     echo "Error: Failed to read or parse corpus JSON" >&2
     exit 1
-}
+fi
 
 if [ -z "$CORPUS_OUTPUT" ]; then
     echo "Error: No matching videos found in corpus" >&2

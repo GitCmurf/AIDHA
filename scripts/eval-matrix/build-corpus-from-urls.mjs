@@ -70,7 +70,7 @@ for (const rawUrl of rawLines) {
             videoId: metadata.id,
             sourceUrl: sanitizedUrl,
             title: metadata.title,
-            channelName: metadata.channel || metadata.uploader || metadata.uploader_id,
+            channelName: metadata.channel || metadata.uploader || metadata.uploader_id || "unknown",
             durationSeconds: metadata.duration || 0,
             description: metadata.description || "",
             language: metadata.language || "en",
