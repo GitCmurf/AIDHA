@@ -125,6 +125,26 @@ class Semaphore {
 
 const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
 
+// Estimated prompt overhead (system prompt, formatting, etc.) in tokens
+const JUDGE_PROMPT_OVERHEAD_TOKENS = 1000;
+// Estimated output tokens for judge response
+const JUDGE_OUTPUT_TOKENS_ESTIMATE = 200;
+
+const estimateJudgeCost = (
+  fullText: string,
+  claimSet: ClaimCandidate[],
+  model: EvalModel
+): number => {
+  const claimTextLen = claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
+  const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
+  const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + JUDGE_PROMPT_OVERHEAD_TOKENS;
+  const outputTokens = JUDGE_OUTPUT_TOKENS_ESTIMATE;
+  return (
+    (inputTokens / 1000) * model.costPer1kTokens.input +
+    (outputTokens / 1000) * model.costPer1kTokens.output
+  );
+};
+
 const performExtraction = async (
 
   modelId: string,
@@ -233,17 +253,15 @@ const getScoresForCell = async (
     if (cachedScores) {
       scores.push(...cachedScores);
     } else if (options.dryRun) {
+      // Estimate judge cost even in dry-run mode so user sees projected budget
+      if (judgeModel) {
+        judgeUsdEstimate += estimateJudgeCost(fullText, cell.claimSet, judgeModel);
+      }
       // skipcq: JS-0002
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     } else {
       if (judgeModel) {
-        const claimTextLen = cell.claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
-        const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
-        const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + 1000;
-        const outputTokens = 200;
-        judgeUsdEstimate +=
-          (inputTokens / 1000) * judgeModel.costPer1kTokens.input +
-          (outputTokens / 1000) * judgeModel.costPer1kTokens.output;
+        judgeUsdEstimate += estimateJudgeCost(fullText, cell.claimSet, judgeModel);
       }
       try {
         const scoreResult = await performScoring(
@@ -357,6 +375,9 @@ const getExtractionForCell = async (
       }
     };
 
+    // Strip traces before caching to avoid disk bloat (traces contain full transcript in prompt)
+    const { traces: _traces, ...cellWithoutTraces } = newCell;
+
     try {
       await setCachedExtraction(
         video.videoId,
@@ -364,7 +385,7 @@ const getExtractionForCell = async (
         variant,
         promptVersion,
         extractorVersion,
-        newCell,
+        cellWithoutTraces,
         { cacheDir: options.cacheDir }
       );
     } catch (cacheErr) {
