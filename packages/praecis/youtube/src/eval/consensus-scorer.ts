@@ -38,9 +38,9 @@ export const computeConsensus = (scores: ClaimSetScore[]): ConsensusResult | nul
     mean[dim] = Number(avg.toFixed(2));
 
     if (values.length > 1) {
-    // Using population variance (dividing by n) since the judge scores are treated as the complete population
-    // rather than a sample. This is appropriate for consensus scoring where all judges are known.
-    const varianceValue = values.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / values.length;
+      // Using population variance (dividing by n) since the judge scores are treated as the
+      // complete population rather than a sample.
+      const varianceValue = values.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / values.length;
       variance[dim] = Number(varianceValue.toFixed(2));
       if (varianceValue > VARIANCE_THRESHOLD) {
         isHighVariance = true;

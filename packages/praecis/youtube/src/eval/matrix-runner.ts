@@ -7,6 +7,7 @@ import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { ClaimSetScore } from "./scoring-rubric.js";
 import type { CorpusEntry } from "./corpus-schema.js";
 import { getModel, type EvalModel } from "./model-registry.js";
+import { estimateTokens, estimateCost } from "../extract/token-budget.js";
 import {
   getCachedExtraction,
   setCachedExtraction,
@@ -123,25 +124,47 @@ class Semaphore {
   }
 }
 
-const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
-
 // Estimated prompt overhead (system prompt, formatting, etc.) in tokens
 const JUDGE_PROMPT_OVERHEAD_TOKENS = 1000;
 // Estimated output tokens for judge response
 const JUDGE_OUTPUT_TOKENS_ESTIMATE = 200;
+/**
+ * Estimated claim text length (in characters) for dry-run cost projections.
+ * These values approximate the total claim text length based on expectedClaimDensity:
+ * - low: ~800 chars (sparse claims from shorter videos)
+ * - medium: ~1600 chars (moderate claims)
+ * - high: ~3200 chars (dense claims from longer videos)
+ */
+const DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE = {
+  low: 800,
+  medium: 1600,
+  high: 3200,
+} as const;
 
+/**
+ * Estimates the USD cost for a judge to score a claim set.
+ * @param fullText - The full transcript text
+ * @param claimSet - The claims to be scored (empty in dry-run mode)
+ * @param model - The judge model to use
+ * @param estimatedClaimTextLength - Fallback claim text length for dry-run projections
+ * @returns Estimated cost in USD
+ */
 const estimateJudgeCost = (
   fullText: string,
   claimSet: ClaimCandidate[],
-  model: EvalModel
+  model: EvalModel,
+  estimatedClaimTextLength = 0
 ): number => {
-  const claimTextLen = claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
+  const claimTextLen = claimSet.length > 0
+    ? claimSet.reduce((acc, c) => acc + c.text.length, 0)
+    : estimatedClaimTextLength;
   const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
   const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + JUDGE_PROMPT_OVERHEAD_TOKENS;
   const outputTokens = JUDGE_OUTPUT_TOKENS_ESTIMATE;
+
   return (
-    (inputTokens / 1000) * model.costPer1kTokens.input +
-    (outputTokens / 1000) * model.costPer1kTokens.output
+    estimateCost(inputTokens, model.costPer1kTokens.input) +
+    estimateCost(outputTokens, model.costPer1kTokens.output)
   );
 };
 
@@ -255,7 +278,12 @@ const getScoresForCell = async (
     } else if (options.dryRun) {
       // Estimate judge cost even in dry-run mode so user sees projected budget
       if (judgeModel) {
-        judgeUsdEstimate += estimateJudgeCost(fullText, cell.claimSet, judgeModel);
+        judgeUsdEstimate += estimateJudgeCost(
+          fullText,
+          cell.claimSet,
+          judgeModel,
+          DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
+        );
       }
       // skipcq: JS-0002
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);

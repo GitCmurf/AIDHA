@@ -2,20 +2,15 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SCORE_DIMENSIONS, type ScoreDimension } from "../../src/eval/scoring-rubric";
+import { SCORE_DIMENSIONS } from "../../src/eval/scoring-rubric";
 import type { MatrixReport } from "../../src/eval/matrix-aggregator";
 import { getDimensionMean } from "../../src/eval/matrix-aggregator";
 
-interface EvalReport {
-  summary: { bestModel: string; worstModel: string; hardestVideo: string };
-  modelStats: Record<string, { dimensions: Record<string, { mean: number; median: number; min: number; max: number; stddev: number }> }>;
-}
-
-function readJsonFile(filePath: string): { data: EvalReport | null; errorType: 'ENOENT' | 'PARSE' | null } {
+function readJsonFile<T>(filePath: string): { data: T | null; errorType: 'ENOENT' | 'PARSE' | null } {
   try {
     const data = readFileSync(filePath, "utf-8");
     try {
-      return { data: JSON.parse(data) as EvalReport, errorType: null };
+      return { data: JSON.parse(data) as T, errorType: null };
     } catch {
       return { data: null, errorType: 'PARSE' };
     }
@@ -29,12 +24,12 @@ function readJsonFile(filePath: string): { data: EvalReport | null; errorType: '
 
 /**
  * Checks if the quality gate should fail when a required report is missing.
- * Throws an error if REQUIRE_EVAL_GATE is set to "1", otherwise allows skipping.
+ * Throws an error in CI or when REQUIRE_EVAL_GATE is set to "1", otherwise allows skipping.
  * @param filePath - The path to the missing report
  * @param reportType - The type of report for the error message
  */
 function checkRequiredEvalGate(filePath: string, reportType: string): void {
-  if (process.env.REQUIRE_EVAL_GATE === "1") {
+  if (process.env.REQUIRE_EVAL_GATE === "1" || process.env.CI === "true") {
     throw new Error(`Required '${reportType}' report not found at ${filePath}. Run matrix evaluation and pin a baseline first.`);
   }
 }
@@ -49,7 +44,7 @@ describe("CI Quality Gate", () => {
     const baselinePath = join(__dirname, "../../../../../out/eval-matrix/reports/baseline.json");
 
     let baseline: MatrixReport | null, latest: MatrixReport | null;
-    const baselineResult = readJsonFile(baselinePath);
+    const baselineResult = readJsonFile<MatrixReport>(baselinePath);
     if (baselineResult.errorType === 'PARSE') {
       throw new Error(`Corrupt baseline report at ${baselinePath}`);
     }
@@ -58,9 +53,9 @@ describe("CI Quality Gate", () => {
       ctx.skip();
       return;
     }
-    baseline = baselineResult.data as MatrixReport;
+    baseline = baselineResult.data;
 
-    const latestResult = readJsonFile(reportPath);
+    const latestResult = readJsonFile<MatrixReport>(reportPath);
     if (latestResult.errorType === 'PARSE') {
       throw new Error(`Corrupt report at ${reportPath}`);
     }
@@ -69,7 +64,7 @@ describe("CI Quality Gate", () => {
       ctx.skip();
       return;
     }
-    latest = latestResult.data as MatrixReport;
+    latest = latestResult.data;
 
     if (!baseline?.modelStats || !latest?.modelStats) {
       throw new Error("Report files missing modelStats data");

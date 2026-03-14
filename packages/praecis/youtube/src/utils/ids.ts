@@ -69,16 +69,18 @@ export function validateSafeId(id: unknown): string | null {
  * ```
  */
 export function sanitizeFilename(id: string): string {
-  // Single pass: replace unsafe filesystem characters and control characters
+  // Replace unsafe filesystem characters and control characters (Unicode-aware)
   const normalized = id
-    .replace(/[<>:"/\\|?*]|[\x00-\x1F]/g, "_")
-    .replace(/\.\.+/g, "_");
+    .replace(/[<>:"/\\|?*]|[\u0000-\u001F]/gu, "_")
+    .replace(/\.\.+/gu, "_");
   const result = normalized.trim();
+  // Check Windows reserved names (base name before first extension)
+  const windowsBaseName = result.split(".", 1)[0]?.toUpperCase() ?? "";
   if (
     result === '' ||
     result === CURRENT_DIR_MARKER ||
     result === PARENT_DIR_MARKER ||
-    WINDOWS_RESERVED_NAMES.has(result.toUpperCase())
+    WINDOWS_RESERVED_NAMES.has(windowsBaseName)
   ) {
     return '_';
   }

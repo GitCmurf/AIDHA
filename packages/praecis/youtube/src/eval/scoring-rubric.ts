@@ -28,10 +28,6 @@ export const ClaimSetScoreSchema = z.object({
     judgeModelId: z.string(),
     judgePromptVersion: z.string(),
   }).optional(),
-  traces: z.array(z.object({
-    prompt: z.object({ system: z.string(), user: z.string() }),
-    response: z.string(),
-  })).optional(),
 }).superRefine((data, ctx) => {
   const expected = (data.completeness + data.accuracy + data.topicCoverage + data.atomicity) / 4;
   if (Math.abs(data.overallScore - expected) > OVERALL_SCORE_TOLERANCE) {

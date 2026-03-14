@@ -85,11 +85,11 @@ const renderRecommendations = (recommendations: MatrixReport["recommendations"])
   if (!recommendations) return "";
 
   let md = "### Recommendations for Defaults\n\n";
-  md += `- **Best Default Extraction Model:** ${recommendations.bestDefaultModel}\n`;
-  md += `- **Best Budget Model:** ${recommendations.bestBudgetModel}\n`;
-  md += `- **Best Variant:** ${recommendations.bestVariant}\n`;
+  md += `- **Best Default Extraction Model:** ${escapeMdTableCell(recommendations.bestDefaultModel)}\n`;
+  md += `- **Best Budget Model:** ${escapeMdTableCell(recommendations.bestBudgetModel)}\n`;
+  md += `- **Best Variant:** ${escapeMdTableCell(recommendations.bestVariant)}\n`;
 
-  if (recommendations.caveats.length > 0) {
+  if (Array.isArray(recommendations.caveats) && recommendations.caveats.length > 0) {
     md += "\n**Caveats:**\n";
     for (const caveat of recommendations.caveats) {
       md += `- ${escapeMdTableCell(caveat)}\n`;

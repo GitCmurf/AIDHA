@@ -61,12 +61,10 @@ const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, b
  * 0 = Success
  * 1 = Error (execution failed)
  * 2 = Invalid options
- * 3 = Dry run completed with no failed cells
  */
 const EXIT_SUCCESS = 0;
 const EXIT_ERROR = 1;
 const EXIT_INVALID_OPTIONS = 2;
-const EXIT_DRY_RUN = 3;
 
 /**
  * Parses a comma-separated list string into an array of trimmed, non-empty values.
@@ -486,7 +484,7 @@ const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions,
       console.warn(`Dry run detected ${result.metadata.failedCellCount} failed cells (e.g. missing transcripts). Resolve before a real run.`);
       return EXIT_ERROR;
     }
-    return EXIT_DRY_RUN;
+    return EXIT_SUCCESS;
   }
 
   const report = aggregateMatrixResults(result.cells);

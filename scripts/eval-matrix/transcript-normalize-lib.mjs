@@ -58,8 +58,8 @@ export function validateNormalizedTranscript(payload) {
         typeof payload.fullText === "string" &&
         payload.fullText.length > 0 &&
         payload.segments.every(segment =>
-            typeof segment.start === "number" &&
-            typeof segment.duration === "number" &&
+            Number.isFinite(segment.start) &&
+            Number.isFinite(segment.duration) &&
             typeof segment.text === "string" &&
             segment.text.length > 0
         )

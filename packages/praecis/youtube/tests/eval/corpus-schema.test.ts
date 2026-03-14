@@ -35,6 +35,9 @@ describe("Corpus Schema Validation", () => {
       durationMinutes: 124,
       topicDomain: "Nutrition",
       expectedClaimDensity: "high",
+      language: "en",
+      captionSource: "manual",
+      speakerStyle: "interview",
     };
     const result = CorpusEntrySchema.safeParse(entry);
     expect(result.success).toBe(false);
