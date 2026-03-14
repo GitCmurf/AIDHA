@@ -1,10 +1,37 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SCORE_DIMENSIONS } from "../../src/eval/scoring-rubric";
+import type { MatrixReport } from "../../src/eval/matrix-aggregator";
+import { getDimensionMean } from "../../src/eval/matrix-aggregator";
 
-interface ModelStats {
-  dimensions: Record<string, { mean: number; median: number; min: number; max: number; stddev: number }>;
+function readJsonFile<T>(filePath: string): { data: T | null; errorType: 'ENOENT' | 'PARSE' | null } {
+  try {
+    const data = readFileSync(filePath, "utf-8");
+    try {
+      return { data: JSON.parse(data) as T, errorType: null };
+    } catch {
+      return { data: null, errorType: 'PARSE' };
+    }
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { data: null, errorType: 'ENOENT' };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Checks if the quality gate should fail when a required report is missing.
+ * Throws an error in CI or when REQUIRE_EVAL_GATE is set to "1", otherwise allows skipping.
+ * @param filePath - The path to the missing report
+ * @param reportType - The type of report for the error message
+ */
+function checkRequiredEvalGate(filePath: string, reportType: string): void {
+  if (process.env.REQUIRE_EVAL_GATE === "1" || process.env.CI === "true") {
+    throw new Error(`Required '${reportType}' report not found at ${filePath}. Run matrix evaluation and pin a baseline first.`);
+  }
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,28 +43,34 @@ describe("CI Quality Gate", () => {
     const reportPath = join(__dirname, "../../../../../out/eval-matrix/reports/latest.json");
     const baselinePath = join(__dirname, "../../../../../out/eval-matrix/reports/baseline.json");
 
-    if (!existsSync(reportPath)) {
-      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error(`Required 'latest.json' report not found at ${reportPath}. You must run 'eval matrix' before this test. See docs/55-testing/eval-matrix/baseline-workflow.md.`);
-      }
+    let baseline: MatrixReport | null, latest: MatrixReport | null;
+    const baselineResult = readJsonFile<MatrixReport>(baselinePath);
+    if (baselineResult.errorType === 'PARSE') {
+      throw new Error(`Corrupt baseline report at ${baselinePath}`);
+    }
+    if (baselineResult.errorType === 'ENOENT') {
+      checkRequiredEvalGate(baselinePath, 'baseline.json');
       ctx.skip();
       return;
     }
+    baseline = baselineResult.data;
 
-    if (!existsSync(baselinePath)) {
-      if (process.env.CI || process.env.REQUIRE_EVAL_GATE === "1") {
-        throw new Error(`Required 'baseline.json' report not found at ${baselinePath}, failing quality gate. Run matrix evaluation and pin a baseline first.`);
-      }
+    const latestResult = readJsonFile<MatrixReport>(reportPath);
+    if (latestResult.errorType === 'PARSE') {
+      throw new Error(`Corrupt report at ${reportPath}`);
+    }
+    if (latestResult.errorType === 'ENOENT') {
+      checkRequiredEvalGate(reportPath, 'latest.json');
       ctx.skip();
       return;
     }
+    latest = latestResult.data;
 
-    const baseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
-    const latest = JSON.parse(readFileSync(reportPath, "utf-8"));
+    if (!baseline?.modelStats || !latest?.modelStats) {
+      throw new Error("Report files missing modelStats data");
+    }
 
     const tolerance = 1.0; // max allowed drop in dimension score
-
-    const dimensions = ["completeness", "accuracy", "topicCoverage", "atomicity", "overallScore"];
 
     for (const [modelId, baselineStats] of Object.entries(baseline.modelStats)) {
       const latestStats = latest.modelStats[modelId];
@@ -45,9 +78,9 @@ describe("CI Quality Gate", () => {
         throw new Error(`Model ${modelId} present in baseline but missing from latest report`);
       }
 
-      for (const dim of dimensions) {
-        const baselineScore = (baselineStats as ModelStats).dimensions[dim]?.mean ?? 0;
-        const latestScore = (latestStats as ModelStats).dimensions[dim]?.mean ?? 0;
+      for (const dim of SCORE_DIMENSIONS) {
+        const baselineScore = getDimensionMean(baselineStats, dim);
+        const latestScore = getDimensionMean(latestStats, dim);
 
         if (baselineScore - latestScore > tolerance) {
           throw new Error(`Regression detected for ${modelId} on ${dim}: dropped from ${baselineScore} to ${latestScore} (tolerance: ${tolerance})`);

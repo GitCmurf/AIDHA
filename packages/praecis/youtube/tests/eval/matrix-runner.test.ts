@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { readFile as readFileAsync } from "node:fs/promises";
 import { basename } from "node:path";
 import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
-import { MODEL_REGISTRY } from "../../src/eval/model-registry";
+import { getModel } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
 import type { LlmClient } from "../../src/extract/llm-client";
@@ -12,6 +12,11 @@ vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn().mockResolvedValue(),
   writeFile: vi.fn().mockResolvedValue(),
+  readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
+}));
+vi.mock("fs/promises", () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 
@@ -33,8 +38,9 @@ vi.mock("../../src/extract/llm-claims", () => ({
 
 describe("Matrix Runner Integration", () => {
   afterEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
+
   const createTestVideo = (
     id: string,
     duration: number,
@@ -50,6 +56,19 @@ describe("Matrix Runner Integration", () => {
     rationale: "test",
   });
 
+  // Shared helper for creating mock transcript data
+  const mockTranscriptImplementation = (filePath: string | URL | number): string => {
+    const pathStr = typeof filePath === "string" ? filePath : String(filePath);
+    // Extract videoId from path like "out/test/transcripts/v5.json"
+    const videoId = basename(pathStr, ".json");
+    return JSON.stringify({
+      videoId,
+      language: "en",
+      segments: [{ start: 0, duration: 10, text: "segment 1" }],
+      fullText: "full text",
+    });
+  };
+
   it("should run a 5-video x 2-model matrix and generate report", async () => {
     const corpus = [
       createTestVideo("v1", 10, "low"),
@@ -59,21 +78,13 @@ describe("Matrix Runner Integration", () => {
       createTestVideo("v5", 50, "medium"),
     ];
 
-    const models = MODEL_REGISTRY.slice(0, 2);
+    const models = [
+      getModel("gpt-4o-mini")!,
+      getModel("gemini-2.5-flash")!,
+    ];
 
     // Mock existsSync and readFileSync for transcripts
     vi.mocked(existsSync).mockReturnValue(true);
-    const mockTranscriptImplementation = (filePath: string | URL | number): string => {
-      const pathStr = typeof filePath === "string" ? filePath : String(filePath);
-      // Extract videoId from path like "out/test/transcripts/v5.json"
-      const videoId = basename(pathStr, ".json");
-      return JSON.stringify({
-        videoId,
-        language: "en",
-        segments: [{ start: 0, duration: 10, text: "segment 1" }],
-        fullText: "full text",
-      });
-    };
     vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
     vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
       Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
@@ -104,7 +115,7 @@ describe("Matrix Runner Integration", () => {
       resume: false,
       dryRun: false,
       variants: ["raw" as const],
-      judgeModels: ["gpt-4o"],
+      judgeModels: ["gpt-4o-mini"],
       maxConcurrency: 2,
       timeoutMs: 1000,
       extractorClientFactory: () => ({}) as unknown as LlmClient,
@@ -127,7 +138,7 @@ describe("Matrix Runner Integration", () => {
     const md = renderMatrixReport(report);
     expect(md).toContain("Video Heatmap");
     expect(md).toContain(models[0].id);
-    expect(md).toContain(`| 1 | ${models[0].id} | 8.50 |`);
+    expect(md).toContain(`| 1 | ${models[1].id} | 8.50 |`);
     expect(md).toContain("### v1");
     expect(md).toContain("| completeness | 8.00 | 8.00 | 8.00 | 8.00 | 0.00 |");
   });
@@ -140,7 +151,12 @@ describe("Matrix Runner Integration", () => {
       }
     ];
 
-    const models = MODEL_REGISTRY.slice(0, 1);
+    const models = [getModel("gpt-4o-mini")!];
+
+    // Mock readFileAsync to return a valid transcript for dry-run test
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
 
     const options = {
       outputDir: "out/test",
@@ -149,7 +165,7 @@ describe("Matrix Runner Integration", () => {
       resume: false,
       dryRun: true,
       variants: ["raw" as const],
-      judgeModels: ["gpt-4o"],
+      judgeModels: ["gpt-4o-mini"],
       maxConcurrency: 1,
       timeoutMs: 1000,
       extractorClientFactory: () => ({}) as unknown as LlmClient,
@@ -161,7 +177,7 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells.length).toBe(1);
     expect(result.cells[0].costEstimate).toBeDefined();
     expect(result.cells[0].costEstimate!.totalUsd).toBeGreaterThan(0);
-    // In dry run, it shouldn't actually call the judge so scores will be empty (or undefined since extraction didn't really run)
+    // In dry run, it shouldn't actually call the judge so scores is empty array
     expect(result.cells[0].scores).toEqual([]);
   });
 
@@ -172,7 +188,7 @@ describe("Matrix Runner Integration", () => {
       topicCoverage: score,
       atomicity: score,
       overallScore: score,
-      reasoning: "r",
+      reasoning: "Mock reasoning long enough",
       missingClaims: [],
       hallucinations: [],
       redundancies: [],
@@ -184,6 +200,7 @@ describe("Matrix Runner Integration", () => {
         videoId: "v1",
         modelId: "m1",
         extractorVariantId: "raw" as const,
+        claimSet: [],
         scores: [createMockScore(10), createMockScore(0)]
       }
     ];

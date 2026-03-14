@@ -245,8 +245,8 @@
       "document_id": "AIDHA-TESTING-001",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.16",
-      "last_updated": "2026-03-09",
+      "version": "0.17",
+      "last_updated": "2026-03-13",
       "title": "MVP Test Suite Map and Hardening Coverage",
       "type": "TESTING",
       "docops_version": "2.0"
@@ -625,9 +625,9 @@
     "front_matter": {
       "document_id": "AIDHA-EVAL-BASELINE",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-03-09",
+      "status": "Published",
+      "version": "0.2",
+      "last_updated": "2026-03-13",
       "title": "Evaluation Matrix Baseline Workflow",
       "type": "TESTING",
       "docops_version": "2.0"

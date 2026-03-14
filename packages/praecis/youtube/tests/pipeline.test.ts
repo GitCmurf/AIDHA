@@ -139,6 +139,71 @@ describe('IngestionPipeline', () => {
       if (!excerpts.ok) return;
       expect(excerpts.value.items.length).toBeGreaterThan(0);
     });
+
+    it('refreshes stale transcript excerpts when requested', async () => {
+      await graphStore.upsertNode(
+        'Resource',
+        'youtube-test-video',
+        {
+          label: 'Test Video',
+          content: 'stale transcript',
+          metadata: {
+            videoId: 'test-video',
+            transcriptStatus: 'available',
+            transcriptLanguage: 'en',
+          },
+        },
+        { detectNoop: true }
+      );
+      await graphStore.upsertNode(
+        'Excerpt',
+        'stale-excerpt',
+        {
+          label: 'Stale excerpt',
+          content: 'stale excerpt text',
+          metadata: {
+            videoId: 'test-video',
+            resourceId: 'youtube-test-video',
+            start: 0,
+            duration: 5,
+            end: 5,
+            sequence: 0,
+            source: 'youtube',
+          },
+        },
+        { detectNoop: true }
+      );
+      await graphStore.upsertEdge(
+        'youtube-test-video',
+        'resourceHasExcerpt',
+        'stale-excerpt',
+        { metadata: { sequence: 0, start: 0, duration: 5 } },
+        { detectNoop: true }
+      );
+
+      const result = await pipeline.ingestVideo('test-video', { refreshTranscript: true });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const staleNode = await graphStore.getNode('stale-excerpt');
+      expect(staleNode.ok).toBe(true);
+      if (!staleNode.ok) return;
+      expect(staleNode.value).toBeNull();
+
+      const excerpts = await graphStore.queryNodes({
+        type: 'Excerpt',
+        filters: { resourceId: 'youtube-test-video' },
+      });
+      expect(excerpts.ok).toBe(true);
+      if (!excerpts.ok) return;
+      expect(excerpts.value.items.length).toBe(2);
+      expect(excerpts.value.items.some(item => item.content?.includes('TypeScript'))).toBe(true);
+
+      const resource = await graphStore.getNode('youtube-test-video');
+      expect(resource.ok).toBe(true);
+      if (!resource.ok || !resource.value) return;
+      expect(resource.value.content).toContain('TypeScript');
+    });
   });
 
   describe('idempotency', () => {

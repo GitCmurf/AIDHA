@@ -75,6 +75,25 @@ export function uniqueSortedStrings<T extends string>(items: readonly T[]): T[] 
 }
 
 /**
+ * Deduplicates an array of objects by a key property.
+ * Uses Map to preserve last occurrence of each unique key.
+ *
+ * @param items - Array of objects to deduplicate
+ * @param keyFn - Function to extract the deduplication key from each item
+ * @returns Array with unique objects (last occurrence wins)
+ *
+ * @example
+ * ```ts
+ * const items = [{ id: 'a', val: 1 }, { id: 'b', val: 2 }, { id: 'a', val: 3 }];
+ * const unique = deduplicateByKey(items, x => x.id);
+ * // Result: [{ id: 'a', val: 3 }, { id: 'b', val: 2 }] (last 'a' value wins, key order preserved)
+ * ```
+ */
+export function deduplicateByKey<T>(items: readonly T[], keyFn: (item: T) => string): T[] {
+  return [...new Map(items.map(item => [keyFn(item), item])).values()];
+}
+
+/**
  * Creates a normalized key for deduplication.
  * Handles:
  * - Case normalization
@@ -413,4 +432,14 @@ export function countFragmentIndicators(text: string): number {
   }
 
   return count;
+}
+
+/**
+ * Formats an error record object into a readable string.
+ * @param errors - Record mapping names/identifiers to error messages
+ * @param separator - String to join entries (default: "; ")
+ * @returns Formatted error string like "key1: value1; key2: value2"
+ */
+export function formatErrorRecord(errors: Record<string, string>, separator = "; "): string {
+  return Object.entries(errors).map(([key, err]) => `${key}: ${err}`).join(separator);
 }

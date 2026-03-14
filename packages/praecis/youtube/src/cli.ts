@@ -276,7 +276,9 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
     console.log(output);
   } else if (mode === 'video') {
     const videoId = parseVideoId(target);
-    const result = await pipeline.ingestVideo(videoId);
+    const result = await pipeline.ingestVideo(videoId, {
+      refreshTranscript: optionBool(options, 'refresh-transcript') ?? false,
+    });
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
@@ -1367,6 +1369,8 @@ const handleHelpAndMissingCommand = (command: string | undefined, options: CliOp
   return false;
 };
 
+const SUPPORTED_COMMANDS = ['config', 'ingest', 'extract', 'claims', 'export', 'query', 'related', 'review', 'task', 'area', 'goal', 'project', 'diagnose', 'eval', 'fixtures', 'preflight'];
+
 export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<number> => {
   const { parsed, command } = parseCliArgs(argv);
 
@@ -1375,6 +1379,15 @@ export const runCli = async (argv: string[] = process.argv.slice(2)): Promise<nu
   }
 
   const safeCommand = command || '';
+
+  // Check if command is known before resolving config
+  if (safeCommand && !SUPPORTED_COMMANDS.includes(safeCommand)) {
+    // skipcq: JS-0002
+    console.error(`Unknown command: ${safeCommand}`);
+    printHelp();
+    return 1;
+  }
+
   const resolution = await resolveConfigForCommand(safeCommand, parsed.positionals, parsed.options);
   if (!resolution) return 1;
 

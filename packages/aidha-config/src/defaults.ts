@@ -19,6 +19,7 @@ const YOUTUBE_SOURCE_DEFAULTS: DeepReadonly<SourceDefaults> = {
   ytdlp: {
     bin: 'yt-dlp',
     cookies_file: '',
+    remote_components: '',
     timeout_ms: 120_000,
     js_runtimes: '',
     keep_files: false,

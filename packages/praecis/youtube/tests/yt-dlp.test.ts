@@ -93,6 +93,18 @@ describe('yt-dlp fallback', () => {
     expect(args).toContain('node');
   });
 
+  it('passes configured remote components to yt-dlp and suppresses only no-format subtitle cases', async () => {
+    const result = await fetchTranscriptWithYtDlp('test-video', {
+      ...config,
+      remoteComponents: 'ejs:github',
+    });
+    expect(result.ok).toBe(true);
+    const args = await fs.readFile(argsPath, 'utf-8');
+    expect(args).toContain('--remote-components');
+    expect(args).toContain('ejs:github');
+    expect(args).toContain('--ignore-no-formats-error');
+  });
+
   it('returns transcript even when temp cleanup fails', async () => {
     const rmSpy = vi
       .spyOn(fs, 'rm')
@@ -104,5 +116,49 @@ describe('yt-dlp fallback', () => {
     expect(result.value.fullText).toContain('Hello from yt-dlp');
 
     rmSpy.mockRestore();
+  });
+
+  it('chooses the richest subtitle track when multiple files are present', async () => {
+    const multiTrackScript = [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      'output_template=""',
+      'while [[ $# -gt 0 ]]; do',
+      '    case "$1" in',
+      '        --output)',
+      '            output_template="$2"',
+      '            shift 2',
+      '            ;;',
+      '        *)',
+      '            shift 1',
+      '            ;;',
+      '    esac',
+      'done',
+      'base_path="${output_template//%(id)s/test-video}"',
+      'mkdir -p "$(dirname "$base_path")"',
+      'cat > "${base_path//%(ext)s/en.vtt}" <<\'EOF\'',
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'Short track',
+      'EOF',
+      'cat > "${base_path//%(ext)s/en-orig.vtt}" <<\'EOF\'',
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'Long track start',
+      '',
+      '00:10:00.000 --> 00:10:02.000',
+      'Long track end',
+      'EOF',
+    ].join('\n');
+    await fs.writeFile(scriptPath, multiTrackScript, 'utf-8');
+    await fs.chmod(scriptPath, 0o755);
+
+    const result = await fetchTranscriptWithYtDlp('test-video', config);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.fullText).toContain('Long track end');
+    expect(result.value.fullText).not.toContain('Short track');
   });
 });

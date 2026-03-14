@@ -47,6 +47,8 @@ const aggregateCellScores = (scores: ClaimSetScore[]): Record<ScoreDimension, nu
     overallScore: 0
   };
 
+  if (scores.length === 0) return aggregated;
+
   for (const score of scores) {
     for (const dim of SCORE_DIMENSIONS) {
       aggregated[dim] += score[dim] || 0;
@@ -150,6 +152,14 @@ const calculateAllStats = (scoresMap: Record<string, Record<ScoreDimension, numb
   return stats;
 };
 
+/**
+ * Helper to extract the mean score for a dimension from stats with proper null handling.
+ */
+export const getDimensionMean = (
+  stats: { dimensions: DimensionStats } | undefined,
+  dimension: ScoreDimension
+): number => stats?.dimensions[dimension]?.mean ?? 0;
+
 const generateLeaderboards = (modelStats: Record<string, { dimensions: DimensionStats }>): Record<ScoreDimension, { modelId: string; score: number }[]> => {
   const leaderboards = {} as Record<ScoreDimension, { modelId: string; score: number }[]>;
 
@@ -157,7 +167,7 @@ const generateLeaderboards = (modelStats: Record<string, { dimensions: Dimension
     leaderboards[dim] = Object.keys(modelStats)
       .map(modelId => ({
         modelId,
-        score: modelStats[modelId]?.dimensions[dim]?.mean ?? 0
+        score: getDimensionMean(modelStats[modelId], dim)
       }))
       .sort((a, b) => b.score - a.score || a.modelId.localeCompare(b.modelId));
   }
@@ -212,7 +222,10 @@ const generateRecommendations = (cells: MatrixCell[], leaderboards: Record<Score
       variantId,
       score: variantStats[variantId]?.dimensions.overallScore?.mean ?? 0
     }))
-    .sort((a, b) => b.score - a.score)[0]?.variantId ?? "None";
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.variantId.localeCompare(b.variantId);
+    })[0]?.variantId ?? "None";
 
   const budgetModels = leaderboards.overallScore.filter(m => getModel(m.modelId)?.tier === "budget");
   const bestBudgetModel = budgetModels[0]?.modelId ?? "None";

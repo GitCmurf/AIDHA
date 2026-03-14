@@ -138,6 +138,10 @@
           "description": "Path to cookies file for yt-dlp.",
           "x-aidha-path": true
         },
+        "remote_components": {
+          "type": "string",
+          "description": "Remote component sources passed to yt-dlp, e.g. ejs:github."
+        },
         "timeout_ms": { "type": "integer", "minimum": 0, "description": "yt-dlp process timeout in milliseconds." },
         "js_runtimes": { "type": "string", "description": "Comma-separated list of JS runtimes for yt-dlp." },
         "keep_files": { "type": "boolean", "description": "Whether to keep intermediate yt-dlp files." }

@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
 import { ClaimSetScoreSchema } from "../../src/eval/scoring-rubric";
 
 describe("Scoring Rubric Schema", () => {
@@ -63,7 +62,7 @@ describe("Scoring Rubric Schema", () => {
     const result = ClaimSetScoreSchema.safeParse(inconsistentScore);
     expect(result.success).toBe(false);
     const issues = result.success ? [] : result.error.issues;
-    expect(issues.some((i: any) => i.path.includes("overallScore"))).toBe(true);
+    expect(issues.some((i) => i.path.includes("overallScore"))).toBe(true);
   });
 
   it("should reject if required arrays are missing", () => {

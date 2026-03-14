@@ -11,7 +11,7 @@ vi.mock("../../src/eval/matrix-runner", () => ({
       extractorVariantId: "raw",
       claimSet: []
     }],
-    metadata: { failedCellCount: 0 }
+    metadata: { failedCellCount: 0, partialFailureCount: 0 }
   })
 }));
 
@@ -64,8 +64,9 @@ describe("CLI Export Path Resolution", () => {
 
     await runEvalMatrix(["node", "matrix"], { format: "both", corpus: "test.json" }, {} as any);
 
-    expect(mkdirSyncMock).toHaveBeenCalledWith("out/eval-matrix/reports", { recursive: true });
-    expect(mkdirSyncMock).toHaveBeenCalledWith("out/eval-matrix/reports/cells", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "out/eval-matrix/reports", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, "out/eval-matrix/reports/cells", { recursive: true });
   });
 
   it("should use run-scoped output directory if --run-id is provided", async () => {
@@ -73,8 +74,9 @@ describe("CLI Export Path Resolution", () => {
 
     await runEvalMatrix(["node", "matrix"], { "run-id": "test-run", format: "both", corpus: "test.json" }, {} as any);
 
-    expect(mkdirSyncMock).toHaveBeenCalledWith("out/eval-matrix/runs/test-run", { recursive: true });
-    expect(mkdirSyncMock).toHaveBeenCalledWith("out/eval-matrix/runs/test-run/cells", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "out/eval-matrix/runs/test-run", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, "out/eval-matrix/runs/test-run/cells", { recursive: true });
   });
 
   it("should prioritize explicit --output-dir over --run-id", async () => {
@@ -86,7 +88,8 @@ describe("CLI Export Path Resolution", () => {
       {} as any
     );
 
-    expect(mkdirSyncMock).toHaveBeenCalledWith("custom/dir", { recursive: true });
-    expect(mkdirSyncMock).toHaveBeenCalledWith("custom/dir/cells", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "custom/dir", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, "custom/dir/cells", { recursive: true });
   });
 });

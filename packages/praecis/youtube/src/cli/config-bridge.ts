@@ -244,6 +244,10 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
   if (ytdlpCookies !== undefined && ytdlpCookies.length > 0) {
     overrides.ytdlp = { ...(overrides.ytdlp ?? {}), cookies_file: ytdlpCookies };
   }
+  const ytdlpRemoteComponents = optStr(options, 'ytdlp-remote-components');
+  if (ytdlpRemoteComponents !== undefined && ytdlpRemoteComponents.length > 0) {
+    overrides.ytdlp = { ...(overrides.ytdlp ?? {}), remote_components: ytdlpRemoteComponents };
+  }
   const ytdlpTimeout = optNum(options, 'ytdlp-timeout');
   if (ytdlpTimeout !== undefined) {
     overrides.ytdlp = { ...(overrides.ytdlp ?? {}), timeout_ms: ytdlpTimeout };

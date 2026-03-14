@@ -39,12 +39,17 @@ export async function scoreClaimSet(
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    result1.value.traces = traces;
     return { ok: true, value: { score: result1.value, traces } };
   }
 
-  // Retry once with error feedback AND original context
-  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nOriginal task context:\n${user}\n\nReturn ONLY a corrected JSON object matching the schema. Do not include explanatory text.`;
+  // Retry once with error feedback - no need to re-send full transcript
+  const retryUser = `Your previous response failed JSON schema validation:\n${result1.error.message}\n\nReturn ONLY a corrected JSON object with these fields:
+- completeness, accuracy, topicCoverage, atomicity, overallScore (numbers 0-10)
+- reasoning (string, min 10 chars)
+- missingClaims, hallucinations, redundancies (arrays of {text: string})
+- gapAreas (array of {area: string})
+
+Do not include explanatory text.`;
 
   const llmResult2 = await judgeClient.generate({
     model: judgeModel,
@@ -67,7 +72,6 @@ export async function scoreClaimSet(
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    result2.value.traces = traces;
     return { ok: true, value: { score: result2.value, traces } };
   }
 
@@ -79,9 +83,19 @@ function parseAndValidate(content: string): Result<ClaimSetScore> {
     let text = content.trim();
     // Strip markdown code blocks if present
     if (text.startsWith("```json")) {
-      text = text.replace(/^```json/, "").replace(/```$/, "").trim();
+      text = text.slice(7); // Remove ```json
+      const endIdx = text.lastIndexOf("```");
+      if (endIdx !== -1) {
+        text = text.slice(0, endIdx);
+      }
+      text = text.trim();
     } else if (text.startsWith("```")) {
-      text = text.replace(/^```/, "").replace(/```$/, "").trim();
+      text = text.slice(3); // Remove ```
+      const endIdx = text.lastIndexOf("```");
+      if (endIdx !== -1) {
+        text = text.slice(0, endIdx);
+      }
+      text = text.trim();
     }
 
     const parsed = JSON.parse(text);

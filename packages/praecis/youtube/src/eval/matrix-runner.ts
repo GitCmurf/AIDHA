@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import * as path from "node:path";
+import { join } from "node:path";
 import type { GraphNode } from "@aidha/graph-backend";
 import { Transcript } from "../schema/transcript.js";
 import type { ClaimCandidate } from "../extract/types.js";
@@ -7,6 +7,8 @@ import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { ClaimSetScore } from "./scoring-rubric.js";
 import type { CorpusEntry } from "./corpus-schema.js";
 import { getModel, type EvalModel } from "./model-registry.js";
+import { estimateTokens, estimateCost } from "../extract/token-budget.js";
+import { formatErrorRecord } from "../extract/utils.js";
 import {
   getCachedExtraction,
   setCachedExtraction,
@@ -20,8 +22,12 @@ import { LlmClaimExtractor } from "../extract/llm-claims.js";
 import type { LlmClient } from "../extract/llm-client.js";
 import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
+import { isValidSafeId } from "../utils/ids.js";
 
 export const EXTRACTOR_VERSION = "v1";
+
+// Log prefixes for consistent formatting
+const LOG_PREFIX_PARTIAL_SCORING = "[partial-scoring]";
 
 export interface VideoContext {
   videoId: string;
@@ -69,7 +75,7 @@ export interface MatrixCell {
     variance: Partial<Record<ScoreDimension, number>>;
     isHighVariance: boolean;
   };
-  error?: { message: string; code?: string };
+  error?: { message: string; code?: string; details?: Record<string, string> };
   costEstimate?: {
     extractionUsd: number;
     judgeUsd: number;
@@ -79,6 +85,7 @@ export interface MatrixCell {
     extraction?: { prompt: { system: string; user: string }; response: string }[];
     scoring?: Record<string, { prompt: { system: string; user: string }; response: string }[]>;
   };
+  warnings?: string[];
 }
 
 export interface MatrixResult {
@@ -89,6 +96,7 @@ export interface MatrixResult {
     runId?: string;
     config: Record<string, unknown>; // Serializable config
     failedCellCount: number;
+    partialFailureCount: number;
   };
 }
 
@@ -118,7 +126,49 @@ class Semaphore {
   }
 }
 
-const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
+// Estimated prompt overhead (system prompt, formatting, etc.) in tokens
+const JUDGE_PROMPT_OVERHEAD_TOKENS = 1000;
+// Estimated output tokens for judge response
+const JUDGE_OUTPUT_TOKENS_ESTIMATE = 200;
+/**
+ * Estimated claim text length (in characters) for dry-run cost projections.
+ * These values approximate the total claim text length based on expectedClaimDensity:
+ * - low: ~800 chars (sparse claims from shorter videos)
+ * - medium: ~1600 chars (moderate claims)
+ * - high: ~3200 chars (dense claims from longer videos)
+ */
+const DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE = {
+  low: 800,
+  medium: 1600,
+  high: 3200,
+} as const;
+
+/**
+ * Estimates the USD cost for a judge to score a claim set.
+ * @param fullText - The full transcript text
+ * @param claimSet - The claims to be scored (empty in dry-run mode)
+ * @param model - The judge model to use
+ * @param estimatedClaimTextLength - Fallback claim text length for dry-run projections
+ * @returns Estimated cost in USD
+ */
+const estimateJudgeCost = (
+  fullText: string,
+  claimSet: ClaimCandidate[],
+  model: EvalModel,
+  estimatedClaimTextLength = 0
+): number => {
+  const claimTextLen = claimSet.length > 0
+    ? claimSet.reduce((acc, c) => acc + c.text.length, 0)
+    : estimatedClaimTextLength;
+  const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
+  const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + JUDGE_PROMPT_OVERHEAD_TOKENS;
+  const outputTokens = JUDGE_OUTPUT_TOKENS_ESTIMATE;
+
+  return (
+    estimateCost(inputTokens, model.costPer1kTokens.input) +
+    estimateCost(outputTokens, model.costPer1kTokens.output)
+  );
+};
 
 const performExtraction = async (
 
@@ -203,26 +253,18 @@ const getScoresForCell = async (
   hasFailure: boolean;
   judgeUsdEstimate: number;
   traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>>;
+  failures: Record<string, string>;
 }> => {
   const scores: ClaimSetScore[] = [];
   let cellHasScoringFailure = false;
   let judgeUsdEstimate = 0;
   const traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>> = {};
+  const judgeFailures: Record<string, string> = {};
 
   for (const judgeModelId of options.judgeModels) {
     const judgeModel = getModel(judgeModelId);
-    if (judgeModel) {
-      // Estimate judge cost (assume 1k prompt tokens + text + claims, ~200 output tokens)
-      const claimTextLen = cell.claimSet?.reduce((acc, c) => acc + c.text.length, 0) || 0;
-      const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
-      const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + 1000;
-      const outputTokens = 200;
-      judgeUsdEstimate +=
-        (inputTokens / 1000) * judgeModel.costPer1kTokens.input +
-        (outputTokens / 1000) * judgeModel.costPer1kTokens.output;
-    }
 
-    const cachedScores = options.resume
+    const cachedScores = options.resume && !options.dryRun
       ? await getCachedScore(
           video.videoId,
           model.id,
@@ -236,8 +278,21 @@ const getScoresForCell = async (
     if (cachedScores) {
       scores.push(...cachedScores);
     } else if (options.dryRun) {
+      // Estimate judge cost even in dry-run mode so user sees projected budget
+      if (judgeModel) {
+        judgeUsdEstimate += estimateJudgeCost(
+          fullText,
+          cell.claimSet,
+          judgeModel,
+          DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
+        );
+      }
+      // skipcq: JS-0002
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     } else {
+      if (judgeModel) {
+        judgeUsdEstimate += estimateJudgeCost(fullText, cell.claimSet, judgeModel);
+      }
       try {
         const scoreResult = await performScoring(
           model.id,
@@ -263,6 +318,7 @@ const getScoresForCell = async (
             { cacheDir: options.cacheDir }
           );
         } catch (cacheErr) {
+          // skipcq: JS-0002
           console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
         }
       } catch (err) {
@@ -272,11 +328,12 @@ const getScoresForCell = async (
             : (err instanceof Error ? err.message : String(err));
         console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
         cellHasScoringFailure = true;
+        judgeFailures[judgeModelId] = message;
       }
     }
   }
 
-  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, traces };
+  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, traces, failures: judgeFailures };
 };
 
 const getExtractionForCell = async (
@@ -291,7 +348,7 @@ const getExtractionForCell = async (
 ): Promise<MatrixCell | { error: { message: string } }> => {
   // Check cache for extraction
   let cell: MatrixCell | null = null;
-  if (options.resume) {
+  if (options.resume && !options.dryRun) {
     cell = await getCachedExtraction(
       video.videoId,
       model.id,
@@ -316,6 +373,7 @@ const getExtractionForCell = async (
   };
 
   if (options.dryRun) {
+    // skipcq: JS-0002
     console.log(`[dry-run] Would extract claims for ${video.videoId} using ${model.id}`);
     return {
       videoId: video.videoId,
@@ -347,6 +405,9 @@ const getExtractionForCell = async (
       }
     };
 
+    // Strip traces before caching to avoid disk bloat (traces contain full transcript in prompt)
+    const { traces: _traces, ...cellWithoutTraces } = newCell;
+
     try {
       await setCachedExtraction(
         video.videoId,
@@ -354,10 +415,11 @@ const getExtractionForCell = async (
         variant,
         promptVersion,
         extractorVersion,
-        newCell,
+        cellWithoutTraces,
         { cacheDir: options.cacheDir }
       );
     } catch (cacheErr) {
+      // skipcq: JS-0002
       console.warn(`Failed to cache extraction for ${video.videoId} / ${model.id}: ${cacheErr}`);
     }
 
@@ -384,7 +446,11 @@ const prepareTranscriptDataAsync = async (
     }
   | { error: number }
 > => {
-  const transcriptPath = path.join(options.transcriptDir, `${video.videoId}.json`);
+  if (!isValidSafeId(video.videoId)) {
+    console.error(`Invalid videoId: ${video.videoId}`);
+    return { error: 1 };
+  }
+  const transcriptPath = join(options.transcriptDir, `${video.videoId}.json`);
 
   let transcriptData: Transcript;
   try {
@@ -464,11 +530,13 @@ const processCell = async (
     | { error: number },
   semaphore: Semaphore,
   cells: MatrixCell[],
-  onFailure: () => void
+  onFailure: () => void,
+  onPartialFailure: () => void
 ) => {
   await semaphore.acquire();
   const cellStartedAt = Date.now();
   try {
+    // skipcq: JS-0002
     console.log(`[cell ${cellIndex + 1}/${totalCells}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
     if ("error" in transcriptDataResult) {
@@ -514,6 +582,7 @@ const processCell = async (
 
     // Scoring
     if (!options.dryRun && cell.claimSet.length === 0) {
+      // skipcq: JS-0002
       console.warn(`[skip-scoring] No claims extracted for ${video.videoId} / ${model.id}, skipping judge.`);
       cell.scores = [];
       cells.push(cell);
@@ -523,7 +592,7 @@ const processCell = async (
     const claimSetHash = computeClaimSetHash(cell.claimSet);
     const judgePromptVersion = JUDGE_PROMPT_VERSION;
 
-    const { scores, hasFailure, judgeUsdEstimate, traces: scoringTraces } = await getScoresForCell(
+    const { scores, hasFailure, judgeUsdEstimate, traces: scoringTraces, failures: judgeFailures } = await getScoresForCell(
       video,
       model,
       cell,
@@ -535,8 +604,20 @@ const processCell = async (
     );
 
     if (hasFailure) {
-      cell.error = { message: "One or more judge scorings failed" };
-      onFailure();
+      if (scores.length === 0) {
+        cell.error = {
+          message: "All judge scorings failed",
+          details: judgeFailures
+        };
+        onFailure();
+      } else {
+        console.warn(
+          `${LOG_PREFIX_PARTIAL_SCORING} ${scores.length}/${options.judgeModels.length} judges succeeded for ${video.videoId} / ${model.id}`
+        );
+        onPartialFailure();
+        cell.warnings = cell.warnings || [];
+        cell.warnings.push(`Partial judge failure: ${formatErrorRecord(judgeFailures)}`);
+      }
     }
 
     if (cell.costEstimate) {
@@ -560,18 +641,34 @@ const processCell = async (
         isHighVariance: consensus.isHighVariance,
       };
       if (consensus.isHighVariance) {
+        // skipcq: JS-0002
         console.warn(`[high-variance] Cell ${video.videoId} / ${model.id} has high score variance between judges.`);
       }
     }
 
     cells.push(cell);
     const durationMs = Date.now() - cellStartedAt;
+    // skipcq: JS-0002
     console.log(`[cell ${cellIndex + 1}/${totalCells}] done in ${durationMs}ms`);
   } finally {
     semaphore.release();
   }
 };
 
+/**
+ * Runs an evaluation matrix across a corpus of videos and multiple models.
+ *
+ * @param corpus - Array of video entries from the evaluation corpus
+ * @param models - Array of evaluation models to test
+ * @param options - Configuration options including output dir, concurrency, variants, etc.
+ * @returns MatrixResult containing cells with extraction/scoring results and metadata
+ *
+ * Behavior:
+ * - Processes cells concurrently up to maxConcurrency limit
+ * - Uses caching for extraction and scoring when available
+ * - Supports dry-run mode that prints actions without executing
+ * - Returns cells sorted by videoId, modelId, extractorVariantId for deterministic output
+ */
 export const runEvaluationMatrix = async (
   corpus: CorpusEntry[],
   models: EvalModel[],
@@ -580,6 +677,7 @@ export const runEvaluationMatrix = async (
   const startedAt = new Date().toISOString();
   const cells: MatrixCell[] = [];
   let failedCellCount = 0;
+  let partialFailureCount = 0;
 
   const semaphore = new Semaphore(options.maxConcurrency || 1);
   const tasks: Promise<void>[] = [];
@@ -608,7 +706,12 @@ export const runEvaluationMatrix = async (
 
   for (const video of corpus) {
     const transcriptDataResult = transcriptCache.get(video.videoId);
-    if (!transcriptDataResult) continue;
+    // Defensive: this should never be undefined since we populated the cache above
+    if (transcriptDataResult === undefined) {
+      // skipcq: JS-0002
+      console.error(`[internal] No transcript cache entry for ${video.videoId} — this is a bug`);
+      continue;
+    }
 
     for (const model of models) {
       for (const variant of options.variants) {
@@ -625,6 +728,9 @@ export const runEvaluationMatrix = async (
             cells,
             () => {
               failedCellCount++;
+            },
+            () => {
+              partialFailureCount++;
             }
           )
         );
@@ -634,8 +740,17 @@ export const runEvaluationMatrix = async (
 
   await Promise.all(tasks);
 
+  // Sort cells for deterministic output order
+  cells.sort((a, b) => {
+    const videoCompare = a.videoId.localeCompare(b.videoId);
+    if (videoCompare !== 0) return videoCompare;
+    const modelCompare = a.modelId.localeCompare(b.modelId);
+    if (modelCompare !== 0) return modelCompare;
+    return a.extractorVariantId.localeCompare(b.extractorVariantId);
+  });
+
   // Filter out any functions from options for metadata
-  const { extractorClientFactory, judgeClientFactory, ...serializableConfig } = options;
+  const { extractorClientFactory: _extractorClientFactory, judgeClientFactory: _judgeClientFactory, ...serializableConfig } = options;
 
   return {
     cells,
@@ -645,6 +760,7 @@ export const runEvaluationMatrix = async (
       runId: options.runId,
       config: serializableConfig as Record<string, unknown>,
       failedCellCount,
+      partialFailureCount,
     },
   };
 };

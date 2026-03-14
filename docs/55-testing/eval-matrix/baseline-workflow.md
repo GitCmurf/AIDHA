@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-EVAL-BASELINE
 owner: Ingestion Engineering Lead
-status: Draft
-version: "0.1"
-last_updated: 2026-03-09
+status: Published
+version: "0.2"
+last_updated: 2026-03-13
 title: Evaluation Matrix Baseline Workflow
 type: TESTING
 docops_version: "2.0"
@@ -13,9 +13,9 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-EVAL-BASELINE
 > **Owner:** Ingestion Engineering Lead
-> **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-03-09
+> **Status:** Published
+> **Version:** 0.2
+> **Last Updated:** 2026-03-13
 > **Type:** TESTING
 
 # Evaluation Matrix Baseline Workflow
@@ -24,15 +24,16 @@ docops_version: "2.0"
 
 | Version | Date       | Author      | Change Summary                                                  | Reviewers | Status | Reference             |
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | ------ | --------------------- |
-| 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Draft  | AIDHA-TASK-004        |
+| 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Published | AIDHA-TASK-004        |
+| 0.2     | 2026-03-13 | AI-assisted | Replace non-doc quality-gate link with MkDocs-safe code reference | —         | Published | AIDHA-TASK-004        |
 
 The evaluation matrix (`eval matrix`) provides a quantitative assessment of the LLM extraction
 pipeline. To prevent regressions, we maintain a pinned baseline report.
 
 ## CI Quality Gate
 
-The CI quality gate (`tests/eval/quality-gate.spec.ts`) compares the `latest.json` report against
-`baseline-report.json`.
+The CI quality gate in `packages/praecis/youtube/tests/eval/quality-gate.spec.ts` compares the
+`latest.json` report against `baseline.json`.
 
 **Prerequisite:** You must run the evaluation matrix (step 2 below) to generate `latest.json`
 before running this test.
@@ -45,6 +46,16 @@ It fails if:
 
 If `REQUIRE_EVAL_GATE=1` or `CI=true` is set, the gate requires both reports to exist.
 
+### Acceptance Criteria
+
+This test protects against:
+
+- **Score regression**: Model quality drops beyond tolerance threshold
+- **Schema invalid**: Report structure changes break downstream consumers
+- **Missing models**: Baseline and latest must have comparable models
+
+Run the test with: `pnpm test --filter praecis-youtube -- quality-gate`
+
 ## Refreshing the Baseline
 
 When substantial improvements to the prompts, extraction logic, or scoring rubrics are made, the
@@ -55,7 +66,8 @@ baseline needs to be refreshed.
 1. **Clear old evaluation caches (optional but recommended):**
 
    ```bash
-   pnpm run eval matrix --invalidate-run --yes
+   # Clear all caches (or use --invalidate-run <runId> for a specific run)
+   pnpm run eval matrix --clear-all --yes
    ```
 
 2. **Run a full evaluation matrix:**
@@ -67,13 +79,13 @@ baseline needs to be refreshed.
      --corpus packages/praecis/youtube/tests/fixtures/eval-matrix/corpus.json \
      --tier budget \
      --judge-models gpt-4o \
-     --format json
+     --format both
    ```
 
 3. **Verify the new report:**
 
-   Check the run output directory (default: `out/eval-matrix/reports/` or
-   `out/eval-matrix/runs/<runId>/`).
+   Check the run output directory (default: `out/eval-matrix/reports/`;
+   if a run ID is provided via `--run-id`, use `out/eval-matrix/runs/<runId>/`).
 
    Review:
    - `latest.md`: Executive summary and scorecards.
@@ -88,13 +100,13 @@ baseline needs to be refreshed.
 
    ```bash
    cp out/eval-matrix/reports/latest.json \
-     packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json
+      packages/praecis/youtube/tests/fixtures/eval-matrix/baseline.json
    ```
 
 5. **Commit the baseline:**
 
    ```bash
-   git add packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json
+   git add packages/praecis/youtube/tests/fixtures/eval-matrix/baseline.json
    git commit -m "chore(eval): update extraction matrix baseline"
    ```
 

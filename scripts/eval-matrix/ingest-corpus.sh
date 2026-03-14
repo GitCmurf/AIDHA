@@ -7,46 +7,242 @@ cd "$(dirname "$0")/../.."
 CORPUS_JSON="packages/praecis/youtube/tests/fixtures/eval-matrix/corpus.json"
 CACHE_DIR="out/eval-matrix/transcripts"
 TEMP_DB="out/eval-matrix/aidha-eval.sqlite"
+CONFIG_PATH=".aidha/config.yaml"
+YTDLP_JS_RUNTIMES="node"
+YTDLP_COOKIES="${AIDHA_YTDLP_COOKIES_FILE:-${YTDLP_COOKIES_FILE:-${YTDLP_COOKIES:-}}}"
+REQUEST_DELAY_SECONDS=12
+FAILURE_DELAY_SECONDS=90
+VIDEO_ID_FILTER=""
+CONFIG_WAS_EXPLICIT=0
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/eval-matrix/ingest-corpus.sh [options]
+
+Options:
+    --corpus <path>       Path to evaluation corpus JSON.
+    --cache-dir <path>    Directory to store transcript JSON cache files.
+    --db <path>           SQLite database path for temporary ingest/export work.
+    --config <path>       AIDHA config file passed through to the CLI.
+    --ytdlp-js-runtimes <list>
+                          JavaScript runtimes passed to yt-dlp during ingest.
+    --ytdlp-cookies <path>
+                          Netscape-format cookies file passed to yt-dlp.
+    --request-delay-seconds <n>
+                          Delay between video requests to avoid bursty access.
+    --failure-delay-seconds <n>
+                          Cooldown after a failed video before exiting.
+    --video-id <id>       Ingest only a single videoId from the corpus.
+    --help                Show this help text.
+EOF
+}
+
+require_option_value() {
+    local option_name="$1"
+    local option_value="${2:-}"
+    if [ -z "$option_value" ]; then
+        echo "Error: $option_name requires a value." >&2
+        usage >&2
+        exit 1
+    fi
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --corpus)
+            require_option_value "$1" "${2:-}"
+            CORPUS_JSON="${2:-}"
+            shift 2
+            ;;
+        --cache-dir)
+            require_option_value "$1" "${2:-}"
+            CACHE_DIR="${2:-}"
+            shift 2
+            ;;
+        --db)
+            require_option_value "$1" "${2:-}"
+            TEMP_DB="${2:-}"
+            shift 2
+            ;;
+        --config)
+            require_option_value "$1" "${2:-}"
+            CONFIG_PATH="${2:-}"
+            CONFIG_WAS_EXPLICIT=1
+            shift 2
+            ;;
+        --ytdlp-js-runtimes)
+            require_option_value "$1" "${2:-}"
+            YTDLP_JS_RUNTIMES="${2:-}"
+            shift 2
+            ;;
+        --ytdlp-cookies)
+            require_option_value "$1" "${2:-}"
+            YTDLP_COOKIES="${2:-}"
+            shift 2
+            ;;
+        --request-delay-seconds)
+            require_option_value "$1" "${2:-}"
+            REQUEST_DELAY_SECONDS="${2:-}"
+            shift 2
+            ;;
+        --failure-delay-seconds)
+            require_option_value "$1" "${2:-}"
+            FAILURE_DELAY_SECONDS="${2:-}"
+            shift 2
+            ;;
+        --video-id)
+            require_option_value "$1" "${2:-}"
+            VIDEO_ID_FILTER="${2:-}"
+            shift 2
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown option '$1'" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$CORPUS_JSON" ] || [ -z "$CACHE_DIR" ] || [ -z "$TEMP_DB" ] || [ -z "$CONFIG_PATH" ] || [ -z "$YTDLP_JS_RUNTIMES" ] || [ -z "$REQUEST_DELAY_SECONDS" ] || [ -z "$FAILURE_DELAY_SECONDS" ]; then
+    echo "Error: --corpus, --cache-dir, --db, --config, --ytdlp-js-runtimes, --request-delay-seconds, and --failure-delay-seconds values must not be empty." >&2
+    exit 1
+fi
+
+if ! [[ "$REQUEST_DELAY_SECONDS" =~ ^[0-9]+$ ]] || ! [[ "$FAILURE_DELAY_SECONDS" =~ ^[0-9]+$ ]]; then
+    echo "Error: --request-delay-seconds and --failure-delay-seconds must be non-negative integers." >&2
+    exit 1
+fi
 
 mkdir -p "$CACHE_DIR"
 mkdir -p "$(dirname "$TEMP_DB")"
 
 if [ ! -f "$CORPUS_JSON" ]; then
-    echo "Error: Corpus file not found at $CORPUS_JSON"
+    echo "Error: Corpus file not found at $CORPUS_JSON" >&2
     exit 1
+fi
+
+if [ -n "$CONFIG_PATH" ] && [ -f "$CONFIG_PATH" ]; then
+    CONFIG_PATH="$(realpath "$CONFIG_PATH")"
+elif [ "$CONFIG_WAS_EXPLICIT" -eq 1 ]; then
+    echo "Error: Config file not found at $CONFIG_PATH" >&2
+    exit 1
+else
+    CONFIG_PATH=""
 fi
 
 echo "Ingesting transcripts for corpus videos into $CACHE_DIR..."
 
+transcript_has_segments() {
+    local transcript_file="$1"
+    node --eval "
+const fs = require('fs');
+const payload = JSON.parse(fs.readFileSync(process.argv[1], 'utf-8'));
+process.exit(Array.isArray(payload.segments) && payload.segments.length > 0 ? 0 : 1);
+" "$transcript_file" >/dev/null 2>&1
+}
+
+sleep_between_requests() {
+    if [ "$REQUEST_DELAY_SECONDS" -gt 0 ]; then
+        echo "Waiting ${REQUEST_DELAY_SECONDS}s before the next request..."
+        sleep "$REQUEST_DELAY_SECONDS"
+    fi
+}
+
+sleep_after_failure() {
+    if [ "$FAILURE_DELAY_SECONDS" -gt 0 ]; then
+        echo "Cooling down for ${FAILURE_DELAY_SECONDS}s after failure..."
+        sleep "$FAILURE_DELAY_SECONDS"
+    fi
+}
+
+if ! CORPUS_OUTPUT=$(CORPUS_JSON="$CORPUS_JSON" VIDEO_ID_FILTER="$VIDEO_ID_FILTER" node --eval "
+const fs = require('fs');
+const corpusPath = process.env.CORPUS_JSON;
+const filterVideoId = process.env.VIDEO_ID_FILTER || '';
+const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8'));
+corpus.forEach(entry => {
+    if (!filterVideoId || entry.videoId === filterVideoId) {
+        console.log(entry.videoId + ' ' + entry.url);
+    }
+});
+" ); then
+    echo "Error: Failed to read or parse corpus JSON" >&2
+    exit 1
+fi
+
+if [ -z "$CORPUS_OUTPUT" ]; then
+    echo "Error: No matching videos found in corpus" >&2
+    exit 1
+fi
+
 # Use process substitution to avoid subshell so exit 1 works correctly
 while read -r videoId url; do
     TARGET_FILE="$CACHE_DIR/${videoId}.json"
-    if [ -f "$TARGET_FILE" ] && [ -s "$TARGET_FILE" ]; then
+    if [ -f "$TARGET_FILE" ] && [ -s "$TARGET_FILE" ] && transcript_has_segments "$TARGET_FILE"; then
         echo "Skipping $videoId - already cached"
     else
+        if [ -f "$TARGET_FILE" ]; then
+            echo "Refreshing $videoId - cached transcript is missing segments"
+            rm -f "$TARGET_FILE"
+        fi
         echo "Ingesting $videoId ($url)..."
 
         # Ingest video
-        pnpm --dir packages/praecis/youtube cli ingest video "$url" --db "$TEMP_DB"
+        INGEST_ARGS=(
+            --dir packages/praecis/youtube
+            cli ingest video "$url"
+            --db "$TEMP_DB"
+            --ytdlp-js-runtimes "$YTDLP_JS_RUNTIMES"
+        )
+        if [ -n "$CONFIG_PATH" ]; then
+            INGEST_ARGS+=(--config "$CONFIG_PATH")
+        fi
+        if [ -n "$YTDLP_COOKIES" ]; then
+            INGEST_ARGS+=(--ytdlp-cookies "$YTDLP_COOKIES")
+        fi
+        if ! pnpm "${INGEST_ARGS[@]}"; then
+            echo "Error: Failed to ingest $videoId" >&2
+            sleep_after_failure
+            exit 1
+        fi
 
         # Export the transcript to our local cache dir as JSON
         # We use a temporary file to avoid truncated cache files on failure.
         TEMP_EXPORT_FILE=$(mktemp)
-        if pnpm --dir packages/praecis/youtube --silent cli export transcript video "$videoId" --db "$TEMP_DB" --out "$TEMP_EXPORT_FILE" --pretty; then
-            mv "$TEMP_EXPORT_FILE" "$TARGET_FILE"
-            echo "Successfully cached transcript for $videoId"
+        EXPORT_ARGS=(
+            --dir packages/praecis/youtube
+            --silent
+            cli export transcript video "$videoId"
+            --db "$TEMP_DB"
+            --out "$TEMP_EXPORT_FILE"
+            --pretty
+        )
+        if [ -n "$CONFIG_PATH" ]; then
+            EXPORT_ARGS+=(--config "$CONFIG_PATH")
+        fi
+        if pnpm "${EXPORT_ARGS[@]}"; then
+            if node scripts/eval-matrix/prepare-transcript-cache-entry.mjs "$CORPUS_JSON" "$videoId" "$TEMP_EXPORT_FILE" >/dev/null; then
+                mv "$TEMP_EXPORT_FILE" "$TARGET_FILE"
+                echo "Successfully cached transcript for $videoId"
+            else
+                rm -f "$TEMP_EXPORT_FILE"
+                echo "Error: Transcript for $videoId failed normalization or sanity checks" >&2
+                sleep_after_failure
+                exit 1
+            fi
         else
             rm -f "$TEMP_EXPORT_FILE"
-            echo "Error: Failed to export transcript for $videoId"
+            echo "Error: Failed to export transcript for $videoId" >&2
+            sleep_after_failure
             exit 1
         fi
+
+        sleep_between_requests
     fi
-done < <(node --eval "
-const fs = require('fs');
-const corpus = JSON.parse(fs.readFileSync('$CORPUS_JSON', 'utf-8'));
-corpus.forEach(entry => {
-    console.log(entry.videoId + ' ' + entry.url);
-});
-")
+done < <(echo "$CORPUS_OUTPUT")
 
 echo "Done."

@@ -1,5 +1,6 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
@@ -7,37 +8,146 @@ import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggrega
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
 import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./eval/extractor-variants.js";
-import { createLlmClientFromConfig } from "./extract/llm-client.js";
+import { createGeminiClientFromConfig, createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
+import { validateSafeId } from "./utils/ids.js";
+import { sanitizeFilename } from "./utils/ids.js";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider Configuration
+// ─────────────────────────────────────────────────────────────────────────────
 
 const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["OPENAI_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
 });
 
-const getOpenRouterConfig = (apiKey: string, baseUrl?: string) => ({
+const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
+  apiKey: process.env["GOOGLE_AISTUDIO_API_KEY"] || process.env["GEMINI_API_KEY"] || apiKey,
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://generativelanguage.googleapis.com/v1beta"
+});
+
+const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
+  apiKey: process.env["ZAI_API_KEY"] || apiKey,
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.zai.ai/v1"
+});
+
+const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
+  apiKey: process.env["XIAOMI_API_KEY"] || apiKey,
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.xiaomi.com/v1"
+});
+
+// Reserved for future use - OpenRouter support when ModelProvider is expanded
+const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["OPENROUTER_API_KEY"] || apiKey,
-  baseUrl: baseUrl || "https://openrouter.ai/api/v1"
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1"
 });
 
-const getDeepSeekConfig = (apiKey: string, baseUrl?: string) => ({
-  apiKey: process.env["DEEPSEEK_API_KEY"] || apiKey,
-  baseUrl: baseUrl || "https://api.deepseek.com/beta"
-});
-
-const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
-  if (provider === "openai") return getOpenAiConfig(apiKey, baseUrl, baseConfigBaseUrl);
-  if (["anthropic", "google", "meta", "openrouter"].includes(provider)) return getOpenRouterConfig(apiKey, baseUrl);
-  if (provider === "deepseek") return getDeepSeekConfig(apiKey, baseUrl);
-  return null;
+// Only these four providers are supported (matching ModelProvider in model-registry.ts)
+// Provider-specific runtime wiring. Some providers use the OpenAI-compatible client;
+// Gemini uses its native generateContent API for full feature access.
+const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => { apiKey: string; baseUrl: string } | null> = {
+  openai: getOpenAiConfig,
+  "google-aistudio": getGoogleAiStudioConfig,
+  zai: getZaiConfig,
+  xiaomi: getXiaomiConfig,
 };
 
+const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "xiaomi"]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLI Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Exit codes for the CLI.
+ * 0 = Success
+ * 1 = Error (execution failed)
+ * 2 = Invalid options
+ */
+const EXIT_SUCCESS = 0;
+const EXIT_ERROR = 1;
+const EXIT_INVALID_OPTIONS = 2;
+
+/**
+ * Parses a comma-separated list string into an array of trimmed, non-empty values.
+ * Used for parsing --variants, --judge-models, and similar options.
+ */
+function parseCsvList(csvStr: string): string[] {
+  return csvStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Validates that a list is non-empty and returns an appropriate error code if not.
+ * @param items - The list to validate
+ * @param optionName - The CLI option name for error messages
+ * @returns EXIT_SUCCESS if valid, EXIT_INVALID_OPTIONS if invalid
+ */
+function validateNonEmptyList(items: string[], optionName: string): number {
+  if (items.length === 0) {
+    // skipcq: JS-0002
+    console.error(`Error: ${optionName} must contain at least one valid value.`);
+    return EXIT_INVALID_OPTIONS;
+  }
+  return EXIT_SUCCESS;
+}
+
+/**
+ * Validates that a number is positive (>= 1).
+ * @param value - The value to validate
+ * @param optionName - The CLI option name for error messages
+ * @returns EXIT_SUCCESS if valid, EXIT_INVALID_OPTIONS if invalid
+ */
+function validatePositiveNumber(value: number | undefined, optionName: string): number {
+  if (value !== undefined && value < 1) {
+    // skipcq: JS-0002
+    console.error(`Error: ${optionName} must be a positive number.`);
+    return EXIT_INVALID_OPTIONS;
+  }
+  return EXIT_SUCCESS;
+}
+
+/**
+ * Resolves the cache directory path for a given run ID.
+ * If a run ID is provided, returns a run-specific cache directory.
+ * Otherwise, returns the default extraction cache directory.
+ *
+ * @param runId - The optional run ID
+ * @returns The resolved cache directory path
+ */
+function resolveCacheDir(runId: string): string {
+  return runId ? join(".cache/extraction", runId) : ".cache/extraction";
+}
+
+const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
+  const getter = providerConfigGetters[provider];
+  return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl) : null;
+};
+
+/**
+ * Creates an LLM client configured for a specific model by resolving the appropriate
+ * provider configuration (API key, base URL) based on the model's provider.
+ *
+ * @param modelId - The model ID from the evaluation registry
+ * @param baseConfig - Base LLM configuration containing API keys and default settings
+ * @returns Configured LLM client for the given model
+ * @throws Error if the provider is unsupported or baseUrl cannot be resolved
+ */
 export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
   const model = getModel(modelId);
-  const provider = model?.provider || "openai";
+  if (!model) {
+    throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
+  }
+  const provider = model.provider;
 
-  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model?.baseUrl, baseConfig.baseUrl);
+  if (!SUPPORTED_EVAL_PROVIDERS.has(provider)) {
+    throw new Error(
+      `Provider '${provider}' for model ${modelId} is not supported by the evaluation runtime.`
+    );
+  }
+
+  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
   }
@@ -46,7 +156,11 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
     throw new Error(`Failed to resolve baseUrl for model ${modelId} (provider: ${provider})`);
   }
 
-  const clientResult = createLlmClientFromConfig({
+  const clientFactory = provider === "google-aistudio"
+    ? createGeminiClientFromConfig
+    : createLlmClientFromConfig;
+
+  const clientResult = clientFactory({
     ...baseConfig,
     model: modelId,
     apiKey: resolved.apiKey,
@@ -76,14 +190,18 @@ const loadCorpusData = (corpusPath: string) => {
 
 const resolveModelIds = (modelsStr: string, tier: string): string[] | number => {
   if (modelsStr) {
-    const ids = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+    const ids = parseCsvList(modelsStr);
     if (ids.length > 0) return ids;
   }
   if (tier) {
-    const ids = MODEL_REGISTRY.filter(m => m.tier === tier).map(m => m.id);
+    const ids = MODEL_REGISTRY
+      .filter(m => m.tier === tier)
+      .filter(m => m.availability !== "experimental")
+      .filter(m => SUPPORTED_EVAL_PROVIDERS.has(m.provider))
+      .map(m => m.id);
     if (ids.length === 0) {
       // skipcq: JS-0002
-      console.error(`No models found for tier: ${tier}`);
+      console.error(`No verified supported models found for tier: ${tier}. Use explicit --models with a supported provider.`);
       return 1;
     }
     return ids;
@@ -108,20 +226,24 @@ const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | 
   }
 };
 
-const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => {
+const writeCellArtifacts = async (cells: MatrixResult["cells"], outputDir: string) => {
   const cellsDir = join(outputDir, "cells");
   mkdirSync(cellsDir, { recursive: true });
-  for (const cell of cells) {
-    const safeModelId = cell.modelId.replace(/[/\\]/g, "_");
-    const cellFileName = `${cell.videoId}-${safeModelId}-${cell.extractorVariantId}.json`;
-    const cellPath = join(cellsDir, cellFileName);
-    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
-  }
+  await Promise.all(
+    cells.map((cell) => {
+      const safeVideoId = sanitizeFilename(cell.videoId);
+      const safeModelId = sanitizeFilename(cell.modelId);
+      const safeVariantId = sanitizeFilename(cell.extractorVariantId);
+      const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}.json`;
+      const cellPath = join(cellsDir, cellFileName);
+      return writeFile(cellPath, JSON.stringify(cell));
+    })
+  );
   // skipcq: JS-0002
   console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
 };
 
-const writeReports = (report: MatrixReport, outputDir: string, format: string) => {
+const writeReports = async (report: MatrixReport, outputDir: string, format: string) => {
   mkdirSync(outputDir, { recursive: true });
 
   if (format === "both" || format === "json") {
@@ -138,7 +260,7 @@ const writeReports = (report: MatrixReport, outputDir: string, format: string) =
     console.log(`Wrote Markdown report to ${mdPath}`);
   }
 
-  writeCellArtifacts(report.cells, outputDir);
+  await writeCellArtifacts(report.cells, outputDir);
 };
 
 interface PrintPlanArgs {
@@ -206,14 +328,16 @@ const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
   const transcriptDir = optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts");
   const modelsStr = optionString(cleanOptions, "models", "");
   const tier = optionString(cleanOptions, "tier", "");
-  const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o");
+  const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o-mini");
   const variantsStr = optionString(cleanOptions, "variants", "raw,editorial-pass-v1");
   const outputDir = optionString(cleanOptions, "output-dir", "");
   const format = optionString(cleanOptions, "format", "both");
   const resume = optionBool(cleanOptions, "resume");
   const maxConcurrency = optionNumber(cleanOptions, "max-concurrency", 1);
-  const extractionMaxTokens = optionNumber(cleanOptions, "extraction-max-tokens", 0) || undefined;
-  const extractionMaxChunks = optionNumber(cleanOptions, "extraction-max-chunks", 0) || undefined;
+  const extractionMaxTokensRaw = optionNumber(cleanOptions, "extraction-max-tokens", 0);
+  const extractionMaxTokens = extractionMaxTokensRaw === 0 ? undefined : extractionMaxTokensRaw;
+  const extractionMaxChunksRaw = optionNumber(cleanOptions, "extraction-max-chunks", 0);
+  const extractionMaxChunks = extractionMaxChunksRaw === 0 ? undefined : extractionMaxChunksRaw;
   const judgeMaxTokens = optionNumber(cleanOptions, "judge-max-tokens", 4000);
   const timeoutMs = optionNumber(cleanOptions, "timeout-ms", 60000);
 
@@ -233,14 +357,14 @@ const handleClearAll = (cleanOptions: CliOptions, cacheDir: string): number => {
   }
   // skipcq: JS-0002
   console.error("Error: --clear-all requires --yes to confirm you want to delete all cached extractions and scores.");
-  return 1;
+  return EXIT_INVALID_OPTIONS;
 };
 
 const handleInvalidateRun = (invalidateRun: string, cacheDir: string): number => {
   if (!/^[a-zA-Z0-9_-]+$/.test(invalidateRun)) {
     // skipcq: JS-0002
     console.error("Error: --invalidate-run must contain only alphanumeric characters, hyphens, and underscores.");
-    return 1;
+    return EXIT_INVALID_OPTIONS;
   }
   const runDir = join(cacheDir, invalidateRun);
   if (existsSync(runDir)) {
@@ -260,14 +384,18 @@ const invalidateCache = (cleanOptions: CliOptions): number | undefined => {
 
   if (!invalidateRun && !clearAll) return undefined;
 
-  const cacheDir = ".cache/extraction";
-  if (!existsSync(cacheDir)) {
-    // skipcq: JS-0002
-    console.log("No cache directory found to invalidate.");
-    return 0;
+  const baseCacheDir = ".cache/extraction";
+
+  if (clearAll) {
+    if (!existsSync(baseCacheDir)) {
+      // skipcq: JS-0002
+      console.log("No cache directory found to invalidate.");
+      return 0;
+    }
+    return handleClearAll(cleanOptions, baseCacheDir);
   }
 
-  return clearAll ? handleClearAll(cleanOptions, cacheDir) : handleInvalidateRun(invalidateRun, cacheDir);
+  return handleInvalidateRun(invalidateRun, baseCacheDir);
 };
 
 const calculateTotalCosts = (cells: MatrixResult["cells"]) => {
@@ -308,14 +436,17 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
   if (!["both", "json", "md"].includes(parsedOpts.format)) {
     // skipcq: JS-0002
     console.error(`Invalid format: ${parsedOpts.format}. Must be one of: both, json, md`);
-    return 1;
+    return EXIT_INVALID_OPTIONS;
   }
 
   if (!parsedOpts.corpusPath) {
     // skipcq: JS-0002
     console.error("Error: --corpus <path> is required.");
-    return 1;
+    return EXIT_INVALID_OPTIONS;
   }
+
+  const emptyVariantsError = validateNonEmptyList(variantIds, "--variants");
+  if (emptyVariantsError !== EXIT_SUCCESS) return emptyVariantsError;
 
   const invalidVariants = variantIds.filter(v => !isValidVariant(v));
   if (invalidVariants.length > 0) {
@@ -323,25 +454,64 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
     console.error(`Invalid variants provided: ${invalidVariants.join(", ")}`);
     // skipcq: JS-0002
     console.error(`Valid variants: ${EXTRACTOR_VARIANTS.join(", ")}`);
-    return 1;
+    return EXIT_INVALID_OPTIONS;
   }
-  return 0;
+
+  // Validate positive numeric options
+  const error1 = validatePositiveNumber(parsedOpts.maxConcurrency, "--max-concurrency");
+  if (error1 !== 0) return error1;
+  const error2 = validatePositiveNumber(parsedOpts.timeoutMs, "--timeout");
+  if (error2 !== 0) return error2;
+  const error3 = validatePositiveNumber(parsedOpts.judgeMaxTokens, "--judge-max-tokens");
+  if (error3 !== 0) return error3;
+  const error4 = validatePositiveNumber(parsedOpts.extractionMaxTokens, "--extraction-max-tokens");
+  if (error4 !== 0) return error4;
+  const error5 = validatePositiveNumber(parsedOpts.extractionMaxChunks, "--extraction-max-chunks");
+  if (error5 !== 0) return error5;
+
+  return EXIT_SUCCESS;
 };
 
-const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions, finalOutputDir: string) => {
+const validateRunId = (runId: string): string | null => {
+  if (typeof runId !== "string") {
+    return null;
+  }
+
+  // Empty run ID is valid (uses default paths)
+  if (runId.length === 0) {
+    return runId;
+  }
+
+  // Use shared validation, but provide custom error messages for CLI context
+  const validated = validateSafeId(runId);
+  if (!validated) {
+    // skipcq: JS-0002
+    console.error("Error: --run-id must be 100 characters or less, contain only alphanumeric characters, hyphens, and underscores, and must not contain path traversal sequences ('..').");
+    return null;
+  }
+
+  return validated;
+};
+
+const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOptions, finalOutputDir: string) => {
   if (parsedOpts.dryRun) {
     // skipcq: JS-0002
     console.log("Dry run complete. No real LLM calls were made.");
     if (result.metadata.failedCellCount > 0) {
       // skipcq: JS-0002
       console.warn(`Dry run detected ${result.metadata.failedCellCount} failed cells (e.g. missing transcripts). Resolve before a real run.`);
-      return 1;
+      return EXIT_ERROR;
     }
-    return 0;
+    return EXIT_SUCCESS;
   }
 
   const report = aggregateMatrixResults(result.cells);
-  writeReports(report, finalOutputDir, parsedOpts.format);
+  await writeReports(report, finalOutputDir, parsedOpts.format);
+
+  if (result.metadata.partialFailureCount > 0) {
+    // skipcq: JS-0002
+    console.warn(`Evaluation completed with ${result.metadata.partialFailureCount} partial-failure cell(s) (some judges failed but partial scores were kept).`);
+  }
 
   if (result.metadata.failedCellCount > 0) {
     // skipcq: JS-0002
@@ -401,10 +571,15 @@ const parseEvalOptions = (positionals: string[], options: Record<string, string 
 };
 
 const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
-  const runCacheDir = parsedOpts.runId ? join(".cache/extraction", parsedOpts.runId) : ".cache/extraction";
-  const finalOutputDir = parsedOpts.outputDir || (parsedOpts.runId ? join("out/eval-matrix/runs", parsedOpts.runId) : "out/eval-matrix/reports");
+  const validatedRunId = validateRunId(parsedOpts.runId);
+  if (validatedRunId === null) {
+    return { runCacheDir: null, finalOutputDir: null, error: 1 };
+  }
 
-  return { runCacheDir, finalOutputDir };
+  const runCacheDir = resolveCacheDir(validatedRunId);
+  const finalOutputDir = parsedOpts.outputDir || (validatedRunId ? join("out/eval-matrix/runs", validatedRunId) : "out/eval-matrix/reports");
+
+  return { runCacheDir, finalOutputDir, error: 0 };
 };
 
 const loadExecutionData = (parsedOpts: EvalRunOptions) => {
@@ -414,26 +589,21 @@ const loadExecutionData = (parsedOpts: EvalRunOptions) => {
   return { corpusResult, models };
 };
 
-const performMatrixExecution = (
-  corpusData: CorpusEntry[],
-  models: EvalModel[],
-  parsedOpts: EvalRunOptions,
-  variantIds: string[],
-  judgeModels: string[],
-  runCacheDir: string,
-  finalOutputDir: string,
-  config: ResolvedConfig
-) => {
-  printPlan({ ...parsedOpts, models, judgeModels, variantIds, finalOutputDir, runCacheDir });
-
-  // skipcq: JS-0002
-  console.log("Running matrix evaluation...");
-
-  return executeMatrixEvaluation(
-    corpusData, models, parsedOpts, variantIds, judgeModels, runCacheDir, finalOutputDir, config
-  );
-};
-
+/**
+ * Main entry point for the CLI evaluation matrix command.
+ * Parses options, validates inputs, runs the evaluation matrix, and generates reports.
+ *
+ * @param positionals - Positional CLI arguments (currently unused)
+ * @param options - CLI options from commander
+ * @param config - Resolved AIDHA configuration
+ * @returns Exit code (0 for success, non-zero for errors)
+ *
+ * Exit codes:
+ * - 0: Success
+ * - 1: General error
+ * - 2: Invalid options
+ * - 3: Dry-run mode (no execution)
+ */
 export const runEvalMatrix = async (
   positionals: string[],
   options: Record<string, string | boolean | undefined>,
@@ -448,7 +618,7 @@ export const runEvalMatrix = async (
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
 
     const parsedOpts = parseRunOptions(cleanOptions);
-    const variantIds = parsedOpts.variantsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+    const variantIds = parseCsvList(parsedOpts.variantsStr);
 
     const validationError = validateBasicInputs(parsedOpts, variantIds);
     if (validationError !== 0) return validationError;
@@ -457,17 +627,37 @@ export const runEvalMatrix = async (
     if (typeof models === "number") return models;
     if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
 
-    const judgeModels = parsedOpts.judgeModelsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
-    const { runCacheDir, finalOutputDir } = resolveEvalExecutionParams(parsedOpts);
+    const judgeModels = parseCsvList(parsedOpts.judgeModelsStr);
 
-    const result = await performMatrixExecution(
+    const emptyJudgeModelsError = validateNonEmptyList(judgeModels, "--judge-models");
+    if (emptyJudgeModelsError !== EXIT_SUCCESS) return emptyJudgeModelsError;
+
+    // Validate judge models against registry
+    const unknownJudgeModels = judgeModels.filter(id => !getModel(id));
+    if (unknownJudgeModels.length > 0) {
+      // skipcq: JS-0002
+      console.error(`Unknown judge model(s): ${unknownJudgeModels.join(", ")}. Check MODEL_REGISTRY for valid IDs.`);
+      return 1;
+    }
+
+    const { runCacheDir, finalOutputDir, error: runParamsError } = resolveEvalExecutionParams(parsedOpts);
+    if (runParamsError !== 0 || runCacheDir === null || finalOutputDir === null) return runParamsError ?? 1;
+
+    printPlan({ ...parsedOpts, models, judgeModels, variantIds, finalOutputDir, runCacheDir });
+
+    // skipcq: JS-0002
+    console.log("Running matrix evaluation...");
+
+    const result = await executeMatrixEvaluation(
       corpusResult.data, models, parsedOpts, variantIds, judgeModels, runCacheDir, finalOutputDir, config
     );
 
-    return handleExecutionResult(result, parsedOpts, finalOutputDir);
+    return await handleExecutionResult(result, parsedOpts, finalOutputDir);
   } catch (error) {
+    // Log sanitized message only - full error may contain secrets
+    const message = error instanceof Error ? error.message : String(error);
     // skipcq: JS-0002
-    console.error("Evaluation failed:", error);
+    console.error("Evaluation failed:", message);
     return 1;
   }
 };

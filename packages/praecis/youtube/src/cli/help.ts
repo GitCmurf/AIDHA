@@ -17,8 +17,8 @@ Commands:
   aidha-youtube config explain <key> [--config <path>] [--profile <name>] [--source <id>]
   aidha-youtube config init [--force] [--dry-run] [--user-global] [--interactive]
   aidha-youtube config set <key> <value> [--config <path>] [--dry-run]
-  aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
-  aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
+  aidha-youtube ingest playlist <playlistIdOrUrl> [--db <path>] [--mock] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-remote-components <spec>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
+  aidha-youtube ingest video <videoIdOrUrl> [--db <path>] [--mock] [--refresh-transcript] [--ytdlp-keep] [--ytdlp-cookies <path>] [--ytdlp-remote-components <spec>] [--ytdlp-bin <path>] [--ytdlp-timeout <ms>] [--ytdlp-js-runtimes <list>]
   aidha-youtube ingest status <videoIdOrUrl> [--db <path>] [--json]
   aidha-youtube extract claims <videoIdOrUrl> [--db <path>] [--llm] [--model <id>] [--claims <n>] [--chunk-minutes <n>] [--max-chunks <n>] [--editor-version <v1|v2>] [--window-minutes <n>] [--max-per-window <n>] [--min-windows <n>] [--min-words <n>] [--min-chars <n>] [--editor-llm] [--editorial-diagnostics]
   aidha-youtube extract refs <videoIdOrUrl> [--db <path>]
@@ -44,7 +44,7 @@ Commands:
   aidha-youtube export gephi [--db <path>] [--out <dir>] [--predicate <p1,p2>] [--node-type <t1,t2>] [--include-labels]
   aidha-youtube preflight youtube [--json] [--probe-url <url>]
   aidha-youtube fixtures import-ttml <path> [--video-id <id>] [--source-url <url>] [--track <name>] [--out <path>] [--pretty]
-  aidha-youtube eval matrix --corpus <path> [--models <id,id>] [--judge-models <id,id>] [--variants <id,id>] [--output-dir <path>] [--transcript-dir <path>] [--format <both|json|md>] [--dry-run] [--resume]
+  aidha-youtube eval matrix --corpus <path> [--models <id,id>] [--judge-models <id,id>] [--variants <id,id>] [--run-id <id>] [--tier <frontier|midtier|budget>] [--output-dir <path>] [--transcript-dir <path>] [--format <both|json|md>] [--dry-run] [--resume] [--max-concurrency <n>] [--extraction-max-tokens <n>] [--extraction-max-chunks <n>] [--judge-max-tokens <n>] [--timeout-ms <n>] [--clear-all] [--invalidate-run <runId>] [--yes]
 
 Defaults:
   --db ./out/aidha.sqlite

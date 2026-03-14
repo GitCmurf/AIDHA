@@ -20,6 +20,7 @@ export interface YtDlpRuntimeConfig {
   bin: string;
   jsRuntimes: string;
   cookiesFile?: string;
+  remoteComponents?: string;
   timeoutMs: number;
   keepFiles: boolean;
   debugTranscript: boolean;
@@ -30,6 +31,7 @@ export function ytDlpDefaultConfig(): YtDlpRuntimeConfig {
   return {
     bin: 'yt-dlp',
     jsRuntimes: 'node',
+    remoteComponents: '',
     timeoutMs: 120000,
     keepFiles: false,
     debugTranscript: false,
@@ -53,6 +55,10 @@ export function ytDlpConfigFromEnv(): YtDlpRuntimeConfig {
       process.env['AIDHA_YTDLP_COOKIES_FILE'] ??
       process.env['YTDLP_COOKIES_FILE'] ??
       process.env['YTDLP_COOKIES'],
+    remoteComponents:
+      process.env['AIDHA_YTDLP_REMOTE_COMPONENTS'] ??
+      process.env['YTDLP_REMOTE_COMPONENTS'] ??
+      '',
     timeoutMs: Number.isNaN(parsed) ? 120000 : parsed,
     keepFiles: process.env['AIDHA_YTDLP_KEEP_FILES'] === '1',
     debugTranscript: process.env['AIDHA_DEBUG_TRANSCRIPT'] === '1',
@@ -354,6 +360,16 @@ async function parseSubtitleFile(filePath: string): Promise<{ segments: Transcri
   return { segments, language: detectLanguageFromFilename(filePath) };
 }
 
+function transcriptCoverageScore(segments: Transcript['segments']): number {
+  // Score prioritizes transcripts by coverage duration (how far into the video they extend),
+  // with segment count as a tiebreaker. Longer, more detailed transcripts score higher.
+  if (segments.length === 0) return 0;
+  const last = segments[segments.length - 1];
+  if (!last) return 0;
+  const end = last.start + last.duration;
+  return (end * 1_000) + segments.length;
+}
+
 export async function fetchTranscriptWithYtDlp(
   videoIdOrUrl: string,
   rtConfig?: YtDlpRuntimeConfig,
@@ -372,8 +388,10 @@ export async function fetchTranscriptWithYtDlp(
   const outputTemplate = join(tmpPath, '%(id)s.%(ext)s');
   const args = [
     '--skip-download',
+    '--no-playlist',
     '--write-subs',
     '--write-auto-subs',
+    '--ignore-no-formats-error',
     '--sub-langs',
     'en.*,en',
     '--sub-format',
@@ -384,6 +402,10 @@ export async function fetchTranscriptWithYtDlp(
   ];
 
   args.push('--js-runtimes', cfg.jsRuntimes);
+
+  if (cfg.remoteComponents) {
+    args.push('--remote-components', cfg.remoteComponents);
+  }
 
   const cookiesFile = cfg.cookiesFile;
   if (cookiesFile) {
@@ -408,21 +430,32 @@ export async function fetchTranscriptWithYtDlp(
       .map(name => join(tmpPath!, name));
 
     const ordered = orderSubtitleFiles(files);
+    let bestTranscript: Transcript | null = null;
+    let bestScore = -1;
     for (const file of ordered) {
       const { segments, language } = await parseSubtitleFile(file);
-      if (segments.length > 0) {
-        const extractedId =
-          extractVideoIdFromFilename(file) ??
-          parseVideoIdFromInput(videoIdOrUrl) ??
-          videoIdOrUrl;
-        const transcript: Transcript = {
-          videoId: extractedId,
-          language: language ?? 'en',
-          segments,
-          fullText: segments.map(segment => segment.text).join(' '),
-        };
-        return { ok: true, value: transcript };
+      if (segments.length === 0) {
+        continue;
       }
+      const extractedId =
+        extractVideoIdFromFilename(file) ??
+        parseVideoIdFromInput(videoIdOrUrl) ??
+        videoIdOrUrl;
+      const transcript: Transcript = {
+        videoId: extractedId,
+        language: language ?? 'en',
+        segments,
+        fullText: segments.map(segment => segment.text).join(' '),
+      };
+      const score = transcriptCoverageScore(segments);
+      if (score > bestScore) {
+        bestScore = score;
+        bestTranscript = transcript;
+      }
+    }
+
+    if (bestTranscript) {
+      return { ok: true, value: bestTranscript };
     }
 
     return { ok: false, error: new Error('yt-dlp did not produce subtitles') };
