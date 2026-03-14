@@ -93,7 +93,7 @@ describe('yt-dlp fallback', () => {
     expect(args).toContain('node');
   });
 
-  it('passes configured remote components to yt-dlp and tolerates partial subtitle failures', async () => {
+  it('passes configured remote components to yt-dlp and suppresses only no-format subtitle cases', async () => {
     const result = await fetchTranscriptWithYtDlp('test-video', {
       ...config,
       remoteComponents: 'ejs:github',
@@ -102,7 +102,7 @@ describe('yt-dlp fallback', () => {
     const args = await fs.readFile(argsPath, 'utf-8');
     expect(args).toContain('--remote-components');
     expect(args).toContain('ejs:github');
-    expect(args).toContain('--ignore-errors');
+    expect(args).toContain('--ignore-no-formats-error');
   });
 
   it('returns transcript even when temp cleanup fails', async () => {

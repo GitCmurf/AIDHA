@@ -391,7 +391,7 @@ export async function fetchTranscriptWithYtDlp(
     '--no-playlist',
     '--write-subs',
     '--write-auto-subs',
-    '--ignore-errors',
+    '--ignore-no-formats-error',
     '--sub-langs',
     'en.*,en',
     '--sub-format',
