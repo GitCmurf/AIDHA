@@ -8,6 +8,7 @@ import type { ClaimSetScore } from "./scoring-rubric.js";
 import type { CorpusEntry } from "./corpus-schema.js";
 import { getModel, type EvalModel } from "./model-registry.js";
 import { estimateTokens, estimateCost } from "../extract/token-budget.js";
+import { formatErrorRecord } from "../extract/utils.js";
 import {
   getCachedExtraction,
   setCachedExtraction,
@@ -84,6 +85,7 @@ export interface MatrixCell {
     extraction?: { prompt: { system: string; user: string }; response: string }[];
     scoring?: Record<string, { prompt: { system: string; user: string }; response: string }[]>;
   };
+  warnings?: string[];
 }
 
 export interface MatrixResult {
@@ -613,6 +615,8 @@ const processCell = async (
           `${LOG_PREFIX_PARTIAL_SCORING} ${scores.length}/${options.judgeModels.length} judges succeeded for ${video.videoId} / ${model.id}`
         );
         onPartialFailure();
+        cell.warnings = cell.warnings || [];
+        cell.warnings.push(`Partial judge failure: ${formatErrorRecord(judgeFailures)}`);
       }
     }
 

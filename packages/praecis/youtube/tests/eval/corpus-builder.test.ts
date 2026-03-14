@@ -40,8 +40,8 @@ describe("Corpus Builder", () => {
 
   it("builds a schema-compatible corpus entry", () => {
     const entry = buildCorpusEntry({
-      videoId: "abc123",
-      sourceUrl: "https://www.youtube.com/watch?v=abc123&list=foo",
+      videoId: "B-otG3jyL14", // pragma: allowlist secret -- public YouTube fixture ID
+      sourceUrl: "https://www.youtube.com/watch?v=B-otG3jyL14&list=foo",
       title: "Complete Guide to Hypertrophy",
       channelName: "Muscle Academy",
       durationSeconds: 5700,
@@ -49,8 +49,8 @@ describe("Corpus Builder", () => {
       language: "en",
     });
 
-    expect(entry.videoId).toBe("abc123");
-    expect(entry.url).toBe("https://www.youtube.com/watch?v=abc123");
+    expect(entry.videoId).toBe("B-otG3jyL14");
+    expect(entry.url).toBe("https://www.youtube.com/watch?v=B-otG3jyL14");
     expect(entry.durationMinutes).toBe(95);
     expect(entry.topicDomain).toBe("Exercise");
     expect(entry.expectedClaimDensity).toBe("high");

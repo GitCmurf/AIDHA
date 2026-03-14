@@ -433,3 +433,13 @@ export function countFragmentIndicators(text: string): number {
 
   return count;
 }
+
+/**
+ * Formats an error record object into a readable string.
+ * @param errors - Record mapping names/identifiers to error messages
+ * @param separator - String to join entries (default: "; ")
+ * @returns Formatted error string like "key1: value1; key2: value2"
+ */
+export function formatErrorRecord(errors: Record<string, string>, separator = "; "): string {
+  return Object.entries(errors).map(([key, err]) => `${key}: ${err}`).join(separator);
+}

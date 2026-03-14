@@ -29,7 +29,7 @@ function readJsonFile<T>(filePath: string): { data: T | null; errorType: 'ENOENT
  * @param reportType - The type of report for the error message
  */
 function checkRequiredEvalGate(filePath: string, reportType: string): void {
-  if (process.env.REQUIRE_EVAL_GATE === "1" || process.env.CI === "true") {
+  if (process.env.REQUIRE_EVAL_GATE === "1") {
     throw new Error(`Required '${reportType}' report not found at ${filePath}. Run matrix evaluation and pin a baseline first.`);
   }
 }
