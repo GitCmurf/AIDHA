@@ -13,6 +13,7 @@ YTDLP_COOKIES="${AIDHA_YTDLP_COOKIES_FILE:-${YTDLP_COOKIES_FILE:-${YTDLP_COOKIES
 REQUEST_DELAY_SECONDS=12
 FAILURE_DELAY_SECONDS=90
 VIDEO_ID_FILTER=""
+CONFIG_WAS_EXPLICIT=0
 
 usage() {
     cat <<'EOF'
@@ -66,6 +67,7 @@ while [ "$#" -gt 0 ]; do
         --config)
             require_option_value "$1" "${2:-}"
             CONFIG_PATH="${2:-}"
+            CONFIG_WAS_EXPLICIT=1
             shift 2
             ;;
         --ytdlp-js-runtimes)
@@ -123,12 +125,14 @@ if [ ! -f "$CORPUS_JSON" ]; then
     exit 1
 fi
 
-if [ ! -f "$CONFIG_PATH" ]; then
+if [ -n "$CONFIG_PATH" ] && [ -f "$CONFIG_PATH" ]; then
+    CONFIG_PATH="$(realpath "$CONFIG_PATH")"
+elif [ "$CONFIG_WAS_EXPLICIT" -eq 1 ]; then
     echo "Error: Config file not found at $CONFIG_PATH" >&2
     exit 1
+else
+    CONFIG_PATH=""
 fi
-
-CONFIG_PATH="$(realpath "$CONFIG_PATH")"
 
 echo "Ingesting transcripts for corpus videos into $CACHE_DIR..."
 
@@ -186,10 +190,13 @@ while read -r videoId url; do
         # Ingest video
         INGEST_ARGS=(
             --dir packages/praecis/youtube
-            cli --config "$CONFIG_PATH" ingest video "$url"
+            cli ingest video "$url"
             --db "$TEMP_DB"
             --ytdlp-js-runtimes "$YTDLP_JS_RUNTIMES"
         )
+        if [ -n "$CONFIG_PATH" ]; then
+            INGEST_ARGS+=(--config "$CONFIG_PATH")
+        fi
         if [ -n "$YTDLP_COOKIES" ]; then
             INGEST_ARGS+=(--ytdlp-cookies "$YTDLP_COOKIES")
         fi
@@ -202,7 +209,18 @@ while read -r videoId url; do
         # Export the transcript to our local cache dir as JSON
         # We use a temporary file to avoid truncated cache files on failure.
         TEMP_EXPORT_FILE=$(mktemp)
-        if pnpm --dir packages/praecis/youtube --silent cli --config "$CONFIG_PATH" export transcript video "$videoId" --db "$TEMP_DB" --out "$TEMP_EXPORT_FILE" --pretty; then
+        EXPORT_ARGS=(
+            --dir packages/praecis/youtube
+            --silent
+            cli export transcript video "$videoId"
+            --db "$TEMP_DB"
+            --out "$TEMP_EXPORT_FILE"
+            --pretty
+        )
+        if [ -n "$CONFIG_PATH" ]; then
+            EXPORT_ARGS+=(--config "$CONFIG_PATH")
+        fi
+        if pnpm "${EXPORT_ARGS[@]}"; then
             if node scripts/eval-matrix/prepare-transcript-cache-entry.mjs "$CORPUS_JSON" "$videoId" "$TEMP_EXPORT_FILE" >/dev/null; then
                 mv "$TEMP_EXPORT_FILE" "$TARGET_FILE"
                 echo "Successfully cached transcript for $videoId"

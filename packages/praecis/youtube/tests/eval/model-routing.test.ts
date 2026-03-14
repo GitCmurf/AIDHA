@@ -64,13 +64,12 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.baseUrl).toBe("https://api.openai.com/v1");
   });
 
-  it("should use GOOGLE_AISTUDIO_API_KEY for google-aistudio models", () => {
-    process.env.GOOGLE_AISTUDIO_API_KEY = "mock-google-aistudio-key"; // pragma: allowlist secret
+  it("should fail explicitly for google-aistudio models until a provider-specific client exists", () => {
     const emptyBase = { ...mockBaseConfig, baseUrl: "" };
-    const client = createProviderAwareClient("test-google-aistudio", emptyBase) as any;
 
-    expect(client.config.apiKey).toBe("mock-google-aistudio-key"); // pragma: allowlist secret
-    expect(client.config.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta");
+    expect(() => {
+      createProviderAwareClient("test-google-aistudio", emptyBase);
+    }).toThrowError(/not supported by the OpenAI-compatible evaluation client/);
   });
 
   it("should use ZAI_API_KEY for zai models", () => {
@@ -97,7 +96,7 @@ describe("Model-Aware Runtime Wiring", () => {
 
     expect(() => {
       createProviderAwareClient("test-alien", mockBaseConfig);
-    }).toThrowError(/Unsupported provider 'alien'/);
+    }).toThrowError(/not supported by the OpenAI-compatible evaluation client/);
   });
 
   it("should throw if model is not in registry", () => {

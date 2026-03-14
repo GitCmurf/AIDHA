@@ -71,11 +71,8 @@ export function validateSafeId(id: unknown): string | null {
 export function sanitizeFilename(id: string): string {
   // Replace unsafe filesystem characters
   let result = id.replace(/[<>:"/\\|?*]/g, "_");
-  // Replace control characters using callback (Biome-compatible)
-  result = result.replace(/./g, (char) => {
-    const code = char.charCodeAt(0);
-    return (code >= 0 && code <= 0x1F) ? "_" : char;
-  });
+  // Replace control characters (0x00-0x1F)
+  result = result.replace(/[\x00-\x1F]/g, "_");
   // Replace multiple dots
   result = result.replace(/\.+/g, ".");
   result = result.trim();

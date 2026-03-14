@@ -1,5 +1,6 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
@@ -22,11 +23,6 @@ const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: s
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
 });
 
-const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["GOOGLE_AISTUDIO_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://generativelanguage.googleapis.com/v1beta"
-});
-
 const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["ZAI_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.zai.ai/v1"
@@ -44,13 +40,14 @@ const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl
 });
 
 // Only these four providers are supported (matching ModelProvider in model-registry.ts)
-// anthropic, google, meta, openrouter were removed as dead code - they were unreachable
+// This runtime only supports providers reachable through the OpenAI-compatible client.
 const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => { apiKey: string; baseUrl: string } | null> = {
   openai: getOpenAiConfig,
-  "google-aistudio": getGoogleAiStudioConfig,
   zai: getZaiConfig,
   xiaomi: getXiaomiConfig,
 };
+
+const OPENAI_COMPATIBLE_PROVIDERS = new Set(["openai", "zai", "xiaomi"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI Utilities
@@ -137,6 +134,13 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
   }
   const provider = model.provider;
 
+  if (!OPENAI_COMPATIBLE_PROVIDERS.has(provider)) {
+    throw new Error(
+      `Provider '${provider}' for model ${modelId} is not supported by the OpenAI-compatible evaluation client. ` +
+      "Use an OpenAI-compatible model or add a provider-specific client implementation first."
+    );
+  }
+
   const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
@@ -176,16 +180,18 @@ const loadCorpusData = (corpusPath: string) => {
 
 const resolveModelIds = (modelsStr: string, tier: string): string[] | number => {
   if (modelsStr) {
-    const ids = modelsStr.split(",").map(s => s.trim()).filter(Boolean);
+    const ids = parseCsvList(modelsStr);
     if (ids.length > 0) return ids;
   }
   if (tier) {
     const ids = MODEL_REGISTRY
-      .filter(m => m.tier === tier && m.availability !== "experimental")
+      .filter(m => m.tier === tier)
+      .filter(m => m.availability !== "experimental")
+      .filter(m => OPENAI_COMPATIBLE_PROVIDERS.has(m.provider))
       .map(m => m.id);
     if (ids.length === 0) {
       // skipcq: JS-0002
-      console.error(`No verified models found for tier: ${tier}. Use explicit --models to include experimental models.`);
+      console.error(`No verified OpenAI-compatible models found for tier: ${tier}. Use explicit --models with a supported provider or add provider-specific client support.`);
       return 1;
     }
     return ids;
@@ -210,22 +216,24 @@ const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | 
   }
 };
 
-const writeCellArtifacts = (cells: MatrixResult["cells"], outputDir: string) => {
+const writeCellArtifacts = async (cells: MatrixResult["cells"], outputDir: string) => {
   const cellsDir = join(outputDir, "cells");
   mkdirSync(cellsDir, { recursive: true });
-  for (const cell of cells) {
-    const safeVideoId = sanitizeFilename(cell.videoId);
-    const safeModelId = sanitizeFilename(cell.modelId);
-    const safeVariantId = sanitizeFilename(cell.extractorVariantId);
-    const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}.json`;
-    const cellPath = join(cellsDir, cellFileName);
-    writeFileSync(cellPath, JSON.stringify(cell, null, 2));
-  }
+  await Promise.all(
+    cells.map((cell) => {
+      const safeVideoId = sanitizeFilename(cell.videoId);
+      const safeModelId = sanitizeFilename(cell.modelId);
+      const safeVariantId = sanitizeFilename(cell.extractorVariantId);
+      const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}.json`;
+      const cellPath = join(cellsDir, cellFileName);
+      return writeFile(cellPath, JSON.stringify(cell));
+    })
+  );
   // skipcq: JS-0002
   console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
 };
 
-const writeReports = (report: MatrixReport, outputDir: string, format: string) => {
+const writeReports = async (report: MatrixReport, outputDir: string, format: string) => {
   mkdirSync(outputDir, { recursive: true });
 
   if (format === "both" || format === "json") {
@@ -242,7 +250,7 @@ const writeReports = (report: MatrixReport, outputDir: string, format: string) =
     console.log(`Wrote Markdown report to ${mdPath}`);
   }
 
-  writeCellArtifacts(report.cells, outputDir);
+  await writeCellArtifacts(report.cells, outputDir);
 };
 
 interface PrintPlanArgs {
@@ -475,7 +483,7 @@ const validateRunId = (runId: string): string | null => {
   return validated;
 };
 
-const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions, finalOutputDir: string) => {
+const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOptions, finalOutputDir: string) => {
   if (parsedOpts.dryRun) {
     // skipcq: JS-0002
     console.log("Dry run complete. No real LLM calls were made.");
@@ -488,7 +496,7 @@ const handleExecutionResult = (result: MatrixResult, parsedOpts: EvalRunOptions,
   }
 
   const report = aggregateMatrixResults(result.cells);
-  writeReports(report, finalOutputDir, parsedOpts.format);
+  await writeReports(report, finalOutputDir, parsedOpts.format);
 
   if (result.metadata.partialFailureCount > 0) {
     // skipcq: JS-0002
@@ -634,7 +642,7 @@ export const runEvalMatrix = async (
       corpusResult.data, models, parsedOpts, variantIds, judgeModels, runCacheDir, finalOutputDir, config
     );
 
-    return handleExecutionResult(result, parsedOpts, finalOutputDir);
+    return await handleExecutionResult(result, parsedOpts, finalOutputDir);
   } catch (error) {
     // Log sanitized message only - full error may contain secrets
     const message = error instanceof Error ? error.message : String(error);
