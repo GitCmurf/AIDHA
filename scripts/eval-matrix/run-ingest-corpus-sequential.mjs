@@ -102,11 +102,14 @@ function sleep(seconds, label) {
 }
 
 function runSingleVideo(options, videoId) {
+    const configPath = options.configPath && fs.existsSync(options.configPath)
+        ? path.resolve(options.configPath)
+        : "";
     const args = buildSingleVideoIngestArgs({
         corpusPath: options.corpusPath,
         cacheDir: options.cacheDir,
         dbPath: options.dbPath,
-        configPath: path.resolve(options.configPath),
+        configPath,
     }, videoId);
 
     return spawnSync("bash", args, {

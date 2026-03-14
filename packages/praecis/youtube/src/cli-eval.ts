@@ -8,7 +8,7 @@ import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggrega
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
 import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./eval/extractor-variants.js";
-import { createLlmClientFromConfig } from "./extract/llm-client.js";
+import { createGeminiClientFromConfig, createLlmClientFromConfig } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 import { validateSafeId } from "./utils/ids.js";
@@ -21,6 +21,11 @@ import { sanitizeFilename } from "./utils/ids.js";
 const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
   apiKey: process.env["OPENAI_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
+});
+
+const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
+  apiKey: process.env["GOOGLE_AISTUDIO_API_KEY"] || process.env["GEMINI_API_KEY"] || apiKey,
+  baseUrl: baseUrl || baseConfigBaseUrl || "https://generativelanguage.googleapis.com/v1beta"
 });
 
 const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
@@ -40,14 +45,16 @@ const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl
 });
 
 // Only these four providers are supported (matching ModelProvider in model-registry.ts)
-// This runtime only supports providers reachable through the OpenAI-compatible client.
+// Provider-specific runtime wiring. Some providers use the OpenAI-compatible client;
+// Gemini uses its native generateContent API for full feature access.
 const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => { apiKey: string; baseUrl: string } | null> = {
   openai: getOpenAiConfig,
+  "google-aistudio": getGoogleAiStudioConfig,
   zai: getZaiConfig,
   xiaomi: getXiaomiConfig,
 };
 
-const OPENAI_COMPATIBLE_PROVIDERS = new Set(["openai", "zai", "xiaomi"]);
+const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "xiaomi"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI Utilities
@@ -134,10 +141,9 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
   }
   const provider = model.provider;
 
-  if (!OPENAI_COMPATIBLE_PROVIDERS.has(provider)) {
+  if (!SUPPORTED_EVAL_PROVIDERS.has(provider)) {
     throw new Error(
-      `Provider '${provider}' for model ${modelId} is not supported by the OpenAI-compatible evaluation client. ` +
-      "Use an OpenAI-compatible model or add a provider-specific client implementation first."
+      `Provider '${provider}' for model ${modelId} is not supported by the evaluation runtime.`
     );
   }
 
@@ -150,7 +156,11 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
     throw new Error(`Failed to resolve baseUrl for model ${modelId} (provider: ${provider})`);
   }
 
-  const clientResult = createLlmClientFromConfig({
+  const clientFactory = provider === "google-aistudio"
+    ? createGeminiClientFromConfig
+    : createLlmClientFromConfig;
+
+  const clientResult = clientFactory({
     ...baseConfig,
     model: modelId,
     apiKey: resolved.apiKey,
@@ -187,11 +197,11 @@ const resolveModelIds = (modelsStr: string, tier: string): string[] | number => 
     const ids = MODEL_REGISTRY
       .filter(m => m.tier === tier)
       .filter(m => m.availability !== "experimental")
-      .filter(m => OPENAI_COMPATIBLE_PROVIDERS.has(m.provider))
+      .filter(m => SUPPORTED_EVAL_PROVIDERS.has(m.provider))
       .map(m => m.id);
     if (ids.length === 0) {
       // skipcq: JS-0002
-      console.error(`No verified OpenAI-compatible models found for tier: ${tier}. Use explicit --models with a supported provider or add provider-specific client support.`);
+      console.error(`No verified supported models found for tier: ${tier}. Use explicit --models with a supported provider.`);
       return 1;
     }
     return ids;

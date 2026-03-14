@@ -28,6 +28,12 @@ export interface OpenAiCompatibleConfig {
   modelCapabilities?: ModelCapabilities;
 }
 
+export interface GeminiApiConfig {
+  baseUrl: string;
+  apiKey?: string;
+  timeoutMs?: number;
+}
+
 /**
  * Model capability flags for feature gating.
  * Prevents brittle string matching against model names.
@@ -265,6 +271,97 @@ export class OpenAiCompatibleClient implements LlmClient {
   }
 }
 
+export class GeminiApiClient implements LlmClient {
+  private baseUrl: string;
+  private apiKey?: string;
+  private timeoutMs: number;
+
+  constructor(config: GeminiApiConfig) {
+    this.baseUrl = normalizeBaseUrl(config.baseUrl);
+    this.apiKey = config.apiKey;
+    this.timeoutMs = config.timeoutMs ?? 60_000;
+  }
+
+  async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+    const signals: AbortSignal[] = [];
+    if (this.timeoutMs > 0) {
+      signals.push(AbortSignal.timeout(this.timeoutMs));
+    }
+    if (request.signal) {
+      signals.push(request.signal);
+    }
+
+    const combinedSignal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
+
+    try {
+      const generationConfig: Record<string, unknown> = {};
+      if (request.temperature !== undefined) {
+        generationConfig["temperature"] = request.temperature;
+      } else {
+        generationConfig["temperature"] = 0.2;
+      }
+      generationConfig["maxOutputTokens"] = request.maxTokens ?? 4096;
+
+      if (request.responseFormat) {
+        generationConfig["responseMimeType"] = "application/json";
+        generationConfig["responseJsonSchema"] = request.responseFormat.schema;
+      }
+
+      const body: Record<string, unknown> = {
+        system_instruction: {
+          parts: [{ text: request.system }],
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: request.user }],
+          },
+        ],
+        generationConfig,
+      };
+
+      const response = await fetch(
+        `${this.baseUrl}/models/${encodeURIComponent(request.model)}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(this.apiKey ? { "x-goog-api-key": this.apiKey } : {}),
+          },
+          body: JSON.stringify(body),
+          signal: combinedSignal,
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        return { ok: false, error: new Error(`Gemini request failed (${response.status}): ${text.slice(0, 500)}`) };
+      }
+
+      const json = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+      };
+
+      const content = json.candidates?.[0]?.content?.parts
+        ?.map(part => part.text ?? "")
+        .filter(Boolean)
+        .join("");
+
+      if (typeof content !== "string" || content.length === 0) {
+        return { ok: false, error: new Error("Gemini response missing text content") };
+      }
+
+      return { ok: true, value: content };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+}
+
 /** Resolved LLM config shape (matches ResolvedConfig.llm). */
 export interface LlmResolvedConfig {
   model: string;
@@ -285,6 +382,27 @@ export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmCli
     return {
       ok: true,
       value: new OpenAiCompatibleClient({
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey || undefined,
+        timeoutMs: cfg.timeoutMs ?? 60_000,
+      }),
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
+}
+
+/**
+ * Create a Gemini API client from resolved config values.
+ */
+export function createGeminiClientFromConfig(cfg: LlmResolvedConfig): Result<LlmClient> {
+  if (!cfg.baseUrl) {
+    return { ok: false, error: new Error("llm.base_url is not configured") };
+  }
+  try {
+    return {
+      ok: true,
+      value: new GeminiApiClient({
         baseUrl: cfg.baseUrl,
         apiKey: cfg.apiKey || undefined,
         timeoutMs: cfg.timeoutMs ?? 60_000,

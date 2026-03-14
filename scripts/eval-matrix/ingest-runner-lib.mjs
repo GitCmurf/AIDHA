@@ -17,14 +17,19 @@ export function selectPendingVideoIds(corpusEntries, cachedVideoIds, filterVideo
 }
 
 export function buildSingleVideoIngestArgs(options, videoId) {
-    return [
+    const args = [
         "scripts/eval-matrix/ingest-corpus.sh",
         "--corpus", options.corpusPath,
         "--cache-dir", options.cacheDir,
         "--db", options.dbPath,
-        "--config", options.configPath,
+    ];
+    if (options.configPath) {
+        args.push("--config", options.configPath);
+    }
+    args.push(
         "--video-id", videoId,
         "--request-delay-seconds", "0",
         "--failure-delay-seconds", "0",
-    ];
+    );
+    return args;
 }

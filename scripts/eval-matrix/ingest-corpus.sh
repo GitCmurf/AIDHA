@@ -138,7 +138,11 @@ echo "Ingesting transcripts for corpus videos into $CACHE_DIR..."
 
 transcript_has_segments() {
     local transcript_file="$1"
-    jq -e '(.segments | type == "array") and ((.segments | length) > 0)' "$transcript_file" >/dev/null 2>&1
+    node --eval "
+const fs = require('fs');
+const payload = JSON.parse(fs.readFileSync(process.argv[1], 'utf-8'));
+process.exit(Array.isArray(payload.segments) && payload.segments.length > 0 ? 0 : 1);
+" "$transcript_file" >/dev/null 2>&1
 }
 
 sleep_between_requests() {

@@ -40,6 +40,12 @@ describe("Model-Aware Runtime Wiring", () => {
         value: { config } as any, // Mock client object returning its config for inspection
       };
     });
+    vi.spyOn(llmClient, "createGeminiClientFromConfig").mockImplementation((config) => {
+      return {
+        ok: true,
+        value: { config } as any,
+      };
+    });
   });
 
   afterEach(() => {
@@ -64,12 +70,13 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.baseUrl).toBe("https://api.openai.com/v1");
   });
 
-  it("should fail explicitly for google-aistudio models until a provider-specific client exists", () => {
+  it("should use Gemini API configuration for google-aistudio models", () => {
+    process.env.GEMINI_API_KEY = "mock-gemini-key"; // pragma: allowlist secret
     const emptyBase = { ...mockBaseConfig, baseUrl: "" };
+    const client = createProviderAwareClient("test-google-aistudio", emptyBase) as any;
 
-    expect(() => {
-      createProviderAwareClient("test-google-aistudio", emptyBase);
-    }).toThrowError(/not supported by the OpenAI-compatible evaluation client/);
+    expect(client.config.apiKey).toBe("mock-gemini-key"); // pragma: allowlist secret
+    expect(client.config.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta");
   });
 
   it("should use ZAI_API_KEY for zai models", () => {
@@ -93,10 +100,11 @@ describe("Model-Aware Runtime Wiring", () => {
 
   it("should fail explicitly if provider is completely unsupported", () => {
     vi.mocked(llmClient.createLlmClientFromConfig).mockRestore();
+    vi.mocked(llmClient.createGeminiClientFromConfig).mockRestore();
 
     expect(() => {
       createProviderAwareClient("test-alien", mockBaseConfig);
-    }).toThrowError(/not supported by the OpenAI-compatible evaluation client/);
+    }).toThrowError(/not supported by the evaluation runtime/);
   });
 
   it("should throw if model is not in registry", () => {
