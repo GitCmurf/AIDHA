@@ -1,4 +1,4 @@
-export const EXTRACTOR_VARIANTS = ["raw", "editorial-pass-v1", "editorial-pass-v2", "single-pass"] as const;
+export const EXTRACTOR_VARIANTS = ["raw", "editorial-pass-v1", "editorial-pass-v2", "single-pass", "self-improve-v1"] as const;
 
 export type ExtractorVariantId = typeof EXTRACTOR_VARIANTS[number];
 

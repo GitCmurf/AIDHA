@@ -142,6 +142,8 @@ export interface LoadOptions {
   cwd?: string;
   /** Environment map for interpolation and discovery. */
   env?: Record<string, string | undefined>;
+  /** If true, copy dotenv-loaded keys into process.env. */
+  syncProcessEnv?: boolean;
   /** Callback for non-fatal warnings (permissions, missing dotenv). */
   onWarning?: (message: string) => void;
 }
@@ -168,6 +170,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     // Always work on a copy so we never mutate the caller's env (or
     // process.env when no explicit env is provided).
     env = { ...process.env } as Record<string, string | undefined>,
+    syncProcessEnv = false,
     onWarning,
   } = options;
 
@@ -271,6 +274,9 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         // Only protect pre-existing process env vars when override_existing is false.
         if (overrideExisting || !originalEnvKeys.has(key)) {
           env[key] = value;
+          if (syncProcessEnv && (overrideExisting || process.env[key] === undefined)) {
+            process.env[key] = value;
+          }
         }
       }
     }

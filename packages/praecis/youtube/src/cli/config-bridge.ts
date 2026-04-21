@@ -9,6 +9,8 @@
  *
  * @module
  */
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   ResolvedConfig,
   Profile,
@@ -71,8 +73,17 @@ export async function resolveCliConfig(
   opts: ConfigBridgeOptions = {},
 ): Promise<ConfigBridgeResult> {
   try {
+    const processCwd = process.cwd();
+    const initCwd = process.env['INIT_CWD'];
+    const hasLocalProjectConfig = existsSync(join(processCwd, '.aidha', 'config.yaml'));
+    const discoveryCwd =
+      !opts.configPath && initCwd && initCwd !== processCwd && !hasLocalProjectConfig
+        ? initCwd
+        : processCwd;
     const loadResult = await loadConfig({
       configPath: opts.configPath || undefined,
+      cwd: discoveryCwd,
+      env: process.env as Record<string, string | undefined>,
       onWarning: (msg) => {
         // eslint-disable-next-line no-console
         console.warn(`[config] ${msg}`);

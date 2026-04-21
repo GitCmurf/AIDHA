@@ -1,10 +1,14 @@
 /**
  * LLM client tests
  */
-import { describe, it, expect } from 'vitest';
-import { OpenAiCompatibleClient } from '../src/extract/llm-client.js';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { GeminiApiClient, OpenAiCompatibleClient } from '../src/extract/llm-client.js';
 
 describe('OpenAiCompatibleClient', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe('normalizeBaseUrl', () => {
     // Note: normalizeBaseUrl is not exported, but we can test it indirectly
     // through the client constructor behavior
@@ -69,5 +73,108 @@ describe('OpenAiCompatibleClient', () => {
         })).not.toThrow();
       }
     });
+  });
+
+  it('should use max_completion_tokens for GPT-5 family requests', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"ok":true}' } }],
+      }),
+    } as Response);
+
+    const client = new OpenAiCompatibleClient({
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'test-key', // pragma: allowlist secret
+    });
+
+    const result = await client.generate({
+      model: 'gpt-5.4',
+      system: 'system',
+      user: 'user',
+      maxTokens: 1234,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(requestBody.max_completion_tokens).toBe(1234);
+    expect(requestBody.max_tokens).toBeUndefined();
+  });
+
+  it('should surface client timeout attribution clearly', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      await new Promise((_, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      });
+      throw new Error('unreachable');
+    });
+
+    const client = new OpenAiCompatibleClient({
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'test-key', // pragma: allowlist secret
+      timeoutMs: 10,
+    });
+
+    const result = await client.generate({
+      model: 'gpt-4o-mini',
+      system: 'system',
+      user: 'user',
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('client timeout');
+  });
+});
+
+describe('GeminiApiClient', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should send structured output schema via responseSchema', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }],
+      }),
+    } as Response);
+
+    const client = new GeminiApiClient({
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      apiKey: 'test-key', // pragma: allowlist secret
+    });
+
+    const result = await client.generate({
+      model: 'gemini-2.5-flash',
+      system: 'system',
+      user: 'user',
+      responseFormat: {
+        type: 'json_schema',
+        schema: {
+          type: 'object',
+          properties: {
+            ok: { type: 'boolean' },
+          },
+          required: ['ok'],
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(requestBody.generationConfig.responseMimeType).toBe('application/json');
+    expect(requestBody.generationConfig.responseSchema).toEqual({
+      type: 'object',
+      properties: {
+        ok: { type: 'boolean' },
+      },
+      required: ['ok'],
+    });
+    expect(requestBody.generationConfig.responseJsonSchema).toBeUndefined();
   });
 });

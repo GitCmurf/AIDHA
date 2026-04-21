@@ -34,6 +34,39 @@ class StubLlmClient implements LlmClient {
   }
 }
 
+class SequenceStubLlmClient implements LlmClient {
+  calls = 0;
+
+  constructor(private readonly responses: Array<Result<string>>) {}
+
+  async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+    void request;
+    const response = this.responses[this.calls] ?? { ok: true, value: '{"claims":[]}' };
+    this.calls += 1;
+    return response;
+  }
+}
+
+class RecordingStubLlmClient implements LlmClient {
+  calls = 0;
+  requests: LlmCompletionRequest[] = [];
+
+  constructor(private readonly responses: string[]) {}
+
+  async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+    this.requests.push(request);
+    const response = this.responses[this.calls] ?? '{"claims": []}';
+    this.calls += 1;
+    return { ok: true, value: response };
+  }
+
+  async complete(request: any): Promise<any> {
+    const result = await this.generate(request);
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, text: result.value };
+  }
+}
+
 async function seedVideo(store: InMemoryStore, videoId: string) {
   const resourceId = `youtube-${videoId}`;
   await store.upsertNode(
@@ -729,6 +762,456 @@ describe('LLM claim extraction', () => {
     expect(selected.length).toBe(1);
     expect(selected[0]?.text).toContain('with 3 stable fields');
 
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('retries transient provider failures before succeeding', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-retry-ok');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-retry-cache-'));
+    const client = new SequenceStubLlmClient([
+      { ok: false, error: new Error('Gemini request failed (503): high demand') },
+      {
+        ok: true,
+        value: JSON.stringify({
+          claims: [
+            {
+              text: 'Deterministic IDs prevent duplicate knowledge items.',
+              excerptIds: ['excerpt-2'],
+              startSeconds: 30,
+              type: 'insight',
+            },
+          ],
+        }),
+      },
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      transportRetry: { maxAttempts: 2, baseDelayMs: 1 },
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(claims).toHaveLength(1);
+    expect(client.calls).toBe(2);
+    expect(extractor.getLastRunStats().transportRetryCount).toBe(1);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('supports semantic-overlap chunking for eval-style extraction', async () => {
+    const resource = {
+      id: 'youtube-llm-semantic-chunks',
+      metadata: { videoId: 'llm-semantic-chunks' },
+    } as any;
+    const excerpts = [
+      {
+        id: 'excerpt-a',
+        content: 'We define the problem carefully. The first substantive claim is that stable identifiers prevent duplicate graph writes across repeated ingestion runs. '.repeat(8),
+        metadata: { start: 0 },
+      },
+      {
+        id: 'excerpt-b',
+        content: 'The implementation detail is specific. Use a deterministic SHA-256 hash over canonical fields so replaying the same transcript yields the same identifier again. '.repeat(8),
+        metadata: { start: 40 },
+      },
+      {
+        id: 'excerpt-c',
+        content: 'A related claim follows naturally. Semantic chunking should respect discourse boundaries so a sentence introducing a mechanism is not detached from the sentence that explains it. '.repeat(8),
+        metadata: { start: 90 },
+      },
+      {
+        id: 'excerpt-d',
+        content: 'Finally the speaker gives an operational recommendation. Keep overlap small but deliberate so adjacent chunks retain enough context without duplicating the whole section. '.repeat(8),
+        metadata: { start: 140 },
+      },
+    ] as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-semantic-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'First chunk claim.',
+            excerptIds: ['excerpt-a'],
+            startSeconds: 0,
+            type: 'fact',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Second chunk claim.',
+            excerptIds: ['excerpt-d'],
+            startSeconds: 140,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      chunkStrategy: 'semantic-overlap',
+      chunkTargetInputTokens: 200,
+      chunkOverlapExcerpts: 1,
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBeGreaterThan(1);
+    expect(Array.isArray(claims)).toBe(true);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('records chunk token diagnostics even when chunk responses come from cache', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-cache-diagnostics');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-diagnostics-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Cached diagnostic claim preserves enough detail to survive editorial filtering.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            type: 'insight',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkStrategy: 'semantic-overlap',
+      chunkTargetInputTokens: 200,
+      chunkHardMaxInputTokens: 400,
+      chunkOverlapExcerpts: 0,
+    });
+
+    await extractor.extractClaims({ resource, excerpts, maxClaims: 3 });
+    const second = await extractor.extractClaims({ resource, excerpts, maxClaims: 3 });
+
+    expect(second.length).toBeGreaterThan(0);
+    expect(extractor.getLastRunStats().maxChunkInputTokens).toBeGreaterThan(0);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('supports whole-transcript chunking as a single extraction pass', async () => {
+    const resource = {
+      id: 'youtube-llm-whole-transcript',
+      metadata: { videoId: 'llm-whole-transcript' },
+    } as any;
+    const excerpts = [
+      { id: 'excerpt-a', content: 'Alpha claim. '.repeat(40), metadata: { start: 0 } },
+      { id: 'excerpt-b', content: 'Beta claim. '.repeat(40), metadata: { start: 40 } },
+      { id: 'excerpt-c', content: 'Gamma claim. '.repeat(40), metadata: { start: 80 } },
+    ] as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-whole-transcript-'));
+    const client = new StubLlmClient([
+      '{"claims":[{"text":"Whole transcript claim preserves the main point across the entire transcript context.","excerptIds":["excerpt-a"],"type":"fact"}]}',
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkStrategy: 'whole-transcript',
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(1);
+    expect(claims).toHaveLength(1);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('runs a single self-improvement round when enabled', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-self-improve');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-self-improve-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Deterministic IDs prevent duplicate claim nodes across repeated ingestion runs.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            type: 'insight',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Deterministic IDs prevent duplicate claim nodes across repeated ingestion runs.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            type: 'insight',
+          },
+          {
+            text: 'Stable field hashing provides the broader implementation mechanism behind duplicate prevention.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            type: 'mechanism',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1:self-improve',
+      cacheDir,
+      selfImproveMaxRounds: 1,
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(2);
+    expect(claims).toHaveLength(2);
+    expect(extractor.getLastRunStats().selfImproveRoundCount).toBe(1);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('includes teacher-gap guidance in the self-improvement prompt when provided', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-self-improve-guided');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-self-improve-guided-'));
+    const client = new RecordingStubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Deterministic IDs prevent duplicate claim nodes across repeated ingestion runs.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            type: 'insight',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Deterministic IDs prevent duplicate claim nodes across repeated ingestion runs.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            type: 'insight',
+          },
+          {
+            text: 'Stable field hashing is the broader implementation mechanism behind duplicate prevention.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            type: 'mechanism',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1:self-improve-guided',
+      cacheDir,
+      selfImproveMaxRounds: 1,
+      selfImproveGuidance: {
+        teacherCandidateId: 'manual/GG',
+        focusAreas: ['Add a clear root claim.', 'Preserve explicit frameworks.'],
+        missingTeacherClaims: ['Five layouts cover 90% of slides.'],
+        extraCandidateClaims: ['Overly narrow duplicate claim.'],
+      },
+    });
+
+    await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(2);
+    expect(client.requests[1]?.user).toContain('TEACHER_GUIDANCE_JSON');
+    expect(client.requests[1]?.user).toContain('manual/GG');
+    expect(client.requests[1]?.user).toContain('Five layouts cover 90% of slides.');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('runs one bounded prompt-pack retry when structural diagnostics indicate missing root coverage', async () => {
+    const store = new InMemoryStore();
+    const resourceId = 'youtube-llm-router-retry';
+    await store.upsertNode(
+      'Resource',
+      resourceId,
+      {
+        label: 'Consulting slide layouts',
+        metadata: {
+          videoId: 'llm-router-retry',
+          topicDomain: 'Business Strategy',
+        },
+      },
+      { detectNoop: true }
+    );
+    const excerpts = [
+      { id: 'retry-1', start: 0, text: 'There are five slide layouts used in consulting presentations.' },
+      { id: 'retry-2', start: 30, text: 'Chart slides and table slides are two of the layouts.' },
+    ];
+    for (const [index, excerpt] of excerpts.entries()) {
+      await store.upsertNode(
+        'Excerpt',
+        excerpt.id,
+        {
+          label: `Retry Excerpt ${index + 1}`,
+          content: excerpt.text,
+          metadata: { resourceId, videoId: 'llm-router-retry', start: excerpt.start, duration: 5, sequence: index },
+        },
+        { detectNoop: true }
+      );
+    }
+
+    const resource = (await store.getNode(resourceId)).value!;
+    const excerptNodes = (await store.queryNodes({ type: 'Excerpt', filters: { resourceId } })).value.items;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-router-retry-'));
+    const client = new RecordingStubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Chart slides should match the underlying data type and decision context.',
+            excerptIds: ['retry-2'],
+            startSeconds: 30,
+            type: 'fact',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Five slide layouts account for most consulting presentation needs.',
+            excerptIds: ['retry-1'],
+            startSeconds: 0,
+            type: 'insight',
+          },
+          {
+            text: 'Chart slides and table slides are two of the core layout categories.',
+            excerptIds: ['retry-2'],
+            startSeconds: 30,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'pass1-claim-mining-v2',
+      cacheDir,
+      promptPackId: 'business-framework',
+      enablePromptRouting: false,
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts: excerptNodes, maxClaims: 5 });
+    const stats = extractor.getLastRunStats();
+
+    expect(client.calls).toBe(2);
+    expect(claims[0]?.text).toContain('Five slide layouts');
+    expect(stats.retryTriggered).toBe(true);
+    expect(stats.retryPromptPackId).toBe('enumeration-framework');
+    await rm(cacheDir, { recursive: true, force: true });
+    await store.close();
+  });
+
+  it('enforces a hard max token split for semantic-overlap chunking', async () => {
+    const resource = {
+      id: 'youtube-llm-hard-max',
+      metadata: { videoId: 'llm-hard-max' },
+    } as any;
+    const excerpts = [
+      {
+        id: 'excerpt-a',
+        content: 'Alpha claim with many repeated tokens to force chunk growth. '.repeat(40),
+        metadata: { start: 0 },
+      },
+      {
+        id: 'excerpt-b',
+        content: 'Beta claim with many repeated tokens to force another split when the hard max is low. '.repeat(40),
+        metadata: { start: 30 },
+      },
+      {
+        id: 'excerpt-c',
+        content: 'Gamma claim continues the pattern and should trigger a further chunk if the cap is respected. '.repeat(40),
+        metadata: { start: 60 },
+      },
+    ] as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-hard-max-cache-'));
+    const client = new StubLlmClient([
+      '{"claims":[{"text":"Chunk 1","excerptIds":["excerpt-a"],"type":"fact"}]}',
+      '{"claims":[{"text":"Chunk 2","excerptIds":["excerpt-b"],"type":"fact"}]}',
+      '{"claims":[{"text":"Chunk 3","excerptIds":["excerpt-c"],"type":"fact"}]}',
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkStrategy: 'semantic-overlap',
+      chunkTargetInputTokens: 120,
+      chunkHardMaxInputTokens: 150,
+      chunkOverlapExcerpts: 0,
+    });
+
+    await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBeGreaterThan(1);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('does not downgrade an explicitly configured v2 prompt pack via retry routing', async () => {
+    const resource = {
+      id: 'youtube-llm-v2-pack',
+      label: 'Lp(a) clinical discussion',
+      metadata: { videoId: 'llm-v2-pack', topicDomain: 'Clinical cardiology' },
+    } as any;
+    const excerptNodes = [
+      {
+        id: 'excerpt-1',
+        content: 'Lipoprotein(a) is genetically determined and increases cardiovascular risk. There are four principles that guide management.',
+        metadata: { start: 0 },
+      },
+    ] as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-v2-pack-cache-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Lipoprotein(a) is genetically determined and raises cardiovascular risk.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'pass1-claim-mining-v2',
+      cacheDir,
+      promptPackId: 'clinical-risk-management-v2',
+      enablePromptRouting: false,
+    });
+
+    await extractor.extractClaims({ resource, excerpts: excerptNodes, maxClaims: 5 });
+    const stats = extractor.getLastRunStats();
+
+    expect(client.calls).toBe(1);
+    expect(stats.promptPackId).toBe('clinical-risk-management-v2');
+    expect(stats.retryTriggered).toBe(false);
+    expect(stats.retryPromptPackId).toBeUndefined();
     await rm(cacheDir, { recursive: true, force: true });
   });
 });

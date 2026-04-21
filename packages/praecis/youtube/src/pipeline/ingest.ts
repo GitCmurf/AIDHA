@@ -159,6 +159,13 @@ export class IngestionPipeline {
 
         const atomicResult = await runAtomically(this.graphStore, async () => {
           let localTagsAssigned = 0;
+          if (!transcriptResult.ok && hasExcerpts) {
+            const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
+            if (!purgeResult.ok) {
+              return { ok: false, error: purgeResult.error };
+            }
+          }
+
           if (transcriptResult.ok && transcript) {
             if (hasExcerpts) {
               const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
@@ -186,7 +193,7 @@ export class IngestionPipeline {
 
           const updateData: NodeDataInput = {
             label: resource.label,
-            content: transcript?.fullText ?? resource.content,
+            content: transcriptResult.ok ? (transcript?.fullText ?? resource.content) : undefined,
             metadata: updatedMetadata,
           };
 

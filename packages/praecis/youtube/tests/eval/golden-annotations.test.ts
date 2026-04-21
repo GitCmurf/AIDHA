@@ -28,9 +28,12 @@ describe("Golden Annotations Validation", () => {
     const invalidData = [
       {
         videoId: "v1",
+        title: "Video 1",
         idealClaims: [
           {
             text: "invalid range",
+            type: "fact",
+            children: [],
             evidence: { startMs: 100, endMs: 50 }
           }
         ],
@@ -45,6 +48,7 @@ describe("Golden Annotations Validation", () => {
     const invalidData = [
       {
         videoId: "v1",
+        title: "Video 1",
         idealClaims: [],
         rejectedClaims: [
           {
@@ -54,6 +58,26 @@ describe("Golden Annotations Validation", () => {
         ]
       }
     ];
+    const result = GoldenAnnotationSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject invalid claim types that are not normalized machine strings", () => {
+    const invalidData = [
+      {
+        videoId: "v1",
+        title: "Video 1",
+        idealClaims: [
+          {
+            text: "invalid type",
+            type: "Research Finding",
+            children: []
+          }
+        ],
+        rejectedClaims: []
+      }
+    ];
+
     const result = GoldenAnnotationSchema.safeParse(invalidData);
     expect(result.success).toBe(false);
   });

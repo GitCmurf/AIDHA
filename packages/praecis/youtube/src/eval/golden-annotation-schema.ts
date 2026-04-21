@@ -1,22 +1,59 @@
 import { z } from "zod";
 
-export const GoldenAnnotationSchema = z.array(z.object({
-  videoId: z.string().min(1),
-  idealClaims: z.array(z.object({
-    text: z.string().min(1),
-    evidence: z.object({
-      quote: z.string().optional(),
-      startMs: z.number().nonnegative(),
-      endMs: z.number().nonnegative(),
-    }).refine(data => data.endMs >= data.startMs, {
-      message: "endMs must be greater than or equal to startMs",
-      path: ["endMs"],
-    }).optional(),
-  })),
-  rejectedClaims: z.array(z.object({
-    text: z.string().min(1),
-    reason: z.enum(["hallucination", "redundant", "fragment", "topic-drift"]),
-  })),
+export const GoldenClaimTypeSchema = z.string().regex(/^[a-z][a-z0-9_]*$/, {
+  message: "Claim type must be a normalized machine string such as 'research_finding'",
+});
+
+export const GoldenClaimEvidenceSchema = z.object({
+  quote: z.string().optional(),
+  startMs: z.number().nonnegative(),
+  endMs: z.number().nonnegative(),
+}).refine(data => data.endMs >= data.startMs, {
+  message: "endMs must be greater than or equal to startMs",
+  path: ["endMs"],
+});
+
+export const GoldenClaimNodeSchema: z.ZodType<{
+  text: string;
+  type: string;
+  children: Array<{
+    text: string;
+    type: string;
+    children: Array<any>;
+    evidence?: {
+      quote?: string;
+      startMs: number;
+      endMs: number;
+    };
+  }>;
+  evidence?: {
+    quote?: string;
+    startMs: number;
+    endMs: number;
+  };
+}> = z.lazy(() => z.object({
+  text: z.string().trim().min(1),
+  type: GoldenClaimTypeSchema,
+  children: z.array(GoldenClaimNodeSchema),
+  evidence: GoldenClaimEvidenceSchema.optional(),
 }));
 
+export const GoldenRejectedClaimSchema = z.object({
+  text: z.string().trim().min(1),
+  reason: z.enum(["hallucination", "redundant", "fragment", "topic-drift"]),
+});
+
+export const GoldenAnnotationEntrySchema = z.object({
+  videoId: z.string().min(1),
+  title: z.string().min(1),
+  speaker: z.string().min(1).optional(),
+  speakerCredentials: z.string().min(1).optional(),
+  idealClaims: z.array(GoldenClaimNodeSchema),
+  rejectedClaims: z.array(GoldenRejectedClaimSchema),
+});
+
+export const GoldenAnnotationSchema = z.array(GoldenAnnotationEntrySchema);
+
 export type GoldenAnnotation = z.infer<typeof GoldenAnnotationSchema>;
+export type GoldenAnnotationEntry = z.infer<typeof GoldenAnnotationEntrySchema>;
+export type GoldenClaimNode = z.infer<typeof GoldenClaimNodeSchema>;

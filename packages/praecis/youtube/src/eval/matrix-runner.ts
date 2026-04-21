@@ -20,9 +20,13 @@ import { scoreClaimSet } from "./scoring-executor.js";
 import { computeConsensus } from "./consensus-scorer.js";
 import { LlmClaimExtractor } from "../extract/llm-claims.js";
 import type { LlmClient } from "../extract/llm-client.js";
-import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
+import {
+  PROMPT_VERSION as EXTRACT_PROMPT_VERSION,
+  type Pass1PromptConfigId,
+} from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 import { isValidSafeId } from "../utils/ids.js";
+import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
 
 export const EXTRACTOR_VERSION = "v1";
 
@@ -52,6 +56,30 @@ export interface MatrixOptions {
   timeoutMs: number;
   extractionMaxTokens?: number;
   extractionMaxChunks?: number;
+  extractionChunkStrategy?: 'time' | 'semantic-overlap' | 'whole-transcript';
+  extractionChunkTargetInputTokens?: number;
+  extractionChunkHardMaxInputTokens?: number;
+  extractionChunkOverlapExcerpts?: number;
+  extractionChunkProfiles?: Record<string, {
+    chunkStrategy?: 'time' | 'semantic-overlap' | 'whole-transcript';
+    targetInputTokens?: number;
+    hardMaxInputTokens?: number;
+    overlapExcerpts?: number;
+  }>;
+  extractionTransportRetryMaxAttempts?: number;
+  extractionTransportRetryBaseDelayMs?: number;
+  extractionChunkModeId?: string;
+  extractionSelfImproveHints?: Record<string, {
+    teacherCandidateId?: string;
+    focusAreas?: string[];
+    missingTeacherClaims?: string[];
+    extraCandidateClaims?: string[];
+  }>;
+  extractionEnablePromptRouting?: boolean;
+  extractionPromptPackId?: ExtractionPromptPackId;
+  extractionPromptVersion?: string;
+  extractionPromptConfigId?: Pass1PromptConfigId;
+  cellLabelPrefix?: string;
   judgeMaxTokens?: number;
   extractorClientFactory: (modelId: string) => LlmClient;
   judgeClientFactory: (modelId: string) => LlmClient;
@@ -68,6 +96,8 @@ export interface MatrixCell {
   videoId: string;
   modelId: string;
   extractorVariantId: ExtractorVariantId;
+  chunkMode?: string;
+  promptConfigId?: string;
   claimSet: ClaimCandidate[];
   scores?: ClaimSetScore[];
   consensusScore?: {
@@ -86,6 +116,23 @@ export interface MatrixCell {
     scoring?: Record<string, { prompt: { system: string; user: string }; response: string }[]>;
   };
   warnings?: string[];
+  extractionDiagnostics?: {
+    transportRetryCount: number;
+    fallbackChunkCount: number;
+    transientFailureCount: number;
+    clientTimeoutCount: number;
+    upstreamAbortCount: number;
+    chunkInputTokenCounts: number[];
+    maxChunkInputTokens: number;
+    selfImproveRoundCount: number;
+    promptPackId: string;
+    routeSource: string;
+    routeConfidence: number;
+    routeSignals: string[];
+    retryTriggered: boolean;
+    retryReason?: string;
+    retryPromptPackId?: string;
+  };
 }
 
 export interface MatrixResult {
@@ -178,10 +225,20 @@ const performExtraction = async (
   resource: GraphNode,
   excerpts: GraphNode[],
   promptVersion: string
-): Promise<{ claims: ClaimCandidate[]; traces: { prompt: { system: string; user: string }; response: string }[] }> => {
+): Promise<{
+  claims: ClaimCandidate[];
+  traces: { prompt: { system: string; user: string }; response: string }[];
+  warnings?: string[];
+  diagnostics: NonNullable<MatrixCell["extractionDiagnostics"]>;
+}> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
+    const chunkProfile = options.extractionChunkProfiles?.[modelId];
+    const videoId = typeof resource?.metadata?.["videoId"] === "string"
+      ? String(resource.metadata?.["videoId"])
+      : resource.id;
+    const selfImproveHintKey = [videoId, variant, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
     const client = options.extractorClientFactory(modelId);
     const extractor = new LlmClaimExtractor({
       client,
@@ -189,9 +246,22 @@ const performExtraction = async (
       promptVersion,
       cacheDir: options.cacheDir,
       editorVersion: variant === "editorial-pass-v1" ? "v1" : variant === "editorial-pass-v2" ? "v2" : undefined,
-      editorLlm: variant.startsWith("editorial-pass-"),
+      editorLlm: variant.startsWith("editorial-pass-") || variant === "self-improve-v1",
+      selfImproveMaxRounds: variant === "self-improve-v1" ? 1 : 0,
+      promptConfigId: options.extractionPromptConfigId,
+      promptPackId: options.extractionPromptPackId,
       maxTokens: options.extractionMaxTokens,
       maxChunks: options.extractionMaxChunks,
+      selfImproveGuidance: options.extractionSelfImproveHints?.[selfImproveHintKey],
+      enablePromptRouting: options.extractionEnablePromptRouting,
+      chunkStrategy: chunkProfile?.chunkStrategy ?? options.extractionChunkStrategy,
+      chunkTargetInputTokens: chunkProfile?.targetInputTokens ?? options.extractionChunkTargetInputTokens,
+      chunkHardMaxInputTokens: chunkProfile?.hardMaxInputTokens ?? options.extractionChunkHardMaxInputTokens,
+      chunkOverlapExcerpts: chunkProfile?.overlapExcerpts ?? options.extractionChunkOverlapExcerpts,
+      transportRetry: {
+        maxAttempts: options.extractionTransportRetryMaxAttempts,
+        baseDelayMs: options.extractionTransportRetryBaseDelayMs,
+      },
     });
 
     const claims = await extractor.extractClaims({
@@ -201,7 +271,60 @@ const performExtraction = async (
       collectTraces: true,
     });
 
-    return { claims, traces: extractor.getLastTraces() };
+    const runStats = extractor.getLastRunStats();
+    const warnings: string[] = [];
+    if (runStats.transportRetryCount > 0) {
+      warnings.push(`transport-retries:${runStats.transportRetryCount}`);
+    }
+    if (runStats.fallbackChunkCount > 0) {
+      warnings.push(`fallback-chunks:${runStats.fallbackChunkCount}`);
+    }
+    if (runStats.transientFailureCount > 0) {
+      warnings.push(`transient-provider-errors:${runStats.transientFailureCount}`);
+    }
+    if (runStats.clientTimeoutCount > 0) {
+      warnings.push(`client-timeouts:${runStats.clientTimeoutCount}`);
+    }
+    if (runStats.upstreamAbortCount > 0) {
+      warnings.push(`upstream-aborts:${runStats.upstreamAbortCount}`);
+    }
+    if (runStats.maxChunkInputTokens > 0) {
+      warnings.push(`max-chunk-input-tokens:${runStats.maxChunkInputTokens}`);
+    }
+    if (runStats.selfImproveRoundCount > 0) {
+      warnings.push(`self-improve-rounds:${runStats.selfImproveRoundCount}`);
+    }
+    warnings.push(`prompt-pack:${runStats.promptPackId}`);
+    warnings.push(`route-source:${runStats.routeSource}`);
+    if (runStats.retryTriggered) {
+      warnings.push(`prompt-retry:${runStats.retryReason ?? "retry-triggered"}->${runStats.retryPromptPackId ?? "unknown"}`);
+    }
+    if (options.extractionSelfImproveHints?.[selfImproveHintKey]) {
+      warnings.push("teacher-gap-hints-applied");
+    }
+
+    return {
+      claims,
+      traces: extractor.getLastTraces(),
+      warnings,
+      diagnostics: {
+        transportRetryCount: runStats.transportRetryCount,
+        fallbackChunkCount: runStats.fallbackChunkCount,
+        transientFailureCount: runStats.transientFailureCount,
+        clientTimeoutCount: runStats.clientTimeoutCount,
+        upstreamAbortCount: runStats.upstreamAbortCount,
+        chunkInputTokenCounts: runStats.chunkInputTokenCounts,
+        maxChunkInputTokens: runStats.maxChunkInputTokens,
+        selfImproveRoundCount: runStats.selfImproveRoundCount,
+        promptPackId: runStats.promptPackId,
+        routeSource: runStats.routeSource,
+        routeConfidence: runStats.routeConfidence,
+        routeSignals: runStats.routeSignals,
+        retryTriggered: runStats.retryTriggered,
+        retryReason: runStats.retryReason,
+        retryPromptPackId: runStats.retryPromptPackId,
+      },
+    };
   } finally {
     clearTimeout(timeout);
   }
@@ -263,6 +386,16 @@ const getScoresForCell = async (
 
   for (const judgeModelId of options.judgeModels) {
     const judgeModel = getModel(judgeModelId);
+    if (judgeModel) {
+      judgeUsdEstimate += options.dryRun
+        ? estimateJudgeCost(
+            fullText,
+            cell.claimSet,
+            judgeModel,
+            DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
+          )
+        : estimateJudgeCost(fullText, cell.claimSet, judgeModel);
+    }
 
     const cachedScores = options.resume && !options.dryRun
       ? await getCachedScore(
@@ -278,21 +411,9 @@ const getScoresForCell = async (
     if (cachedScores) {
       scores.push(...cachedScores);
     } else if (options.dryRun) {
-      // Estimate judge cost even in dry-run mode so user sees projected budget
-      if (judgeModel) {
-        judgeUsdEstimate += estimateJudgeCost(
-          fullText,
-          cell.claimSet,
-          judgeModel,
-          DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
-        );
-      }
       // skipcq: JS-0002
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     } else {
-      if (judgeModel) {
-        judgeUsdEstimate += estimateJudgeCost(fullText, cell.claimSet, judgeModel);
-      }
       try {
         const scoreResult = await performScoring(
           model.id,
@@ -379,6 +500,7 @@ const getExtractionForCell = async (
       videoId: video.videoId,
       modelId: model.id,
       extractorVariantId: variant,
+      promptConfigId: options.extractionPromptConfigId,
       claimSet: [],
       costEstimate,
     };
@@ -398,8 +520,11 @@ const getExtractionForCell = async (
       videoId: video.videoId,
       modelId: model.id,
       extractorVariantId: variant,
+      promptConfigId: options.extractionPromptConfigId,
       claimSet: extractionResult.claims,
       costEstimate,
+      warnings: extractionResult.warnings,
+      extractionDiagnostics: extractionResult.diagnostics,
       traces: {
         extraction: extractionResult.traces,
       }
@@ -501,11 +626,12 @@ const prepareTranscriptDataAsync = async (
     type: "Resource" as const,
     label: video.title,
     content: fullText,
-    metadata: {
-      videoId: video.videoId,
-      channelName: video.channelName,
-      description: video.description || "",
-    },
+      metadata: {
+        videoId: video.videoId,
+        channelName: video.channelName,
+        description: video.description || "",
+        topicDomain: video.topicDomain,
+      },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -537,13 +663,15 @@ const processCell = async (
   const cellStartedAt = Date.now();
   try {
     // skipcq: JS-0002
-    console.log(`[cell ${cellIndex + 1}/${totalCells}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
+    const labelSuffix = options.cellLabelPrefix ? ` ${options.cellLabelPrefix}` : "";
+    console.log(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
     if ("error" in transcriptDataResult) {
       cells.push({
         videoId: video.videoId,
         modelId: model.id,
         extractorVariantId: variant,
+        promptConfigId: options.extractionPromptConfigId,
         claimSet: [],
         error: { message: `Transcript unavailable or malformed for ${video.videoId}` },
       });
@@ -552,7 +680,7 @@ const processCell = async (
     }
 
     const { videoContext, excerpts, resource, fullText } = transcriptDataResult;
-    const promptVersion = EXTRACT_PROMPT_VERSION;
+    const promptVersion = options.extractionPromptVersion ?? EXTRACT_PROMPT_VERSION;
     const extractorVersion = EXTRACTOR_VERSION;
 
     const extractionResult = await getExtractionForCell(
@@ -571,6 +699,7 @@ const processCell = async (
         videoId: video.videoId,
         modelId: model.id,
         extractorVariantId: variant,
+        promptConfigId: options.extractionPromptConfigId,
         claimSet: [],
         error: extractionResult.error,
       });
@@ -649,7 +778,7 @@ const processCell = async (
     cells.push(cell);
     const durationMs = Date.now() - cellStartedAt;
     // skipcq: JS-0002
-    console.log(`[cell ${cellIndex + 1}/${totalCells}] done in ${durationMs}ms`);
+    console.log(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] done in ${durationMs}ms`);
   } finally {
     semaphore.release();
   }

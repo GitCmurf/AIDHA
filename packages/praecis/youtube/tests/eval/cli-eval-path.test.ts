@@ -55,6 +55,16 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 describe("CLI Export Path Resolution", () => {
+  const mockConfig = {
+    llm: {
+      model: "gpt-4o-mini",
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "",
+      timeoutMs: 1000,
+      cacheDir: "test-cache",
+    },
+  } as any;
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -62,7 +72,7 @@ describe("CLI Export Path Resolution", () => {
   it("should use default output directory if no options are provided", async () => {
     const mkdirSyncMock = vi.mocked(fs.mkdirSync);
 
-    await runEvalMatrix(["node", "matrix"], { format: "both", corpus: "test.json" }, {} as any);
+    await runEvalMatrix(["node", "matrix"], { format: "both", corpus: "test.json" }, mockConfig);
 
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
     expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "out/eval-matrix/reports", { recursive: true });
@@ -72,7 +82,7 @@ describe("CLI Export Path Resolution", () => {
   it("should use run-scoped output directory if --run-id is provided", async () => {
     const mkdirSyncMock = vi.mocked(fs.mkdirSync);
 
-    await runEvalMatrix(["node", "matrix"], { "run-id": "test-run", format: "both", corpus: "test.json" }, {} as any);
+    await runEvalMatrix(["node", "matrix"], { "run-id": "test-run", format: "both", corpus: "test.json" }, mockConfig);
 
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
     expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "out/eval-matrix/runs/test-run", { recursive: true });
@@ -85,11 +95,37 @@ describe("CLI Export Path Resolution", () => {
     await runEvalMatrix(
       ["node", "matrix"],
       { "run-id": "test-run", "output-dir": "custom/dir", format: "both", corpus: "test.json" },
-      {} as any
+      mockConfig
     );
 
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
     expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "custom/dir", { recursive: true });
     expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, "custom/dir/cells", { recursive: true });
+  });
+
+  it("should support narrow-manual-baseline dry-run without writing reports", async () => {
+    const mkdirSyncMock = vi.mocked(fs.mkdirSync);
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const exitCode = await runEvalMatrix(
+      ["node", "narrow-manual-baseline"],
+      { "dry-run": true, corpus: "test.json" },
+      mockConfig
+    );
+
+    expect(exitCode).toBe(0);
+    expect(mkdirSyncMock).not.toHaveBeenCalled();
+    expect(consoleLogSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Judge Models: none")
+    )).toBe(true);
+    expect(consoleLogSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Mode: fast-triage")
+    )).toBe(true);
+    expect(consoleLogSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Manual Baselines: false")
+    )).toBe(true);
+    expect(consoleLogSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Refresh Stage: none")
+    )).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import { getModel } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
 import type { LlmClient } from "../../src/extract/llm-client";
+import * as matrixCache from "../../src/eval/matrix-cache";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
@@ -36,9 +37,18 @@ vi.mock("../../src/extract/llm-claims", () => ({
   }))
 }));
 
+vi.mock("../../src/eval/matrix-cache", async () => {
+  const actual = await vi.importActual<typeof import("../../src/eval/matrix-cache")>("../../src/eval/matrix-cache");
+  return {
+    ...actual,
+    getCachedScore: vi.fn().mockResolvedValue(null),
+  };
+});
+
 describe("Matrix Runner Integration", () => {
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
+    vi.mocked(matrixCache.getCachedScore).mockResolvedValue(null);
   });
 
   const createTestVideo = (
@@ -208,5 +218,53 @@ describe("Matrix Runner Integration", () => {
     const report = aggregateMatrixResults(cells);
     expect(report.modelStats["m1"].dimensions.overallScore.mean).toBe(5);
     expect(report.modelStats["m1"].dimensions.completeness.mean).toBe(5);
+  });
+
+  it("should keep judge cost estimates when scores are resumed from cache", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+    ];
+    const models = [getModel("gpt-4o-mini")!];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
+    vi.mocked(matrixCache.getCachedScore).mockResolvedValue([
+      {
+        completeness: 8,
+        accuracy: 9,
+        topicCoverage: 7,
+        atomicity: 10,
+        overallScore: 8.5,
+        reasoning: "Mock reasoning that is long enough",
+        missingClaims: [],
+        hallucinations: [],
+        redundancies: [],
+        gapAreas: []
+      }
+    ]);
+
+    const options = {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: true,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini"],
+      maxConcurrency: 1,
+      timeoutMs: 1000,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: () => ({}) as unknown as LlmClient,
+    };
+
+    const result = await runEvaluationMatrix(corpus, models, options);
+
+    expect(result.cells).toHaveLength(1);
+    expect(result.cells[0]?.scores).toHaveLength(1);
+    expect(result.cells[0]?.costEstimate?.judgeUsd).toBeGreaterThan(0);
   });
 });

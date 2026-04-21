@@ -45,6 +45,7 @@ Commands:
   aidha-youtube preflight youtube [--json] [--probe-url <url>]
   aidha-youtube fixtures import-ttml <path> [--video-id <id>] [--source-url <url>] [--track <name>] [--out <path>] [--pretty]
   aidha-youtube eval matrix --corpus <path> [--models <id,id>] [--judge-models <id,id>] [--variants <id,id>] [--run-id <id>] [--tier <frontier|midtier|budget>] [--output-dir <path>] [--transcript-dir <path>] [--format <both|json|md>] [--dry-run] [--resume] [--max-concurrency <n>] [--extraction-max-tokens <n>] [--extraction-max-chunks <n>] [--judge-max-tokens <n>] [--timeout-ms <n>] [--clear-all] [--invalidate-run <runId>] [--yes]
+  aidha-youtube eval narrow-manual-baseline [--mode <fast-triage|compare|deep>] [--corpus <path>] [--manual-baseline-dir <path>] [--models <id,id>] [--judge] [--with-manual-baselines] [--judge-model <id>] [--judge-models <id,id>] [--fallback-model <id>] [--variants <id,id>] [--output-dir <path>] [--transcript-dir <path>] [--dry-run] [--max-concurrency <n>] [--judge-max-tokens <n>] [--timeout-ms <n>] [--max-rpm-gemini-flash-lite <n>] [--max-rpm-gemini-embedding <n>] [--max-rpm-gpt54 <n>] [--refresh-stage <shortlist|refine|score|judge|all>]
 
 Defaults:
   --db ./out/aidha.sqlite

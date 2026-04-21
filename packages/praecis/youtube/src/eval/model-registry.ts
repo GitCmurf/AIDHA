@@ -1,12 +1,13 @@
 export type ModelTier = "frontier" | "midtier" | "budget";
 export type ModelAvailability = "stable" | "experimental" | "free-tier";
-export type ModelProvider = "openai" | "google-aistudio" | "zai" | "xiaomi";
+export type ModelProvider = "openai" | "google-aistudio" | "zai" | "xiaomi" | "openrouter";
 
 export interface EvalModel {
   id: string;
   provider: ModelProvider;
   baseUrl?: string;
   modelName: string;
+  apiModelId?: string;
   contextWindow: number;
   supportsJsonMode: boolean;
   costPer1kTokens: {
@@ -156,6 +157,18 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
     tier: "budget",
     availability: "stable",
     notes: "Lightweight GLM via z.AI",
+  },
+  {
+    id: "glm-5-openrouter",
+    provider: "openrouter",
+    modelName: "GLM-5 via OpenRouter",
+    apiModelId: "z-ai/glm-5",
+    contextWindow: 128000,
+    supportsJsonMode: true,
+    costPer1kTokens: { input: 0.0003, output: 0.0003 },
+    tier: "midtier",
+    availability: "experimental",
+    notes: "Judge-only GLM-5 route via OpenRouter",
   },
 
   // ─────────────────────────────────────────────────────────────────────────────

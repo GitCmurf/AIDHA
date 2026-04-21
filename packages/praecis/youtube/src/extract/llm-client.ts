@@ -42,6 +42,7 @@ export interface ModelCapabilities {
   supportsReasoningEffort: boolean;
   supportsVerbosity: boolean;
   supportsStructuredOutput: boolean;
+  usesMaxCompletionTokens: boolean;
   defaultMaxTokens: number;
 }
 
@@ -61,6 +62,7 @@ export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
   supportsReasoningEffort: false,
   supportsVerbosity: false,
   supportsStructuredOutput: false,
+  usesMaxCompletionTokens: false,
   defaultMaxTokens: DEFAULT_MAX_TOKENS_FOR_UNKNOWN_MODELS,
 };
 
@@ -80,6 +82,7 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
       supportsReasoningEffort: true,
       supportsVerbosity: true,
       supportsStructuredOutput: true,
+      usesMaxCompletionTokens: true,
       defaultMaxTokens: 4096,
     };
   }
@@ -90,6 +93,7 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
       supportsReasoningEffort: false,
       supportsVerbosity: false,
       supportsStructuredOutput: true,
+      usesMaxCompletionTokens: false,
       defaultMaxTokens: 4096,
     };
   }
@@ -100,6 +104,7 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
       supportsReasoningEffort: false,
       supportsVerbosity: false,
       supportsStructuredOutput: false,
+      usesMaxCompletionTokens: false,
       defaultMaxTokens: 4096,
     };
   }
@@ -187,8 +192,9 @@ export class OpenAiCompatibleClient implements LlmClient {
 
   async generate(request: LlmCompletionRequest): Promise<Result<string>> {
     const signals: AbortSignal[] = [];
-    if (this.timeoutMs > 0) {
-      signals.push(AbortSignal.timeout(this.timeoutMs));
+    const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
+    if (clientTimeoutSignal) {
+      signals.push(clientTimeoutSignal);
     }
     if (request.signal) {
       signals.push(request.signal);
@@ -227,10 +233,11 @@ export class OpenAiCompatibleClient implements LlmClient {
         body['temperature'] = 0.2;
       }
 
-      if (request.maxTokens !== undefined) {
-        body['max_tokens'] = request.maxTokens;
+      const tokenLimit = request.maxTokens ?? modelCapabilities.defaultMaxTokens;
+      if (modelCapabilities.usesMaxCompletionTokens) {
+        body['max_completion_tokens'] = tokenLimit;
       } else {
-        body['max_tokens'] = modelCapabilities.defaultMaxTokens;
+        body['max_tokens'] = tokenLimit;
       }
 
       // OpenAI-compatible structured output
@@ -266,6 +273,14 @@ export class OpenAiCompatibleClient implements LlmClient {
       }
       return { ok: true, value: content };
     } catch (error) {
+      if (combinedSignal?.aborted) {
+        if (clientTimeoutSignal?.aborted) {
+          return { ok: false, error: new Error(`LLM client timeout after ${this.timeoutMs}ms`) };
+        }
+        if (request.signal?.aborted) {
+          return { ok: false, error: new Error('LLM request aborted by upstream timeout or cancellation') };
+        }
+      }
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
@@ -284,8 +299,9 @@ export class GeminiApiClient implements LlmClient {
 
   async generate(request: LlmCompletionRequest): Promise<Result<string>> {
     const signals: AbortSignal[] = [];
-    if (this.timeoutMs > 0) {
-      signals.push(AbortSignal.timeout(this.timeoutMs));
+    const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
+    if (clientTimeoutSignal) {
+      signals.push(clientTimeoutSignal);
     }
     if (request.signal) {
       signals.push(request.signal);
@@ -304,7 +320,7 @@ export class GeminiApiClient implements LlmClient {
 
       if (request.responseFormat) {
         generationConfig["responseMimeType"] = "application/json";
-        generationConfig["responseJsonSchema"] = request.responseFormat.schema;
+        generationConfig["responseSchema"] = request.responseFormat.schema;
       }
 
       const body: Record<string, unknown> = {
@@ -357,6 +373,14 @@ export class GeminiApiClient implements LlmClient {
 
       return { ok: true, value: content };
     } catch (error) {
+      if (combinedSignal?.aborted) {
+        if (clientTimeoutSignal?.aborted) {
+          return { ok: false, error: new Error(`Gemini client timeout after ${this.timeoutMs}ms`) };
+        }
+        if (request.signal?.aborted) {
+          return { ok: false, error: new Error('Gemini request aborted by upstream timeout or cancellation') };
+        }
+      }
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }

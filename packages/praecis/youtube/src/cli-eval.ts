@@ -1,16 +1,25 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
 import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggregator.js";
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
+import { buildReportFileSet } from "./eval/report-files.js";
 import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./eval/extractor-variants.js";
-import { createGeminiClientFromConfig, createLlmClientFromConfig } from "./extract/llm-client.js";
+import { createGeminiClientFromConfig, createLlmClientFromConfig, type LlmCompletionRequest } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
+import {
+  NarrowCorpusSchema,
+  runNarrowManualBaselineComparison,
+  writeNarrowComparisonReport,
+} from "./eval/narrow-manual-baseline.js";
+import { wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
+import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
 import { validateSafeId } from "./utils/ids.js";
 import { sanitizeFilename } from "./utils/ids.js";
 
@@ -19,28 +28,33 @@ import { sanitizeFilename } from "./utils/ids.js";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["OPENAI_API_KEY"] || apiKey,
+  apiKey: process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
 });
 
 const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["GOOGLE_AISTUDIO_API_KEY"] || process.env["GEMINI_API_KEY"] || apiKey,
+  apiKey:
+    process.env["GOOGLE_AISTUDIO_API_KEY"] ||
+    process.env["GEMINI_API_KEY"] ||
+    process.env["GOOGLE_API_KEY"] ||
+    process.env["AIDHA_GOOGLE_API_KEY"] ||
+    apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://generativelanguage.googleapis.com/v1beta"
 });
 
 const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["ZAI_API_KEY"] || apiKey,
+  apiKey: process.env["ZAI_API_KEY"] || process.env["AIDHA_ZAI_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.zai.ai/v1"
 });
 
 const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["XIAOMI_API_KEY"] || apiKey,
+  apiKey: process.env["XIAOMI_API_KEY"] || process.env["AIDHA_XIAOMI_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://api.xiaomi.com/v1"
 });
 
 // Reserved for future use - OpenRouter support when ModelProvider is expanded
 const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["OPENROUTER_API_KEY"] || apiKey,
+  apiKey: process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"] || apiKey,
   baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1"
 });
 
@@ -52,9 +66,10 @@ const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, b
   "google-aistudio": getGoogleAiStudioConfig,
   zai: getZaiConfig,
   xiaomi: getXiaomiConfig,
+  openrouter: getOpenRouterConfig,
 };
 
-const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "xiaomi"]);
+const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "xiaomi", "openrouter"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI Utilities
@@ -69,6 +84,13 @@ const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "x
 const EXIT_SUCCESS = 0;
 const EXIT_ERROR = 1;
 const EXIT_INVALID_OPTIONS = 2;
+
+const CLI_EVAL_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(CLI_EVAL_DIR, "../../../..");
+
+function resolveRepoRelativePath(pathValue: string): string {
+  return resolve(REPO_ROOT, pathValue);
+}
 
 /**
  * Parses a comma-separated list string into an array of trimmed, non-empty values.
@@ -134,7 +156,11 @@ const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: strin
  * @returns Configured LLM client for the given model
  * @throws Error if the provider is unsupported or baseUrl cannot be resolved
  */
-export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
+export const createProviderAwareClient = (
+  modelId: string,
+  baseConfig: ResolvedConfig["llm"],
+  overrides?: Partial<Pick<ResolvedConfig["llm"], "timeoutMs" | "apiKey" | "baseUrl">> & { maxRequestsPerMinute?: number }
+) => {
   const model = getModel(modelId);
   if (!model) {
     throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
@@ -147,7 +173,8 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
     );
   }
 
-  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl);
+  const inheritedBaseUrl = provider === "openai" ? baseConfig.baseUrl : undefined;
+  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, inheritedBaseUrl);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
   }
@@ -163,12 +190,41 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
   const clientResult = clientFactory({
     ...baseConfig,
     model: modelId,
-    apiKey: resolved.apiKey,
-    baseUrl: resolved.baseUrl,
+    apiKey: overrides?.apiKey ?? resolved.apiKey,
+    baseUrl: overrides?.baseUrl ?? resolved.baseUrl,
+    timeoutMs: overrides?.timeoutMs ?? baseConfig.timeoutMs,
   });
 
   if (!clientResult.ok) throw clientResult.error;
-  return clientResult.value;
+  const remappedClient = !model.apiModelId || model.apiModelId === modelId
+    ? clientResult.value
+    : {
+    generate: (request: LlmCompletionRequest) => clientResult.value.generate({
+      ...request,
+      model: request.model === modelId ? model.apiModelId! : request.model,
+    }),
+  };
+
+  return overrides?.maxRequestsPerMinute
+    ? wrapClientWithRateLimit(remappedClient, modelId, overrides.maxRequestsPerMinute)
+    : remappedClient;
+};
+
+export const resolveProviderConnection = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
+  const model = getModel(modelId);
+  if (!model) {
+    throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
+  }
+  const inheritedBaseUrl = model.provider === "openai" ? baseConfig.baseUrl : undefined;
+  const resolved = resolveProviderConfig(model.provider, baseConfig.apiKey, model.baseUrl, inheritedBaseUrl);
+  if (!resolved) {
+    throw new Error(`Unsupported provider '${model.provider}' for model ${modelId}. Cannot resolve baseUrl.`);
+  }
+  return {
+    model,
+    apiKey: resolved.apiKey,
+    baseUrl: resolved.baseUrl,
+  };
 };
 
 const loadCorpusData = (corpusPath: string) => {
@@ -184,6 +240,21 @@ const loadCorpusData = (corpusPath: string) => {
   } catch (err) {
     // skipcq: JS-0002
     console.error(`Failed to read or validate corpus file at ${corpusPath}:`, err);
+    return { ok: false, error: 1 };
+  }
+};
+
+const loadNarrowCorpusData = (corpusPath: string) => {
+  try {
+    const raw = JSON.parse(readFileSync(corpusPath, "utf-8"));
+    const parsed = NarrowCorpusSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("Narrow corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
+      return { ok: false, error: 1 };
+    }
+    return { ok: true, data: parsed.data };
+  } catch (err) {
+    console.error(`Failed to read or validate narrow corpus file at ${corpusPath}:`, err);
     return { ok: false, error: 1 };
   }
 };
@@ -243,24 +314,28 @@ const writeCellArtifacts = async (cells: MatrixResult["cells"], outputDir: strin
   console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
 };
 
-const writeReports = async (report: MatrixReport, outputDir: string, format: string) => {
+const writeReports = async (report: MatrixReport, outputDir: string, format: string, stub: string) => {
   mkdirSync(outputDir, { recursive: true });
+  const files = buildReportFileSet(outputDir, stub);
+  const jsonContent = exportMatrixJson(report, { pretty: true });
+  const mdContent = renderMatrixReport(report);
 
   if (format === "both" || format === "json") {
-    const jsonPath = join(outputDir, "latest.json");
-    writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
+    writeFileSync(files.jsonPath, jsonContent);
+    writeFileSync(files.latestJsonPath, jsonContent);
     // skipcq: JS-0002
-    console.log(`Wrote JSON report to ${jsonPath}`);
+    console.log(`Wrote JSON report to ${files.jsonPath}`);
   }
 
   if (format === "both" || format === "md") {
-    const mdPath = join(outputDir, "latest.md");
-    writeFileSync(mdPath, renderMatrixReport(report));
+    writeFileSync(files.mdPath, mdContent);
+    writeFileSync(files.latestMdPath, mdContent);
     // skipcq: JS-0002
-    console.log(`Wrote Markdown report to ${mdPath}`);
+    console.log(`Wrote Markdown report to ${files.mdPath}`);
   }
 
   await writeCellArtifacts(report.cells, outputDir);
+  return files;
 };
 
 interface PrintPlanArgs {
@@ -506,7 +581,8 @@ const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOp
   }
 
   const report = aggregateMatrixResults(result.cells);
-  await writeReports(report, finalOutputDir, parsedOpts.format);
+  const reportStub = parsedOpts.runId ? `eval-matrix-${parsedOpts.runId}` : "eval-matrix";
+  await writeReports(report, finalOutputDir, parsedOpts.format, reportStub);
 
   if (result.metadata.partialFailureCount > 0) {
     // skipcq: JS-0002
@@ -557,9 +633,8 @@ const executeMatrixEvaluation = async (
 
 const parseEvalOptions = (positionals: string[], options: Record<string, string | boolean | undefined>): { mode: string; cleanOptions: CliOptions } | number => {
   const mode = positionals[1];
-  if (mode !== "matrix") {
-    // skipcq: JS-0002
-    console.error("Usage: eval matrix [options]");
+  if (mode !== "matrix" && mode !== "narrow-manual-baseline") {
+    console.error("Usage: eval <matrix|narrow-manual-baseline> [options]");
     return 1;
   }
 
@@ -568,6 +643,213 @@ const parseEvalOptions = (positionals: string[], options: Record<string, string 
     if (v !== undefined) cleanOptions[k] = v;
   }
   return { mode, cleanOptions };
+};
+
+interface NarrowEvalOptions {
+  dryRun: boolean;
+  mode: "fast-triage" | "compare" | "deep";
+  corpusPath: string;
+  transcriptDir: string;
+  manualBaselineDir: string;
+  outputDir: string;
+  modelsStr: string;
+  variantsStr: string;
+  judgeModelIds: string[];
+  fallbackModelId: string;
+  maxConcurrency: number;
+  timeoutMs: number;
+  judgeMaxTokens: number;
+  judgeEnabled: boolean;
+  includeManualBaselines: boolean;
+  maxRpmGeminiFlashLite: number;
+  maxRpmGeminiEmbedding: number;
+  maxRpmGpt54: number;
+  refreshStage?: "shortlist" | "refine" | "score" | "judge" | "all";
+}
+
+const hasOption = (options: CliOptions, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(options, key);
+
+const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => {
+  const rawMode = optionString(cleanOptions, "mode", "fast-triage");
+  const mode = rawMode === "quota-safe" ? "fast-triage" : rawMode;
+  const judgeDefault = mode === "fast-triage" ? "" : optionString(cleanOptions, "judge-model", "gpt-5.4");
+  const judgeModelsStr = optionString(cleanOptions, "judge-models", judgeDefault);
+  const judgeEnabled = hasOption(cleanOptions, "judge")
+    ? optionBool(cleanOptions, "judge")
+    : mode !== "fast-triage";
+  const includeManualBaselines = hasOption(cleanOptions, "with-manual-baselines")
+    ? optionBool(cleanOptions, "with-manual-baselines")
+    : mode !== "fast-triage";
+  return {
+    dryRun: optionBool(cleanOptions, "dry-run"),
+    mode: mode as NarrowEvalOptions["mode"],
+    corpusPath: resolveRepoRelativePath(optionString(cleanOptions, "corpus", "out/eval-matrix/corpus.narrow-manual-baseline.json")),
+    transcriptDir: resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")),
+    manualBaselineDir: resolveRepoRelativePath(optionString(cleanOptions, "manual-baseline-dir", "out/eval-matrix/manual-baseline")),
+    outputDir: resolveRepoRelativePath(optionString(cleanOptions, "output-dir", "out/eval-matrix/reports/narrow-manual-baseline")),
+    modelsStr: optionString(cleanOptions, "models", "gemini-3.1-flash-lite-preview"),
+    variantsStr: optionString(cleanOptions, "variants", "raw,editorial-pass-v1,self-improve-v1"),
+    judgeModelIds: judgeEnabled ? parseCsvList(judgeModelsStr) : [],
+    fallbackModelId: optionString(cleanOptions, "fallback-model", "gemini-3.1-flash-lite-preview"),
+    maxConcurrency: optionNumber(cleanOptions, "max-concurrency", 1),
+    timeoutMs: optionNumber(cleanOptions, "timeout-ms", 120000),
+    judgeMaxTokens: optionNumber(cleanOptions, "judge-max-tokens", 4000),
+    judgeEnabled,
+    includeManualBaselines,
+    maxRpmGeminiFlashLite: optionNumber(cleanOptions, "max-rpm-gemini-flash-lite", 12),
+    maxRpmGeminiEmbedding: optionNumber(cleanOptions, "max-rpm-gemini-embedding", 80),
+    maxRpmGpt54: optionNumber(cleanOptions, "max-rpm-gpt54", 20),
+    refreshStage: optionString(cleanOptions, "refresh-stage", "") as NarrowEvalOptions["refreshStage"] | undefined,
+  };
+};
+
+const printNarrowPlan = (opts: NarrowEvalOptions, models: EvalModel[], variants: string[]) => {
+  console.log(`Narrow Manual Baseline Comparison Plan:
+Mode: ${opts.mode}
+Corpus: ${opts.corpusPath}
+Manual Baseline Dir: ${opts.manualBaselineDir}
+Transcript Dir: ${opts.transcriptDir}
+Models: ${models.map((model) => model.id).join(", ")}
+Variants: ${variants.join(", ")}
+Prompt Configs: baseline, hierarchy-first, enumeration-first
+Judge Enabled: ${opts.judgeEnabled}
+Judge Models: ${opts.judgeModelIds.join(", ") || "none"}
+Manual Baselines: ${opts.includeManualBaselines}
+Fallback Model: ${opts.fallbackModelId}
+Output Dir: ${opts.outputDir}
+Max Concurrency: ${opts.maxConcurrency}
+Timeout: ${opts.timeoutMs}ms
+Judge Max Tokens: ${opts.judgeMaxTokens}
+RPM Caps: gemini-flash-lite=${opts.maxRpmGeminiFlashLite}, gemini-embedding=${opts.maxRpmGeminiEmbedding}, gpt-5.4=${opts.maxRpmGpt54}
+Refresh Stage: ${opts.refreshStage || "none"}
+`);
+};
+
+const NARROW_STAGE_ORDER = ["shortlist", "refine", "score", "judge"] as const;
+
+const invalidateNarrowStages = (outputDir: string, refreshStage: NarrowEvalOptions["refreshStage"]) => {
+  if (!refreshStage) return;
+
+  const stagesDir = join(outputDir, "stages");
+  if (refreshStage === "all") {
+    rmSync(stagesDir, { recursive: true, force: true });
+    console.log(`[refresh-stage] removed ${stagesDir}`);
+    return;
+  }
+
+  const startIndex = NARROW_STAGE_ORDER.indexOf(refreshStage);
+  if (startIndex === -1) {
+    throw new Error(`Invalid refresh stage: ${refreshStage}`);
+  }
+  for (const stage of NARROW_STAGE_ORDER.slice(startIndex)) {
+    const stagePath = join(stagesDir, `${stage}.json`);
+    rmSync(stagePath, { force: true });
+    console.log(`[refresh-stage] removed ${stagePath}`);
+  }
+};
+
+const runNarrowManualBaseline = async (
+  cleanOptions: CliOptions,
+  config: ResolvedConfig
+): Promise<number> => {
+  const parsedOpts = parseNarrowEvalOptions(cleanOptions);
+  if (optionString(cleanOptions, "mode", "fast-triage") === "quota-safe") {
+    console.warn("Mode 'quota-safe' is deprecated; using 'fast-triage'.");
+  }
+  if (parsedOpts.refreshStage && !["shortlist", "refine", "score", "judge", "all"].includes(parsedOpts.refreshStage)) {
+    console.error(`Invalid refresh stage: ${parsedOpts.refreshStage}`);
+    return 2;
+  }
+  const models = getModelsFromIdsOrTier(parsedOpts.modelsStr, "");
+  if (typeof models === "number") return models;
+
+  const variantIds = parseCsvList(parsedOpts.variantsStr);
+  const invalidVariants = variantIds.filter((variant) => !isValidVariant(variant));
+  if (invalidVariants.length > 0) {
+    console.error(`Invalid variants: ${invalidVariants.join(", ")}`);
+    return 2;
+  }
+
+  const corpusResult = loadNarrowCorpusData(parsedOpts.corpusPath);
+  if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
+
+  if (parsedOpts.judgeEnabled && parsedOpts.judgeModelIds.length === 0) {
+    console.error("At least one narrow judge model is required.");
+    return 1;
+  }
+  const unknownJudgeModels = parsedOpts.judgeModelIds.filter((modelId) => !getModel(modelId));
+  if (unknownJudgeModels.length > 0) {
+    console.error(`Unknown judge model(s): ${unknownJudgeModels.join(", ")}`);
+    return 1;
+  }
+  if (!getModel(parsedOpts.fallbackModelId)) {
+    console.error(`Unknown fallback model: ${parsedOpts.fallbackModelId}`);
+    return 1;
+  }
+
+  const requiredModelIds = Array.from(new Set([
+    ...models.map((model) => model.id),
+    ...parsedOpts.judgeModelIds,
+    parsedOpts.fallbackModelId,
+  ]));
+
+  const missingCredentialModels = requiredModelIds.filter((modelId) => {
+    const connection = resolveProviderConnection(modelId, config.llm);
+    return !connection.apiKey || connection.apiKey.trim().length === 0;
+  });
+  if (missingCredentialModels.length > 0) {
+    console.error(
+      `Missing provider credentials for: ${missingCredentialModels.join(", ")}. ` +
+      "Set the relevant API keys before running the narrow manual baseline comparison."
+    );
+    return 1;
+  }
+
+  printNarrowPlan(parsedOpts, models, variantIds);
+
+  if (parsedOpts.dryRun) {
+    console.log("Dry run only; no harness execution or comparison performed.");
+    return 0;
+  }
+
+  invalidateNarrowStages(parsedOpts.outputDir, parsedOpts.refreshStage);
+
+  const report = await runNarrowManualBaselineComparison({
+    corpus: corpusResult.data,
+    transcriptDir: parsedOpts.transcriptDir,
+    manualBaselineDir: parsedOpts.manualBaselineDir,
+    outputDir: parsedOpts.outputDir,
+    models,
+    variants: variantIds as ExtractorVariantId[],
+    judgeModelIds: parsedOpts.judgeModelIds,
+    fallbackModelId: parsedOpts.fallbackModelId,
+    config,
+    clientFactory: (modelId: string) => createProviderAwareClient(
+      modelId,
+      config.llm,
+      {
+        timeoutMs: getNarrowEvalModelProfile(modelId).requestTimeoutMs,
+        maxRequestsPerMinute: modelId === "gpt-5.4"
+          ? parsedOpts.maxRpmGpt54
+          : modelId === "gemini-3.1-flash-lite-preview"
+            ? parsedOpts.maxRpmGeminiFlashLite
+            : undefined,
+      }
+    ),
+    maxConcurrency: parsedOpts.maxConcurrency,
+    timeoutMs: parsedOpts.timeoutMs,
+    judgeMaxTokens: parsedOpts.judgeMaxTokens,
+    runMode: parsedOpts.mode,
+    judgeEnabled: parsedOpts.judgeEnabled,
+    includeManualBaselines: parsedOpts.includeManualBaselines,
+    maxEmbeddingRequestsPerMinute: parsedOpts.maxRpmGeminiEmbedding,
+  });
+
+  const files = await writeNarrowComparisonReport(report, parsedOpts.outputDir, "harness-test");
+  console.log(`Wrote Markdown report to ${files.mdPath}`);
+  console.log(`Wrote JSON report to ${files.jsonPath}`);
+  return 0;
 };
 
 const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
@@ -612,7 +894,11 @@ export const runEvalMatrix = async (
   try {
     const parseResult = parseEvalOptions(positionals, options);
     if (typeof parseResult === "number") return parseResult;
-    const { cleanOptions } = parseResult;
+    const { mode, cleanOptions } = parseResult;
+
+    if (mode === "narrow-manual-baseline") {
+      return await runNarrowManualBaseline(cleanOptions, config);
+    }
 
     const cacheInvalidationResult = invalidateCache(cleanOptions);
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;
