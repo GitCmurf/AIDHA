@@ -193,7 +193,7 @@ export class IngestionPipeline {
 
           const updateData: NodeDataInput = {
             label: resource.label,
-            content: transcriptResult.ok ? (transcript?.fullText ?? resource.content) : undefined,
+            content: transcriptResult.ok ? (transcript?.fullText ?? resource.content) : resource.content,
             metadata: updatedMetadata,
           };
 

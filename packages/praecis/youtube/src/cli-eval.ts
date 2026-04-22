@@ -717,6 +717,9 @@ interface NarrowEvalOptions {
   maxRpmGeminiFlashLite: number;
   maxRpmGeminiEmbedding: number;
   maxRpmGpt54: number;
+  shortlistPerVideo?: number;
+  maxEmbeddingRequestsPerRun?: number;
+  maxRefinedSelfImproveCellsPerRun?: number;
   refreshStage?: "shortlist" | "refine" | "score" | "judge" | "all";
 }
 
@@ -759,6 +762,9 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
     maxRpmGeminiFlashLite: optionNumber(cleanOptions, "max-rpm-gemini-flash-lite", 12),
     maxRpmGeminiEmbedding: optionNumber(cleanOptions, "max-rpm-gemini-embedding", 80),
     maxRpmGpt54: optionNumber(cleanOptions, "max-rpm-gpt54", 20),
+    shortlistPerVideo: optionNumber(cleanOptions, "shortlist-per-video", 0) || undefined,
+    maxEmbeddingRequestsPerRun: optionNumber(cleanOptions, "max-embedding-requests-per-run", 0) || undefined,
+    maxRefinedSelfImproveCellsPerRun: optionNumber(cleanOptions, "max-refined-self-improve-cells-per-run", 0) || undefined,
     refreshStage: optionString(cleanOptions, "refresh-stage", "") as NarrowEvalOptions["refreshStage"] | undefined,
   };
 };
@@ -919,6 +925,9 @@ const runNarrowManualBaseline = async (
     judgeEnabled: parsedOpts.judgeEnabled,
     includeManualBaselines: parsedOpts.includeManualBaselines,
     maxEmbeddingRequestsPerMinute: parsedOpts.maxRpmGeminiEmbedding,
+    shortlistPerVideo: parsedOpts.shortlistPerVideo,
+    maxEmbeddingRequestsPerRun: parsedOpts.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: parsedOpts.maxRefinedSelfImproveCellsPerRun,
   });
 
   const files = await writeNarrowComparisonReport(report, parsedOpts.outputDir, "harness-test");

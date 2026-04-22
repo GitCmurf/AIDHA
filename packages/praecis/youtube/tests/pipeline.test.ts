@@ -271,7 +271,8 @@ describe('IngestionPipeline', () => {
       const resource = await graphStore.getNode('youtube-test-video');
       expect(resource.ok).toBe(true);
       if (!resource.ok || !resource.value) return;
-      expect(resource.value.content).toBeUndefined();
+      // Content should be preserved, not wiped, when refresh fails
+      expect(resource.value.content).toBe('stale transcript');
       expect(resource.value.metadata?.['transcriptStatus']).toBe('missing');
       expect(resource.value.metadata?.['transcriptError']).toBe('Transcript unavailable');
     });

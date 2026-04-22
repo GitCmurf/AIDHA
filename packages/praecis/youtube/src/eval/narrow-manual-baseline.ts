@@ -478,6 +478,9 @@ async function buildStageInputSignature(input: {
   judgeMaxTokens: number;
   includeManualBaselines: boolean;
   enablePromptRouting: boolean;
+  maxEmbeddingRequestsPerRun?: number;
+  maxRefinedSelfImproveCellsPerRun?: number;
+  shortlistPerVideo?: number;
 }): Promise<string> {
   const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
@@ -485,7 +488,7 @@ async function buildStageInputSignature(input: {
   const goldFiles = input.corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
   const goldHash = await hashFiles(goldFiles);
 
-  let manualHash = "";
+  let manualHash = "none";
   if (input.includeManualBaselines) {
     const manualFiles: string[] = [];
     for (const id of input.corpusVideoIds) {
@@ -512,6 +515,9 @@ async function buildStageInputSignature(input: {
     judgeMaxTokens: input.judgeMaxTokens,
     includeManualBaselines: input.includeManualBaselines,
     enablePromptRouting: input.enablePromptRouting,
+    maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
+    shortlistPerVideo: input.shortlistPerVideo,
   })]);
 }
 
@@ -533,6 +539,9 @@ export async function buildExtractionStageInputSignature(input: {
   judgeModelIds: string[];
   judgeMaxTokens: number;
   enablePromptRouting: boolean;
+  maxEmbeddingRequestsPerRun?: number;
+  maxRefinedSelfImproveCellsPerRun?: number;
+  shortlistPerVideo?: number;
 }): Promise<string> {
   const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
@@ -554,6 +563,9 @@ export async function buildExtractionStageInputSignature(input: {
     judgeModelIds: [...input.judgeModelIds].sort(),
     judgeMaxTokens: input.judgeMaxTokens,
     enablePromptRouting: input.enablePromptRouting,
+    maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
+    shortlistPerVideo: input.shortlistPerVideo,
   })]);
 }
 
@@ -684,7 +696,7 @@ function countFallbackClaims(cell: MatrixCell): number {
 
 function deriveTimeoutSource(cell: MatrixCell): TimeoutSource {
   if ((cell.extractionDiagnostics?.clientTimeoutCount ?? 0) > 0) return "llm_client_timeout";
-  if (cell.error?.message.toLowerCase().includes("extraction timeout")) return "matrix_cell_timeout";
+  if (cell.error?.message?.toLowerCase().includes("extraction timeout")) return "matrix_cell_timeout";
   if ((cell.extractionDiagnostics?.upstreamAbortCount ?? 0) > 0) return "upstream_abort";
   return "none";
 }
@@ -816,31 +828,37 @@ async function loadTranscript(video: CorpusEntry, transcriptDir: string): Promis
   };
 }
 
-async function loadVideoBaselines(videoId: string, manualBaselineDir: string): Promise<LoadedVideoBaselines> {
+async function loadVideoBaselines(
+  videoId: string,
+  manualBaselineDir: string,
+  options: { includeManualBaselines?: boolean } = {}
+): Promise<LoadedVideoBaselines> {
   const goldEntry = await readJsonFile(
     join(manualBaselineDir, `${videoId}-gold-draft-v1.json`),
     GoldenAnnotationEntrySchema
   );
 
   const goldFlatClaims = flattenGoldenClaimForest(videoId, goldEntry.idealClaims);
-  const baselineIds = ["CG", "GG"] as const;
   const comparableClaimSets: ComparableClaimSet[] = [];
 
-  for (const baselineId of baselineIds) {
-    const baseline = await readJsonFile(
-      join(manualBaselineDir, `${videoId}-${baselineId}.json`),
-      ManualBaselineClaimsFileSchema
-    );
-    const claims: ClaimCandidate[] = baseline.claims.map((claim, index) => ({
-      text: claim.text,
-      excerptIds: [`manual-${baselineId.toLowerCase()}-${index}`],
-      type: claim.type?.toLowerCase(),
-      confidence: claim.confidence,
-      why: claim.why,
-      method: "llm",
-      state: "accepted",
-    }));
-    comparableClaimSets.push(toManualComparableClaimSet(videoId, baselineId, claims));
+  if (options.includeManualBaselines) {
+    const baselineIds = ["CG", "GG"] as const;
+    for (const baselineId of baselineIds) {
+      const baseline = await readJsonFile(
+        join(manualBaselineDir, `${videoId}-${baselineId}.json`),
+        ManualBaselineClaimsFileSchema
+      );
+      const claims: ClaimCandidate[] = baseline.claims.map((claim, index) => ({
+        text: claim.text,
+        excerptIds: [`manual-${baselineId.toLowerCase()}-${index}`],
+        type: claim.type?.toLowerCase(),
+        confidence: claim.confidence,
+        why: claim.why,
+        method: "llm",
+        state: "accepted",
+      }));
+      comparableClaimSets.push(toManualComparableClaimSet(videoId, baselineId, claims));
+    }
   }
 
   return { goldFlatClaims, comparableClaimSets };
@@ -1826,6 +1844,9 @@ export async function runNarrowManualBaselineComparison(
     judgeMaxTokens: options.judgeMaxTokens ?? 4000,
     includeManualBaselines,
     enablePromptRouting,
+    maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: options.maxRefinedSelfImproveCellsPerRun,
+    shortlistPerVideo,
   });
   const extractionStageInputSignature = await buildExtractionStageInputSignature({
     corpusVideoIds: options.corpus.map((video) => video.videoId),
@@ -1840,11 +1861,14 @@ export async function runNarrowManualBaselineComparison(
     judgeModelIds: options.judgeModelIds,
     judgeMaxTokens: options.judgeMaxTokens ?? 4000,
     enablePromptRouting,
+    maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: options.maxRefinedSelfImproveCellsPerRun,
+    shortlistPerVideo,
   });
 
   for (const video of options.corpus) {
     transcriptByVideo.set(video.videoId, await loadTranscript(video, options.transcriptDir));
-    const loaded = await loadVideoBaselines(video.videoId, options.manualBaselineDir);
+    const loaded = await loadVideoBaselines(video.videoId, options.manualBaselineDir, { includeManualBaselines });
     goldByVideo.set(video.videoId, loaded.goldFlatClaims);
     manualByVideo.set(video.videoId, loaded.comparableClaimSets);
   }
