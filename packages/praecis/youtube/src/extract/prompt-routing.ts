@@ -49,9 +49,16 @@ const BUSINESS_CUES = [
   "framework slide", "chart slide", "subtitle slide", "appendix", "client",
 ];
 
+function escapeRegex(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function countCueMatches(text: string, cues: string[]): number {
   const normalized = text.toLowerCase();
-  return cues.reduce((count, cue) => count + (normalized.includes(cue) ? 1 : 0), 0);
+  return cues.reduce((count, cue) => {
+    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
+    return count + (regex.test(normalized) ? 1 : 0);
+  }, 0);
 }
 
 function uniqueTerms(terms: string[]): string[] {
@@ -67,19 +74,22 @@ export function buildTranscriptProfile(text: string): TranscriptProfile {
   const glossaryTerms: string[] = [];
 
   for (const cue of LIST_CUES) {
-    if (normalized.includes(cue)) {
+    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
+    if (regex.test(normalized)) {
       signals.push(`list:${cue}`);
       glossaryTerms.push(cue);
     }
   }
   for (const cue of CLINICAL_CUES) {
-    if (normalized.includes(cue)) {
+    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
+    if (regex.test(normalized)) {
       signals.push(`clinical:${cue}`);
       glossaryTerms.push(cue);
     }
   }
   for (const cue of BUSINESS_CUES) {
-    if (normalized.includes(cue)) {
+    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
+    if (regex.test(normalized)) {
       signals.push(`business:${cue}`);
       glossaryTerms.push(cue);
     }

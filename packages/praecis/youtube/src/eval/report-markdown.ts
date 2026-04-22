@@ -102,10 +102,49 @@ const renderRecommendations = (recommendations: MatrixReport["recommendations"])
 const renderCostEstimate = (cost: MatrixReport["costEstimate"]): string => {
   if (!cost || cost.totalUsd === 0) return "";
 
-  let md = "### Cost Estimate\n\n";
+  let md = "### Total Cost Estimate\n\n";
   md += `- **Extraction:** $${cost.extractionUsd.toFixed(4)}\n`;
   md += `- **Judge:** $${cost.judgeUsd.toFixed(4)}\n`;
   md += `- **Total:** $${cost.totalUsd.toFixed(4)}\n\n`;
+  return md;
+};
+
+const renderVariantCostBreakdown = (variantCosts: MatrixReport["variantCostSummary"]): string => {
+  if (!variantCosts || Object.keys(variantCosts).length === 0) return "";
+
+  let md = "### Variant Cost Breakdown\n\n";
+  md += "| Variant | Extraction | Judge | Total |\n";
+  md += "| --- | --- | --- | --- |\n";
+
+  const sortedVariants = Object.keys(variantCosts).sort();
+  for (const variantId of sortedVariants) {
+    const cost = variantCosts[variantId]!;
+    md += `| ${escapeMdTableCell(variantId)} | $${cost.extractionUsd.toFixed(4)} | $${cost.judgeUsd.toFixed(4)} | $${cost.totalUsd.toFixed(4)} |\n`;
+  }
+  md += "\n";
+  return md;
+};
+
+const renderNarrowJudgeSummary = (results: MatrixReport["narrowJudgeResults"]): string => {
+  if (!results || Object.keys(results).length === 0) return "";
+
+  let md = "## Narrow Judge Summary\n\n";
+  const sortedVariants = Object.keys(results).sort();
+
+  for (const variantId of sortedVariants) {
+    md += `### Variant: ${escapeMdTableCell(variantId)}\n\n`;
+    md += "| Video | Coverage | Faithfulness | Structure | Atomicity | Overall |\n";
+    md += "| --- | --- | --- | --- | --- | --- |\n";
+
+    const videoResults = results[variantId]!;
+    const sortedVideos = Object.keys(videoResults).sort();
+
+    for (const videoId of sortedVideos) {
+      const s = videoResults[videoId]!;
+      md += `| ${escapeMdTableCell(videoId)} | ${s.goldCoverage.toFixed(2)} | ${s.faithfulness.toFixed(2)} | ${s.structure.toFixed(2)} | ${s.atomicity.toFixed(2)} | **${s.overallScore.toFixed(2)}** |\n`;
+    }
+    md += "\n";
+  }
   return md;
 };
 
@@ -116,6 +155,8 @@ export const renderMatrixReport = (report: MatrixReport): string => {
   md += renderHighVarianceAlerts(report.recommendations?.caveats);
   md += renderRecommendations(report.recommendations);
   md += renderCostEstimate(report.costEstimate);
+  md += renderVariantCostBreakdown(report.variantCostSummary);
+  md += renderNarrowJudgeSummary(report.narrowJudgeResults);
   md += renderLeaderboards(report);
   md += renderAllScorecards(report);
 

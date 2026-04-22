@@ -12,6 +12,7 @@ export function formatReportFilestamp(date: Date = new Date()): string {
     "T",
     pad2(date.getHours()),
     pad2(date.getMinutes()),
+    pad2(date.getSeconds()),
   ].join("");
 }
 

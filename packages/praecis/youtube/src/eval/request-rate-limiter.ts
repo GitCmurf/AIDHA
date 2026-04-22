@@ -37,10 +37,9 @@ class RequestRateLimiterRegistry {
     const waitMs = Math.max(0, ONE_MINUTE_MS - (now - state.windowStartMs));
     this.bumpWait(key, waitMs);
     await new Promise((resolve) => setTimeout(resolve, waitMs));
-    const resumedAt = Date.now();
-    this.states.set(key, { windowStartMs: resumedAt, requestsInWindow: 1 });
-    this.bumpRequests(key);
-    return waitMs;
+    // After sleeping, we MUST re-check the quota because other callers
+    // might have resumed and consumed the slot already.
+    return waitMs + (await this.waitForSlot(key, rpm));
   }
 
   getStats(): Record<string, RateLimitStats> {

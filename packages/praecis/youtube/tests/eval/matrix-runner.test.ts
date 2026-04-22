@@ -33,7 +33,19 @@ vi.mock("../../src/extract/llm-claims", () => ({
       confidence: 1,
       why: "reason"
     }]),
-    getLastTraces: vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }])
+    getLastTraces: vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }]),
+    getLastRunStats: vi.fn().mockReturnValue({
+      transportRetryCount: 0,
+      fallbackChunkCount: 0,
+      transientFailureCount: 0,
+      clientTimeoutCount: 0,
+      upstreamAbortCount: 0,
+      maxChunkInputTokens: 100,
+      selfImproveRoundCount: 0,
+      promptPackId: "generic-hierarchy",
+      routeSource: "fallback-default",
+      retryTriggered: false,
+    })
   }))
 }));
 
@@ -144,10 +156,14 @@ describe("Matrix Runner Integration", () => {
     const report = aggregateMatrixResults(result.cells);
     expect(report.modelStats[models[0].id]).toBeDefined();
     expect(report.videoStats["v1"]).toBeDefined();
+    expect(report.variantCostSummary).toBeDefined();
+    expect(report.variantCostSummary!["raw"]).toBeDefined();
 
     const md = renderMatrixReport(report);
     expect(md).toContain("Video Heatmap");
     expect(md).toContain(models[0].id);
+    expect(md).toContain("Variant Cost Breakdown");
+    expect(md).toContain("raw");
     expect(md).toContain(`| 1 | ${models[1].id} | 8.50 |`);
     expect(md).toContain("### v1");
     expect(md).toContain("| completeness | 8.00 | 8.00 | 8.00 | 8.00 | 0.00 |");

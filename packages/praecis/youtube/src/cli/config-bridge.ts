@@ -84,6 +84,7 @@ export async function resolveCliConfig(
       configPath: opts.configPath || undefined,
       cwd: discoveryCwd,
       env: process.env as Record<string, string | undefined>,
+      syncProcessEnv: true,
       onWarning: (msg) => {
         // eslint-disable-next-line no-console
         console.warn(`[config] ${msg}`);
@@ -276,6 +277,12 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
   const cacheDir = optStr(options, 'cache-dir');
   if (cacheDir !== undefined && cacheDir.length > 0) {
     overrides.llm = { ...(overrides.llm ?? {}), cache_dir: cacheDir };
+  }
+
+  // ── embedding-batch-size ──
+  const embeddingBatchSize = optNum(options, 'embedding-batch-size');
+  if (embeddingBatchSize !== undefined) {
+    overrides.llm = { ...(overrides.llm ?? {}), embedding_batch_size: embeddingBatchSize };
   }
 
   return overrides;

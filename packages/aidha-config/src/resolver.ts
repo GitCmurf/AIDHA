@@ -220,6 +220,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       verbosity: (['low', 'medium', 'high'] as const).find(
         value => value === llm['verbosity']
       ),
+      embeddingBatchSize: (llm['embedding_batch_size'] as number) ?? 20,
     },
     editor: {
       version: (editor['version'] as string) ?? '',

@@ -100,9 +100,13 @@ export function deriveNarrowJudgeScores(
   ).length * 0.5;
 
   const goldCoverage = clampScore((matchedGoldTexts.size / Math.max(goldClaims.length, 1)) * 10);
-  const faithfulness = clampScore(10 - ((findings.unsupportedCandidateClaims.length / candidateCount) * 10));
+  const faithfulness = candidateClaims.length === 0
+    ? 0
+    : clampScore(10 - ((findings.unsupportedCandidateClaims.length / candidateCount) * 10));
   const structure = clampScore(10 - structuralPenalty - (missedRootCount * 1.5));
-  const atomicity = clampScore(10 - ((findings.redundantCandidateClaims.length / candidateCount) * 10) - compoundPenalty);
+  const atomicity = candidateClaims.length === 0
+    ? 0
+    : clampScore(10 - ((findings.redundantCandidateClaims.length / candidateCount) * 10) - compoundPenalty);
   const overallScore = clampScore((goldCoverage + faithfulness + structure + atomicity) / 4);
 
   return { goldCoverage, faithfulness, structure, atomicity, overallScore };

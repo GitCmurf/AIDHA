@@ -1320,6 +1320,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerpts,
         selected,
         promptPackId,
+        maxClaims,
         retryReason,
         signal: extractionInput.signal,
         collectTraces: extractionInput.collectTraces,
@@ -1540,11 +1541,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
     excerpts: GraphNode[];
     selected: ClaimCandidate[];
     promptPackId: ExtractionPromptPackId;
+    maxClaims: number;
     retryReason?: PromptRetryReason;
     signal?: AbortSignal;
     collectTraces?: boolean;
   }): Promise<ClaimCandidate[]> {
-    const { resource, excerpts, selected, promptPackId, retryReason, signal, collectTraces } = input;
+    const { resource, excerpts, selected, promptPackId, maxClaims, retryReason, signal, collectTraces } = input;
     let current = selected;
 
     for (let round = 0; round < this.selfImproveMaxRounds; round++) {
@@ -1560,7 +1562,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
       const prompt = buildSelfImproveClaimsPrompt({
         resourceLabel: resource.label,
-        maxClaims: this.maxClaims,
+        maxClaims: maxClaims,
         currentClaimsJson: JSON.stringify({
           claims: current.map((candidate) => ({
             text: candidate.text,
@@ -1614,7 +1616,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerpts,
       };
       const excerptStartMap = new Map(excerpts.map((excerpt) => [excerpt.id, toNumber(excerpt.metadata?.['start'], 0)]));
-      const improved = this.parseResponse(response.value, syntheticChunk, excerptStartMap).slice(0, this.maxClaims);
+      const improved = this.parseResponse(response.value, syntheticChunk, excerptStartMap).slice(0, maxClaims);
       if (improved.length === 0) {
         break;
       }

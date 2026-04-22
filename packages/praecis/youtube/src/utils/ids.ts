@@ -94,3 +94,17 @@ export function hashId(prefix: string, parts: Array<string | number | undefined>
   const digest = createHash('sha256').update(input).digest('hex').slice(0, 16);
   return `${prefix}-${digest}`;
 }
+
+export function hashText(text: string): string {
+  return createHash("sha256").update(text).digest("hex").slice(0, 32);
+}
+
+export async function hashFile(filePath: string): Promise<string | null> {
+  const { readFile } = await import("node:fs/promises");
+  try {
+    const content = await readFile(filePath, "utf-8");
+    return hashText(content);
+  } catch {
+    return null;
+  }
+}

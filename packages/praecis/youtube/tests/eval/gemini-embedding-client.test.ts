@@ -14,11 +14,11 @@ describe("GeminiEmbeddingClient", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ embedding: { values: [1, 0, 0] } }),
+        json: async () => ({ embeddings: [{ values: [1, 0, 0] }] }),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ embedding: { values: [1, 0, 0] } }),
+        json: async () => ({ embeddings: [{ values: [1, 0, 0] }] }),
       } as Response);
 
     const client = new GeminiEmbeddingClient({
@@ -36,7 +36,7 @@ describe("GeminiEmbeddingClient", () => {
     if (first.ok) expect(first.value.score).toBeCloseTo(1, 5);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:embedContent"
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:batchEmbedContents"
     );
 
     await rm(cacheDir, { recursive: true, force: true });
@@ -47,7 +47,13 @@ describe("GeminiEmbeddingClient", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValue({
         ok: true,
-        json: async () => ({ embedding: { values: [1, 0, 0] } }),
+        json: async () => ({
+          embeddings: [
+            { values: [1, 0, 0] },
+            { values: [0, 1, 0] },
+            { values: [0, 0, 1] }
+          ]
+        }),
       } as Response);
 
     const client = new GeminiEmbeddingClient({
@@ -70,6 +76,62 @@ describe("GeminiEmbeddingClient", () => {
       expect(result.value.warmed).toBe(3);
       expect(result.value.failed).toBe(0);
     }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("embedBatch issues a single batchEmbedContents call for uncached items", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        embeddings: [{ values: [1, 0] }, { values: [0, 1] }],
+      }),
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain(":batchEmbedContents");
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    expect(body.requests).toHaveLength(2);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("embedBatch isolates failures by splitting batches on HTTP 400", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => "Batch too large or invalid",
+      } as Response)
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          embeddings: [{ values: [1, 0] }],
+        }),
+      } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(true);
+    // 1 failed batch (2 items) -> 2 successful single items
     expect(fetchMock).toHaveBeenCalledTimes(3);
 
     await rm(cacheDir, { recursive: true, force: true });
@@ -80,14 +142,13 @@ describe("GeminiEmbeddingClient", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValue({
         ok: true,
-        json: async () => ({ embedding: { values: [1, 0, 0] } }),
+        json: async () => ({ embeddings: [{ values: [1, 0, 0] }] }),
       } as Response);
 
     const client = new GeminiEmbeddingClient({
       apiKey: "test-key", // pragma: allowlist secret
       baseUrl: "https://generativelanguage.googleapis.com/v1beta",
       cacheDir,
-      timeoutMs: 1000,
       model: "gemini-embedding-002",
     });
 
@@ -96,8 +157,43 @@ describe("GeminiEmbeddingClient", () => {
     expect(result.ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-002:embedContent"
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-002:batchEmbedContents"
     );
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("retries on HTTP 429 and succeeds on second attempt", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+
+    let calls = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      calls++;
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 429,
+          // Retry-After: 0 so the retry fires with zero real-time delay
+          headers: new Headers({ "Retry-After": "0" }),
+          text: async () => "Rate limit exceeded",
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({ embeddings: [{ values: [1, 0, 0] }] }),
+      } as Response;
+    });
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+    });
+
+    const result = await client.getEmbedding("test retry");
+
+    expect(result.ok).toBe(true);
+    expect(calls).toBe(2);
 
     await rm(cacheDir, { recursive: true, force: true });
   });

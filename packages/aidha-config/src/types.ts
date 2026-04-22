@@ -27,6 +27,7 @@ export interface LlmConfig {
   cache_dir: string;
   reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   verbosity?: 'low' | 'medium' | 'high';
+  embedding_batch_size?: number;
 }
 
 /** Editor tuning parameters. */
@@ -139,6 +140,7 @@ export interface ResolvedConfig {
     cacheDir: string;
     reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
     verbosity?: 'low' | 'medium' | 'high';
+    embeddingBatchSize: number;
   };
   editor: {
     version: string;

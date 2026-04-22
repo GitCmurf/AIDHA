@@ -57,6 +57,7 @@ export const DEFAULTS: DeepReadonly<AidhaConfig> = {
         cache_dir: './out/cache/claims',
         reasoning_effort: 'medium',
         verbosity: 'medium',
+        embedding_batch_size: 20,
       },
       editor: {
         version: 'v2',

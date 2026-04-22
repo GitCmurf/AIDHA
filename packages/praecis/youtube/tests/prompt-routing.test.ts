@@ -44,4 +44,27 @@ describe('prompt routing', () => {
       retryPromptPackId: 'enumeration-framework',
     });
   });
+
+  it('falls back to generic-hierarchy when no specific signals are found', () => {
+    const { decision } = decidePromptPack({
+      title: 'Random video',
+      transcriptText: 'Just some random talk without any specific keywords.',
+    });
+
+    expect(decision.promptPackId).toBe('generic-hierarchy');
+    expect(decision.routeSource).toBe('fallback-default');
+  });
+
+  it('does not trigger retry when no structural cues are present in profile', () => {
+    const profile = buildTranscriptProfile('Normal conversational text without any lists or domain terms.');
+    const retry = determineRetryDecision({
+      promptPackId: 'generic-hierarchy',
+      profile,
+      claims: [
+        { text: 'Some claim.', excerptIds: ['e1'] },
+      ],
+    });
+
+    expect(retry.retry).toBe(false);
+  });
 });

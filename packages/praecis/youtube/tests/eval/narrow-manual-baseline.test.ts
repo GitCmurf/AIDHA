@@ -280,7 +280,7 @@ describe("narrow-manual-baseline helpers", () => {
     })).toBe("clinical-risk-management-v2");
   });
 
-  it("uses the same extraction-stage signature for fast-triage and compare", () => {
+  it("uses the same extraction-stage signature for fast-triage and compare", async () => {
     const common = {
       corpusVideoIds: ["RfEOrbbMwMU", "xZzkNJ0e5J0"],
       modelIds: ["gemini-3.1-flash-lite-preview"],
@@ -291,11 +291,13 @@ describe("narrow-manual-baseline helpers", () => {
       transcriptDir: "/tmp/transcripts",
       manualBaselineDir: "/tmp/manual",
       fallbackModelId: "gemini-3.1-flash-lite-preview",
+      judgeModelIds: ["gpt-4o-mini"],
+      judgeMaxTokens: 4000,
       enablePromptRouting: false,
     };
 
-    expect(buildExtractionStageInputSignature(common)).toBe(
-      buildExtractionStageInputSignature({
+    expect(await buildExtractionStageInputSignature(common)).toBe(
+      await buildExtractionStageInputSignature({
         ...common,
       })
     );

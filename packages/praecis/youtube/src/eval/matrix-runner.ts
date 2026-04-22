@@ -27,6 +27,7 @@ import {
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 import { isValidSafeId } from "../utils/ids.js";
 import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import type { NarrowJudgeResult } from "./narrow-judge.js";
 
 export const EXTRACTOR_VERSION = "v1";
 
@@ -105,6 +106,7 @@ export interface MatrixCell {
     variance: Partial<Record<ScoreDimension, number>>;
     isHighVariance: boolean;
   };
+  narrowJudgeResult?: NarrowJudgeResult;
   error?: { message: string; code?: string; details?: Record<string, string> };
   costEstimate?: {
     extractionUsd: number;
@@ -476,6 +478,9 @@ const getExtractionForCell = async (
       variant,
       promptVersion,
       extractorVersion,
+      options.extractionPromptConfigId,
+      options.extractionChunkModeId,
+      options.extractionPromptPackId,
       { cacheDir: options.cacheDir }
     );
   }
@@ -540,6 +545,9 @@ const getExtractionForCell = async (
         variant,
         promptVersion,
         extractorVersion,
+        options.extractionPromptConfigId,
+        options.extractionChunkModeId,
+        options.extractionPromptPackId,
         cellWithoutTraces,
         { cacheDir: options.cacheDir }
       );

@@ -10,13 +10,13 @@ import { flattenGoldenClaimForest, type FlattenedGoldenClaimNode } from "./golde
 import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
 import { runEvaluationMatrix, type MatrixCell, type MatrixOptions, type VideoContext } from "./matrix-runner.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
-import type { EvalModel } from "./model-registry.js";
+import { getModel, type EvalModel } from "./model-registry.js";
 import { buildReportFileSet, type ReportFileSet } from "./report-files.js";
 import { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { getNarrowEvalChunkModes, getNarrowEvalModelProfile, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import { computeClaimSetHash } from "./matrix-cache.js";
-import { hashId } from "../utils/ids.js";
+import { hashId, hashFile } from "../utils/ids.js";
 import {
   scoreNarrowClaimSet,
   type NarrowDerivedJudgeScores,
@@ -28,6 +28,7 @@ import {
   type Pass1PromptConfigId,
 } from "../extract/prompts/pass1-claim-mining-v2.js";
 import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import { writeJsonAtomic, writeFileAtomic } from "../utils/io.js";
 
 const ManualBaselineClaimsFileSchema = z.object({
   claims: z.array(z.object({
@@ -436,9 +437,7 @@ function buildNarrowVideoScorePath(outputDir: string, videoId: string): string {
 }
 
 async function writeNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageId, payload: T): Promise<void> {
-  const stagesDir = join(outputDir, "stages");
-  await mkdir(stagesDir, { recursive: true });
-  await writeFile(buildNarrowStagePath(outputDir, stage), JSON.stringify(payload, null, 2));
+  await writeJsonAtomic(buildNarrowStagePath(outputDir, stage), payload);
 }
 
 async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageId): Promise<T | undefined> {
@@ -451,9 +450,7 @@ async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageI
 }
 
 async function writeNarrowVideoScoreArtifact(outputDir: string, payload: NarrowVideoScoreArtifact): Promise<void> {
-  const stagesDir = join(outputDir, "stages");
-  await mkdir(stagesDir, { recursive: true });
-  await writeFile(buildNarrowVideoScorePath(outputDir, payload.videoId), JSON.stringify(payload, null, 2));
+  await writeJsonAtomic(buildNarrowVideoScorePath(outputDir, payload.videoId), payload);
 }
 
 async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string): Promise<NarrowVideoScoreArtifact | undefined> {
@@ -465,7 +462,7 @@ async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string):
   }
 }
 
-function buildStageInputSignature(input: {
+async function buildStageInputSignature(input: {
   runMode: NarrowRunMode;
   corpusVideoIds: string[];
   modelIds: string[];
@@ -477,9 +474,27 @@ function buildStageInputSignature(input: {
   manualBaselineDir: string;
   fallbackModelId: string;
   judgeEnabled: boolean;
+  judgeModelIds: string[];
+  judgeMaxTokens: number;
   includeManualBaselines: boolean;
   enablePromptRouting: boolean;
-}): string {
+}): Promise<string> {
+  const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
+  const transcriptHash = await hashFiles(transcriptFiles);
+
+  const goldFiles = input.corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
+  const goldHash = await hashFiles(goldFiles);
+
+  let manualHash = "";
+  if (input.includeManualBaselines) {
+    const manualFiles: string[] = [];
+    for (const id of input.corpusVideoIds) {
+      manualFiles.push(join(input.manualBaselineDir, `${id}-CG.json`));
+      manualFiles.push(join(input.manualBaselineDir, `${id}-GG.json`));
+    }
+    manualHash = await hashFiles(manualFiles);
+  }
+
   return hashId("narrow-stage", [JSON.stringify({
     runMode: input.runMode,
     corpusVideoIds: [...input.corpusVideoIds].sort(),
@@ -488,16 +503,24 @@ function buildStageInputSignature(input: {
     promptConfigs: [...input.promptConfigs],
     stage1Variants: [...input.stage1Variants],
     stage2Variants: [...input.stage2Variants],
-    transcriptDir: input.transcriptDir,
-    manualBaselineDir: input.manualBaselineDir,
+    transcriptHash,
+    goldHash,
+    manualHash,
     fallbackModelId: input.fallbackModelId,
     judgeEnabled: input.judgeEnabled,
+    judgeModelIds: [...input.judgeModelIds].sort(),
+    judgeMaxTokens: input.judgeMaxTokens,
     includeManualBaselines: input.includeManualBaselines,
     enablePromptRouting: input.enablePromptRouting,
   })]);
 }
 
-export function buildExtractionStageInputSignature(input: {
+async function hashFiles(filePaths: string[]): Promise<string> {
+  const hashes = await Promise.all(filePaths.map((p) => hashFile(p)));
+  return hashId("files", hashes.filter(Boolean) as string[]);
+}
+
+export async function buildExtractionStageInputSignature(input: {
   corpusVideoIds: string[];
   modelIds: string[];
   chunkModes: NarrowEvalChunkMode[];
@@ -507,8 +530,16 @@ export function buildExtractionStageInputSignature(input: {
   transcriptDir: string;
   manualBaselineDir: string;
   fallbackModelId: string;
+  judgeModelIds: string[];
+  judgeMaxTokens: number;
   enablePromptRouting: boolean;
-}): string {
+}): Promise<string> {
+  const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
+  const transcriptHash = await hashFiles(transcriptFiles);
+
+  const goldFiles = input.corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
+  const goldHash = await hashFiles(goldFiles);
+
   return hashId("narrow-extraction-stage", [JSON.stringify({
     corpusVideoIds: [...input.corpusVideoIds].sort(),
     modelIds: [...input.modelIds].sort(),
@@ -516,9 +547,12 @@ export function buildExtractionStageInputSignature(input: {
     promptConfigs: [...input.promptConfigs],
     stage1Variants: [...input.stage1Variants],
     stage2Variants: [...input.stage2Variants],
-    transcriptDir: input.transcriptDir,
+    transcriptHash,
+    goldHash,
     manualBaselineDir: input.manualBaselineDir,
     fallbackModelId: input.fallbackModelId,
+    judgeModelIds: [...input.judgeModelIds].sort(),
+    judgeMaxTokens: input.judgeMaxTokens,
     enablePromptRouting: input.enablePromptRouting,
   })]);
 }
@@ -812,20 +846,31 @@ async function loadVideoBaselines(videoId: string, manualBaselineDir: string): P
   return { goldFlatClaims, comparableClaimSets };
 }
 
-function getGoogleEmbeddingConfig(config: ResolvedConfig): { apiKey?: string; baseUrl: string; model?: string } {
+function getGoogleEmbeddingConfig(config: ResolvedConfig): { apiKey?: string; baseUrl: string; model?: string; batchSize?: number } {
+  const llm = config.llm;
+  const isGeminiModel = llm.model?.toLowerCase().startsWith("gemini-");
+  const isOpenAiDefault = llm.baseUrl.includes("openai.com");
+
   return {
     apiKey:
       process.env["GOOGLE_AISTUDIO_API_KEY"] ||
       process.env["GEMINI_API_KEY"] ||
       process.env["GOOGLE_API_KEY"] ||
       process.env["AIDHA_GOOGLE_API_KEY"] ||
-      "",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      (isGeminiModel ? llm.apiKey : ""),
+    baseUrl:
+      process.env["GOOGLE_EMBEDDING_BASE_URL"] ||
+      (isGeminiModel
+        ? (isOpenAiDefault
+          ? "https://generativelanguage.googleapis.com/v1beta"
+          : llm.baseUrl.replace(/\/openai\/?$/, ""))
+        : "https://generativelanguage.googleapis.com/v1beta"),
     model:
       process.env["GOOGLE_EMBEDDING_MODEL"] ||
       process.env["AIDHA_GOOGLE_EMBEDDING_MODEL"] ||
       process.env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
       "gemini-embedding-2-preview",
+    batchSize: llm.embeddingBatchSize,
   };
 }
 
@@ -1720,6 +1765,20 @@ async function runHarnessExtractionOnly(
   return result.cells.map((cell) => ({ ...cell, chunkMode, promptConfigId }));
 }
 
+function buildRefineStageInputSignature(input: {
+  extractionStageInputSignature: string;
+  refinedTargets: NarrowShortlistTarget[];
+  teacherAwareHints: Record<string, SelfImproveHintInput>;
+}): string {
+  return hashId("narrow-refine-stage", [
+    input.extractionStageInputSignature,
+    JSON.stringify({
+      refinedTargets: input.refinedTargets,
+      teacherAwareHints: input.teacherAwareHints,
+    }),
+  ]);
+}
+
 export async function runNarrowManualBaselineComparison(
   options: RunNarrowManualBaselineOptions
 ): Promise<NarrowComparisonReport> {
@@ -1751,7 +1810,7 @@ export async function runNarrowManualBaselineComparison(
   const transcriptByVideo = new Map<string, TranscriptData>();
   const goldByVideo = new Map<string, FlattenedGoldenClaimNode[]>();
   const manualByVideo = new Map<string, ComparableClaimSet[]>();
-  const stageInputSignature = buildStageInputSignature({
+  const stageInputSignature = await buildStageInputSignature({
     runMode,
     corpusVideoIds: options.corpus.map((video) => video.videoId),
     modelIds: options.models.map((model) => model.id),
@@ -1763,10 +1822,12 @@ export async function runNarrowManualBaselineComparison(
     manualBaselineDir: options.manualBaselineDir,
     fallbackModelId: options.fallbackModelId,
     judgeEnabled,
+    judgeModelIds: options.judgeModelIds,
+    judgeMaxTokens: options.judgeMaxTokens ?? 4000,
     includeManualBaselines,
     enablePromptRouting,
   });
-  const extractionStageInputSignature = buildExtractionStageInputSignature({
+  const extractionStageInputSignature = await buildExtractionStageInputSignature({
     corpusVideoIds: options.corpus.map((video) => video.videoId),
     modelIds: options.models.map((model) => model.id),
     chunkModes,
@@ -1776,6 +1837,8 @@ export async function runNarrowManualBaselineComparison(
     transcriptDir: options.transcriptDir,
     manualBaselineDir: options.manualBaselineDir,
     fallbackModelId: options.fallbackModelId,
+    judgeModelIds: options.judgeModelIds,
+    judgeMaxTokens: options.judgeMaxTokens ?? 4000,
     enablePromptRouting,
   });
 
@@ -1795,6 +1858,7 @@ export async function runNarrowManualBaselineComparison(
         cacheDir: ".cache/eval-embeddings/narrow-manual-baseline",
         timeoutMs: options.timeoutMs ?? 120_000,
         model: googleEmbeddingConfig.model,
+        batchSize: googleEmbeddingConfig.batchSize,
         maxRequestsPerMinute: options.maxEmbeddingRequestsPerMinute ?? 80,
       })
     : undefined;
@@ -1837,7 +1901,7 @@ export async function runNarrowManualBaselineComparison(
       }
     }
 
-    const fallbackModel = options.models.find((model) => model.id === options.fallbackModelId);
+    const fallbackModel = options.models.find((model) => model.id === options.fallbackModelId) || getModel(options.fallbackModelId);
     if (fallbackModel) {
       const fallbackTargets = options.models
         .filter((model) => model.id !== options.fallbackModelId)
@@ -1906,6 +1970,8 @@ export async function runNarrowManualBaselineComparison(
       effectiveEmbeddingClient = undefined;
       console.warn(`[embedding-skip-budget] video=${video.videoId} required=1 remaining=0`);
     }
+
+    const initialApiRequests = effectiveEmbeddingClient?.getStats().apiRequestCount ?? 0;
     const candidateReports: NarrowComparisonCandidateReport[] = [];
     for (const [candidateIndex, candidate] of comparableClaimSets.entries()) {
       candidateReports.push(await buildCandidateReport(
@@ -1928,6 +1994,12 @@ export async function runNarrowManualBaselineComparison(
         coverageCache,
         embeddingEligibleCandidateIds
       );
+    }
+
+    if (effectiveEmbeddingClient) {
+      const finalApiRequests = effectiveEmbeddingClient.getStats().apiRequestCount;
+      const used = finalApiRequests - initialApiRequests;
+      budgetState.remainingEmbeddingRequests -= used;
     }
     console.log(`[coverage-done] video=${video.videoId} durationMs=${Date.now() - coverageStartedAt}`);
     return {
@@ -2179,8 +2251,13 @@ export async function runNarrowManualBaselineComparison(
 
   let refinedSelfImproveCells: MatrixCell[] = [];
   let finalHarnessCells: MatrixCell[] = [];
+  const refineStageInputSignature = buildRefineStageInputSignature({
+    extractionStageInputSignature,
+    refinedTargets,
+    teacherAwareHints,
+  });
   const cachedRefine = await readNarrowStageArtifact<NarrowRefineStageArtifact>(options.outputDir, "refine");
-  if (cachedRefine?.inputSignature === extractionStageInputSignature) {
+  if (cachedRefine?.inputSignature === refineStageInputSignature) {
     console.log("[resume-from] stage=refine");
     stageExecution.refine = "resumed";
     refinedSelfImproveCells = cachedRefine.refinedSelfImproveCells;
@@ -2225,7 +2302,7 @@ export async function runNarrowManualBaselineComparison(
       stage: "refine",
       mode: runMode,
       createdAt: new Date().toISOString(),
-      inputSignature: extractionStageInputSignature,
+      inputSignature: refineStageInputSignature,
       stage2Variants,
       refinedTargets,
       refinedSelfImproveCells,
@@ -2392,13 +2469,12 @@ export async function writeNarrowComparisonReport(
   outputDir: string,
   stub: string
 ): Promise<ReportFileSet> {
-  await mkdir(outputDir, { recursive: true });
   const files = buildReportFileSet(outputDir, stub);
   const jsonContent = JSON.stringify(report, null, 2);
   const mdContent = renderNarrowComparisonMarkdown(report);
-  await writeFile(files.jsonPath, jsonContent);
-  await writeFile(files.mdPath, mdContent);
-  await writeFile(files.latestJsonPath, jsonContent);
-  await writeFile(files.latestMdPath, mdContent);
+  await writeFileAtomic(files.jsonPath, jsonContent);
+  await writeFileAtomic(files.mdPath, mdContent);
+  await writeFileAtomic(files.latestJsonPath, jsonContent);
+  await writeFileAtomic(files.latestMdPath, mdContent);
   return files;
 }

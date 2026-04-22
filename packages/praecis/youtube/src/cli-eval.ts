@@ -1,7 +1,8 @@
 import type { ResolvedConfig } from "@aidha/config";
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
 import { fileURLToPath } from "node:url";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
@@ -27,36 +28,76 @@ import { sanitizeFilename } from "./utils/ids.js";
 // Provider Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
-});
+const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"];
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.openai.com/v1";
+  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
-const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey:
+  return {
+    apiKey: isProviderProfile ? apiKey : "",
+    baseUrl: effectiveBaseUrl
+  };
+};
+
+const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey =
     process.env["GOOGLE_AISTUDIO_API_KEY"] ||
     process.env["GEMINI_API_KEY"] ||
     process.env["GOOGLE_API_KEY"] ||
-    process.env["AIDHA_GOOGLE_API_KEY"] ||
-    apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://generativelanguage.googleapis.com/v1beta"
-});
+    process.env["AIDHA_GOOGLE_API_KEY"];
 
-const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["ZAI_API_KEY"] || process.env["AIDHA_ZAI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.zai.ai/v1"
-});
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "");
+  const isOpenAiDefault = effectiveBaseUrl?.includes("openai.com");
+  const finalBaseUrl = isOpenAiDefault
+        ? "https://generativelanguage.googleapis.com/v1beta"
+        : (effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : "https://generativelanguage.googleapis.com/v1beta");
 
-const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["XIAOMI_API_KEY"] || process.env["AIDHA_XIAOMI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.xiaomi.com/v1"
-});
+  if (envKey) return { apiKey: envKey, baseUrl: finalBaseUrl };
+
+  return {
+    apiKey: isProviderProfile ? apiKey : "",
+    baseUrl: finalBaseUrl
+  };
+};
+
+const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["ZAI_API_KEY"] || process.env["AIDHA_ZAI_API_KEY"];
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.zai.ai/v1";
+  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
+
+  return {
+    apiKey: isProviderProfile ? apiKey : "",
+    baseUrl: effectiveBaseUrl
+  };
+};
+
+const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["XIAOMI_API_KEY"] || process.env["AIDHA_XIAOMI_API_KEY"];
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.xiaomi.com/v1";
+  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
+
+  return {
+    apiKey: isProviderProfile ? apiKey : "",
+    baseUrl: effectiveBaseUrl
+  };
+};
 
 // Reserved for future use - OpenRouter support when ModelProvider is expanded
-const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1"
-});
+const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"];
+  if (envKey) {
+    return { apiKey: envKey, baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1" };
+  }
+
+  // Only fall back to profile apiKey if it explicitly looks like an OpenRouter key or profile matches
+  const looksLikeOpenRouter = apiKey.startsWith("sk-or-v1-") || baseConfigBaseUrl?.includes("openrouter.ai");
+  const useProfile = isProviderProfile || looksLikeOpenRouter;
+
+  return {
+    apiKey: useProfile ? apiKey : "",
+    baseUrl: baseUrl || (useProfile ? baseConfigBaseUrl : "") || "https://openrouter.ai/api/v1"
+  };
+};
 
 // Only these four providers are supported (matching ModelProvider in model-registry.ts)
 // Provider-specific runtime wiring. Some providers use the OpenAI-compatible client;
@@ -142,9 +183,9 @@ function resolveCacheDir(runId: string): string {
   return runId ? join(".cache/extraction", runId) : ".cache/extraction";
 }
 
-const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
+const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const getter = providerConfigGetters[provider];
-  return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl) : null;
+  return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile) : null;
 };
 
 /**
@@ -173,8 +214,12 @@ export const createProviderAwareClient = (
     );
   }
 
-  const inheritedBaseUrl = provider === "openai" ? baseConfig.baseUrl : undefined;
-  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, inheritedBaseUrl);
+  const isGoogle = provider === "google-aistudio";
+  const isOpenAi = provider === "openai";
+  const modelPrefix = isGoogle ? "gemini-" : provider;
+  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
+  const isProviderProfile = isOpenAi || isMatch;
+  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
   }
@@ -215,8 +260,12 @@ export const resolveProviderConnection = (modelId: string, baseConfig: ResolvedC
   if (!model) {
     throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
   }
-  const inheritedBaseUrl = model.provider === "openai" ? baseConfig.baseUrl : undefined;
-  const resolved = resolveProviderConfig(model.provider, baseConfig.apiKey, model.baseUrl, inheritedBaseUrl);
+  const isGoogle = model.provider === "google-aistudio";
+  const isOpenAi = model.provider === "openai";
+  const modelPrefix = isGoogle ? "gemini-" : model.provider;
+  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
+  const isProviderProfile = isOpenAi || isMatch;
+  const resolved = resolveProviderConfig(model.provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${model.provider}' for model ${modelId}. Cannot resolve baseUrl.`);
   }
@@ -307,7 +356,7 @@ const writeCellArtifacts = async (cells: MatrixResult["cells"], outputDir: strin
       const safeVariantId = sanitizeFilename(cell.extractorVariantId);
       const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}.json`;
       const cellPath = join(cellsDir, cellFileName);
-      return writeFile(cellPath, JSON.stringify(cell));
+      return writeJsonAtomic(cellPath, cell);
     })
   );
   // skipcq: JS-0002
@@ -321,15 +370,15 @@ const writeReports = async (report: MatrixReport, outputDir: string, format: str
   const mdContent = renderMatrixReport(report);
 
   if (format === "both" || format === "json") {
-    writeFileSync(files.jsonPath, jsonContent);
-    writeFileSync(files.latestJsonPath, jsonContent);
+    await writeFileAtomic(files.jsonPath, jsonContent);
+    await writeFileAtomic(files.latestJsonPath, jsonContent);
     // skipcq: JS-0002
     console.log(`Wrote JSON report to ${files.jsonPath}`);
   }
 
   if (format === "both" || format === "md") {
-    writeFileSync(files.mdPath, mdContent);
-    writeFileSync(files.latestMdPath, mdContent);
+    await writeFileAtomic(files.mdPath, mdContent);
+    await writeFileAtomic(files.latestMdPath, mdContent);
     // skipcq: JS-0002
     console.log(`Wrote Markdown report to ${files.mdPath}`);
   }
@@ -742,10 +791,26 @@ const invalidateNarrowStages = (outputDir: string, refreshStage: NarrowEvalOptio
   if (startIndex === -1) {
     throw new Error(`Invalid refresh stage: ${refreshStage}`);
   }
-  for (const stage of NARROW_STAGE_ORDER.slice(startIndex)) {
+
+  const stagesToInvalidate = NARROW_STAGE_ORDER.slice(startIndex);
+  for (const stage of stagesToInvalidate) {
     const stagePath = join(stagesDir, `${stage}.json`);
     rmSync(stagePath, { force: true });
     console.log(`[refresh-stage] removed ${stagePath}`);
+  }
+
+  // If score or judge is invalidated, we must also clear the per-video artifacts
+  if (stagesToInvalidate.includes("score") || stagesToInvalidate.includes("judge")) {
+    if (existsSync(stagesDir)) {
+      const files = readdirSync(stagesDir);
+      for (const file of files) {
+        if (file.startsWith("score-video-") && file.endsWith(".json")) {
+          const filePath = join(stagesDir, file);
+          rmSync(filePath, { force: true });
+          console.log(`[refresh-stage] removed ${filePath}`);
+        }
+      }
+    }
   }
 };
 
@@ -798,7 +863,7 @@ const runNarrowManualBaseline = async (
     const connection = resolveProviderConnection(modelId, config.llm);
     return !connection.apiKey || connection.apiKey.trim().length === 0;
   });
-  if (missingCredentialModels.length > 0) {
+  if (!parsedOpts.dryRun && missingCredentialModels.length > 0) {
     console.error(
       `Missing provider credentials for: ${missingCredentialModels.join(", ")}. ` +
       "Set the relevant API keys before running the narrow manual baseline comparison."

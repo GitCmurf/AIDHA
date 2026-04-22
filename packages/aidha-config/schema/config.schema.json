@@ -86,6 +86,12 @@
           "type": "string",
           "enum": ["low", "medium", "high"],
           "description": "GPT-5 response verbosity control."
+        },
+        "embedding_batch_size": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20,
+          "description": "Number of items to send in a single batch embedding request."
         }
       }
     },

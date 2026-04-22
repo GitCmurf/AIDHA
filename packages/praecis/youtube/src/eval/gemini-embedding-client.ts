@@ -13,6 +13,8 @@ export interface GeminiEmbeddingClientConfig {
   outputDimensionality?: number;
   taskType?: "SEMANTIC_SIMILARITY" | "RETRIEVAL_QUERY" | "RETRIEVAL_DOCUMENT" | "CLASSIFICATION" | "CLUSTERING";
   maxRequestsPerMinute?: number;
+  batchSize?: number;
+  maxRetries?: number;
 }
 
 interface CachedEmbedding {
@@ -29,6 +31,9 @@ const DEFAULT_MODEL = "gemini-embedding-2-preview";
 const DEFAULT_OUTPUT_DIMENSIONALITY = 768;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_TASK_TYPE: NonNullable<GeminiEmbeddingClientConfig["taskType"]> = "SEMANTIC_SIMILARITY";
+const DEFAULT_BATCH_SIZE = 20;
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_DELAY_MS = 500;
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
@@ -71,6 +76,8 @@ export class GeminiEmbeddingClient {
   private readonly outputDimensionality: number;
   private readonly taskType: NonNullable<GeminiEmbeddingClientConfig["taskType"]>;
   private readonly maxRequestsPerMinute: number;
+  private readonly batchSize: number;
+  private readonly maxRetries: number;
   private apiRequestCount = 0;
   private cacheHitCount = 0;
   private cacheMissCount = 0;
@@ -84,6 +91,8 @@ export class GeminiEmbeddingClient {
     this.outputDimensionality = config.outputDimensionality ?? DEFAULT_OUTPUT_DIMENSIONALITY;
     this.taskType = config.taskType ?? DEFAULT_TASK_TYPE;
     this.maxRequestsPerMinute = config.maxRequestsPerMinute ?? 80;
+    this.batchSize = config.batchSize ?? DEFAULT_BATCH_SIZE;
+    this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 
   async similarity(textA: string, textB: string): Promise<Result<EmbeddingSimilarityScore>> {
@@ -101,25 +110,165 @@ export class GeminiEmbeddingClient {
     };
   }
 
-  async prewarm(texts: string[], concurrency: number = 8): Promise<Result<{ warmed: number; failed: number }>> {
+  async prewarm(texts: string[]): Promise<Result<{ warmed: number; failed: number }>> {
     const uniqueTexts = [...new Set(texts.map((text) => normalizeEmbeddingText(text)).filter(Boolean))];
-    let warmed = 0;
-    let failed = 0;
+    const result = await this.embedBatch(uniqueTexts);
+    if (!result.ok) return result;
 
-    for (let index = 0; index < uniqueTexts.length; index += concurrency) {
-      const batch = uniqueTexts.slice(index, index + concurrency);
-      const results = await Promise.all(batch.map((text) => this.getEmbedding(text)));
-      for (const result of results) {
-        if (result.ok) warmed += 1;
-        else failed += 1;
-      }
-    }
-
+    const warmed = result.value.filter(v => v !== null).length;
+    const failed = result.value.length - warmed;
     return { ok: true, value: { warmed, failed } };
   }
 
+  async embedBatch(texts: string[]): Promise<Result<Array<number[] | null>>> {
+    const normalized = texts.map(t => normalizeEmbeddingText(t));
+    const results: Array<number[] | null> = new Array(normalized.length).fill(null);
+    const toFetch: Array<{ text: string; index: number }> = [];
+
+    // Check cache in parallel
+    await Promise.all(normalized.map(async (text, i) => {
+      if (!text) return;
+      const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
+      const cachePath = join(this.cacheDir, `${cacheKey}.json`);
+      const cached = await this.readCache(cachePath, text);
+      if (cached) {
+        results[i] = cached.vector;
+        this.cacheHitCount += 1;
+      } else {
+        toFetch.push({ text, index: i });
+        this.cacheMissCount += 1;
+      }
+    }));
+
+    if (toFetch.length === 0) return { ok: true, value: results };
+
+    // Batch fetch remaining
+    for (let i = 0; i < toFetch.length; i += this.batchSize) {
+      const chunk = toFetch.slice(i, i + this.batchSize);
+      const chunkTexts = chunk.map(c => c.text);
+      const batchResult = await this.embedBatchWithRetryAndSplit(chunkTexts);
+
+      if (batchResult.ok) {
+        batchResult.value.forEach((vector, j) => {
+          if (vector) {
+            const originalIndex = chunk[j]!.index;
+            results[originalIndex] = vector;
+          }
+        });
+      }
+    }
+
+    return { ok: true, value: results };
+  }
+
+  private async embedBatchWithRetryAndSplit(texts: string[]): Promise<Result<Array<number[] | null>>> {
+    if (texts.length === 0) return { ok: true, value: [] };
+
+    const waitMs = await requestRateLimiterRegistry.waitForSlot(this.model, this.maxRequestsPerMinute);
+    if (waitMs > 0) {
+      console.log(`[rate-limit-wait] model=${this.model} waitMs=${waitMs}`);
+    }
+
+    const result = await this.fetchWithRetry(
+      `${this.baseUrl}/models/${encodeURIComponent(this.model)}:batchEmbedContents`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
+        body: JSON.stringify({
+          requests: texts.map(text => ({
+            model: `models/${this.model}`,
+            taskType: this.taskType,
+            outputDimensionality: this.outputDimensionality,
+            content: { parts: [{ text }] },
+          })),
+        }),
+      }
+    );
+
+    if (!result.ok) {
+      // If batch failed with unretryable error (or exhausted retries), split it
+      if (texts.length === 1) {
+        return { ok: false, error: result.error };
+      }
+
+      const mid = Math.floor(texts.length / 2);
+      const left = await this.embedBatchWithRetryAndSplit(texts.slice(0, mid));
+      const right = await this.embedBatchWithRetryAndSplit(texts.slice(mid));
+
+      const combined: Array<number[] | null> = [];
+      if (left.ok) combined.push(...left.value); else combined.push(...new Array(mid).fill(null));
+      if (right.ok) combined.push(...right.value); else combined.push(...new Array(texts.length - mid).fill(null));
+
+      return { ok: true, value: combined };
+    }
+
+    const json = result.value as {
+      embeddings?: Array<{
+        values?: number[];
+      }>;
+    };
+
+    const embeddings = json.embeddings ?? [];
+    const values = await Promise.all(embeddings.map(async (e, i) => {
+      const v = e.values;
+      if (Array.isArray(v) && v.length > 0) {
+        // Write to cache
+        const text = texts[i]!;
+        const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
+        const cachePath = join(this.cacheDir, `${cacheKey}.json`);
+        await this.writeCache(cachePath, text, v);
+        return v;
+      }
+      return null;
+    }));
+
+    return { ok: true, value: values };
+  }
+
+  private async fetchWithRetry(url: string, init: RequestInit): Promise<Result<unknown>> {
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
+      try {
+        this.apiRequestCount += 1;
+        const response = await fetch(url, { ...init, signal: timeoutSignal });
+
+        if (response.ok) {
+          return { ok: true, value: await response.json() };
+        }
+
+        const isRetryable = response.status === 429 || response.status >= 500;
+        const errorText = await response.text();
+        lastError = new Error(`Gemini API failed (${response.status}): ${errorText.slice(0, 500)}`);
+
+        if (!isRetryable || attempt === this.maxRetries) {
+          return { ok: false, error: lastError };
+        }
+
+        const retryAfter = response.headers.get("Retry-After");
+        const delayMs = retryAfter
+          ? parseInt(retryAfter, 10) * 1000
+          : DEFAULT_RETRY_DELAY_MS * Math.pow(2, attempt);
+
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt === this.maxRetries) return { ok: false, error: lastError };
+        await new Promise(resolve => setTimeout(resolve, DEFAULT_RETRY_DELAY_MS * Math.pow(2, attempt)));
+      }
+    }
+    return { ok: false, error: lastError ?? new Error("Unknown fetch error") };
+  }
+
   async getEmbedding(text: string): Promise<Result<number[]>> {
-    return this.embed(text);
+    const result = await this.embedBatch([text]);
+    if (!result.ok) return result;
+    const vector = result.value[0];
+    if (!vector) return { ok: false, error: new Error("Failed to get embedding") };
+    return { ok: true, value: vector };
   }
 
   getStats(): { apiRequestCount: number; cacheHitCount: number; cacheMissCount: number } {
@@ -128,74 +277,6 @@ export class GeminiEmbeddingClient {
       cacheHitCount: this.cacheHitCount,
       cacheMissCount: this.cacheMissCount,
     };
-  }
-
-  private async embed(text: string): Promise<Result<number[]>> {
-    const normalized = normalizeEmbeddingText(text);
-    if (normalized.length === 0) {
-      return { ok: false, error: new Error("Cannot embed empty text") };
-    }
-
-    const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, normalized);
-    const cachePath = join(this.cacheDir, `${cacheKey}.json`);
-    const cached = await this.readCache(cachePath, normalized);
-    if (cached) {
-      this.cacheHitCount += 1;
-      return { ok: true, value: cached.vector };
-    }
-    this.cacheMissCount += 1;
-
-    const waitMs = await requestRateLimiterRegistry.waitForSlot(this.model, this.maxRequestsPerMinute);
-    if (waitMs > 0) {
-      console.log(`[rate-limit-wait] model=${this.model} waitMs=${waitMs}`);
-    }
-
-    const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
-    try {
-      this.apiRequestCount += 1;
-      const response = await fetch(
-        `${this.baseUrl}/models/${encodeURIComponent(this.model)}:embedContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": this.apiKey,
-          },
-          body: JSON.stringify({
-            model: `models/${this.model}`,
-            taskType: this.taskType,
-            outputDimensionality: this.outputDimensionality,
-            content: {
-              parts: [{ text: normalized }],
-            },
-          }),
-          signal: timeoutSignal,
-        }
-      );
-
-      if (!response.ok) {
-        const textBody = await response.text();
-        return {
-          ok: false,
-          error: new Error(`Gemini embedding request failed (${response.status}): ${textBody.slice(0, 500)}`),
-        };
-      }
-
-      const json = (await response.json()) as {
-        embedding?: {
-          values?: number[];
-        };
-      };
-      const values = json.embedding?.values;
-      if (!Array.isArray(values) || values.length === 0) {
-        return { ok: false, error: new Error("Gemini embedding response missing vector values") };
-      }
-
-      await this.writeCache(cachePath, normalized, values);
-      return { ok: true, value: values };
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
-    }
   }
 
   private async readCache(cachePath: string, normalizedText: string): Promise<CachedEmbedding | null> {
