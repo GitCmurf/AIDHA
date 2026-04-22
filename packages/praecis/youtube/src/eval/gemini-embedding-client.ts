@@ -164,11 +164,6 @@ export class GeminiEmbeddingClient {
   private async embedBatchWithRetryAndSplit(texts: string[]): Promise<Result<Array<number[] | null>>> {
     if (texts.length === 0) return { ok: true, value: [] };
 
-    const waitMs = await requestRateLimiterRegistry.waitForSlot(this.model, this.maxRequestsPerMinute);
-    if (waitMs > 0) {
-      console.log(`[rate-limit-wait] model=${this.model} waitMs=${waitMs}`);
-    }
-
     const result = await this.fetchWithRetry(
       `${this.baseUrl}/models/${encodeURIComponent(this.model)}:batchEmbedContents`,
       {
@@ -231,6 +226,11 @@ export class GeminiEmbeddingClient {
   private async fetchWithRetry(url: string, init: RequestInit): Promise<Result<unknown>> {
     let lastError: Error | undefined;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      const waitMs = await requestRateLimiterRegistry.waitForSlot(this.model, this.maxRequestsPerMinute);
+      if (waitMs > 0) {
+        console.log(`[rate-limit-wait] model=${this.model} waitMs=${waitMs}`);
+      }
+
       const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
       try {
         this.apiRequestCount += 1;

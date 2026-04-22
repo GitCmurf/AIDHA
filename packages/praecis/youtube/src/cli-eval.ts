@@ -218,6 +218,8 @@ export const createProviderAwareClient = (
   const isOpenAi = provider === "openai";
   const modelPrefix = isGoogle ? "gemini-" : provider;
   const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
+  // OpenAI profiles always inherit permissive credentials (to support custom proxies).
+  // Other providers only inherit if the profile model actually matches the provider.
   const isProviderProfile = isOpenAi || isMatch;
   const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
@@ -724,6 +726,12 @@ const hasOption = (options: CliOptions, key: string): boolean =>
 const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => {
   const rawMode = optionString(cleanOptions, "mode", "fast-triage");
   const mode = rawMode === "quota-safe" ? "fast-triage" : rawMode;
+
+  const validModes = ["fast-triage", "compare", "deep"];
+  if (!validModes.includes(mode)) {
+    throw new Error(`Invalid narrow eval mode '${mode}'. Supported modes: ${validModes.join(", ")}`);
+  }
+
   const judgeDefault = mode === "fast-triage" ? "" : optionString(cleanOptions, "judge-model", "gpt-5.4");
   const judgeModelsStr = optionString(cleanOptions, "judge-models", judgeDefault);
   const judgeEnabled = hasOption(cleanOptions, "judge")
