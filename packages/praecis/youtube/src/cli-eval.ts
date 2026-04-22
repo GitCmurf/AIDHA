@@ -369,16 +369,18 @@ const writeReports = async (report: MatrixReport, outputDir: string, format: str
   const jsonContent = exportMatrixJson(report, { pretty: true });
   const mdContent = renderMatrixReport(report);
 
+  // Always refresh both convenience aliases regardless of chosen format
+  await writeFileAtomic(files.latestJsonPath, jsonContent);
+  await writeFileAtomic(files.latestMdPath, mdContent);
+
   if (format === "both" || format === "json") {
     await writeFileAtomic(files.jsonPath, jsonContent);
-    await writeFileAtomic(files.latestJsonPath, jsonContent);
     // skipcq: JS-0002
     console.log(`Wrote JSON report to ${files.jsonPath}`);
   }
 
   if (format === "both" || format === "md") {
     await writeFileAtomic(files.mdPath, mdContent);
-    await writeFileAtomic(files.latestMdPath, mdContent);
     // skipcq: JS-0002
     console.log(`Wrote Markdown report to ${files.mdPath}`);
   }

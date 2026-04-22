@@ -50,9 +50,13 @@ export function checkSelfImprovementGate(
     );
 
     if (!baselineCell || !baselineCell.consensusScore) {
-      // If baseline is missing, we can't judge regression, but we don't necessarily fail the gate
-      // unless we want to enforce presence of baseline. For now, just skip this video.
-      continue;
+      // Missing baseline is a failure state for the gate as we cannot verify lack of regression
+      return {
+        passed: false,
+        regressions,
+        skipped: false,
+        message: `Missing baseline ${baselineVariantId} for ${siCell.videoId}/${siCell.modelId}.`
+      };
     }
 
     const siScore = siCell.consensusScore.mean.overallScore;

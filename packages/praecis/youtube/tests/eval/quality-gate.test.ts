@@ -66,4 +66,20 @@ describe("checkSelfImprovementGate", () => {
     const result = checkSelfImprovementGate(report);
     expect(result.skipped).toBe(true);
   });
+
+  it("fails when baseline cells are missing for self-improvement candidates", () => {
+    const report: MatrixReport = {
+      ...mockReportTemplate,
+      cells: [
+        {
+          videoId: "v1", modelId: "m1", extractorVariantId: "self-improve-v1",
+          claimSet: [], consensusScore: { mean: { overallScore: 7.5, completeness: 7, accuracy: 8, topicCoverage: 7, atomicity: 8 }, variance: {}, isHighVariance: false }
+        },
+      ]
+    } as MatrixReport;
+
+    const result = checkSelfImprovementGate(report);
+    expect(result.passed).toBe(false);
+    expect(result.message).toMatch(/Missing baseline/);
+  });
 });
