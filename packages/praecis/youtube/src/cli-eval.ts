@@ -99,10 +99,17 @@ const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl
   };
 };
 
+type ProviderConfigGetter = (
+  apiKey: string,
+  baseUrl?: string,
+  baseConfigBaseUrl?: string,
+  isProviderProfile?: boolean
+) => { apiKey: string; baseUrl: string } | null;
+
 // Only these four providers are supported (matching ModelProvider in model-registry.ts)
 // Provider-specific runtime wiring. Some providers use the OpenAI-compatible client;
 // Gemini uses its native generateContent API for full feature access.
-const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => { apiKey: string; baseUrl: string } | null> = {
+const providerConfigGetters: Record<string, ProviderConfigGetter> = {
   openai: getOpenAiConfig,
   "google-aistudio": getGoogleAiStudioConfig,
   zai: getZaiConfig,

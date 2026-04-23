@@ -95,8 +95,9 @@ export function deriveNarrowJudgeScores(
     } else if (finding.goldText) {
       // Fallback for old caches: match by text, ensuring 1 finding matches at most 1 node
       const idx = unmatchedForFallback.findIndex((c) => c.text === finding.goldText);
-      if (idx !== -1) {
-        matchedGoldIds.add(unmatchedForFallback[idx].id);
+      const matchedNode = unmatchedForFallback[idx];
+      if (idx !== -1 && matchedNode) {
+        matchedGoldIds.add(matchedNode.id);
         unmatchedForFallback.splice(idx, 1);
       }
     }

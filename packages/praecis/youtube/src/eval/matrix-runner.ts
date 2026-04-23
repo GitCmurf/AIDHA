@@ -220,13 +220,13 @@ const estimateJudgeCost = (
 };
 
 const performExtraction = async (
-
   modelId: string,
   variant: ExtractorVariantId,
   options: MatrixOptions,
   resource: GraphNode,
   excerpts: GraphNode[],
-  promptVersion: string
+  promptVersion: string,
+  runtimePromptPackId?: ExtractionPromptPackId
 ): Promise<{
   claims: ClaimCandidate[];
   traces: { prompt: { system: string; user: string }; response: string }[];
@@ -251,7 +251,7 @@ const performExtraction = async (
       editorLlm: variant.startsWith("editorial-pass-") || variant === "self-improve-v1",
       selfImproveMaxRounds: variant === "self-improve-v1" ? 1 : 0,
       promptConfigId: options.extractionPromptConfigId,
-      promptPackId: options.extractionPromptPackId,
+      promptPackId: runtimePromptPackId || options.extractionPromptPackId,
       maxTokens: options.extractionMaxTokens,
       maxChunks: options.extractionMaxChunks,
       selfImproveGuidance: options.extractionSelfImproveHints?.[selfImproveHintKey],
@@ -473,11 +473,11 @@ const getExtractionForCell = async (
   let runtimePromptPackId = options.extractionPromptPackId;
   if (options.extractionEnablePromptRouting) {
     const routing = decidePromptPack({
-      topicDomain: resource.metadata?.topicDomain as string,
+      topicDomain: resource.metadata?.["topicDomain"] as string | undefined,
       title: resource.label,
       transcriptText: resource.content as string,
     });
-    runtimePromptPackId = routing.decision.packId;
+    runtimePromptPackId = routing.decision.promptPackId;
   }
 
   // Check cache for extraction
@@ -495,7 +495,6 @@ const getExtractionForCell = async (
       { cacheDir: options.cacheDir }
     );
   }
-
 
   if (cell) return cell;
 
@@ -530,8 +529,10 @@ const getExtractionForCell = async (
       options,
       resource,
       excerpts,
-      promptVersion
+      promptVersion,
+      runtimePromptPackId
     );
+
 
     const newCell: MatrixCell = {
       videoId: video.videoId,
