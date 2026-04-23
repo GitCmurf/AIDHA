@@ -25,12 +25,14 @@ describe("report files and rendering", () => {
       summary: { bestModel: "m1", worstModel: "m2", hardestVideo: "v1" },
       narrowJudgeResults: {
         "variant-a": {
-          "video-1": {
-            goldCoverage: 10,
-            faithfulness: 9,
-            structure: 8,
-            atomicity: 7,
-            overallScore: 8.5
+          "model-1": {
+            "video-1": {
+              goldCoverage: 10,
+              faithfulness: 9,
+              structure: 8,
+              atomicity: 7,
+              overallScore: 8.5
+            }
           }
         }
       },
@@ -44,6 +46,7 @@ describe("report files and rendering", () => {
     const md = renderMatrixReport(report as MatrixReport);
     expect(md).toContain("## Narrow Judge Summary");
     expect(md).toContain("### Variant: variant-a");
+    expect(md).toContain("#### Model: model-1");
     expect(md).toContain("video-1");
     expect(md).toContain("10.00");
     expect(md).toContain("**8.50**");

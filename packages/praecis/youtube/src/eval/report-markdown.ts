@@ -133,17 +133,23 @@ const renderNarrowJudgeSummary = (results: MatrixReport["narrowJudgeResults"]): 
 
   for (const variantId of sortedVariants) {
     md += `### Variant: ${escapeMdTableCell(variantId)}\n\n`;
-    md += "| Video | Coverage | Faithfulness | Structure | Atomicity | Overall |\n";
-    md += "| --- | --- | --- | --- | --- | --- |\n";
+    const modelResults = results[variantId]!;
+    const sortedModels = Object.keys(modelResults).sort();
 
-    const videoResults = results[variantId]!;
-    const sortedVideos = Object.keys(videoResults).sort();
+    for (const modelId of sortedModels) {
+      md += `#### Model: ${escapeMdTableCell(modelId)}\n\n`;
+      md += "| Video | Coverage | Faithfulness | Structure | Atomicity | Overall |\n";
+      md += "| --- | --- | --- | --- | --- | --- |\n";
 
-    for (const videoId of sortedVideos) {
-      const s = videoResults[videoId]!;
-      md += `| ${escapeMdTableCell(videoId)} | ${s.goldCoverage.toFixed(2)} | ${s.faithfulness.toFixed(2)} | ${s.structure.toFixed(2)} | ${s.atomicity.toFixed(2)} | **${s.overallScore.toFixed(2)}** |\n`;
+      const videoResults = modelResults[modelId]!;
+      const sortedVideos = Object.keys(videoResults).sort();
+
+      for (const videoId of sortedVideos) {
+        const s = videoResults[videoId]!;
+        md += `| ${escapeMdTableCell(videoId)} | ${s.goldCoverage.toFixed(2)} | ${s.faithfulness.toFixed(2)} | ${s.structure.toFixed(2)} | ${s.atomicity.toFixed(2)} | **${s.overallScore.toFixed(2)}** |\n`;
+      }
+      md += "\n";
     }
-    md += "\n";
   }
   return md;
 };

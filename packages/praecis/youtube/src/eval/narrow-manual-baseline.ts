@@ -2501,7 +2501,13 @@ export async function runNarrowManualBaselineComparison(
       shortlistSizePerVideo: shortlistPerVideo,
       refinedTargetCount: refinedTargets.length,
       embeddingModel: googleEmbeddingConfig.model ?? "gemini-embedding-2-preview",
-      completedStages: ["shortlist", "refine", "score", "judge", "report"],
+      completedStages: [
+        "shortlist",
+        "refine",
+        "score",
+        ...(judgeEnabled ? ["judge"] : []),
+        "report"
+      ],
       budgetSkips,
       stageExecution,
       judgeEnabled,

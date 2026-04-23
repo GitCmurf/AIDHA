@@ -228,8 +228,8 @@ export const createProviderAwareClient = (
   const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
   const baseUrlMatch =
     (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
-    (provider === "zai" && baseConfig.baseUrl?.includes("api.zai.ai")) ||
-    (provider === "xiaomi" && baseConfig.baseUrl?.includes("api.xiaomi.com"));
+    (provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
+    (provider === "xiaomi" && (baseConfig.baseUrl?.includes("api.xiaomi.com") || baseConfig.baseUrl?.includes("api.xiaomi.ai")));
 
   // OpenAI profiles always inherit permissive credentials (to support custom proxies).
   // Other providers inherit if the profile model matches the provider or baseUrl matches.
@@ -282,8 +282,8 @@ export const resolveProviderConnection = (modelId: string, baseConfig: ResolvedC
   const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
   const baseUrlMatch =
     (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
-    (model.provider === "zai" && baseConfig.baseUrl?.includes("api.zai.ai")) ||
-    (model.provider === "xiaomi" && baseConfig.baseUrl?.includes("api.xiaomi.com"));
+    (model.provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
+    (model.provider === "xiaomi" && (baseConfig.baseUrl?.includes("api.xiaomi.com") || baseConfig.baseUrl?.includes("api.xiaomi.ai")));
 
   const isProviderProfile = isOpenAi || isMatch || baseUrlMatch;
   const resolved = resolveProviderConfig(model.provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);

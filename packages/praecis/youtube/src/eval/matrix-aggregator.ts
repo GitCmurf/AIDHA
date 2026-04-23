@@ -24,7 +24,7 @@ export interface MatrixReport {
     judgeUsd: number;
     totalUsd: number;
   }>;
-  narrowJudgeResults?: Record<string, Record<string, NarrowDerivedJudgeScores>>; // variantId -> videoId -> scores
+  narrowJudgeResults?: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>>; // variantId -> modelId -> videoId -> scores
   modelStats: Record<string, { dimensions: DimensionStats }>;
   variantStats: Record<string, { dimensions: DimensionStats }>;
   videoStats: Record<string, { dimensions: DimensionStats }>;
@@ -268,14 +268,18 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
   const summary = determineSummary(leaderboards, videoStats);
   const recommendations = generateRecommendations(cells, leaderboards, variantStats);
 
-  const narrowJudgeResults: Record<string, Record<string, NarrowDerivedJudgeScores>> = {};
+  const narrowJudgeResults: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>> = {};
   for (const cell of cells) {
     if (cell.narrowJudgeResult?.derivedScores) {
       const vId = cell.extractorVariantId;
+      const mId = cell.modelId;
       if (!narrowJudgeResults[vId]) {
         narrowJudgeResults[vId] = {};
       }
-      narrowJudgeResults[vId][cell.videoId] = cell.narrowJudgeResult.derivedScores;
+      if (!narrowJudgeResults[vId][mId]) {
+        narrowJudgeResults[vId][mId] = {};
+      }
+      narrowJudgeResults[vId][mId][cell.videoId] = cell.narrowJudgeResult.derivedScores;
     }
   }
 
