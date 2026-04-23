@@ -491,7 +491,8 @@ function isClientTimeoutError(message: string): boolean {
 function isUpstreamAbortError(message: string): boolean {
   const normalized = message.toLowerCase();
   return normalized.includes('upstream abort')
-    || normalized.includes('aborterror');
+    || normalized.includes('aborterror')
+    || normalized.includes('upstream timeout or cancellation');
 }
 
 function computeRetryDelayMs(baseDelayMs: number, attempt: number): number {

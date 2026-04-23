@@ -26,7 +26,7 @@ import {
 } from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 import { isValidSafeId } from "../utils/ids.js";
-import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import { decidePromptPack, type ExtractionPromptPackId } from "../extract/prompt-routing.js";
 import type { NarrowJudgeResult } from "./narrow-judge.js";
 
 export const EXTRACTOR_VERSION = "v1";
@@ -469,6 +469,17 @@ const getExtractionForCell = async (
   promptVersion: string,
   extractorVersion: string
 ): Promise<MatrixCell | { error: { message: string } }> => {
+  // Determine actual prompt pack used (taking prompt routing into account)
+  let runtimePromptPackId = options.extractionPromptPackId;
+  if (options.extractionEnablePromptRouting) {
+    const routing = decidePromptPack({
+      topicDomain: resource.metadata?.topicDomain as string,
+      title: resource.label,
+      transcriptText: resource.content as string,
+    });
+    runtimePromptPackId = routing.decision.packId;
+  }
+
   // Check cache for extraction
   let cell: MatrixCell | null = null;
   if (options.resume && !options.dryRun) {
@@ -480,10 +491,11 @@ const getExtractionForCell = async (
       extractorVersion,
       options.extractionPromptConfigId,
       options.extractionChunkModeId,
-      options.extractionPromptPackId,
+      runtimePromptPackId,
       { cacheDir: options.cacheDir }
     );
   }
+
 
   if (cell) return cell;
 
@@ -547,7 +559,7 @@ const getExtractionForCell = async (
         extractorVersion,
         options.extractionPromptConfigId,
         options.extractionChunkModeId,
-        options.extractionPromptPackId,
+        runtimePromptPackId,
         cellWithoutTraces,
         { cacheDir: options.cacheDir }
       );

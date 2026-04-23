@@ -7,6 +7,7 @@ import type { VideoContext } from "./matrix-runner.js";
 import { buildNarrowJudgePrompt, NARROW_JUDGE_PROMPT_VERSION } from "./prompts/judge-narrow-claim-quality.js";
 
 const NarrowJudgeFindingSchema = z.object({
+  goldId: z.string().min(1).optional(),
   goldText: z.string().min(1).optional(),
   candidateText: z.string().min(1).optional(),
   reason: z.string().min(3),
@@ -22,11 +23,13 @@ const NarrowJudgeStructuralIssueSchema = z.object({
 export const NarrowJudgeFindingsSchema = z.object({
   summary: z.string().min(3),
   matchedGoldClaims: z.array(z.object({
+    goldId: z.string().min(1).optional(),
     goldText: z.string().min(1),
     candidateText: z.string().min(1),
     reason: z.string().min(3),
   })),
   missedGoldClaims: z.array(NarrowJudgeFindingSchema.extend({
+    goldId: z.string().min(1).optional(),
     goldText: z.string().min(1),
   })),
   unsupportedCandidateClaims: z.array(NarrowJudgeFindingSchema.extend({
@@ -83,12 +86,32 @@ export function deriveNarrowJudgeScores(
   goldClaims: FlattenedGoldenClaimNode[],
   candidateClaims: ClaimCandidate[]
 ): NarrowDerivedJudgeScores {
-  const matchedGoldTexts = new Set(findings.matchedGoldClaims.map((finding) => finding.goldText));
-  const rootGoldTexts = new Set(goldClaims.filter((claim) => claim.depth === 0).map((claim) => claim.text));
+  const matchedGoldIds = new Set<string>();
+  const unmatchedForFallback = [...goldClaims];
+
+  for (const finding of findings.matchedGoldClaims) {
+    if (finding.goldId) {
+      matchedGoldIds.add(finding.goldId);
+    } else if (finding.goldText) {
+      // Fallback for old caches: match by text, ensuring 1 finding matches at most 1 node
+      const idx = unmatchedForFallback.findIndex((c) => c.text === finding.goldText);
+      if (idx !== -1) {
+        matchedGoldIds.add(unmatchedForFallback[idx].id);
+        unmatchedForFallback.splice(idx, 1);
+      }
+    }
+  }
+
+  const rootIds = new Set(goldClaims.filter((claim) => claim.depth === 0).map((claim) => claim.id));
   const missedRootCount = findings.missedGoldClaims.filter((finding) => {
     if (finding.isRoot) return true;
-    return finding.goldText ? rootGoldTexts.has(finding.goldText) : false;
+    if (finding.goldId) return rootIds.has(finding.goldId);
+    if (finding.goldText) {
+      return goldClaims.some((c) => c.depth === 0 && c.text === finding.goldText);
+    }
+    return false;
   }).length;
+
   const candidateCount = Math.max(candidateClaims.length, 1);
   const structuralPenalty = findings.structuralIssues.reduce((sum, issue) => {
     if (issue.severity === "high") return sum + 2;
@@ -99,7 +122,7 @@ export function deriveNarrowJudgeScores(
     issue.issue.toLowerCase().includes("compound") || issue.issue.toLowerCase().includes("atomic")
   ).length * 0.5;
 
-  const goldCoverage = clampScore((matchedGoldTexts.size / Math.max(goldClaims.length, 1)) * 10);
+  const goldCoverage = clampScore((matchedGoldIds.size / Math.max(goldClaims.length, 1)) * 10);
   const faithfulness = candidateClaims.length === 0
     ? 0
     : clampScore(10 - ((findings.unsupportedCandidateClaims.length / candidateCount) * 10));
@@ -166,8 +189,8 @@ ${parsed1.error.message}
 
 Return ONLY valid JSON with fields:
 - summary
-- matchedGoldClaims[] { goldText, candidateText, reason }
-- missedGoldClaims[] { goldText, reason, isRoot }
+- matchedGoldClaims[] { goldId, goldText, candidateText, reason }
+- missedGoldClaims[] { goldId, goldText, reason, isRoot }
 - unsupportedCandidateClaims[] { candidateText, reason }
 - redundantCandidateClaims[] { candidateText, reason }
 - structuralIssues[] { issue, reason, severity }`;

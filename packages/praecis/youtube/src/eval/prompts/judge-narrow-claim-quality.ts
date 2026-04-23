@@ -102,8 +102,8 @@ Instructions:
 Return ONLY a JSON object with this exact structure:
 {
   "summary": "short summary",
-  "matchedGoldClaims": [{ "goldText": "string", "candidateText": "string", "reason": "string" }],
-  "missedGoldClaims": [{ "goldText": "string", "reason": "string", "isRoot": true }],
+  "matchedGoldClaims": [{ "goldId": "string", "goldText": "string", "candidateText": "string", "reason": "string" }],
+  "missedGoldClaims": [{ "goldId": "string", "goldText": "string", "reason": "string", "isRoot": true }],
   "unsupportedCandidateClaims": [{ "candidateText": "string", "reason": "string" }],
   "redundantCandidateClaims": [{ "candidateText": "string", "reason": "string" }],
   "structuralIssues": [{ "issue": "string", "reason": "string", "severity": "low|medium|high" }]
