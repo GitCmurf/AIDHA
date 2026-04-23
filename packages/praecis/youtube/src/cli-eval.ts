@@ -224,10 +224,16 @@ export const createProviderAwareClient = (
   const isGoogle = provider === "google-aistudio";
   const isOpenAi = provider === "openai";
   const modelPrefix = isGoogle ? "gemini-" : provider;
+
   const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
+  const baseUrlMatch =
+    (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
+    (provider === "zai" && baseConfig.baseUrl?.includes("api.zai.ai")) ||
+    (provider === "xiaomi" && baseConfig.baseUrl?.includes("api.xiaomi.com"));
+
   // OpenAI profiles always inherit permissive credentials (to support custom proxies).
-  // Other providers only inherit if the profile model actually matches the provider.
-  const isProviderProfile = isOpenAi || isMatch;
+  // Other providers inherit if the profile model matches the provider or baseUrl matches.
+  const isProviderProfile = isOpenAi || isMatch || baseUrlMatch;
   const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
@@ -272,8 +278,14 @@ export const resolveProviderConnection = (modelId: string, baseConfig: ResolvedC
   const isGoogle = model.provider === "google-aistudio";
   const isOpenAi = model.provider === "openai";
   const modelPrefix = isGoogle ? "gemini-" : model.provider;
+
   const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
-  const isProviderProfile = isOpenAi || isMatch;
+  const baseUrlMatch =
+    (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
+    (model.provider === "zai" && baseConfig.baseUrl?.includes("api.zai.ai")) ||
+    (model.provider === "xiaomi" && baseConfig.baseUrl?.includes("api.xiaomi.com"));
+
+  const isProviderProfile = isOpenAi || isMatch || baseUrlMatch;
   const resolved = resolveProviderConfig(model.provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${model.provider}' for model ${modelId}. Cannot resolve baseUrl.`);

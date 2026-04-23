@@ -5,14 +5,14 @@ import type { MatrixReport } from "../../src/eval/matrix-aggregator.js";
 
 describe("report files and rendering", () => {
   it("formats compact ISO-style filestamps", () => {
-    expect(formatReportFilestamp(new Date("2026-03-15T13:36:00Z"))).toMatch(/^\d{8}T\d{4,6}$/);
+    expect(formatReportFilestamp(new Date("2026-03-15T13:36:00Z"))).toMatch(/^\d{8}T\d{4,9}$/);
   });
 
   it("builds stamped report paths and latest aliases", () => {
     const files = buildReportFileSet("out/eval-matrix/reports", "Harness Test", new Date("2026-03-15T13:36:00Z"));
 
     expect(files.stub).toBe("harness-test");
-    expect(files.filestamp).toMatch(/^\d{8}T\d{4,6}$/);
+    expect(files.filestamp).toMatch(/^\d{8}T\d{4,9}$/);
     expect(files.jsonPath).toContain("harness-test-");
     expect(files.jsonPath).toContain(".json");
     expect(files.mdPath).toContain("harness-test-");

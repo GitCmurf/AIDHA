@@ -4,6 +4,10 @@ function pad2(value: number): string {
   return value.toString().padStart(2, "0");
 }
 
+function pad3(value: number): string {
+  return value.toString().padStart(3, "0");
+}
+
 export function formatReportFilestamp(date: Date = new Date()): string {
   return [
     date.getFullYear().toString(),
@@ -13,6 +17,7 @@ export function formatReportFilestamp(date: Date = new Date()): string {
     pad2(date.getHours()),
     pad2(date.getMinutes()),
     pad2(date.getSeconds()),
+    pad3(date.getMilliseconds()),
   ].join("");
 }
 
