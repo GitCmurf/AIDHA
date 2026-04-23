@@ -480,6 +480,10 @@ const getExtractionForCell = async (
     runtimePromptPackId = routing.decision.promptPackId;
   }
 
+  const selfImproveMaxRounds = variant === "self-improve-v1" ? 1 : 0;
+  const selfImproveHintKey = [video.videoId, variant, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
+  const selfImproveGuidance = options.extractionSelfImproveHints?.[selfImproveHintKey];
+
   // Check cache for extraction
   let cell: MatrixCell | null = null;
   if (options.resume && !options.dryRun) {
@@ -492,6 +496,8 @@ const getExtractionForCell = async (
       options.extractionPromptConfigId,
       options.extractionChunkModeId,
       runtimePromptPackId,
+      selfImproveMaxRounds,
+      selfImproveGuidance,
       { cacheDir: options.cacheDir }
     );
   }
@@ -561,6 +567,8 @@ const getExtractionForCell = async (
         options.extractionPromptConfigId,
         options.extractionChunkModeId,
         runtimePromptPackId,
+        selfImproveMaxRounds,
+        selfImproveGuidance,
         cellWithoutTraces,
         { cacheDir: options.cacheDir }
       );

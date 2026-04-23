@@ -481,6 +481,8 @@ async function buildStageInputSignature(input: {
   maxEmbeddingRequestsPerRun?: number;
   maxRefinedSelfImproveCellsPerRun?: number;
   shortlistPerVideo?: number;
+  embeddingModel?: string;
+  embeddingBaseUrl?: string;
 }): Promise<string> {
   const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
@@ -518,6 +520,8 @@ async function buildStageInputSignature(input: {
     maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo: input.shortlistPerVideo,
+    embeddingModel: input.embeddingModel,
+    embeddingBaseUrl: input.embeddingBaseUrl,
   })]);
 }
 
@@ -542,6 +546,8 @@ export async function buildExtractionStageInputSignature(input: {
   maxEmbeddingRequestsPerRun?: number;
   maxRefinedSelfImproveCellsPerRun?: number;
   shortlistPerVideo?: number;
+  embeddingModel?: string;
+  embeddingBaseUrl?: string;
 }): Promise<string> {
   const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
@@ -566,6 +572,8 @@ export async function buildExtractionStageInputSignature(input: {
     maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo: input.shortlistPerVideo,
+    embeddingModel: input.embeddingModel,
+    embeddingBaseUrl: input.embeddingBaseUrl,
   })]);
 }
 
@@ -1847,6 +1855,8 @@ export async function runNarrowManualBaselineComparison(
     maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: options.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo,
+    embeddingModel: googleEmbeddingConfig.model,
+    embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
   });
   const extractionStageInputSignature = await buildExtractionStageInputSignature({
     corpusVideoIds: options.corpus.map((video) => video.videoId),
@@ -1864,6 +1874,8 @@ export async function runNarrowManualBaselineComparison(
     maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: options.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo,
+    embeddingModel: googleEmbeddingConfig.model,
+    embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
   });
 
   for (const video of options.corpus) {

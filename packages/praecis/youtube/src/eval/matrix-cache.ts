@@ -41,6 +41,8 @@ export async function getCachedExtraction(
   promptConfigId: string | undefined,
   chunkMode: string | undefined,
   promptPackId: string | undefined,
+  selfImproveMaxRounds: number,
+  selfImproveGuidance: string | undefined,
   options: CacheOptions
 ): Promise<MatrixCell | null> {
   const key = hashId("extraction", [
@@ -51,7 +53,9 @@ export async function getCachedExtraction(
     extractorVersion,
     promptConfigId ?? "",
     chunkMode ?? "",
-    promptPackId ?? ""
+    promptPackId ?? "",
+    String(selfImproveMaxRounds),
+    selfImproveGuidance ?? ""
   ]);
   const filePath = join(options.cacheDir, `extraction-${key}.json`);
 
@@ -77,6 +81,8 @@ export async function setCachedExtraction(
   promptConfigId: string | undefined,
   chunkMode: string | undefined,
   promptPackId: string | undefined,
+  selfImproveMaxRounds: number,
+  selfImproveGuidance: string | undefined,
   cell: MatrixCell,
   options: CacheOptions
 ): Promise<void> {
@@ -88,8 +94,11 @@ export async function setCachedExtraction(
     extractorVersion,
     promptConfigId ?? "",
     chunkMode ?? "",
-    promptPackId ?? ""
+    promptPackId ?? "",
+    String(selfImproveMaxRounds),
+    selfImproveGuidance ?? ""
   ]);
+
   const filePath = join(options.cacheDir, `extraction-${key}.json`);
 
   await ensureCacheDir(options.cacheDir);

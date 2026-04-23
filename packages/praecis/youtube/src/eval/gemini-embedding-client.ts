@@ -125,12 +125,18 @@ export class GeminiEmbeddingClient {
     const results: Array<number[] | null> = new Array(normalized.length).fill(null);
     const toFetch: Array<{ text: string; index: number }> = [];
 
-    // Check cache in parallel
-    await Promise.all(normalized.map(async (text, i) => {
-      if (!text) return;
+    // Check cache in parallel but process results sequentially to preserve order
+    const cacheResults = await Promise.all(normalized.map(async (text) => {
+      if (!text) return null;
       const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
       const cachePath = join(this.cacheDir, `${cacheKey}.json`);
-      const cached = await this.readCache(cachePath, text);
+      return this.readCache(cachePath, text);
+    }));
+
+    cacheResults.forEach((cached, i) => {
+      const text = normalized[i];
+      if (!text) return;
+
       if (cached) {
         results[i] = cached.vector;
         this.cacheHitCount += 1;
@@ -138,7 +144,7 @@ export class GeminiEmbeddingClient {
         toFetch.push({ text, index: i });
         this.cacheMissCount += 1;
       }
-    }));
+    });
 
     if (toFetch.length === 0) return { ok: true, value: results };
 
