@@ -482,7 +482,8 @@ const getExtractionForCell = async (
 
   const selfImproveMaxRounds = variant === "self-improve-v1" ? 1 : 0;
   const selfImproveHintKey = [video.videoId, variant, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
-  const selfImproveGuidance = options.extractionSelfImproveHints?.[selfImproveHintKey];
+  const selfImproveGuidanceObj = options.extractionSelfImproveHints?.[selfImproveHintKey];
+  const selfImproveGuidance = selfImproveGuidanceObj ? JSON.stringify(selfImproveGuidanceObj) : undefined;
 
   // Check cache for extraction
   let cell: MatrixCell | null = null;

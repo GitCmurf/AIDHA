@@ -1836,6 +1836,9 @@ export async function runNarrowManualBaselineComparison(
   const transcriptByVideo = new Map<string, TranscriptData>();
   const goldByVideo = new Map<string, FlattenedGoldenClaimNode[]>();
   const manualByVideo = new Map<string, ComparableClaimSet[]>();
+
+  const googleEmbeddingConfig = getGoogleEmbeddingConfig(options.config);
+
   const stageInputSignature = await buildStageInputSignature({
     runMode,
     corpusVideoIds: options.corpus.map((video) => video.videoId),
@@ -1885,7 +1888,6 @@ export async function runNarrowManualBaselineComparison(
     manualByVideo.set(video.videoId, loaded.comparableClaimSets);
   }
 
-  const googleEmbeddingConfig = getGoogleEmbeddingConfig(options.config);
   const embeddingClient = googleEmbeddingConfig.apiKey
     && preset.enableEmbeddings
     ? new GeminiEmbeddingClient({
