@@ -85,17 +85,20 @@ const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: s
 // Reserved for future use - OpenRouter support when ModelProvider is expanded
 const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"];
-  if (envKey) {
-    return { apiKey: envKey, baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1" };
-  }
 
   // Only fall back to profile apiKey if it explicitly looks like an OpenRouter key or profile matches
   const looksLikeOpenRouter = apiKey.startsWith("sk-or-v1-") || baseConfigBaseUrl?.includes("openrouter.ai");
   const useProfile = isProviderProfile || looksLikeOpenRouter;
 
+  const effectiveBaseUrl = baseUrl || (useProfile ? baseConfigBaseUrl : "") || "https://openrouter.ai/api/v1";
+
+  if (envKey) {
+    return { apiKey: envKey, baseUrl: effectiveBaseUrl };
+  }
+
   return {
     apiKey: useProfile ? apiKey : "",
-    baseUrl: baseUrl || (useProfile ? baseConfigBaseUrl : "") || "https://openrouter.ai/api/v1"
+    baseUrl: effectiveBaseUrl
   };
 };
 

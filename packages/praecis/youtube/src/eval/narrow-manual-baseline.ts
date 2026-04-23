@@ -2507,7 +2507,7 @@ export async function runNarrowManualBaselineComparison(
         "score",
         ...(judgeEnabled ? ["judge"] : []),
         "report"
-      ],
+      ] as NarrowStageId[],
       budgetSkips,
       stageExecution,
       judgeEnabled,
