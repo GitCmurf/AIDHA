@@ -2007,9 +2007,14 @@ export async function runNarrowManualBaselineComparison(
       console.warn(`[embedding-skip-budget] video=${video.videoId} required=1 remaining=0`);
     }
 
-    const initialApiRequests = effectiveEmbeddingClient?.getStats().apiRequestCount ?? 0;
     const candidateReports: NarrowComparisonCandidateReport[] = [];
     for (const [candidateIndex, candidate] of comparableClaimSets.entries()) {
+      if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
+        effectiveEmbeddingClient = undefined;
+        console.warn(`[embedding-skip-budget] video=${video.videoId} candidate=${candidate.candidateId} remaining=0`);
+      }
+
+      const initialApiRequests = effectiveEmbeddingClient?.getStats().apiRequestCount ?? 0;
       candidateReports.push(await buildCandidateReport(
         candidate,
         goldClaims,
@@ -2017,12 +2022,25 @@ export async function runNarrowManualBaselineComparison(
         embeddingEligibleCandidateIds?.has(candidate.candidateId) ? effectiveEmbeddingClient : undefined,
         coverageCache
       ));
+
+      if (effectiveEmbeddingClient) {
+        const finalApiRequests = effectiveEmbeddingClient.getStats().apiRequestCount;
+        const used = finalApiRequests - initialApiRequests;
+        budgetState.remainingEmbeddingRequests -= used;
+      }
+
       console.log(
         `[coverage-candidate] video=${video.videoId} index=${candidateIndex + 1}/${comparableClaimSets.length} candidate=${candidate.candidateId}`
       );
     }
 
     if (includeManualBaselinesForVideo) {
+      if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
+        effectiveEmbeddingClient = undefined;
+        console.warn(`[embedding-skip-budget] video=${video.videoId} phase=teacher remaining=0`);
+      }
+
+      const initialTeacherApiRequests = effectiveEmbeddingClient?.getStats().apiRequestCount ?? 0;
       await enrichReportsWithTeacherData(
         candidateReports,
         comparableClaimSets,
@@ -2030,12 +2048,12 @@ export async function runNarrowManualBaselineComparison(
         coverageCache,
         embeddingEligibleCandidateIds
       );
-    }
 
-    if (effectiveEmbeddingClient) {
-      const finalApiRequests = effectiveEmbeddingClient.getStats().apiRequestCount;
-      const used = finalApiRequests - initialApiRequests;
-      budgetState.remainingEmbeddingRequests -= used;
+      if (effectiveEmbeddingClient) {
+        const finalTeacherApiRequests = effectiveEmbeddingClient.getStats().apiRequestCount;
+        const used = finalTeacherApiRequests - initialTeacherApiRequests;
+        budgetState.remainingEmbeddingRequests -= used;
+      }
     }
     console.log(`[coverage-done] video=${video.videoId} durationMs=${Date.now() - coverageStartedAt}`);
     return {

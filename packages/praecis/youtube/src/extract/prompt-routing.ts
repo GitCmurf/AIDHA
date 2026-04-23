@@ -211,26 +211,28 @@ export function determineRetryDecision(input: {
   const hasEnumerationClaim = claims.some((claim) => looksEnumerationLike(claim.text));
   const domainTermRecall = computeDomainTermRecall(claims, profile.glossaryTerms);
 
+  const isV2Pack = promptPackId.endsWith("-v2");
+
   if (claims.length === 0) {
-    if (profile.clinicalCueCount >= 2) {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "clinical-risk-management" };
+    if (profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management" && promptPackId !== "clinical-risk-management-v2") {
+      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
     }
-    if (profile.businessCueCount >= 2) {
+    if (profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "business-framework" };
     }
-    if (profile.listCueCount >= 2) {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "enumeration-framework" };
+    if (profile.listCueCount >= 2 && promptPackId !== "enumeration-framework" && promptPackId !== "enumeration-framework-v2") {
+      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
     }
   }
 
-  if (!hasRootClaim && profile.listCueCount >= 2 && promptPackId !== "enumeration-framework") {
-    return { retry: true, retryReason: "missing-root-claim", retryPromptPackId: "enumeration-framework" };
+  if (!hasRootClaim && profile.listCueCount >= 2 && promptPackId !== "enumeration-framework" && promptPackId !== "enumeration-framework-v2") {
+    return { retry: true, retryReason: "missing-root-claim", retryPromptPackId: isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
   }
   if (!hasEnumerationClaim && profile.listCueCount >= 2 && promptPackId === "business-framework") {
     return { retry: true, retryReason: "missing-enumeration-framework", retryPromptPackId: "enumeration-framework" };
   }
-  if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management") {
-    return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: "clinical-risk-management" };
+  if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management" && promptPackId !== "clinical-risk-management-v2") {
+    return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
   }
   if (domainTermRecall < 0.35 && profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
     return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: "business-framework" };
