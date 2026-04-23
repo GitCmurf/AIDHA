@@ -1,7 +1,7 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, isAbsolute } from "node:path";
 import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
 import { fileURLToPath } from "node:url";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
@@ -11,7 +11,12 @@ import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
 import { buildReportFileSet } from "./eval/report-files.js";
 import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./eval/extractor-variants.js";
-import { createGeminiClientFromConfig, createLlmClientFromConfig, type LlmCompletionRequest } from "./extract/llm-client.js";
+import {
+  createGeminiClientFromConfig,
+  createLlmClientFromConfig,
+  detectModelCapabilities,
+  type LlmCompletionRequest
+} from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 import {
@@ -140,6 +145,7 @@ const CLI_EVAL_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(CLI_EVAL_DIR, "../../../..");
 
 function resolveRepoRelativePath(pathValue: string): string {
+  if (isAbsolute(pathValue)) return pathValue;
   return resolve(REPO_ROOT, pathValue);
 }
 
@@ -250,12 +256,16 @@ export const createProviderAwareClient = (
     ? createGeminiClientFromConfig
     : createLlmClientFromConfig;
 
+  const capabilities = detectModelCapabilities(modelId);
+  capabilities.supportsStructuredOutput = model.supportsJsonMode;
+
   const clientResult = clientFactory({
     ...baseConfig,
     model: modelId,
     apiKey: overrides?.apiKey ?? resolved.apiKey,
     baseUrl: overrides?.baseUrl ?? resolved.baseUrl,
     timeoutMs: overrides?.timeoutMs ?? baseConfig.timeoutMs,
+    modelCapabilities: capabilities,
   });
 
   if (!clientResult.ok) throw clientResult.error;

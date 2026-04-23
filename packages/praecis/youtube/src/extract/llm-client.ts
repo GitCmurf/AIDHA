@@ -393,6 +393,7 @@ export interface LlmResolvedConfig {
   baseUrl: string;
   timeoutMs: number;
   cacheDir: string;
+  modelCapabilities?: ModelCapabilities;
 }
 
 /**
@@ -409,6 +410,7 @@ export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmCli
         baseUrl: cfg.baseUrl,
         apiKey: cfg.apiKey || undefined,
         timeoutMs: cfg.timeoutMs ?? 60_000,
+        modelCapabilities: cfg.modelCapabilities,
       }),
     };
   } catch (error) {

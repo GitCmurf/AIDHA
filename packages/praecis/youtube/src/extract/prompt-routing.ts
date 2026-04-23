@@ -148,7 +148,7 @@ export function decidePromptPack(input: {
   if (metadataPack) {
     const metadataConfidence = 0.85;
     const inferredConfidence = routeConfidenceForPack(inferredPack, profile);
-    if (inferredPack !== metadataPack && inferredConfidence >= 0.9) {
+    if (inferredPack !== metadataPack && inferredConfidence >= 0.6) {
       return {
         profile,
         decision: {
