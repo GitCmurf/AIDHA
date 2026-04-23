@@ -1041,13 +1041,31 @@ export class LlmClaimExtractor implements ClaimExtractor {
     chunks: ClaimChunk[],
     promptPackId: ExtractionPromptPackId
   ): ClaimChunk[] {
-    if (this.chunkStrategy === 'whole-transcript') {
-      return reindexChunks(chunks);
-    }
-
     const safeMaxTokens = Math.max(this.chunkTargetInputTokens, this.chunkHardMaxInputTokens);
     let working = reindexChunks(chunks);
     let changed = true;
+
+    // Even in whole-transcript mode, we must ensure the single chunk fits in the model context
+    if (this.chunkStrategy === 'whole-transcript') {
+      const chunk = working[0];
+      if (chunk) {
+        const prompt = this.buildChunkPrompt({
+          resource,
+          chunk,
+          chunkCount: 1,
+          promptPackId,
+        });
+        if (prompt.totalRequestTokens > safeMaxTokens) {
+          // If it doesn't fit, we must let the standard chunking loop handle it (even if strategy says whole)
+          // or at least not return early so we can log/fail if needed.
+          // For now, we fall through to the standard loop which will attempt to split if possible.
+        } else {
+          return working;
+        }
+      } else {
+        return working;
+      }
+    }
 
     while (changed) {
       changed = false;

@@ -46,7 +46,9 @@ export function checkSelfImprovementGate(
     const baselineCell = report.cells.find(c =>
       c.videoId === siCell.videoId &&
       c.modelId === siCell.modelId &&
-      c.extractorVariantId === baselineVariantId
+      c.extractorVariantId === baselineVariantId &&
+      c.promptConfigId === siCell.promptConfigId &&
+      c.chunkMode === siCell.chunkMode
     );
 
     if (!baselineCell || !baselineCell.consensusScore) {

@@ -188,13 +188,18 @@ export async function scoreNarrowClaimSet(
   const retryUser = `Your previous response failed JSON schema validation:
 ${parsed1.error.message}
 
+Please correct the following evaluation output while ensuring it remains grounded in the provided context (TRANSCRIPT, CANDIDATE_CLAIMS, GOLD_CLAIMS).
+
 Return ONLY valid JSON with fields:
 - summary
 - matchedGoldClaims[] { goldId, goldText, candidateText, reason }
 - missedGoldClaims[] { goldId, goldText, reason, isRoot }
 - unsupportedCandidateClaims[] { candidateText, reason }
 - redundantCandidateClaims[] { candidateText, reason }
-- structuralIssues[] { issue, reason, severity }`;
+- structuralIssues[] { issue, reason, severity }
+
+Original data to re-process:
+${user}`;
 
   const llmResult2 = await judgeClient.generate({
     model: judgeModel,
