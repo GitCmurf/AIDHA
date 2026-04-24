@@ -219,11 +219,11 @@ export interface CachedClaimsLoadOptions {
   chunkOverlapExcerpts?: number;
   maxChunks?: number;
   cacheDir?: string;
+  promptConfigId?: Pass1PromptConfigId;
   reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
   verbosity?: ResolvedConfig['llm']['verbosity'];
   maxTokens?: number;
 }
-
 export interface CachedClaimsLoadResult {
   transcriptHash: string;
   chunkCount: number;
@@ -684,6 +684,7 @@ function cacheKeyForChunk(input: {
   transcriptHash: string;
   model: string;
   promptVersion: string;
+  promptConfigId?: string;
   reasoningEffort?: string;
   verbosity?: string;
   maxTokens?: number;
@@ -696,6 +697,7 @@ function cacheKeyForChunk(input: {
     input.transcriptHash,
     input.model,
     input.promptVersion,
+    input.promptConfigId ?? 'baseline',
     input.reasoningEffort ?? 'default',
     input.verbosity ?? 'default',
     input.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -774,6 +776,7 @@ export async function loadCachedClaimCandidates(
       transcriptHash,
       model: input.model,
       promptVersion: input.promptVersion,
+      promptConfigId: input.promptConfigId,
       reasoningEffort: input.reasoningEffort,
       verbosity: input.verbosity,
       maxTokens: input.maxTokens,
@@ -1682,6 +1685,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       transcriptHash,
       model: this.model,
       promptVersion: effectivePromptVersion,
+      promptConfigId: this.promptConfigId,
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
       maxTokens: this.maxTokens,

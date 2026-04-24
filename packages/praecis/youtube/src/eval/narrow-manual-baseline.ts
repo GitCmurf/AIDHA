@@ -812,8 +812,9 @@ function toHarnessComparableClaimSet(cell: MatrixCell, sourceKind: ComparableSou
 
   return {
     videoId: cell.videoId,
-    candidateId: `${sourceKind === "manual-baseline" ? "manual" : sourceKind}/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}`,
+    candidateId: `${sourceKind === "manual-baseline" ? "manual" : sourceKind}/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}${diagnostics.promptPackId ? `/${diagnostics.promptPackId}` : ""}`,
     sourceKind,
+
     claims: cell.claimSet,
     modelId: cell.modelId,
     variantId: cell.extractorVariantId,
