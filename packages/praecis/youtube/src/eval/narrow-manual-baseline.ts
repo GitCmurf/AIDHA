@@ -464,7 +464,7 @@ async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string):
 
 async function buildStageInputSignature(input: {
   runMode: NarrowRunMode;
-  corpusVideoIds: string[];
+  corpus: CorpusEntry[];
   modelIds: string[];
   chunkModes: NarrowEvalChunkMode[];
   promptConfigs: Pass1PromptConfigId[];
@@ -484,16 +484,17 @@ async function buildStageInputSignature(input: {
   embeddingModel?: string;
   embeddingBaseUrl?: string;
 }): Promise<string> {
-  const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
+  const corpusVideoIds = input.corpus.map((video) => video.videoId);
+  const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
 
-  const goldFiles = input.corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
+  const goldFiles = corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
   const goldHash = await hashFiles(goldFiles);
 
   let manualHash = "none";
   if (input.includeManualBaselines) {
     const manualFiles: string[] = [];
-    for (const id of input.corpusVideoIds) {
+    for (const id of corpusVideoIds) {
       manualFiles.push(join(input.manualBaselineDir, `${id}-CG.json`));
       manualFiles.push(join(input.manualBaselineDir, `${id}-GG.json`));
     }
@@ -502,7 +503,7 @@ async function buildStageInputSignature(input: {
 
   return hashId("narrow-stage", [JSON.stringify({
     runMode: input.runMode,
-    corpusVideoIds: [...input.corpusVideoIds].sort(),
+    corpus: [...input.corpus].sort((a, b) => a.videoId.localeCompare(b.videoId)),
     modelIds: [...input.modelIds].sort(),
     chunkModes: [...input.chunkModes],
     promptConfigs: [...input.promptConfigs],
@@ -531,7 +532,7 @@ async function hashFiles(filePaths: string[]): Promise<string> {
 }
 
 export async function buildExtractionStageInputSignature(input: {
-  corpusVideoIds: string[];
+  corpus: CorpusEntry[];
   modelIds: string[];
   chunkModes: NarrowEvalChunkMode[];
   promptConfigs: Pass1PromptConfigId[];
@@ -549,14 +550,15 @@ export async function buildExtractionStageInputSignature(input: {
   embeddingModel?: string;
   embeddingBaseUrl?: string;
 }): Promise<string> {
-  const transcriptFiles = input.corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
+  const corpusVideoIds = input.corpus.map((video) => video.videoId);
+  const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
 
-  const goldFiles = input.corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
+  const goldFiles = corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
   const goldHash = await hashFiles(goldFiles);
 
   return hashId("narrow-extraction-stage", [JSON.stringify({
-    corpusVideoIds: [...input.corpusVideoIds].sort(),
+    corpus: [...input.corpus].sort((a, b) => a.videoId.localeCompare(b.videoId)),
     modelIds: [...input.modelIds].sort(),
     chunkModes: [...input.chunkModes],
     promptConfigs: [...input.promptConfigs],
@@ -1841,7 +1843,7 @@ export async function runNarrowManualBaselineComparison(
 
   const stageInputSignature = await buildStageInputSignature({
     runMode,
-    corpusVideoIds: options.corpus.map((video) => video.videoId),
+    corpus: options.corpus,
     modelIds: options.models.map((model) => model.id),
     chunkModes,
     promptConfigs,
@@ -1862,7 +1864,7 @@ export async function runNarrowManualBaselineComparison(
     embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
   });
   const extractionStageInputSignature = await buildExtractionStageInputSignature({
-    corpusVideoIds: options.corpus.map((video) => video.videoId),
+    corpus: options.corpus,
     modelIds: options.models.map((model) => model.id),
     chunkModes,
     promptConfigs,

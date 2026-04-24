@@ -282,7 +282,10 @@ describe("narrow-manual-baseline helpers", () => {
 
   it("uses the same extraction-stage signature for fast-triage and compare", async () => {
     const common = {
-      corpusVideoIds: ["RfEOrbbMwMU", "xZzkNJ0e5J0"],
+      corpus: [
+        { videoId: "RfEOrbbMwMU", url: "https://youtube.com/watch?v=RfEOrbbMwMU", title: "Video 1", channelName: "Channel 1", durationMinutes: 10 },
+        { videoId: "xZzkNJ0e5J0", url: "https://youtube.com/watch?v=xZzkNJ0e5J0", title: "Video 2", channelName: "Channel 2", durationMinutes: 20 },
+      ],
       modelIds: ["gemini-3.1-flash-lite-preview"],
       chunkModes: ["large-request"] as const,
       promptConfigs: ["baseline", "hierarchy-first", "enumeration-first"] as const,
@@ -296,10 +299,10 @@ describe("narrow-manual-baseline helpers", () => {
       enablePromptRouting: false,
     };
 
-    expect(await buildExtractionStageInputSignature(common)).toBe(
+    expect(await buildExtractionStageInputSignature(common as any)).toBe(
       await buildExtractionStageInputSignature({
         ...common,
-      })
+      } as any)
     );
   });
 
