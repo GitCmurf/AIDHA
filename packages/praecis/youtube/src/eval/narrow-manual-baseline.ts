@@ -258,6 +258,43 @@ interface SelfImproveHintInput {
   extraCandidateClaims: string[];
 }
 
+interface CorpusSignatureEntry {
+  videoId: string;
+  url: string;
+  title: string;
+  channelName: string;
+  durationMinutes: number;
+  topicDomain: string;
+  expectedClaimDensity: string;
+  description: string;
+  language: string;
+  captionSource: string;
+  speakerStyle: string;
+  rationale: string;
+}
+
+export function buildCorpusSignature(corpus: CorpusEntry[]): string {
+  const normalizedCorpus: CorpusSignatureEntry[] = corpus
+    .slice()
+    .sort((a, b) => a.videoId.localeCompare(b.videoId))
+    .map((entry) => ({
+      videoId: entry.videoId,
+      url: entry.url,
+      title: entry.title,
+      channelName: entry.channelName,
+      durationMinutes: entry.durationMinutes,
+      topicDomain: entry.topicDomain,
+      expectedClaimDensity: entry.expectedClaimDensity,
+      description: entry.description ?? "",
+      language: entry.language ?? "",
+      captionSource: entry.captionSource ?? "",
+      speakerStyle: entry.speakerStyle ?? "",
+      rationale: entry.rationale,
+    }));
+
+  return hashId("narrow-corpus", [JSON.stringify(normalizedCorpus)]);
+}
+
 interface PairScore {
   goldIndex: number;
   candidateIndex: number;
@@ -463,6 +500,7 @@ async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string):
 }
 
 async function buildStageInputSignature(input: {
+  corpusSignature: string;
   runMode: NarrowRunMode;
   corpus: CorpusEntry[];
   modelIds: string[];
@@ -502,6 +540,7 @@ async function buildStageInputSignature(input: {
   }
 
   return hashId("narrow-stage", [JSON.stringify({
+    corpusSignature: input.corpusSignature,
     runMode: input.runMode,
     corpus: [...input.corpus].sort((a, b) => a.videoId.localeCompare(b.videoId)),
     modelIds: [...input.modelIds].sort(),
@@ -532,6 +571,7 @@ async function hashFiles(filePaths: string[]): Promise<string> {
 }
 
 export async function buildExtractionStageInputSignature(input: {
+  corpusSignature: string;
   corpus: CorpusEntry[];
   modelIds: string[];
   chunkModes: NarrowEvalChunkMode[];
@@ -558,6 +598,7 @@ export async function buildExtractionStageInputSignature(input: {
   const goldHash = await hashFiles(goldFiles);
 
   return hashId("narrow-extraction-stage", [JSON.stringify({
+    corpusSignature: input.corpusSignature,
     corpus: [...input.corpus].sort((a, b) => a.videoId.localeCompare(b.videoId)),
     modelIds: [...input.modelIds].sort(),
     chunkModes: [...input.chunkModes],
@@ -652,6 +693,7 @@ export function selectShortlistCandidatesForVideo(
 }
 
 function buildVideoScoreInputSignature(input: {
+  corpusSignature: string;
   runMode: NarrowRunMode;
   videoId: string;
   includeManualBaselines: boolean;
@@ -660,6 +702,7 @@ function buildVideoScoreInputSignature(input: {
   comparableClaimSets: ComparableClaimSet[];
 }): string {
   return hashId("narrow-video-score", [JSON.stringify({
+    corpusSignature: input.corpusSignature,
     runMode: input.runMode,
     videoId: input.videoId,
     includeManualBaselines: input.includeManualBaselines,
@@ -1838,10 +1881,12 @@ export async function runNarrowManualBaselineComparison(
   const transcriptByVideo = new Map<string, TranscriptData>();
   const goldByVideo = new Map<string, FlattenedGoldenClaimNode[]>();
   const manualByVideo = new Map<string, ComparableClaimSet[]>();
+  const corpusSignature = buildCorpusSignature(options.corpus);
 
   const googleEmbeddingConfig = getGoogleEmbeddingConfig(options.config);
 
   const stageInputSignature = await buildStageInputSignature({
+    corpusSignature,
     runMode,
     corpus: options.corpus,
     modelIds: options.models.map((model) => model.id),
@@ -1864,6 +1909,7 @@ export async function runNarrowManualBaselineComparison(
     embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
   });
   const extractionStageInputSignature = await buildExtractionStageInputSignature({
+    corpusSignature,
     corpus: options.corpus,
     modelIds: options.models.map((model) => model.id),
     chunkModes,
@@ -2412,6 +2458,7 @@ export async function runNarrowManualBaselineComparison(
           .map((cell) => toHarnessComparableClaimSet(cell, "fallback-harness", `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`)),
       ];
       const videoScoreSignature = buildVideoScoreInputSignature({
+        corpusSignature,
         runMode,
         videoId: video.videoId,
         includeManualBaselines,

@@ -41,7 +41,14 @@ export function checkSelfImprovementGate(
 
   // Group by video for like-for-like comparison
   for (const siCell of selfImproveCells) {
-    if (!siCell.consensusScore) continue;
+    if (!siCell.consensusScore) {
+      return {
+        passed: false,
+        regressions,
+        skipped: false,
+        message: `Missing score for self-improvement candidate ${siCell.videoId}/${siCell.modelId}.`
+      };
+    }
 
     const baselineCell = report.cells.find(c =>
       c.videoId === siCell.videoId &&

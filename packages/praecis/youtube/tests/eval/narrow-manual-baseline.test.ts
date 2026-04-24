@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assessStructuralTargets,
+  buildCorpusSignature,
   buildExtractionStageInputSignature,
   computeOptimizationScore,
   computeGoldCoverage,
@@ -283,8 +284,26 @@ describe("narrow-manual-baseline helpers", () => {
   it("uses the same extraction-stage signature for fast-triage and compare", async () => {
     const common = {
       corpus: [
-        { videoId: "RfEOrbbMwMU", url: "https://youtube.com/watch?v=RfEOrbbMwMU", title: "Video 1", channelName: "Channel 1", durationMinutes: 10 },
-        { videoId: "xZzkNJ0e5J0", url: "https://youtube.com/watch?v=xZzkNJ0e5J0", title: "Video 2", channelName: "Channel 2", durationMinutes: 20 },
+        {
+          videoId: "RfEOrbbMwMU",
+          url: "https://youtube.com/watch?v=RfEOrbbMwMU",
+          title: "Video 1",
+          channelName: "Channel 1",
+          durationMinutes: 10,
+          topicDomain: "Business strategy",
+          expectedClaimDensity: "medium",
+          rationale: "test",
+        },
+        {
+          videoId: "xZzkNJ0e5J0",
+          url: "https://youtube.com/watch?v=xZzkNJ0e5J0",
+          title: "Video 2",
+          channelName: "Channel 2",
+          durationMinutes: 20,
+          topicDomain: "Clinical cardiology",
+          expectedClaimDensity: "high",
+          rationale: "test",
+        },
       ],
       modelIds: ["gemini-3.1-flash-lite-preview"],
       chunkModes: ["large-request"] as const,
@@ -298,12 +317,71 @@ describe("narrow-manual-baseline helpers", () => {
       judgeMaxTokens: 4000,
       enablePromptRouting: false,
     };
+    const corpusSignature = buildCorpusSignature(common.corpus as any);
+    const signedCommon = {
+      ...common,
+      corpusSignature,
+      corpus: common.corpus as any,
+    };
+    const reversedCorpus = [...common.corpus].reverse();
+    const reversedSignedCommon = {
+      ...common,
+      corpusSignature: buildCorpusSignature(reversedCorpus as any),
+      corpus: reversedCorpus as any,
+    };
 
-    expect(await buildExtractionStageInputSignature(common as any)).toBe(
-      await buildExtractionStageInputSignature({
-        ...common,
-      } as any)
+    expect(await buildExtractionStageInputSignature(signedCommon as any)).toBe(
+      await buildExtractionStageInputSignature(reversedSignedCommon as any)
     );
+  });
+
+  it("changes the extraction-stage signature when corpus metadata changes", async () => {
+    const baseCorpus = [
+      {
+        videoId: "RfEOrbbMwMU",
+        url: "https://youtube.com/watch?v=RfEOrbbMwMU",
+        title: "Video 1",
+        channelName: "Channel 1",
+        durationMinutes: 10,
+        topicDomain: "Business strategy",
+        expectedClaimDensity: "medium" as const,
+        rationale: "test",
+      },
+    ];
+
+    const changedCorpus = [
+      {
+        ...baseCorpus[0],
+        topicDomain: "Clinical cardiology",
+      },
+    ];
+
+    const common = {
+      modelIds: ["gemini-3.1-flash-lite-preview"],
+      chunkModes: ["large-request"] as const,
+      promptConfigs: ["baseline", "hierarchy-first", "enumeration-first"] as const,
+      stage1Variants: ["raw"] as const,
+      stage2Variants: ["self-improve-v1"] as const,
+      transcriptDir: "/tmp/transcripts",
+      manualBaselineDir: "/tmp/manual",
+      fallbackModelId: "gemini-3.1-flash-lite-preview",
+      judgeModelIds: ["gpt-4o-mini"],
+      judgeMaxTokens: 4000,
+      enablePromptRouting: false,
+    };
+
+    const baseSignature = await buildExtractionStageInputSignature({
+      ...common,
+      corpusSignature: buildCorpusSignature(baseCorpus),
+      corpus: baseCorpus as any,
+    } as any);
+    const changedSignature = await buildExtractionStageInputSignature({
+      ...common,
+      corpusSignature: buildCorpusSignature(changedCorpus),
+      corpus: changedCorpus as any,
+    } as any);
+
+    expect(baseSignature).not.toBe(changedSignature);
   });
 
   it("prefers escalated v2 finalists for shortlist selection when adaptive escalation fired", () => {
