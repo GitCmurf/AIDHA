@@ -47,6 +47,7 @@ describe("report files and rendering", () => {
     expect(md).toContain("## Narrow Judge Summary");
     expect(md).toContain("### Variant: variant-a");
     expect(md).toContain("#### Model: model-1");
+    expect(md).toContain("| Video/Config | Coverage |");
     expect(md).toContain("video-1");
     expect(md).toContain("10.00");
     expect(md).toContain("**8.50**");

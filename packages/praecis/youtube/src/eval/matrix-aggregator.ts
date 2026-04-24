@@ -279,7 +279,8 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
       if (!narrowJudgeResults[vId][mId]) {
         narrowJudgeResults[vId][mId] = {};
       }
-      narrowJudgeResults[vId][mId][cell.videoId] = cell.narrowJudgeResult.derivedScores;
+      const videoKey = [cell.videoId, cell.promptConfigId, cell.chunkMode].filter(Boolean).join("|");
+      narrowJudgeResults[vId][mId][videoKey] = cell.narrowJudgeResult.derivedScores;
     }
   }
 

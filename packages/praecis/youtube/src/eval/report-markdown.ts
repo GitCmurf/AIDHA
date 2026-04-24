@@ -138,7 +138,7 @@ const renderNarrowJudgeSummary = (results: MatrixReport["narrowJudgeResults"]): 
 
     for (const modelId of sortedModels) {
       md += `#### Model: ${escapeMdTableCell(modelId)}\n\n`;
-      md += "| Video | Coverage | Faithfulness | Structure | Atomicity | Overall |\n";
+      md += "| Video/Config | Coverage | Faithfulness | Structure | Atomicity | Overall |\n";
       md += "| --- | --- | --- | --- | --- | --- |\n";
 
       const videoResults = modelResults[modelId]!;

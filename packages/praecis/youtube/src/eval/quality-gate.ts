@@ -27,7 +27,7 @@ export function checkSelfImprovementGate(
   } = {}
 ): SelfImprovementGateResult {
   const {
-    baselineVariantId = "editorial-pass-v2",
+    baselineVariantId = "editorial-pass-v1",
     selfImproveVariantId = "self-improve-v1",
     tolerance = 1.0
   } = options;
@@ -41,15 +41,6 @@ export function checkSelfImprovementGate(
 
   // Group by video for like-for-like comparison
   for (const siCell of selfImproveCells) {
-    if (!siCell.consensusScore) {
-      return {
-        passed: false,
-        regressions,
-        skipped: false,
-        message: `Missing score for self-improvement candidate ${siCell.videoId}/${siCell.modelId}.`
-      };
-    }
-
     const baselineCell = report.cells.find(c =>
       c.videoId === siCell.videoId &&
       c.modelId === siCell.modelId &&
@@ -58,7 +49,7 @@ export function checkSelfImprovementGate(
       c.chunkMode === siCell.chunkMode
     );
 
-    if (!baselineCell || !baselineCell.consensusScore) {
+    if (!baselineCell) {
       // Missing baseline is a failure state for the gate as we cannot verify lack of regression
       return {
         passed: false,
@@ -68,17 +59,48 @@ export function checkSelfImprovementGate(
       };
     }
 
-    const siScore = siCell.consensusScore.mean.overallScore;
-    const baseScore = baselineCell.consensusScore.mean.overallScore;
+    // Compare Narrow Judge scores if both available
+    if (siCell.narrowJudgeResult?.derivedScores && baselineCell.narrowJudgeResult?.derivedScores) {
+      const siScores = siCell.narrowJudgeResult.derivedScores;
+      const baseScores = baselineCell.narrowJudgeResult.derivedScores;
+      const dimensions = ["goldCoverage", "faithfulness", "structure", "atomicity", "overallScore"] as const;
 
-    if (baseScore - siScore > tolerance) {
-      regressions.push({
-        entityId: `${siCell.videoId}/${siCell.modelId}`,
-        dimension: "overallScore",
-        baselineScore: baseScore,
-        latestScore: siScore,
-        tolerance
-      });
+      for (const dim of dimensions) {
+        if (baseScores[dim] - siScores[dim] > tolerance) {
+          regressions.push({
+            entityId: `${siCell.videoId}/${siCell.modelId}`,
+            dimension: dim,
+            baselineScore: baseScores[dim],
+            latestScore: siScores[dim],
+            tolerance
+          });
+        }
+      }
+    } else if (siCell.consensusScore?.mean && baselineCell.consensusScore?.mean) {
+      // Fallback to standard consensus scores if narrow judge results are missing
+      const siScores = siCell.consensusScore.mean;
+      const baseScores = baselineCell.consensusScore.mean;
+      const dimensions = ["completeness", "accuracy", "topicCoverage", "atomicity", "overallScore"] as const;
+
+      for (const dim of dimensions) {
+        if (baseScores[dim] - siScores[dim] > tolerance) {
+          regressions.push({
+            entityId: `${siCell.videoId}/${siCell.modelId}`,
+            dimension: dim,
+            baselineScore: baseScores[dim],
+            latestScore: siScores[dim],
+            tolerance
+          });
+        }
+      }
+    } else {
+      // Neither narrow judge nor consensus score is fully available for comparison
+      return {
+        passed: false,
+        regressions,
+        skipped: false,
+        message: `Missing scoring data for ${siCell.videoId}/${siCell.modelId}.`
+      };
     }
   }
 
