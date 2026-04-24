@@ -234,7 +234,8 @@ export const createProviderAwareClient = (
   const isOpenAi = provider === "openai";
   const modelPrefix = isGoogle ? "gemini-" : provider;
 
-  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
+  const configuredModel = baseConfig.model ? getModel(baseConfig.model) : undefined;
+  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix) || configuredModel?.provider === provider;
   const baseUrlMatch =
     (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
     (provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
@@ -292,7 +293,8 @@ export const resolveProviderConnection = (modelId: string, baseConfig: ResolvedC
   const isOpenAi = model.provider === "openai";
   const modelPrefix = isGoogle ? "gemini-" : model.provider;
 
-  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix);
+  const configuredModel = baseConfig.model ? getModel(baseConfig.model) : undefined;
+  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix) || configuredModel?.provider === model.provider;
   const baseUrlMatch =
     (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
     (model.provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
