@@ -103,7 +103,7 @@ describe('CLI Configuration Bridge', () => {
     }
   });
 
-  it('syncs configured dotenv values into process.env for runtime consumers', async () => {
+  it('does NOT sync configured dotenv values into process.env', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'aidha-cli-config-'));
     const configPath = join(tempRoot, '.aidha', 'config.yaml');
     const dotenvPath = join(tempRoot, '.env');
@@ -135,8 +135,9 @@ describe('CLI Configuration Bridge', () => {
       const result = await resolveCliConfig({ configPath });
       expect(result.ok).toBe(true);
       expect(result.config.llm.apiKey).toBe('from-dotenv-openai');
-      expect(process.env['AIDHA_OPENAI_API_KEY']).toBe('from-dotenv-openai');
-      expect(process.env['AIDHA_GOOGLE_API_KEY']).toBe('from-dotenv-google');
+      // Should NOT be in process.env now
+      expect(process.env['AIDHA_OPENAI_API_KEY']).toBeUndefined();
+      expect(process.env['AIDHA_GOOGLE_API_KEY']).toBeUndefined();
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
       if (originalOpenAiKey === undefined) delete process.env['AIDHA_OPENAI_API_KEY'];
@@ -144,6 +145,17 @@ describe('CLI Configuration Bridge', () => {
       if (originalGoogleKey === undefined) delete process.env['AIDHA_GOOGLE_API_KEY'];
       else process.env['AIDHA_GOOGLE_API_KEY'] = originalGoogleKey;
     }
+  });
+
+  it('validates strictly positive embedding-batch-size override', () => {
+    const overrides0 = buildCliOverrides({ 'embedding-batch-size': '0' });
+    expect(overrides0.llm?.embedding_batch_size).toBeUndefined();
+
+    const overridesNeg = buildCliOverrides({ 'embedding-batch-size': '-5' });
+    expect(overridesNeg.llm?.embedding_batch_size).toBeUndefined();
+
+    const overridesPos = buildCliOverrides({ 'embedding-batch-size': '10' });
+    expect(overridesPos.llm?.embedding_batch_size).toBe(10);
   });
 
   it('uses INIT_CWD for project-local config discovery', async () => {

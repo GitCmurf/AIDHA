@@ -83,8 +83,7 @@ export async function resolveCliConfig(
     const loadResult = await loadConfig({
       configPath: opts.configPath || undefined,
       cwd: discoveryCwd,
-      env: process.env as Record<string, string | undefined>,
-      syncProcessEnv: true,
+      syncProcessEnv: false,
       onWarning: (msg) => {
         // eslint-disable-next-line no-console
         console.warn(`[config] ${msg}`);
@@ -281,7 +280,7 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
 
   // ── embedding-batch-size ──
   const embeddingBatchSize = optNum(options, 'embedding-batch-size');
-  if (embeddingBatchSize !== undefined) {
+  if (embeddingBatchSize !== undefined && embeddingBatchSize > 0) {
     overrides.llm = { ...(overrides.llm ?? {}), embedding_batch_size: embeddingBatchSize };
   }
 
