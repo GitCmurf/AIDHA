@@ -23,6 +23,9 @@ Common workflow:
 2. `pnpm -C packages/praecis/youtube cli extract claims <url> --llm --model <id>`
 3. `pnpm -C packages/praecis/youtube cli review next <url> --state draft`
 4. `pnpm -C packages/praecis/youtube cli export dossier video <url>`
+5. `./scripts/eval-matrix/run-gemini-remediation-loop.sh --review-file review.txt --max-iterations 1 --verify-mode quick`
+
+Use `--verify-mode full` when you want the docs build in the loop, and `--heartbeat-seconds` to tune progress updates for long Gemini runs.
 
 ## Environment Variables
 

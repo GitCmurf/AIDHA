@@ -521,6 +521,7 @@ async function buildStageInputSignature(input: {
   shortlistPerVideo?: number;
   embeddingModel?: string;
   embeddingBaseUrl?: string;
+  embeddingBatchSize?: number;
 }): Promise<string> {
   const corpusVideoIds = input.corpus.map((video) => video.videoId);
   const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
@@ -562,6 +563,7 @@ async function buildStageInputSignature(input: {
     shortlistPerVideo: input.shortlistPerVideo,
     embeddingModel: input.embeddingModel,
     embeddingBaseUrl: input.embeddingBaseUrl,
+    embeddingBatchSize: input.embeddingBatchSize,
   })]);
 }
 
@@ -589,6 +591,7 @@ export async function buildExtractionStageInputSignature(input: {
   shortlistPerVideo?: number;
   embeddingModel?: string;
   embeddingBaseUrl?: string;
+  embeddingBatchSize?: number;
 }): Promise<string> {
   const corpusVideoIds = input.corpus.map((video) => video.videoId);
   const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
@@ -617,6 +620,7 @@ export async function buildExtractionStageInputSignature(input: {
     shortlistPerVideo: input.shortlistPerVideo,
     embeddingModel: input.embeddingModel,
     embeddingBaseUrl: input.embeddingBaseUrl,
+    embeddingBatchSize: input.embeddingBatchSize,
   })]);
 }
 
@@ -929,7 +933,7 @@ function getGoogleEmbeddingConfig(config: ResolvedConfig): { apiKey?: string; ba
       process.env["GEMINI_API_KEY"] ||
       process.env["GOOGLE_API_KEY"] ||
       process.env["AIDHA_GOOGLE_API_KEY"] ||
-      (isGeminiModel ? llm.apiKey : ""),
+      ((isGeminiModel || llm.apiKey?.startsWith("AIza")) ? llm.apiKey : ""),
     baseUrl:
       process.env["GOOGLE_EMBEDDING_BASE_URL"] ||
       (isGeminiModel
@@ -1908,6 +1912,7 @@ export async function runNarrowManualBaselineComparison(
     shortlistPerVideo,
     embeddingModel: googleEmbeddingConfig.model,
     embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
+    embeddingBatchSize: googleEmbeddingConfig.batchSize,
   });
   const extractionStageInputSignature = await buildExtractionStageInputSignature({
     corpusSignature,
@@ -1928,6 +1933,7 @@ export async function runNarrowManualBaselineComparison(
     shortlistPerVideo,
     embeddingModel: googleEmbeddingConfig.model,
     embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
+    embeddingBatchSize: googleEmbeddingConfig.batchSize,
   });
 
   for (const video of options.corpus) {

@@ -384,6 +384,29 @@ describe("narrow-manual-baseline helpers", () => {
     expect(baseSignature).not.toBe(changedSignature);
   });
 
+  it("changes the extraction-stage signature when embeddingBatchSize changes", async () => {
+    const common = {
+      corpusSignature: "test-sig",
+      corpus: [],
+      modelIds: ["test-model"],
+      chunkModes: ["small-request"],
+      promptConfigs: ["v1-minimal"],
+      stage1Variants: ["raw"],
+      stage2Variants: ["editorial-pass-v1"],
+      transcriptDir: "test",
+      manualBaselineDir: "test",
+      fallbackModelId: "test",
+      judgeModelIds: [],
+      judgeMaxTokens: 4000,
+      enablePromptRouting: false,
+      embeddingBatchSize: 20,
+    };
+
+    const sig1 = await buildExtractionStageInputSignature(common as any);
+    const sig2 = await buildExtractionStageInputSignature({ ...common, embeddingBatchSize: 50 } as any);
+    expect(sig1).not.toBe(sig2);
+  });
+
   it("prefers escalated v2 finalists for shortlist selection when adaptive escalation fired", () => {
     const coverage = {
       matched: 2,

@@ -242,8 +242,12 @@ export const createProviderAwareClient = (
     (provider === "xiaomi" && (baseConfig.baseUrl?.includes("api.xiaomi.com") || baseConfig.baseUrl?.includes("api.xiaomi.ai")));
 
   // OpenAI profiles always inherit permissive credentials (to support custom proxies).
-  // Other providers inherit if the profile model matches the provider or baseUrl matches.
-  const isProviderProfile = isOpenAi || isMatch || baseUrlMatch;
+  // Other providers inherit if the profile model matches the provider or baseUrl matches,
+  // or if the configuration explicitly provides a key that matches the provider's format.
+  const isGoogleKey = isGoogle && !!baseConfig.apiKey?.startsWith("AIza");
+  const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
+  const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
+  const isProviderProfile = isOpenAi || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
   const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
@@ -257,7 +261,7 @@ export const createProviderAwareClient = (
     ? createGeminiClientFromConfig
     : createLlmClientFromConfig;
 
-  const capabilities = detectModelCapabilities(modelId);
+  const capabilities = { ...detectModelCapabilities(modelId) };
   capabilities.supportsStructuredOutput = model.supportsJsonMode;
 
   const clientResult = clientFactory({
