@@ -92,6 +92,18 @@
           "minimum": 1,
           "default": 20,
           "description": "Number of items to send in a single batch embedding request."
+        },
+        "embedding_task_type": {
+          "type": "string",
+          "enum": ["SEMANTIC_SIMILARITY", "RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT", "CLASSIFICATION", "CLUSTERING"],
+          "default": "SEMANTIC_SIMILARITY",
+          "description": "Task type for Gemini embeddings."
+        },
+        "embedding_output_dimensionality": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 768,
+          "description": "Output dimensionality for Gemini embeddings."
         }
       }
     },

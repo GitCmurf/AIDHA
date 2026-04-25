@@ -115,33 +115,30 @@ export class GeminiEmbeddingClient {
     const result = await this.embedBatch(uniqueTexts);
     if (!result.ok) return result;
 
-    const warmed = result.value.filter(v => v !== null).length;
-    const failed = result.value.length - warmed;
-    return { ok: true, value: { warmed, failed } };
+    return { ok: true, value: { warmed: result.value.length, failed: 0 } };
   }
 
-  async embedBatch(texts: string[]): Promise<Result<Array<number[] | null>>> {
+  async embedBatch(texts: string[]): Promise<Result<number[][]>> {
     const normalized = texts.map(t => normalizeEmbeddingText(t));
-    const results: Array<number[] | null> = new Array(normalized.length).fill(null);
+    if (normalized.some(t => !t)) {
+      return { ok: false, error: new Error("One or more texts were empty after normalization") };
+    }
+    const results: number[][] = new Array(normalized.length).fill([]);
     const toFetch: Array<{ text: string; index: number }> = [];
 
     // Check cache in parallel but process results sequentially to preserve order
     const cacheResults = await Promise.all(normalized.map(async (text) => {
-      if (!text) return null;
       const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
       const cachePath = join(this.cacheDir, `${cacheKey}.json`);
       return this.readCache(cachePath, text);
     }));
 
     cacheResults.forEach((cached, i) => {
-      const text = normalized[i];
-      if (!text) return;
-
       if (cached) {
         results[i] = cached.vector;
         this.cacheHitCount += 1;
       } else {
-        toFetch.push({ text, index: i });
+        toFetch.push({ text: normalized[i]!, index: i });
         this.cacheMissCount += 1;
       }
     });
@@ -159,10 +156,8 @@ export class GeminiEmbeddingClient {
       }
 
       batchResult.value.forEach((vector, j) => {
-        if (vector) {
-          const originalIndex = chunk[j]!.index;
-          results[originalIndex] = vector;
-        }
+        const originalIndex = chunk[j]!.index;
+        results[originalIndex] = vector;
       });
     }
 
@@ -304,8 +299,7 @@ export class GeminiEmbeddingClient {
   async getEmbedding(text: string): Promise<Result<number[]>> {
     const result = await this.embedBatch([text]);
     if (!result.ok) return result;
-    const vector = result.value[0];
-    if (!vector) return { ok: false, error: new Error("Failed to get embedding") };
+    const vector = result.value[0]!;
     return { ok: true, value: vector };
   }
 

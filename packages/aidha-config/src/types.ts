@@ -28,6 +28,8 @@ export interface LlmConfig {
   reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   verbosity?: 'low' | 'medium' | 'high';
   embedding_batch_size?: number;
+  embedding_task_type?: 'SEMANTIC_SIMILARITY' | 'RETRIEVAL_QUERY' | 'RETRIEVAL_DOCUMENT' | 'CLASSIFICATION' | 'CLUSTERING';
+  embedding_output_dimensionality?: number;
 }
 
 /** Editor tuning parameters. */
@@ -141,6 +143,8 @@ export interface ResolvedConfig {
     reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
     verbosity?: 'low' | 'medium' | 'high';
     embeddingBatchSize: number;
+    embeddingTaskType: 'SEMANTIC_SIMILARITY' | 'RETRIEVAL_QUERY' | 'RETRIEVAL_DOCUMENT' | 'CLASSIFICATION' | 'CLUSTERING';
+    embeddingOutputDimensionality: number;
   };
   editor: {
     version: string;

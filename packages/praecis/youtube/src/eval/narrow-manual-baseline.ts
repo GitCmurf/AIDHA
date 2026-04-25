@@ -354,6 +354,7 @@ interface FastTriageEscalationContext {
 
 interface NarrowShortlistTarget {
   videoId: string;
+  modelId: string;
   promptConfigId: Pass1PromptConfigId;
   chunkMode: NarrowEvalChunkMode;
   candidateId: string;
@@ -552,6 +553,8 @@ async function buildStageInputSignature(input: {
   embeddingModel?: string;
   embeddingBaseUrl?: string;
   embeddingBatchSize?: number;
+  taskType?: string;
+  outputDimensionality?: number;
 }): Promise<string> {
   const corpusVideoIds = input.corpus.map((video) => video.videoId);
   const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
@@ -594,6 +597,8 @@ async function buildStageInputSignature(input: {
     embeddingModel: input.embeddingModel,
     embeddingBaseUrl: input.embeddingBaseUrl,
     embeddingBatchSize: input.embeddingBatchSize,
+    taskType: input.taskType,
+    outputDimensionality: input.outputDimensionality,
   })]);
 }
 
@@ -616,12 +621,15 @@ export async function buildExtractionStageInputSignature(input: {
   judgeModelIds: string[];
   judgeMaxTokens: number;
   enablePromptRouting: boolean;
+  includeManualBaselines: boolean;
   maxEmbeddingRequestsPerRun?: number;
   maxRefinedSelfImproveCellsPerRun?: number;
   shortlistPerVideo?: number;
   embeddingModel?: string;
   embeddingBaseUrl?: string;
   embeddingBatchSize?: number;
+  taskType?: string;
+  outputDimensionality?: number;
 }): Promise<string> {
   const corpusVideoIds = input.corpus.map((video) => video.videoId);
   const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
@@ -629,6 +637,16 @@ export async function buildExtractionStageInputSignature(input: {
 
   const goldFiles = corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
   const goldHash = await hashFiles(goldFiles);
+
+  let manualHash = "none";
+  if (input.includeManualBaselines) {
+    const manualFiles: string[] = [];
+    for (const id of corpusVideoIds) {
+      manualFiles.push(join(input.manualBaselineDir, `${id}-CG.json`));
+      manualFiles.push(join(input.manualBaselineDir, `${id}-GG.json`));
+    }
+    manualHash = await hashFiles(manualFiles);
+  }
 
   return hashId("narrow-extraction-stage", [JSON.stringify({
     corpusSignature: input.corpusSignature,
@@ -640,6 +658,8 @@ export async function buildExtractionStageInputSignature(input: {
     stage2Variants: [...input.stage2Variants],
     transcriptHash,
     goldHash,
+    manualHash,
+    includeManualBaselines: input.includeManualBaselines,
     manualBaselineDir: input.manualBaselineDir,
     fallbackModelId: input.fallbackModelId,
     judgeModelIds: [...input.judgeModelIds].sort(),
@@ -651,6 +671,8 @@ export async function buildExtractionStageInputSignature(input: {
     embeddingModel: input.embeddingModel,
     embeddingBaseUrl: input.embeddingBaseUrl,
     embeddingBatchSize: input.embeddingBatchSize,
+    taskType: input.taskType,
+    outputDimensionality: input.outputDimensionality,
   })]);
 }
 
@@ -738,6 +760,8 @@ function buildVideoScoreInputSignature(input: {
   embeddingBaseUrl?: string;
   embeddingBatchSize?: number;
   maxEmbeddingRequestsPerRun?: number;
+  taskType?: string;
+  outputDimensionality?: number;
 }): string {
   return hashId("narrow-video-score", [JSON.stringify({
     corpusSignature: input.corpusSignature,
@@ -749,6 +773,8 @@ function buildVideoScoreInputSignature(input: {
     embeddingBaseUrl: input.embeddingBaseUrl,
     embeddingBatchSize: input.embeddingBatchSize,
     maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
+    taskType: input.taskType,
+    outputDimensionality: input.outputDimensionality,
     goldClaims: input.goldClaims.map((claim) => ({ id: claim.id, depth: claim.depth, text: normalizeKey(claim.text) })),
     candidates: input.comparableClaimSets.map((candidate) => ({
       candidateId: candidate.candidateId,
@@ -960,7 +986,14 @@ async function loadVideoBaselines(
   return { goldFlatClaims, comparableClaimSets };
 }
 
-function getGoogleEmbeddingConfig(config: ResolvedConfig): { apiKey?: string; baseUrl: string; model?: string; batchSize?: number } {
+function getGoogleEmbeddingConfig(config: ResolvedConfig): {
+  apiKey?: string;
+  baseUrl: string;
+  model?: string;
+  batchSize?: number;
+  taskType?: string;
+  outputDimensionality?: number;
+} {
   const llm = config.llm;
   const isGeminiModel = llm.model?.toLowerCase().startsWith("gemini-");
   const isOpenAiDefault = llm.baseUrl.includes("openai.com");
@@ -985,6 +1018,8 @@ function getGoogleEmbeddingConfig(config: ResolvedConfig): { apiKey?: string; ba
       process.env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
       "gemini-embedding-2-preview",
     batchSize: llm.embeddingBatchSize,
+    taskType: process.env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY",
+    outputDimensionality: Number(process.env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) || llm.embeddingOutputDimensionality || 768,
   };
 }
 
@@ -1143,6 +1178,8 @@ async function scorePair(
     const embeddingResult = await embeddingClient.similarity(goldClaim.text, candidate.text);
     if (embeddingResult.ok) {
       embedding = embeddingResult.value.score;
+    } else {
+      throw new Error(`Embedding similarity failed: ${embeddingResult.error.message}`);
     }
   }
 
@@ -1328,10 +1365,11 @@ function toTeacherClaimNodes(candidate: ComparableClaimSet): FlattenedGoldenClai
 
 function selfImproveHintKey(
   videoId: string,
+  modelId: string,
   promptConfigId: Pass1PromptConfigId | undefined,
   chunkMode: NarrowEvalChunkMode | undefined
 ): string {
-  return [videoId, "self-improve-v1", promptConfigId ?? "baseline", chunkMode ?? "default"].join("|");
+  return [videoId, "self-improve-v1", modelId, promptConfigId ?? "baseline", chunkMode ?? "default"].join("|");
 }
 
 function looksLikeFrameworkClaim(text: string): boolean {
@@ -1540,8 +1578,8 @@ function buildTeacherAwareHints(
   for (const video of videos) {
     for (const candidate of video.candidateReports) {
       if (candidate.sourceKind !== "harness") continue;
-      if (!candidate.promptConfigId || !candidate.chunkMode) continue;
-      const hintKey = selfImproveHintKey(video.videoId, candidate.promptConfigId, candidate.chunkMode);
+      if (!candidate.modelId || !candidate.promptConfigId || !candidate.chunkMode) continue;
+      const hintKey = selfImproveHintKey(video.videoId, candidate.modelId, candidate.promptConfigId, candidate.chunkMode);
       const focusAreas = new Set<string>();
       if ((candidate.gapSummary?.missingGoldRoots.length ?? 0) > 0) {
         focusAreas.add("Add a clear root or umbrella claim that organizes the detailed child claims.");
@@ -1969,6 +2007,8 @@ export async function runNarrowManualBaselineComparison(
     embeddingModel: googleEmbeddingConfig.model,
     embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
     embeddingBatchSize: googleEmbeddingConfig.batchSize,
+    taskType: googleEmbeddingConfig.taskType,
+    outputDimensionality: googleEmbeddingConfig.outputDimensionality,
   });
   const extractionStageInputSignature = await buildExtractionStageInputSignature({
     corpusSignature,
@@ -1984,12 +2024,15 @@ export async function runNarrowManualBaselineComparison(
     judgeModelIds: options.judgeModelIds,
     judgeMaxTokens: options.judgeMaxTokens ?? 4000,
     enablePromptRouting,
+    includeManualBaselines,
     maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: options.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo,
     embeddingModel: googleEmbeddingConfig.model,
     embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
     embeddingBatchSize: googleEmbeddingConfig.batchSize,
+    taskType: googleEmbeddingConfig.taskType,
+    outputDimensionality: googleEmbeddingConfig.outputDimensionality,
   });
 
   for (const video of options.corpus) {
@@ -2008,6 +2051,8 @@ export async function runNarrowManualBaselineComparison(
         timeoutMs: options.timeoutMs ?? 120_000,
         model: googleEmbeddingConfig.model,
         batchSize: googleEmbeddingConfig.batchSize,
+        taskType: googleEmbeddingConfig.taskType as any,
+        outputDimensionality: googleEmbeddingConfig.outputDimensionality,
         maxRequestsPerMinute: options.maxEmbeddingRequestsPerMinute ?? 80,
       })
     : undefined;
@@ -2329,7 +2374,7 @@ export async function runNarrowManualBaselineComparison(
   };
 
   if (!cachedShortlist || cachedShortlist.inputSignature !== extractionStageInputSignature) {
-    initialVideos = await buildVideoReports(initialHarnessCells, false, false);
+    initialVideos = await buildVideoReports(initialHarnessCells, includeManualBaselines, false);
     if (adaptiveEscalation) {
       for (const video of initialVideos) {
         const topHarnessCandidate = video.candidateReports
@@ -2372,7 +2417,7 @@ export async function runNarrowManualBaselineComparison(
       }
       if (escalatedVideos.length > 0) {
         escalatedVideos = [...new Set(escalatedVideos)];
-        initialVideos = await buildVideoReports(initialHarnessCells, false, false);
+        initialVideos = await buildVideoReports(initialHarnessCells, includeManualBaselines, false);
       }
     }
     shortlistTargets = initialVideos.flatMap((video) =>
@@ -2383,6 +2428,7 @@ export async function runNarrowManualBaselineComparison(
       )
         .map((candidate) => ({
           videoId: video.videoId,
+          modelId: candidate.modelId!,
           promptConfigId: candidate.promptConfigId!,
           chunkMode: candidate.chunkMode!,
           candidateId: candidate.candidateId,
@@ -2433,15 +2479,21 @@ export async function runNarrowManualBaselineComparison(
     console.log("[stage2-start] refine");
     if (stage2Variants.length > 0 && refinedTargets.length > 0) {
       for (const target of refinedTargets) {
+        const targetModelId = target.modelId || (target.candidateId.startsWith("harness/") ? target.candidateId.split("/")[1] : "");
+        if (!targetModelId) continue;
+
         const targetCorpus = options.corpus.filter((video) => video.videoId === target.videoId);
         if (targetCorpus.length === 0) continue;
-        const hintKey = selfImproveHintKey(target.videoId, target.promptConfigId, target.chunkMode);
+        const targetModel = options.models.find((model) => model.id === targetModelId) || getModel(targetModelId);
+        if (!targetModel) continue;
+
+        const hintKey = selfImproveHintKey(target.videoId, targetModelId, target.promptConfigId, target.chunkMode);
         const selfImproveHints = teacherAwareHints[hintKey]
           ? { [hintKey]: teacherAwareHints[hintKey] }
           : undefined;
         refinedSelfImproveCells.push(...await runHarnessExtractionOnly(
             targetCorpus,
-            options.models,
+            [targetModel],
             stage2Variants,
             target.promptConfigId,
             target.chunkMode,
@@ -2532,6 +2584,8 @@ export async function runNarrowManualBaselineComparison(
         embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
         embeddingBatchSize: googleEmbeddingConfig.batchSize,
         maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
+        taskType: googleEmbeddingConfig.taskType,
+        outputDimensionality: googleEmbeddingConfig.outputDimensionality,
       });
       const cachedVideoScore = await readNarrowVideoScoreArtifact(options.outputDir, video.videoId);
       if (cachedVideoScore?.inputSignature === videoScoreSignature) {

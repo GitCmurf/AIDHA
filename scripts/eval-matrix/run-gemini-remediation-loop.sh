@@ -227,7 +227,7 @@ run_review() {
     case "${REVIEW_TOOL}" in
         codex)
             require_command codex
-            run_with_heartbeat "codex-review" "${HEARTBEAT_SECONDS}" codex review --model "${REVIEW_MODEL}" --base "${BASE_BRANCH}"
+            run_with_heartbeat "codex-review" "${HEARTBEAT_SECONDS}" codex review -c "model=${REVIEW_MODEL}" --base "${BASE_BRANCH}"
             ;;
         coderabbit)
             require_command "${CODERABBIT_BIN}"

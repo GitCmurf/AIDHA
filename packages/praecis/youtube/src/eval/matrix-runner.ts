@@ -238,7 +238,7 @@ const performExtraction = async (
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
     const chunkProfile = options.extractionChunkProfiles?.[modelId];
-    const selfImproveHintKey = [videoId, variant, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
+    const selfImproveHintKey = [videoId, variant, modelId, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
     const client = options.extractorClientFactory(modelId);
     const extractor = new LlmClaimExtractor({
       client,
@@ -479,7 +479,7 @@ const getExtractionForCell = async (
   }
 
   const selfImproveMaxRounds = variant === "self-improve-v1" ? 1 : 0;
-  const selfImproveHintKey = [video.videoId, variant, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
+  const selfImproveHintKey = [video.videoId, variant, model.id, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
   const selfImproveGuidanceObj = options.extractionSelfImproveHints?.[selfImproveHintKey];
   const selfImproveGuidance = selfImproveGuidanceObj ? JSON.stringify(selfImproveGuidanceObj) : undefined;
 

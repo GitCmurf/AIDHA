@@ -58,6 +58,8 @@ export const DEFAULTS: DeepReadonly<AidhaConfig> = {
         reasoning_effort: 'medium',
         verbosity: 'medium',
         embedding_batch_size: 20,
+        embedding_task_type: 'SEMANTIC_SIMILARITY',
+        embedding_output_dimensionality: 768,
       },
       editor: {
         version: 'v2',
