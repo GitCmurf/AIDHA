@@ -8,14 +8,20 @@ VERIFY_MODE="quick"
 HEARTBEAT_SECONDS=60
 HARD_TIMEOUT_MINUTES=60
 GEMINI_BIN="${GEMINI_BIN:-gemini}"
+REVIEW_TOOL="${REVIEW_TOOL:-codex}"
+REVIEW_MODEL="${REVIEW_MODEL:-gpt-5.4-mini}"
 CODERABBIT_BIN="${CODERABBIT_BIN:-coderabbit}"
 PNPM_BIN="${PNPM_BIN:-pnpm}"
+GEMINI_APPROVAL_MODE="${GEMINI_APPROVAL_MODE:-auto_edit}"
+GEMINI_SANDBOX="${GEMINI_SANDBOX:-false}"
+GEMINI_SKIP_TRUST="${GEMINI_SKIP_TRUST:-true}"
+GEMINI_OUTPUT_FORMAT="${GEMINI_OUTPUT_FORMAT:-text}"
 RUN_ID=""
 RUN_DIR=""
 
 usage() {
     cat <<'EOF'
-Usage: run-gemini-remediation-loop.sh [--review-file PATH] [--base BRANCH] [--max-iterations N] [--verify-mode quick|full|none] [--heartbeat-seconds N] [--hard-timeout-minutes N]
+Usage: run-gemini-remediation-loop.sh [--review-file PATH] [--base BRANCH] [--max-iterations N] [--verify-mode quick|full|none] [--heartbeat-seconds N] [--hard-timeout-minutes N] [--review-tool codex|coderabbit]
 
 Reads a review summary from stdin or --review-file, asks Gemini to plan and
 apply the remediation, runs repo verification, then re-runs CodeRabbit against
@@ -29,11 +35,22 @@ Defaults:
   --heartbeat-seconds 60
   --hard-timeout-minutes 60
 
+Gemini defaults:
+  GEMINI_APPROVAL_MODE=auto_edit
+  GEMINI_SANDBOX=false
+  GEMINI_SKIP_TRUST=true
+  GEMINI_OUTPUT_FORMAT=text
+
+Review defaults:
+  REVIEW_TOOL=codex
+  REVIEW_MODEL=gpt-5.4-mini
+
 Examples:
   cat review.txt | ./scripts/eval-matrix/run-gemini-remediation-loop.sh
   ./scripts/eval-matrix/run-gemini-remediation-loop.sh --review-file review.txt --max-iterations 2
   ./scripts/eval-matrix/run-gemini-remediation-loop.sh --review-file review.txt --verify-mode full
   ./scripts/eval-matrix/run-gemini-remediation-loop.sh --review-file review.txt --hard-timeout-minutes 60
+  ./scripts/eval-matrix/run-gemini-remediation-loop.sh --review-file review.txt --review-tool coderabbit
 EOF
 }
 
@@ -134,15 +151,21 @@ You are working in the AIDHA repository at $(git rev-parse --show-toplevel).
 Base branch: ${BASE_BRANCH}.
 
 Task:
-Plan and execute the minimum remediation needed to address the review findings
-below. Make the edits directly in the working tree, run the relevant
-verification commands, and return only a tight summary.
+Classify each review finding below before changing code:
+- true positive: reproduce it in the current codebase and fix it
+- false positive: explain briefly why it does not apply and do not change code
+- needs better patch: the issue is real, but choose a smaller or safer fix than the suggestion
+
+Plan and execute the minimum remediation needed to address only the findings
+that survive that filtering. Make the edits directly in the working tree, run
+the relevant verification commands, and return only a tight summary.
 
 Hard requirements:
 - Preserve unrelated user changes.
 - Do not ask questions.
 - Keep the response concise.
 - Include files changed, commands run, and whether the branch is ready or still blocked.
+- Prefer the smallest correct patch when the suggested fix is too broad.
 
 Iteration ${iteration}/${MAX_ITERATIONS}
 
@@ -155,7 +178,17 @@ EOF
 
 run_gemini() {
     local prompt="$1"
-    run_with_heartbeat "gemini-iteration-${CURRENT_ITERATION}" "${HEARTBEAT_SECONDS}" "${GEMINI_BIN}" -p "${prompt}"
+    local -a gemini_args=()
+
+    gemini_args+=(--approval-mode "${GEMINI_APPROVAL_MODE}")
+    gemini_args+=(--sandbox "${GEMINI_SANDBOX}")
+    gemini_args+=(--output-format "${GEMINI_OUTPUT_FORMAT}")
+
+    if [[ "${GEMINI_SKIP_TRUST}" == "true" ]]; then
+        gemini_args+=(--skip-trust)
+    fi
+
+    run_with_heartbeat "gemini-iteration-${CURRENT_ITERATION}" "${HEARTBEAT_SECONDS}" "${GEMINI_BIN}" "${gemini_args[@]}" -p "${prompt}"
 }
 
 run_verification_mode() {
@@ -181,7 +214,7 @@ run_verification_mode() {
             ;;
         full)
             run_verification_mode "${root_dir}" quick
-            run_with_heartbeat "verification-docs-build" "${HEARTBEAT_SECONDS}" "${PNPM_BIN}" docs:build
+            run_with_heartbeat "verification-docs-build" "${HEARTBEAT_SECONDS}" "${PNPM_BIN}" --dir "${root_dir}" run docs:build
             ;;
         *)
             echo "--verify-mode must be one of: quick, full, none." >&2
@@ -191,7 +224,24 @@ run_verification_mode() {
 }
 
 run_review() {
-    run_with_heartbeat "coderabbit-review" "${HEARTBEAT_SECONDS}" "${CODERABBIT_BIN}" review --prompt-only --base "${BASE_BRANCH}"
+    case "${REVIEW_TOOL}" in
+        codex)
+            require_command codex
+            run_with_heartbeat "codex-review" "${HEARTBEAT_SECONDS}" codex review --model "${REVIEW_MODEL}" --base "${BASE_BRANCH}"
+            ;;
+        coderabbit)
+            require_command "${CODERABBIT_BIN}"
+            if ! "${CODERABBIT_BIN}" auth status >/dev/null 2>&1; then
+                echo "CodeRabbit CLI is not authenticated. Run: coderabbit auth login" >&2
+                exit 1
+            fi
+            run_with_heartbeat "coderabbit-review" "${HEARTBEAT_SECONDS}" "${CODERABBIT_BIN}" review --prompt-only --base "${BASE_BRANCH}"
+            ;;
+        *)
+            echo "--review-tool must be one of: codex, coderabbit." >&2
+            exit 2
+            ;;
+    esac
 }
 
 review_looks_clear() {
@@ -228,15 +278,10 @@ main() {
     mkdir -p "${RUN_DIR}"
     log "run_dir=${RUN_DIR}"
     log "verify_mode=${VERIFY_MODE}"
+    log "review_tool=${REVIEW_TOOL}"
 
     require_command "${GEMINI_BIN}"
-    require_command "${CODERABBIT_BIN}"
     require_command "${PNPM_BIN}"
-
-    if ! "${CODERABBIT_BIN}" auth status >/dev/null 2>&1; then
-        echo "CodeRabbit CLI is not authenticated. Run: coderabbit auth login" >&2
-        exit 1
-    fi
 
     local iteration
     for ((iteration = 1; iteration <= MAX_ITERATIONS; iteration++)); do
@@ -269,15 +314,15 @@ main() {
         fi
         log "stage=verification status=done mode=${VERIFY_MODE}"
 
-        log "stage=coderabbit-review status=start base=${BASE_BRANCH}"
+        log "stage=${REVIEW_TOOL}-review status=start base=${BASE_BRANCH}"
         local review_output
         review_output=""
         if review_output="$(run_review)"; then
             printf '%s\n' "${review_output}"
         else
             local review_rc=$?
-            log "coderabbit review exited rc=${review_rc}"
-            log "review log=$(stage_log_file "coderabbit-review")"
+            log "review tool exited rc=${review_rc}"
+            log "review log=$(stage_log_file "${REVIEW_TOOL}-review")"
             printf '%s\n' "${review_output}"
             if (( iteration == MAX_ITERATIONS )); then
                 exit "${review_rc}"
@@ -337,6 +382,14 @@ while [[ $# -gt 0 ]]; do
             HARD_TIMEOUT_MINUTES="${2:-}"
             shift 2
             ;;
+        --review-tool)
+    REVIEW_TOOL="${2:-}"
+    shift 2
+    ;;
+        --review-model)
+            REVIEW_MODEL="${2:-}"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -372,5 +425,21 @@ case "${VERIFY_MODE}" in
         exit 2
         ;;
 esac
+
+case "${REVIEW_TOOL}" in
+    codex|coderabbit)
+        ;;
+    *)
+        echo "--review-tool must be one of: codex, coderabbit." >&2
+        exit 2
+        ;;
+esac
+
+if [[ "${REVIEW_TOOL}" == "codex" ]]; then
+    if [[ -z "${REVIEW_MODEL}" ]]; then
+        echo "--review-model must not be empty when using codex." >&2
+        exit 2
+    fi
+fi
 
 main

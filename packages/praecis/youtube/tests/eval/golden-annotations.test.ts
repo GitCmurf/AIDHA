@@ -71,7 +71,8 @@ describe("Golden Annotations Validation", () => {
           {
             text: "invalid type",
             type: "Research Finding",
-            children: []
+            children: [],
+            evidence: { startMs: 0, endMs: 100 }
           }
         ],
         rejectedClaims: []
@@ -80,5 +81,26 @@ describe("Golden Annotations Validation", () => {
 
     const result = GoldenAnnotationSchema.safeParse(invalidData);
     expect(result.success).toBe(false);
+    if (!result.success) {
+      const formatted = result.error.format() as any;
+      expect(formatted["0"].idealClaims["0"].type).toBeDefined();
+    }
+  });
+
+  it("should reject speakerCredentials without speaker", () => {
+    const invalidData = [
+      {
+        videoId: "v1",
+        title: "Video 1",
+        speakerCredentials: "PhD",
+        idealClaims: [],
+        rejectedClaims: []
+      }
+    ];
+    const result = GoldenAnnotationSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.errors[0]?.path).toContain("speakerCredentials");
+    }
   });
 });

@@ -65,6 +65,13 @@ function uniqueTerms(terms: string[]): string[] {
   return [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
 }
 
+/**
+ * Analyzes transcript text to identify structural and domain cues.
+ * Returns a profile containing cue counts and specific glossary signals.
+ *
+ * @param text - The transcript text to profile
+ * @returns A TranscriptProfile containing identified cues and signals
+ */
 export function buildTranscriptProfile(text: string): TranscriptProfile {
   const normalized = text.toLowerCase();
   const listCueCount = countCueMatches(normalized, LIST_CUES);
@@ -136,6 +143,13 @@ function routeConfidenceForPack(packId: ExtractionPromptPackId, profile: Transcr
   }
 }
 
+/**
+ * Decides the optimal prompt pack based on video metadata and transcript content.
+ * Falls back to generic-hierarchy if no specific pack is strongly indicated.
+ *
+ * @param input - Object containing topicDomain, title, and transcriptText
+ * @returns An object with the routing decision and the transcript profile used
+ */
 export function decidePromptPack(input: {
   topicDomain?: string;
   title?: string;
@@ -195,12 +209,20 @@ function looksEnumerationLike(text: string): boolean {
 }
 
 function computeDomainTermRecall(claims: ClaimCandidate[], glossaryTerms: string[]): number {
-  if (glossaryTerms.length === 0 || claims.length === 0) return 1;
+  if (glossaryTerms.length === 0) return 1;
+  if (claims.length === 0) return 0;
   const normalizedClaims = claims.map((claim) => claim.text.toLowerCase()).join(" ");
   const matched = glossaryTerms.filter((term) => normalizedClaims.includes(term.toLowerCase())).length;
   return matched / glossaryTerms.length;
 }
 
+/**
+ * Evaluates extraction results to determine if a retry with a different prompt pack is needed.
+ * Triggered by missing structural elements (roots, enumerations) or low domain term recall.
+ *
+ * @param input - Object containing current claims, current prompt pack, and transcript profile
+ * @returns A decision object indicating if a retry is warranted and the recommended pack
+ */
 export function determineRetryDecision(input: {
   claims: ClaimCandidate[];
   promptPackId: ExtractionPromptPackId;
@@ -241,6 +263,14 @@ export function determineRetryDecision(input: {
   return { retry: false };
 }
 
+/**
+ * Calculates a structural completeness score (0-1) for a set of claims.
+ * Weighting: Root coverage (35%), Enumeration coverage (20%), Domain recall (25%), Count (20%).
+ *
+ * @param claims - The extracted claims to score
+ * @param profile - The transcript profile to compare against
+ * @returns A completeness score between 0 and 1
+ */
 export function scoreStructuralCompleteness(claims: ClaimCandidate[], profile: TranscriptProfile): number {
   const hasRootClaim = claims.some((claim) => looksRootLike(claim.text)) ? 1 : 0;
   const hasEnumerationClaim = claims.some((claim) => looksEnumerationLike(claim.text)) ? 1 : 0;

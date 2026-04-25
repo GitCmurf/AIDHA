@@ -45,6 +45,12 @@ class SequenceStubLlmClient implements LlmClient {
     this.calls += 1;
     return response;
   }
+
+  async complete(request: any): Promise<any> {
+    const result = await this.generate(request);
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, text: result.value };
+  }
 }
 
 class RecordingStubLlmClient implements LlmClient {

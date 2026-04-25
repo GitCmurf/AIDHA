@@ -38,13 +38,13 @@ docops_version: "2.0"
 
 ## Review Findings
 
-... (Review findings content) ...
+None
 
 ---
 
 ## Open Questions / Risk Register
 
-... (Open questions content) ...
+None
 
 ---
 

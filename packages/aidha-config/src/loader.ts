@@ -242,6 +242,10 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         .map(([k]) => k),
     );
 
+    // Track keys introduced by previous dotenv files to correctly sync
+    // them to process.env even when overrideExisting is false.
+    const loadedDotenvKeys = new Set<string>();
+
     for (const file of files) {
       const dotenvPath = resolve(baseDirPrelim, file);
       if (!existsSync(dotenvPath)) {
@@ -274,8 +278,9 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         // Only protect pre-existing process env vars when override_existing is false.
         if (overrideExisting || !originalEnvKeys.has(key)) {
           env[key] = value;
-          if (syncProcessEnv && (overrideExisting || process.env[key] === undefined)) {
+          if (syncProcessEnv && (overrideExisting || process.env[key] === undefined || loadedDotenvKeys.has(key))) {
             process.env[key] = value;
+            loadedDotenvKeys.add(key);
           }
         }
       }

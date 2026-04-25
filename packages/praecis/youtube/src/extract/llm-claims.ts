@@ -445,7 +445,10 @@ function buildChunks(
 }
 
 function splitChunkAtMidpoint(chunk: ClaimChunk): [ClaimChunk, ClaimChunk] {
-  const midpoint = Math.max(1, Math.floor(chunk.excerpts.length / 2));
+  if (chunk.excerpts.length < 2) {
+    throw new Error(`Cannot split chunk with ${chunk.excerpts.length} excerpts at midpoint`);
+  }
+  const midpoint = Math.floor(chunk.excerpts.length / 2);
   const leftExcerpts = chunk.excerpts.slice(0, midpoint);
   const rightExcerpts = chunk.excerpts.slice(midpoint);
   const leftStart = toNumber(leftExcerpts[0]?.metadata?.['start'], chunk.start);
@@ -988,7 +991,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let system: string;
     let user: string;
 
-    if (this.promptVersion === PROMPT_V2_VERSION) {
+    if (this.promptVersion === PROMPT_V2_VERSION || promptPackId !== 'generic-hierarchy') {
       const prompt = buildPass1PromptV2(
         {
           resourceLabel: resource.label,
@@ -1058,13 +1061,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
           chunkCount: 1,
           promptPackId,
         });
-        if (prompt.totalRequestTokens > safeMaxTokens) {
-          // If it doesn't fit, we must let the standard chunking loop handle it (even if strategy says whole)
-          // or at least not return early so we can log/fail if needed.
-          // For now, we fall through to the standard loop which will attempt to split if possible.
-        } else {
+        if (prompt.totalRequestTokens <= safeMaxTokens) {
           return working;
         }
+        // If it doesn't fit, we let the standard loop handle it by falling through.
       } else {
         return working;
       }
@@ -1898,11 +1898,12 @@ export class LlmClaimExtractor implements ClaimExtractor {
     }
 
     if (!retry.ok) {
-      this.circuitBreaker.recordFailure();
       if (isClientTimeoutError(retry.error.message)) {
         this.lastRunStats.clientTimeoutCount += 1;
       } else if (isUpstreamAbortError(retry.error.message)) {
         this.lastRunStats.upstreamAbortCount += 1;
+      } else {
+        this.circuitBreaker.recordFailure();
       }
       console.error(`LLM retry error in chunk ${chunk.index}: ${retry.error.message}`);
       return { claims: [], success: false };

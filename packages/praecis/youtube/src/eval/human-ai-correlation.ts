@@ -40,6 +40,11 @@ export function computeHumanAiCorrelation(
     return undefined;
   }
 
+  // Guard against NaN inputs
+  if (humanScores.some(s => Number.isNaN(s)) || aiScores.some(s => Number.isNaN(s))) {
+    return undefined;
+  }
+
   const n = humanScores.length;
   const humanRanks = getRanks(humanScores);
   const aiRanks = getRanks(aiScores);

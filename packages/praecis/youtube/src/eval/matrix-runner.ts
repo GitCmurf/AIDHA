@@ -220,6 +220,7 @@ const estimateJudgeCost = (
 };
 
 const performExtraction = async (
+  videoId: string,
   modelId: string,
   variant: ExtractorVariantId,
   options: MatrixOptions,
@@ -237,9 +238,6 @@ const performExtraction = async (
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
     const chunkProfile = options.extractionChunkProfiles?.[modelId];
-    const videoId = typeof resource?.metadata?.["videoId"] === "string"
-      ? String(resource.metadata?.["videoId"])
-      : resource.id;
     const selfImproveHintKey = [videoId, variant, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
     const client = options.extractorClientFactory(modelId);
     const extractor = new LlmClaimExtractor({
@@ -531,6 +529,7 @@ const getExtractionForCell = async (
 
   try {
     const extractionResult = await performExtraction(
+      video.videoId,
       model.id,
       variant,
       options,

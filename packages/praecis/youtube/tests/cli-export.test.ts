@@ -21,7 +21,11 @@ describeIfSqlite('CLI export flows', () => {
   });
 
   afterEach(async () => {
-    process.env['INIT_CWD'] = originalInitCwd;
+    if (originalInitCwd === undefined) {
+      delete process.env['INIT_CWD'];
+    } else {
+      process.env['INIT_CWD'] = originalInitCwd;
+    }
     if (originalCwd) {
       process.chdir(originalCwd);
     }

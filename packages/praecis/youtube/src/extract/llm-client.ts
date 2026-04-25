@@ -324,7 +324,7 @@ export class GeminiApiClient implements LlmClient {
       }
 
       const body: Record<string, unknown> = {
-        systemInstruction: {
+        system_instruction: {
           parts: [{ text: request.system }],
         },
         contents: [

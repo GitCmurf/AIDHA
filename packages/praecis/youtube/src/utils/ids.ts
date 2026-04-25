@@ -95,10 +95,24 @@ export function hashId(prefix: string, parts: Array<string | number | undefined>
   return `${prefix}-${digest}`;
 }
 
+/**
+ * Generates a 32-character hex SHA-256 prefix of the provided text.
+ * Used for generating deterministic identifiers for text content.
+ *
+ * @param text - The string to hash
+ * @returns A 32-character hexadecimal SHA-256 hash prefix
+ */
 export function hashText(text: string): string {
   return createHash("sha256").update(text).digest("hex").slice(0, 32);
 }
 
+/**
+ * Reads a file using UTF-8 encoding and returns its 32-character SHA-256 hash prefix.
+ * Returns null if the file cannot be read (e.g., file not found or permission error).
+ *
+ * @param filePath - The path to the file to hash
+ * @returns A Promise resolving to a 32-char hex hash string, or null on failure
+ */
 export async function hashFile(filePath: string): Promise<string | null> {
   const { readFile } = await import("node:fs/promises");
   try {

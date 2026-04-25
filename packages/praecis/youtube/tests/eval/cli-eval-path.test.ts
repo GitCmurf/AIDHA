@@ -127,5 +127,7 @@ describe("CLI Export Path Resolution", () => {
     expect(consoleLogSpy.mock.calls.some((call) =>
       String(call[0]).includes("Refresh Stage: none")
     )).toBe(true);
+
+    consoleLogSpy.mockRestore();
   });
 });

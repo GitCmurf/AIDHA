@@ -145,8 +145,14 @@ const renderNarrowJudgeSummary = (results: MatrixReport["narrowJudgeResults"]): 
       const sortedVideos = Object.keys(videoResults).sort();
 
       for (const videoId of sortedVideos) {
-        const s = videoResults[videoId]!;
-        md += `| ${escapeMdTableCell(videoId)} | ${s.goldCoverage.toFixed(2)} | ${s.faithfulness.toFixed(2)} | ${s.structure.toFixed(2)} | ${s.atomicity.toFixed(2)} | **${s.overallScore.toFixed(2)}** |\n`;
+        const s = videoResults[videoId];
+        if (!s) continue;
+        const goldCoverage = Number.isFinite(s.goldCoverage) ? s.goldCoverage : 0;
+        const faithfulness = Number.isFinite(s.faithfulness) ? s.faithfulness : 0;
+        const structure = Number.isFinite(s.structure) ? s.structure : 0;
+        const atomicity = Number.isFinite(s.atomicity) ? s.atomicity : 0;
+        const overallScore = Number.isFinite(s.overallScore) ? s.overallScore : 0;
+        md += `| ${escapeMdTableCell(videoId)} | ${goldCoverage.toFixed(2)} | ${faithfulness.toFixed(2)} | ${structure.toFixed(2)} | ${atomicity.toFixed(2)} | **${overallScore.toFixed(2)}** |\n`;
       }
       md += "\n";
     }

@@ -66,12 +66,14 @@ export function checkSelfImprovementGate(
       const dimensions = ["goldCoverage", "faithfulness", "structure", "atomicity", "overallScore"] as const;
 
       for (const dim of dimensions) {
-        if (baseScores[dim] - siScores[dim] > tolerance) {
+        const baselineScore = Number.isFinite(baseScores[dim]) ? baseScores[dim] : 0;
+        const latestScore = Number.isFinite(siScores[dim]) ? siScores[dim] : 0;
+        if (baselineScore - latestScore > tolerance) {
           regressions.push({
             entityId: `${siCell.videoId}/${siCell.modelId}`,
             dimension: dim,
-            baselineScore: baseScores[dim],
-            latestScore: siScores[dim],
+            baselineScore,
+            latestScore,
             tolerance
           });
         }
@@ -83,12 +85,14 @@ export function checkSelfImprovementGate(
       const dimensions = ["completeness", "accuracy", "topicCoverage", "atomicity", "overallScore"] as const;
 
       for (const dim of dimensions) {
-        if (baseScores[dim] - siScores[dim] > tolerance) {
+        const baselineScore = Number.isFinite(baseScores[dim]) ? baseScores[dim] : 0;
+        const latestScore = Number.isFinite(siScores[dim]) ? siScores[dim] : 0;
+        if (baselineScore - latestScore > tolerance) {
           regressions.push({
             entityId: `${siCell.videoId}/${siCell.modelId}`,
             dimension: dim,
-            baselineScore: baseScores[dim],
-            latestScore: siScores[dim],
+            baselineScore,
+            latestScore,
             tolerance
           });
         }

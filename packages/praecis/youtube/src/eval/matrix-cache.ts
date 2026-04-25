@@ -28,6 +28,10 @@ export interface CacheOptions {
   cacheDir: string;
 }
 
+function encodeCachePart(value: string | undefined): string {
+  return value === undefined ? "__undefined__" : value;
+}
+
 async function ensureCacheDir(cacheDir: string): Promise<void> {
   await mkdir(cacheDir, { recursive: true });
 }
@@ -51,11 +55,11 @@ export async function getCachedExtraction(
     extractorVariantId,
     promptVersion,
     extractorVersion,
-    promptConfigId ?? "",
-    chunkMode ?? "",
-    promptPackId ?? "",
+    encodeCachePart(promptConfigId),
+    encodeCachePart(chunkMode),
+    encodeCachePart(promptPackId),
     String(selfImproveMaxRounds),
-    selfImproveGuidance ?? ""
+    encodeCachePart(selfImproveGuidance)
   ]);
   const filePath = join(options.cacheDir, `extraction-${key}.json`);
 
@@ -92,11 +96,11 @@ export async function setCachedExtraction(
     extractorVariantId,
     promptVersion,
     extractorVersion,
-    promptConfigId ?? "",
-    chunkMode ?? "",
-    promptPackId ?? "",
+    encodeCachePart(promptConfigId),
+    encodeCachePart(chunkMode),
+    encodeCachePart(promptPackId),
     String(selfImproveMaxRounds),
-    selfImproveGuidance ?? ""
+    encodeCachePart(selfImproveGuidance)
   ]);
 
   const filePath = join(options.cacheDir, `extraction-${key}.json`);

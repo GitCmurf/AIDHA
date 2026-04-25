@@ -1,85 +1,285 @@
-import { describe, expect, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import { checkSelfImprovementGate } from "../../src/eval/quality-gate.js";
 import type { MatrixReport } from "../../src/eval/matrix-aggregator.js";
 
 describe("checkSelfImprovementGate", () => {
-  const mockReportTemplate: Partial<MatrixReport> = {
-    summary: { bestModel: "m1", worstModel: "m2", hardestVideo: "v1" },
-    leaderboards: { overallScore: [], completeness: [], accuracy: [], topicCoverage: [], atomicity: [] },
-    modelStats: {},
-    variantStats: {},
-    videoStats: {},
+  const mockReportBase: Partial<MatrixReport> = {
+    cells: []
   };
 
-  it("passes when self-improvement is within tolerance", () => {
-    const report: MatrixReport = {
-      ...mockReportTemplate,
+  it("should skip if no self-improve cells are found", () => {
+    const report = { ...mockReportBase, cells: [] } as MatrixReport;
+    const result = checkSelfImprovementGate(report);
+    expect(result.skipped).toBe(true);
+    expect(result.passed).toBe(true);
+  });
+
+  it("should fail if baseline variant is missing for a self-improve cell", () => {
+    const report = {
+      ...mockReportBase,
       cells: [
         {
-          videoId: "v1", modelId: "m1", extractorVariantId: "editorial-pass-v1",
-          claimSet: [], consensusScore: { mean: { overallScore: 8.0, completeness: 8, accuracy: 8, topicCoverage: 8, atomicity: 8 }, variance: {}, isHighVariance: false }
-        },
-        {
-          videoId: "v1", modelId: "m1", extractorVariantId: "self-improve-v1",
-          claimSet: [], consensusScore: { mean: { overallScore: 7.5, completeness: 7, accuracy: 8, topicCoverage: 7, atomicity: 8 }, variance: {}, isHighVariance: false }
-        },
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          claimSet: []
+        }
       ]
     } as MatrixReport;
+    const result = checkSelfImprovementGate(report);
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain("Missing baseline");
+  });
 
-    const result = checkSelfImprovementGate(report, { tolerance: 1.0 });
+  it("should fail if scoring data is missing for both narrow judge and consensus", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          claimSet: []
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          claimSet: []
+        }
+      ]
+    } as MatrixReport;
+    const result = checkSelfImprovementGate(report);
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain("Missing scoring data");
+  });
+
+  it("should pass if no regressions are found via narrow judge scores", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: 0.8,
+              faithfulness: 0.9,
+              structure: 0.7,
+              atomicity: 0.8,
+              overallScore: 0.8
+            }
+          }
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: 0.85,
+              faithfulness: 0.95,
+              structure: 0.75,
+              atomicity: 0.85,
+              overallScore: 0.85
+            }
+          }
+        }
+      ]
+    } as any as MatrixReport;
+    const result = checkSelfImprovementGate(report);
     expect(result.passed).toBe(true);
     expect(result.regressions).toHaveLength(0);
   });
 
-  it("fails when self-improvement regresses beyond tolerance", () => {
-    const report: MatrixReport = {
-      ...mockReportTemplate,
+  it("should detect regressions via narrow judge scores", () => {
+    const report = {
+      ...mockReportBase,
       cells: [
         {
-          videoId: "v1", modelId: "m1", extractorVariantId: "editorial-pass-v1",
-          claimSet: [], consensusScore: { mean: { overallScore: 8.0, completeness: 8, accuracy: 8, topicCoverage: 8, atomicity: 8 }, variance: {}, isHighVariance: false }
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: 0.8,
+              faithfulness: 0.9,
+              structure: 0.7,
+              atomicity: 0.8,
+              overallScore: 0.8
+            }
+          }
         },
         {
-          videoId: "v1", modelId: "m1", extractorVariantId: "self-improve-v1",
-          claimSet: [], consensusScore: { mean: { overallScore: 6.5, completeness: 6, accuracy: 7, topicCoverage: 6, atomicity: 7 }, variance: {}, isHighVariance: false }
-        },
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: 0.5, // regression > 1.0 (wait, tolerance is 1.0? That's huge if scores are 0-1)
+              faithfulness: 0.9,
+              structure: 0.7,
+              atomicity: 0.8,
+              overallScore: 0.8
+            }
+          }
+        }
       ]
-    } as MatrixReport;
+    } as any as MatrixReport;
 
+    // Using small tolerance to detect the 0.3 drop
+    const result = checkSelfImprovementGate(report, { tolerance: 0.1 });
+    expect(result.passed).toBe(false);
+    expect(result.regressions).toHaveLength(1);
+    expect(result.regressions[0].dimension).toBe("goldCoverage");
+  });
+
+  it("should pass if no regressions are found via consensus scores", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          consensusScore: {
+            mean: {
+              completeness: 4.0,
+              accuracy: 4.5,
+              topicCoverage: 4.0,
+              atomicity: 4.0,
+              overallScore: 4.0
+            }
+          }
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          consensusScore: {
+            mean: {
+              completeness: 4.5,
+              accuracy: 4.6,
+              topicCoverage: 4.2,
+              atomicity: 4.1,
+              overallScore: 4.3
+            }
+          }
+        }
+      ]
+    } as any as MatrixReport;
+    const result = checkSelfImprovementGate(report);
+    expect(result.passed).toBe(true);
+  });
+
+  it("should detect regressions via consensus scores", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          consensusScore: {
+            mean: {
+              completeness: 4.0,
+              accuracy: 4.5,
+              topicCoverage: 4.0,
+              atomicity: 4.0,
+              overallScore: 4.0
+            }
+          }
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          consensusScore: {
+            mean: {
+              completeness: 2.0, // regression > 1.0
+              accuracy: 4.5,
+              topicCoverage: 4.0,
+              atomicity: 4.0,
+              overallScore: 4.0
+            }
+          }
+        }
+      ]
+    } as any as MatrixReport;
     const result = checkSelfImprovementGate(report, { tolerance: 1.0 });
     expect(result.passed).toBe(false);
-    expect(result.regressions.length).toBeGreaterThanOrEqual(1);
-    expect(result.regressions[0]?.entityId).toBe("v1/m1");
+    expect(result.regressions).toHaveLength(1);
+    expect(result.regressions[0].dimension).toBe("completeness");
   });
 
-  it("skips when self-improvement cells are missing", () => {
-    const report: MatrixReport = {
-      ...mockReportTemplate,
+  it("should respect tolerance boundary conditions", () => {
+    const report = {
+      ...mockReportBase,
       cells: [
         {
-          videoId: "v1", modelId: "m1", extractorVariantId: "editorial-pass-v1",
-          claimSet: [], consensusScore: { mean: { overallScore: 8.0, completeness: 8, accuracy: 8, topicCoverage: 8, atomicity: 8 }, variance: {}, isHighVariance: false }
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          consensusScore: { mean: { overallScore: 4.0 } }
         },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          consensusScore: { mean: { overallScore: 3.0 } }
+        }
       ]
-    } as MatrixReport;
+    } as any as MatrixReport;
 
-    const result = checkSelfImprovementGate(report);
-    expect(result.skipped).toBe(true);
+    // 4.0 - 3.0 = 1.0. If tolerance is 1.0, it should pass (as it checks > tolerance)
+    const result = checkSelfImprovementGate(report, { tolerance: 1.0 });
+    expect(result.passed).toBe(true);
+
+    // If tolerance is 0.9, it should fail
+    const result2 = checkSelfImprovementGate(report, { tolerance: 0.9 });
+    expect(result2.passed).toBe(false);
   });
 
-  it("fails when baseline cells are missing for self-improvement candidates", () => {
-    const report: MatrixReport = {
-      ...mockReportTemplate,
+  it("should treat NaN narrow judge scores as zero during regression checks", () => {
+    const report = {
+      ...mockReportBase,
       cells: [
         {
-          videoId: "v1", modelId: "m1", extractorVariantId: "self-improve-v1",
-          claimSet: [], consensusScore: { mean: { overallScore: 7.5, completeness: 7, accuracy: 8, topicCoverage: 7, atomicity: 8 }, variance: {}, isHighVariance: false }
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: 0.9,
+              faithfulness: 0.9,
+              structure: 0.9,
+              atomicity: 0.9,
+              overallScore: 0.9
+            }
+          }
         },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: Number.NaN,
+              faithfulness: 0.9,
+              structure: 0.9,
+              atomicity: 0.9,
+              overallScore: 0.9
+            }
+          }
+        }
       ]
-    } as MatrixReport;
+    } as any as MatrixReport;
 
-    const result = checkSelfImprovementGate(report);
+    const result = checkSelfImprovementGate(report, { tolerance: 0.1 });
     expect(result.passed).toBe(false);
-    expect(result.message).toMatch(/Missing baseline/);
+    expect(result.regressions).toHaveLength(1);
+    expect(result.regressions[0].dimension).toBe("goldCoverage");
+    expect(result.regressions[0].latestScore).toBe(0);
   });
 });

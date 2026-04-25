@@ -273,6 +273,12 @@ interface CorpusSignatureEntry {
   rationale: string;
 }
 
+/**
+ * Generates a unique signature for a corpus of video entries to detect changes in input.
+ *
+ * @param corpus - Array of corpus entries to include in the signature.
+ * @returns A stable hash representing the corpus content.
+ */
 export function buildCorpusSignature(corpus: CorpusEntry[]): string {
   const normalizedCorpus: CorpusSignatureEntry[] = corpus
     .slice()
@@ -477,12 +483,24 @@ async function writeNarrowStageArtifact<T>(outputDir: string, stage: NarrowStage
   await writeJsonAtomic(buildNarrowStagePath(outputDir, stage), payload);
 }
 
+/**
+ * Reads a stage artifact from the output directory.
+ * Only returns undefined for missing files (ENOENT).
+ *
+ * @param outputDir - The directory where stages are stored.
+ * @param stage - The stage ID to read.
+ * @returns The parsed artifact or undefined if not found.
+ * @throws Error if the file is corrupted or other IO errors occur.
+ */
 async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageId): Promise<T | undefined> {
   try {
     const raw = await readFile(buildNarrowStagePath(outputDir, stage), "utf-8");
     return JSON.parse(raw) as T;
-  } catch {
-    return undefined;
+  } catch (err) {
+    if (err instanceof Error && (err as any).code === 'ENOENT') {
+      return undefined;
+    }
+    throw err;
   }
 }
 
@@ -490,12 +508,24 @@ async function writeNarrowVideoScoreArtifact(outputDir: string, payload: NarrowV
   await writeJsonAtomic(buildNarrowVideoScorePath(outputDir, payload.videoId), payload);
 }
 
+/**
+ * Reads a video-specific score artifact.
+ * Only returns undefined for missing files (ENOENT).
+ *
+ * @param outputDir - The directory where stage artifacts are stored.
+ * @param videoId - The video ID to read artifacts for.
+ * @returns The parsed artifact or undefined if not found.
+ * @throws Error on corruption or other IO errors.
+ */
 async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string): Promise<NarrowVideoScoreArtifact | undefined> {
   try {
     const raw = await readFile(buildNarrowVideoScorePath(outputDir, videoId), "utf-8");
     return JSON.parse(raw) as NarrowVideoScoreArtifact;
-  } catch {
-    return undefined;
+  } catch (err) {
+    if (err instanceof Error && (err as any).code === 'ENOENT') {
+      return undefined;
+    }
+    throw err;
   }
 }
 
@@ -704,6 +734,10 @@ function buildVideoScoreInputSignature(input: {
   enableEmbeddings: boolean;
   goldClaims: FlattenedGoldenClaimNode[];
   comparableClaimSets: ComparableClaimSet[];
+  embeddingModel?: string;
+  embeddingBaseUrl?: string;
+  embeddingBatchSize?: number;
+  maxEmbeddingRequestsPerRun?: number;
 }): string {
   return hashId("narrow-video-score", [JSON.stringify({
     corpusSignature: input.corpusSignature,
@@ -711,6 +745,10 @@ function buildVideoScoreInputSignature(input: {
     videoId: input.videoId,
     includeManualBaselines: input.includeManualBaselines,
     enableEmbeddings: input.enableEmbeddings,
+    embeddingModel: input.embeddingModel,
+    embeddingBaseUrl: input.embeddingBaseUrl,
+    embeddingBatchSize: input.embeddingBatchSize,
+    maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
     goldClaims: input.goldClaims.map((claim) => ({ id: claim.id, depth: claim.depth, text: normalizeKey(claim.text) })),
     candidates: input.comparableClaimSets.map((candidate) => ({
       candidateId: candidate.candidateId,
@@ -1151,7 +1189,6 @@ function summarizeCoverage(
   goldClaims: FlattenedGoldenClaimNode[],
   candidateClaims: ClaimCandidate[],
   matchedPairs: PairScore[],
-  candidateCount: number,
   mode: CoverageMode,
   nearestMisses: CoverageNearMissDetail[]
 ): GoldCoverageSummary {
@@ -1258,11 +1295,18 @@ async function computeCoverageByMode(
     });
   }
 
-  const summary = summarizeCoverage(goldClaims, candidateClaims, matchedPairs, candidateClaims.length, mode, nearestMisses);
+  const summary = summarizeCoverage(goldClaims, candidateClaims, matchedPairs, mode, nearestMisses);
   coverageCache?.set(cacheKey, summary);
   return summary;
 }
 
+/**
+ * Computes the coverage of candidate claims against a set of gold claims.
+ *
+ * @param candidateClaims - The set of extracted candidate claims.
+ * @param goldClaims - The set of ground-truth gold claims.
+ * @returns A summary of the coverage including match ratios and details.
+ */
 export async function computeGoldCoverage(
   candidateClaims: ClaimCandidate[],
   goldClaims: FlattenedGoldenClaimNode[]
@@ -1828,7 +1872,7 @@ async function runHarnessExtractionOnly(
     extractionSelfImproveHints: selfImproveHints,
     extractionEnablePromptRouting: enablePromptRouting,
     extractionPromptPackId: promptPackId,
-    extractionPromptVersion: promptVersionForConfig(promptConfigId),
+    extractionPromptVersion: promptVersionForConfig(promptConfigId, promptPackId),
     extractionPromptConfigId: promptConfigId,
     cellLabelPrefix: `mode=${chunkMode} prompt=${promptConfigId}`,
     extractorClientFactory: clientFactory,
@@ -1855,6 +1899,18 @@ function buildRefineStageInputSignature(input: {
   ]);
 }
 
+/**
+ * Executes a full narrow manual baseline comparison run.
+ *
+ * This function orchestrates the multi-stage evaluation pipeline:
+ * 1. Shortlisting: Selection of the best configurations for each video.
+ * 2. Refinement: (Optional) Improving claims using a self-improvement loop.
+ * 3. Scoring: Computing coverage and structural metrics.
+ * 4. Judging: (Optional) Using an AI judge for deep qualitative assessment.
+ *
+ * @param options - Configuration options for the run.
+ * @returns A comprehensive report of the comparison results.
+ */
 export async function runNarrowManualBaselineComparison(
   options: RunNarrowManualBaselineOptions
 ): Promise<NarrowComparisonReport> {
@@ -2402,11 +2458,11 @@ export async function runNarrowManualBaselineComparison(
     console.log(`[stage2-done] refine targets=${refinedTargets.length}`);
 
     const shortlistedCandidateIds = new Set(shortlistTargets.map((target) => target.candidateId));
-    const shortlistedHarnessCells = initialHarnessCells.filter((cell) =>
-      shortlistedCandidateIds.has(
-        `harness/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}`
-      )
-    );
+    const shortlistedHarnessCells = initialHarnessCells.filter((cell) => {
+      const pId = cell.extractionDiagnostics?.promptPackId;
+      const cid = `harness/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}${pId ? `/${pId}` : ""}`;
+      return shortlistedCandidateIds.has(cid);
+    });
     finalHarnessCells = [...shortlistedHarnessCells, ...refinedSelfImproveCells];
 
     await writeNarrowStageArtifact<NarrowRefineStageArtifact>(options.outputDir, "refine", {
@@ -2472,6 +2528,10 @@ export async function runNarrowManualBaselineComparison(
         enableEmbeddings: preset.enableEmbeddings,
         goldClaims,
         comparableClaimSets,
+        embeddingModel: googleEmbeddingConfig.model,
+        embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
+        embeddingBatchSize: googleEmbeddingConfig.batchSize,
+        maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
       });
       const cachedVideoScore = await readNarrowVideoScoreArtifact(options.outputDir, video.videoId);
       if (cachedVideoScore?.inputSignature === videoScoreSignature) {

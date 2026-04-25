@@ -197,4 +197,88 @@ describe("GeminiEmbeddingClient", () => {
 
     await rm(cacheDir, { recursive: true, force: true });
   });
+
+  it("getEmbeddings returns error if a batch fails completely", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => "Internal Server Error",
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+      maxRetries: 0,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("Gemini API failed (500)");
+    }
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("getEmbeddings returns error if API returns 200 OK but missing embeddings", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        embeddings: [
+          { values: [0.1, 0.2] },
+          {} // Missing values
+        ]
+      }),
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+      maxRetries: 0,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("Embedding missing for item 1");
+    }
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("getEmbeddings returns error if API returns 200 OK but length mismatch", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        embeddings: [
+          { values: [0.1, 0.2] }
+        ]
+      }),
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+      maxRetries: 0,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("Batch embedding length mismatch");
+    }
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
 });

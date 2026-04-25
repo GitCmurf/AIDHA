@@ -24,7 +24,7 @@ export interface MatrixReport {
     judgeUsd: number;
     totalUsd: number;
   }>;
-  narrowJudgeResults?: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>>; // variantId -> modelId -> videoId -> scores
+  narrowJudgeResults?: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>>; // variantId -> modelId -> videoKey (videoId|promptConfigId|chunkMode) -> scores
   modelStats: Record<string, { dimensions: DimensionStats }>;
   variantStats: Record<string, { dimensions: DimensionStats }>;
   videoStats: Record<string, { dimensions: DimensionStats }>;
@@ -96,7 +96,7 @@ const accumulateCosts = (cells: MatrixCell[]) => {
       extractionUsd += cell.costEstimate.extractionUsd;
       judgeUsd += cell.costEstimate.judgeUsd;
 
-      const vId = cell.extractorVariantId;
+      const vId = cell.extractorVariantId || "unknown";
       if (!variantCosts[vId]) {
         variantCosts[vId] = { extractionUsd: 0, judgeUsd: 0, totalUsd: 0 };
       }
@@ -273,13 +273,15 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
     if (cell.narrowJudgeResult?.derivedScores) {
       const vId = cell.extractorVariantId;
       const mId = cell.modelId;
+      if (!vId || !mId) continue; // Guard against missing variant or model ID
+
       if (!narrowJudgeResults[vId]) {
         narrowJudgeResults[vId] = {};
       }
       if (!narrowJudgeResults[vId][mId]) {
         narrowJudgeResults[vId][mId] = {};
       }
-      const videoKey = [cell.videoId, cell.promptConfigId, cell.chunkMode].filter(Boolean).join("|");
+      const videoKey = [cell.videoId, cell.promptConfigId || "", cell.chunkMode || ""].join("|");
       narrowJudgeResults[vId][mId][videoKey] = cell.narrowJudgeResult.derivedScores;
     }
   }

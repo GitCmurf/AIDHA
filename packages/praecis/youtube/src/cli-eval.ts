@@ -1,7 +1,7 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { dirname, join, resolve, isAbsolute } from "node:path";
+import { dirname, join, resolve, isAbsolute, relative } from "node:path";
 import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
 import { fileURLToPath } from "node:url";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
@@ -205,6 +205,29 @@ const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: strin
 };
 
 /**
+ * Determines if a given LLM configuration profile matches the target provider
+ * based on model name, base URL, or API key format heuristics.
+ */
+function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"]): boolean {
+  const isGoogle = provider === "google-aistudio";
+  const isOpenAi = provider === "openai";
+  const modelPrefix = isGoogle ? "gemini-" : provider;
+
+  const configuredModel = baseConfig.model ? getModel(baseConfig.model) : undefined;
+  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix) || configuredModel?.provider === provider;
+  const baseUrlMatch =
+    (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
+    (provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
+    (provider === "xiaomi" && (baseConfig.baseUrl?.includes("api.xiaomi.com") || baseConfig.baseUrl?.includes("api.xiaomi.ai")));
+
+  const isGoogleKey = isGoogle && !!baseConfig.apiKey?.startsWith("AIza");
+  const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
+  const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
+
+  return isOpenAi || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
+}
+
+/**
  * Creates an LLM client configured for a specific model by resolving the appropriate
  * provider configuration (API key, base URL) based on the model's provider.
  *
@@ -230,24 +253,7 @@ export const createProviderAwareClient = (
     );
   }
 
-  const isGoogle = provider === "google-aistudio";
-  const isOpenAi = provider === "openai";
-  const modelPrefix = isGoogle ? "gemini-" : provider;
-
-  const configuredModel = baseConfig.model ? getModel(baseConfig.model) : undefined;
-  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix) || configuredModel?.provider === provider;
-  const baseUrlMatch =
-    (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
-    (provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
-    (provider === "xiaomi" && (baseConfig.baseUrl?.includes("api.xiaomi.com") || baseConfig.baseUrl?.includes("api.xiaomi.ai")));
-
-  // OpenAI profiles always inherit permissive credentials (to support custom proxies).
-  // Other providers inherit if the profile model matches the provider or baseUrl matches,
-  // or if the configuration explicitly provides a key that matches the provider's format.
-  const isGoogleKey = isGoogle && !!baseConfig.apiKey?.startsWith("AIza");
-  const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
-  const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
-  const isProviderProfile = isOpenAi || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
+  const isProviderProfile = isProviderProfileFor(provider, baseConfig);
   const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
@@ -293,18 +299,8 @@ export const resolveProviderConnection = (modelId: string, baseConfig: ResolvedC
   if (!model) {
     throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
   }
-  const isGoogle = model.provider === "google-aistudio";
-  const isOpenAi = model.provider === "openai";
-  const modelPrefix = isGoogle ? "gemini-" : model.provider;
 
-  const configuredModel = baseConfig.model ? getModel(baseConfig.model) : undefined;
-  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix) || configuredModel?.provider === model.provider;
-  const baseUrlMatch =
-    (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
-    (model.provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
-    (model.provider === "xiaomi" && (baseConfig.baseUrl?.includes("api.xiaomi.com") || baseConfig.baseUrl?.includes("api.xiaomi.ai")));
-
-  const isProviderProfile = isOpenAi || isMatch || baseUrlMatch;
+  const isProviderProfile = isProviderProfileFor(model.provider, baseConfig);
   const resolved = resolveProviderConfig(model.provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${model.provider}' for model ${modelId}. Cannot resolve baseUrl.`);
@@ -831,10 +827,19 @@ Refresh Stage: ${opts.refreshStage || "none"}
 
 const NARROW_STAGE_ORDER = ["shortlist", "refine", "score", "judge"] as const;
 
+function assertSafeWorkspacePath(pathValue: string, label: string): string {
+  const resolved = resolve(pathValue);
+  const workspaceRelative = relative(REPO_ROOT, resolved);
+  if (workspaceRelative.startsWith("..") || isAbsolute(workspaceRelative)) {
+    throw new Error(`Refusing to operate on ${label} outside the repository workspace: ${pathValue}`);
+  }
+  return resolved;
+}
+
 const invalidateNarrowStages = (outputDir: string, refreshStage: NarrowEvalOptions["refreshStage"]) => {
   if (!refreshStage) return;
 
-  const stagesDir = join(outputDir, "stages");
+  const stagesDir = assertSafeWorkspacePath(join(outputDir, "stages"), "narrow stage output");
   if (refreshStage === "all") {
     rmSync(stagesDir, { recursive: true, force: true });
     console.log(`[refresh-stage] removed ${stagesDir}`);

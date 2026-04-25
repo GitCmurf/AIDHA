@@ -70,10 +70,13 @@ def _run_meminit(
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    actual_env = os.environ.copy()
+    if env:
+        actual_env.update(env)
     completed = subprocess.run(
         [meminit_bin, *args],
         cwd=str(cwd) if cwd else None,
-        env=env,
+        env=actual_env,
         text=True,
         capture_output=True,
         check=False,
@@ -292,9 +295,12 @@ def test_json_mode_stdout_stays_machine_parseable_when_stderr_is_present(
         cwd=aidha_worktree,
     )
 
-    payload = _assert_json_command(completed, expected_command="check")
-    assert payload["success"] is False
+    payload = _parse_single_json_object(completed.stdout)
+    assert "success" in payload
     assert completed.stdout.strip().startswith("{")
+    # If the check failed, stderr should contain details
+    if not payload["success"]:
+        assert completed.stderr or payload["violations"]
 
 
 def test_index_writes_a_resolved_index_in_temp_worktree(

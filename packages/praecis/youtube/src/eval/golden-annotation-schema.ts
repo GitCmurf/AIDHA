@@ -50,6 +50,9 @@ export const GoldenAnnotationEntrySchema = z.object({
   speakerCredentials: z.string().min(1).optional(),
   idealClaims: z.array(GoldenClaimNodeSchema),
   rejectedClaims: z.array(GoldenRejectedClaimSchema),
+}).refine(data => !data.speakerCredentials || !!data.speaker, {
+  message: "speakerCredentials requires speaker",
+  path: ["speakerCredentials"],
 });
 
 export const GoldenAnnotationSchema = z.array(GoldenAnnotationEntrySchema);

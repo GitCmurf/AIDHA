@@ -154,20 +154,22 @@ export class GeminiEmbeddingClient {
       const chunkTexts = chunk.map(c => c.text);
       const batchResult = await this.embedBatchWithRetryAndSplit(chunkTexts);
 
-      if (batchResult.ok) {
-        batchResult.value.forEach((vector, j) => {
-          if (vector) {
-            const originalIndex = chunk[j]!.index;
-            results[originalIndex] = vector;
-          }
-        });
+      if (!batchResult.ok) {
+        return batchResult;
       }
+
+      batchResult.value.forEach((vector, j) => {
+        if (vector) {
+          const originalIndex = chunk[j]!.index;
+          results[originalIndex] = vector;
+        }
+      });
     }
 
     return { ok: true, value: results };
   }
 
-  private async embedBatchWithRetryAndSplit(texts: string[]): Promise<Result<Array<number[] | null>>> {
+  private async embedBatchWithRetryAndSplit(texts: string[]): Promise<Result<number[][]>> {
     if (texts.length === 0) return { ok: true, value: [] };
 
     const result = await this.fetchWithRetry(
@@ -199,11 +201,16 @@ export class GeminiEmbeddingClient {
       const left = await this.embedBatchWithRetryAndSplit(texts.slice(0, mid));
       const right = await this.embedBatchWithRetryAndSplit(texts.slice(mid));
 
-      const combined: Array<number[] | null> = [];
-      if (left.ok) combined.push(...left.value); else combined.push(...new Array(mid).fill(null));
-      if (right.ok) combined.push(...right.value); else combined.push(...new Array(texts.length - mid).fill(null));
+      if (!left.ok || !right.ok) {
+        const leftError = left.ok ? "ok" : left.error.message;
+        const rightError = right.ok ? "ok" : right.error.message;
+        return {
+          ok: false,
+          error: new Error(`Batch split failed: Left: ${leftError}, Right: ${rightError}`)
+        };
+      }
 
-      return { ok: true, value: combined };
+      return { ok: true, value: [...left.value, ...right.value] };
     }
 
     const json = result.value as {
@@ -213,7 +220,16 @@ export class GeminiEmbeddingClient {
     };
 
     const embeddings = json.embeddings ?? [];
-    const values = await Promise.all(embeddings.map(async (e, i) => {
+    if (embeddings.length !== texts.length) {
+      return {
+        ok: false,
+        error: new Error(`Batch embedding length mismatch: requested ${texts.length}, received ${embeddings.length}`),
+      };
+    }
+
+    const values: number[][] = [];
+    for (let i = 0; i < embeddings.length; i++) {
+      const e = embeddings[i]!;
       const v = e.values;
       if (Array.isArray(v) && v.length > 0) {
         // Write to cache
@@ -221,10 +237,14 @@ export class GeminiEmbeddingClient {
         const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
         const cachePath = join(this.cacheDir, `${cacheKey}.json`);
         await this.writeCache(cachePath, text, v);
-        return v;
+        values.push(v);
+      } else {
+        return {
+          ok: false,
+          error: new Error(`Embedding missing for item ${i} in batch of ${texts.length}`),
+        };
       }
-      return null;
-    }));
+    }
 
     return { ok: true, value: values };
   }
@@ -254,10 +274,22 @@ export class GeminiEmbeddingClient {
           return { ok: false, error: lastError };
         }
 
-        const retryAfter = response.headers.get("Retry-After");
-        const delayMs = retryAfter
-          ? parseInt(retryAfter, 10) * 1000
-          : DEFAULT_RETRY_DELAY_MS * Math.pow(2, attempt);
+        const retryAfter = response.headers.get("Retry-After")?.trim();
+        let delayMs = DEFAULT_RETRY_DELAY_MS * Math.pow(2, attempt);
+        if (retryAfter) {
+          if (/^\d+$/.test(retryAfter)) {
+            delayMs = parseInt(retryAfter, 10) * 1000;
+          } else {
+            const date = Date.parse(retryAfter);
+            if (!Number.isNaN(date)) {
+              delayMs = date - Date.now();
+            }
+          }
+        }
+
+        if (!Number.isFinite(delayMs) || delayMs <= 0) {
+          delayMs = DEFAULT_RETRY_DELAY_MS * Math.pow(2, attempt);
+        }
 
         await new Promise(resolve => setTimeout(resolve, delayMs));
       } catch (error) {

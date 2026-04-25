@@ -145,6 +145,28 @@ function parseFindings(content: string): Result<NarrowJudgeFindings> {
   }
 }
 
+/**
+ * Evaluates a set of candidate claims against a transcript and golden claims.
+ *
+ * This function uses an AI judge to score the quality of extracted claims based on:
+ * - Gold Coverage: How many of the ground-truth (gold) claims were captured.
+ * - Faithfulness: Whether the candidate claims are supported by the transcript.
+ * - Structure: Whether the claims follow the expected hierarchical/relational format.
+ * - Atomicity: Whether the claims are sufficiently granular and non-redundant.
+ *
+ * @param judgeClient - LLM client instance for making evaluation requests.
+ * @param judgeModel - ID of the model to use as a judge.
+ * @param transcript - Full transcript text of the video.
+ * @param claims - The set of candidate claims extracted by the system under test.
+ * @param goldClaims - Ground-truth claims to compare against.
+ * @param teacherClaims - Reference claims from a high-quality "teacher" extractor.
+ * @param videoContext - Metadata about the video being evaluated.
+ * @param maxTokens - Maximum tokens for the judge's response (default: 4000).
+ * @param signal - Optional AbortSignal for request cancellation.
+ *
+ * @returns A Result containing the evaluation findings, derived scores, and execution traces.
+ * @throws Never - Returns a failed Result instead of throwing.
+ */
 export async function scoreNarrowClaimSet(
   judgeClient: LlmClient,
   judgeModel: string,
@@ -188,7 +210,7 @@ export async function scoreNarrowClaimSet(
   const retryUser = `Your previous response failed JSON schema validation:
 ${parsed1.error.message}
 
-Please correct the following evaluation output while ensuring it remains grounded in the provided context (TRANSCRIPT, CANDIDATE_CLAIMS, GOLD_CLAIMS).
+Please correct the following evaluation output. Reference the original task but focus on returning ONLY valid JSON that follows the schema exactly.
 
 Return ONLY valid JSON with fields:
 - summary
@@ -198,8 +220,14 @@ Return ONLY valid JSON with fields:
 - redundantCandidateClaims[] { candidateText, reason }
 - structuralIssues[] { issue, reason, severity }
 
-Original data to re-process:
-${user}`;
+Original task context:
+- Video: ${videoContext.title}
+- Candidate Claims: ${claims.length}
+- Gold Claims: ${goldClaims.length}
+- Teacher Claims: ${teacherClaims.length}
+
+Previous output to fix:
+${llmResult1.value}`;
 
   const llmResult2 = await judgeClient.generate({
     model: judgeModel,

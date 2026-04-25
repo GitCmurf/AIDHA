@@ -395,8 +395,9 @@ export function buildPass1PromptV2(
   };
 }
 
-export function promptVersionForConfig(configId: Pass1PromptConfigId): string {
-  return configId === 'baseline' ? PROMPT_VERSION : `${PROMPT_VERSION}:${configId}`;
+export function promptVersionForConfig(configId: Pass1PromptConfigId, packId?: ExtractionPromptPackId): string {
+  const base = configId === 'baseline' ? PROMPT_VERSION : `${PROMPT_VERSION}:${configId}`;
+  return packId && packId !== 'generic-hierarchy' ? `${base}:pack:${packId}` : base;
 }
 
 /**

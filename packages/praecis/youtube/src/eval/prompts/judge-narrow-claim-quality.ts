@@ -8,7 +8,6 @@ function sanitizePromptInput(text: string): string {
   return text
     .normalize("NFKC")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
-    .replace(/[\uD800-\uDFFF]/g, " ")
     .replace(/<TRANSCRIPT>/gi, "< TRANSCRIPT>")
     .replace(/<\/TRANSCRIPT>/gi, "< /TRANSCRIPT>")
     .replace(/<VIDEO_METADATA>/gi, "< VIDEO_METADATA>")
@@ -21,6 +20,16 @@ function sanitizePromptInput(text: string): string {
     .replace(/<\/TEACHER_CLAIMS>/gi, "< /TEACHER_CLAIMS>");
 }
 
+/**
+ * Constructs the system and user prompts for the narrow judge evaluation pass.
+ *
+ * @param transcript - The full text transcript of the video chunk
+ * @param claims - The set of candidate claims extracted by the model under test
+ * @param goldClaims - The gold-standard baseline claims for this chunk
+ * @param teacherClaims - Supplemental claims from a higher-tier model used as hints
+ * @param videoContext - Metadata about the video (title, channel, etc.)
+ * @returns An object containing the system and user prompt strings
+ */
 export function buildNarrowJudgePrompt(
   transcript: string,
   claims: ClaimCandidate[],
