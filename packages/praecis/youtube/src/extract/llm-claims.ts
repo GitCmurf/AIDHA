@@ -346,6 +346,17 @@ function buildSemanticChunks(
     currentTokens += excerptTokens;
     currentEnd = excerptStart;
 
+    // Guard: if overlap + this excerpt pushed us past the hard maximum, finalize immediately
+    if (
+      currentTokens > hardMaxInputTokens
+      && (!maxChunks || chunks.length < maxChunks - 1)
+      && i < sorted.length - 1
+    ) {
+      finalizeChunk(chunks.length);
+      seedFromOverlap();
+      continue;
+    }
+
     const boundaryPreferred = (
       !hasDanglingEnding(excerptText) &&
       (isCompleteSentence(excerptText) || !startsWithConnector(nextText))
@@ -472,28 +483,29 @@ function extractJsonBlock(text: string): string | null {
   return candidate.slice(first, last + 1);
 }
 
-function isTransientProviderError(message: string): boolean {
+function isTransientProviderError(message: string | undefined): boolean {
+  if (!message) return false;
   const normalized = message.toLowerCase();
-  return normalized.includes('(429)')
-    || normalized.includes('(503)')
-    || normalized.includes('quota exceeded')
-    || normalized.includes('rate limit')
-    || normalized.includes('resource exhausted')
-    || normalized.includes('high demand')
-    || normalized.includes('unavailable');
+  const statusMatch = /\b(\d{3})\b/.exec(normalized);
+  const status = statusMatch ? parseInt(statusMatch[1]!, 10) : NaN;
+  return (!Number.isNaN(status) && (status === 429 || (status >= 500 && status < 600)))
+    || /quota\s*exceeded|rate\s*limit|resource\s*exhausted|high\s*demand|temporarily\s*unavailable/i.test(normalized);
 }
 
-function isClientTimeoutError(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return normalized.includes('client timeout')
-    || normalized.includes('aborted due to timeout');
+function isClientTimeoutError(message: string | undefined): boolean {
+  if (!message) return false;
+  return /\bclient\s*timeout\b/i.test(message)
+    || /\baborted\s+due\s+to\s+timeout\b/i.test(message)
+    || /\btimeout\s+after\b/i.test(message)
+    || /\brequest\s*was\s*aborted\b/i.test(message);
 }
 
-function isUpstreamAbortError(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return normalized.includes('upstream abort')
-    || normalized.includes('aborterror')
-    || normalized.includes('upstream timeout or cancellation');
+function isUpstreamAbortError(message: string | undefined): boolean {
+  if (!message) return false;
+  return /\bupstream\s*abort\b/i.test(message)
+    || /\baborterror\b/i.test(message)
+    || /\brequest\s*was\s*aborted\b/i.test(message)
+    || /\bupstream\s*timeout\s*or\s*cancellation\b/i.test(message);
 }
 
 function computeRetryDelayMs(baseDelayMs: number, attempt: number): number {
@@ -1628,10 +1640,17 @@ export class LlmClaimExtractor implements ClaimExtractor {
         signal,
       };
 
-      const response = await this.generateWithTransportRetry(request, -1, collectTraces);
-      if (!response.ok) {
+      if (!this.circuitBreaker.canExecute()) {
         break;
       }
+      this.circuitBreaker.incrementHalfOpenCallCount();
+
+      const response = await this.generateWithTransportRetry(request, -1, collectTraces);
+      if (!response.ok) {
+        this.circuitBreaker.recordFailure();
+        break;
+      }
+      this.circuitBreaker.recordSuccess();
 
       const syntheticChunk: ClaimChunk = {
         index: 0,
@@ -1640,7 +1659,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerpts,
       };
       const excerptStartMap = new Map(excerpts.map((excerpt) => [excerpt.id, toNumber(excerpt.metadata?.['start'], 0)]));
-      const improved = this.parseResponse(response.value, syntheticChunk, excerptStartMap, maxClaims);
+      const improved = this.parseResponse(response.value, syntheticChunk, excerptStartMap, maxClaims, this.effectivePromptVersion(promptPackId));
       if (improved.length === 0) {
         break;
       }
@@ -1747,6 +1766,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       verbosity: this.verbosity,
       signal,
       collectTraces,
+      effectivePromptVersion,
     });
 
     if (claims.length > 0) {
@@ -1803,8 +1823,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     verbosity?: ResolvedConfig['llm']['verbosity'];
     signal?: AbortSignal;
     collectTraces?: boolean;
+    effectivePromptVersion?: string;
   }): Promise<FetchResult> {
-    const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity, signal, collectTraces } = input;
+    const { system, user, chunk, excerptStartMap, reasoningEffort, verbosity, signal, collectTraces, effectivePromptVersion } = input;
 
     // Check circuit breaker before calling LLM
     if (!this.circuitBreaker.canExecute()) {
@@ -1855,7 +1876,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     const parseError = this.getParseError(response.value);
     const parsed = parseError === null
-      ? this.parseResponse(response.value, chunk, excerptStartMap)
+      ? this.parseResponse(response.value, chunk, excerptStartMap, undefined, effectivePromptVersion ?? this.promptVersion)
       : [];
     if (parsed.length > 0) {
       this.circuitBreaker.recordSuccess();
@@ -1916,7 +1937,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     const retryParseError = this.getParseError(retry.value);
     const retryParsed = retryParseError === null
-      ? this.parseResponse(retry.value, chunk, excerptStartMap)
+      ? this.parseResponse(retry.value, chunk, excerptStartMap, undefined, effectivePromptVersion ?? this.promptVersion)
       : [];
     if (retryParsed.length > 0) {
       this.circuitBreaker.recordSuccess();
@@ -1972,7 +1993,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
     content: string,
     chunk: ClaimChunk,
     excerptStartMap: Map<string, number>,
-    limit?: number
+    limit?: number,
+    promptVersionOverride?: string
   ): ClaimCandidate[] {
     const jsonBlock = extractJsonBlock(content);
     if (!jsonBlock) return [];
@@ -2006,7 +2028,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         method: 'llm',
         chunkIndex: chunk.index,
         model: this.model,
-        promptVersion: this.promptVersion,
+        promptVersion: promptVersionOverride ?? this.promptVersion,
       });
     }
     return results;

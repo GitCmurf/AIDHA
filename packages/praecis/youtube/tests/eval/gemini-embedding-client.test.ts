@@ -107,13 +107,13 @@ describe("GeminiEmbeddingClient", () => {
     await rm(cacheDir, { recursive: true, force: true });
   });
 
-  it("embedBatch isolates failures by splitting batches on HTTP 400", async () => {
+  it("embedBatch isolates failures by splitting batches on transient HTTP 503", async () => {
     const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: false,
-        status: 400,
-        text: async () => "Batch too large or invalid",
+        status: 503,
+        text: async () => "Service temporarily unavailable",
       } as Response)
       .mockResolvedValue({
         ok: true,
@@ -126,6 +126,7 @@ describe("GeminiEmbeddingClient", () => {
       apiKey: "test-key", // pragma: allowlist secret
       baseUrl: "https://generativelanguage.googleapis.com/v1beta",
       cacheDir,
+      maxRetries: 0,
     });
 
     const result = await client.embedBatch(["item1", "item2"]);
@@ -133,6 +134,29 @@ describe("GeminiEmbeddingClient", () => {
     expect(result.ok).toBe(true);
     // 1 failed batch (2 items) -> 2 successful single items
     expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("embedBatch does not split on non-transient errors like HTTP 400", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => "Batch too large or invalid",
+      } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     await rm(cacheDir, { recursive: true, force: true });
   });

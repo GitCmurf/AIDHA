@@ -214,9 +214,10 @@ export async function scoreNarrowClaimSet(
     };
   }
 
-  const validationIssues = parsed1.error.issues
-    ? parsed1.error.issues.map((issue: unknown) => `  - Path: ${JSON.stringify((issue as { path?: unknown[] }).path)} — ${(issue as { message?: string }).message ?? String(issue)}`).join("\n")
-    : parsed1.error.message;
+  const validationIssues =
+    parsed1.error instanceof z.ZodError
+      ? parsed1.error.issues.map(issue => `  - Path: ${JSON.stringify(issue.path)} — ${issue.message}`).join("\n")
+      : parsed1.error.message;
 
   const retryUser = `Your previous response failed JSON schema validation:
 ${validationIssues}

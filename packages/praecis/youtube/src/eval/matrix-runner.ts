@@ -41,7 +41,7 @@ function buildSelfImproveHintKey(
   promptConfigId?: string,
   chunkModeId?: string
 ): string {
-  return [videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"].join("|");
+  return [videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"].map(encodeURIComponent).join("|");
 }
 
 export interface VideoContext {
@@ -77,6 +77,7 @@ export interface MatrixOptions {
     hardMaxInputTokens?: number;
     overlapExcerpts?: number;
   }>;
+  extractionSelfImproveMaxRounds?: number;
   extractionTransportRetryMaxAttempts?: number;
   extractionTransportRetryBaseDelayMs?: number;
   extractionChunkModeId?: string;
@@ -257,7 +258,7 @@ const performExtraction = async (
       cacheDir: options.cacheDir,
       editorVersion: variant === "editorial-pass-v1" ? "v1" : variant === "editorial-pass-v2" ? "v2" : undefined,
       editorLlm: variant.startsWith("editorial-pass-") || variant === "self-improve-v1",
-      selfImproveMaxRounds: variant === "self-improve-v1" ? 1 : 0,
+      selfImproveMaxRounds: variant === "self-improve-v1" ? (options.extractionSelfImproveMaxRounds ?? 1) : 0,
       promptConfigId: options.extractionPromptConfigId,
       promptPackId: runtimePromptPackId || options.extractionPromptPackId,
       maxTokens: options.extractionMaxTokens,
@@ -298,14 +299,6 @@ const performExtraction = async (
     if (runStats.upstreamAbortCount > 0) {
       warnings.push(`upstream-aborts:${runStats.upstreamAbortCount}`);
     }
-    if (runStats.maxChunkInputTokens > 0) {
-      warnings.push(`max-chunk-input-tokens:${runStats.maxChunkInputTokens}`);
-    }
-    if (runStats.selfImproveRoundCount > 0) {
-      warnings.push(`self-improve-rounds:${runStats.selfImproveRoundCount}`);
-    }
-    warnings.push(`prompt-pack:${runStats.promptPackId}`);
-    warnings.push(`route-source:${runStats.routeSource}`);
     if (runStats.retryTriggered) {
       warnings.push(`prompt-retry:${runStats.retryReason ?? "retry-triggered"}->${runStats.retryPromptPackId ?? "unknown"}`);
     }
@@ -668,12 +661,12 @@ const prepareTranscriptDataAsync = async (
     type: "Resource" as const,
     label: video.title,
     content: fullText,
-      metadata: {
-        videoId: video.videoId,
-        channelName: video.channelName,
-        description: video.description || "",
-        topicDomain: video.topicDomain,
-      },
+    metadata: {
+      videoId: video.videoId,
+      channelName: video.channelName,
+      description: video.description || "",
+      topicDomain: video.topicDomain,
+    },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

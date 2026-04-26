@@ -1124,7 +1124,7 @@ describe('LLM claim extraction', () => {
     expect(client.calls).toBe(2);
     expect(claims[0]?.text).toContain('Five slide layouts');
     expect(stats.retryTriggered).toBe(true);
-    expect(stats.retryPromptPackId).toBe('enumeration-framework');
+    expect(stats.retryPromptPackId).toBe('enumeration-framework-v2');
     await rm(cacheDir, { recursive: true, force: true });
     await store.close();
   });

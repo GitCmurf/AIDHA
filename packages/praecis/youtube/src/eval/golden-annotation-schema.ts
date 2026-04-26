@@ -52,4 +52,3 @@ export const GoldenAnnotationSchema = z.array(GoldenAnnotationEntrySchema);
 
 export type GoldenAnnotation = z.infer<typeof GoldenAnnotationSchema>;
 export type GoldenAnnotationEntry = z.infer<typeof GoldenAnnotationEntrySchema>;
-export type GoldenClaimNode = z.infer<typeof GoldenClaimNodeSchema>;

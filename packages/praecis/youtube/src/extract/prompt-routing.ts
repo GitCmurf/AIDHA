@@ -36,9 +36,11 @@ export interface PromptRetryDecision {
   retryPromptPackId?: ExtractionPromptPackId;
 }
 
-const LIST_CUES = [
-  "five", "four", "principles", "framework",
-  "types", "steps", "layouts", "categories", "pillars", "guides",
+const STRUCTURAL_CUES = [
+  "five", "four", "types", "steps", "layouts", "categories", "pillars", "guides",
+];
+const DOMAIN_CUES = [
+  "principles", "framework",
 ];
 
 const ENUMERATION_PATTERN = /\b(?:one|two|three|four|five)\s+(?:principles|types|steps|layouts|categories|pillars)\b/;
@@ -87,10 +89,15 @@ export function buildTranscriptProfile(text: string): TranscriptProfile {
   const glossaryTerms: string[] = [];
 
   let listCueCount = 0;
-  for (const cue of LIST_CUES) {
+  for (const cue of STRUCTURAL_CUES) {
     if (getCueRegex(cue).test(normalized)) {
       listCueCount += 1;
       signals.push(`list:${cue}`);
+    }
+  }
+  for (const cue of DOMAIN_CUES) {
+    if (getCueRegex(cue).test(normalized)) {
+      signals.push(`domain:${cue}`);
       glossaryTerms.push(cue);
     }
   }
@@ -221,8 +228,7 @@ function looksRootLike(text: string): boolean {
 
 function looksEnumerationLike(text: string): boolean {
   const normalized = text.toLowerCase();
-  return /(?:four|five|three|two|\d+)\s+(?:principles|types|steps|layouts|categories)/.test(normalized)
-    || /(framework|layouts|principles|types)/.test(normalized);
+  return /(?:four|five|three|two|\d+)\s+(?:principles|types|steps|layouts|categories)/.test(normalized);
 }
 
 function computeDomainTermRecall(claims: ClaimCandidate[], glossaryTerms: string[]): number {
@@ -255,26 +261,26 @@ export function determineRetryDecision(input: {
   if (claims.length === 0) {
     // Allow v1 -> v2 escalation; only block retry when already on the v2 target
     if (profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management-v2") {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
+      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: !isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
     }
     if (profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "business-framework" };
     }
     if (profile.listCueCount >= 2 && promptPackId !== "enumeration-framework-v2") {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
+      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: !isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
     }
   }
 
   // Allow v1 -> v2 escalation for missing-root-claim; only block when already on v2 target
   if (!hasRootClaim && profile.listCueCount >= 2 && promptPackId !== "enumeration-framework-v2") {
-    return { retry: true, retryReason: "missing-root-claim", retryPromptPackId: isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
+    return { retry: true, retryReason: "missing-root-claim", retryPromptPackId: !isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
   }
   if (!hasEnumerationClaim && profile.listCueCount >= 2 && promptPackId === "business-framework") {
     return { retry: true, retryReason: "missing-enumeration-framework", retryPromptPackId: "enumeration-framework" };
   }
   // Allow v1 -> v2 escalation for low-domain-term-recall; only block when already on v2 target
   if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management-v2") {
-    return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
+    return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: !isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
   }
   if (domainTermRecall < 0.35 && profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
     return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: "business-framework" };

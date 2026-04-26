@@ -44,12 +44,12 @@ function normalizeEmbeddingText(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
 
-function hashText(text: string): string {
+function hashTextShort(text: string): string {
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
 function cacheKeyForText(model: string, taskType: string, outputDimensionality: number, text: string): string {
-  return `${model}-${taskType}-${outputDimensionality}-${hashText(text)}`;
+  return `${model}-${taskType}-${outputDimensionality}-${hashTextShort(text)}`;
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -143,7 +143,7 @@ export class GeminiEmbeddingClient {
         this.cacheHitCount += 1;
       } else {
         const text = normalized[i];
-        if (text === undefined) continue;
+        if (text === undefined) return;
         toFetch.push({ text, index: i });
         this.cacheMissCount += 1;
       }
@@ -197,10 +197,13 @@ export class GeminiEmbeddingClient {
 
     if (!result.ok) {
       // Only split on transient/retryable errors (429, 5xx, timeouts). Do not split on auth/bad-request errors.
-      const isTransient = result.error.message.includes("429") ||
-        result.error.message.includes("5") ||
-        result.error.message.includes("timeout") ||
-        result.error.message.includes("ECONNRESET");
+      const errMsg = result.error.message ?? "";
+      const statusMatch = /\b(\d{3})\b/.exec(errMsg);
+      const statusCode = statusMatch ? parseInt(statusMatch[1]!, 10) : NaN;
+      const isTransient =
+        (!Number.isNaN(statusCode) && (statusCode === 429 || (statusCode >= 500 && statusCode < 600))) ||
+        /\btimeout\b/i.test(errMsg) ||
+        errMsg.includes("ECONNRESET");
       if (!isTransient || texts.length === 1) {
         return { ok: false, error: result.error };
       }
@@ -238,7 +241,12 @@ export class GeminiEmbeddingClient {
     const values: number[][] = [];
     for (let i = 0; i < embeddings.length; i++) {
       const e = embeddings[i];
-      if (!e) continue;
+      if (!e) {
+        return {
+          ok: false,
+          error: new Error(`Missing embedding at index ${i} in batch response`),
+        };
+      }
       const v = e.values;
       if (Array.isArray(v) && v.length > 0) {
         // Write to cache
@@ -339,7 +347,7 @@ export class GeminiEmbeddingClient {
     try {
       const raw = await readFile(cachePath, "utf-8");
       const parsed = JSON.parse(raw) as CachedEmbedding;
-      if (parsed.textHash !== hashText(normalizedText)) return null;
+      if (parsed.textHash !== hashTextShort(normalizedText)) return null;
       if (!Array.isArray(parsed.vector) || parsed.vector.length === 0) return null;
       return parsed;
     } catch {
@@ -350,7 +358,7 @@ export class GeminiEmbeddingClient {
   private async writeCache(cachePath: string, normalizedText: string, vector: number[]): Promise<void> {
     await mkdir(this.cacheDir, { recursive: true });
     const payload: CachedEmbedding = {
-      textHash: hashText(normalizedText),
+      textHash: hashTextShort(normalizedText),
       vector,
     };
     await writeFileAtomic(cachePath, JSON.stringify(payload));

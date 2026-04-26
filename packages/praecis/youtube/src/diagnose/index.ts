@@ -41,6 +41,7 @@ export interface ExtractionDiagnosis {
   videoId: string;
   resourceId: string;
   transcriptStatus: string;
+  transcriptError?: string;
   claimCount: number;
   referenceCount: number;
   claimDerivedFromEdgeCount: number;
@@ -173,6 +174,7 @@ export async function diagnoseExtraction(
   }
 
   const transcriptStatus = (resource.value.metadata?.['transcriptStatus'] as string | undefined) ?? 'unknown';
+  const transcriptError = resource.value.metadata?.['transcriptError'] as string | undefined;
   const lastClaimRun = {
     at: resource.value.metadata?.['lastClaimRunAt'] as string | undefined,
     extractor: resource.value.metadata?.['lastClaimRunExtractor'] as string | undefined,
@@ -211,6 +213,9 @@ export async function diagnoseExtraction(
   const issues: string[] = [];
   if (transcriptStatus !== 'available') {
     issues.push(`Transcript status is "${transcriptStatus}" for ${resourceId}.`);
+  }
+  if (transcriptError && transcriptError.trim().length > 0) {
+    issues.push(`Transcript error recorded for ${resourceId}: ${transcriptError}`);
   }
   if (claimsWithoutProvenance > 0) {
     issues.push(`${claimsWithoutProvenance} claims are missing claimDerivedFrom provenance edges.`);
@@ -368,6 +373,7 @@ export async function diagnoseExtraction(
       videoId,
       resourceId,
       transcriptStatus,
+      transcriptError,
       claimCount: claimResult.value.items.length,
       referenceCount: referenceResult.value.items.length,
       claimDerivedFromEdgeCount: derivedForResourceClaims.length,

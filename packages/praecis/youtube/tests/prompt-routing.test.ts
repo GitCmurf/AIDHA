@@ -41,7 +41,7 @@ describe('prompt routing', () => {
     expect(retry).toEqual({
       retry: true,
       retryReason: 'missing-root-claim',
-      retryPromptPackId: 'enumeration-framework',
+      retryPromptPackId: 'enumeration-framework-v2',
     });
   });
 

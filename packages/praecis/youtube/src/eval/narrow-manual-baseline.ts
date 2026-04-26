@@ -1180,7 +1180,8 @@ async function scorePair(
     if (embeddingResult.ok) {
       embedding = embeddingResult.value.score;
     } else {
-      throw new Error(`Embedding similarity failed: ${embeddingResult.error.message}`);
+      // Omit embedding score for this pair rather than aborting the entire run
+      embedding = undefined;
     }
   }
 

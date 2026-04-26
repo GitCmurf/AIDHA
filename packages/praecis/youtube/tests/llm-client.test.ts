@@ -134,7 +134,7 @@ describe('GeminiApiClient', () => {
     vi.restoreAllMocks();
   });
 
-  it('should send structured output schema via responseSchema', async () => {
+  it('should send structured output schema via responseJsonSchema', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({

@@ -235,7 +235,7 @@ function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"
   const isGoogleKey = isGoogle && !!baseConfig.apiKey?.startsWith("AIza");
   const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
   const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
-  const isOpenAiKey = isOpenAi && !!baseConfig.apiKey?.startsWith("sk-");
+  const isOpenAiKey = isOpenAi && !!baseConfig.apiKey?.startsWith("sk-") && !baseConfig.apiKey?.startsWith("sk-or-");
   const isOpenAiUrl = isOpenAi && (baseHostname === "api.openai.com" || (baseHostname?.endsWith(".openai.com") ?? false));
   const isOpenAiModel = isOpenAi && (baseConfig.model?.toLowerCase().startsWith("gpt-") || baseConfig.model?.toLowerCase().startsWith("o"));
 
@@ -933,10 +933,20 @@ const runNarrowManualBaseline = async (
     parsedOpts.fallbackModelId,
   ]));
 
+  const unsupportedModels: string[] = [];
   const missingCredentialModels = requiredModelIds.filter((modelId) => {
-    const connection = resolveProviderConnection(modelId, config.llm);
-    return !connection.apiKey || connection.apiKey.trim().length === 0;
+    try {
+      const connection = resolveProviderConnection(modelId, config.llm);
+      return !connection.apiKey || connection.apiKey.trim().length === 0;
+    } catch {
+      unsupportedModels.push(modelId);
+      return false;
+    }
   });
+  if (unsupportedModels.length > 0) {
+    console.error(`Unsupported model IDs: ${unsupportedModels.join(", ")}`);
+    return 1;
+  }
   if (!parsedOpts.dryRun && missingCredentialModels.length > 0) {
     console.error(
       `Missing provider credentials for: ${missingCredentialModels.join(", ")}. ` +
