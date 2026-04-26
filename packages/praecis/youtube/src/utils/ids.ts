@@ -107,7 +107,7 @@ export function hashText(text: string): string {
 }
 
 /**
- * Reads a file using UTF-8 encoding and returns its 32-character SHA-256 hash prefix.
+ * Streams a file as raw bytes (binary) and returns its 32-character SHA-256 hash prefix.
  * Returns null if the file cannot be read (e.g., file not found or permission error).
  *
  * @param filePath - The path to the file to hash
@@ -115,9 +115,8 @@ export function hashText(text: string): string {
  */
 export async function hashFile(filePath: string): Promise<string | null> {
   const { createReadStream } = await import("node:fs");
-  const { createHash } = await import("node:crypto");
   try {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const hash = createHash("sha256");
       const stream = createReadStream(filePath);
       stream.on("data", (chunk) => hash.update(chunk));

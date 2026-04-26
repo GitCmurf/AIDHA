@@ -93,11 +93,12 @@ export function deriveNarrowJudgeScores(
   goldClaims: FlattenedGoldenClaimNode[],
   candidateClaims: ClaimCandidate[]
 ): NarrowDerivedJudgeScores {
+  const validGoldIds = new Set(goldClaims.map((c) => c.id));
   const matchedGoldIds = new Set<string>();
   const unmatchedForFallback = [...goldClaims];
 
   for (const finding of findings.matchedGoldClaims) {
-    if (finding.goldId) {
+    if (finding.goldId && validGoldIds.has(finding.goldId)) {
       matchedGoldIds.add(finding.goldId);
     } else if (finding.goldText) {
       // Fallback for old caches: match by text, ensuring 1 finding matches at most 1 node
@@ -132,15 +133,23 @@ export function deriveNarrowJudgeScores(
 
   const goldCoverage = clampScore((matchedGoldIds.size / Math.max(goldClaims.length, 1)) * 10);
   const faithfulness = candidateClaims.length === 0
-    ? 0
+    ? 10
     : clampScore(10 - ((findings.unsupportedCandidateClaims.length / candidateCount) * 10));
   const structure = clampScore(10 - structuralPenalty - (missedRootCount * 1.5));
   const atomicity = candidateClaims.length === 0
-    ? 0
+    ? 10
     : clampScore(10 - ((findings.redundantCandidateClaims.length / candidateCount) * 10) - compoundPenalty);
   const overallScore = clampScore((goldCoverage + faithfulness + structure + atomicity) / 4);
 
   return { goldCoverage, faithfulness, structure, atomicity, overallScore };
+}
+
+class NarrowJudgeError extends Error {
+  readonly traces: Array<{ prompt: { system: string; user: string }; response: string }>;
+  constructor(message: string, traces: Array<{ prompt: { system: string; user: string }; response: string }>) {
+    super(message);
+    this.traces = traces;
+  }
 }
 
 function parseFindings(content: string): Result<NarrowJudgeFindings> {
@@ -197,7 +206,7 @@ export async function scoreNarrowClaimSet(
     signal,
   });
   traces.push({ prompt: { system, user }, response: llmResult1.ok ? llmResult1.value : `Error: ${llmResult1.error.message}` });
-  if (!llmResult1.ok) return { ok: false, error: llmResult1.error };
+  if (!llmResult1.ok) return { ok: false, error: new NarrowJudgeError(llmResult1.error.message, traces) };
 
   const parsed1 = parseFindings(llmResult1.value);
   if (parsed1.ok) {
@@ -249,11 +258,11 @@ ${llmResult1.value}`;
     signal,
   });
   traces.push({ prompt: { system, user: retryUser }, response: llmResult2.ok ? llmResult2.value : `Error: ${llmResult2.error.message}` });
-  if (!llmResult2.ok) return { ok: false, error: llmResult2.error };
+  if (!llmResult2.ok) return { ok: false, error: new NarrowJudgeError(llmResult2.error.message, traces) };
 
   const parsed2 = parseFindings(llmResult2.value);
   if (!parsed2.ok) {
-    return { ok: false, error: new Error(`Failed to parse narrow judge output after retry. Last error: ${parsed2.error.message}`) };
+    return { ok: false, error: new NarrowJudgeError(`Failed to parse narrow judge output after retry. Last error: ${parsed2.error.message}`, traces) };
   }
 
   return {

@@ -89,7 +89,7 @@ describe('OpenAiCompatibleClient', () => {
     });
 
     const result = await client.generate({
-      model: 'gpt-5.4',
+      model: 'gpt-5',
       system: 'system',
       user: 'user',
       maxTokens: 1234,

@@ -36,7 +36,7 @@ describe("GeminiEmbeddingClient", () => {
     if (first.ok) expect(first.value.score).toBeCloseTo(1, 5);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2-preview:batchEmbedContents"
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents"
     );
 
     await rm(cacheDir, { recursive: true, force: true });

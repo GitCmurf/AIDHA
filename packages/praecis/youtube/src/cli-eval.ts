@@ -93,7 +93,9 @@ const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl
   const envKey = process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"];
 
   // Only fall back to profile apiKey if it explicitly looks like an OpenRouter key or profile matches
-  const looksLikeOpenRouter = apiKey.startsWith("sk-or-v1-") || baseConfigBaseUrl?.includes("openrouter.ai");
+  const baseConfigHostname = getHostnameFromUrl(baseConfigBaseUrl);
+  const looksLikeOpenRouterHost = baseConfigHostname === "openrouter.ai" || baseConfigHostname?.endsWith(".openrouter.ai") ?? false;
+  const looksLikeOpenRouter = apiKey.startsWith("sk-or-v1-") || looksLikeOpenRouterHost;
   const useProfile = isProviderProfile || looksLikeOpenRouter;
 
   const effectiveBaseUrl = baseUrl || (useProfile ? baseConfigBaseUrl : "") || "https://openrouter.ai/api/v1";
@@ -237,7 +239,7 @@ function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"
   const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
   const isOpenAiKey = isOpenAi && !!baseConfig.apiKey?.startsWith("sk-") && !baseConfig.apiKey?.startsWith("sk-or-");
   const isOpenAiUrl = isOpenAi && (baseHostname === "api.openai.com" || (baseHostname?.endsWith(".openai.com") ?? false));
-  const isOpenAiModel = isOpenAi && (baseConfig.model?.toLowerCase().startsWith("gpt-") || baseConfig.model?.toLowerCase().startsWith("o"));
+  const isOpenAiModel = isOpenAi && (baseConfig.model?.toLowerCase().startsWith("gpt-") || /^o\d/i.test(baseConfig.model ?? ""));
 
   return (isOpenAi && (isOpenAiKey || isOpenAiUrl || isOpenAiModel)) || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
 }
@@ -770,6 +772,7 @@ interface NarrowEvalOptions {
   maxEmbeddingRequestsPerRun?: number;
   maxRefinedSelfImproveCellsPerRun?: number;
   refreshStage?: "shortlist" | "refine" | "score" | "judge" | "all";
+  runId?: string;
 }
 
 const hasOption = (options: CliOptions, key: string): boolean =>
@@ -778,6 +781,7 @@ const hasOption = (options: CliOptions, key: string): boolean =>
 const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => {
   const rawMode = optionString(cleanOptions, "mode", "fast-triage");
   const mode = rawMode === "quota-safe" ? "fast-triage" : rawMode;
+  const runId = optionString(cleanOptions, "run-id", "");
 
   const validModes = ["fast-triage", "compare", "deep"];
   if (!validModes.includes(mode)) {
@@ -815,6 +819,7 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
     maxEmbeddingRequestsPerRun: optionNumber(cleanOptions, "max-embedding-requests-per-run", 0) || undefined,
     maxRefinedSelfImproveCellsPerRun: optionNumber(cleanOptions, "max-refined-self-improve-cells-per-run", 0) || undefined,
     refreshStage: optionString(cleanOptions, "refresh-stage", "") as NarrowEvalOptions["refreshStage"] | undefined,
+    runId: runId || undefined,
   };
 };
 
@@ -998,7 +1003,8 @@ const runNarrowManualBaseline = async (
     maxRefinedSelfImproveCellsPerRun: parsedOpts.maxRefinedSelfImproveCellsPerRun,
   });
 
-  const files = await writeNarrowComparisonReport(report, parsedOpts.outputDir, "harness-test");
+  const narrowReportStub = parsedOpts.runId ? `narrow-manual-${parsedOpts.runId}` : "narrow-manual";
+  const files = await writeNarrowComparisonReport(report, parsedOpts.outputDir, narrowReportStub);
   console.log(`Wrote Markdown report to ${files.mdPath}`);
   console.log(`Wrote JSON report to ${files.jsonPath}`);
   return 0;

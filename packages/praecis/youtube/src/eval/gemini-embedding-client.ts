@@ -28,7 +28,7 @@ export interface EmbeddingSimilarityScore {
   ok: boolean;
 }
 
-const DEFAULT_MODEL = "gemini-embedding-exp-03-07";
+const DEFAULT_MODEL = "gemini-embedding-001";
 const DEFAULT_OUTPUT_DIMENSIONALITY = 768;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_TASK_TYPE: NonNullable<GeminiEmbeddingClientConfig["taskType"]> = "SEMANTIC_SIMILARITY";
@@ -105,13 +105,17 @@ export class GeminiEmbeddingClient {
     const embeddingB = await this.getEmbedding(textB);
     if (!embeddingB.ok) return embeddingB;
 
-    return {
-      ok: true,
-      value: {
-        score: cosineSimilarity(embeddingA.value, embeddingB.value),
+    try {
+      return {
         ok: true,
-      },
-    };
+        value: {
+          score: cosineSimilarity(embeddingA.value, embeddingB.value),
+          ok: true,
+        },
+      };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
   }
 
   async prewarm(texts: string[]): Promise<Result<{ warmed: number; failed: number }>> {

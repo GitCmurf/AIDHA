@@ -256,31 +256,36 @@ export function determineRetryDecision(input: {
   const hasEnumerationClaim = claims.some((claim) => looksEnumerationLike(claim.text));
   const domainTermRecall = computeDomainTermRecall(claims, profile.glossaryTerms);
 
-  const isV2Pack = promptPackId.endsWith("-v2");
-
   if (claims.length === 0) {
-    // Allow v1 -> v2 escalation; only block retry when already on the v2 target
-    if (profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management-v2") {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: !isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
+    const clinicalTargetV2 = "clinical-risk-management-v2";
+    const clinicalTargetV1 = "clinical-risk-management";
+    if (profile.clinicalCueCount >= 2 && promptPackId !== clinicalTargetV2) {
+      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: promptPackId === clinicalTargetV2 ? clinicalTargetV1 : clinicalTargetV2 };
     }
     if (profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "business-framework" };
     }
-    if (profile.listCueCount >= 2 && promptPackId !== "enumeration-framework-v2") {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: !isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
+    const enumTargetV2 = "enumeration-framework-v2";
+    const enumTargetV1 = "enumeration-framework";
+    if (profile.listCueCount >= 2 && promptPackId !== enumTargetV2) {
+      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: promptPackId === enumTargetV2 ? enumTargetV1 : enumTargetV2 };
     }
   }
 
+  const enumTargetV2 = "enumeration-framework-v2";
+  const enumTargetV1 = "enumeration-framework";
   // Allow v1 -> v2 escalation for missing-root-claim; only block when already on v2 target
-  if (!hasRootClaim && profile.listCueCount >= 2 && promptPackId !== "enumeration-framework-v2") {
-    return { retry: true, retryReason: "missing-root-claim", retryPromptPackId: !isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
+  if (!hasRootClaim && profile.listCueCount >= 2 && promptPackId !== enumTargetV2) {
+    return { retry: true, retryReason: "missing-root-claim", retryPromptPackId: promptPackId === enumTargetV2 ? enumTargetV1 : enumTargetV2 };
   }
   if (!hasEnumerationClaim && profile.listCueCount >= 2 && promptPackId === "business-framework") {
-    return { retry: true, retryReason: "missing-enumeration-framework", retryPromptPackId: "enumeration-framework" };
+    return { retry: true, retryReason: "missing-enumeration-framework", retryPromptPackId: enumTargetV1 };
   }
+  const clinicalTargetV2 = "clinical-risk-management-v2";
+  const clinicalTargetV1 = "clinical-risk-management";
   // Allow v1 -> v2 escalation for low-domain-term-recall; only block when already on v2 target
-  if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management-v2") {
-    return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: !isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
+  if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== clinicalTargetV2) {
+    return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: promptPackId === clinicalTargetV2 ? clinicalTargetV1 : clinicalTargetV2 };
   }
   if (domainTermRecall < 0.35 && profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
     return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: "business-framework" };

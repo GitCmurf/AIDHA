@@ -484,7 +484,7 @@ const getExtractionForCell = async (
     }
   }
 
-  const selfImproveMaxRounds = variant === "self-improve-v1" ? 1 : 0;
+  const selfImproveMaxRounds = variant === "self-improve-v1" ? (options.extractionSelfImproveMaxRounds ?? 1) : 0;
   const selfImproveHintKey = buildSelfImproveHintKey(video.videoId, variant, model.id, options.extractionPromptConfigId, options.extractionChunkModeId);
   const selfImproveGuidanceObj = options.extractionSelfImproveHints?.[selfImproveHintKey];
   const selfImproveGuidance = selfImproveGuidanceObj ? JSON.stringify(selfImproveGuidanceObj) : undefined;
