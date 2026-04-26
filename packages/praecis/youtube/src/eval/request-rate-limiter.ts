@@ -81,6 +81,7 @@ class RequestRateLimiterRegistry {
   reset(): void {
     this.states.clear();
     this.stats.clear();
+    this.locks.clear();
   }
 
   private bumpRequests(key: string): void {
@@ -107,6 +108,7 @@ export function wrapClientWithRateLimit(
     async generate(request: LlmCompletionRequest): Promise<Result<string>> {
       const waitMs = await requestRateLimiterRegistry.waitForSlot(key, rpm);
       if (waitMs > 0) {
+        // skipcq: JS-0002
         console.log(`[rate-limit-wait] model=${key} waitMs=${waitMs}`);
       }
       return client.generate(request);

@@ -33,6 +33,6 @@ export function comparePasses(
     selfImproved: selfImprovedScores,
     deltaGoldCoverage,
     deltaOverallScore,
-    improved: deltaOverallScore > 0 || deltaGoldCoverage > 0,
+    improved: deltaOverallScore > 0 && deltaGoldCoverage >= -0.5,
   };
 }

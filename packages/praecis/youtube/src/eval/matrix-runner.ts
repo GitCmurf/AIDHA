@@ -34,6 +34,16 @@ export const EXTRACTOR_VERSION = "v1";
 // Log prefixes for consistent formatting
 const LOG_PREFIX_PARTIAL_SCORING = "[partial-scoring]";
 
+function buildSelfImproveHintKey(
+  videoId: string,
+  variant: ExtractorVariantId,
+  modelId: string,
+  promptConfigId?: string,
+  chunkModeId?: string
+): string {
+  return [videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"].join("|");
+}
+
 export interface VideoContext {
   videoId: string;
   title: string;
@@ -238,7 +248,7 @@ const performExtraction = async (
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
     const chunkProfile = options.extractionChunkProfiles?.[modelId];
-    const selfImproveHintKey = [videoId, variant, modelId, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
+    const selfImproveHintKey = buildSelfImproveHintKey(videoId, variant, modelId, options.extractionPromptConfigId, options.extractionChunkModeId);
     const client = options.extractorClientFactory(modelId);
     const extractor = new LlmClaimExtractor({
       client,
@@ -475,11 +485,14 @@ const getExtractionForCell = async (
       title: resource.label,
       transcriptText: resource.content as string,
     });
-    runtimePromptPackId = routing.decision.promptPackId;
+    // Only override explicit extractionPromptPackId when routing is high-confidence (>= 0.85)
+    if (!runtimePromptPackId || routing.decision.routeConfidence >= 0.85) {
+      runtimePromptPackId = routing.decision.promptPackId;
+    }
   }
 
   const selfImproveMaxRounds = variant === "self-improve-v1" ? 1 : 0;
-  const selfImproveHintKey = [video.videoId, variant, model.id, options.extractionPromptConfigId ?? "baseline", options.extractionChunkModeId ?? "default"].join("|");
+  const selfImproveHintKey = buildSelfImproveHintKey(video.videoId, variant, model.id, options.extractionPromptConfigId, options.extractionChunkModeId);
   const selfImproveGuidanceObj = options.extractionSelfImproveHints?.[selfImproveHintKey];
   const selfImproveGuidance = selfImproveGuidanceObj ? JSON.stringify(selfImproveGuidanceObj) : undefined;
 

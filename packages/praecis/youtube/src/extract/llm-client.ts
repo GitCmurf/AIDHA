@@ -109,6 +109,17 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
     };
   }
 
+  // OpenAI o-series (o1, o3, etc.) - reasoning models
+  if (/^o\d/.test(normalized)) {
+    return {
+      supportsReasoningEffort: true,
+      supportsVerbosity: false,
+      supportsStructuredOutput: true,
+      usesMaxCompletionTokens: true,
+      defaultMaxTokens: 4096,
+    };
+  }
+
   // Default for unknown models
   return DEFAULT_MODEL_CAPABILITIES;
 }
@@ -320,7 +331,7 @@ export class GeminiApiClient implements LlmClient {
 
       if (request.responseFormat) {
         generationConfig["responseMimeType"] = "application/json";
-        generationConfig["responseSchema"] = request.responseFormat.schema;
+        generationConfig["responseJsonSchema"] = request.responseFormat.schema;
       }
 
       const body: Record<string, unknown> = {

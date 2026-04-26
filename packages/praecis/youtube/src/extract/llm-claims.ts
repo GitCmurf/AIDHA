@@ -307,13 +307,11 @@ function buildSemanticChunks(
     });
   };
 
-  const seedFromOverlap = (chunkIndex: number): void => {
+  const seedFromOverlap = (): void => {
     const previous = chunks[chunks.length - 1];
     const overlap = previous?.excerpts.slice(-semanticConfig.overlapExcerpts) ?? [];
     currentExcerpts = overlap.slice();
     currentTokens = overlap.reduce((sum, excerpt) => sum + estimateExcerptTokens(excerpt), 0);
-    currentStart = currentExcerpts.length > 0 ? toNumber(currentExcerpts[0]?.metadata?.['start'], 0) : 0;
-    currentEnd = currentExcerpts.length > 0 ? toNumber(currentExcerpts[currentExcerpts.length - 1]?.metadata?.['start'], 0) : 0;
     if (currentExcerpts.length > 0) {
       currentStart = toNumber(currentExcerpts[0]?.metadata?.['start'], 0);
       currentEnd = toNumber(currentExcerpts[currentExcerpts.length - 1]?.metadata?.['start'], 0);
@@ -333,7 +331,7 @@ function buildSemanticChunks(
       && (!maxChunks || chunks.length < maxChunks - 1)
     ) {
       finalizeChunk(chunks.length);
-      seedFromOverlap(chunks.length);
+      seedFromOverlap();
     }
 
     if (currentExcerpts.length === 0) {
@@ -356,9 +354,9 @@ function buildSemanticChunks(
     const softOverflowBoundary = currentTokens >= Math.ceil(minTargetTokens * 1.25) && currentExcerpts.length >= 2;
     const targetBoundary = currentTokens >= minTargetTokens && (boundaryPreferred || softOverflowBoundary);
 
-    if ((forcedBoundary || targetBoundary) && (!maxChunks || chunks.length < maxChunks - 1)) {
+    if ((forcedBoundary || targetBoundary) && (!maxChunks || chunks.length < maxChunks - 1) && i < sorted.length - 1) {
       finalizeChunk(chunks.length);
-      seedFromOverlap(chunks.length);
+      seedFromOverlap();
     }
   }
 
@@ -1047,7 +1045,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     chunks: ClaimChunk[],
     promptPackId: ExtractionPromptPackId
   ): ClaimChunk[] {
-    const safeMaxTokens = Math.max(this.chunkTargetInputTokens, this.chunkHardMaxInputTokens);
+    const safeMaxTokens = Math.min(this.chunkTargetInputTokens, this.chunkHardMaxInputTokens);
     let working = reindexChunks(chunks);
     let changed = true;
 
@@ -1205,7 +1203,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
       profile: routing.profile,
     });
 
-    const retryDecision = this.configuredPromptPackId?.endsWith("-v2")
+    const RETRY_DISABLED_PACKS = new Set<ExtractionPromptPackId>([
+      "enumeration-framework-v2",
+      "clinical-risk-management-v2",
+    ]);
+    const retryDecision = this.configuredPromptPackId && RETRY_DISABLED_PACKS.has(this.configuredPromptPackId)
       ? { retry: false as const }
       : determineRetryDecision({
           claims: firstPass.selected,
@@ -1638,7 +1640,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerpts,
       };
       const excerptStartMap = new Map(excerpts.map((excerpt) => [excerpt.id, toNumber(excerpt.metadata?.['start'], 0)]));
-      const improved = this.parseResponse(response.value, syntheticChunk, excerptStartMap).slice(0, maxClaims);
+      const improved = this.parseResponse(response.value, syntheticChunk, excerptStartMap, maxClaims);
       if (improved.length === 0) {
         break;
       }
@@ -1905,6 +1907,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       } else {
         this.circuitBreaker.recordFailure();
       }
+      if (isTransientProviderError(retry.error.message)) {
+        this.lastRunStats.transientFailureCount += 1;
+      }
       console.error(`LLM retry error in chunk ${chunk.index}: ${retry.error.message}`);
       return { claims: [], success: false };
     }
@@ -1966,7 +1971,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private parseResponse(
     content: string,
     chunk: ClaimChunk,
-    excerptStartMap: Map<string, number>
+    excerptStartMap: Map<string, number>,
+    limit?: number
   ): ClaimCandidate[] {
     const jsonBlock = extractJsonBlock(content);
     if (!jsonBlock) return [];
@@ -1979,7 +1985,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     const validIds = new Set(chunk.excerpts.map(excerpt => excerpt.id));
     const results: ClaimCandidate[] = [];
-    for (const candidate of parsed.claims.slice(0, DEFAULT_MAX_CLAIMS_PER_CHUNK)) {
+    const effectiveLimit = limit ?? DEFAULT_MAX_CLAIMS_PER_CHUNK;
+    for (const candidate of parsed.claims.slice(0, effectiveLimit)) {
       const excerptIds = candidate.excerptIds.filter(id => validIds.has(id));
       if (excerptIds.length === 0) continue;
       const derivedStart = Math.min(...excerptIds.map(id => excerptStartMap.get(id) ?? 0));

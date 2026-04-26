@@ -3,7 +3,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync
 import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve, isAbsolute, relative } from "node:path";
 import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
 import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggregator.js";
@@ -52,8 +52,9 @@ const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBas
     process.env["AIDHA_GOOGLE_API_KEY"];
 
   const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "");
-  const isOpenAiDefault = effectiveBaseUrl?.includes("openai.com");
-  const finalBaseUrl = isOpenAiDefault
+  const effectiveHostname = getHostnameFromUrl(effectiveBaseUrl);
+  const isOpenAiHost = effectiveHostname === "openai.com" || effectiveHostname?.endsWith(".openai.com") ?? false;
+  const finalBaseUrl = isOpenAiHost
         ? "https://generativelanguage.googleapis.com/v1beta"
         : (effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : "https://generativelanguage.googleapis.com/v1beta");
 
@@ -204,6 +205,15 @@ const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: strin
   return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile) : null;
 };
 
+function getHostnameFromUrl(value?: string): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Determines if a given LLM configuration profile matches the target provider
  * based on model name, base URL, or API key format heuristics.
@@ -215,16 +225,21 @@ function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"
 
   const configuredModel = baseConfig.model ? getModel(baseConfig.model) : undefined;
   const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix) || configuredModel?.provider === provider;
+
+  const baseHostname = getHostnameFromUrl(baseConfig.baseUrl);
   const baseUrlMatch =
-    (isGoogle && baseConfig.baseUrl?.includes("generativelanguage.googleapis.com")) ||
-    (provider === "zai" && (baseConfig.baseUrl?.includes("api.zai.ai") || baseConfig.baseUrl?.includes("api.z.ai"))) ||
-    (provider === "xiaomi" && (baseConfig.baseUrl?.includes("api.xiaomi.com") || baseConfig.baseUrl?.includes("api.xiaomi.ai")));
+    (isGoogle && baseHostname === "generativelanguage.googleapis.com") ||
+    (provider === "zai" && (baseHostname === "api.zai.ai" || baseHostname === "api.z.ai")) ||
+    (provider === "xiaomi" && (baseHostname === "api.xiaomi.com" || baseHostname === "api.xiaomi.ai"));
 
   const isGoogleKey = isGoogle && !!baseConfig.apiKey?.startsWith("AIza");
   const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
   const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
+  const isOpenAiKey = isOpenAi && !!baseConfig.apiKey?.startsWith("sk-");
+  const isOpenAiUrl = isOpenAi && (baseHostname === "api.openai.com" || baseHostname?.endsWith(".openai.com") ?? false);
+  const isOpenAiModel = isOpenAi && (baseConfig.model?.toLowerCase().startsWith("gpt-") || baseConfig.model?.toLowerCase().startsWith("o"));
 
-  return isOpenAi || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
+  return (isOpenAi && (isOpenAiKey || isOpenAiUrl || isOpenAiModel)) || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
 }
 
 /**
@@ -285,7 +300,7 @@ export const createProviderAwareClient = (
     : {
     generate: (request: LlmCompletionRequest) => clientResult.value.generate({
       ...request,
-      model: request.model === modelId ? model.apiModelId! : request.model,
+      model: request.model === modelId ? model.apiModelId : request.model,
     }),
   };
 
@@ -390,7 +405,7 @@ const writeCellArtifacts = async (cells: MatrixResult["cells"], outputDir: strin
       const safeVideoId = sanitizeFilename(cell.videoId);
       const safeModelId = sanitizeFilename(cell.modelId);
       const safeVariantId = sanitizeFilename(cell.extractorVariantId);
-      const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}.json`;
+      const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}-${cell.promptConfigId || 'default'}-${cell.chunkMode || 'default'}.json`;
       const cellPath = join(cellsDir, cellFileName);
       return writeJsonAtomic(cellPath, cell);
     })

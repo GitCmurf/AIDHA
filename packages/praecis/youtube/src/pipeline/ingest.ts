@@ -182,7 +182,7 @@ export class IngestionPipeline {
             ...(resource.metadata as Record<string, unknown>),
             transcriptStatus: (transcriptResult.ok || hasExcerpts) ? 'available' : 'missing',
             transcriptError: transcriptResult.ok ? undefined : transcriptResult.error.message,
-            transcriptLanguage: transcript?.language,
+            ...(transcriptResult.ok && transcript?.language !== undefined ? { transcriptLanguage: transcript.language } : {}),
           };
 
           const updateData: NodeDataInput = {

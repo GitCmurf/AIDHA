@@ -13,25 +13,18 @@ export const GoldenClaimEvidenceSchema = z.object({
   path: ["endMs"],
 });
 
-export const GoldenClaimNodeSchema: z.ZodType<{
+export type GoldenClaimNode = {
   text: string;
   type: string;
-  children: Array<{
-    text: string;
-    type: string;
-    children: Array<any>;
-    evidence?: {
-      quote?: string;
-      startMs: number;
-      endMs: number;
-    };
-  }>;
+  children: GoldenClaimNode[];
   evidence?: {
     quote?: string;
     startMs: number;
     endMs: number;
   };
-}> = z.lazy(() => z.object({
+};
+
+export const GoldenClaimNodeSchema: z.ZodType<GoldenClaimNode> = z.lazy(() => z.object({
   text: z.string().trim().min(1),
   type: GoldenClaimTypeSchema,
   children: z.array(GoldenClaimNodeSchema),

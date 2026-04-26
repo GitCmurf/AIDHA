@@ -51,12 +51,14 @@ export function checkSelfImprovementGate(
 
     if (!baselineCell) {
       // Missing baseline is a failure state for the gate as we cannot verify lack of regression
-      return {
-        passed: false,
-        regressions,
-        skipped: false,
-        message: `Missing baseline ${baselineVariantId} for ${siCell.videoId}/${siCell.modelId}.`
-      };
+      regressions.push({
+        entityId: `${siCell.videoId}/${siCell.modelId}`,
+        dimension: "missing-baseline",
+        baselineScore: 0,
+        latestScore: 0,
+        tolerance
+      });
+      continue;
     }
 
     // Compare Narrow Judge scores if both available
@@ -78,7 +80,7 @@ export function checkSelfImprovementGate(
           });
         }
       }
-    } else if (siCell.consensusScore?.mean && baselineCell.consensusScore?.mean) {
+    } else if (siCell.consensusScore?.mean != null && baselineCell.consensusScore?.mean != null) {
       // Fallback to standard consensus scores if narrow judge results are missing
       const siScores = siCell.consensusScore.mean;
       const baseScores = baselineCell.consensusScore.mean;
@@ -99,12 +101,13 @@ export function checkSelfImprovementGate(
       }
     } else {
       // Neither narrow judge nor consensus score is fully available for comparison
-      return {
-        passed: false,
-        regressions,
-        skipped: false,
-        message: `Missing scoring data for ${siCell.videoId}/${siCell.modelId}.`
-      };
+      regressions.push({
+        entityId: `${siCell.videoId}/${siCell.modelId}`,
+        dimension: "missing-scoring-data",
+        baselineScore: 0,
+        latestScore: 0,
+        tolerance
+      });
     }
   }
 

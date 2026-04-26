@@ -168,13 +168,13 @@ describe('GeminiApiClient', () => {
 
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(requestBody.generationConfig.responseMimeType).toBe('application/json');
-    expect(requestBody.generationConfig.responseSchema).toEqual({
+    expect(requestBody.generationConfig.responseJsonSchema).toEqual({
       type: 'object',
       properties: {
         ok: { type: 'boolean' },
       },
       required: ['ok'],
     });
-    expect(requestBody.generationConfig.responseJsonSchema).toBeUndefined();
+    expect(requestBody.generationConfig.responseSchema).toBeUndefined();
   });
 });

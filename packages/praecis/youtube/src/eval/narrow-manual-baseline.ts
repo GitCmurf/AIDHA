@@ -458,9 +458,10 @@ function buildCoverageReferenceKey(nodes: FlattenedGoldenClaimNode[]): string {
 function buildCoverageCacheKey(
   candidateClaims: ClaimCandidate[],
   referenceNodes: FlattenedGoldenClaimNode[],
-  mode: CoverageMode
+  mode: CoverageMode,
+  hasEmbeddingClient: boolean
 ): CoverageCacheKey {
-  return `${mode}::${computeClaimSetHash(candidateClaims)}::${buildCoverageReferenceKey(referenceNodes)}`;
+  return `${mode}::${hasEmbeddingClient ? 1 : 0}::${computeClaimSetHash(candidateClaims)}::${buildCoverageReferenceKey(referenceNodes)}`;
 }
 
 function getNarrowModePreset(mode: NarrowRunMode): NarrowModePreset {
@@ -1275,7 +1276,7 @@ async function computeCoverageByMode(
   embeddingClient?: GeminiEmbeddingClient,
   coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>
 ): Promise<GoldCoverageSummary> {
-  const cacheKey = buildCoverageCacheKey(candidateClaims, goldClaims, mode);
+  const cacheKey = buildCoverageCacheKey(candidateClaims, goldClaims, mode, !!embeddingClient);
   const cached = coverageCache?.get(cacheKey);
   if (cached) return cached;
 
@@ -1853,14 +1854,17 @@ async function enrichCandidateReportWithJudges(
   report.judgeDisagreement = judgeDisagreement && (judgeDisagreement.overallSpread >= 1 || judgeDisagreement.goldCoverageSpread >= 1)
     ? judgeDisagreement
     : undefined;
+  const allJudgesFailed = judgeErrors.length > 0 && Object.keys(derivedScoresByModel).length === 0;
+  const someJudgesFailed = judgeErrors.length > 0 && Object.keys(derivedScoresByModel).length > 0;
+  const isLowerRankedSkip = !report.derivedScoresByModel && !allJudgesFailed;
+
   report.note = [
     report.note,
-    judgeErrors.length > 0 && Object.keys(derivedScoresByModel).length > 0
-      ? `Some judges failed: ${judgeErrors.join(" ; ")}`
-      : undefined,
-    !report.derivedScoresByModel ? "Judge skipped for lower-ranked row" : undefined,
+    someJudgesFailed ? `Some judges failed: ${judgeErrors.join(" ; ")}` : undefined,
+    allJudgesFailed ? `All judges failed: ${judgeErrors.join(" ; ")}` : undefined,
+    isLowerRankedSkip ? "Judge skipped for lower-ranked row" : undefined,
   ].filter(Boolean).join(" - ") || undefined;
-  if (judgeErrors.length > 0 && Object.keys(derivedScoresByModel).length === 0) {
+  if (allJudgesFailed) {
     report.error = judgeErrors.join(" ; ");
   }
 }
@@ -2546,7 +2550,8 @@ export async function runNarrowManualBaselineComparison(
       }
       for (const cell of refinedSelfImproveCells) {
         const set = embeddingEligibleCandidateIdsByVideo.get(cell.videoId) ?? new Set<string>();
-        set.add(`harness/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}`);
+        const diagnostics = buildDiagnostics(cell);
+        set.add(`harness/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}${diagnostics.promptPackId ? `/${diagnostics.promptPackId}` : ""}`);
         embeddingEligibleCandidateIdsByVideo.set(cell.videoId, set);
       }
       if (includeManualBaselines) {

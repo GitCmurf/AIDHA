@@ -28,7 +28,7 @@ describe("checkSelfImprovementGate", () => {
     } as MatrixReport;
     const result = checkSelfImprovementGate(report);
     expect(result.passed).toBe(false);
-    expect(result.message).toContain("Missing baseline");
+    expect(result.regressions.some(r => r.dimension === "missing-baseline")).toBe(true);
   });
 
   it("should fail if scoring data is missing for both narrow judge and consensus", () => {
@@ -51,7 +51,7 @@ describe("checkSelfImprovementGate", () => {
     } as MatrixReport;
     const result = checkSelfImprovementGate(report);
     expect(result.passed).toBe(false);
-    expect(result.message).toContain("Missing scoring data");
+    expect(result.regressions.some(r => r.dimension === "missing-scoring-data")).toBe(true);
   });
 
   it("should pass if no regressions are found via narrow judge scores", () => {

@@ -12,7 +12,7 @@ export interface CorrelationResult {
  */
 function getRanks(series: number[]): number[] {
   const sorted = [...series].map((value, index) => ({ value, index })).sort((a, b) => a.value - b.value);
-  const ranks = new Array(series.length);
+  const ranks: number[] = new Array(series.length);
 
   let i = 0;
   while (i < sorted.length) {
@@ -40,8 +40,8 @@ export function computeHumanAiCorrelation(
     return undefined;
   }
 
-  // Guard against NaN inputs
-  if (humanScores.some(s => Number.isNaN(s)) || aiScores.some(s => Number.isNaN(s))) {
+  // Guard against NaN / Infinity inputs
+  if (humanScores.some(s => !Number.isFinite(s)) || aiScores.some(s => !Number.isFinite(s))) {
     return undefined;
   }
 

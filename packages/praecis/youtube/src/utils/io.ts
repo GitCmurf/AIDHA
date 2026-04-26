@@ -1,4 +1,4 @@
-import { rename, writeFile, mkdir } from "node:fs/promises";
+import { rename, writeFile, mkdir, rm, open } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 
@@ -13,11 +13,17 @@ export async function writeFileAtomic(filePath: string, content: string): Promis
   const tempPath = `${filePath}.${randomBytes(8).toString("hex")}.tmp`;
   try {
     await writeFile(tempPath, content, "utf-8");
+    // fsync before rename for crash durability
+    const fd = await open(tempPath, "r+");
+    try {
+      await fd.sync();
+    } finally {
+      await fd.close();
+    }
     await rename(tempPath, filePath);
   } catch (error) {
     // Attempt cleanup of temp file
     try {
-      const { rm } = await import("node:fs/promises");
       await rm(tempPath, { force: true });
     } catch {
       // Ignore cleanup errors

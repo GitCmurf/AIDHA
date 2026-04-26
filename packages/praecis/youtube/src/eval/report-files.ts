@@ -10,14 +10,14 @@ function pad3(value: number): string {
 
 export function formatReportFilestamp(date: Date = new Date()): string {
   return [
-    date.getFullYear().toString(),
-    pad2(date.getMonth() + 1),
-    pad2(date.getDate()),
+    date.getUTCFullYear().toString(),
+    pad2(date.getUTCMonth() + 1),
+    pad2(date.getUTCDate()),
     "T",
-    pad2(date.getHours()),
-    pad2(date.getMinutes()),
-    pad2(date.getSeconds()),
-    pad3(date.getMilliseconds()),
+    pad2(date.getUTCHours()),
+    pad2(date.getUTCMinutes()),
+    pad2(date.getUTCSeconds()),
+    pad3(date.getUTCMilliseconds()),
   ].join("");
 }
 

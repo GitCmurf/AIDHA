@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
+import { writeFileAtomic } from "../utils/io.js";
 import { join } from "node:path";
 import type { Result } from "../pipeline/types.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
@@ -27,7 +28,7 @@ export interface EmbeddingSimilarityScore {
   ok: boolean;
 }
 
-const DEFAULT_MODEL = "gemini-embedding-2-preview";
+const DEFAULT_MODEL = "gemini-embedding-exp-03-07";
 const DEFAULT_OUTPUT_DIMENSIONALITY = 768;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_TASK_TYPE: NonNullable<GeminiEmbeddingClientConfig["taskType"]> = "SEMANTIC_SIMILARITY";
@@ -40,7 +41,7 @@ function normalizeBaseUrl(baseUrl: string): string {
 }
 
 function normalizeEmbeddingText(text: string): string {
-  return text.trim().replace(/\s+/g, " ").toLowerCase();
+  return text.trim().replace(/\s+/g, " ");
 }
 
 function hashText(text: string): string {
@@ -52,7 +53,10 @@ function cacheKeyForText(model: string, taskType: string, outputDimensionality: 
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length === 0 || b.length === 0 || a.length !== b.length) return 0;
+  if (a.length === 0 || b.length === 0) return 0;
+  if (a.length !== b.length) {
+    throw new RangeError(`Cannot compute cosine similarity: dimension mismatch (${a.length} vs ${b.length})`);
+  }
   let dot = 0;
   let normA = 0;
   let normB = 0;
@@ -123,11 +127,11 @@ export class GeminiEmbeddingClient {
     if (normalized.some(t => !t)) {
       return { ok: false, error: new Error("One or more texts were empty after normalization") };
     }
-    const results: number[][] = new Array(normalized.length).fill([]);
+    const results: number[][] = new Array(normalized.length).fill(null).map(() => []);
     const toFetch: Array<{ text: string; index: number }> = [];
 
     // Check cache in parallel but process results sequentially to preserve order
-    const cacheResults = await Promise.all(normalized.map(async (text) => {
+    const cacheResults = await Promise.all(normalized.map((text) => {
       const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
       const cachePath = join(this.cacheDir, `${cacheKey}.json`);
       return this.readCache(cachePath, text);
@@ -138,7 +142,7 @@ export class GeminiEmbeddingClient {
         results[i] = cached.vector;
         this.cacheHitCount += 1;
       } else {
-        toFetch.push({ text: normalized[i]!, index: i });
+        toFetch.push({ text: normalized[i], index: i });
         this.cacheMissCount += 1;
       }
     });
@@ -155,10 +159,11 @@ export class GeminiEmbeddingClient {
         return batchResult;
       }
 
-      batchResult.value.forEach((vector, j) => {
-        const originalIndex = chunk[j]!.index;
-        results[originalIndex] = vector;
-      });
+      for (let j = 0; j < batchResult.value.length; j++) {
+        const item = chunk[j];
+        if (!item) continue;
+        results[item.index] = batchResult.value[j];
+      }
     }
 
     return { ok: true, value: results };
@@ -187,8 +192,12 @@ export class GeminiEmbeddingClient {
     );
 
     if (!result.ok) {
-      // If batch failed with unretryable error (or exhausted retries), split it
-      if (texts.length === 1) {
+      // Only split on transient/retryable errors (429, 5xx, timeouts). Do not split on auth/bad-request errors.
+      const isTransient = result.error.message.includes("429") ||
+        result.error.message.includes("5") ||
+        result.error.message.includes("timeout") ||
+        result.error.message.includes("ECONNRESET");
+      if (!isTransient || texts.length === 1) {
         return { ok: false, error: result.error };
       }
 
@@ -224,14 +233,20 @@ export class GeminiEmbeddingClient {
 
     const values: number[][] = [];
     for (let i = 0; i < embeddings.length; i++) {
-      const e = embeddings[i]!;
+      const e = embeddings[i];
+      if (!e) continue;
       const v = e.values;
       if (Array.isArray(v) && v.length > 0) {
         // Write to cache
-        const text = texts[i]!;
+        const text = texts[i];
         const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
         const cachePath = join(this.cacheDir, `${cacheKey}.json`);
-        await this.writeCache(cachePath, text, v);
+        try {
+          await this.writeCache(cachePath, text, v);
+        } catch (cacheErr) {
+          // Cache write failure should not discard the successfully retrieved embedding
+          console.warn(`[embedding-cache-write-failed] path=${cachePath} error=${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`);
+        }
         values.push(v);
       } else {
         return {
@@ -249,6 +264,7 @@ export class GeminiEmbeddingClient {
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       const waitMs = await requestRateLimiterRegistry.waitForSlot(this.model, this.maxRequestsPerMinute);
       if (waitMs > 0) {
+        // skipcq: JS-0002
         console.log(`[rate-limit-wait] model=${this.model} waitMs=${waitMs}`);
       }
 
@@ -299,7 +315,10 @@ export class GeminiEmbeddingClient {
   async getEmbedding(text: string): Promise<Result<number[]>> {
     const result = await this.embedBatch([text]);
     if (!result.ok) return result;
-    const vector = result.value[0]!;
+    const vector = result.value[0];
+    if (!vector) {
+      return { ok: false, error: new Error("Embedding result was empty for single text") };
+    }
     return { ok: true, value: vector };
   }
 
@@ -311,7 +330,7 @@ export class GeminiEmbeddingClient {
     };
   }
 
-  private async readCache(cachePath: string, normalizedText: string): Promise<CachedEmbedding | null> {
+  private readCache(cachePath: string, normalizedText: string): Promise<CachedEmbedding | null> {
     try {
       const raw = await readFile(cachePath, "utf-8");
       const parsed = JSON.parse(raw) as CachedEmbedding;
@@ -329,6 +348,6 @@ export class GeminiEmbeddingClient {
       textHash: hashText(normalizedText),
       vector,
     };
-    await writeFile(cachePath, JSON.stringify(payload));
+    await writeFileAtomic(cachePath, JSON.stringify(payload));
   }
 }

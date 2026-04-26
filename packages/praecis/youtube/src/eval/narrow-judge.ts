@@ -66,19 +66,26 @@ function clampScore(value: number): number {
 
 function stripCodeFences(content: string): string {
   let text = content.trim();
-  if (text.startsWith("```json")) {
-    text = text.slice(7);
+  const jsonFenceIdx = text.indexOf("```json");
+  if (jsonFenceIdx !== -1) {
+    text = text.slice(jsonFenceIdx + 7);
     const endIdx = text.lastIndexOf("```");
     if (endIdx !== -1) text = text.slice(0, endIdx);
     return text.trim();
   }
-  if (text.startsWith("```")) {
-    text = text.slice(3);
+  const fenceIdx = text.indexOf("```");
+  if (fenceIdx !== -1) {
+    text = text.slice(fenceIdx + 3);
     const endIdx = text.lastIndexOf("```");
     if (endIdx !== -1) text = text.slice(0, endIdx);
     return text.trim();
   }
-  return text;
+  // If no fences, try to find the first JSON object/array start
+  const jsonStart = text.search(/[\[{]/);
+  if (jsonStart !== -1) {
+    text = text.slice(jsonStart);
+  }
+  return text.trim();
 }
 
 export function deriveNarrowJudgeScores(
@@ -207,24 +214,27 @@ export async function scoreNarrowClaimSet(
     };
   }
 
+  const validationIssues = parsed1.error.issues
+    ? parsed1.error.issues.map((issue: unknown) => `  - Path: ${JSON.stringify((issue as { path?: unknown[] }).path)} — ${(issue as { message?: string }).message ?? String(issue)}`).join("\n")
+    : parsed1.error.message;
+
   const retryUser = `Your previous response failed JSON schema validation:
-${parsed1.error.message}
+${validationIssues}
 
-Please correct the following evaluation output. Reference the original task but focus on returning ONLY valid JSON that follows the schema exactly.
+Please correct the following evaluation output. You must return ONLY valid JSON that follows the schema exactly.
 
-Return ONLY valid JSON with fields:
-- summary
-- matchedGoldClaims[] { goldId, goldText, candidateText, reason }
-- missedGoldClaims[] { goldId, goldText, reason, isRoot }
-- unsupportedCandidateClaims[] { candidateText, reason }
-- redundantCandidateClaims[] { candidateText, reason }
-- structuralIssues[] { issue, reason, severity }
+Required JSON schema:
+- summary: string (min 3 chars)
+- matchedGoldClaims: array of { goldId?: string, goldText: string (min 1), candidateText: string (min 1), reason: string (min 3) }
+- missedGoldClaims: array of { goldId?: string, goldText: string (min 1), reason: string (min 3), isRoot?: boolean }
+- unsupportedCandidateClaims: array of { candidateText: string (min 1), reason: string (min 3) }
+- redundantCandidateClaims: array of { candidateText: string (min 1), reason: string (min 3) }
+- structuralIssues: array of { issue: string (min 1), reason: string (min 3), severity: "low" | "medium" | "high" }
 
-Original task context:
-- Video: ${videoContext.title}
-- Candidate Claims: ${claims.length}
-- Gold Claims: ${goldClaims.length}
-- Teacher Claims: ${teacherClaims.length}
+Here is the original task prompt you were given:
+---
+${user}
+---
 
 Previous output to fix:
 ${llmResult1.value}`;

@@ -37,9 +37,11 @@ export interface PromptRetryDecision {
 }
 
 const LIST_CUES = [
-  "five", "four", "three", "two", "one", "principles", "framework", "frameworks",
-  "types", "steps", "layouts", "categories", "pillars", "guides", "management",
+  "five", "four", "principles", "framework",
+  "types", "steps", "layouts", "categories", "pillars", "guides",
 ];
+
+const ENUMERATION_PATTERN = /\b(?:one|two|three|four|five)\s+(?:principles|types|steps|layouts|categories|pillars)\b/;
 const CLINICAL_CUES = [
   "mg/dl", "nmol/l", "ldl", "apob", "lipoprotein", "cholesterol", "risk factor", "therapy",
   "atherosclerotic", "cardiovascular", "aspirin", "niacin", "siRNA", "screening", "genetic",
@@ -53,11 +55,18 @@ function escapeRegex(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const precompiledCueRegexes = new Map<string, RegExp>();
+function getCueRegex(cue: string): RegExp {
+  const cached = precompiledCueRegexes.get(cue);
+  if (cached) return cached;
+  const regex = new RegExp(`\\b${escapeRegex(cue)}\\b`, "i");
+  precompiledCueRegexes.set(cue, regex);
+  return regex;
+}
+
 function countCueMatches(text: string, cues: string[]): number {
-  const normalized = text.toLowerCase();
   return cues.reduce((count, cue) => {
-    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
-    return count + (regex.test(normalized) ? 1 : 0);
+    return count + (getCueRegex(cue).test(text) ? 1 : 0);
   }, 0);
 }
 
@@ -74,29 +83,36 @@ function uniqueTerms(terms: string[]): string[] {
  */
 export function buildTranscriptProfile(text: string): TranscriptProfile {
   const normalized = text.toLowerCase();
-  const listCueCount = countCueMatches(normalized, LIST_CUES);
-  const clinicalCueCount = countCueMatches(normalized, CLINICAL_CUES);
-  const businessCueCount = countCueMatches(normalized, BUSINESS_CUES);
   const signals: string[] = [];
   const glossaryTerms: string[] = [];
 
+  let listCueCount = 0;
   for (const cue of LIST_CUES) {
-    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
-    if (regex.test(normalized)) {
+    if (getCueRegex(cue).test(normalized)) {
+      listCueCount += 1;
       signals.push(`list:${cue}`);
       glossaryTerms.push(cue);
     }
   }
+  // Also count regex-based enumeration patterns as strong list cues
+  if (ENUMERATION_PATTERN.test(normalized)) {
+    listCueCount += 1;
+    signals.push("list:enumeration-pattern");
+  }
+
+  let clinicalCueCount = 0;
   for (const cue of CLINICAL_CUES) {
-    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
-    if (regex.test(normalized)) {
+    if (getCueRegex(cue).test(normalized)) {
+      clinicalCueCount += 1;
       signals.push(`clinical:${cue}`);
       glossaryTerms.push(cue);
     }
   }
+
+  let businessCueCount = 0;
   for (const cue of BUSINESS_CUES) {
-    const regex = new RegExp(`\\b${escapeRegex(cue.toLowerCase())}\\b`, "i");
-    if (regex.test(normalized)) {
+    if (getCueRegex(cue).test(normalized)) {
+      businessCueCount += 1;
       signals.push(`business:${cue}`);
       glossaryTerms.push(cue);
     }
@@ -162,7 +178,8 @@ export function decidePromptPack(input: {
   if (metadataPack) {
     const metadataConfidence = 0.85;
     const inferredConfidence = routeConfidenceForPack(inferredPack, profile);
-    if (inferredPack !== metadataPack && inferredConfidence >= 0.6) {
+    // Only override explicit metadata when transcript inference is at least as confident
+    if (inferredPack !== metadataPack && inferredConfidence >= metadataConfidence) {
       return {
         profile,
         decision: {
@@ -236,24 +253,27 @@ export function determineRetryDecision(input: {
   const isV2Pack = promptPackId.endsWith("-v2");
 
   if (claims.length === 0) {
-    if (profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management" && promptPackId !== "clinical-risk-management-v2") {
+    // Allow v1 -> v2 escalation; only block retry when already on the v2 target
+    if (profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management-v2") {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
     }
     if (profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "business-framework" };
     }
-    if (profile.listCueCount >= 2 && promptPackId !== "enumeration-framework" && promptPackId !== "enumeration-framework-v2") {
+    if (profile.listCueCount >= 2 && promptPackId !== "enumeration-framework-v2") {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
     }
   }
 
-  if (!hasRootClaim && profile.listCueCount >= 2 && promptPackId !== "enumeration-framework" && promptPackId !== "enumeration-framework-v2") {
+  // Allow v1 -> v2 escalation for missing-root-claim; only block when already on v2 target
+  if (!hasRootClaim && profile.listCueCount >= 2 && promptPackId !== "enumeration-framework-v2") {
     return { retry: true, retryReason: "missing-root-claim", retryPromptPackId: isV2Pack ? "enumeration-framework-v2" : "enumeration-framework" };
   }
   if (!hasEnumerationClaim && profile.listCueCount >= 2 && promptPackId === "business-framework") {
     return { retry: true, retryReason: "missing-enumeration-framework", retryPromptPackId: "enumeration-framework" };
   }
-  if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management" && promptPackId !== "clinical-risk-management-v2") {
+  // Allow v1 -> v2 escalation for low-domain-term-recall; only block when already on v2 target
+  if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== "clinical-risk-management-v2") {
     return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: isV2Pack ? "clinical-risk-management-v2" : "clinical-risk-management" };
   }
   if (domainTermRecall < 0.35 && profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
