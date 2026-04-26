@@ -222,7 +222,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       ),
       embeddingBatchSize: (llm['embedding_batch_size'] as number) ?? 20,
       embeddingTaskType: (
-        ['RETRIEVAL_QUERY', 'RETRIEVAL_DOCUMENT', 'SEMANTIC_SIMILARITY', 'CLASSIFICATION', 'CLUSTERING', 'QUESTION_ANSWERING', 'FACT_VERIFICATION'] as const
+        ['RETRIEVAL_QUERY', 'RETRIEVAL_DOCUMENT', 'SEMANTIC_SIMILARITY', 'CLASSIFICATION', 'CLUSTERING'] as const
       ).find(value => value === llm['embedding_task_type']) ?? 'SEMANTIC_SIMILARITY',
       embeddingOutputDimensionality: (llm['embedding_output_dimensionality'] as number) ?? 768,
     },

@@ -142,7 +142,9 @@ export class GeminiEmbeddingClient {
         results[i] = cached.vector;
         this.cacheHitCount += 1;
       } else {
-        toFetch.push({ text: normalized[i], index: i });
+        const text = normalized[i];
+        if (text === undefined) continue;
+        toFetch.push({ text, index: i });
         this.cacheMissCount += 1;
       }
     });
@@ -162,7 +164,9 @@ export class GeminiEmbeddingClient {
       for (let j = 0; j < batchResult.value.length; j++) {
         const item = chunk[j];
         if (!item) continue;
-        results[item.index] = batchResult.value[j];
+        const vector = batchResult.value[j];
+        if (vector === undefined) continue;
+        results[item.index] = vector;
       }
     }
 
@@ -239,6 +243,7 @@ export class GeminiEmbeddingClient {
       if (Array.isArray(v) && v.length > 0) {
         // Write to cache
         const text = texts[i];
+        if (text === undefined) continue;
         const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
         const cachePath = join(this.cacheDir, `${cacheKey}.json`);
         try {
@@ -330,7 +335,7 @@ export class GeminiEmbeddingClient {
     };
   }
 
-  private readCache(cachePath: string, normalizedText: string): Promise<CachedEmbedding | null> {
+  private async readCache(cachePath: string, normalizedText: string): Promise<CachedEmbedding | null> {
     try {
       const raw = await readFile(cachePath, "utf-8");
       const parsed = JSON.parse(raw) as CachedEmbedding;

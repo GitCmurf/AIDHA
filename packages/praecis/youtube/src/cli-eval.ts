@@ -53,7 +53,7 @@ const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBas
 
   const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "");
   const effectiveHostname = getHostnameFromUrl(effectiveBaseUrl);
-  const isOpenAiHost = effectiveHostname === "openai.com" || effectiveHostname?.endsWith(".openai.com") ?? false;
+  const isOpenAiHost = effectiveHostname === "openai.com" || (effectiveHostname?.endsWith(".openai.com") ?? false);
   const finalBaseUrl = isOpenAiHost
         ? "https://generativelanguage.googleapis.com/v1beta"
         : (effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : "https://generativelanguage.googleapis.com/v1beta");
@@ -236,7 +236,7 @@ function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"
   const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
   const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
   const isOpenAiKey = isOpenAi && !!baseConfig.apiKey?.startsWith("sk-");
-  const isOpenAiUrl = isOpenAi && (baseHostname === "api.openai.com" || baseHostname?.endsWith(".openai.com") ?? false);
+  const isOpenAiUrl = isOpenAi && (baseHostname === "api.openai.com" || (baseHostname?.endsWith(".openai.com") ?? false));
   const isOpenAiModel = isOpenAi && (baseConfig.model?.toLowerCase().startsWith("gpt-") || baseConfig.model?.toLowerCase().startsWith("o"));
 
   return (isOpenAi && (isOpenAiKey || isOpenAiUrl || isOpenAiModel)) || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
@@ -300,7 +300,7 @@ export const createProviderAwareClient = (
     : {
     generate: (request: LlmCompletionRequest) => clientResult.value.generate({
       ...request,
-      model: request.model === modelId ? model.apiModelId : request.model,
+      model: request.model === modelId ? (model.apiModelId ?? request.model) : request.model,
     }),
   };
 
