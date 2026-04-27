@@ -1,11 +1,17 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { GeminiEmbeddingClient } from "../../src/eval/gemini-embedding-client.js";
+import { requestRateLimiterRegistry } from "../../src/eval/request-rate-limiter.js";
 
 describe("GeminiEmbeddingClient", () => {
+  beforeEach(() => {
+    requestRateLimiterRegistry.reset();
+  });
+
   afterEach(() => {
+    requestRateLimiterRegistry.reset();
     vi.restoreAllMocks();
   });
 
@@ -103,6 +109,30 @@ describe("GeminiEmbeddingClient", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toContain(":batchEmbedContents");
     const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
     expect(body.requests).toHaveLength(2);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("embedBatch falls back to the default batch size when configured with zero", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        embeddings: [{ values: [1, 0] }, { values: [0, 1] }],
+      }),
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+      batchSize: 0,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     await rm(cacheDir, { recursive: true, force: true });
   });

@@ -749,7 +749,7 @@ export function selectShortlistCandidatesForVideo(
     .slice(0, shortlistPerVideo);
 }
 
-function buildVideoScoreInputSignature(input: {
+export function buildVideoScoreInputSignature(input: {
   corpusSignature: string;
   runMode: NarrowRunMode;
   videoId: string;

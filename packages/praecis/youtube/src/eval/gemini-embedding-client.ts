@@ -95,7 +95,10 @@ export class GeminiEmbeddingClient {
     this.outputDimensionality = config.outputDimensionality ?? DEFAULT_OUTPUT_DIMENSIONALITY;
     this.taskType = config.taskType ?? DEFAULT_TASK_TYPE;
     this.maxRequestsPerMinute = config.maxRequestsPerMinute ?? 80;
-    this.batchSize = (config.batchSize && config.batchSize > 0) ? config.batchSize : DEFAULT_BATCH_SIZE;
+    const configuredBatchSize = config.batchSize ?? DEFAULT_BATCH_SIZE;
+    this.batchSize = Number.isInteger(configuredBatchSize) && configuredBatchSize > 0
+      ? configuredBatchSize
+      : DEFAULT_BATCH_SIZE;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 

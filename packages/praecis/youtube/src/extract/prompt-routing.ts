@@ -258,7 +258,6 @@ export function determineRetryDecision(input: {
 
   if (claims.length === 0) {
     const clinicalTargetV2 = "clinical-risk-management-v2";
-    const clinicalTargetV1 = "clinical-risk-management";
     if (profile.clinicalCueCount >= 2 && promptPackId !== clinicalTargetV2) {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: clinicalTargetV2 };
     }
@@ -266,7 +265,6 @@ export function determineRetryDecision(input: {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "business-framework" };
     }
     const enumTargetV2 = "enumeration-framework-v2";
-    const enumTargetV1 = "enumeration-framework";
     if (profile.listCueCount >= 2 && promptPackId !== enumTargetV2) {
       return { retry: true, retryReason: "too-few-claims", retryPromptPackId: enumTargetV2 };
     }
@@ -282,7 +280,6 @@ export function determineRetryDecision(input: {
     return { retry: true, retryReason: "missing-enumeration-framework", retryPromptPackId: enumTargetV1 };
   }
   const clinicalTargetV2 = "clinical-risk-management-v2";
-  const clinicalTargetV1 = "clinical-risk-management";
   // Allow v1 -> v2 escalation for low-domain-term-recall; only block when already on v2 target
   if (domainTermRecall < 0.35 && profile.clinicalCueCount >= 2 && promptPackId !== clinicalTargetV2) {
     return { retry: true, retryReason: "low-domain-term-recall", retryPromptPackId: clinicalTargetV2 };

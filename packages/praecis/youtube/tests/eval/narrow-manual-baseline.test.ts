@@ -3,6 +3,7 @@ import {
   assessStructuralTargets,
   buildCorpusSignature,
   buildExtractionStageInputSignature,
+  buildVideoScoreInputSignature,
   computeOptimizationScore,
   computeGoldCoverage,
   needsFallbackForModel,
@@ -451,6 +452,56 @@ describe("narrow-manual-baseline helpers", () => {
     const sig1 = await buildExtractionStageInputSignature(common as any);
     const sig2 = await buildExtractionStageInputSignature({ ...common, outputDimensionality: 128 } as any);
     expect(sig1).not.toBe(sig2);
+  });
+
+  it("changes the per-video score signature when embedding inputs change", () => {
+    const common = {
+      corpusSignature: "test-corpus",
+      runMode: "compare" as const,
+      videoId: "video-1",
+      includeManualBaselines: true,
+      enableEmbeddings: true,
+      embeddingModel: "gemini-embedding-001",
+      embeddingBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      embeddingBatchSize: 20,
+      maxEmbeddingRequestsPerRun: 100,
+      taskType: "SEMANTIC_SIMILARITY",
+      outputDimensionality: 768,
+      goldClaims: [
+        {
+          id: "video-1:1",
+          depth: 0,
+          path: [1],
+          text: "Primary claim",
+          type: "fact",
+        },
+      ],
+      comparableClaimSets: [
+        {
+          videoId: "video-1",
+          candidateId: "harness/raw/baseline/small-request",
+          sourceKind: "harness" as const,
+          claims: [
+            { text: "Primary claim", excerptIds: ["e1"] },
+          ],
+        },
+      ],
+    };
+
+    const baseSignature = buildVideoScoreInputSignature(common);
+    const changedInputs = [
+      { embeddingModel: "gemini-embedding-002" },
+      { embeddingBaseUrl: "https://example.test/v1beta" },
+      { embeddingBatchSize: 50 },
+      { maxEmbeddingRequestsPerRun: 25 },
+      { taskType: "RETRIEVAL_QUERY" },
+      { outputDimensionality: 128 },
+    ];
+
+    for (const changedInput of changedInputs) {
+      expect(buildVideoScoreInputSignature({ ...common, ...changedInput }))
+        .not.toBe(baseSignature);
+    }
   });
 
   it("prefers escalated v2 finalists for shortlist selection when adaptive escalation fired", () => {

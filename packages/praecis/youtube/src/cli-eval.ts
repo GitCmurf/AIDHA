@@ -94,7 +94,7 @@ const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl
 
   // Only fall back to profile apiKey if it explicitly looks like an OpenRouter key or profile matches
   const baseConfigHostname = getHostnameFromUrl(baseConfigBaseUrl);
-  const looksLikeOpenRouterHost = baseConfigHostname === "openrouter.ai" || baseConfigHostname?.endsWith(".openrouter.ai") ?? false;
+  const looksLikeOpenRouterHost = baseConfigHostname === "openrouter.ai" || (baseConfigHostname?.endsWith(".openrouter.ai") ?? false);
   const looksLikeOpenRouter = apiKey.startsWith("sk-or-v1-") || looksLikeOpenRouterHost;
   const useProfile = isProviderProfile || looksLikeOpenRouter;
 

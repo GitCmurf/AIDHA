@@ -119,7 +119,7 @@ export async function hashFile(filePath: string): Promise<string | null> {
       const { createReadStream } = require("node:fs");
       const hash = createHash("sha256");
       const stream = createReadStream(filePath);
-      stream.on("data", (chunk) => hash.update(chunk));
+      stream.on("data", (chunk: Buffer) => hash.update(chunk));
       stream.on("end", () => resolve(hash.digest("hex").slice(0, 32)));
       stream.on("error", () => resolve(null));
     } catch {
