@@ -114,16 +114,16 @@ export function hashText(text: string): string {
  * @returns A Promise resolving to a 32-char hex hash string, or null on failure
  */
 export async function hashFile(filePath: string): Promise<string | null> {
-  const { createReadStream } = await import("node:fs");
-  try {
-    return new Promise((resolve) => {
+  return new Promise((resolve) => {
+    try {
+      const { createReadStream } = require("node:fs");
       const hash = createHash("sha256");
       const stream = createReadStream(filePath);
       stream.on("data", (chunk) => hash.update(chunk));
       stream.on("end", () => resolve(hash.digest("hex").slice(0, 32)));
       stream.on("error", () => resolve(null));
-    });
-  } catch {
-    return null;
-  }
+    } catch {
+      resolve(null);
+    }
+  });
 }

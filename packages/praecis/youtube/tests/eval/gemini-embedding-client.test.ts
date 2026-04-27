@@ -69,7 +69,7 @@ describe("GeminiEmbeddingClient", () => {
       "beta claim",
       "  beta   claim  ",
       "gamma claim",
-    ], 2);
+    ]);
 
     expect(result.ok).toBe(true);
     if (result.ok) {

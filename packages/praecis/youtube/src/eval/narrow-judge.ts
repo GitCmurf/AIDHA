@@ -112,9 +112,10 @@ export function deriveNarrowJudgeScores(
   }
 
   const rootIds = new Set(goldClaims.filter((claim) => claim.depth === 0).map((claim) => claim.id));
+  const validGoldIds = new Set(goldClaims.map((c) => c.id));
   const missedRootCount = findings.missedGoldClaims.filter((finding) => {
     if (finding.isRoot) return true;
-    if (finding.goldId) return rootIds.has(finding.goldId);
+    if (finding.goldId && validGoldIds.has(finding.goldId)) return rootIds.has(finding.goldId);
     if (finding.goldText) {
       return goldClaims.some((c) => c.depth === 0 && c.text === finding.goldText);
     }
