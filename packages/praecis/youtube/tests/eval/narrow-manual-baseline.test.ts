@@ -6,6 +6,7 @@ import {
   buildVideoScoreInputSignature,
   computeOptimizationScore,
   computeGoldCoverage,
+  isOpenAiBaseUrl,
   needsFallbackForModel,
   profileTranscriptStructure,
   renderNarrowComparisonMarkdown,
@@ -502,6 +503,14 @@ describe("narrow-manual-baseline helpers", () => {
       expect(buildVideoScoreInputSignature({ ...common, ...changedInput }))
         .not.toBe(baseSignature);
     }
+  });
+
+  it("matches only OpenAI hostnames when detecting OpenAI base URLs", () => {
+    expect(isOpenAiBaseUrl("https://api.openai.com/v1")).toBe(true);
+    expect(isOpenAiBaseUrl("https://openai.com/v1")).toBe(true);
+    expect(isOpenAiBaseUrl("https://evil-openai.com/v1")).toBe(false);
+    expect(isOpenAiBaseUrl("https://openai.com.attacker.test/v1")).toBe(false);
+    expect(isOpenAiBaseUrl("not a url")).toBe(false);
   });
 
   it("prefers escalated v2 finalists for shortlist selection when adaptive escalation fired", () => {

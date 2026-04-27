@@ -52,4 +52,33 @@ describe("report files and rendering", () => {
     expect(md).toContain("10.00");
     expect(md).toContain("**8.50**");
   });
+
+  it("renderMatrixReport includes self-improvement quality gate failures", () => {
+    const report: Partial<MatrixReport> = {
+      summary: { bestModel: "m1", worstModel: "m2", hardestVideo: "v1" },
+      qualityGates: {
+        selfImprovement: {
+          passed: false,
+          skipped: false,
+          regressions: [{
+            entityId: "v1/m1",
+            dimension: "overallScore",
+            baselineScore: 8,
+            latestScore: 6,
+            tolerance: 1,
+          }],
+        },
+      },
+      modelStats: {},
+      variantStats: {},
+      videoStats: {},
+      leaderboards: { overallScore: [], completeness: [], accuracy: [], topicCoverage: [], atomicity: [] },
+      cells: []
+    };
+
+    const md = renderMatrixReport(report as MatrixReport);
+    expect(md).toContain("## Quality Gates");
+    expect(md).toContain("Self-Improvement Regression Gate: failed");
+    expect(md).toContain("| v1/m1 | overallScore | 8.00 | 6.00 | 1.00 |");
+  });
 });

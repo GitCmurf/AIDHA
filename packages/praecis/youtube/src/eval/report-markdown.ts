@@ -160,6 +160,30 @@ const renderNarrowJudgeSummary = (results: MatrixReport["narrowJudgeResults"]): 
   return md;
 };
 
+const renderQualityGates = (qualityGates: MatrixReport["qualityGates"]): string => {
+  if (!qualityGates) return "";
+
+  const gate = qualityGates.selfImprovement;
+  let md = "## Quality Gates\n\n";
+  md += `### Self-Improvement Regression Gate: ${gate.passed ? "passed" : "failed"}\n\n`;
+  if (gate.skipped) {
+    md += `- Skipped: ${escapeMdTableCell(gate.message ?? "No self-improvement cells found.")}\n\n`;
+    return md;
+  }
+  if (gate.regressions.length === 0) {
+    md += "- No regressions detected.\n\n";
+    return md;
+  }
+
+  md += "| Entity | Dimension | Baseline | Latest | Tolerance |\n";
+  md += "| --- | --- | --- | --- | --- |\n";
+  for (const regression of gate.regressions) {
+    md += `| ${escapeMdTableCell(regression.entityId)} | ${escapeMdTableCell(regression.dimension)} | ${regression.baselineScore.toFixed(2)} | ${regression.latestScore.toFixed(2)} | ${regression.tolerance.toFixed(2)} |\n`;
+  }
+  md += "\n";
+  return md;
+};
+
 export const renderMatrixReport = (report: MatrixReport): string => {
   let md = "# Claim Extraction Evaluation Matrix Report\n\n";
 
@@ -168,6 +192,7 @@ export const renderMatrixReport = (report: MatrixReport): string => {
   md += renderRecommendations(report.recommendations);
   md += renderCostEstimate(report.costEstimate);
   md += renderVariantCostBreakdown(report.variantCostSummary);
+  md += renderQualityGates(report.qualityGates);
   md += renderNarrowJudgeSummary(report.narrowJudgeResults);
   md += renderLeaderboards(report);
   md += renderAllScorecards(report);

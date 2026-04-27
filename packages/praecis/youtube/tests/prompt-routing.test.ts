@@ -45,6 +45,46 @@ describe('prompt routing', () => {
     });
   });
 
+  it('uses the shared enumeration pattern when checking extracted claims', () => {
+    const profile = buildTranscriptProfile('There is one principle for arranging the deck and five pillars for sequencing.');
+    const retry = determineRetryDecision({
+      promptPackId: 'business-framework',
+      profile,
+      claims: [
+        { text: 'One principle governs the deck structure.', excerptIds: ['e1'] },
+      ],
+    });
+
+    expect(profile.listCueCount).toBeGreaterThanOrEqual(2);
+    expect(retry.retry).toBe(false);
+  });
+
+  it('selects a stable no-claims retry target by priority instead of switching away from it', () => {
+    const profile = {
+      listCueCount: 2,
+      clinicalCueCount: 2,
+      businessCueCount: 2,
+      glossaryTerms: [],
+      signals: [],
+    };
+
+    expect(determineRetryDecision({
+      promptPackId: 'generic-hierarchy',
+      profile,
+      claims: [],
+    })).toEqual({
+      retry: true,
+      retryReason: 'too-few-claims',
+      retryPromptPackId: 'clinical-risk-management-v2',
+    });
+
+    expect(determineRetryDecision({
+      promptPackId: 'clinical-risk-management-v2',
+      profile,
+      claims: [],
+    })).toEqual({ retry: false });
+  });
+
   it('falls back to generic-hierarchy when no specific signals are found', () => {
     const { decision } = decidePromptPack({
       title: 'Random video',

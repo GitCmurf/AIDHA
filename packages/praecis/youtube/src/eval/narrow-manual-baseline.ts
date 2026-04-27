@@ -997,7 +997,7 @@ function getGoogleEmbeddingConfig(config: ResolvedConfig): {
 } {
   const llm = config.llm;
   const isGeminiModel = llm.model?.toLowerCase().startsWith("gemini-");
-  const isOpenAiDefault = llm.baseUrl.includes("openai.com");
+  const isOpenAiDefault = isOpenAiBaseUrl(llm.baseUrl);
 
   return {
     apiKey:
@@ -1022,6 +1022,15 @@ function getGoogleEmbeddingConfig(config: ResolvedConfig): {
     taskType: process.env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY",
     outputDimensionality: Number(process.env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) || llm.embeddingOutputDimensionality || 768,
   };
+}
+
+export function isOpenAiBaseUrl(baseUrl: string): boolean {
+  try {
+    const hostname = new URL(baseUrl).hostname.toLowerCase();
+    return hostname === "openai.com" || hostname.endsWith(".openai.com");
+  } catch {
+    return false;
+  }
 }
 
 const FINITE_SET_CUE =

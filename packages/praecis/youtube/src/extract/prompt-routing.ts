@@ -43,7 +43,7 @@ const DOMAIN_CUES = [
   "principles", "framework",
 ];
 
-const ENUMERATION_PATTERN = /\b(?:one|two|three|four|five)\s+(?:principles|types|steps|layouts|categories|pillars)\b/;
+const ENUMERATION_PATTERN = /\b(?:one|two|three|four|five|\d+)\s+(?:principles?|types?|steps?|layouts?|categories|pillars?)\b/;
 const CLINICAL_CUES = [
   "mg/dl", "nmol/l", "ldl", "apob", "lipoprotein", "cholesterol", "risk factor", "therapy",
   "atherosclerotic", "cardiovascular", "aspirin", "niacin", "siRNA", "screening", "genetic",
@@ -223,12 +223,12 @@ export function decidePromptPack(input: {
 function looksRootLike(text: string): boolean {
   const normalized = text.toLowerCase();
   return /(there are|there is|consists of|includes|account for|guide management|management follows|uses .* core|standardized set|core slide layouts|strong independent risk factor)/.test(normalized)
-    || /(?:four|five|three|two|\d+)\s+(?:principles|types|steps|layouts|categories)/.test(normalized);
+    || ENUMERATION_PATTERN.test(normalized);
 }
 
 function looksEnumerationLike(text: string): boolean {
   const normalized = text.toLowerCase();
-  return /(?:four|five|three|two|\d+)\s+(?:principles|types|steps|layouts|categories)/.test(normalized);
+  return ENUMERATION_PATTERN.test(normalized);
 }
 
 function computeDomainTermRecall(claims: ClaimCandidate[], glossaryTerms: string[]): number {
@@ -257,16 +257,17 @@ export function determineRetryDecision(input: {
   const domainTermRecall = computeDomainTermRecall(claims, profile.glossaryTerms);
 
   if (claims.length === 0) {
-    const clinicalTargetV2 = "clinical-risk-management-v2";
-    if (profile.clinicalCueCount >= 2 && promptPackId !== clinicalTargetV2) {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: clinicalTargetV2 };
+    const retryTargets: Array<{ target: ExtractionPromptPackId; enabled: boolean }> = [
+      { target: "clinical-risk-management-v2", enabled: profile.clinicalCueCount >= 2 },
+      { target: "business-framework", enabled: profile.businessCueCount >= 2 },
+      { target: "enumeration-framework-v2", enabled: profile.listCueCount >= 2 },
+    ];
+    const selectedTarget = retryTargets.find((candidate) => candidate.enabled)?.target;
+    if (selectedTarget === promptPackId) {
+      return { retry: false };
     }
-    if (profile.businessCueCount >= 2 && promptPackId !== "business-framework") {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: "business-framework" };
-    }
-    const enumTargetV2 = "enumeration-framework-v2";
-    if (profile.listCueCount >= 2 && promptPackId !== enumTargetV2) {
-      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: enumTargetV2 };
+    if (selectedTarget) {
+      return { retry: true, retryReason: "too-few-claims", retryPromptPackId: selectedTarget };
     }
   }
 

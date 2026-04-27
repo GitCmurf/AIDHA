@@ -9,6 +9,7 @@ import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.
 import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggregator.js";
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
+import { checkSelfImprovementGate } from "./eval/quality-gate.js";
 import { buildReportFileSet } from "./eval/report-files.js";
 import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./eval/extractor-variants.js";
 import {
@@ -685,6 +686,9 @@ const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOp
   }
 
   const report = aggregateMatrixResults(result.cells);
+  report.qualityGates = {
+    selfImprovement: checkSelfImprovementGate(report),
+  };
   const reportStub = parsedOpts.runId ? `eval-matrix-${parsedOpts.runId}` : "eval-matrix";
   await writeReports(report, finalOutputDir, parsedOpts.format, reportStub);
 
@@ -696,6 +700,12 @@ const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOp
   if (result.metadata.failedCellCount > 0) {
     // skipcq: JS-0002
     console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
+    return 1;
+  }
+
+  if (!report.qualityGates.selfImprovement.passed) {
+    // skipcq: JS-0002
+    console.warn(`Self-improvement quality gate failed with ${report.qualityGates.selfImprovement.regressions.length} regression(s).`);
     return 1;
   }
 

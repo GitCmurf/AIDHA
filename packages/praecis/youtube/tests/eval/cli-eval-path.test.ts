@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runEvalMatrix } from "../../src/cli-eval";
+import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import * as fs from "node:fs";
 
 // Mock internal functions to prevent actual test execution
@@ -101,6 +102,26 @@ describe("CLI Export Path Resolution", () => {
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
     expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "custom/dir", { recursive: true });
     expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, "custom/dir/cells", { recursive: true });
+  });
+
+  it("returns failure when the self-improvement quality gate fails", async () => {
+    vi.mocked(aggregateMatrixResults).mockReturnValueOnce({
+      cells: [{
+        videoId: "v1",
+        modelId: "m1",
+        extractorVariantId: "self-improve-v1",
+        claimSet: [],
+      }],
+    } as any);
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const exitCode = await runEvalMatrix(["node", "matrix"], { format: "both", corpus: "test.json" }, mockConfig);
+
+    expect(exitCode).toBe(1);
+    expect(consoleWarnSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Self-improvement quality gate failed")
+    )).toBe(true);
+    consoleWarnSpy.mockRestore();
   });
 
   it("should support narrow-manual-baseline dry-run without writing reports", async () => {

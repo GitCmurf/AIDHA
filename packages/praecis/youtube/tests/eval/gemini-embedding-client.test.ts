@@ -191,6 +191,29 @@ describe("GeminiEmbeddingClient", () => {
     await rm(cacheDir, { recursive: true, force: true });
   });
 
+  it("embedBatch does not split exhausted HTTP 429 rate limits", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 429,
+      text: async () => "Rate limit exceeded",
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+      maxRetries: 0,
+    });
+
+    const result = await client.embedBatch(["item1", "item2"]);
+
+    expect(result.ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
   it("uses a configured embedding model override when provided", async () => {
     const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
     const fetchMock = vi.spyOn(globalThis, "fetch")

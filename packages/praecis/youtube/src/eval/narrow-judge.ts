@@ -64,6 +64,10 @@ function clampScore(value: number): number {
   return Math.max(0, Math.min(10, Number(value.toFixed(2))));
 }
 
+function normalizeFindingText(text: string): string {
+  return text.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 function stripCodeFences(content: string): string {
   let text = content.trim();
   const jsonFenceIdx = text.indexOf("```json");
@@ -112,6 +116,13 @@ export function deriveNarrowJudgeScores(
   }
 
   const rootIds = new Set(goldClaims.filter((claim) => claim.depth === 0).map((claim) => claim.id));
+  const validCandidateTexts = new Set(candidateClaims.map((claim) => normalizeFindingText(claim.text)));
+  const unsupportedCandidateCount = findings.unsupportedCandidateClaims.filter((finding) =>
+    validCandidateTexts.has(normalizeFindingText(finding.candidateText))
+  ).length;
+  const redundantCandidateCount = findings.redundantCandidateClaims.filter((finding) =>
+    validCandidateTexts.has(normalizeFindingText(finding.candidateText))
+  ).length;
   const missedRootCount = findings.missedGoldClaims.filter((finding) => {
     if (finding.isRoot) return true;
     if (finding.goldId && validGoldIds.has(finding.goldId)) return rootIds.has(finding.goldId);
@@ -134,11 +145,11 @@ export function deriveNarrowJudgeScores(
   const goldCoverage = clampScore((matchedGoldIds.size / Math.max(goldClaims.length, 1)) * 10);
   const faithfulness = candidateClaims.length === 0
     ? 10
-    : clampScore(10 - ((findings.unsupportedCandidateClaims.length / candidateCount) * 10));
+    : clampScore(10 - ((unsupportedCandidateCount / candidateCount) * 10));
   const structure = clampScore(10 - structuralPenalty - (missedRootCount * 1.5));
   const atomicity = candidateClaims.length === 0
     ? 10
-    : clampScore(10 - ((findings.redundantCandidateClaims.length / candidateCount) * 10) - compoundPenalty);
+    : clampScore(10 - ((redundantCandidateCount / candidateCount) * 10) - compoundPenalty);
   const overallScore = clampScore((goldCoverage + faithfulness + structure + atomicity) / 4);
 
   return { goldCoverage, faithfulness, structure, atomicity, overallScore };

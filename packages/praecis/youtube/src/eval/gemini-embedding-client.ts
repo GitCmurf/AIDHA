@@ -203,12 +203,14 @@ export class GeminiEmbeddingClient {
     );
 
     if (!result.ok) {
-      // Only split on transient/retryable errors (429, 5xx, timeouts). Do not split on auth/bad-request errors.
+      // Only split on errors that can plausibly isolate a bad item. Rate limits
+      // have already exhausted retry handling in fetchWithRetry and should not
+      // replay recursively.
       const errMsg = result.error.message ?? "";
       const statusMatch = /\b(\d{3})\b/.exec(errMsg);
       const statusCode = statusMatch ? parseInt(statusMatch[1]!, 10) : NaN;
       const isTransient =
-        (!Number.isNaN(statusCode) && (statusCode === 429 || (statusCode >= 500 && statusCode < 600))) ||
+        (!Number.isNaN(statusCode) && statusCode >= 500 && statusCode < 600) ||
         /\btimeout\b/i.test(errMsg) ||
         errMsg.includes("ECONNRESET");
       if (!isTransient || texts.length === 1) {

@@ -2,6 +2,7 @@ import { getModel } from "./model-registry.js";
 import { SCORE_DIMENSIONS, type ClaimSetScore } from "./scoring-rubric.js";
 import type { MatrixCell, ScoreDimension } from "./matrix-runner.js";
 import type { NarrowDerivedJudgeScores } from "./narrow-judge.js";
+import type { SelfImprovementGateResult } from "./quality-gate.js";
 
 export type StatName = "mean" | "median" | "min" | "max" | "stddev";
 export type DimensionStats = Record<ScoreDimension, Record<StatName, number>>;
@@ -24,6 +25,9 @@ export interface MatrixReport {
     judgeUsd: number;
     totalUsd: number;
   }>;
+  qualityGates?: {
+    selfImprovement: SelfImprovementGateResult;
+  };
   narrowJudgeResults?: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>>; // variantId -> modelId -> videoKey (videoId|promptConfigId|chunkMode) -> scores
   modelStats: Record<string, { dimensions: DimensionStats }>;
   variantStats: Record<string, { dimensions: DimensionStats }>;

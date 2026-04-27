@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 
 const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const MAX_ID_LENGTH = 100;
@@ -116,10 +117,11 @@ export function hashText(text: string): string {
 export async function hashFile(filePath: string): Promise<string | null> {
   return new Promise((resolve) => {
     try {
-      const { createReadStream } = require("node:fs");
       const hash = createHash("sha256");
       const stream = createReadStream(filePath);
-      stream.on("data", (chunk: Buffer) => hash.update(chunk));
+      stream.on("data", (chunk) => {
+        hash.update(chunk);
+      });
       stream.on("end", () => resolve(hash.digest("hex").slice(0, 32)));
       stream.on("error", () => resolve(null));
     } catch {
