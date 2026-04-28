@@ -75,4 +75,43 @@ describe("narrow judge prompt and scoring", () => {
     expect(scores.faithfulness).toBeCloseTo(6.67, 2);
     expect(scores.atomicity).toBeCloseTo(6.67, 2);
   });
+
+  it("matches gold-text fallback with case and whitespace differences", () => {
+    const findings = NarrowJudgeFindingsSchema.parse({
+      summary: "Tests normalized gold-text matching.",
+      matchedGoldClaims: [{ goldText: "  SOME Gold TEXT  ", candidateText: "Candidate", reason: "Match" }],
+      missedGoldClaims: [],
+      unsupportedCandidateClaims: [],
+      redundantCandidateClaims: [],
+      structuralIssues: [],
+    });
+
+    const scores = deriveNarrowJudgeScores(
+      findings,
+      [{ id: "v1:1", parentId: undefined, depth: 0, path: [1], text: "some gold text", type: "fact", evidence: undefined }],
+      [{ text: "Candidate", excerptIds: ["e1"] }]
+    );
+
+    expect(scores.goldCoverage).toBe(10);
+  });
+
+  it("matches missed-root gold-text fallback with case and whitespace normalization", () => {
+    const findings = NarrowJudgeFindingsSchema.parse({
+      summary: "Tests normalized missed-root matching.",
+      matchedGoldClaims: [],
+      missedGoldClaims: [{ goldText: "  ROOT Claim  ", reason: "Missed", isRoot: false }],
+      unsupportedCandidateClaims: [],
+      redundantCandidateClaims: [],
+      structuralIssues: [],
+    });
+
+    const scores = deriveNarrowJudgeScores(
+      findings,
+      [{ id: "v1:1", parentId: undefined, depth: 0, path: [1], text: "root claim", type: "fact", evidence: undefined }],
+      [{ text: "Other candidate", excerptIds: ["e1"] }]
+    );
+
+    expect(scores.goldCoverage).toBe(0);
+    expect(scores.structure).toBeLessThan(10);
+  });
 });

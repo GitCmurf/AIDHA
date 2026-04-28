@@ -105,8 +105,9 @@ export function deriveNarrowJudgeScores(
     if (finding.goldId && validGoldIds.has(finding.goldId)) {
       matchedGoldIds.add(finding.goldId);
     } else if (finding.goldText) {
-      // Fallback for old caches: match by text, ensuring 1 finding matches at most 1 node
-      const idx = unmatchedForFallback.findIndex((c) => c.text === finding.goldText);
+      // Fallback for old caches: match by normalized text, ensuring 1 finding matches at most 1 node
+      const normalizedGold = normalizeFindingText(finding.goldText);
+      const idx = unmatchedForFallback.findIndex((c) => normalizeFindingText(c.text) === normalizedGold);
       const matchedNode = unmatchedForFallback[idx];
       if (idx !== -1 && matchedNode) {
         matchedGoldIds.add(matchedNode.id);
@@ -127,7 +128,8 @@ export function deriveNarrowJudgeScores(
     if (finding.isRoot) return true;
     if (finding.goldId && validGoldIds.has(finding.goldId)) return rootIds.has(finding.goldId);
     if (finding.goldText) {
-      return goldClaims.some((c) => c.depth === 0 && c.text === finding.goldText);
+      const normalizedGold = normalizeFindingText(finding.goldText);
+      return goldClaims.some((c) => c.depth === 0 && normalizeFindingText(c.text) === normalizedGold);
     }
     return false;
   }).length;

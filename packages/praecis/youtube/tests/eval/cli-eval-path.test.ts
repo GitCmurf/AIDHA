@@ -106,12 +106,36 @@ describe("CLI Export Path Resolution", () => {
 
   it("returns failure when the self-improvement quality gate fails", async () => {
     vi.mocked(aggregateMatrixResults).mockReturnValueOnce({
-      cells: [{
-        videoId: "v1",
-        modelId: "m1",
-        extractorVariantId: "self-improve-v1",
-        claimSet: [],
-      }],
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          consensusScore: {
+            mean: {
+              completeness: 4.0,
+              accuracy: 4.5,
+              topicCoverage: 4.0,
+              atomicity: 4.0,
+              overallScore: 4.0,
+            },
+          },
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          consensusScore: {
+            mean: {
+              completeness: 2.0,
+              accuracy: 4.5,
+              topicCoverage: 4.0,
+              atomicity: 4.0,
+              overallScore: 4.0,
+            },
+          },
+        },
+      ],
     } as any);
     const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 

@@ -1170,7 +1170,8 @@ async function scorePair(
   candidate: ClaimCandidate,
   verifier: TieredVerifier,
   mode: CoverageMode,
-  embeddingClient?: GeminiEmbeddingClient
+  embeddingClient?: GeminiEmbeddingClient,
+  budgetState?: { remainingEmbeddingRequests: number }
 ): Promise<PairScore> {
   const exact = normalizeKey(candidate.text) === normalizeKey(goldClaim.text);
   const lexical = exact ? 1 : verifier.verifyLexical(goldClaim.text, [candidate.text]).overlap;
@@ -1185,12 +1186,20 @@ async function scorePair(
   );
 
   if (shouldComputeEmbedding) {
-    const embeddingResult = await embeddingClient.similarity(goldClaim.text, candidate.text);
-    if (embeddingResult.ok) {
-      embedding = embeddingResult.value.score;
-    } else {
-      // Omit embedding score for this pair rather than aborting the entire run
+    if (budgetState && budgetState.remainingEmbeddingRequests < 2) {
       embedding = undefined;
+    } else {
+      const beforeRequests = embeddingClient!.getStats().apiRequestCount;
+      const embeddingResult = await embeddingClient.similarity(goldClaim.text, candidate.text);
+      if (budgetState) {
+        const afterRequests = embeddingClient!.getStats().apiRequestCount;
+        budgetState.remainingEmbeddingRequests -= (afterRequests - beforeRequests);
+      }
+      if (embeddingResult.ok) {
+        embedding = embeddingResult.value.score;
+      } else {
+        embedding = undefined;
+      }
     }
   }
 
@@ -1279,12 +1288,15 @@ function summarizeCoverage(
   };
 }
 
-async function computeCoverageByMode(
+export type EmbeddingBudgetState = { remainingEmbeddingRequests: number };
+
+export async function computeCoverageByMode(
   candidateClaims: ClaimCandidate[],
   goldClaims: FlattenedGoldenClaimNode[],
   mode: CoverageMode,
   embeddingClient?: GeminiEmbeddingClient,
-  coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>
+  coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>,
+  budgetState?: { remainingEmbeddingRequests: number }
 ): Promise<GoldCoverageSummary> {
   const cacheKey = buildCoverageCacheKey(candidateClaims, goldClaims, mode, !!embeddingClient);
   const cached = coverageCache?.get(cacheKey);
@@ -1295,7 +1307,7 @@ async function computeCoverageByMode(
 
   for (const [goldIndex, goldClaim] of goldClaims.entries()) {
     for (const [candidateIndex, candidate] of candidateClaims.entries()) {
-      const pair = await scorePair(goldClaim, candidate, verifier, mode, embeddingClient);
+      const pair = await scorePair(goldClaim, candidate, verifier, mode, embeddingClient, budgetState);
       pair.goldIndex = goldIndex;
       pair.candidateIndex = candidateIndex;
       allPairs.push(pair);
@@ -1551,7 +1563,8 @@ async function enrichReportsWithTeacherData(
   comparableClaimSets: ComparableClaimSet[],
   embeddingClient?: GeminiEmbeddingClient,
   coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>,
-  teacherEligibleCandidateIds?: Set<string>
+  teacherEligibleCandidateIds?: Set<string>,
+  budgetState?: { remainingEmbeddingRequests: number }
 ): Promise<void> {
   const teacher = selectTeacherCandidate(videoReports);
   if (!teacher) return;
@@ -1567,7 +1580,7 @@ async function enrichReportsWithTeacherData(
     const candidateEmbeddingClient = !teacherEligibleCandidateIds || teacherEligibleCandidateIds.has(report.candidateId)
       ? embeddingClient
       : undefined;
-    report.teacherCoverage = await computeCoverageByMode(sourceClaims.claims, teacherNodes, "semantic", candidateEmbeddingClient, coverageCache);
+    report.teacherCoverage = await computeCoverageByMode(sourceClaims.claims, teacherNodes, "semantic", candidateEmbeddingClient, coverageCache, budgetState);
     report.gapSummary = {
       missingGoldRoots: report.semanticCoverage.unmatchedGoldClaims
         .filter((claim) => claim.depth === 0)
@@ -1731,13 +1744,14 @@ async function buildCandidateReport(
   goldClaims: FlattenedGoldenClaimNode[],
   transcriptProfile: TranscriptStructureProfile,
   embeddingClient?: GeminiEmbeddingClient,
-  coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>
+  coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>,
+  budgetState?: { remainingEmbeddingRequests: number }
 ): Promise<NarrowComparisonCandidateReport> {
   const structuralTargetAssessment = assessStructuralTargets(candidate.claims, transcriptProfile);
   const strictCoverage = await computeCoverageByMode(candidate.claims, goldClaims, "strict", undefined, coverageCache);
-  const semanticCoverage = await computeCoverageByMode(candidate.claims, goldClaims, "semantic", embeddingClient, coverageCache);
+  const semanticCoverage = await computeCoverageByMode(candidate.claims, goldClaims, "semantic", embeddingClient, coverageCache, budgetState);
   const embeddingCoverage = embeddingClient
-    ? await computeCoverageByMode(candidate.claims, goldClaims, "embedding", embeddingClient, coverageCache)
+    ? await computeCoverageByMode(candidate.claims, goldClaims, "embedding", embeddingClient, coverageCache, budgetState)
     : undefined;
 
   if (candidate.error) {
@@ -2186,20 +2200,14 @@ export async function runNarrowManualBaselineComparison(
         console.warn(`[embedding-skip-budget] video=${video.videoId} candidate=${candidate.candidateId} remaining=0`);
       }
 
-      const initialApiRequests = effectiveEmbeddingClient?.getStats().apiRequestCount ?? 0;
       candidateReports.push(await buildCandidateReport(
         candidate,
         goldClaims,
         transcriptProfile,
         embeddingEligibleCandidateIds?.has(candidate.candidateId) ? effectiveEmbeddingClient : undefined,
-        coverageCache
+        coverageCache,
+        budgetState
       ));
-
-      if (effectiveEmbeddingClient) {
-        const finalApiRequests = effectiveEmbeddingClient.getStats().apiRequestCount;
-        const used = finalApiRequests - initialApiRequests;
-        budgetState.remainingEmbeddingRequests -= used;
-      }
 
       console.log(
         `[coverage-candidate] video=${video.videoId} index=${candidateIndex + 1}/${comparableClaimSets.length} candidate=${candidate.candidateId}`
@@ -2212,20 +2220,14 @@ export async function runNarrowManualBaselineComparison(
         console.warn(`[embedding-skip-budget] video=${video.videoId} phase=teacher remaining=0`);
       }
 
-      const initialTeacherApiRequests = effectiveEmbeddingClient?.getStats().apiRequestCount ?? 0;
       await enrichReportsWithTeacherData(
         candidateReports,
         comparableClaimSets,
         effectiveEmbeddingClient,
         coverageCache,
-        embeddingEligibleCandidateIds
+        embeddingEligibleCandidateIds,
+        budgetState
       );
-
-      if (effectiveEmbeddingClient) {
-        const finalTeacherApiRequests = effectiveEmbeddingClient.getStats().apiRequestCount;
-        const used = finalTeacherApiRequests - initialTeacherApiRequests;
-        budgetState.remainingEmbeddingRequests -= used;
-      }
     }
     console.log(`[coverage-done] video=${video.videoId} durationMs=${Date.now() - coverageStartedAt}`);
     return {

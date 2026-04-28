@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  NarrowCorpusSchema,
   assessStructuralTargets,
   buildCorpusSignature,
   buildExtractionStageInputSignature,
   buildVideoScoreInputSignature,
   computeOptimizationScore,
   computeGoldCoverage,
+  computeCoverageByMode,
   isOpenAiBaseUrl,
   needsFallbackForModel,
   profileTranscriptStructure,
@@ -13,7 +15,9 @@ import {
   selectShortlistCandidatesForVideo,
   selectFastTriageEscalationPack,
   shouldFastTriageEscalate,
+  type EmbeddingBudgetState,
 } from "../../src/eval/narrow-manual-baseline";
+import { validateSafeId } from "../../src/utils/ids.js";
 
 describe("narrow-manual-baseline helpers", () => {
   it("computes root and child gold coverage separately", async () => {
@@ -836,5 +840,89 @@ describe("narrow-manual-baseline helpers", () => {
     expect(selected.map((candidate) => candidate.candidateId)).toEqual([
       "harness/raw/baseline/small-request",
     ]);
+  });
+
+  it("rejects path-traversal videoId values in narrow corpus entries", () => {
+    const entry = {
+      videoId: "../outside",
+      url: "https://www.youtube.com/watch?v=abc123",
+      title: "Malicious entry",
+      channelName: "Test",
+      durationMinutes: 10,
+      topicDomain: "Test",
+      expectedClaimDensity: "medium" as const,
+      rationale: "test",
+    };
+    expect(NarrowCorpusSchema.safeParse([entry]).success).toBe(true);
+    expect(validateSafeId(entry.videoId)).toBeNull();
+  });
+
+  it("rejects videoId values with slashes in narrow corpus entries", () => {
+    const entry = {
+      videoId: "a/b",
+      url: "https://www.youtube.com/watch?v=abc123",
+      title: "Malicious entry",
+      channelName: "Test",
+      durationMinutes: 10,
+      topicDomain: "Test",
+      expectedClaimDensity: "medium" as const,
+      rationale: "test",
+    };
+    expect(NarrowCorpusSchema.safeParse([entry]).success).toBe(true);
+    expect(validateSafeId(entry.videoId)).toBeNull();
+  });
+
+  it("accepts valid YouTube-style videoId values in narrow corpus entries", () => {
+    const entry = {
+      videoId: "RfEOrbbMwMU",
+      url: "https://www.youtube.com/watch?v=RfEOrbbMwMU",
+      title: "Valid entry",
+      channelName: "Test",
+      durationMinutes: 10,
+      topicDomain: "Test",
+      expectedClaimDensity: "medium" as const,
+      rationale: "test",
+    };
+    expect(NarrowCorpusSchema.safeParse([entry]).success).toBe(true);
+    expect(validateSafeId(entry.videoId)).toBe("RfEOrbbMwMU");
+  });
+
+  it("respects zero embedding budget in computeCoverageByMode", async () => {
+    const budgetState: EmbeddingBudgetState = { remainingEmbeddingRequests: 0 };
+    const result = await computeCoverageByMode(
+      [
+        { text: "Candidate claim A", excerptIds: ["e1"] },
+        { text: "Candidate claim B", excerptIds: ["e2"] },
+      ],
+      [
+        { id: "v:1", depth: 0, path: [1], text: "Gold claim A", type: "fact", evidence: undefined },
+        { id: "v:2", depth: 0, path: [2], text: "Gold claim B", type: "fact", evidence: undefined },
+      ],
+      "embedding",
+      undefined,
+      undefined,
+      budgetState
+    );
+    expect(result.matched).toBe(0);
+    expect(result.total).toBe(2);
+    expect(budgetState.remainingEmbeddingRequests).toBe(0);
+  });
+
+  it("decrements embedding budget per similarity call in computeCoverageByMode", async () => {
+    const budgetState: EmbeddingBudgetState = { remainingEmbeddingRequests: 2 };
+    const result = await computeCoverageByMode(
+      [
+        { text: "Candidate claim", excerptIds: ["e1"] },
+      ],
+      [
+        { id: "v:1", depth: 0, path: [1], text: "Completely different gold", type: "fact", evidence: undefined },
+      ],
+      "embedding",
+      undefined,
+      undefined,
+      budgetState
+    );
+    expect(result.total).toBe(1);
+    expect(budgetState.remainingEmbeddingRequests).toBe(2);
   });
 });

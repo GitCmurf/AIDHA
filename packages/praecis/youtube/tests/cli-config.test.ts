@@ -138,6 +138,9 @@ describe('CLI Configuration Bridge', () => {
       // Should NOT be in process.env now
       expect(process.env['AIDHA_OPENAI_API_KEY']).toBeUndefined();
       expect(process.env['AIDHA_GOOGLE_API_KEY']).toBeUndefined();
+      // dotenvEnv should carry the loaded keys for later scoped injection
+      expect(result.loadResult.dotenvEnv['AIDHA_OPENAI_API_KEY']).toBe('from-dotenv-openai');
+      expect(result.loadResult.dotenvEnv['AIDHA_GOOGLE_API_KEY']).toBe('from-dotenv-google');
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
       if (originalOpenAiKey === undefined) delete process.env['AIDHA_OPENAI_API_KEY'];
@@ -156,6 +159,88 @@ describe('CLI Configuration Bridge', () => {
 
     const overridesPos = buildCliOverrides({ 'embedding-batch-size': '10' });
     expect(overridesPos.llm?.embedding_batch_size).toBe(10);
+  });
+
+  it('returns empty dotenvEnv when no dotenv files are configured', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'aidha-cli-dotenv-env-'));
+    try {
+      mkdirSync(join(tempRoot, '.aidha'), { recursive: true });
+      writeFileSync(join(tempRoot, '.aidha', 'config.yaml'), [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        '    llm:',
+        '      model: no-dotenv-model',
+      ].join('\n'));
+
+      const result = await resolveCliConfig({ configPath: join(tempRoot, '.aidha', 'config.yaml') });
+      expect(result.ok).toBe(true);
+      expect(result.loadResult.dotenvEnv).toEqual({});
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('includes dotenv overrides in dotenvEnv when override_existing is true and shell has stale value', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'aidha-cli-override-'));
+    const configPath = join(tempRoot, '.aidha', 'config.yaml');
+    const dotenvPath = join(tempRoot, '.env');
+    const originalKey = process.env['AIDHA_OPENAI_API_KEY'];
+
+    try {
+      mkdirSync(join(tempRoot, '.aidha'), { recursive: true });
+      writeFileSync(configPath, [
+        'config_version: 1',
+        'default_profile: default',
+        'env:',
+        '  dotenv_files:',
+        '    - .env',
+        '  override_existing: true',
+        'profiles:',
+        '  default:',
+        '    llm:',
+        '      model: gpt-5-mini',
+        '      api_key: ${AIDHA_OPENAI_API_KEY}',
+      ].join('\n'));
+      writeFileSync(dotenvPath, [
+        'AIDHA_OPENAI_API_KEY=from-dotenv-override',
+      ].join('\n'));
+
+      process.env['AIDHA_OPENAI_API_KEY'] = 'stale-shell-value'; // pragma: allowlist secret
+
+      const result = await resolveCliConfig({ configPath });
+      expect(result.ok).toBe(true);
+      expect(result.config.llm.apiKey).toBe('from-dotenv-override');
+      expect(result.loadResult.dotenvEnv['AIDHA_OPENAI_API_KEY']).toBe('from-dotenv-override');
+
+      const dotenvEnv = result.loadResult.dotenvEnv;
+      const injectedKeys: string[] = [];
+      const savedOriginals: Record<string, string | undefined> = {};
+      for (const [key, value] of Object.entries(dotenvEnv)) {
+        if (process.env[key] !== value) {
+          savedOriginals[key] = process.env[key];
+          process.env[key] = value;
+          injectedKeys.push(key);
+        }
+      }
+      try {
+        expect(process.env['AIDHA_OPENAI_API_KEY']).toBe('from-dotenv-override');
+      } finally {
+        for (const key of injectedKeys) {
+          if (savedOriginals[key] === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = savedOriginals[key];
+          }
+        }
+      }
+      expect(process.env['AIDHA_OPENAI_API_KEY']).toBe('stale-shell-value');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+      if (originalKey === undefined) delete process.env['AIDHA_OPENAI_API_KEY'];
+      else process.env['AIDHA_OPENAI_API_KEY'] = originalKey;
+    }
   });
 
   it('uses INIT_CWD for project-local config discovery', async () => {

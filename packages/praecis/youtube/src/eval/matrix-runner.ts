@@ -389,16 +389,6 @@ const getScoresForCell = async (
 
   for (const judgeModelId of options.judgeModels) {
     const judgeModel = getModel(judgeModelId);
-    if (judgeModel) {
-      judgeUsdEstimate += options.dryRun
-        ? estimateJudgeCost(
-            fullText,
-            cell.claimSet,
-            judgeModel,
-            DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
-          )
-        : estimateJudgeCost(fullText, cell.claimSet, judgeModel);
-    }
 
     const cachedScores = options.resume && !options.dryRun
       ? await getCachedScore(
@@ -414,9 +404,20 @@ const getScoresForCell = async (
     if (cachedScores) {
       scores.push(...cachedScores);
     } else if (options.dryRun) {
+      if (judgeModel) {
+        judgeUsdEstimate += estimateJudgeCost(
+          fullText,
+          cell.claimSet,
+          judgeModel,
+          DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
+        );
+      }
       // skipcq: JS-0002
       console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     } else {
+      if (judgeModel) {
+        judgeUsdEstimate += estimateJudgeCost(fullText, cell.claimSet, judgeModel);
+      }
       try {
         const scoreResult = await performScoring(
           model.id,

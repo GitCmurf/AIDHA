@@ -880,17 +880,21 @@ describe('LLM claim extraction', () => {
   it('records chunk token diagnostics even when chunk responses come from cache', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-cache-diagnostics');
     const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-diagnostics-'));
+    const stubResponse = JSON.stringify({
+      claims: [
+        {
+          text: 'Cached diagnostic claim preserves enough detail to survive editorial filtering.',
+          excerptIds: ['excerpt-2'],
+          startSeconds: 30,
+          type: 'insight',
+        },
+      ],
+    });
     const client = new StubLlmClient([
-      JSON.stringify({
-        claims: [
-          {
-            text: 'Cached diagnostic claim preserves enough detail to survive editorial filtering.',
-            excerptIds: ['excerpt-2'],
-            startSeconds: 30,
-            type: 'insight',
-          },
-        ],
-      }),
+      stubResponse,
+      stubResponse,
+      stubResponse,
+      stubResponse,
     ]);
 
     const extractor = new LlmClaimExtractor({
@@ -1218,6 +1222,87 @@ describe('LLM claim extraction', () => {
     expect(stats.promptPackId).toBe('clinical-risk-management-v2');
     expect(stats.retryTriggered).toBe(false);
     expect(stats.retryPromptPackId).toBeUndefined();
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('preserves first-pass claims when retry returns empty claim set', async () => {
+    const resource = {
+      id: 'youtube-llm-retry-empty',
+      label: 'Business strategy discussion',
+      metadata: { videoId: 'llm-retry-empty', topicDomain: 'Business Strategy' },
+    } as any;
+    const excerptNodes = [
+      {
+        id: 'excerpt-1',
+        content: 'There are five slide layouts used in consulting presentations. The first is the title slide.',
+        metadata: { start: 0 },
+      },
+    ] as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-retry-empty-'));
+    const client = new RecordingStubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Chart slides should match the underlying data type.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            type: 'fact',
+          },
+        ],
+      }),
+      JSON.stringify({ claims: [] }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'pass1-claim-mining-v2',
+      cacheDir,
+      promptPackId: 'business-framework',
+      enablePromptRouting: false,
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts: excerptNodes, maxClaims: 5 });
+    const stats = extractor.getLastRunStats();
+
+    expect(client.calls).toBeGreaterThanOrEqual(2);
+    expect(claims.length).toBe(1);
+    expect(claims[0]?.text).toContain('Chart slides');
+    expect(stats.retryTriggered).toBe(true);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('routes config-derived prompt versions through v2 builder with generic pack', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-v2-config-routing');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-v2-config-routing-'));
+    const client = new RecordingStubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Root claim summarizing the chunk thesis.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            type: 'insight',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'pass1-claim-mining-v2:hierarchy-first',
+      cacheDir,
+      promptConfigId: 'hierarchy-first',
+      promptPackId: 'generic-hierarchy',
+      enablePromptRouting: false,
+    });
+
+    await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(1);
+    expect(client.requests[0]?.system).toContain('Target Claim Style:');
+    expect(client.requests[0]?.user).toContain('root-level summary claim');
     await rm(cacheDir, { recursive: true, force: true });
   });
 });

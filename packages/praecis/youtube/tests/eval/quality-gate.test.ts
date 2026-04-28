@@ -14,7 +14,7 @@ describe("checkSelfImprovementGate", () => {
     expect(result.passed).toBe(true);
   });
 
-  it("should fail if baseline variant is missing for a self-improve cell", () => {
+  it("should skip when baseline variant is absent from the matrix entirely", () => {
     const report = {
       ...mockReportBase,
       cells: [
@@ -27,8 +27,9 @@ describe("checkSelfImprovementGate", () => {
       ]
     } as MatrixReport;
     const result = checkSelfImprovementGate(report);
-    expect(result.passed).toBe(false);
-    expect(result.regressions.some(r => r.dimension === "missing-baseline")).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(result.passed).toBe(true);
+    expect(result.regressions).toHaveLength(0);
   });
 
   it("should fail if scoring data is missing for both narrow judge and consensus", () => {
@@ -239,6 +240,41 @@ describe("checkSelfImprovementGate", () => {
     // If tolerance is 0.9, it should fail
     const result2 = checkSelfImprovementGate(report, { tolerance: 0.9 });
     expect(result2.passed).toBe(false);
+  });
+
+  it("should report missing-baseline regression when baseline variant is present but missing for a specific video", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          claimSet: []
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          claimSet: []
+        },
+        {
+          videoId: "v2",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          claimSet: []
+        }
+      ]
+    } as MatrixReport;
+    const result = checkSelfImprovementGate(report);
+    expect(result.skipped).toBe(false);
+    expect(result.passed).toBe(false);
+    expect(result.regressions).toHaveLength(2);
+    const missingBaseline = result.regressions.filter(r => r.dimension === "missing-baseline");
+    expect(missingBaseline).toHaveLength(1);
+    expect(missingBaseline[0].entityId).toContain("v2");
+    const missingScoring = result.regressions.filter(r => r.dimension === "missing-scoring-data");
+    expect(missingScoring).toHaveLength(1);
   });
 
   it("should treat NaN narrow judge scores as zero during regression checks", () => {

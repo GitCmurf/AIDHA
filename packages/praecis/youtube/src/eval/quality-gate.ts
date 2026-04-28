@@ -39,6 +39,16 @@ export function checkSelfImprovementGate(
     return { passed: true, regressions: [], skipped: true, message: `No ${selfImproveVariantId} cells found in report.` };
   }
 
+  const hasAnyBaseline = report.cells.some(c => c.extractorVariantId === baselineVariantId);
+  if (!hasAnyBaseline) {
+    return {
+      passed: true,
+      regressions: [],
+      skipped: true,
+      message: `Baseline variant ${baselineVariantId} not present in matrix; self-improvement gate is inapplicable.`
+    };
+  }
+
   // Group by video for like-for-like comparison
   for (const siCell of selfImproveCells) {
     const baselineCell = report.cells.find(c =>
@@ -50,7 +60,6 @@ export function checkSelfImprovementGate(
     );
 
     if (!baselineCell) {
-      // Missing baseline is a failure state for the gate as we cannot verify lack of regression
       regressions.push({
         entityId: `${siCell.videoId}/${siCell.modelId}`,
         dimension: "missing-baseline",

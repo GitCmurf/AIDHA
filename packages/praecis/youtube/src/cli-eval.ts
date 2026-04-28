@@ -36,7 +36,7 @@ import { sanitizeFilename } from "./utils/ids.js";
 
 const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"];
-  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.openai.com/v1";
+  const effectiveBaseUrl = baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1";
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
@@ -353,6 +353,17 @@ const loadNarrowCorpusData = (corpusPath: string) => {
     const parsed = NarrowCorpusSchema.safeParse(raw);
     if (!parsed.success) {
       console.error("Narrow corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
+      return { ok: false, error: 1 };
+    }
+    const unsafeIds = parsed.data
+      .map((entry) => ({ videoId: entry.videoId, safe: validateSafeId(entry.videoId) }))
+      .filter((entry) => entry.safe === null)
+      .map((entry) => entry.videoId);
+    if (unsafeIds.length > 0) {
+      console.error(
+        `Narrow corpus contains unsafe videoId values: ${unsafeIds.join(", ")}. ` +
+        "Each videoId must match /^[a-zA-Z0-9_-]+$/ and must not contain path traversal sequences."
+      );
       return { ok: false, error: 1 };
     }
     return { ok: true, data: parsed.data };
@@ -703,7 +714,7 @@ const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOp
     return 1;
   }
 
-  if (!report.qualityGates.selfImprovement.passed) {
+  if (!report.qualityGates.selfImprovement.passed && !report.qualityGates.selfImprovement.skipped) {
     // skipcq: JS-0002
     console.warn(`Self-improvement quality gate failed with ${report.qualityGates.selfImprovement.regressions.length} regression(s).`);
     return 1;
@@ -945,7 +956,6 @@ const runNarrowManualBaseline = async (
   const requiredModelIds = Array.from(new Set([
     ...models.map((model) => model.id),
     ...parsedOpts.judgeModelIds,
-    parsedOpts.fallbackModelId,
   ]));
 
   const unsupportedModels: string[] = [];
@@ -968,6 +978,22 @@ const runNarrowManualBaseline = async (
       "Set the relevant API keys before running the narrow manual baseline comparison."
     );
     return 1;
+  }
+
+  if (!models.some(m => m.id === parsedOpts.fallbackModelId)) {
+    try {
+      const fallbackConnection = resolveProviderConnection(parsedOpts.fallbackModelId, config.llm);
+      if (!fallbackConnection.apiKey || fallbackConnection.apiKey.trim().length === 0) {
+        if (!parsedOpts.dryRun) {
+          console.warn(
+            `Warning: Fallback model ${parsedOpts.fallbackModelId} has no credentials. ` +
+            "Fallback extraction will be skipped if needed."
+          );
+        }
+      }
+    } catch {
+      // Already validated as a known model above
+    }
   }
 
   printNarrowPlan(parsedOpts, models, variantIds);

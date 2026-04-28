@@ -1341,8 +1341,28 @@ const executeCommand = async (command: string, positionals: string[], options: C
   const config = resolution.ok ? resolution.config : undefined;
 
   if (config) {
-    const result = await runMatchingRunner(command, positionals, options, config);
-    if (result !== null) return result;
+    const dotenvEnv = resolution.loadResult?.dotenvEnv ?? {};
+    const injectedKeys: string[] = [];
+    const savedOriginals: Record<string, string | undefined> = {};
+    for (const [key, value] of Object.entries(dotenvEnv)) {
+      if (process.env[key] !== value) {
+        savedOriginals[key] = process.env[key];
+        process.env[key] = value;
+        injectedKeys.push(key);
+      }
+    }
+    try {
+      const result = await runMatchingRunner(command, positionals, options, config);
+      if (result !== null) return result;
+    } finally {
+      for (const key of injectedKeys) {
+        if (savedOriginals[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = savedOriginals[key];
+        }
+      }
+    }
   }
 
   if (command === 'config') {

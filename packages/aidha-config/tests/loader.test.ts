@@ -255,6 +255,18 @@ profiles:
     const env: Record<string, string | undefined> = {};
     const result = await loadConfig({ cwd: tmpDir, env });
     expect(result.config!.profiles['default']?.llm?.api_key).toBe('dotenv-value');
+    expect(result.dotenvEnv['FROM_DOTENV']).toBe('dotenv-value');
+  });
+
+  it('should return empty dotenvEnv when no dotenv files configured', async () => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+profiles:
+  default: {}
+`);
+    const result = await loadConfig({ cwd: tmpDir, env: {} });
+    expect(result.dotenvEnv).toEqual({});
   });
 
   it('should warn on missing dotenv file by default', async () => {

@@ -134,6 +134,7 @@ export async function resolveCliConfig(
       configPath,
       baseDir: process.cwd(), // Fallback
       warnings: [],
+      dotenvEnv: {},
     };
 
     return {

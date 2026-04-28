@@ -1001,7 +1001,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let system: string;
     let user: string;
 
-    if (this.promptVersion === PROMPT_V2_VERSION || promptPackId !== 'generic-hierarchy') {
+    if (this.promptVersion.startsWith(PROMPT_V2_VERSION) || promptPackId !== 'generic-hierarchy') {
       const prompt = buildPass1PromptV2(
         {
           resourceLabel: resource.label,
@@ -1244,7 +1244,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       retryReason: retryDecision.retryReason,
     });
 
-    if (scoreStructuralCompleteness(retryPass.selected, routing.profile) >= scoreStructuralCompleteness(firstPass.selected, routing.profile)) {
+    if (retryPass.selected.length > 0 && scoreStructuralCompleteness(retryPass.selected, routing.profile) > scoreStructuralCompleteness(firstPass.selected, routing.profile)) {
       this.lastEditorDiagnostics = retryPass.editorDiagnostics;
       this.lastTraces = retryPass.traces;
       this.lastRunStats.promptPackId = retryDecision.retryPromptPackId;

@@ -236,7 +236,7 @@ describe("Matrix Runner Integration", () => {
     expect(report.modelStats["m1"].dimensions.completeness.mean).toBe(5);
   });
 
-  it("should keep judge cost estimates when scores are resumed from cache", async () => {
+  it("should report zero judge cost when scores are resumed from cache", async () => {
     const corpus = [
       createTestVideo("v1", 10, "low"),
     ];
@@ -281,6 +281,6 @@ describe("Matrix Runner Integration", () => {
 
     expect(result.cells).toHaveLength(1);
     expect(result.cells[0]?.scores).toHaveLength(1);
-    expect(result.cells[0]?.costEstimate?.judgeUsd).toBeGreaterThan(0);
+    expect(result.cells[0]?.costEstimate?.judgeUsd).toBe(0);
   });
 });

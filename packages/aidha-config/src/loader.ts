@@ -158,6 +158,8 @@ export interface LoadResult {
   baseDir: string;
   /** Any warnings generated during loading. */
   warnings: string[];
+  /** Key-value pairs loaded from dotenv files (not originally in process.env). */
+  dotenvEnv: Record<string, string>;
 }
 
 /**
@@ -192,7 +194,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     if (explicitPath) {
       throw new ConfigNotFoundError(explicitPath);
     }
-    return { config: null, configPath: null, baseDir: cwd, warnings };
+    return { config: null, configPath: null, baseDir: cwd, warnings, dotenvEnv: {} };
   }
 
   // ── Step 2: Compute base_dir_prelim ─────────────────────────────────
@@ -218,6 +220,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
   const rawObj = raw as Record<string, unknown>;
 
   // ── Step 4: Load dotenv files (if configured) ───────────────────────
+  const dotenvEnv: Record<string, string> = {};
   const envRaw = rawObj['env'];
   const envConfig =
     envRaw !== null && typeof envRaw === 'object' && !Array.isArray(envRaw)
@@ -278,6 +281,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         // Only protect pre-existing process env vars when override_existing is false.
         if (overrideExisting || !originalEnvKeys.has(key)) {
           env[key] = value;
+          dotenvEnv[key] = value;
           if (syncProcessEnv && (overrideExisting || process.env[key] === undefined || loadedDotenvKeys.has(key))) {
             process.env[key] = value;
             loadedDotenvKeys.add(key);
@@ -310,5 +314,5 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
   // ── Step 8: Resolve path-like values ────────────────────────────────
   resolvePathValues(config as unknown as Record<string, unknown>, baseDir);
 
-  return { config, configPath, baseDir, warnings };
+  return { config, configPath, baseDir, warnings, dotenvEnv };
 }
