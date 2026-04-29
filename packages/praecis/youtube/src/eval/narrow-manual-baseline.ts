@@ -2642,7 +2642,7 @@ export async function runNarrowManualBaselineComparison(
     if (cachedJudge?.inputSignature === stageInputSignature) {
       console.log("[resume-from] stage=judge");
       stageExecution.judge = "resumed";
-      videos = cachedJudge.videos;
+      videos = cachedJudge.videos.map((video) => backfillTranscriptStructureProfile(video, transcriptByVideo));
     } else {
       await judgeVideoReports(videos, finalHarnessCells, includeManualBaselines);
       await writeNarrowStageArtifact<NarrowJudgeStageArtifact>(options.outputDir, "judge", {
