@@ -124,10 +124,29 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
   return DEFAULT_MODEL_CAPABILITIES;
 }
 
+function handleAbortOrError(
+  error: unknown,
+  combinedSignal: AbortSignal | undefined,
+  clientTimeoutSignal: AbortSignal | undefined,
+  requestSignal: AbortSignal | undefined,
+  clientLabel: string,
+  timeoutMs: number
+): Result<string> {
+  if (combinedSignal?.aborted) {
+    if (clientTimeoutSignal?.aborted) {
+      return { ok: false, error: new Error(`${clientLabel} client timeout after ${timeoutMs}ms`) };
+    }
+    if (requestSignal?.aborted) {
+      return { ok: false, error: new Error(`${clientLabel} request aborted by upstream timeout or cancellation`) };
+    }
+  }
+  return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+}
+
 /** Maximum base URL length to prevent potential ReDoS attacks. */
 const MAX_URL_LENGTH = 2048;
 
-function normalizeBaseUrl(baseUrl: string): string {
+export function normalizeBaseUrl(baseUrl: string): string {
   // Use validateLength from @aidha/config to avoid duplication
   validateLength(baseUrl, MAX_URL_LENGTH, 'Base URL');
   return baseUrl.replace(/\/+$/, '');
@@ -284,15 +303,7 @@ export class OpenAiCompatibleClient implements LlmClient {
       }
       return { ok: true, value: content };
     } catch (error) {
-      if (combinedSignal?.aborted) {
-        if (clientTimeoutSignal?.aborted) {
-          return { ok: false, error: new Error(`LLM client timeout after ${this.timeoutMs}ms`) };
-        }
-        if (request.signal?.aborted) {
-          return { ok: false, error: new Error('LLM request aborted by upstream timeout or cancellation') };
-        }
-      }
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'LLM', this.timeoutMs);
     }
   }
 }
@@ -384,15 +395,7 @@ export class GeminiApiClient implements LlmClient {
 
       return { ok: true, value: content };
     } catch (error) {
-      if (combinedSignal?.aborted) {
-        if (clientTimeoutSignal?.aborted) {
-          return { ok: false, error: new Error(`Gemini client timeout after ${this.timeoutMs}ms`) };
-        }
-        if (request.signal?.aborted) {
-          return { ok: false, error: new Error('Gemini request aborted by upstream timeout or cancellation') };
-        }
-      }
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'Gemini', this.timeoutMs);
     }
   }
 }

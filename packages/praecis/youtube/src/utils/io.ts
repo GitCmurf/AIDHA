@@ -6,19 +6,20 @@ import { randomBytes } from "node:crypto";
  * Writes a string to a file atomically by writing to a temporary file first
  * and then renaming it.
  */
-export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
+export async function writeFileAtomic(filePath: string, content: string, options?: { sync?: boolean }): Promise<void> {
   const dir = dirname(filePath);
   await mkdir(dir, { recursive: true });
 
   const tempPath = `${filePath}.${randomBytes(8).toString("hex")}.tmp`;
   try {
     await writeFile(tempPath, content, "utf-8");
-    // fsync before rename for crash durability
-    const fd = await open(tempPath, "r+");
-    try {
-      await fd.sync();
-    } finally {
-      await fd.close();
+    if (options?.sync !== false) {
+      const fd = await open(tempPath, "r+");
+      try {
+        await fd.sync();
+      } finally {
+        await fd.close();
+      }
     }
     await rename(tempPath, filePath);
   } catch (error) {

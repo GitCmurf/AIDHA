@@ -134,7 +134,6 @@ run_with_heartbeat() {
         if (( rc == 124 )); then
             log "stage=${stage} status=timeout limit=${HARD_TIMEOUT_MINUTES}m log=${log_file}"
         fi
-        tail -n 80 "${log_file}" >&2 || true
     fi
 
     cat "${log_file}"
@@ -276,6 +275,7 @@ main() {
     RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
     RUN_DIR="${TMPDIR:-/tmp}/aidha-gemini-remediation-${RUN_ID}"
     mkdir -p "${RUN_DIR}"
+    trap 'rm -rf "${RUN_DIR}"' EXIT
     log "run_dir=${RUN_DIR}"
     log "verify_mode=${VERIFY_MODE}"
     log "review_tool=${REVIEW_TOOL}"
@@ -296,7 +296,8 @@ main() {
         if gemini_output="$(run_gemini "${prompt}")"; then
             printf '%s\n' "${gemini_output}"
         else
-            local gemini_rc=$?
+            local gemini_rc
+            gemini_rc=$?
             log "gemini failed rc=${gemini_rc} iteration=${iteration}"
             log "gemini log=$(stage_log_file "gemini-iteration-${iteration}")"
             exit "${gemini_rc}"
@@ -307,7 +308,8 @@ main() {
         if verification_output="$(run_verification_mode "${root_dir}" "${VERIFY_MODE}")"; then
             printf '%s\n' "${verification_output}"
         else
-            local verification_rc=$?
+            local verification_rc
+            verification_rc=$?
             printf '%s\n' "${verification_output}"
             log "verification failed rc=${verification_rc}"
             exit "${verification_rc}"
@@ -320,13 +322,15 @@ main() {
         if review_output="$(run_review)"; then
             printf '%s\n' "${review_output}"
         else
-            local review_rc=$?
+            local review_rc
+            review_rc=$?
             log "review tool exited rc=${review_rc}"
             log "review log=$(stage_log_file "${REVIEW_TOOL}-review")"
             printf '%s\n' "${review_output}"
             if (( iteration == MAX_ITERATIONS )); then
                 exit "${review_rc}"
             fi
+            continue
         fi
 
         if review_looks_clear "${review_output}"; then
@@ -383,9 +387,9 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --review-tool)
-    REVIEW_TOOL="${2:-}"
-    shift 2
-    ;;
+            REVIEW_TOOL="${2:-}"
+            shift 2
+            ;;
         --review-model)
             REVIEW_MODEL="${2:-}"
             shift 2

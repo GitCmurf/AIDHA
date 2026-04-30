@@ -41,7 +41,7 @@ function buildSelfImproveHintKey(
   promptConfigId?: string,
   chunkModeId?: string
 ): string {
-  return [videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"].map(encodeURIComponent).join("|");
+  return JSON.stringify([videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"]);
 }
 
 export interface VideoContext {
@@ -471,7 +471,6 @@ const getExtractionForCell = async (
   promptVersion: string,
   extractorVersion: string
 ): Promise<MatrixCell | { error: { message: string } }> => {
-  // Determine actual prompt pack used (taking prompt routing into account)
   let runtimePromptPackId = options.extractionPromptPackId;
   if (options.extractionEnablePromptRouting) {
     const routing = decidePromptPack({
@@ -545,7 +544,6 @@ const getExtractionForCell = async (
       promptVersion,
       runtimePromptPackId
     );
-
 
     const newCell: MatrixCell = {
       videoId: video.videoId,

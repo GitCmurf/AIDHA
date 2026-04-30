@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { writeJsonAtomic } from "../utils/io.js";
 import { join } from "node:path";
 import { hashId } from "../utils/ids.js";
 import type { MatrixCell } from "./matrix-runner.js";
@@ -28,12 +29,10 @@ export interface CacheOptions {
   cacheDir: string;
 }
 
-function encodeCachePart(value: string | undefined): string {
-  return value === undefined ? "__undefined__" : value;
-}
+const UNDEFINED_CACHE_PART = "__undefined__";
 
-async function ensureCacheDir(cacheDir: string): Promise<void> {
-  await mkdir(cacheDir, { recursive: true });
+function encodeCachePart(value: string | undefined): string {
+  return value === undefined ? UNDEFINED_CACHE_PART : value;
 }
 
 export async function getCachedExtraction(
@@ -105,8 +104,7 @@ export async function setCachedExtraction(
 
   const filePath = join(options.cacheDir, `extraction-${key}.json`);
 
-  await ensureCacheDir(options.cacheDir);
-  await writeFile(filePath, JSON.stringify(cell, null, 2), "utf-8");
+  await writeJsonAtomic(filePath, cell);
 }
 
 export async function getCachedScore(
@@ -145,8 +143,7 @@ export async function setCachedScore(
   const key = hashId("score", [videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion]);
   const filePath = join(options.cacheDir, `score-${key}.json`);
 
-  await ensureCacheDir(options.cacheDir);
-  await writeFile(filePath, JSON.stringify(scores, null, 2), "utf-8");
+  await writeJsonAtomic(filePath, scores);
 }
 
 export function computeClaimSetHash(claims: ClaimCandidate[]): string {

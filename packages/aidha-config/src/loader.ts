@@ -158,7 +158,7 @@ export interface LoadResult {
   baseDir: string;
   /** Any warnings generated during loading. */
   warnings: string[];
-  /** Key-value pairs loaded from dotenv files (not originally in process.env). */
+  /** Key-value pairs loaded from dotenv files (not originally in the env map). */
   dotenvEnv: Record<string, string>;
 }
 

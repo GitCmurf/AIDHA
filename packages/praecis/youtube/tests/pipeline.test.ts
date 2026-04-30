@@ -205,7 +205,7 @@ describe('IngestionPipeline', () => {
       expect(resource.value.content).toContain('TypeScript');
     });
 
-    it('clears stale excerpts when transcript refresh fails', async () => {
+    it('preserves stale excerpts when transcript refresh fails', async () => {
       await graphStore.upsertNode(
         'Resource',
         'youtube-test-video',

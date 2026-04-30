@@ -3,6 +3,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync
 import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve, isAbsolute, relative } from "node:path";
 import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
+import { getHostnameFromUrl, isOpenAiBaseUrl } from "./utils/urls.js";
 import { fileURLToPath, URL } from "node:url";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
@@ -16,6 +17,7 @@ import {
   createGeminiClientFromConfig,
   createLlmClientFromConfig,
   detectModelCapabilities,
+  type ModelCapabilities,
   type LlmCompletionRequest
 } from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
@@ -53,8 +55,7 @@ const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBas
     process.env["AIDHA_GOOGLE_API_KEY"];
 
   const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "");
-  const effectiveHostname = getHostnameFromUrl(effectiveBaseUrl);
-  const isOpenAiHost = effectiveHostname === "openai.com" || (effectiveHostname?.endsWith(".openai.com") ?? false);
+  const isOpenAiHost = isOpenAiBaseUrl(effectiveBaseUrl);
   const finalBaseUrl = isOpenAiHost
         ? "https://generativelanguage.googleapis.com/v1beta"
         : (effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : "https://generativelanguage.googleapis.com/v1beta");
@@ -208,14 +209,6 @@ const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: strin
   return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile) : null;
 };
 
-function getHostnameFromUrl(value?: string): string | null {
-  if (!value) return null;
-  try {
-    return new URL(value).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Determines if a given LLM configuration profile matches the target provider
@@ -239,7 +232,7 @@ function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"
   const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
   const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
   const isOpenAiKey = isOpenAi && !!baseConfig.apiKey?.startsWith("sk-") && !baseConfig.apiKey?.startsWith("sk-or-");
-  const isOpenAiUrl = isOpenAi && (baseHostname === "api.openai.com" || (baseHostname?.endsWith(".openai.com") ?? false));
+  const isOpenAiUrl = isOpenAi && isOpenAiBaseUrl(baseConfig.baseUrl);
   const isOpenAiModel = isOpenAi && (baseConfig.model?.toLowerCase().startsWith("gpt-") || /^o\d/i.test(baseConfig.model ?? ""));
 
   return (isOpenAi && (isOpenAiKey || isOpenAiUrl || isOpenAiModel)) || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
@@ -285,8 +278,10 @@ export const createProviderAwareClient = (
     ? createGeminiClientFromConfig
     : createLlmClientFromConfig;
 
-  const capabilities = { ...detectModelCapabilities(modelId) };
-  capabilities.supportsStructuredOutput = model.supportsJsonMode;
+  const capabilities: ModelCapabilities = {
+    ...detectModelCapabilities(modelId),
+    supportsStructuredOutput: model.supportsJsonMode,
+  };
 
   const clientResult = clientFactory({
     ...baseConfig,

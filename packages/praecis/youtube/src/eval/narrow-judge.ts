@@ -5,6 +5,7 @@ import type { Result } from "../pipeline/types.js";
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import type { VideoContext } from "./matrix-runner.js";
 import { buildNarrowJudgePrompt, NARROW_JUDGE_PROMPT_VERSION } from "./prompts/judge-narrow-claim-quality.js";
+import { normalizeText } from "../extract/utils.js";
 
 const NarrowJudgeFindingSchema = z.object({
   goldId: z.string().min(1).optional(),
@@ -65,7 +66,7 @@ function clampScore(value: number): number {
 }
 
 function normalizeFindingText(text: string): string {
-  return text.trim().replace(/\s+/g, " ").toLowerCase();
+  return normalizeText(text).toLowerCase();
 }
 
 function stripCodeFences(content: string): string {
@@ -98,6 +99,7 @@ export function deriveNarrowJudgeScores(
   candidateClaims: ClaimCandidate[]
 ): NarrowDerivedJudgeScores {
   const validGoldIds = new Set(goldClaims.map((c) => c.id));
+  const normalizedGoldTextById = new Map(goldClaims.map((c) => [c.id, normalizeFindingText(c.text)]));
   const matchedGoldIds = new Set<string>();
   const unmatchedForFallback = [...goldClaims];
 
@@ -107,7 +109,7 @@ export function deriveNarrowJudgeScores(
     } else if (finding.goldText) {
       // Fallback for old caches: match by normalized text, ensuring 1 finding matches at most 1 node
       const normalizedGold = normalizeFindingText(finding.goldText);
-      const idx = unmatchedForFallback.findIndex((c) => normalizeFindingText(c.text) === normalizedGold);
+      const idx = unmatchedForFallback.findIndex((c) => normalizedGoldTextById.get(c.id) === normalizedGold);
       const matchedNode = unmatchedForFallback[idx];
       if (idx !== -1 && matchedNode) {
         matchedGoldIds.add(matchedNode.id);
@@ -129,7 +131,7 @@ export function deriveNarrowJudgeScores(
     if (finding.goldId && validGoldIds.has(finding.goldId)) return rootIds.has(finding.goldId);
     if (finding.goldText) {
       const normalizedGold = normalizeFindingText(finding.goldText);
-      return goldClaims.some((c) => c.depth === 0 && normalizeFindingText(c.text) === normalizedGold);
+      return goldClaims.some((c) => c.depth === 0 && normalizedGoldTextById.get(c.id) === normalizedGold);
     }
     return false;
   }).length;
@@ -174,28 +176,6 @@ function parseFindings(content: string): Result<NarrowJudgeFindings> {
   }
 }
 
-/**
- * Evaluates a set of candidate claims against a transcript and golden claims.
- *
- * This function uses an AI judge to score the quality of extracted claims based on:
- * - Gold Coverage: How many of the ground-truth (gold) claims were captured.
- * - Faithfulness: Whether the candidate claims are supported by the transcript.
- * - Structure: Whether the claims follow the expected hierarchical/relational format.
- * - Atomicity: Whether the claims are sufficiently granular and non-redundant.
- *
- * @param judgeClient - LLM client instance for making evaluation requests.
- * @param judgeModel - ID of the model to use as a judge.
- * @param transcript - Full transcript text of the video.
- * @param claims - The set of candidate claims extracted by the system under test.
- * @param goldClaims - Ground-truth claims to compare against.
- * @param teacherClaims - Reference claims from a high-quality "teacher" extractor.
- * @param videoContext - Metadata about the video being evaluated.
- * @param maxTokens - Maximum tokens for the judge's response (default: 4000).
- * @param signal - Optional AbortSignal for request cancellation.
- *
- * @returns A Result containing the evaluation findings, derived scores, and execution traces.
- * @throws Never - Returns a failed Result instead of throwing.
- */
 export async function scoreNarrowClaimSet(
   judgeClient: LlmClient,
   judgeModel: string,
@@ -236,13 +216,10 @@ export async function scoreNarrowClaimSet(
     };
   }
 
-  const validationIssues =
-    parsed1.error instanceof z.ZodError
-      ? parsed1.error.issues.map(issue => `  - Path: ${JSON.stringify(issue.path)} — ${issue.message}`).join("\n")
-      : parsed1.error.message;
-
   const retryUser = `Your previous response failed JSON schema validation:
-${validationIssues}
+${parsed1.error instanceof z.ZodError
+  ? parsed1.error.issues.map(issue => `  - Path: ${JSON.stringify(issue.path)} — ${issue.message}`).join("\n")
+  : parsed1.error.message}
 
 Please correct the following evaluation output. You must return ONLY valid JSON that follows the schema exactly.
 

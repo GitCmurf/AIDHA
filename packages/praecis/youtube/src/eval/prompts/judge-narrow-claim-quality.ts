@@ -20,16 +20,6 @@ function sanitizePromptInput(text: string): string {
     .replace(/<\/TEACHER_CLAIMS>/gi, "< /TEACHER_CLAIMS>");
 }
 
-/**
- * Constructs the system and user prompts for the narrow judge evaluation pass.
- *
- * @param transcript - The full text transcript of the video chunk
- * @param claims - The set of candidate claims extracted by the model under test
- * @param goldClaims - The gold-standard baseline claims for this chunk
- * @param teacherClaims - Supplemental claims from a higher-tier model used as hints
- * @param videoContext - Metadata about the video (title, channel, etc.)
- * @returns An object containing the system and user prompt strings
- */
 export function buildNarrowJudgePrompt(
   transcript: string,
   claims: ClaimCandidate[],

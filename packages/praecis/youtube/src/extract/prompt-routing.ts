@@ -1,4 +1,5 @@
 import type { ClaimCandidate } from "./types.js";
+import { escapeRegExp } from "./utils.js";
 
 export type ExtractionPromptPackId =
   | "generic-hierarchy"
@@ -53,15 +54,11 @@ const BUSINESS_CUES = [
   "framework slide", "chart slide", "subtitle slide", "appendix", "client",
 ];
 
-function escapeRegex(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 const precompiledCueRegexes = new Map<string, RegExp>();
 function getCueRegex(cue: string): RegExp {
   const cached = precompiledCueRegexes.get(cue);
   if (cached) return cached;
-  const regex = new RegExp(`\\b${escapeRegex(cue)}\\b`, "i");
+  const regex = new RegExp(`\\b${escapeRegExp(cue)}\\b`);
   precompiledCueRegexes.set(cue, regex);
   return regex;
 }
@@ -76,13 +73,6 @@ function uniqueTerms(terms: string[]): string[] {
   return [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
 }
 
-/**
- * Analyzes transcript text to identify structural and domain cues.
- * Returns a profile containing cue counts and specific glossary signals.
- *
- * @param text - The transcript text to profile
- * @returns A TranscriptProfile containing identified cues and signals
- */
 export function buildTranscriptProfile(text: string): TranscriptProfile {
   const normalized = text.toLowerCase();
   const signals: string[] = [];
@@ -166,13 +156,6 @@ function routeConfidenceForPack(packId: ExtractionPromptPackId, profile: Transcr
   }
 }
 
-/**
- * Decides the optimal prompt pack based on video metadata and transcript content.
- * Falls back to generic-hierarchy if no specific pack is strongly indicated.
- *
- * @param input - Object containing topicDomain, title, and transcriptText
- * @returns An object with the routing decision and the transcript profile used
- */
 export function decidePromptPack(input: {
   topicDomain?: string;
   title?: string;
@@ -239,13 +222,6 @@ function computeDomainTermRecall(claims: ClaimCandidate[], glossaryTerms: string
   return matched / glossaryTerms.length;
 }
 
-/**
- * Evaluates extraction results to determine if a retry with a different prompt pack is needed.
- * Triggered by missing structural elements (roots, enumerations) or low domain term recall.
- *
- * @param input - Object containing current claims, current prompt pack, and transcript profile
- * @returns A decision object indicating if a retry is warranted and the recommended pack
- */
 export function determineRetryDecision(input: {
   claims: ClaimCandidate[];
   promptPackId: ExtractionPromptPackId;
@@ -292,14 +268,7 @@ export function determineRetryDecision(input: {
   return { retry: false };
 }
 
-/**
- * Calculates a structural completeness score (0-1) for a set of claims.
- * Weighting: Root coverage (35%), Enumeration coverage (20%), Domain recall (25%), Count (20%).
- *
- * @param claims - The extracted claims to score
- * @param profile - The transcript profile to compare against
- * @returns A completeness score between 0 and 1
- */
+// Weighting: Root coverage (35%), Enumeration (20%), Domain recall (25%), Count (20%).
 export function scoreStructuralCompleteness(claims: ClaimCandidate[], profile: TranscriptProfile): number {
   const hasRootClaim = claims.some((claim) => looksRootLike(claim.text)) ? 1 : 0;
   const hasEnumerationClaim = claims.some((claim) => looksEnumerationLike(claim.text)) ? 1 : 0;

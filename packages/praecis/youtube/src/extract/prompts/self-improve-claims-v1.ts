@@ -74,7 +74,7 @@ export function buildSelfImproveClaimsPrompt(input: SelfImprovePromptInput): { s
     ...(input.promptPackId
       ? [
           `PROMPT_PACK: ${input.promptPackId}`,
-          ...(input.retryReason ? [`RETRY_REASON: ${escapeTripleQuoted(sanitizeForPrompt(input.retryReason, 500))}`] : []),
+          ...(input.retryReason ? [`RETRY_REASON: ${sanitizeForPrompt(input.retryReason, 500)}`] : []),
           '',
         ]
       : []),

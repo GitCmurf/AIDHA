@@ -1,9 +1,11 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { writeFileAtomic } from "../utils/io.js";
 import { join } from "node:path";
 import type { Result } from "../pipeline/types.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
+import { normalizeText } from "../extract/utils.js";
+import { hashText } from "../utils/ids.js";
+import { normalizeBaseUrl } from "../extract/llm-client.js";
 
 export interface GeminiEmbeddingClientConfig {
   apiKey: string;
@@ -36,16 +38,8 @@ const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 500;
 
-function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, "");
-}
-
-function normalizeEmbeddingText(text: string): string {
-  return text.trim().replace(/\s+/g, " ");
-}
-
 function hashTextShort(text: string): string {
-  return createHash("sha256").update(text).digest("hex").slice(0, 16);
+  return hashText(text).slice(0, 16);
 }
 
 function cacheKeyForText(model: string, taskType: string, outputDimensionality: number, text: string): string {
@@ -122,7 +116,7 @@ export class GeminiEmbeddingClient {
   }
 
   async prewarm(texts: string[]): Promise<Result<{ warmed: number; failed: number }>> {
-    const uniqueTexts = [...new Set(texts.map((text) => normalizeEmbeddingText(text)).filter(Boolean))];
+    const uniqueTexts = [...new Set(texts.map((text) => normalizeText(text)).filter(Boolean))];
     const result = await this.embedBatch(uniqueTexts);
     if (!result.ok) return result;
 
@@ -130,11 +124,11 @@ export class GeminiEmbeddingClient {
   }
 
   async embedBatch(texts: string[]): Promise<Result<number[][]>> {
-    const normalized = texts.map(t => normalizeEmbeddingText(t));
+    const normalized = texts.map(t => normalizeText(t));
     if (normalized.some(t => !t)) {
       return { ok: false, error: new Error("One or more texts were empty after normalization") };
     }
-    const results: number[][] = new Array(normalized.length).fill(null).map(() => []);
+    const results: number[][] = Array.from({ length: normalized.length }, () => []);
     const toFetch: Array<{ text: string; index: number }> = [];
 
     // Check cache in parallel but process results sequentially to preserve order
@@ -260,7 +254,9 @@ export class GeminiEmbeddingClient {
       if (Array.isArray(v) && v.length > 0) {
         // Write to cache
         const text = texts[i];
-        if (text === undefined) continue;
+        if (text === undefined) {
+          return { ok: false, error: new Error(`Unexpected undefined text at index ${i} in batch of ${texts.length}`) };
+        }
         const cacheKey = cacheKeyForText(this.model, this.taskType, this.outputDimensionality, text);
         const cachePath = join(this.cacheDir, `${cacheKey}.json`);
         try {
@@ -344,6 +340,10 @@ export class GeminiEmbeddingClient {
     return { ok: true, value: vector };
   }
 
+  getApiRequestCount(): number {
+    return this.apiRequestCount;
+  }
+
   getStats(): { apiRequestCount: number; cacheHitCount: number; cacheMissCount: number } {
     return {
       apiRequestCount: this.apiRequestCount,
@@ -365,11 +365,10 @@ export class GeminiEmbeddingClient {
   }
 
   private async writeCache(cachePath: string, normalizedText: string, vector: number[]): Promise<void> {
-    await mkdir(this.cacheDir, { recursive: true });
     const payload: CachedEmbedding = {
       textHash: hashTextShort(normalizedText),
       vector,
     };
-    await writeFileAtomic(cachePath, JSON.stringify(payload));
+    await writeFileAtomic(cachePath, JSON.stringify(payload), { sync: false });
   }
 }

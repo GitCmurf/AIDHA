@@ -80,6 +80,11 @@ const CacheSchema = z.object({
  */
 const CURRENT_SCHEMA_VERSION = 2;
 
+const RETRY_DISABLED_PACKS = new Set<ExtractionPromptPackId>([
+  "enumeration-framework-v2",
+  "clinical-risk-management-v2",
+]);
+
 const RewriteClaimSchema = z.object({
   index: z.number().int().nonnegative(),
   text: z.string().min(1),
@@ -346,7 +351,6 @@ function buildSemanticChunks(
     currentTokens += excerptTokens;
     currentEnd = excerptStart;
 
-    // Guard: if overlap + this excerpt pushed us past the hard maximum, finalize immediately
     if (
       currentTokens > hardMaxInputTokens
       && (!maxChunks || chunks.length < maxChunks - 1)
@@ -1074,7 +1078,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
         if (prompt.totalRequestTokens <= safeMaxTokens) {
           return working;
         }
-        // If it doesn't fit, we let the standard loop handle it by falling through.
       } else {
         return working;
       }
@@ -1095,6 +1098,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
           next.push(left, right);
           changed = true;
           continue;
+        }
+        if (prompt.totalRequestTokens > safeMaxTokens && chunk.excerpts.length === 1) {
+          console.warn(`[TOKEN-BUDGET] Chunk ${chunk.index} has a single excerpt exceeding token budget (${prompt.totalRequestTokens} > ${safeMaxTokens}). Cannot split further.`);
         }
         next.push(chunk);
       }
@@ -1215,11 +1221,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       profile: routing.profile,
     });
 
-    const RETRY_DISABLED_PACKS = new Set<ExtractionPromptPackId>([
-      "enumeration-framework-v2",
-      "clinical-risk-management-v2",
-    ]);
-    const retryDecision = this.configuredPromptPackId && RETRY_DISABLED_PACKS.has(this.configuredPromptPackId)
+    const retryDecision = RETRY_DISABLED_PACKS.has(routing.decision.promptPackId)
       ? { retry: false as const }
       : determineRetryDecision({
           claims: firstPass.selected,

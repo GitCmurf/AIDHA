@@ -96,36 +96,17 @@ export function hashId(prefix: string, parts: Array<string | number | undefined>
   return `${prefix}-${digest}`;
 }
 
-/**
- * Generates a 32-character hex SHA-256 prefix of the provided text.
- * Used for generating deterministic identifiers for text content.
- *
- * @param text - The string to hash
- * @returns A 32-character hexadecimal SHA-256 hash prefix
- */
 export function hashText(text: string): string {
   return createHash("sha256").update(text).digest("hex").slice(0, 32);
 }
 
-/**
- * Streams a file as raw bytes (binary) and returns its 32-character SHA-256 hash prefix.
- * Returns null if the file cannot be read (e.g., file not found or permission error).
- *
- * @param filePath - The path to the file to hash
- * @returns A Promise resolving to a 32-char hex hash string, or null on failure
- */
+// Hashes file as raw bytes (not UTF-8) for cross-platform consistency. Returns null on any read error.
 export async function hashFile(filePath: string): Promise<string | null> {
   return new Promise((resolve) => {
-    try {
-      const hash = createHash("sha256");
-      const stream = createReadStream(filePath);
-      stream.on("data", (chunk) => {
-        hash.update(chunk);
-      });
-      stream.on("end", () => resolve(hash.digest("hex").slice(0, 32)));
-      stream.on("error", () => resolve(null));
-    } catch {
-      resolve(null);
-    }
+    const hash = createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => { hash.update(chunk); });
+    stream.on("end", () => resolve(hash.digest("hex").slice(0, 32)));
+    stream.on("error", () => resolve(null));
   });
 }

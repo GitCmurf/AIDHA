@@ -49,14 +49,15 @@ export function checkSelfImprovementGate(
     };
   }
 
-  // Group by video for like-for-like comparison
+  const baselineCellMap = new Map(
+    report.cells
+      .filter(c => c.extractorVariantId === baselineVariantId)
+      .map(c => [`${c.videoId}|${c.modelId}|${c.promptConfigId ?? ""}|${c.chunkMode ?? ""}`, c])
+  );
+
   for (const siCell of selfImproveCells) {
-    const baselineCell = report.cells.find(c =>
-      c.videoId === siCell.videoId &&
-      c.modelId === siCell.modelId &&
-      c.extractorVariantId === baselineVariantId &&
-      c.promptConfigId === siCell.promptConfigId &&
-      c.chunkMode === siCell.chunkMode
+    const baselineCell = baselineCellMap.get(
+      `${siCell.videoId}|${siCell.modelId}|${siCell.promptConfigId ?? ""}|${siCell.chunkMode ?? ""}`
     );
 
     if (!baselineCell) {

@@ -25,13 +25,19 @@ class RequestRateLimiterRegistry {
       release = resolve;
     });
 
-    this.locks.set(key, previous.then(() => current));
+    const chain = previous.then(() => current);
+    this.locks.set(key, chain);
     await previous;
 
     try {
       return await fn();
     } finally {
       release();
+      // Remove the entry when this was the last queued operation, so the
+      // chain doesn't accumulate indefinitely in long-running processes.
+      if (this.locks.get(key) === chain) {
+        this.locks.delete(key);
+      }
     }
   }
 

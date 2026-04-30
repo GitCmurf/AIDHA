@@ -908,7 +908,7 @@ describe("narrow-manual-baseline helpers", () => {
     expect(budgetState.remainingEmbeddingRequests).toBe(0);
   });
 
-  it("decrements embedding budget per similarity call in computeCoverageByMode", async () => {
+  it("does not decrement embedding budget when embedding client is unavailable in computeCoverageByMode", async () => {
     const budgetState: EmbeddingBudgetState = { remainingEmbeddingRequests: 2 };
     const result = await computeCoverageByMode(
       [

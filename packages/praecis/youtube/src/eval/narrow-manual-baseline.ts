@@ -12,7 +12,8 @@ import { runEvaluationMatrix, type MatrixCell, type MatrixOptions, type VideoCon
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import { getModel, type EvalModel } from "./model-registry.js";
 import { buildReportFileSet, type ReportFileSet } from "./report-files.js";
-import { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
+import { GeminiEmbeddingClient, type GeminiEmbeddingClientConfig } from "./gemini-embedding-client.js";
+import { getHostnameFromUrl, isOpenAiBaseUrl } from "../utils/urls.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { getNarrowEvalChunkModes, getNarrowEvalModelProfile, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import { computeClaimSetHash } from "./matrix-cache.js";
@@ -273,12 +274,6 @@ interface CorpusSignatureEntry {
   rationale: string;
 }
 
-/**
- * Generates a unique signature for a corpus of video entries to detect changes in input.
- *
- * @param corpus - Array of corpus entries to include in the signature.
- * @returns A stable hash representing the corpus content.
- */
 export function buildCorpusSignature(corpus: CorpusEntry[]): string {
   const normalizedCorpus: CorpusSignatureEntry[] = corpus
     .slice()
@@ -485,21 +480,13 @@ async function writeNarrowStageArtifact<T>(outputDir: string, stage: NarrowStage
   await writeJsonAtomic(buildNarrowStagePath(outputDir, stage), payload);
 }
 
-/**
- * Reads a stage artifact from the output directory.
- * Only returns undefined for missing files (ENOENT).
- *
- * @param outputDir - The directory where stages are stored.
- * @param stage - The stage ID to read.
- * @returns The parsed artifact or undefined if not found.
- * @throws Error if the file is corrupted or other IO errors occur.
- */
+// Returns undefined only for ENOENT; re-throws all other errors.
 async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageId): Promise<T | undefined> {
   try {
     const raw = await readFile(buildNarrowStagePath(outputDir, stage), "utf-8");
     return JSON.parse(raw) as T;
   } catch (err) {
-    if (err instanceof Error && (err as any).code === 'ENOENT') {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined;
     }
     throw err;
@@ -510,21 +497,13 @@ async function writeNarrowVideoScoreArtifact(outputDir: string, payload: NarrowV
   await writeJsonAtomic(buildNarrowVideoScorePath(outputDir, payload.videoId), payload);
 }
 
-/**
- * Reads a video-specific score artifact.
- * Only returns undefined for missing files (ENOENT).
- *
- * @param outputDir - The directory where stage artifacts are stored.
- * @param videoId - The video ID to read artifacts for.
- * @returns The parsed artifact or undefined if not found.
- * @throws Error on corruption or other IO errors.
- */
+// Returns undefined only for ENOENT; re-throws all other errors.
 async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string): Promise<NarrowVideoScoreArtifact | undefined> {
   try {
     const raw = await readFile(buildNarrowVideoScorePath(outputDir, videoId), "utf-8");
     return JSON.parse(raw) as NarrowVideoScoreArtifact;
   } catch (err) {
-    if (err instanceof Error && (err as any).code === 'ENOENT') {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined;
     }
     throw err;
@@ -992,7 +971,7 @@ function getGoogleEmbeddingConfig(config: ResolvedConfig): {
   baseUrl: string;
   model?: string;
   batchSize?: number;
-  taskType?: string;
+  taskType?: GeminiEmbeddingClientConfig["taskType"];
   outputDimensionality?: number;
 } {
   const llm = config.llm;
@@ -1019,19 +998,11 @@ function getGoogleEmbeddingConfig(config: ResolvedConfig): {
       process.env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
       "gemini-embedding-2-preview",
     batchSize: llm.embeddingBatchSize,
-    taskType: process.env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY",
+    taskType: (process.env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY") as GeminiEmbeddingClientConfig["taskType"],
     outputDimensionality: Number(process.env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) || llm.embeddingOutputDimensionality || 768,
   };
 }
 
-export function isOpenAiBaseUrl(baseUrl: string): boolean {
-  try {
-    const hostname = new URL(baseUrl).hostname.toLowerCase();
-    return hostname === "openai.com" || hostname.endsWith(".openai.com");
-  } catch {
-    return false;
-  }
-}
 
 const FINITE_SET_CUE =
   /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b(?:\s+\w+){0,3}\s+\b(layouts?|principles?|steps?|types?|categories?|frameworks?|slides?|rules?|reasons?|options?|parts?|ways)\b/gi;
@@ -1171,7 +1142,7 @@ async function scorePair(
   verifier: TieredVerifier,
   mode: CoverageMode,
   embeddingClient?: GeminiEmbeddingClient,
-  budgetState?: { remainingEmbeddingRequests: number }
+  budgetState?: EmbeddingBudgetState
 ): Promise<PairScore> {
   const exact = normalizeKey(candidate.text) === normalizeKey(goldClaim.text);
   const lexical = exact ? 1 : verifier.verifyLexical(goldClaim.text, [candidate.text]).overlap;
@@ -1189,11 +1160,10 @@ async function scorePair(
     if (budgetState && budgetState.remainingEmbeddingRequests < 2) {
       embedding = undefined;
     } else {
-      const beforeRequests = embeddingClient!.getStats().apiRequestCount;
+      const beforeRequests = embeddingClient!.getApiRequestCount();
       const embeddingResult = await embeddingClient.similarity(goldClaim.text, candidate.text);
       if (budgetState) {
-        const afterRequests = embeddingClient!.getStats().apiRequestCount;
-        budgetState.remainingEmbeddingRequests -= (afterRequests - beforeRequests);
+        budgetState.remainingEmbeddingRequests -= embeddingClient!.getApiRequestCount() - beforeRequests;
       }
       if (embeddingResult.ok) {
         embedding = embeddingResult.value.score;
@@ -1296,7 +1266,7 @@ export async function computeCoverageByMode(
   mode: CoverageMode,
   embeddingClient?: GeminiEmbeddingClient,
   coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>,
-  budgetState?: { remainingEmbeddingRequests: number }
+  budgetState?: EmbeddingBudgetState
 ): Promise<GoldCoverageSummary> {
   const cacheKey = buildCoverageCacheKey(candidateClaims, goldClaims, mode, !!embeddingClient);
   const cached = coverageCache?.get(cacheKey);
@@ -1335,11 +1305,17 @@ export async function computeCoverageByMode(
     matchedPairs.push(pair);
   }
 
+  const pairsByGoldIndex = new Map<number, PairScore[]>();
+  for (const pair of allPairs) {
+    const bucket = pairsByGoldIndex.get(pair.goldIndex);
+    if (bucket) bucket.push(pair);
+    else pairsByGoldIndex.set(pair.goldIndex, [pair]);
+  }
+
   const nearestMisses: CoverageNearMissDetail[] = [];
   for (const [goldIndex, goldClaim] of goldClaims.entries()) {
     if (matchedGold.has(goldIndex)) continue;
-    const nearest = allPairs
-      .filter((pair) => pair.goldIndex === goldIndex)
+    const nearest = (pairsByGoldIndex.get(goldIndex) ?? [])
       .sort((a, b) => {
         const scoreDiff = Math.max(b.lexical, b.proxySemantic, b.embedding ?? 0) - Math.max(a.lexical, a.proxySemantic, a.embedding ?? 0);
         if (scoreDiff !== 0) return scoreDiff;
@@ -1360,13 +1336,6 @@ export async function computeCoverageByMode(
   return summary;
 }
 
-/**
- * Computes the coverage of candidate claims against a set of gold claims.
- *
- * @param candidateClaims - The set of extracted candidate claims.
- * @param goldClaims - The set of ground-truth gold claims.
- * @returns A summary of the coverage including match ratios and details.
- */
 export async function computeGoldCoverage(
   candidateClaims: ClaimCandidate[],
   goldClaims: FlattenedGoldenClaimNode[]
@@ -1564,7 +1533,7 @@ async function enrichReportsWithTeacherData(
   embeddingClient?: GeminiEmbeddingClient,
   coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>,
   teacherEligibleCandidateIds?: Set<string>,
-  budgetState?: { remainingEmbeddingRequests: number }
+  budgetState?: EmbeddingBudgetState
 ): Promise<void> {
   const teacher = selectTeacherCandidate(videoReports);
   if (!teacher) return;
@@ -1745,7 +1714,7 @@ async function buildCandidateReport(
   transcriptProfile: TranscriptStructureProfile,
   embeddingClient?: GeminiEmbeddingClient,
   coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>,
-  budgetState?: { remainingEmbeddingRequests: number }
+  budgetState?: EmbeddingBudgetState
 ): Promise<NarrowComparisonCandidateReport> {
   const structuralTargetAssessment = assessStructuralTargets(candidate.claims, transcriptProfile);
   const strictCoverage = await computeCoverageByMode(candidate.claims, goldClaims, "strict", undefined, coverageCache);
@@ -1917,6 +1886,9 @@ async function runHarnessExtractionOnly(
     }];
   }));
 
+  const firstModelId = models[0]?.id ?? "gemini-3.1-flash-lite-preview";
+  const firstProfile = chunkProfiles[firstModelId] ?? getNarrowEvalModelProfile(firstModelId, chunkMode);
+
   const options: MatrixOptions = {
     outputDir: "out/eval-matrix/reports/narrow-manual-baseline",
     cacheDir: ".cache/extraction/narrow-manual-baseline-optimizer",
@@ -1927,10 +1899,10 @@ async function runHarnessExtractionOnly(
     judgeModels: [],
     maxConcurrency,
     timeoutMs,
-    extractionChunkStrategy: getNarrowEvalModelProfile(models[0]?.id ?? "gemini-3.1-flash-lite-preview", chunkMode).chunkStrategy,
-    extractionChunkTargetInputTokens: getNarrowEvalModelProfile(models[0]?.id ?? "gemini-3.1-flash-lite-preview", chunkMode).targetInputTokens,
-    extractionChunkHardMaxInputTokens: getNarrowEvalModelProfile(models[0]?.id ?? "gemini-3.1-flash-lite-preview", chunkMode).hardMaxInputTokens,
-    extractionChunkOverlapExcerpts: getNarrowEvalModelProfile(models[0]?.id ?? "gemini-3.1-flash-lite-preview", chunkMode).overlapExcerpts,
+    extractionChunkStrategy: firstProfile.chunkStrategy,
+    extractionChunkTargetInputTokens: firstProfile.targetInputTokens,
+    extractionChunkHardMaxInputTokens: firstProfile.hardMaxInputTokens,
+    extractionChunkOverlapExcerpts: firstProfile.overlapExcerpts,
     extractionChunkProfiles: chunkProfiles,
     extractionChunkModeId: chunkMode,
     extractionTransportRetryMaxAttempts: 3,
@@ -1965,18 +1937,6 @@ function buildRefineStageInputSignature(input: {
   ]);
 }
 
-/**
- * Executes a full narrow manual baseline comparison run.
- *
- * This function orchestrates the multi-stage evaluation pipeline:
- * 1. Shortlisting: Selection of the best configurations for each video.
- * 2. Refinement: (Optional) Improving claims using a self-improvement loop.
- * 3. Scoring: Computing coverage and structural metrics.
- * 4. Judging: (Optional) Using an AI judge for deep qualitative assessment.
- *
- * @param options - Configuration options for the run.
- * @returns A comprehensive report of the comparison results.
- */
 export async function runNarrowManualBaselineComparison(
   options: RunNarrowManualBaselineOptions
 ): Promise<NarrowComparisonReport> {
@@ -2063,12 +2023,15 @@ export async function runNarrowManualBaselineComparison(
     outputDimensionality: googleEmbeddingConfig.outputDimensionality,
   });
 
-  for (const video of options.corpus) {
-    transcriptByVideo.set(video.videoId, await loadTranscript(video, options.transcriptDir));
-    const loaded = await loadVideoBaselines(video.videoId, options.manualBaselineDir, { includeManualBaselines });
+  await Promise.all(options.corpus.map(async (video) => {
+    const [transcript, loaded] = await Promise.all([
+      loadTranscript(video, options.transcriptDir),
+      loadVideoBaselines(video.videoId, options.manualBaselineDir, { includeManualBaselines }),
+    ]);
+    transcriptByVideo.set(video.videoId, transcript);
     goldByVideo.set(video.videoId, loaded.goldFlatClaims);
     manualByVideo.set(video.videoId, loaded.comparableClaimSets);
-  }
+  }));
 
   const embeddingClient = googleEmbeddingConfig.apiKey
     && preset.enableEmbeddings
@@ -2079,7 +2042,7 @@ export async function runNarrowManualBaselineComparison(
         timeoutMs: options.timeoutMs ?? 120_000,
         model: googleEmbeddingConfig.model,
         batchSize: googleEmbeddingConfig.batchSize,
-        taskType: googleEmbeddingConfig.taskType as any,
+        taskType: googleEmbeddingConfig.taskType,
         outputDimensionality: googleEmbeddingConfig.outputDimensionality,
         maxRequestsPerMinute: options.maxEmbeddingRequestsPerMinute ?? 80,
       })
@@ -2495,8 +2458,7 @@ export async function runNarrowManualBaselineComparison(
     console.log("[stage2-start] refine");
     if (stage2Variants.length > 0 && refinedTargets.length > 0) {
       for (const target of refinedTargets) {
-        const targetModelId = target.modelId || (target.candidateId.startsWith("harness/") ? target.candidateId.split("/")[1] : "");
-        if (!targetModelId) continue;
+        const targetModelId = target.modelId;
 
         const targetCorpus = options.corpus.filter((video) => video.videoId === target.videoId);
         if (targetCorpus.length === 0) continue;

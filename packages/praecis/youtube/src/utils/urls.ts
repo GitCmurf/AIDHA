@@ -1,3 +1,17 @@
+export function getHostnameFromUrl(value?: string): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+export function isOpenAiBaseUrl(baseUrl?: string): boolean {
+  const hostname = getHostnameFromUrl(baseUrl);
+  return hostname === "openai.com" || (hostname !== null && hostname.endsWith(".openai.com"));
+}
+
 const URL_REGEX = /https?:\/\/[^\s>\]]+/g;
 
 function normalizeUrl(url: string): string {
