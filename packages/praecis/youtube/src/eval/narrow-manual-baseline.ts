@@ -481,9 +481,9 @@ async function writeNarrowStageArtifact<T>(outputDir: string, stage: NarrowStage
 }
 
 // Returns undefined only for ENOENT; re-throws all other errors.
-async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageId): Promise<T | undefined> {
+async function readJsonArtifact<T>(filePath: string): Promise<T | undefined> {
   try {
-    const raw = await readFile(buildNarrowStagePath(outputDir, stage), "utf-8");
+    const raw = await readFile(filePath, "utf-8");
     return JSON.parse(raw) as T;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -493,21 +493,16 @@ async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageI
   }
 }
 
+async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageId): Promise<T | undefined> {
+  return readJsonArtifact<T>(buildNarrowStagePath(outputDir, stage));
+}
+
 async function writeNarrowVideoScoreArtifact(outputDir: string, payload: NarrowVideoScoreArtifact): Promise<void> {
   await writeJsonAtomic(buildNarrowVideoScorePath(outputDir, payload.videoId), payload);
 }
 
-// Returns undefined only for ENOENT; re-throws all other errors.
 async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string): Promise<NarrowVideoScoreArtifact | undefined> {
-  try {
-    const raw = await readFile(buildNarrowVideoScorePath(outputDir, videoId), "utf-8");
-    return JSON.parse(raw) as NarrowVideoScoreArtifact;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return undefined;
-    }
-    throw err;
-  }
+  return readJsonArtifact<NarrowVideoScoreArtifact>(buildNarrowVideoScorePath(outputDir, videoId));
 }
 
 async function buildStageInputSignature(input: {

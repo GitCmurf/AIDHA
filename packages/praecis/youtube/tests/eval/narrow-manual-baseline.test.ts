@@ -8,7 +8,6 @@ import {
   computeOptimizationScore,
   computeGoldCoverage,
   computeCoverageByMode,
-  isOpenAiBaseUrl,
   needsFallbackForModel,
   profileTranscriptStructure,
   renderNarrowComparisonMarkdown,
@@ -17,6 +16,7 @@ import {
   shouldFastTriageEscalate,
   type EmbeddingBudgetState,
 } from "../../src/eval/narrow-manual-baseline";
+import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
 import { validateSafeId } from "../../src/utils/ids.js";
 
 describe("narrow-manual-baseline helpers", () => {

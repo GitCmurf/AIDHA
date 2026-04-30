@@ -41,7 +41,7 @@ function buildSelfImproveHintKey(
   promptConfigId?: string,
   chunkModeId?: string
 ): string {
-  return JSON.stringify([videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"]);
+  return [videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"].join("|");
 }
 
 export interface VideoContext {
@@ -186,9 +186,7 @@ class Semaphore {
   }
 }
 
-// Estimated prompt overhead (system prompt, formatting, etc.) in tokens
 const JUDGE_PROMPT_OVERHEAD_TOKENS = 1000;
-// Estimated output tokens for judge response
 const JUDGE_OUTPUT_TOKENS_ESTIMATE = 200;
 /**
  * Estimated claim text length (in characters) for dry-run cost projections.

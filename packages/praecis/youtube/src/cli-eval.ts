@@ -382,7 +382,7 @@ const resolveModelIds = (modelsStr: string, tier: string): string[] | number => 
     if (ids.length === 0) {
       // skipcq: JS-0002
       console.error(`No verified supported models found for tier: ${tier}. Use explicit --models with a supported provider.`);
-      return 1;
+      return EXIT_ERROR;
     }
     return ids;
   }
@@ -402,7 +402,7 @@ const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | 
   } catch (err) {
     // skipcq: JS-0002
     console.error(err instanceof Error ? err.message : String(err));
-    return 1;
+    return EXIT_ERROR;
   }
 };
 

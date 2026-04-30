@@ -35,6 +35,34 @@ function encodeCachePart(value: string | undefined): string {
   return value === undefined ? UNDEFINED_CACHE_PART : value;
 }
 
+function buildExtractionCacheFilePath(
+  cacheDir: string,
+  videoId: string,
+  modelId: string,
+  extractorVariantId: string,
+  promptVersion: string,
+  extractorVersion: string,
+  promptConfigId: string | undefined,
+  chunkMode: string | undefined,
+  promptPackId: string | undefined,
+  selfImproveMaxRounds: number,
+  selfImproveGuidance: string | undefined
+): string {
+  const key = hashId("extraction", [
+    videoId,
+    modelId,
+    extractorVariantId,
+    promptVersion,
+    extractorVersion,
+    encodeCachePart(promptConfigId),
+    encodeCachePart(chunkMode),
+    encodeCachePart(promptPackId),
+    String(selfImproveMaxRounds),
+    encodeCachePart(selfImproveGuidance)
+  ]);
+  return join(cacheDir, `extraction-${key}.json`);
+}
+
 export async function getCachedExtraction(
   videoId: string,
   modelId: string,
@@ -48,19 +76,11 @@ export async function getCachedExtraction(
   selfImproveGuidance: string | undefined,
   options: CacheOptions
 ): Promise<MatrixCell | null> {
-  const key = hashId("extraction", [
-    videoId,
-    modelId,
-    extractorVariantId,
-    promptVersion,
-    extractorVersion,
-    encodeCachePart(promptConfigId),
-    encodeCachePart(chunkMode),
-    encodeCachePart(promptPackId),
-    String(selfImproveMaxRounds),
-    encodeCachePart(selfImproveGuidance)
-  ]);
-  const filePath = join(options.cacheDir, `extraction-${key}.json`);
+  const filePath = buildExtractionCacheFilePath(
+    options.cacheDir, videoId, modelId, extractorVariantId,
+    promptVersion, extractorVersion, promptConfigId, chunkMode,
+    promptPackId, selfImproveMaxRounds, selfImproveGuidance
+  );
 
   try {
     const data = await readFile(filePath, "utf-8");
@@ -89,21 +109,11 @@ export async function setCachedExtraction(
   cell: MatrixCell,
   options: CacheOptions
 ): Promise<void> {
-  const key = hashId("extraction", [
-    videoId,
-    modelId,
-    extractorVariantId,
-    promptVersion,
-    extractorVersion,
-    encodeCachePart(promptConfigId),
-    encodeCachePart(chunkMode),
-    encodeCachePart(promptPackId),
-    String(selfImproveMaxRounds),
-    encodeCachePart(selfImproveGuidance)
-  ]);
-
-  const filePath = join(options.cacheDir, `extraction-${key}.json`);
-
+  const filePath = buildExtractionCacheFilePath(
+    options.cacheDir, videoId, modelId, extractorVariantId,
+    promptVersion, extractorVersion, promptConfigId, chunkMode,
+    promptPackId, selfImproveMaxRounds, selfImproveGuidance
+  );
   await writeJsonAtomic(filePath, cell);
 }
 
