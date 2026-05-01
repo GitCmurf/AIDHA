@@ -6,7 +6,6 @@ export const NARROW_JUDGE_PROMPT_VERSION = "v1";
 
 function sanitizePromptInput(text: string): string {
   return text
-    .normalize("NFKC")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
     .replace(/<TRANSCRIPT>/gi, "< TRANSCRIPT>")
     .replace(/<\/TRANSCRIPT>/gi, "< /TRANSCRIPT>")
@@ -32,16 +31,18 @@ You must compare candidate claims against the transcript and the gold claims.
 Teacher claims are supplemental hints only. Gold claims are the primary target.
 Return ONLY valid JSON matching the exact schema requested.`;
 
+  const nk = (s: string): string => s.normalize("NFKC");
+
   const metadataJson = JSON.stringify({
-    title: videoContext.title,
-    channel: videoContext.channelName,
-    domain: videoContext.topicDomain || "Unknown",
-    description: videoContext.description || "N/A",
+    title: nk(videoContext.title ?? ""),
+    channel: nk(videoContext.channelName ?? ""),
+    domain: nk(videoContext.topicDomain || "Unknown"),
+    description: nk(videoContext.description || "N/A"),
   }, null, 2);
 
   const claimsJson = JSON.stringify(
     claims.map((claim) => ({
-      text: claim.text,
+      text: nk(claim.text),
       type: claim.type,
       excerptIds: claim.excerptIds,
     })),
@@ -52,7 +53,7 @@ Return ONLY valid JSON matching the exact schema requested.`;
   const goldJson = JSON.stringify(
     goldClaims.map((claim) => ({
       id: claim.id,
-      text: claim.text,
+      text: nk(claim.text),
       depth: claim.depth,
       type: claim.type,
     })),
@@ -61,10 +62,12 @@ Return ONLY valid JSON matching the exact schema requested.`;
   );
 
   const teacherJson = JSON.stringify(
-    teacherClaims.map((claim) => ({ text: claim.text, type: claim.type })),
+    teacherClaims.map((claim) => ({ text: nk(claim.text), type: claim.type })),
     null,
     2
   );
+
+  const normalizedTranscript = nk(transcript);
 
   const user = `Here is the transcript context:
 <VIDEO_METADATA>
@@ -72,7 +75,7 @@ ${sanitizePromptInput(metadataJson)}
 </VIDEO_METADATA>
 
 <TRANSCRIPT>
-${sanitizePromptInput(transcript)}
+${sanitizePromptInput(normalizedTranscript)}
 </TRANSCRIPT>
 
 Candidate claims to evaluate:

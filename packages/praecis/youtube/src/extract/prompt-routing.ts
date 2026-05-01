@@ -47,7 +47,7 @@ const DOMAIN_CUES = [
 const ENUMERATION_PATTERN = /\b(?:one|two|three|four|five|\d+)\s+(?:principles?|types?|steps?|layouts?|categories|pillars?)\b/;
 const CLINICAL_CUES = [
   "mg/dl", "nmol/l", "ldl", "apob", "lipoprotein", "cholesterol", "risk factor", "therapy",
-  "atherosclerotic", "cardiovascular", "aspirin", "niacin", "siRNA", "screening", "genetic",
+  "atherosclerotic", "cardiovascular", "aspirin", "niacin", "sirna", "screening", "genetic",
 ];
 const BUSINESS_CUES = [
   "slide", "slides", "deck", "presentation", "consulting", "mckinsey", "bain", "bcg",

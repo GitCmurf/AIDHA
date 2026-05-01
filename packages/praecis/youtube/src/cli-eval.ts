@@ -38,7 +38,7 @@ import { sanitizeFilename } from "./utils/ids.js";
 
 const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"];
-  const effectiveBaseUrl = baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1";
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.openai.com/v1";
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
