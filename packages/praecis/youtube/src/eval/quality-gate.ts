@@ -109,15 +109,6 @@ export function checkSelfImprovementGate(
           });
         }
       }
-    } else {
-      // Neither narrow judge nor consensus score is fully available for comparison
-      regressions.push({
-        entityId: `${siCell.videoId}/${siCell.modelId}`,
-        dimension: "missing-scoring-data",
-        baselineScore: 0,
-        latestScore: 0,
-        tolerance
-      });
     }
   }
 

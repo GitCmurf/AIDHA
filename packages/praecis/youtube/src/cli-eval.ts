@@ -42,7 +42,7 @@ const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: s
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
-    apiKey: isProviderProfile ? apiKey : "",
+    apiKey,
     baseUrl: effectiveBaseUrl
   };
 };
@@ -63,7 +63,7 @@ const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBas
   if (envKey) return { apiKey: envKey, baseUrl: finalBaseUrl };
 
   return {
-    apiKey: isProviderProfile ? apiKey : "",
+    apiKey,
     baseUrl: finalBaseUrl
   };
 };
@@ -74,7 +74,7 @@ const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: stri
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
-    apiKey: isProviderProfile ? apiKey : "",
+    apiKey,
     baseUrl: effectiveBaseUrl
   };
 };
@@ -85,7 +85,7 @@ const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: s
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
-    apiKey: isProviderProfile ? apiKey : "",
+    apiKey,
     baseUrl: effectiveBaseUrl
   };
 };

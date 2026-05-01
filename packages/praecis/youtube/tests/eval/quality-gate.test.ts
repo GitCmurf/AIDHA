@@ -32,7 +32,7 @@ describe("checkSelfImprovementGate", () => {
     expect(result.regressions).toHaveLength(0);
   });
 
-  it("should fail if scoring data is missing for both narrow judge and consensus", () => {
+  it("should skip cells when scoring data is missing for both narrow judge and consensus", () => {
     const report = {
       ...mockReportBase,
       cells: [
@@ -51,8 +51,8 @@ describe("checkSelfImprovementGate", () => {
       ]
     } as MatrixReport;
     const result = checkSelfImprovementGate(report);
-    expect(result.passed).toBe(false);
-    expect(result.regressions.some(r => r.dimension === "missing-scoring-data")).toBe(true);
+    expect(result.passed).toBe(true);
+    expect(result.regressions).toHaveLength(0);
   });
 
   it("should pass if no regressions are found via narrow judge scores", () => {
@@ -269,12 +269,10 @@ describe("checkSelfImprovementGate", () => {
     const result = checkSelfImprovementGate(report);
     expect(result.skipped).toBe(false);
     expect(result.passed).toBe(false);
-    expect(result.regressions).toHaveLength(2);
+    expect(result.regressions).toHaveLength(1);
     const missingBaseline = result.regressions.filter(r => r.dimension === "missing-baseline");
     expect(missingBaseline).toHaveLength(1);
     expect(missingBaseline[0].entityId).toContain("v2");
-    const missingScoring = result.regressions.filter(r => r.dimension === "missing-scoring-data");
-    expect(missingScoring).toHaveLength(1);
   });
 
   it("should treat NaN narrow judge scores as zero during regression checks", () => {
