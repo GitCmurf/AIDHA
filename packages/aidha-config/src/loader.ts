@@ -244,14 +244,6 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         .filter(([, v]) => v !== undefined)
         .map(([k]) => k),
     );
-    const originalProcessEnvKeys = syncProcessEnv
-      ? new Set(
-          Object.entries(process.env)
-            .filter(([, v]) => v !== undefined)
-            .map(([k]) => k),
-        )
-      : null;
-
     for (const file of files) {
       const dotenvPath = resolve(baseDirPrelim, file);
       if (!existsSync(dotenvPath)) {
@@ -285,10 +277,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         if (overrideExisting || !originalEnvKeys.has(key)) {
           env[key] = value;
           dotenvEnv[key] = value;
-          if (
-            syncProcessEnv &&
-            (overrideExisting || !originalProcessEnvKeys?.has(key))
-          ) {
+          if (syncProcessEnv) {
             process.env[key] = value;
           }
         }

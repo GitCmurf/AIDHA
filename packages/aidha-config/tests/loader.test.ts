@@ -372,7 +372,7 @@ profiles:
     }
   });
 
-  it('should not clobber an existing shell env value when syncProcessEnv is true', async () => {
+  it('should sync dotenv values into process.env even when the shell has a stale value', async () => {
     writeConfig(`
 config_version: 1
 default_profile: default
@@ -395,6 +395,42 @@ profiles:
       expect(result.config!.profiles['default']?.llm?.api_key).toBe('from-dotenv');
       expect(result.dotenvEnv['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
       expect(env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
+      expect(process.env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
+    } finally {
+      if (originalProcessValue === undefined) {
+        delete process.env['AIDHA_SYNC_DOTENV_VAR'];
+      } else {
+        process.env['AIDHA_SYNC_DOTENV_VAR'] = originalProcessValue;
+      }
+    }
+  });
+
+  it('should preserve caller env precedence when syncProcessEnv is true', async () => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+env:
+  dotenv_files:
+    - .env.test
+profiles:
+  default:
+    llm:
+      api_key: \${AIDHA_SYNC_DOTENV_VAR}
+`);
+    writeFileSync(join(tmpDir, '.env.test'), 'AIDHA_SYNC_DOTENV_VAR=from-dotenv\n'); // pragma: allowlist secret
+
+    const originalProcessValue = process.env['AIDHA_SYNC_DOTENV_VAR'];
+    process.env['AIDHA_SYNC_DOTENV_VAR'] = 'stale-shell-value';
+
+    try {
+      const env: Record<string, string | undefined> = {
+        CUSTOM_ENV: 'caller-value',
+        AIDHA_SYNC_DOTENV_VAR: 'from-caller-env',
+      };
+      const result = await loadConfig({ cwd: tmpDir, env, syncProcessEnv: true });
+      expect(result.config!.profiles['default']?.llm?.api_key).toBe('from-caller-env');
+      expect(result.dotenvEnv['AIDHA_SYNC_DOTENV_VAR']).toBeUndefined();
+      expect(env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-caller-env');
       expect(process.env['AIDHA_SYNC_DOTENV_VAR']).toBe('stale-shell-value');
     } finally {
       if (originalProcessValue === undefined) {
