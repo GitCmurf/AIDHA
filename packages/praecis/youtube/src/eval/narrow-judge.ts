@@ -100,10 +100,14 @@ export function deriveNarrowJudgeScores(
 ): NarrowDerivedJudgeScores {
   const validGoldIds = new Set(goldClaims.map((c) => c.id));
   const normalizedGoldTextById = new Map(goldClaims.map((c) => [c.id, normalizeFindingText(c.text)]));
+  const validCandidateTexts = new Set(candidateClaims.map((claim) => normalizeFindingText(claim.text)));
   const matchedGoldIds = new Set<string>();
   const unmatchedForFallback = [...goldClaims];
 
   for (const finding of findings.matchedGoldClaims) {
+    if (!validCandidateTexts.has(normalizeFindingText(finding.candidateText))) {
+      continue;
+    }
     if (finding.goldId && validGoldIds.has(finding.goldId)) {
       matchedGoldIds.add(finding.goldId);
     } else if (finding.goldText) {
@@ -119,7 +123,6 @@ export function deriveNarrowJudgeScores(
   }
 
   const rootIds = new Set(goldClaims.filter((claim) => claim.depth === 0).map((claim) => claim.id));
-  const validCandidateTexts = new Set(candidateClaims.map((claim) => normalizeFindingText(claim.text)));
   const unsupportedCandidateCount = findings.unsupportedCandidateClaims.filter((finding) =>
     validCandidateTexts.has(normalizeFindingText(finding.candidateText))
   ).length;

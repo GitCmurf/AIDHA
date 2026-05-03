@@ -65,6 +65,11 @@ const CacheMetadataSchema = z.object({
   chunkIndex: z.number().int().nonnegative(),
   chunkStart: z.number().nonnegative(),
   chunkEnd: z.number().nonnegative(),
+  chunkStrategy: z.enum(['time', 'semantic-overlap', 'whole-transcript']).optional(),
+  chunkMinutes: z.number().positive().optional(),
+  chunkTargetInputTokens: z.number().positive().optional(),
+  chunkHardMaxInputTokens: z.number().positive().optional(),
+  chunkOverlapExcerpts: z.number().int().nonnegative().optional(),
 });
 
 const CacheSchema = z.object({
@@ -170,6 +175,20 @@ function usesDefaultRequestTuning(input: {
     && (input.maxTokens === undefined || input.maxTokens === DEFAULT_MAX_TOKENS || input.maxTokens === defaultMaxTokens);
 }
 
+function usesDefaultChunking(input: {
+  chunkMinutes: number;
+  chunkStrategy: ChunkStrategy;
+  chunkTargetInputTokens?: number;
+  chunkHardMaxInputTokens?: number;
+  chunkOverlapExcerpts?: number;
+}): boolean {
+  return input.chunkStrategy === DEFAULT_CHUNK_STRATEGY
+    && input.chunkMinutes === DEFAULT_CHUNK_MINUTES
+    && (input.chunkTargetInputTokens === undefined || input.chunkTargetInputTokens === DEFAULT_SEMANTIC_CHUNK_TARGET_INPUT_TOKENS)
+    && (input.chunkHardMaxInputTokens === undefined || input.chunkHardMaxInputTokens === DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS)
+    && (input.chunkOverlapExcerpts === undefined || input.chunkOverlapExcerpts === DEFAULT_CHUNK_OVERLAP_EXCERPTS);
+}
+
 export interface LlmClaimExtractorConfig {
   client: LlmClient;
   model: string;
@@ -197,6 +216,7 @@ export interface LlmClaimExtractorConfig {
   promptRoutingDecision?: Pick<PromptRoutingDecision, 'promptPackId' | 'routeSource' | 'routeConfidence' | 'routeSignals'>;
   enablePromptRouting?: boolean;
   selfImproveMaxRounds?: number;
+  selfImproveMaxInputTokens?: number;
   selfImproveGuidance?: SelfImproveGuidance;
   reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
   verbosity?: ResolvedConfig['llm']['verbosity'];
@@ -278,6 +298,7 @@ const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v2';
  * This is distinct from DEFAULT_MAX_TOKENS (output budget).
  */
 const OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD = 6000;
+const DEFAULT_SELF_IMPROVE_MAX_INPUT_TOKENS = OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD;
 
 function hashTranscript(excerpts: GraphNode[]): string {
   const hash = createHash('sha256');
@@ -581,7 +602,12 @@ async function readCache(path: string, metadata: CacheMetadata): Promise<ClaimCa
       cachedMeta.promptVersion !== metadata.promptVersion ||
       cachedMeta.chunkIndex !== metadata.chunkIndex ||
       cachedMeta.chunkStart !== metadata.chunkStart ||
-      cachedMeta.chunkEnd !== metadata.chunkEnd
+      cachedMeta.chunkEnd !== metadata.chunkEnd ||
+      cachedMeta.chunkStrategy !== metadata.chunkStrategy ||
+      cachedMeta.chunkMinutes !== metadata.chunkMinutes ||
+      cachedMeta.chunkTargetInputTokens !== metadata.chunkTargetInputTokens ||
+      cachedMeta.chunkHardMaxInputTokens !== metadata.chunkHardMaxInputTokens ||
+      cachedMeta.chunkOverlapExcerpts !== metadata.chunkOverlapExcerpts
     ) {
       return null;
     }
@@ -723,12 +749,22 @@ function cacheKeyForChunk(input: {
   reasoningEffort?: string;
   verbosity?: string;
   maxTokens?: number;
+  chunkMinutes: number;
+  chunkStrategy: ChunkStrategy;
+  chunkTargetInputTokens?: number;
+  chunkHardMaxInputTokens?: number;
+  chunkOverlapExcerpts?: number;
 }): string {
   return hashId('llm-claims', [
     input.videoId,
     input.chunk.index,
     input.chunk.start,
     input.chunk.end,
+    input.chunkStrategy,
+    input.chunkMinutes,
+    input.chunkTargetInputTokens ?? DEFAULT_SEMANTIC_CHUNK_TARGET_INPUT_TOKENS,
+    input.chunkHardMaxInputTokens ?? DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS,
+    input.chunkOverlapExcerpts ?? DEFAULT_CHUNK_OVERLAP_EXCERPTS,
     input.transcriptHash,
     input.model,
     input.promptVersion,
@@ -767,6 +803,11 @@ function cacheMetadataForChunk(input: {
   model: string;
   promptVersion: string;
   chunk: ClaimChunk;
+  chunkMinutes: number;
+  chunkStrategy: ChunkStrategy;
+  chunkTargetInputTokens?: number;
+  chunkHardMaxInputTokens?: number;
+  chunkOverlapExcerpts?: number;
 }): CacheMetadata {
   return {
     transcriptHash: input.transcriptHash,
@@ -776,6 +817,23 @@ function cacheMetadataForChunk(input: {
     chunkIndex: input.chunk.index,
     chunkStart: input.chunk.start,
     chunkEnd: input.chunk.end,
+    chunkStrategy: input.chunkStrategy,
+    chunkMinutes: input.chunkMinutes,
+    chunkTargetInputTokens: input.chunkTargetInputTokens,
+    chunkHardMaxInputTokens: input.chunkHardMaxInputTokens,
+    chunkOverlapExcerpts: input.chunkOverlapExcerpts,
+  };
+}
+
+function legacyCacheMetadata(metadata: CacheMetadata): CacheMetadata {
+  return {
+    transcriptHash: metadata.transcriptHash,
+    model: metadata.model,
+    promptVersion: metadata.promptVersion,
+    schemaVersion: metadata.schemaVersion,
+    chunkIndex: metadata.chunkIndex,
+    chunkStart: metadata.chunkStart,
+    chunkEnd: metadata.chunkEnd,
   };
 }
 
@@ -783,17 +841,21 @@ export async function loadCachedClaimCandidates(
   input: CachedClaimsLoadOptions
 ): Promise<CachedClaimsLoadResult> {
   const chunkMinutes = input.chunkMinutes ?? DEFAULT_CHUNK_MINUTES;
+  const chunkStrategy = input.chunkStrategy ?? DEFAULT_CHUNK_STRATEGY;
+  const chunkTargetInputTokens = input.chunkTargetInputTokens ?? DEFAULT_SEMANTIC_CHUNK_TARGET_INPUT_TOKENS;
+  const chunkHardMaxInputTokens = input.chunkHardMaxInputTokens ?? DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS;
+  const chunkOverlapExcerpts = input.chunkOverlapExcerpts ?? DEFAULT_CHUNK_OVERLAP_EXCERPTS;
   const cacheDir = input.cacheDir ?? DEFAULT_CACHE_DIR;
   const transcriptHash = hashTranscript(input.excerpts);
   const chunked = buildChunks(
     input.excerpts,
     chunkMinutes,
     input.maxChunks,
-    input.chunkStrategy ?? DEFAULT_CHUNK_STRATEGY,
+    chunkStrategy,
     {
-      targetInputTokens: input.chunkTargetInputTokens ?? DEFAULT_SEMANTIC_CHUNK_TARGET_INPUT_TOKENS,
-      hardMaxInputTokens: input.chunkHardMaxInputTokens ?? DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS,
-      overlapExcerpts: input.chunkOverlapExcerpts ?? DEFAULT_CHUNK_OVERLAP_EXCERPTS,
+      targetInputTokens: chunkTargetInputTokens,
+      hardMaxInputTokens: chunkHardMaxInputTokens,
+      overlapExcerpts: chunkOverlapExcerpts,
     }
   );
   const videoId = typeof input.resource.metadata?.['videoId'] === 'string'
@@ -819,6 +881,11 @@ export async function loadCachedClaimCandidates(
       reasoningEffort: input.reasoningEffort,
       verbosity: input.verbosity,
       maxTokens: input.maxTokens,
+      chunkMinutes,
+      chunkStrategy,
+      chunkTargetInputTokens,
+      chunkHardMaxInputTokens,
+      chunkOverlapExcerpts,
     });
     const legacyCacheKey = legacyCacheKeyForChunk({
       videoId,
@@ -832,6 +899,11 @@ export async function loadCachedClaimCandidates(
       model: input.model,
       promptVersion: effectivePromptVersion,
       chunk,
+      chunkMinutes,
+      chunkStrategy,
+      chunkTargetInputTokens,
+      chunkHardMaxInputTokens,
+      chunkOverlapExcerpts,
     });
 
     // Detect model capabilities to determine the expected default max tokens for this model
@@ -840,8 +912,19 @@ export async function loadCachedClaimCandidates(
 
     // Try new cache key first, then fall back to legacy key for backward compatibility
     let cached = await readCache(join(cacheDir, `${cacheKey}.json`), metadata);
-    if (!cached && usesDefaultRequestTuning(input, defaultMaxTokens) && cacheKey !== legacyCacheKey) {
-      cached = await readCache(join(cacheDir, `${legacyCacheKey}.json`), metadata);
+    if (
+      !cached
+      && usesDefaultRequestTuning(input, defaultMaxTokens)
+      && usesDefaultChunking({
+        chunkMinutes,
+        chunkStrategy,
+        chunkTargetInputTokens,
+        chunkHardMaxInputTokens,
+        chunkOverlapExcerpts,
+      })
+      && cacheKey !== legacyCacheKey
+    ) {
+      cached = await readCache(join(cacheDir, `${legacyCacheKey}.json`), legacyCacheMetadata(metadata));
     }
 
     if (!cached) {
@@ -896,6 +979,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private promptRoutingDecision?: Pick<PromptRoutingDecision, 'promptPackId' | 'routeSource' | 'routeConfidence' | 'routeSignals'>;
   private enablePromptRouting: boolean;
   private selfImproveMaxRounds: number;
+  private selfImproveMaxInputTokens: number;
   private selfImproveGuidance?: SelfImproveGuidance;
   private reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
   private verbosity?: ResolvedConfig['llm']['verbosity'];
@@ -960,6 +1044,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.promptRoutingDecision = config.promptRoutingDecision;
     this.enablePromptRouting = config.enablePromptRouting ?? true;
     this.selfImproveMaxRounds = Math.max(0, config.selfImproveMaxRounds ?? 0);
+    this.selfImproveMaxInputTokens = Math.max(500, config.selfImproveMaxInputTokens ?? DEFAULT_SELF_IMPROVE_MAX_INPUT_TOKENS);
     this.selfImproveGuidance = config.selfImproveGuidance;
     this.reasoningEffort = config.reasoningEffort;
     this.verbosity = config.verbosity;
@@ -1142,6 +1227,14 @@ export class LlmClaimExtractor implements ClaimExtractor {
     return (this.reasoningEffort === undefined || this.reasoningEffort === 'medium')
       && (this.verbosity === undefined || this.verbosity === 'medium')
       && (this.maxTokens === DEFAULT_MAX_TOKENS || this.maxTokens === defaultMaxTokens);
+  }
+
+  private usesDefaultChunking(): boolean {
+    return this.chunkStrategy === DEFAULT_CHUNK_STRATEGY
+      && this.chunkMinutes === DEFAULT_CHUNK_MINUTES
+      && this.chunkTargetInputTokens === DEFAULT_SEMANTIC_CHUNK_TARGET_INPUT_TOKENS
+      && this.chunkHardMaxInputTokens === DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS
+      && this.chunkOverlapExcerpts === DEFAULT_CHUNK_OVERLAP_EXCERPTS;
   }
 
   private async generateWithTransportRetry(
@@ -1552,15 +1645,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return parsed;
     }
 
-    // Even with unparsable response, record failure to properly trigger circuit breaker
-    this.circuitBreaker.recordFailure();
-
-    // Check circuit breaker again before retry
-    if (!this.circuitBreaker.canExecute()) {
-      console.warn('[CIRCUIT-OPEN] Editor rewrite retry: Circuit breaker is open, skipping retry');
-      return null;
-    }
-    this.circuitBreaker.incrementHalfOpenCallCount();
+    // Treat the initial call plus JSON-only retry as one circuit-breaker probe.
 
     let retry;
     try {
@@ -1615,49 +1700,79 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let current = selected;
 
     for (let round = 0; round < this.selfImproveMaxRounds; round++) {
-      const supportingExcerpts = excerpts.map((excerpt) => ({
+      const referencedExcerptIds = new Set(current.flatMap((candidate) => candidate.excerptIds));
+      const allSupportingExcerpts = excerpts.map((excerpt) => ({
           id: excerpt.id,
           startSeconds: toNumber(excerpt.metadata?.['start'], 0),
           text: normalizeText(excerpt.content ?? ''),
-        }));
+        }))
+        .sort((left, right) => {
+          const leftReferenced = referencedExcerptIds.has(left.id) ? 0 : 1;
+          const rightReferenced = referencedExcerptIds.has(right.id) ? 0 : 1;
+          if (leftReferenced !== rightReferenced) return leftReferenced - rightReferenced;
+          return left.startSeconds - right.startSeconds;
+        });
 
-      if (supportingExcerpts.length === 0) {
+      if (allSupportingExcerpts.length === 0) {
         break;
       }
 
-      const prompt = buildSelfImproveClaimsPrompt({
+      const currentClaimsJson = JSON.stringify({
+        claims: current.map((candidate) => ({
+          text: candidate.text,
+          excerptIds: candidate.excerptIds,
+          startSeconds: candidate.startSeconds,
+          type: candidate.type,
+          classification: candidate.classification,
+          domain: candidate.domain,
+          confidence: candidate.confidence,
+          why: candidate.why,
+          evidenceType: candidate.evidenceType,
+        })),
+      }, null, 2);
+      const improvementHintsJson = this.selfImproveGuidance
+        ? JSON.stringify({
+            teacherCandidateId: this.selfImproveGuidance.teacherCandidateId,
+            focusAreas: this.selfImproveGuidance.focusAreas ?? [],
+            missingTeacherClaims: (this.selfImproveGuidance.missingTeacherClaims ?? []).slice(0, 5),
+            extraCandidateClaims: (this.selfImproveGuidance.extraCandidateClaims ?? []).slice(0, 3),
+            promptPackId,
+            retryReason,
+          }, null, 2)
+        : JSON.stringify({
+            promptPackId,
+            retryReason,
+          }, null, 2);
+
+      let supportingExcerpts = allSupportingExcerpts;
+      let prompt = buildSelfImproveClaimsPrompt({
         resourceLabel: resource.label,
-        maxClaims: maxClaims,
-        currentClaimsJson: JSON.stringify({
-          claims: current.map((candidate) => ({
-            text: candidate.text,
-            excerptIds: candidate.excerptIds,
-            startSeconds: candidate.startSeconds,
-            type: candidate.type,
-            classification: candidate.classification,
-            domain: candidate.domain,
-            confidence: candidate.confidence,
-            why: candidate.why,
-            evidenceType: candidate.evidenceType,
-          })),
-        }, null, 2),
+        maxClaims,
+        currentClaimsJson,
         supportingExcerptsJson: JSON.stringify(supportingExcerpts, null, 2),
-        improvementHintsJson: this.selfImproveGuidance
-          ? JSON.stringify({
-              teacherCandidateId: this.selfImproveGuidance.teacherCandidateId,
-              focusAreas: this.selfImproveGuidance.focusAreas ?? [],
-              missingTeacherClaims: (this.selfImproveGuidance.missingTeacherClaims ?? []).slice(0, 5),
-              extraCandidateClaims: (this.selfImproveGuidance.extraCandidateClaims ?? []).slice(0, 3),
-              promptPackId,
-              retryReason,
-            }, null, 2)
-          : JSON.stringify({
-              promptPackId,
-              retryReason,
-            }, null, 2),
+        improvementHintsJson,
         promptPackId,
         retryReason,
       });
+      while (
+        estimateTokens(`${prompt.system}\n${prompt.user}`) > this.selfImproveMaxInputTokens
+        && supportingExcerpts.length > 1
+      ) {
+        supportingExcerpts = supportingExcerpts.slice(0, -1);
+        prompt = buildSelfImproveClaimsPrompt({
+          resourceLabel: resource.label,
+          maxClaims,
+          currentClaimsJson,
+          supportingExcerptsJson: JSON.stringify(supportingExcerpts, null, 2),
+          improvementHintsJson,
+          promptPackId,
+          retryReason,
+        });
+      }
+      if (estimateTokens(`${prompt.system}\n${prompt.user}`) > this.selfImproveMaxInputTokens) {
+        console.warn(`[TOKEN-BUDGET] Self-improvement round ${round + 1} exceeds input budget (${this.selfImproveMaxInputTokens} tokens); skipping further rounds.`);
+        break;
+      }
 
       const request = {
         model: this.model,
@@ -1690,6 +1805,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       const excerptStartMap = new Map(excerpts.map((excerpt) => [excerpt.id, toNumber(excerpt.metadata?.['start'], 0)]));
       const improved = this.parseResponse(response.value, syntheticChunk, excerptStartMap, maxClaims, this.effectivePromptVersion(promptPackId));
       if (improved.length === 0) {
+        break;
+      }
+      if (candidateSetHash(improved) === candidateSetHash(current)) {
         break;
       }
 
@@ -1739,6 +1857,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
       reasoningEffort: this.reasoningEffort,
       verbosity: this.verbosity,
       maxTokens: this.maxTokens,
+      chunkMinutes: this.chunkMinutes,
+      chunkStrategy: this.chunkStrategy,
+      chunkTargetInputTokens: this.chunkTargetInputTokens,
+      chunkHardMaxInputTokens: this.chunkHardMaxInputTokens,
+      chunkOverlapExcerpts: this.chunkOverlapExcerpts,
     });
     const legacyCacheKey = legacyCacheKeyForChunk({
       videoId,
@@ -1752,6 +1875,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
       model: this.model,
       promptVersion: effectivePromptVersion,
       chunk,
+      chunkMinutes: this.chunkMinutes,
+      chunkStrategy: this.chunkStrategy,
+      chunkTargetInputTokens: this.chunkTargetInputTokens,
+      chunkHardMaxInputTokens: this.chunkHardMaxInputTokens,
+      chunkOverlapExcerpts: this.chunkOverlapExcerpts,
     });
     const cachePath = join(this.cacheDir, `${cacheKey}.json`);
 
@@ -1762,8 +1890,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Try new cache key first, then fall back to legacy key for backward compatibility
     let cached = await readCache(cachePath, cacheMetadata);
-    if (!cached && this.usesDefaultRequestTuning() && cacheKey !== legacyCacheKey) {
-      cached = await readCache(join(this.cacheDir, `${legacyCacheKey}.json`), cacheMetadata);
+    if (!cached && this.usesDefaultRequestTuning() && this.usesDefaultChunking() && cacheKey !== legacyCacheKey) {
+      cached = await readCache(join(this.cacheDir, `${legacyCacheKey}.json`), legacyCacheMetadata(cacheMetadata));
     }
 
     if (cached) {
@@ -1912,10 +2040,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
       return { claims: parsed, success: true };
     }
 
-    // Response parsed correctly into JSON but yielded no valid claims after domain-level parsing/validation
-    // This often happens if the model hallucinates excerpt IDs or returns empty claim sets.
-    // Treat as failure to trigger retry/fallback.
-    this.circuitBreaker.recordFailure();
+    // Response parsed correctly into JSON but yielded no valid claims after domain-level parsing/validation.
+    // Treat the initial call plus parse-feedback retry as one circuit-breaker probe.
 
     // Enhanced retry with parse-error feedback
     const feedback = parseError || 'The previous response contained no extractable claims for the provided chunk and excerpt IDs. Please ensure you are extracting specific, substantive claims and using the exact excerpt IDs from the provided context.';
@@ -1924,13 +2050,6 @@ export class LlmClaimExtractor implements ClaimExtractor {
       .replace(/"/g, "'"); // Prevent quote injection
 
     const retryUser = `${user}\n\nRETRY FEEDBACK:\n${sanitizedFeedback}\n\nPlease fix the above issues and return ONLY valid JSON. Do not include commentary or markdown.`;
-
-    // Check circuit breaker again before retry (respects HalfOpen call limits)
-    if (!this.circuitBreaker.canExecute()) {
-      // Circuit breaker blocked the retry
-      return { claims: [], success: false };
-    }
-    this.circuitBreaker.incrementHalfOpenCallCount();
 
     let retry;
     try {

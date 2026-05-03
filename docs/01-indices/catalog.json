@@ -626,8 +626,8 @@
       "document_id": "AIDHA-EVAL-BASELINE",
       "owner": "Ingestion Engineering Lead",
       "status": "Published",
-      "version": "0.3",
-      "last_updated": "2026-03-15",
+      "version": "0.4",
+      "last_updated": "2026-05-03",
       "title": "Evaluation Matrix Baseline Workflow",
       "type": "TESTING",
       "docops_version": "2.0"

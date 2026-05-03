@@ -2,8 +2,8 @@
 document_id: AIDHA-EVAL-BASELINE
 owner: Ingestion Engineering Lead
 status: Published
-version: "0.3"
-last_updated: 2026-03-15
+version: "0.4"
+last_updated: 2026-05-03
 title: Evaluation Matrix Baseline Workflow
 type: TESTING
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-EVAL-BASELINE
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Published
-> **Version:** 0.3
-> **Last Updated:** 2026-03-15
+> **Version:** 0.4
+> **Last Updated:** 2026-05-03
 > **Type:** TESTING
 
 # Evaluation Matrix Baseline Workflow
@@ -27,6 +27,7 @@ docops_version: "2.0"
 | 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Published | AIDHA-TASK-004        |
 | 0.2     | 2026-03-13 | AI-assisted | Replace non-doc quality-gate link with MkDocs-safe code reference | —         | Published | AIDHA-TASK-004        |
 | 0.3     | 2026-03-15 | AI-assisted | Document hierarchical JSON golden annotations                   | —         | Published | AIDHA-TASK-004        |
+| 0.4     | 2026-05-03 | AI-assisted | Document TypeScript package CI gate and self-improvement guardrails | —       | Published | AIDHA-TASK-006        |
 
 The evaluation matrix (`eval matrix`) provides a quantitative assessment of the LLM extraction
 pipeline. To prevent regressions, we maintain a pinned baseline report.
@@ -60,7 +61,22 @@ This test protects against:
 - **Schema invalid**: Report structure changes break downstream consumers
 - **Missing models**: Baseline and latest must have comparable models
 
-Run the test with: `pnpm test --filter praecis-youtube -- quality-gate`
+Run the targeted gate with:
+
+```bash
+pnpm --dir packages/praecis/youtube exec vitest run tests/eval/quality-gate.spec.ts tests/eval/quality-gate.test.ts
+```
+
+The repository also runs the TypeScript package build and test suite in
+`.github/workflows/typescript-packages.yml` on pull requests and pushes to the default branches.
+The YouTube package full test suite is not skipped in CI; the workflow timeout is intentionally
+larger than the local package runtime so slow tests fail clearly instead of silently omitting the
+package gate.
+
+Self-improvement gate comparisons are fail-closed: a baseline and self-improvement cell must use
+the same score source for a comparable row. Narrow Judge coverage only counts matches whose
+`candidateText` exists in the evaluated claim set, and the extraction self-improvement loop is
+bounded by an input-token budget before each LLM round.
 
 ## Refreshing the Baseline
 

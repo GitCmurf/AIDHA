@@ -203,6 +203,51 @@ describe('LLM claim extraction', () => {
     await rm(cacheDir, { recursive: true, force: true });
   });
 
+  it('does not reuse cached claims across different chunking strategies', async () => {
+    const resource = {
+      id: 'youtube-cache-chunk-mode',
+      metadata: { videoId: 'cache-chunk-mode' },
+    } as any;
+    const excerpts = [
+      {
+        id: 'excerpt-a',
+        content: 'A stable transcript excerpt supports one clear claim about cache identity.',
+        metadata: { start: 0 },
+      },
+    ] as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-chunk-mode-'));
+
+    const firstClient = new StubLlmClient([
+      '{"claims":[{"text":"Time chunk extraction preserves a distinct claim with enough detail for filtering.","excerptIds":["excerpt-a"],"type":"fact"}]}',
+    ]);
+    const firstExtractor = new LlmClaimExtractor({
+      client: firstClient,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkStrategy: 'time',
+      chunkMinutes: 10,
+    });
+    await firstExtractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    const secondClient = new StubLlmClient([
+      '{"claims":[{"text":"Whole transcript extraction preserves a different claim with enough detail for filtering.","excerptIds":["excerpt-a"],"type":"fact"}]}',
+    ]);
+    const secondExtractor = new LlmClaimExtractor({
+      client: secondClient,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkStrategy: 'whole-transcript',
+      chunkMinutes: 10,
+    });
+    const second = await secondExtractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(secondClient.calls).toBe(1);
+    expect(second[0]?.text).toBe('Whole transcript extraction preserves a different claim with enough detail for filtering.');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
   it('persists LLM metadata on stored claims', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-video-2');
     const client = new StubLlmClient([
@@ -266,6 +311,48 @@ describe('LLM claim extraction', () => {
     expect((extractor as any).circuitBreaker.getStats().failures).toBe(0);
 
 
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('counts a parse-feedback retry as one half-open circuit-breaker probe', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-half-open-retry');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-half-open-retry-'));
+    const client = new SequenceStubLlmClient([
+      { ok: false, error: new Error('provider down') },
+      { ok: true, value: '{"claims": []' },
+      {
+        ok: true,
+        value: JSON.stringify({
+          claims: [
+            {
+              text: 'Retry feedback can recover a parse failure during a half-open probe.',
+              excerptIds: ['excerpt-2'],
+              startSeconds: 30,
+              type: 'insight',
+            },
+          ],
+        }),
+      },
+    ]);
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      circuitBreaker: {
+        failureThreshold: 1,
+        resetTimeoutMs: 1,
+        halfOpenMaxCalls: 1,
+      },
+    });
+
+    await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+    await new Promise(resolve => setTimeout(resolve, 25));
+    const recovered = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(recovered[0]?.text).toContain('Retry feedback can recover');
+    expect(client.calls).toBe(3);
     await rm(cacheDir, { recursive: true, force: true });
   });
 
@@ -1156,6 +1243,108 @@ describe('LLM claim extraction', () => {
     expect(client.requests[1]?.user).toContain('TEACHER_GUIDANCE_JSON');
     expect(client.requests[1]?.user).toContain('manual/GG');
     expect(client.requests[1]?.user).toContain('Five layouts cover 90% of slides.');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('trims self-improvement supporting excerpts to the configured input budget', async () => {
+    const resource = {
+      id: 'youtube-llm-self-improve-budget',
+      label: 'Budgeted self improvement',
+      metadata: { videoId: 'llm-self-improve-budget' },
+    } as any;
+    const excerpts = Array.from({ length: 16 }, (_, index) => ({
+      id: `excerpt-${index + 1}`,
+      content: `Excerpt ${index + 1} includes repeated contextual material `.repeat(18),
+      metadata: { start: index * 30 },
+    })) as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-self-improve-budget-'));
+    const client = new RecordingStubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'The first excerpt establishes the core claim for improvement.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            type: 'insight',
+          },
+        ],
+      }),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'The first excerpt establishes the core claim for improvement.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            type: 'insight',
+          },
+          {
+            text: 'The second excerpt adds enough detail to improve the selected set.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1:self-improve-budget',
+      cacheDir,
+      selfImproveMaxRounds: 1,
+      selfImproveMaxInputTokens: 900,
+    });
+
+    await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(2);
+    expect(client.requests[1]?.user).toContain('"id": "excerpt-1"');
+    expect(client.requests[1]?.user).not.toContain('"id": "excerpt-16"');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('stops self-improvement when a round converges without material changes', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-self-improve-converged');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-self-improve-converged-'));
+    const unchanged = {
+      claims: [
+        {
+          text: 'Deterministic IDs prevent duplicate claim nodes across repeated ingestion runs.',
+          excerptIds: ['excerpt-2'],
+          startSeconds: 30,
+          type: 'insight',
+        },
+      ],
+    };
+    const client = new StubLlmClient([
+      JSON.stringify(unchanged),
+      JSON.stringify(unchanged),
+      JSON.stringify({
+        claims: [
+          {
+            text: 'A later round should not be requested after convergence.',
+            excerptIds: ['excerpt-3'],
+            startSeconds: 70,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1:self-improve-converged',
+      cacheDir,
+      selfImproveMaxRounds: 10,
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(2);
+    expect(claims).toHaveLength(1);
+    expect(extractor.getLastRunStats().selfImproveRoundCount).toBe(0);
     await rm(cacheDir, { recursive: true, force: true });
   });
 

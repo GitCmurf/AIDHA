@@ -90,6 +90,82 @@ describe("checkSelfImprovementGate", () => {
     expect(result.regressions[0].dimension).toBe("missing-self-improvement-score");
   });
 
+  it("should fail closed when comparable cells use different score sources", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: 9,
+              faithfulness: 9,
+              structure: 9,
+              atomicity: 9,
+              overallScore: 9
+            }
+          }
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          consensusScore: {
+            mean: {
+              completeness: 5,
+              accuracy: 5,
+              topicCoverage: 5,
+              atomicity: 5,
+              overallScore: 5
+            }
+          }
+        }
+      ]
+    } as any as MatrixReport;
+
+    const result = checkSelfImprovementGate(report);
+
+    expect(result.passed).toBe(false);
+    expect(result.regressions).toHaveLength(1);
+    expect(result.regressions[0].dimension).toBe("incompatible-score-mode");
+  });
+
+  it("should fail closed when the baseline cell has no score but self-improve is scored", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          claimSet: []
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          narrowJudgeResult: {
+            derivedScores: {
+              goldCoverage: 9,
+              faithfulness: 9,
+              structure: 9,
+              atomicity: 9,
+              overallScore: 9
+            }
+          }
+        }
+      ]
+    } as any as MatrixReport;
+
+    const result = checkSelfImprovementGate(report);
+
+    expect(result.passed).toBe(false);
+    expect(result.regressions).toHaveLength(1);
+    expect(result.regressions[0].dimension).toBe("missing-baseline-score");
+  });
+
   it("should pass if no regressions are found via narrow judge scores", () => {
     const report = {
       ...mockReportBase,

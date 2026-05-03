@@ -75,14 +75,45 @@ export function checkSelfImprovementGate(
     const baselineHasNarrowJudgeScores = baselineCell.narrowJudgeResult?.derivedScores != null;
     const selfImproveHasConsensusScores = siCell.consensusScore?.mean != null;
     const baselineHasConsensusScores = baselineCell.consensusScore?.mean != null;
+    const baselineHasAnyScore = baselineHasNarrowJudgeScores || baselineHasConsensusScores;
+    const selfImproveHasAnyScore = selfImproveHasNarrowJudgeScores || selfImproveHasConsensusScores;
 
     if (
-      (baselineHasNarrowJudgeScores || baselineHasConsensusScores) &&
-      !(selfImproveHasNarrowJudgeScores || selfImproveHasConsensusScores)
+      baselineHasAnyScore &&
+      !selfImproveHasAnyScore
     ) {
       regressions.push({
         entityId: `${siCell.videoId}/${siCell.modelId}`,
         dimension: "missing-self-improvement-score",
+        baselineScore: 0,
+        latestScore: 0,
+        tolerance
+      });
+      continue;
+    }
+
+    if (!baselineHasAnyScore && !selfImproveHasAnyScore) {
+      continue;
+    }
+
+    if (!baselineHasAnyScore && selfImproveHasAnyScore) {
+      regressions.push({
+        entityId: `${siCell.videoId}/${siCell.modelId}`,
+        dimension: "missing-baseline-score",
+        baselineScore: 0,
+        latestScore: 0,
+        tolerance
+      });
+      continue;
+    }
+
+    if (
+      !(baselineHasNarrowJudgeScores && selfImproveHasNarrowJudgeScores) &&
+      !(baselineHasConsensusScores && selfImproveHasConsensusScores)
+    ) {
+      regressions.push({
+        entityId: `${siCell.videoId}/${siCell.modelId}`,
+        dimension: "incompatible-score-mode",
         baselineScore: 0,
         latestScore: 0,
         tolerance
