@@ -212,11 +212,22 @@ export interface LlmClaimExtractorConfig {
   };
 }
 
+export function getEffectivePromptVersion(
+  promptVersion: string,
+  promptPackId: ExtractionPromptPackId = 'generic-hierarchy'
+): string {
+  if (promptPackId === 'generic-hierarchy') {
+    return `${promptVersion}:pack:${promptPackId}:${GENERIC_HIERARCHY_PROMPT_CACHE_VERSION}`;
+  }
+  return `${promptVersion}:pack:${promptPackId}`;
+}
+
 export interface CachedClaimsLoadOptions {
   resource: GraphNode;
   excerpts: GraphNode[];
   model: string;
   promptVersion: string;
+  promptPackId?: ExtractionPromptPackId;
   chunkMinutes?: number;
   chunkStrategy?: ChunkStrategy;
   chunkTargetInputTokens?: number;
@@ -252,6 +263,11 @@ const DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS = 6000;
 const DEFAULT_CHUNK_OVERLAP_EXCERPTS = 2;
 const DEFAULT_TRANSPORT_RETRY_MAX_ATTEMPTS = 3;
 const DEFAULT_TRANSPORT_RETRY_BASE_DELAY_MS = 750;
+/**
+ * Bump this when the default generic hierarchy prompt text changes.
+ * Generic-pack cache entries must not reuse results from older prompt wording.
+ */
+const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v2';
 
 /**
  * Optimal input token size per chunk for extraction quality.
@@ -782,6 +798,8 @@ export async function loadCachedClaimCandidates(
     ? (input.resource.metadata?.['videoId'] as string)
     : input.resource.id;
 
+  const effectivePromptVersion = getEffectivePromptVersion(input.promptVersion, input.promptPackId);
+
   const candidates: ClaimCandidate[] = [];
   let cacheHits = 0;
   let cacheMisses = 0;
@@ -792,7 +810,7 @@ export async function loadCachedClaimCandidates(
       chunk,
       transcriptHash,
       model: input.model,
-      promptVersion: input.promptVersion,
+      promptVersion: effectivePromptVersion,
       promptConfigId: input.promptConfigId,
       reasoningEffort: input.reasoningEffort,
       verbosity: input.verbosity,
@@ -803,12 +821,12 @@ export async function loadCachedClaimCandidates(
       chunk,
       transcriptHash,
       model: input.model,
-      promptVersion: input.promptVersion,
+      promptVersion: effectivePromptVersion,
     });
     const metadata = cacheMetadataForChunk({
       transcriptHash,
       model: input.model,
-      promptVersion: input.promptVersion,
+      promptVersion: effectivePromptVersion,
       chunk,
     });
 
@@ -979,9 +997,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   }
 
   private effectivePromptVersion(promptPackId: ExtractionPromptPackId): string {
-    return promptPackId === 'generic-hierarchy'
-      ? this.promptVersion
-      : `${this.promptVersion}:pack:${promptPackId}`;
+    return getEffectivePromptVersion(this.promptVersion, promptPackId);
   }
 
   private buildChunkPrompt(input: {

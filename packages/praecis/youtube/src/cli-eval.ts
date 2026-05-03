@@ -38,7 +38,9 @@ import { sanitizeFilename } from "./utils/ids.js";
 
 const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"];
-  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.openai.com/v1";
+  // Preserve configured OpenAI-compatible endpoints even when the profile
+  // heuristic does not classify the base config as a provider profile.
+  const effectiveBaseUrl = baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1";
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
@@ -59,11 +61,13 @@ const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBas
   const finalBaseUrl = isOpenAiHost
         ? "https://generativelanguage.googleapis.com/v1beta"
         : (effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : "https://generativelanguage.googleapis.com/v1beta");
+  const looksLikeGoogleApiKey = apiKey.startsWith("AIza");
+  const shouldReuseProfileKey = isProviderProfile || looksLikeGoogleApiKey;
 
   if (envKey) return { apiKey: envKey, baseUrl: finalBaseUrl };
 
   return {
-    apiKey,
+    apiKey: shouldReuseProfileKey ? apiKey : "",
     baseUrl: finalBaseUrl
   };
 };

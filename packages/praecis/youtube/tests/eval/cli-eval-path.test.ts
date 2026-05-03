@@ -55,6 +55,23 @@ vi.mock("node:fs", async (importOriginal) => {
   };
 });
 
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  const fileHandle = {
+    sync: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
+  } as any;
+
+  return {
+    ...actual,
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    rename: vi.fn().mockResolvedValue(undefined),
+    rm: vi.fn().mockResolvedValue(undefined),
+    open: vi.fn().mockResolvedValue(fileHandle),
+  };
+});
+
 describe("CLI Export Path Resolution", () => {
   const mockConfig = {
     llm: {

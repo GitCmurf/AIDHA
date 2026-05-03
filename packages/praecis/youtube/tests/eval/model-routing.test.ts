@@ -35,6 +35,15 @@ describe("Model-Aware Runtime Wiring", () => {
   beforeEach(() => {
     originalEnv = process.env;
     process.env = { ...originalEnv };
+
+    // Clean up environment variables that might leak into tests
+    delete process.env.GOOGLE_AISTUDIO_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    delete process.env.AIDHA_GOOGLE_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.AIDHA_OPENAI_API_KEY;
+
     vi.spyOn(llmClient, "createLlmClientFromConfig").mockImplementation((config) => {
       return {
         ok: true,
@@ -95,6 +104,22 @@ describe("Model-Aware Runtime Wiring", () => {
     const client = createProviderAwareClient("test-google-aistudio", { ...mockBaseConfig, apiKey: "" }) as any;
 
     expect(client.config.apiKey).toBe("mock-aidha-google-key"); // pragma: allowlist secret
+  });
+
+  it("should not reuse an unrelated profile apiKey for google-aistudio models", () => {
+    const connection = resolveProviderConnection("test-google-aistudio", mockBaseConfig);
+
+    expect(connection.apiKey).toBe("");
+    expect(connection.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta");
+  });
+
+  it("should reuse an AIza-style apiKey for google-aistudio models", () => {
+    const connection = resolveProviderConnection("test-google-aistudio", {
+      ...mockBaseConfig,
+      apiKey: "AIza-mock-google-key", // pragma: allowlist secret
+    });
+
+    expect(connection.apiKey).toBe("AIza-mock-google-key"); // pragma: allowlist secret
   });
 
   it("should not inherit the generic llm baseUrl for google-aistudio models", () => {

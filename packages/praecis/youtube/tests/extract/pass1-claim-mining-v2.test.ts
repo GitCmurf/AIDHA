@@ -45,4 +45,11 @@ describe("pass1-claim-mining-v2 prompt packs", () => {
     expect(user).toContain("definition");
     expect(user).toContain("uncertainty");
   });
+
+  it("uses a business-aware base role for business-framework prompts", () => {
+    const system = buildSystemPrompt("baseline", "business-framework");
+
+    expect(system).toContain("business and presentation claims");
+    expect(system).not.toContain("health and physiological assertions");
+  });
 });

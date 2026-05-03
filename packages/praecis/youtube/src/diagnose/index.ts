@@ -5,6 +5,7 @@ import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.j
 import type { YtDlpEnvironmentDiagnosis } from '../client/yt-dlp.js';
 import { diagnoseYtDlpEnvironment } from '../client/yt-dlp.js';
 import { loadCachedClaimCandidates } from '../extract/llm-claims.js';
+import type { ExtractionPromptPackId } from '../extract/llm-claims.js';
 import { runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics } from '../extract/editorial-ranking.js';
 import type { Pass1PromptConfigId } from '../extract/prompts/pass1-claim-mining-v2.js';
 
@@ -83,6 +84,7 @@ export interface ExtractionDiagnoseOptions {
   model?: string;
   promptVersion?: string;
   promptConfigId?: Pass1PromptConfigId;
+  promptPackId?: ExtractionPromptPackId;
   chunkMinutes?: number;
   maxChunks?: number;
   cacheDir?: string;
@@ -289,6 +291,7 @@ export async function diagnoseExtraction(
           excerpts,
           model,
           promptVersion,
+          promptPackId: options.promptPackId,
           promptConfigId: options.promptConfigId,
           chunkMinutes: options.chunkMinutes,
           maxChunks: options.maxChunks,

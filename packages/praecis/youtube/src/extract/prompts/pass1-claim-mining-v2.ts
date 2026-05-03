@@ -236,12 +236,24 @@ function buildPackSpecificSystemGuidance(packId: ExtractionPromptPackId = 'gener
   }
 }
 
+function buildBaseSystemRole(packId: ExtractionPromptPackId): string {
+  switch (packId) {
+    case 'clinical-risk-management-v2':
+    case 'clinical-risk-management':
+      return 'You are a senior analyst extracting high-resolution health and physiological assertions from video transcripts.';
+    case 'business-framework':
+      return 'You are a senior analyst extracting high-resolution business and presentation claims from video transcripts.';
+    default:
+      return 'You are a senior analyst extracting high-resolution claims from video transcripts.';
+  }
+}
+
 export function buildSystemPrompt(
   configId: Pass1PromptConfigId = 'baseline',
   packId: ExtractionPromptPackId = 'generic-hierarchy'
 ): string {
   return [
-    'You are a senior analyst extracting high-resolution health and physiological assertions from video transcripts.',
+    buildBaseSystemRole(packId),
     'Your task is to identify specific, actionable, evidence-backed claims that would be useful for a knowledge graph.',
     'Return ONLY JSON matching the provided schema - no commentary, no markdown.',
     '',

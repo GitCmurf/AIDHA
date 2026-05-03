@@ -2,7 +2,8 @@
  * LLM claim extraction tests - WRITTEN FIRST (TDD Red Phase)
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { InMemoryStore } from '@aidha/graph-backend';
@@ -11,6 +12,7 @@ import { ClaimExtractionPipeline } from '../src/extract/claims.js';
 import type { LlmClient, LlmCompletionRequest } from '../src/extract/llm-client.js';
 import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
 import { HeuristicClaimExtractor } from '../src/extract/claims.js';
+import { hashId } from '../src/utils/ids.js';
 
 class StubLlmClient implements LlmClient {
   calls = 0;
@@ -122,6 +124,24 @@ async function seedVideo(store: InMemoryStore, videoId: string) {
   return { resource: resource.value, excerpts: excerptResults.value.items };
 }
 
+function hashTranscriptLikeExtractor(excerpts: Array<{ id: string; content?: string; metadata?: { start?: number } }>): string {
+  const hash = createHash('sha256');
+  const sorted = excerpts.slice().sort((left, right) => {
+    const leftStart = left.metadata?.start ?? 0;
+    const rightStart = right.metadata?.start ?? 0;
+    if (leftStart !== rightStart) return leftStart - rightStart;
+    return left.id.localeCompare(right.id);
+  });
+
+  for (const excerpt of sorted) {
+    hash.update(excerpt.id);
+    hash.update(String(excerpt.metadata?.start ?? 0));
+    hash.update(excerpt.content ?? '');
+  }
+
+  return hash.digest('hex').slice(0, 16);
+}
+
 describe('LLM claim extraction', () => {
   let store: InMemoryStore;
 
@@ -218,7 +238,7 @@ describe('LLM claim extraction', () => {
     const claim = claims.value.items[0];
     expect(claim?.metadata?.method).toBe('llm');
     expect(claim?.metadata?.model).toBe('test-model');
-    expect(claim?.metadata?.promptVersion).toBe('v1');
+    expect(claim?.metadata?.promptVersion).toContain('generic-hierarchy-v2');
   });
 
   it('does not record valid empty claim sets as circuit-breaker failures', async () => {
@@ -314,7 +334,7 @@ describe('LLM claim extraction', () => {
     expect(afterLlm.ok).toBe(true);
     if (!afterLlm.ok || !afterLlm.value) return;
     expect(afterLlm.value.metadata?.['lastClaimRunModel']).toBe('test-model');
-    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toBe('v1');
+    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toContain('generic-hierarchy-v2');
     expect(afterLlm.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeTypeOf('string');
 
     const heuristicPipeline = new ClaimExtractionPipeline({
@@ -401,6 +421,95 @@ describe('LLM claim extraction', () => {
     await extractorV2ModelB.extractClaims({ resource, excerpts, maxClaims: 5 });
 
     expect(client.calls).toBe(3);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('invalidates stale generic-hierarchy caches when the generic prompt version changes', async () => {
+    const resource = {
+      id: 'youtube-generic-cache',
+      label: 'Generic cache video',
+      metadata: { videoId: 'generic-cache' },
+    } as any;
+    const excerpts = [
+      {
+        id: 'excerpt-1',
+        content: 'Root claims should summarize the whole chunk before any supporting detail.',
+        metadata: { start: 0, duration: 5, sequence: 0 },
+      },
+    ] as any;
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-generic-cache-'));
+    const transcriptHash = hashTranscriptLikeExtractor(excerpts);
+    const staleCacheKey = hashId('llm-claims', [
+      'generic-cache',
+      0,
+      0,
+      0,
+      transcriptHash,
+      'test-model',
+      'v1',
+      'baseline',
+      'default',
+      'default',
+      4000,
+      2,
+    ]);
+    await writeFile(
+      join(cacheDir, `${staleCacheKey}.json`),
+      JSON.stringify({
+        metadata: {
+          transcriptHash,
+          model: 'test-model',
+          promptVersion: 'v1',
+          schemaVersion: 2,
+          chunkIndex: 0,
+          chunkStart: 0,
+          chunkEnd: 0,
+        },
+        claims: [
+          {
+            text: 'Stale generic cache claim.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            confidence: 0.4,
+          },
+        ],
+      }),
+      'utf-8'
+    );
+
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Deterministic IDs prevent duplicate knowledge items during repeated ingestion runs.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            confidence: 0.91,
+            type: 'insight',
+            why: 'Summarizes the core benefit of stable identifiers.',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+      promptPackId: 'generic-hierarchy',
+      enablePromptRouting: false,
+    });
+
+    const first = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+    const second = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(client.calls).toBe(1);
+    expect(first[0]?.text).toBe('Deterministic IDs prevent duplicate knowledge items during repeated ingestion runs.');
+    expect(first[0]?.promptVersion).toContain('generic-hierarchy-v2');
+    expect(second[0]?.text).toBe(first[0]?.text);
+
     await rm(cacheDir, { recursive: true, force: true });
   });
 

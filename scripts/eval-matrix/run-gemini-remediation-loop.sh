@@ -201,7 +201,7 @@ run_verification_mode() {
             return 0
             ;;
         quick)
-            run_with_heartbeat "verification-build" "${HEARTBEAT_SECONDS}" "${PNPM_BIN}" --dir "${youtube_dir}" build
+            run_with_heartbeat "verification-build" "${HEARTBEAT_SECONDS}" "${PNPM_BIN}" --dir "${youtube_dir}" build || return $?
             run_with_heartbeat "verification-vitest" "${HEARTBEAT_SECONDS}" "${PNPM_BIN}" --dir "${youtube_dir}" exec vitest run \
                 tests/eval/narrow-manual-baseline.test.ts \
                 tests/eval/matrix-runner.test.ts \
@@ -209,11 +209,11 @@ run_verification_mode() {
                 tests/eval/gemini-embedding-client.test.ts \
                 tests/prompt-routing.test.ts \
                 tests/llm-claims.test.ts \
-                tests/pipeline.test.ts
+                tests/pipeline.test.ts || return $?
             ;;
         full)
-            run_verification_mode "${root_dir}" quick
-            run_with_heartbeat "verification-docs-build" "${HEARTBEAT_SECONDS}" "${PNPM_BIN}" --dir "${root_dir}" run docs:build
+            run_verification_mode "${root_dir}" quick || return $?
+            run_with_heartbeat "verification-docs-build" "${HEARTBEAT_SECONDS}" "${PNPM_BIN}" --dir "${root_dir}" run docs:build || return $?
             ;;
         *)
             echo "--verify-mode must be one of: quick, full, none." >&2
@@ -248,6 +248,31 @@ review_looks_clear() {
 
     if [[ -z "${review_output//[[:space:]]/}" ]]; then
         return 1
+    fi
+
+    # Codex review can return a structured JSON verdict with no findings.
+    # Treat that as a clean review before falling back to prose heuristics.
+    if command -v python3 >/dev/null 2>&1; then
+        if python3 -c '
+import json
+import sys
+
+raw = sys.stdin.read()
+try:
+    payload = json.loads(raw)
+except json.JSONDecodeError:
+    raise SystemExit(1)
+
+if payload.get("overall_correctness") != "patch is correct":
+    raise SystemExit(1)
+
+if payload.get("findings") != []:
+    raise SystemExit(1)
+
+raise SystemExit(0)
+' <<<"${review_output}"; then
+            return 0
+        fi
     fi
 
     if grep -Eq '\[P[0-9]+\]' <<<"${review_output}"; then
@@ -296,8 +321,7 @@ main() {
         if gemini_output="$(run_gemini "${prompt}")"; then
             printf '%s\n' "${gemini_output}"
         else
-            local gemini_rc
-            gemini_rc=$?
+            local gemini_rc=$?
             log "gemini failed rc=${gemini_rc} iteration=${iteration}"
             log "gemini log=$(stage_log_file "gemini-iteration-${iteration}")"
             exit "${gemini_rc}"
@@ -308,8 +332,7 @@ main() {
         if verification_output="$(run_verification_mode "${root_dir}" "${VERIFY_MODE}")"; then
             printf '%s\n' "${verification_output}"
         else
-            local verification_rc
-            verification_rc=$?
+            local verification_rc=$?
             printf '%s\n' "${verification_output}"
             log "verification failed rc=${verification_rc}"
             exit "${verification_rc}"
@@ -322,8 +345,7 @@ main() {
         if review_output="$(run_review)"; then
             printf '%s\n' "${review_output}"
         else
-            local review_rc
-            review_rc=$?
+            local review_rc=$?
             log "review tool exited rc=${review_rc}"
             log "review log=$(stage_log_file "${REVIEW_TOOL}-review")"
             printf '%s\n' "${review_output}"
