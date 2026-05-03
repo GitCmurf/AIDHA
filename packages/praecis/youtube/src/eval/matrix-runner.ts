@@ -26,7 +26,7 @@ import {
 } from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 import { isValidSafeId } from "../utils/ids.js";
-import { decidePromptPack, type ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import { decidePromptPack, type ExtractionPromptPackId, type PromptRoutingDecision } from "../extract/prompt-routing.js";
 import type { NarrowJudgeResult } from "./narrow-judge.js";
 
 export const EXTRACTOR_VERSION = "v1";
@@ -108,6 +108,7 @@ export interface MatrixCell {
   videoId: string;
   modelId: string;
   extractorVariantId: ExtractorVariantId;
+  refinementStage?: "refined";
   chunkMode?: string;
   promptConfigId?: string;
   claimSet: ClaimCandidate[];
@@ -236,7 +237,8 @@ const performExtraction = async (
   resource: GraphNode,
   excerpts: GraphNode[],
   promptVersion: string,
-  runtimePromptPackId?: ExtractionPromptPackId
+  runtimePromptPackId?: ExtractionPromptPackId,
+  promptRoutingDecision?: PromptRoutingDecision
 ): Promise<{
   claims: ClaimCandidate[];
   traces: { prompt: { system: string; user: string }; response: string }[];
@@ -249,6 +251,7 @@ const performExtraction = async (
     const chunkProfile = options.extractionChunkProfiles?.[modelId];
     const selfImproveHintKey = buildSelfImproveHintKey(videoId, variant, modelId, options.extractionPromptConfigId, options.extractionChunkModeId);
     const client = options.extractorClientFactory(modelId);
+    const usesInternalRouting = runtimePromptPackId !== options.extractionPromptPackId;
     const extractor = new LlmClaimExtractor({
       client,
       model: modelId,
@@ -258,7 +261,10 @@ const performExtraction = async (
       editorLlm: variant.startsWith("editorial-pass-") || variant === "self-improve-v1",
       selfImproveMaxRounds: variant === "self-improve-v1" ? (options.extractionSelfImproveMaxRounds ?? 1) : 0,
       promptConfigId: options.extractionPromptConfigId,
-      promptPackId: runtimePromptPackId || options.extractionPromptPackId,
+      promptPackId: usesInternalRouting ? undefined : options.extractionPromptPackId,
+      promptRoutingDecision: usesInternalRouting && promptRoutingDecision
+        ? promptRoutingDecision
+        : undefined,
       maxTokens: options.extractionMaxTokens,
       maxChunks: options.extractionMaxChunks,
       selfImproveGuidance: options.extractionSelfImproveHints?.[selfImproveHintKey],
@@ -470,12 +476,14 @@ const getExtractionForCell = async (
   extractorVersion: string
 ): Promise<MatrixCell | { error: { message: string } }> => {
   let runtimePromptPackId = options.extractionPromptPackId;
+  let promptRoutingDecision: PromptRoutingDecision | undefined;
   if (options.extractionEnablePromptRouting) {
     const routing = decidePromptPack({
       topicDomain: resource.metadata?.["topicDomain"] as string | undefined,
       title: resource.label,
       transcriptText: resource.content as string,
     });
+    promptRoutingDecision = routing.decision;
     // Only override explicit extractionPromptPackId when routing is high-confidence (>= 0.85)
     if (!runtimePromptPackId || routing.decision.routeConfidence >= 0.85) {
       runtimePromptPackId = routing.decision.promptPackId;
@@ -540,7 +548,8 @@ const getExtractionForCell = async (
       resource,
       excerpts,
       promptVersion,
-      runtimePromptPackId
+      runtimePromptPackId,
+      promptRoutingDecision
     );
 
     const newCell: MatrixCell = {

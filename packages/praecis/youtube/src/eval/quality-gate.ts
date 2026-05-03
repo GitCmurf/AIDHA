@@ -71,6 +71,25 @@ export function checkSelfImprovementGate(
       continue;
     }
 
+    const selfImproveHasNarrowJudgeScores = siCell.narrowJudgeResult?.derivedScores != null;
+    const baselineHasNarrowJudgeScores = baselineCell.narrowJudgeResult?.derivedScores != null;
+    const selfImproveHasConsensusScores = siCell.consensusScore?.mean != null;
+    const baselineHasConsensusScores = baselineCell.consensusScore?.mean != null;
+
+    if (
+      (baselineHasNarrowJudgeScores || baselineHasConsensusScores) &&
+      !(selfImproveHasNarrowJudgeScores || selfImproveHasConsensusScores)
+    ) {
+      regressions.push({
+        entityId: `${siCell.videoId}/${siCell.modelId}`,
+        dimension: "missing-self-improvement-score",
+        baselineScore: 0,
+        latestScore: 0,
+        tolerance
+      });
+      continue;
+    }
+
     // Compare Narrow Judge scores if both available
     if (siCell.narrowJudgeResult?.derivedScores && baselineCell.narrowJudgeResult?.derivedScores) {
       const siScores = siCell.narrowJudgeResult.derivedScores;

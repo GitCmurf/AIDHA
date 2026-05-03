@@ -80,6 +80,15 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.apiKey).toBe("mock-aidha-openai-key"); // pragma: allowlist secret
   });
 
+  it("should not reuse an unrelated profile apiKey for openai models", () => {
+    const client = createProviderAwareClient("test-openai", {
+      ...mockBaseConfig,
+      apiKey: "AIza-mock-google-key", // pragma: allowlist secret
+    }) as any;
+
+    expect(client.config.apiKey).toBe("");
+  });
+
   it("should override base URL for openai if base config has no URL", () => {
     process.env.OPENAI_API_KEY = "mock-openai-key"; // pragma: allowlist secret
     const emptyBase = { ...mockBaseConfig, baseUrl: "" };
@@ -138,6 +147,22 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.baseUrl).toBe("https://api.zai.ai/v1");
   });
 
+  it("should not reuse an unrelated profile apiKey for zai models", () => {
+    const connection = resolveProviderConnection("test-zai", mockBaseConfig);
+
+    expect(connection.apiKey).toBe("");
+    expect(connection.baseUrl).toBe("https://api.zai.ai/v1");
+  });
+
+  it("should reuse a zai-shaped apiKey for zai models", () => {
+    const connection = resolveProviderConnection("test-zai", {
+      ...mockBaseConfig,
+      apiKey: "zai-mock-key", // pragma: allowlist secret
+    });
+
+    expect(connection.apiKey).toBe("zai-mock-key"); // pragma: allowlist secret
+  });
+
   it("should use XIAOMI_API_KEY for xiaomi models and respect explicit baseUrl", () => {
     process.env.XIAOMI_API_KEY = "mock-xiaomi-key"; // pragma: allowlist secret
     const emptyBase = { ...mockBaseConfig, baseUrl: "" };
@@ -146,6 +171,22 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.apiKey).toBe("mock-xiaomi-key"); // pragma: allowlist secret
     // Model has explicit baseUrl, should use that
     expect(client.config.baseUrl).toBe("https://custom.xiaomi.com");
+  });
+
+  it("should not reuse an unrelated profile apiKey for xiaomi models", () => {
+    const connection = resolveProviderConnection("test-xiaomi", mockBaseConfig);
+
+    expect(connection.apiKey).toBe("");
+    expect(connection.baseUrl).toBe("https://custom.xiaomi.com");
+  });
+
+  it("should reuse a xiaomi-shaped apiKey for xiaomi models", () => {
+    const connection = resolveProviderConnection("test-xiaomi", {
+      ...mockBaseConfig,
+      apiKey: "xiaomi-mock-key", // pragma: allowlist secret
+    });
+
+    expect(connection.apiKey).toBe("xiaomi-mock-key"); // pragma: allowlist secret
   });
 
   it("should use OPENROUTER_API_KEY for openrouter models", () => {

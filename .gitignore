@@ -61,6 +61,8 @@ specs/**/.pytest_cache/
 specs/**/tmp/
 specs/**/.DS_Store
 .aidha/config.yaml
+.aidha/config.yaml.bak*
+packages/praecis/youtube/custom/dir/
 
 # Generated specification data
 .specify/memory/*.json

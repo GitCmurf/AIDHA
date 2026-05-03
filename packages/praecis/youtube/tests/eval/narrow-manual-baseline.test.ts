@@ -1,16 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import {
   NarrowCorpusSchema,
   assessStructuralTargets,
   buildCorpusSignature,
+  buildStageInputSignature,
   buildExtractionStageInputSignature,
   buildVideoScoreInputSignature,
+  buildHarnessComparableClaimSet,
   computeOptimizationScore,
   computeGoldCoverage,
   computeCoverageByMode,
+  buildComparableCandidateId,
   needsFallbackForModel,
   profileTranscriptStructure,
   renderNarrowComparisonMarkdown,
+  runNarrowManualBaselineComparison,
   selectShortlistCandidatesForVideo,
   selectFastTriageEscalationPack,
   shouldFastTriageEscalate,
@@ -18,6 +25,94 @@ import {
 } from "../../src/eval/narrow-manual-baseline";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
 import { validateSafeId } from "../../src/utils/ids.js";
+
+const { geminiEmbeddingClientMock } = vi.hoisted(() => ({
+  geminiEmbeddingClientMock: vi.fn().mockImplementation(() => ({
+    similarity: vi.fn().mockResolvedValue({ ok: true, value: { score: 0.99, ok: true } }),
+    prewarm: vi.fn(),
+    getApiRequestCount: vi.fn().mockReturnValue(1),
+    getStats: vi.fn().mockReturnValue({
+      apiRequestCount: 1,
+      cacheHitCount: 0,
+      cacheMissCount: 0,
+    }),
+  })),
+}));
+
+vi.mock("../../src/eval/matrix-runner.js", () => ({
+  runEvaluationMatrix: vi.fn().mockImplementation(async (_corpus, _models, options) => {
+    const isSelfImprove = options.variants?.includes("self-improve-v1");
+    return {
+      cells: [
+        {
+          videoId: "video-1",
+          modelId: "model-1",
+          extractorVariantId: options.variants?.[0] ?? "raw",
+          chunkMode: options.extractionChunkModeId,
+          promptConfigId: options.extractionPromptConfigId,
+          claimSet: isSelfImprove
+            ? [
+                {
+                  text: "There are five slide layouts.",
+                  excerptIds: ["e1"],
+                  type: "fact",
+                  confidence: 0.9,
+                  why: "matches the transcript",
+                  method: "llm",
+                  state: "accepted",
+                },
+                {
+                  text: "Avoid pie charts when comparing shares.",
+                  excerptIds: ["e2"],
+                  type: "recommendation",
+                  confidence: 0.9,
+                  why: "matches the transcript",
+                  method: "llm",
+                  state: "accepted",
+                },
+              ]
+            : [
+                {
+                  text: "There are five slide layouts.",
+                  excerptIds: ["e1"],
+                  type: "fact",
+                  confidence: 0.9,
+                  why: "matches the transcript",
+                  method: "llm",
+                  state: "accepted",
+                },
+              ],
+          extractionDiagnostics: {
+            transportRetryCount: 0,
+            fallbackChunkCount: 0,
+            transientFailureCount: 0,
+            clientTimeoutCount: 0,
+            upstreamAbortCount: 0,
+            chunkInputTokenCounts: [],
+            maxChunkInputTokens: 0,
+            selfImproveRoundCount: isSelfImprove ? 1 : 0,
+            promptPackId: options.extractionPromptPackId ?? "generic-hierarchy",
+            routeSource: "mock",
+            routeConfidence: 1,
+            routeSignals: [],
+            retryTriggered: false,
+          },
+        },
+      ],
+      metadata: {
+        startedAt: "2026-05-03T00:00:00.000Z",
+        completedAt: "2026-05-03T00:00:01.000Z",
+        config: {},
+        failedCellCount: 0,
+        partialFailureCount: 0,
+      },
+    };
+  }),
+}));
+
+vi.mock("../../src/eval/gemini-embedding-client.js", () => ({
+  GeminiEmbeddingClient: geminiEmbeddingClientMock,
+}));
 
 describe("narrow-manual-baseline helpers", () => {
   it("computes root and child gold coverage separately", async () => {
@@ -322,6 +417,7 @@ describe("narrow-manual-baseline helpers", () => {
       judgeModelIds: ["gpt-4o-mini"],
       judgeMaxTokens: 4000,
       enablePromptRouting: false,
+      embeddingClientAvailable: false,
     };
     const corpusSignature = buildCorpusSignature(common.corpus as any);
     const signedCommon = {
@@ -338,6 +434,89 @@ describe("narrow-manual-baseline helpers", () => {
 
     expect(await buildExtractionStageInputSignature(signedCommon as any)).toBe(
       await buildExtractionStageInputSignature(reversedSignedCommon as any)
+    );
+  });
+
+  it("disambiguates refined harness candidate ids from the shortlist row", () => {
+    const cell = {
+      modelId: "gpt-5.4",
+      extractorVariantId: "self-improve-v1",
+      promptConfigId: "baseline",
+      chunkMode: "large-request",
+      claimSet: [
+        {
+          text: "There are five slide layouts.",
+          excerptIds: ["e1"],
+          type: "fact",
+          confidence: 0.9,
+          why: "matches the transcript",
+          method: "llm",
+          state: "accepted",
+        },
+      ],
+      extractionDiagnostics: {
+        promptPackId: "prompt-pack-a",
+      },
+    };
+    const refinedCell = {
+      ...cell,
+      refinementStage: "refined" as const,
+    };
+
+    expect(buildComparableCandidateId(cell as any, "harness")).toBe(
+      "harness/gpt-5.4/self-improve-v1/baseline/large-request/prompt-pack-a"
+    );
+    expect(buildComparableCandidateId(refinedCell as any, "harness")).toBe(
+      "harness/gpt-5.4/self-improve-v1/baseline/large-request/prompt-pack-a/refine"
+    );
+    expect(buildComparableCandidateId(cell as any, "harness")).not.toBe(
+      buildComparableCandidateId(refinedCell as any, "harness")
+    );
+
+    const shortlistedComparable = buildHarnessComparableClaimSet(cell as any);
+    const refinedComparable = buildHarnessComparableClaimSet(refinedCell as any);
+    const candidateById = new Map([
+      [shortlistedComparable.candidateId, shortlistedComparable],
+      [refinedComparable.candidateId, refinedComparable],
+    ]);
+
+    expect(candidateById.size).toBe(2);
+    expect(candidateById.get(shortlistedComparable.candidateId)).toBe(shortlistedComparable);
+    expect(candidateById.get(refinedComparable.candidateId)).toBe(refinedComparable);
+  });
+
+  it("preserves refined harness candidate ids after JSON rehydration", () => {
+    const cell = {
+      videoId: "video-1",
+      modelId: "gpt-5.4",
+      extractorVariantId: "self-improve-v1",
+      promptConfigId: "baseline",
+      chunkMode: "large-request",
+      claimSet: [
+        {
+          text: "There are five slide layouts.",
+          excerptIds: ["e1"],
+          type: "fact",
+          confidence: 0.9,
+          why: "matches the transcript",
+          method: "llm",
+          state: "accepted",
+        },
+      ],
+      extractionDiagnostics: {
+        promptPackId: "prompt-pack-a",
+      },
+      refinementStage: "refined" as const,
+    };
+    const rehydratedCell = JSON.parse(JSON.stringify(cell));
+    const comparableClaimSet = buildHarnessComparableClaimSet(rehydratedCell as any);
+    const candidateById = new Map([[comparableClaimSet.candidateId, comparableClaimSet]]);
+
+    expect(comparableClaimSet.candidateId).toBe(
+      "harness/gpt-5.4/self-improve-v1/baseline/large-request/prompt-pack-a/refine"
+    );
+    expect(candidateById.get("harness/gpt-5.4/self-improve-v1/baseline/large-request/prompt-pack-a/refine")).toBe(
+      comparableClaimSet
     );
   });
 
@@ -405,6 +584,7 @@ describe("narrow-manual-baseline helpers", () => {
       judgeModelIds: [],
       judgeMaxTokens: 4000,
       enablePromptRouting: false,
+      embeddingClientAvailable: false,
       embeddingBatchSize: 20,
     };
 
@@ -428,6 +608,7 @@ describe("narrow-manual-baseline helpers", () => {
       judgeModelIds: [],
       judgeMaxTokens: 4000,
       enablePromptRouting: false,
+      embeddingClientAvailable: false,
       taskType: "SEMANTIC_SIMILARITY",
     };
 
@@ -451,11 +632,39 @@ describe("narrow-manual-baseline helpers", () => {
       judgeModelIds: [],
       judgeMaxTokens: 4000,
       enablePromptRouting: false,
+      embeddingClientAvailable: false,
       outputDimensionality: 768,
     };
 
     const sig1 = await buildExtractionStageInputSignature(common as any);
     const sig2 = await buildExtractionStageInputSignature({ ...common, outputDimensionality: 128 } as any);
+    expect(sig1).not.toBe(sig2);
+  });
+
+  it("changes the stage signature when embedding client availability changes", async () => {
+    const common = {
+      corpusSignature: "test-sig",
+      runMode: "compare" as const,
+      corpus: [],
+      modelIds: ["test-model"],
+      chunkModes: ["small-request"],
+      promptConfigs: ["v1-minimal"],
+      stage1Variants: ["raw"],
+      stage2Variants: ["editorial-pass-v1"],
+      transcriptDir: "test",
+      manualBaselineDir: "test",
+      fallbackModelId: "test",
+      judgeEnabled: true,
+      judgeModelIds: [],
+      judgeMaxTokens: 4000,
+      includeManualBaselines: true,
+      enablePromptRouting: false,
+      maxEmbeddingRequestsPerRun: 25,
+      embeddingClientAvailable: true,
+    };
+
+    const sig1 = await buildStageInputSignature(common as any);
+    const sig2 = await buildStageInputSignature({ ...common, embeddingClientAvailable: false } as any);
     expect(sig1).not.toBe(sig2);
   });
 
@@ -466,6 +675,7 @@ describe("narrow-manual-baseline helpers", () => {
       videoId: "video-1",
       includeManualBaselines: true,
       enableEmbeddings: true,
+      embeddingClientAvailable: true,
       embeddingModel: "gemini-embedding-001",
       embeddingBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
       embeddingBatchSize: 20,
@@ -501,11 +711,124 @@ describe("narrow-manual-baseline helpers", () => {
       { maxEmbeddingRequestsPerRun: 25 },
       { taskType: "RETRIEVAL_QUERY" },
       { outputDimensionality: 128 },
+      { embeddingClientAvailable: false },
     ];
 
     for (const changedInput of changedInputs) {
       expect(buildVideoScoreInputSignature({ ...common, ...changedInput }))
         .not.toBe(baseSignature);
+    }
+  });
+
+  it("uses injected runtime env values for Gemini embeddings without process.env", async () => {
+    const originalEnv = {
+      GOOGLE_AISTUDIO_API_KEY: process.env.GOOGLE_AISTUDIO_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+      AIDHA_GOOGLE_API_KEY: process.env.AIDHA_GOOGLE_API_KEY,
+      GOOGLE_EMBEDDING_MODEL: process.env.GOOGLE_EMBEDDING_MODEL,
+      AIDHA_GOOGLE_EMBEDDING_MODEL: process.env.AIDHA_GOOGLE_EMBEDDING_MODEL,
+      AIDHA_EVAL_EMBEDDING_MODEL: process.env.AIDHA_EVAL_EMBEDDING_MODEL,
+      GOOGLE_EMBEDDING_BASE_URL: process.env.GOOGLE_EMBEDDING_BASE_URL,
+      GOOGLE_EMBEDDING_TASK_TYPE: process.env.GOOGLE_EMBEDDING_TASK_TYPE,
+      GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY: process.env.GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY,
+    };
+
+    try {
+      delete process.env.GOOGLE_AISTUDIO_API_KEY;
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.GOOGLE_API_KEY;
+      delete process.env.AIDHA_GOOGLE_API_KEY;
+      delete process.env.GOOGLE_EMBEDDING_MODEL;
+      delete process.env.AIDHA_GOOGLE_EMBEDDING_MODEL;
+      delete process.env.AIDHA_EVAL_EMBEDDING_MODEL;
+      delete process.env.GOOGLE_EMBEDDING_BASE_URL;
+      delete process.env.GOOGLE_EMBEDDING_TASK_TYPE;
+      delete process.env.GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY;
+      geminiEmbeddingClientMock.mockClear();
+
+      const rootDir = await mkdtemp(join(tmpdir(), "narrow-manual-baseline-env-"));
+      const transcriptDir = await mkdtemp(join(rootDir, "transcripts-"));
+      const manualBaselineDir = await mkdtemp(join(rootDir, "manual-"));
+      const outputDir = await mkdtemp(join(rootDir, "output-"));
+
+      await writeFile(
+        join(transcriptDir, "video-1.json"),
+        JSON.stringify({
+          videoId: "video-1",
+          fullText: "There are five slide layouts.",
+          segments: [
+            { start: 0, duration: 1, text: "There are five slide layouts." },
+          ],
+        })
+      );
+      await writeFile(
+        join(manualBaselineDir, "video-1-gold-draft-v1.json"),
+        JSON.stringify({
+          videoId: "video-1",
+          title: "Video 1",
+          idealClaims: [
+            {
+              text: "There are five slide layouts.",
+              type: "fact",
+              children: [],
+            },
+          ],
+          rejectedClaims: [],
+        })
+      );
+
+      const report = await runNarrowManualBaselineComparison({
+        corpus: [
+          {
+            videoId: "video-1",
+            url: "https://youtube.com/watch?v=video-1",
+            title: "Video 1",
+            channelName: "Channel 1",
+            durationMinutes: 1,
+            topicDomain: "Business strategy",
+            expectedClaimDensity: "low",
+            rationale: "test",
+          },
+        ] as any,
+        transcriptDir,
+        manualBaselineDir,
+        outputDir,
+        models: [{ id: "model-1" }] as any,
+        variants: ["raw"] as any,
+        judgeModelIds: [],
+        fallbackModelId: "model-1",
+        config: {
+          llm: {
+            model: "gpt-4o-mini",
+            apiKey: "",
+            baseUrl: "",
+            timeoutMs: 1000,
+            cacheDir: "test-cache",
+          },
+        } as any,
+        clientFactory: () => ({}) as any,
+        runMode: "compare",
+        includeManualBaselines: false,
+        env: {
+          AIDHA_GOOGLE_API_KEY: "from-dotenv-google", // pragma: allowlist secret
+        } as NodeJS.ProcessEnv,
+      });
+
+      expect(geminiEmbeddingClientMock).toHaveBeenCalledTimes(1);
+      expect(geminiEmbeddingClientMock).toHaveBeenCalledWith(expect.objectContaining({
+        apiKey: "from-dotenv-google", // pragma: allowlist secret
+        model: "gemini-embedding-2-preview",
+      }));
+      expect(report.metadata.embeddingModel).toBe("gemini-embedding-2-preview");
+    } finally {
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
     }
   });
 
@@ -840,6 +1163,191 @@ describe("narrow-manual-baseline helpers", () => {
     expect(selected.map((candidate) => candidate.candidateId)).toEqual([
       "harness/raw/baseline/small-request",
     ]);
+  });
+
+  it("can complete a fresh narrow manual baseline run without a shortlist TDZ crash", async () => {
+    const transcriptDir = await mkdtemp(join(tmpdir(), "aidha-transcripts-"));
+    const manualBaselineDir = await mkdtemp(join(tmpdir(), "aidha-manual-"));
+    const outputDir = await mkdtemp(join(tmpdir(), "aidha-output-"));
+
+    await writeFile(
+      join(transcriptDir, "video-1.json"),
+      JSON.stringify({
+        videoId: "video-1",
+        fullText: "There are five slide layouts. Avoid pie charts when comparing shares.",
+        segments: [
+          { start: 0, duration: 1, text: "There are five slide layouts." },
+        ],
+      })
+    );
+    await writeFile(
+      join(manualBaselineDir, "video-1-gold-draft-v1.json"),
+      JSON.stringify({
+        videoId: "video-1",
+        title: "Video 1",
+        idealClaims: [
+          {
+            text: "There are five slide layouts.",
+            type: "fact",
+            children: [],
+          },
+        ],
+        rejectedClaims: [],
+      })
+    );
+
+    const report = await runNarrowManualBaselineComparison({
+      corpus: [
+        {
+          videoId: "video-1",
+          url: "https://youtube.com/watch?v=video-1",
+          title: "Video 1",
+          channelName: "Channel 1",
+          durationMinutes: 1,
+          topicDomain: "Business strategy",
+          expectedClaimDensity: "low",
+          rationale: "test",
+        },
+      ] as any,
+      transcriptDir,
+      manualBaselineDir,
+      outputDir,
+      models: [{ id: "model-1" }] as any,
+      variants: ["raw"] as any,
+      judgeModelIds: [],
+      fallbackModelId: "model-1",
+      config: {
+        llm: {
+          model: "gpt-4o-mini",
+          apiKey: "test-key", // pragma: allowlist secret
+          baseUrl: "",
+          timeoutMs: 1000,
+          cacheDir: "test-cache",
+        },
+      } as any,
+      clientFactory: () => ({}) as any,
+      runMode: "fast-triage",
+    });
+
+  expect(report.metadata.completedStages).toEqual(
+      expect.arrayContaining(["shortlist", "score", "report"])
+    );
+    expect(report.videos).toHaveLength(1);
+    expect(report.videos[0]?.candidateReports.length).toBeGreaterThan(0);
+  });
+
+  it("resumes refine artifacts and still judges refined rows after a score recompute", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "narrow-manual-baseline-resume-"));
+    const transcriptDir = await mkdtemp(join(rootDir, "transcripts-"));
+    const manualBaselineDir = await mkdtemp(join(rootDir, "manual-"));
+    const outputDir = await mkdtemp(join(rootDir, "output-"));
+
+    await writeFile(
+      join(transcriptDir, "video-1.json"),
+      JSON.stringify({
+        videoId: "video-1",
+        fullText: "There are five slide layouts. Avoid pie charts when comparing shares.",
+        segments: [
+          { start: 0, duration: 1, text: "There are five slide layouts." },
+          { start: 1, duration: 1, text: "Avoid pie charts when comparing shares." },
+        ],
+      })
+    );
+    await writeFile(
+      join(manualBaselineDir, "video-1-gold-draft-v1.json"),
+      JSON.stringify({
+        videoId: "video-1",
+        title: "Video 1",
+        idealClaims: [
+          {
+            text: "There are five slide layouts.",
+            type: "fact",
+            children: [],
+          },
+          {
+            text: "Avoid pie charts when comparing shares.",
+            type: "recommendation",
+            children: [],
+          },
+        ],
+        rejectedClaims: [],
+      })
+    );
+
+    const judgeClient = {
+      generate: vi.fn().mockResolvedValue({
+        ok: true,
+        value: JSON.stringify({
+          summary: "good",
+          matchedGoldClaims: [],
+          missedGoldClaims: [],
+          unsupportedCandidateClaims: [],
+          redundantCandidateClaims: [],
+          structuralIssues: [],
+        }),
+      }),
+    };
+
+    const runOptions = {
+      corpus: [
+        {
+          videoId: "video-1",
+          url: "https://youtube.com/watch?v=video-1",
+          title: "Video 1",
+          channelName: "Channel 1",
+          durationMinutes: 1,
+          topicDomain: "Business strategy",
+          expectedClaimDensity: "low",
+          rationale: "test",
+        },
+      ] as any,
+      transcriptDir,
+      manualBaselineDir,
+      outputDir,
+      models: [{ id: "model-1" }] as any,
+      variants: ["raw", "self-improve-v1"] as any,
+      judgeModelIds: ["judge-1"],
+      judgeMaxTokens: 4000,
+      includeManualBaselines: false,
+      fallbackModelId: "model-1",
+      config: {
+        llm: {
+          model: "gpt-4o-mini",
+          apiKey: "test-key", // pragma: allowlist secret
+          baseUrl: "",
+          timeoutMs: 1000,
+          cacheDir: "test-cache",
+        },
+      } as any,
+      clientFactory: () => judgeClient as any,
+      runMode: "fast-triage" as const,
+      shortlistPerVideo: 10,
+    };
+
+    const firstRun = await runNarrowManualBaselineComparison({
+      ...runOptions,
+      judgeEnabled: false,
+    });
+    const secondRun = await runNarrowManualBaselineComparison({
+      ...runOptions,
+      runMode: "compare" as const,
+      judgeEnabled: true,
+    });
+
+    expect(firstRun.metadata.stageExecution.refine).toBe("recomputed");
+    expect(secondRun.metadata.stageExecution.refine).toBe("resumed");
+    expect(secondRun.metadata.stageExecution.score).toBe("recomputed");
+
+    const candidateReports = secondRun.videos[0]?.candidateReports ?? [];
+    const selfImproveIds = candidateReports
+      .filter((candidate) => candidate.variantId === "self-improve-v1")
+      .map((candidate) => candidate.candidateId);
+
+    expect(selfImproveIds.some((candidateId) => candidateId.endsWith("/refine"))).toBe(true);
+    expect(new Set(selfImproveIds).size).toBe(selfImproveIds.length);
+
+    const refinedCandidate = candidateReports.find((candidate) => candidate.candidateId.endsWith("/refine"));
+    expect(refinedCandidate?.judgeFindingsByModel).toBeDefined();
   });
 
   it("rejects path-traversal videoId values in narrow corpus entries", () => {

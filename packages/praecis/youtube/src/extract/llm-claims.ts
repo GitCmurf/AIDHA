@@ -35,6 +35,7 @@ import {
   determineRetryDecision,
   scoreStructuralCompleteness,
   type ExtractionPromptPackId,
+  type PromptRoutingDecision,
   type PromptRetryReason,
   type PromptRouteSource,
   type TranscriptProfile,
@@ -193,6 +194,7 @@ export interface LlmClaimExtractorConfig {
   editorRewriteMaxEditRatio?: number;
   promptConfigId?: Pass1PromptConfigId;
   promptPackId?: ExtractionPromptPackId;
+  promptRoutingDecision?: Pick<PromptRoutingDecision, 'promptPackId' | 'routeSource' | 'routeConfidence' | 'routeSignals'>;
   enablePromptRouting?: boolean;
   selfImproveMaxRounds?: number;
   selfImproveGuidance?: SelfImproveGuidance;
@@ -798,7 +800,9 @@ export async function loadCachedClaimCandidates(
     ? (input.resource.metadata?.['videoId'] as string)
     : input.resource.id;
 
-  const effectivePromptVersion = getEffectivePromptVersion(input.promptVersion, input.promptPackId);
+  const effectivePromptVersion = input.promptVersion.includes(':pack:')
+    ? input.promptVersion
+    : getEffectivePromptVersion(input.promptVersion, input.promptPackId);
 
   const candidates: ClaimCandidate[] = [];
   let cacheHits = 0;
@@ -889,6 +893,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private editorRewriteMaxEditRatio: number;
   private promptConfigId: Pass1PromptConfigId;
   private configuredPromptPackId?: ExtractionPromptPackId;
+  private promptRoutingDecision?: Pick<PromptRoutingDecision, 'promptPackId' | 'routeSource' | 'routeConfidence' | 'routeSignals'>;
   private enablePromptRouting: boolean;
   private selfImproveMaxRounds: number;
   private selfImproveGuidance?: SelfImproveGuidance;
@@ -952,6 +957,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     );
     this.promptConfigId = config.promptConfigId ?? 'baseline';
     this.configuredPromptPackId = config.promptPackId;
+    this.promptRoutingDecision = config.promptRoutingDecision;
     this.enablePromptRouting = config.enablePromptRouting ?? true;
     this.selfImproveMaxRounds = Math.max(0, config.selfImproveMaxRounds ?? 0);
     this.selfImproveGuidance = config.selfImproveGuidance;
@@ -1201,17 +1207,22 @@ export class LlmClaimExtractor implements ClaimExtractor {
             routeSignals: ['configured-pack'],
           },
         }
-      : (this.enablePromptRouting
-          ? decidePromptPack({ topicDomain, title: resource?.label ?? 'Unknown Resource', transcriptText })
-          : {
+      : (this.promptRoutingDecision
+          ? {
               profile: buildTranscriptProfile(`${resource?.label ?? 'Unknown Resource'}\n${transcriptText}`),
-              decision: {
-                promptPackId: 'generic-hierarchy' as const,
-                routeSource: 'fallback-default' as const,
-                routeConfidence: 0.4,
-                routeSignals: [],
-              },
-            });
+              decision: this.promptRoutingDecision,
+            }
+          : (this.enablePromptRouting
+              ? decidePromptPack({ topicDomain, title: resource?.label ?? 'Unknown Resource', transcriptText })
+              : {
+                  profile: buildTranscriptProfile(`${resource?.label ?? 'Unknown Resource'}\n${transcriptText}`),
+                  decision: {
+                    promptPackId: 'generic-hierarchy' as const,
+                    routeSource: 'fallback-default' as const,
+                    routeConfidence: 0.4,
+                    routeSignals: [],
+                  },
+                }));
 
     this.lastTraces = [];
     this.lastRunStats = {

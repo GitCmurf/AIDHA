@@ -91,6 +91,8 @@ export interface ComparableClaimSet {
   diagnostics?: CandidateDiagnostics;
 }
 
+type HarnessCandidateIdSuffix = "refine";
+
 export interface CoverageMatchDetail {
   goldId: string;
   goldText: string;
@@ -239,6 +241,13 @@ export interface RunNarrowManualBaselineOptions {
   judgeEnabled?: boolean;
   includeManualBaselines?: boolean;
   maxEmbeddingRequestsPerMinute?: number;
+  /**
+   * Explicit runtime environment snapshot.
+   *
+   * This lets callers forward dotenv-loaded values without mutating
+   * process.env globally.
+   */
+  env?: NodeJS.ProcessEnv;
 }
 
 interface TranscriptData {
@@ -505,7 +514,7 @@ async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string):
   return readJsonArtifact<NarrowVideoScoreArtifact>(buildNarrowVideoScorePath(outputDir, videoId));
 }
 
-async function buildStageInputSignature(input: {
+export async function buildStageInputSignature(input: {
   corpusSignature: string;
   runMode: NarrowRunMode;
   corpus: CorpusEntry[];
@@ -525,6 +534,7 @@ async function buildStageInputSignature(input: {
   maxEmbeddingRequestsPerRun?: number;
   maxRefinedSelfImproveCellsPerRun?: number;
   shortlistPerVideo?: number;
+  embeddingClientAvailable: boolean;
   embeddingModel?: string;
   embeddingBaseUrl?: string;
   embeddingBatchSize?: number;
@@ -569,6 +579,7 @@ async function buildStageInputSignature(input: {
     maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo: input.shortlistPerVideo,
+    embeddingClientAvailable: input.embeddingClientAvailable,
     embeddingModel: input.embeddingModel,
     embeddingBaseUrl: input.embeddingBaseUrl,
     embeddingBatchSize: input.embeddingBatchSize,
@@ -729,6 +740,7 @@ export function buildVideoScoreInputSignature(input: {
   videoId: string;
   includeManualBaselines: boolean;
   enableEmbeddings: boolean;
+  embeddingClientAvailable: boolean;
   goldClaims: FlattenedGoldenClaimNode[];
   comparableClaimSets: ComparableClaimSet[];
   embeddingModel?: string;
@@ -744,6 +756,7 @@ export function buildVideoScoreInputSignature(input: {
     videoId: input.videoId,
     includeManualBaselines: input.includeManualBaselines,
     enableEmbeddings: input.enableEmbeddings,
+    embeddingClientAvailable: input.embeddingClientAvailable,
     embeddingModel: input.embeddingModel,
     embeddingBaseUrl: input.embeddingBaseUrl,
     embeddingBatchSize: input.embeddingBatchSize,
@@ -834,7 +847,22 @@ function buildDiagnostics(cell: MatrixCell): CandidateDiagnostics {
   };
 }
 
-function toHarnessComparableClaimSet(cell: MatrixCell, sourceKind: ComparableSourceKind, note?: string): ComparableClaimSet {
+export function buildComparableCandidateId(
+  cell: Pick<MatrixCell, "modelId" | "extractorVariantId" | "promptConfigId" | "chunkMode" | "extractionDiagnostics" | "refinementStage">,
+  sourceKind: ComparableSourceKind,
+  suffix?: HarnessCandidateIdSuffix
+): string {
+  const baseId = `${sourceKind === "manual-baseline" ? "manual" : sourceKind}/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}${cell.extractionDiagnostics?.promptPackId ? `/${cell.extractionDiagnostics.promptPackId}` : ""}`;
+  const effectiveSuffix = suffix ?? (sourceKind === "harness" && cell.refinementStage === "refined" ? "refine" : undefined);
+  return effectiveSuffix ? `${baseId}/${effectiveSuffix}` : baseId;
+}
+
+function toHarnessComparableClaimSet(
+  cell: MatrixCell,
+  sourceKind: ComparableSourceKind,
+  note?: string,
+  candidateIdSuffix?: HarnessCandidateIdSuffix
+): ComparableClaimSet {
   const diagnostics = buildDiagnostics(cell);
   const fallbackClaimCount = countFallbackClaims(cell);
   const noteParts = [
@@ -855,7 +883,7 @@ function toHarnessComparableClaimSet(cell: MatrixCell, sourceKind: ComparableSou
 
   return {
     videoId: cell.videoId,
-    candidateId: `${sourceKind === "manual-baseline" ? "manual" : sourceKind}/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}${diagnostics.promptPackId ? `/${diagnostics.promptPackId}` : ""}`,
+    candidateId: buildComparableCandidateId(cell, sourceKind, candidateIdSuffix),
     sourceKind,
 
     claims: cell.claimSet,
@@ -867,6 +895,18 @@ function toHarnessComparableClaimSet(cell: MatrixCell, sourceKind: ComparableSou
     error: cell.error?.message ?? (diagnostics.fallbackKind === "full" ? "LLM extraction degraded to heuristic fallback" : undefined),
     diagnostics,
   };
+}
+
+export function buildHarnessComparableClaimSet(
+  cell: MatrixCell,
+  note?: string
+): ComparableClaimSet {
+  return toHarnessComparableClaimSet(
+    cell,
+    "harness",
+    note,
+    cell.refinementStage === "refined" ? "refine" : undefined
+  );
 }
 
 function toManualComparableClaimSet(videoId: string, baselineId: string, claims: ClaimCandidate[]): ComparableClaimSet {
@@ -961,7 +1001,10 @@ async function loadVideoBaselines(
   return { goldFlatClaims, comparableClaimSets };
 }
 
-function getGoogleEmbeddingConfig(config: ResolvedConfig): {
+function getGoogleEmbeddingConfig(
+  config: ResolvedConfig,
+  env: NodeJS.ProcessEnv = process.env
+): {
   apiKey?: string;
   baseUrl: string;
   model?: string;
@@ -975,26 +1018,26 @@ function getGoogleEmbeddingConfig(config: ResolvedConfig): {
 
   return {
     apiKey:
-      process.env["GOOGLE_AISTUDIO_API_KEY"] ||
-      process.env["GEMINI_API_KEY"] ||
-      process.env["GOOGLE_API_KEY"] ||
-      process.env["AIDHA_GOOGLE_API_KEY"] ||
+      env["GOOGLE_AISTUDIO_API_KEY"] ||
+      env["GEMINI_API_KEY"] ||
+      env["GOOGLE_API_KEY"] ||
+      env["AIDHA_GOOGLE_API_KEY"] ||
       ((isGeminiModel || llm.apiKey?.startsWith("AIza")) ? llm.apiKey : ""),
     baseUrl:
-      process.env["GOOGLE_EMBEDDING_BASE_URL"] ||
+      env["GOOGLE_EMBEDDING_BASE_URL"] ||
       (isGeminiModel
         ? (isOpenAiDefault
           ? "https://generativelanguage.googleapis.com/v1beta"
           : llm.baseUrl.replace(/\/openai\/?$/, ""))
         : "https://generativelanguage.googleapis.com/v1beta"),
     model:
-      process.env["GOOGLE_EMBEDDING_MODEL"] ||
-      process.env["AIDHA_GOOGLE_EMBEDDING_MODEL"] ||
-      process.env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
+      env["GOOGLE_EMBEDDING_MODEL"] ||
+      env["AIDHA_GOOGLE_EMBEDDING_MODEL"] ||
+      env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
       "gemini-embedding-2-preview",
     batchSize: llm.embeddingBatchSize,
-    taskType: (process.env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY") as GeminiEmbeddingClientConfig["taskType"],
-    outputDimensionality: Number(process.env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) || llm.embeddingOutputDimensionality || 768,
+    taskType: (env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY") as GeminiEmbeddingClientConfig["taskType"],
+    outputDimensionality: Number(env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) || llm.embeddingOutputDimensionality || 768,
   };
 }
 
@@ -1869,7 +1912,8 @@ async function runHarnessExtractionOnly(
   timeoutMs: number,
   selfImproveHints?: Record<string, SelfImproveHintInput>,
   enablePromptRouting: boolean = true,
-  promptPackId?: ExtractionPromptPackId
+  promptPackId?: ExtractionPromptPackId,
+  refinementStage?: "refined"
 ): Promise<MatrixCell[]> {
   const chunkProfiles = Object.fromEntries(models.map((model) => {
     const profile = getNarrowEvalModelProfile(model.id, chunkMode);
@@ -1915,7 +1959,7 @@ async function runHarnessExtractionOnly(
   };
 
   const result = await runEvaluationMatrix(corpus, models, options);
-  return result.cells.map((cell) => ({ ...cell, chunkMode, promptConfigId }));
+  return result.cells.map((cell) => ({ ...cell, chunkMode, promptConfigId, refinementStage }));
 }
 
 function buildRefineStageInputSignature(input: {
@@ -1964,8 +2008,10 @@ export async function runNarrowManualBaselineComparison(
   const goldByVideo = new Map<string, FlattenedGoldenClaimNode[]>();
   const manualByVideo = new Map<string, ComparableClaimSet[]>();
   const corpusSignature = buildCorpusSignature(options.corpus);
+  const runtimeEnv = options.env ?? process.env;
 
-  const googleEmbeddingConfig = getGoogleEmbeddingConfig(options.config);
+  const googleEmbeddingConfig = getGoogleEmbeddingConfig(options.config, runtimeEnv);
+  const embeddingClientAvailable = Boolean(googleEmbeddingConfig.apiKey && preset.enableEmbeddings);
 
   const stageInputSignature = await buildStageInputSignature({
     corpusSignature,
@@ -1987,6 +2033,7 @@ export async function runNarrowManualBaselineComparison(
     maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: options.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo,
+    embeddingClientAvailable,
     embeddingModel: googleEmbeddingConfig.model,
     embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
     embeddingBatchSize: googleEmbeddingConfig.batchSize,
@@ -2028,10 +2075,9 @@ export async function runNarrowManualBaselineComparison(
     manualByVideo.set(video.videoId, loaded.comparableClaimSets);
   }));
 
-  const embeddingClient = googleEmbeddingConfig.apiKey
-    && preset.enableEmbeddings
+  const embeddingClient = embeddingClientAvailable
     ? new GeminiEmbeddingClient({
-        apiKey: googleEmbeddingConfig.apiKey,
+        apiKey: googleEmbeddingConfig.apiKey!,
         baseUrl: googleEmbeddingConfig.baseUrl,
         cacheDir: ".cache/eval-embeddings/narrow-manual-baseline",
         timeoutMs: options.timeoutMs ?? 120_000,
@@ -2116,6 +2162,8 @@ export async function runNarrowManualBaselineComparison(
       ? options.judgeModelIds.map((judgeModelId) => [judgeModelId, options.clientFactory(judgeModelId)])
       : []
   );
+  // This set is read while building shortlist-stage video reports, so it must
+  // exist before the helper closures are created to avoid a TDZ on fresh runs.
   const buildSingleVideoReport = async (
     video: CorpusEntry,
     harnessCells: MatrixCell[],
@@ -2134,7 +2182,7 @@ export async function runNarrowManualBaselineComparison(
     const comparableClaimSets: ComparableClaimSet[] = [
       ...harnessCells
         .filter((cell) => cell.videoId === video.videoId)
-        .map((cell) => toHarnessComparableClaimSet(cell, "harness")),
+        .map((cell) => buildHarnessComparableClaimSet(cell)),
       ...(includeManualBaselinesForVideo ? (manualByVideo.get(video.videoId) ?? []) : []),
       ...fallbackCells
         .filter((cell) => cell.videoId === video.videoId)
@@ -2231,11 +2279,11 @@ export async function runNarrowManualBaselineComparison(
       const comparableClaimSets: ComparableClaimSet[] = [
         ...harnessCells
           .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => toHarnessComparableClaimSet(cell, "harness")),
+          .map((cell) => buildHarnessComparableClaimSet(cell)),
         ...(includeManualBaselines ? (manualByVideo.get(video.videoId) ?? []) : []),
         ...fallbackCells
           .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => toHarnessComparableClaimSet(cell, "fallback-harness", `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`)),
+        .map((cell) => toHarnessComparableClaimSet(cell, "fallback-harness", `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`)),
       ];
       const candidateById = new Map(comparableClaimSets.map((candidate) => [candidate.candidateId, candidate]));
       const teacherComparable = await selectTeacherComparableCandidate(
@@ -2476,7 +2524,8 @@ export async function runNarrowManualBaselineComparison(
             options.timeoutMs ?? 120_000,
             selfImproveHints,
             enablePromptRouting,
-            target.promptPackId
+            target.promptPackId,
+            "refined"
           ));
       }
     }
@@ -2484,8 +2533,7 @@ export async function runNarrowManualBaselineComparison(
 
     const shortlistedCandidateIds = new Set(shortlistTargets.map((target) => target.candidateId));
     const shortlistedHarnessCells = initialHarnessCells.filter((cell) => {
-      const pId = cell.extractionDiagnostics?.promptPackId;
-      const cid = `harness/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}${pId ? `/${pId}` : ""}`;
+      const cid = buildComparableCandidateId(cell, "harness");
       return shortlistedCandidateIds.has(cid);
     });
     finalHarnessCells = [...shortlistedHarnessCells, ...refinedSelfImproveCells];
@@ -2501,7 +2549,6 @@ export async function runNarrowManualBaselineComparison(
       finalHarnessCells,
     });
   }
-
   let videos: NarrowComparisonVideoReport[] = [];
   const cachedScore = await readNarrowStageArtifact<NarrowScoreStageArtifact>(options.outputDir, "score");
   if (cachedScore?.inputSignature === stageInputSignature) {
@@ -2519,8 +2566,7 @@ export async function runNarrowManualBaselineComparison(
       }
       for (const cell of refinedSelfImproveCells) {
         const set = embeddingEligibleCandidateIdsByVideo.get(cell.videoId) ?? new Set<string>();
-        const diagnostics = buildDiagnostics(cell);
-        set.add(`harness/${cell.modelId}/${cell.extractorVariantId}${cell.promptConfigId ? `/${cell.promptConfigId}` : ""}${cell.chunkMode ? `/${cell.chunkMode}` : ""}${diagnostics.promptPackId ? `/${diagnostics.promptPackId}` : ""}`);
+        set.add(buildComparableCandidateId(cell, "harness"));
         embeddingEligibleCandidateIdsByVideo.set(cell.videoId, set);
       }
       if (includeManualBaselines) {
@@ -2540,7 +2586,7 @@ export async function runNarrowManualBaselineComparison(
       const comparableClaimSets: ComparableClaimSet[] = [
         ...finalHarnessCells
           .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => toHarnessComparableClaimSet(cell, "harness")),
+          .map((cell) => buildHarnessComparableClaimSet(cell)),
         ...(includeManualBaselines ? (manualByVideo.get(video.videoId) ?? []) : []),
         ...fallbackCells
           .filter((cell) => cell.videoId === video.videoId)
@@ -2552,6 +2598,7 @@ export async function runNarrowManualBaselineComparison(
         videoId: video.videoId,
         includeManualBaselines,
         enableEmbeddings: preset.enableEmbeddings,
+        embeddingClientAvailable,
         goldClaims,
         comparableClaimSets,
         embeddingModel: googleEmbeddingConfig.model,

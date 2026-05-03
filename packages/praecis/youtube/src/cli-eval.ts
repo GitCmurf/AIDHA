@@ -38,13 +38,14 @@ import { sanitizeFilename } from "./utils/ids.js";
 
 const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"];
+  const looksLikeOpenAiKey = apiKey.startsWith("sk-") && !apiKey.startsWith("sk-or-");
   // Preserve configured OpenAI-compatible endpoints even when the profile
   // heuristic does not classify the base config as a provider profile.
   const effectiveBaseUrl = baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1";
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
-    apiKey,
+    apiKey: isProviderProfile || looksLikeOpenAiKey ? apiKey : "",
     baseUrl: effectiveBaseUrl
   };
 };
@@ -75,10 +76,11 @@ const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBas
 const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["ZAI_API_KEY"] || process.env["AIDHA_ZAI_API_KEY"];
   const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.zai.ai/v1";
+  const shouldReuseProfileKey = isProviderProfile || apiKey.startsWith("zai-");
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
-    apiKey,
+    apiKey: shouldReuseProfileKey ? apiKey : "",
     baseUrl: effectiveBaseUrl
   };
 };
@@ -86,10 +88,11 @@ const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: stri
 const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["XIAOMI_API_KEY"] || process.env["AIDHA_XIAOMI_API_KEY"];
   const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.xiaomi.com/v1";
+  const shouldReuseProfileKey = isProviderProfile || apiKey.startsWith("xiaomi-");
   if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
   return {
-    apiKey,
+    apiKey: shouldReuseProfileKey ? apiKey : "",
     baseUrl: effectiveBaseUrl
   };
 };
@@ -808,7 +811,8 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
     throw new Error(`Invalid narrow eval mode '${mode}'. Supported modes: ${validModes.join(", ")}`);
   }
 
-  const judgeDefault = mode === "fast-triage" ? "" : optionString(cleanOptions, "judge-model", "gpt-5.4");
+  const explicitJudgeModel = optionString(cleanOptions, "judge-model", "");
+  const judgeDefault = explicitJudgeModel || (mode === "fast-triage" ? "" : "gpt-5.4");
   const judgeModelsStr = optionString(cleanOptions, "judge-models", judgeDefault);
   const judgeEnabled = hasOption(cleanOptions, "judge")
     ? optionBool(cleanOptions, "judge")
@@ -1036,6 +1040,7 @@ const runNarrowManualBaseline = async (
     shortlistPerVideo: parsedOpts.shortlistPerVideo,
     maxEmbeddingRequestsPerRun: parsedOpts.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: parsedOpts.maxRefinedSelfImproveCellsPerRun,
+    env: process.env,
   });
 
   const narrowReportStub = parsedOpts.runId ? `narrow-manual-${parsedOpts.runId}` : "narrow-manual";

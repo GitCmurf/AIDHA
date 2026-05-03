@@ -12,6 +12,7 @@ import { ClaimExtractionPipeline } from '../src/extract/claims.js';
 import type { LlmClient, LlmCompletionRequest } from '../src/extract/llm-client.js';
 import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
 import { HeuristicClaimExtractor } from '../src/extract/claims.js';
+import { decidePromptPack } from '../src/extract/prompt-routing.js';
 import { hashId } from '../src/utils/ids.js';
 
 class StubLlmClient implements LlmClient {
@@ -1412,6 +1413,56 @@ describe('LLM claim extraction', () => {
     expect(client.calls).toBe(1);
     expect(client.requests[0]?.system).toContain('Target Claim Style:');
     expect(client.requests[0]?.user).toContain('root-level summary claim');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('preserves routed prompt metadata when the pack is selected internally', async () => {
+    const resource = {
+      id: 'youtube-llm-routed-pack',
+      label: 'Clinical lipid review',
+      metadata: { videoId: 'llm-routed-pack' },
+    } as any;
+    const excerptNodes = [
+      {
+        id: 'excerpt-1',
+        content: 'LDL, ApoB, and cardiovascular risk factor management are discussed.',
+        metadata: { start: 0 },
+      },
+    ] as any;
+    const routing = decidePromptPack({
+      title: resource.label,
+      transcriptText: excerptNodes[0].content,
+    });
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-routed-pack-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'LDL and ApoB are central to cardiovascular risk management.',
+            excerptIds: ['excerpt-1'],
+            startSeconds: 0,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'pass1-claim-mining-v2',
+      cacheDir,
+      promptRoutingDecision: routing.decision,
+      enablePromptRouting: false,
+    });
+
+    await extractor.extractClaims({ resource, excerpts: excerptNodes, maxClaims: 5 });
+    const stats = extractor.getLastRunStats();
+
+    expect(stats.promptPackId).toBe(routing.decision.promptPackId);
+    expect(stats.routeSource).toBe(routing.decision.routeSource);
+    expect(stats.routeConfidence).toBe(routing.decision.routeConfidence);
+    expect(stats.routeSignals).toEqual(routing.decision.routeSignals);
     await rm(cacheDir, { recursive: true, force: true });
   });
 });

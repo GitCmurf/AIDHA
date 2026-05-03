@@ -55,6 +55,41 @@ describe("checkSelfImprovementGate", () => {
     expect(result.regressions).toHaveLength(0);
   });
 
+  it("should fail when the baseline is scored but the self-improve cell has no score data", () => {
+    const report = {
+      ...mockReportBase,
+      cells: [
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "editorial-pass-v1",
+          consensusScore: {
+            mean: {
+              completeness: 4.0,
+              accuracy: 4.0,
+              topicCoverage: 4.0,
+              atomicity: 4.0,
+              overallScore: 4.0
+            }
+          }
+        },
+        {
+          videoId: "v1",
+          modelId: "m1",
+          extractorVariantId: "self-improve-v1",
+          claimSet: []
+        }
+      ]
+    } as MatrixReport;
+
+    const result = checkSelfImprovementGate(report);
+
+    expect(result.skipped).toBe(false);
+    expect(result.passed).toBe(false);
+    expect(result.regressions).toHaveLength(1);
+    expect(result.regressions[0].dimension).toBe("missing-self-improvement-score");
+  });
+
   it("should pass if no regressions are found via narrow judge scores", () => {
     const report = {
       ...mockReportBase,

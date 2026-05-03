@@ -112,13 +112,13 @@ describe("CLI Export Path Resolution", () => {
 
     await runEvalMatrix(
       ["node", "matrix"],
-      { "run-id": "test-run", "output-dir": "custom/dir", format: "both", corpus: "test.json" },
+      { "run-id": "test-run", "output-dir": "tmp/eval-matrix-output", format: "both", corpus: "test.json" },
       mockConfig
     );
 
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "custom/dir", { recursive: true });
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, "custom/dir/cells", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, "tmp/eval-matrix-output", { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, "tmp/eval-matrix-output/cells", { recursive: true });
   });
 
   it("returns failure when the self-improvement quality gate fails", async () => {
@@ -188,6 +188,33 @@ describe("CLI Export Path Resolution", () => {
     )).toBe(true);
     expect(consoleLogSpy.mock.calls.some((call) =>
       String(call[0]).includes("Refresh Stage: none")
+    )).toBe(true);
+
+    consoleLogSpy.mockRestore();
+  });
+
+  it("should honor an explicit judge model in fast-triage dry-run mode", async () => {
+    const mkdirSyncMock = vi.mocked(fs.mkdirSync);
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const exitCode = await runEvalMatrix(
+      ["node", "narrow-manual-baseline"],
+      {
+        "dry-run": true,
+        corpus: "test.json",
+        judge: true,
+        "judge-model": "gpt-4o-mini",
+      },
+      mockConfig
+    );
+
+    expect(exitCode).toBe(0);
+    expect(mkdirSyncMock).not.toHaveBeenCalled();
+    expect(consoleLogSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Judge Enabled: true")
+    )).toBe(true);
+    expect(consoleLogSpy.mock.calls.some((call) =>
+      String(call[0]).includes("Judge Models: gpt-4o-mini")
     )).toBe(true);
 
     consoleLogSpy.mockRestore();

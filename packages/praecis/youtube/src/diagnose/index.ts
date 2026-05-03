@@ -5,9 +5,10 @@ import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.j
 import type { YtDlpEnvironmentDiagnosis } from '../client/yt-dlp.js';
 import { diagnoseYtDlpEnvironment } from '../client/yt-dlp.js';
 import { loadCachedClaimCandidates } from '../extract/llm-claims.js';
-import type { ExtractionPromptPackId } from '../extract/llm-claims.js';
+import { getEffectivePromptVersion } from '../extract/llm-claims.js';
 import { runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics } from '../extract/editorial-ranking.js';
 import type { Pass1PromptConfigId } from '../extract/prompts/pass1-claim-mining-v2.js';
+import type { ExtractionPromptPackId } from '../extract/prompt-routing.js';
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;
@@ -16,6 +17,24 @@ function toNumber(value: unknown, fallback = 0): number {
     return Number.isNaN(parsed) ? fallback : parsed;
   }
   return fallback;
+}
+
+function parsePromptPackId(promptVersion: string | undefined): ExtractionPromptPackId | undefined {
+  if (!promptVersion) return undefined;
+  const match = promptVersion.match(/:pack:([^:]+)(?::\d+)?$/);
+  if (!match) return undefined;
+  const promptPackId = match[1];
+  switch (promptPackId) {
+    case 'generic-hierarchy':
+    case 'enumeration-framework':
+    case 'clinical-risk-management':
+    case 'business-framework':
+    case 'enumeration-framework-v2':
+    case 'clinical-risk-management-v2':
+      return promptPackId;
+    default:
+      return undefined;
+  }
 }
 
 export interface TranscriptDiagnosis {
@@ -242,6 +261,13 @@ export async function diagnoseExtraction(
       ?? (resource.value.metadata?.['lastClaimRunPromptVersion'] as string | undefined)
       ?? promptFromClaims
       ?? 'v1';
+    const promptPackId = options.promptPackId
+      ?? parsePromptPackId(resource.value.metadata?.['lastClaimRunPromptVersion'] as string | undefined)
+      ?? parsePromptPackId(promptFromClaims)
+      ?? 'generic-hierarchy';
+    const effectivePromptVersion = promptVersion.includes(':pack:')
+      ? promptVersion
+      : getEffectivePromptVersion(promptVersion, promptPackId);
     const editorVersion = options.editorVersion
       ?? ((resource.value.metadata?.['lastClaimRunEditorVersion'] as 'v1' | 'v2' | undefined) ?? 'v1');
 
@@ -250,7 +276,7 @@ export async function diagnoseExtraction(
         available: false,
         editorVersion,
         cacheDir,
-        promptVersion,
+        promptVersion: effectivePromptVersion,
         chunkCount: 0,
         cacheHits: 0,
         cacheMisses: 0,
@@ -274,7 +300,7 @@ export async function diagnoseExtraction(
           editorVersion,
           cacheDir,
           model,
-          promptVersion,
+          promptVersion: effectivePromptVersion,
           chunkCount: 0,
           cacheHits: 0,
           cacheMisses: 0,
@@ -290,8 +316,8 @@ export async function diagnoseExtraction(
           resource: resource.value,
           excerpts,
           model,
-          promptVersion,
-          promptPackId: options.promptPackId,
+          promptVersion: effectivePromptVersion,
+          promptPackId,
           promptConfigId: options.promptConfigId,
           chunkMinutes: options.chunkMinutes,
           maxChunks: options.maxChunks,
@@ -303,7 +329,7 @@ export async function diagnoseExtraction(
             editorVersion,
             cacheDir,
             model,
-            promptVersion,
+            promptVersion: effectivePromptVersion,
             transcriptHash: cached.transcriptHash,
             chunkCount: cached.chunkCount,
             cacheHits: cached.cacheHits,
@@ -345,7 +371,7 @@ export async function diagnoseExtraction(
             editorVersion,
             cacheDir,
             model,
-            promptVersion,
+            promptVersion: effectivePromptVersion,
             transcriptHash: cached.transcriptHash,
             chunkCount: cached.chunkCount,
             cacheHits: cached.cacheHits,

@@ -1,7 +1,7 @@
 {
   "output_schema_version": "1.0",
   "index_version": "0.1",
-  "generated_at": "2026-02-24T19:39:39.775572+00:00",
+  "generated_at": "2026-05-03T10:43:16.208607+00:00",
   "namespaces": [
     {
       "namespace": "root",
@@ -95,6 +95,33 @@
       "repo_prefix": "AIDHA",
       "type": "ADR",
       "title": "Configuration Management System",
+      "status": "Approved"
+    },
+    {
+      "document_id": "AIDHA-EVAL-BASELINE",
+      "path": "docs/55-testing/eval-matrix/baseline-workflow.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TESTING",
+      "title": "Evaluation Matrix Baseline Workflow",
+      "status": "Published"
+    },
+    {
+      "document_id": "AIDHA-EVAL-MANUAL-BASELINE",
+      "path": "docs/55-testing/eval-matrix/manual-baseline-no-harness.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TESTING",
+      "title": "Manual Baseline (No Harness)",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-EVAL-TASK-004",
+      "path": "docs/55-testing/eval-matrix/task-004-completion-note.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TESTING",
+      "title": "Task 004 Completion Engineering Note",
       "status": "Approved"
     },
     {
@@ -269,6 +296,15 @@
       "status": "Draft"
     },
     {
+      "document_id": "AIDHA-PLAN-006",
+      "path": "docs/05-planning/plan-006-verification-keyphrase-refactor.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "PLAN",
+      "title": "Verification and Keyphrase Extraction Refactor",
+      "status": "Draft"
+    },
+    {
       "document_id": "AIDHA-PRD-001",
       "path": "docs/10-prd/prd-001-graph-database.md",
       "namespace": "root",
@@ -419,6 +455,42 @@
       "repo_prefix": "AIDHA",
       "type": "TASK",
       "title": "MVP Vertical Slice Completion Task List",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TASK-003-ATOMIC",
+      "path": "docs/05-planning/tasks/task-003-extraction-quality-atomic-breakdown.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "YouTube Claim Extraction - Production-Grade Atomic Task Breakdown",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TASK-004",
+      "path": "docs/05-planning/tasks/task-004-claim-extraction-evaluation-matrix.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "Claim Extraction Evaluation Matrix",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TASK-005",
+      "path": "docs/05-planning/tasks/task-005-deferred-claim-improvements.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "Deferred Claim Extraction Improvements",
+      "status": "Draft"
+    },
+    {
+      "document_id": "AIDHA-TASK-006",
+      "path": "docs/05-planning/tasks/task-006-eval-refinement.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "Evaluation Refinement and Self-Improvement Validation",
       "status": "Draft"
     },
     {
