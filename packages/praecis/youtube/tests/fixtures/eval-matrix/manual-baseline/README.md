@@ -1,6 +1,33 @@
+---
+document_id: PRAECIS-REF-002
+owner: Ingestion Engineering Lead
+status: Draft
+version: "1.0"
+last_updated: 2026-05-03
+title: Manual Baseline Fixture Scoring Guide
+type: REF
+docops_version: "2.0"
+area: INGEST
+keywords: [praecis, youtube, eval, manual-baseline, fixtures]
+---
+
+<!-- MEMINIT_METADATA_BLOCK -->
+> **Document ID:** PRAECIS-REF-002
+> **Owner:** Ingestion Engineering Lead
+> **Status:** Draft
+> **Version:** 1.0
+> **Last Updated:** 2026-05-03
+> **Type:** REF
+
 # Manual Baseline & Scoring Guide
 
 This directory contains resources for creating manual baselines and scoring claim extraction quality, as part of the "Narrow Judge" evaluation strategy.
+
+## Version History
+
+| Version | Date       | Author | Change Summary                                  | Status |
+| ------- | ---------- | ------ | ----------------------------------------------- | ------ |
+| 1.0     | 2026-05-03 | AI     | Add governed fixture guide metadata and rubric. | Draft |
 
 ## 1. Prerequisites
 - **Transcripts**: Located in `packages/praecis/youtube/testdata/youtube_golden/`.

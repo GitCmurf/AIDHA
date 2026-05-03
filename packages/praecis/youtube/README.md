@@ -1,6 +1,34 @@
+---
+document_id: PRAECIS-REF-001
+owner: Ingestion Engineering Lead
+status: Draft
+version: "1.1"
+last_updated: 2026-05-03
+title: YouTube Ingestion Package README
+type: REF
+docops_version: "2.0"
+area: INGEST
+keywords: [praecis, youtube, ingestion, cli, evaluation]
+---
+
+<!-- MEMINIT_METADATA_BLOCK -->
+> **Document ID:** PRAECIS-REF-001
+> **Owner:** Ingestion Engineering Lead
+> **Status:** Draft
+> **Version:** 1.1
+> **Last Updated:** 2026-05-03
+> **Type:** REF
+
 # @aidha/ingestion-youtube
 
 YouTube ingestion and extraction package for the AIDHA MVP.
+
+## Version History
+
+| Version | Date       | Author | Change Summary                                      | Status |
+| ------- | ---------- | ------ | --------------------------------------------------- | ------ |
+| 1.0     | 2026-05-03 | AI     | Add governed README metadata and current CLI usage. | Draft |
+| 1.1     | 2026-05-03 | AI     | Document CI-safe and exhaustive test commands.      | Draft |
 
 Core capabilities:
 
@@ -26,6 +54,12 @@ Common workflow:
 5. `./scripts/eval-matrix/run-gemini-remediation-loop.sh --review-file review.txt --max-iterations 1 --verify-mode quick`
 
 Use `--verify-mode full` when you want the docs build in the loop, and `--heartbeat-seconds` to tune progress updates for long Gemini runs.
+
+## Testing
+
+- `pnpm test` at the repository root runs the bounded CI regression gate.
+- `pnpm -C packages/praecis/youtube test:ci` runs the YouTube package CI subset.
+- `pnpm -C packages/praecis/youtube test:full` runs the exhaustive YouTube package suite.
 
 ## Environment Variables
 

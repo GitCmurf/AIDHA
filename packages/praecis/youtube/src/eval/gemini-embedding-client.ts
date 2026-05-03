@@ -65,6 +65,24 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+function combineAbortSignals(signals: AbortSignal[]): AbortSignal {
+  const active = signals.filter(Boolean);
+  if (active.length === 1) return active[0]!;
+  if (typeof AbortSignal.any === "function") {
+    return AbortSignal.any(active);
+  }
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  for (const signal of active) {
+    if (signal.aborted) {
+      controller.abort();
+      break;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  return controller.signal;
+}
+
 export class GeminiEmbeddingClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -123,7 +141,7 @@ export class GeminiEmbeddingClient {
     return { ok: true, value: { warmed: result.value.length, failed: 0 } };
   }
 
-  async embedBatch(texts: string[]): Promise<Result<number[][]>> {
+  async embedBatch(texts: string[], signal?: AbortSignal): Promise<Result<number[][]>> {
     const normalized = texts.map(t => normalizeText(t));
     if (normalized.some(t => !t)) {
       return { ok: false, error: new Error("One or more texts were empty after normalization") };
@@ -156,7 +174,7 @@ export class GeminiEmbeddingClient {
     for (let i = 0; i < toFetch.length; i += this.batchSize) {
       const chunk = toFetch.slice(i, i + this.batchSize);
       const chunkTexts = chunk.map(c => c.text);
-      const batchResult = await this.embedBatchWithRetryAndSplit(chunkTexts);
+      const batchResult = await this.embedBatchWithRetryAndSplit(chunkTexts, signal);
 
       if (!batchResult.ok) {
         return batchResult;
@@ -174,7 +192,7 @@ export class GeminiEmbeddingClient {
     return { ok: true, value: results };
   }
 
-  private async embedBatchWithRetryAndSplit(texts: string[]): Promise<Result<number[][]>> {
+  private async embedBatchWithRetryAndSplit(texts: string[], signal?: AbortSignal): Promise<Result<number[][]>> {
     if (texts.length === 0) return { ok: true, value: [] };
 
     const result = await this.fetchWithRetry(
@@ -193,6 +211,7 @@ export class GeminiEmbeddingClient {
             content: { parts: [{ text }] },
           })),
         }),
+        signal,
       }
     );
 
@@ -212,8 +231,8 @@ export class GeminiEmbeddingClient {
       }
 
       const mid = Math.floor(texts.length / 2);
-      const left = await this.embedBatchWithRetryAndSplit(texts.slice(0, mid));
-      const right = await this.embedBatchWithRetryAndSplit(texts.slice(mid));
+      const left = await this.embedBatchWithRetryAndSplit(texts.slice(0, mid), signal);
+      const right = await this.embedBatchWithRetryAndSplit(texts.slice(mid), signal);
 
       if (!left.ok || !right.ok) {
         const leftError = left.ok ? "ok" : left.error.message;
@@ -287,9 +306,12 @@ export class GeminiEmbeddingClient {
       }
 
       const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
+      const signal = init.signal instanceof AbortSignal
+        ? combineAbortSignals([init.signal, timeoutSignal])
+        : timeoutSignal;
       try {
         this.apiRequestCount += 1;
-        const response = await fetch(url, { ...init, signal: timeoutSignal });
+        const response = await fetch(url, { ...init, signal });
 
         if (response.ok) {
           return { ok: true, value: await response.json() };

@@ -330,6 +330,37 @@ describe("GeminiEmbeddingClient", () => {
     await rm(cacheDir, { recursive: true, force: true });
   });
 
+  it("passes an external AbortSignal through with the per-request timeout signal", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+    const controller = new AbortController();
+    let observedSignal: AbortSignal | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      observedSignal = init?.signal as AbortSignal;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ embeddings: [{ values: [1, 0] }] }),
+      } as Response;
+    });
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+      maxRetries: 0,
+      timeoutMs: 1000,
+    });
+
+    const result = await client.embedBatch(["item1"], controller.signal);
+
+    expect(result.ok).toBe(true);
+    expect(observedSignal).toBeDefined();
+    expect(observedSignal).not.toBe(controller.signal);
+    controller.abort();
+    expect(observedSignal?.aborted).toBe(true);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
   it("getEmbeddings returns error if API returns 200 OK but length mismatch", async () => {
     const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
     vi.spyOn(globalThis, "fetch").mockResolvedValue({

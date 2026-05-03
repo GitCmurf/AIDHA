@@ -39,6 +39,18 @@ describe('run-gemini-remediation-loop.sh', () => {
     }
   });
 
+  it('rejects flags with missing values before shifting', async () => {
+    tempRoot = await mkdtemp(resolve(tmpdir(), 'aidha-remediation-loop-'));
+    const result = runLoop(['--review-file'], {
+      ...process.env,
+      PATH: `${tempRoot}:${process.env.PATH ?? ''}`,
+    });
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('--review-file requires a value.');
+    expect(result.stderr).not.toContain('shift');
+  });
+
   it('fails fast when the quick verification build fails', async () => {
     tempRoot = await mkdtemp(resolve(tmpdir(), 'aidha-remediation-loop-'));
     const commandLog = resolve(tempRoot, 'commands.log');

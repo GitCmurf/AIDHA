@@ -20,6 +20,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:ci": "vitest run --silent --reporter=dot",
+    "test:full": "vitest run",
     "verify:manual": "pnpm run build && node scripts/manual-verify.mjs",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"

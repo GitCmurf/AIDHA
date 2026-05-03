@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_BRANCH="main"
-MAX_ITERATIONS=1
-REVIEW_FILE=""
-VERIFY_MODE="quick"
-HEARTBEAT_SECONDS=60
-HARD_TIMEOUT_MINUTES=60
-GEMINI_BIN="${GEMINI_BIN:-gemini}"
-REVIEW_TOOL="${REVIEW_TOOL:-codex}"
-REVIEW_MODEL="${REVIEW_MODEL:-gpt-5.4-mini}"
-CODERABBIT_BIN="${CODERABBIT_BIN:-coderabbit}"
-PNPM_BIN="${PNPM_BIN:-pnpm}"
-GEMINI_APPROVAL_MODE="${GEMINI_APPROVAL_MODE:-auto_edit}"
-GEMINI_SANDBOX="${GEMINI_SANDBOX:-false}"
-GEMINI_SKIP_TRUST="${GEMINI_SKIP_TRUST:-true}"
-GEMINI_OUTPUT_FORMAT="${GEMINI_OUTPUT_FORMAT:-text}"
-RUN_ID=""
-RUN_DIR=""
+initialize_defaults() {
+    BASE_BRANCH="main"
+    MAX_ITERATIONS=1
+    REVIEW_FILE=""
+    VERIFY_MODE="quick"
+    HEARTBEAT_SECONDS=60
+    HARD_TIMEOUT_MINUTES=60
+    GEMINI_BIN="${GEMINI_BIN:-gemini}"
+    REVIEW_TOOL="${REVIEW_TOOL:-codex}"
+    REVIEW_MODEL="${REVIEW_MODEL:-gpt-5.4-mini}"
+    CODERABBIT_BIN="${CODERABBIT_BIN:-coderabbit}"
+    PNPM_BIN="${PNPM_BIN:-pnpm}"
+    GEMINI_APPROVAL_MODE="${GEMINI_APPROVAL_MODE:-auto_edit}"
+    GEMINI_SANDBOX="${GEMINI_SANDBOX:-false}"
+    GEMINI_SKIP_TRUST="${GEMINI_SKIP_TRUST:-true}"
+    GEMINI_OUTPUT_FORMAT="${GEMINI_OUTPUT_FORMAT:-text}"
+    RUN_ID=""
+    RUN_DIR=""
+    CURRENT_ITERATION=""
+}
 
 usage() {
     cat <<'EOF'
@@ -82,7 +85,7 @@ log() {
 
 elapsed_seconds() {
     local started_at="$1"
-    printf '%s' $(( $(date +%s) - started_at ))
+    printf '%s' "$(( $(date +%s) - started_at ))"
 }
 
 stage_log_file() {
@@ -117,7 +120,7 @@ run_with_heartbeat() {
             log "stage=${stage} status=running elapsed=$(elapsed_seconds "${started_at}")s pid=${pid}"
             last_heartbeat="${now}"
         fi
-        sleep 5
+        sleep 1
     done
 
     local rc=0
@@ -286,29 +289,121 @@ raise SystemExit(0)
     return 1
 }
 
-main() {
-    local root_dir
-    root_dir="$(git rev-parse --show-toplevel)"
+require_flag_value() {
+    local flag="$1"
+    local value="${2:-}"
+    if [[ -z "${value}" || "${value}" == --* ]]; then
+        echo "${flag} requires a value." >&2
+        exit 2
+    fi
+}
 
-    local review_input
-    review_input="$(read_review_input)"
-    if [[ -z "${review_input//[[:space:]]/}" ]]; then
-        echo "Review input is empty." >&2
+parse_args() {
+    if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+        usage
+        exit 0
+    fi
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --review-file)
+                require_flag_value "$1" "${2:-}"
+                REVIEW_FILE="${2:-}"
+                shift 2
+                ;;
+            --base)
+                require_flag_value "$1" "${2:-}"
+                BASE_BRANCH="${2:-}"
+                shift 2
+                ;;
+            --max-iterations)
+                require_flag_value "$1" "${2:-}"
+                MAX_ITERATIONS="${2:-}"
+                shift 2
+                ;;
+            --verify-mode)
+                require_flag_value "$1" "${2:-}"
+                VERIFY_MODE="${2:-}"
+                shift 2
+                ;;
+            --heartbeat-seconds)
+                require_flag_value "$1" "${2:-}"
+                HEARTBEAT_SECONDS="${2:-}"
+                shift 2
+                ;;
+            --hard-timeout-minutes)
+                require_flag_value "$1" "${2:-}"
+                HARD_TIMEOUT_MINUTES="${2:-}"
+                shift 2
+                ;;
+            --review-tool)
+                require_flag_value "$1" "${2:-}"
+                REVIEW_TOOL="${2:-}"
+                shift 2
+                ;;
+            --review-model)
+                require_flag_value "$1" "${2:-}"
+                REVIEW_MODEL="${2:-}"
+                shift 2
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Unknown argument: $1" >&2
+                usage >&2
+                exit 2
+                ;;
+        esac
+    done
+}
+
+validate_args() {
+    if ! [[ "${MAX_ITERATIONS}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "--max-iterations must be a positive integer." >&2
         exit 2
     fi
 
-    RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-    RUN_DIR="${TMPDIR:-/tmp}/aidha-gemini-remediation-${RUN_ID}"
-    mkdir -p "${RUN_DIR}"
-    trap 'rm -rf "${RUN_DIR}"' EXIT
-    log "run_dir=${RUN_DIR}"
-    log "verify_mode=${VERIFY_MODE}"
-    log "review_tool=${REVIEW_TOOL}"
+    if ! [[ "${HEARTBEAT_SECONDS}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "--heartbeat-seconds must be a positive integer." >&2
+        exit 2
+    fi
 
-    require_command "${GEMINI_BIN}"
-    require_command "${PNPM_BIN}"
+    if ! [[ "${HARD_TIMEOUT_MINUTES}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "--hard-timeout-minutes must be a positive integer." >&2
+        exit 2
+    fi
 
+    case "${VERIFY_MODE}" in
+        quick|full|none)
+            ;;
+        *)
+            echo "--verify-mode must be one of: quick, full, none." >&2
+            exit 2
+            ;;
+    esac
+
+    case "${REVIEW_TOOL}" in
+        codex|coderabbit)
+            ;;
+        *)
+            echo "--review-tool must be one of: codex, coderabbit." >&2
+            exit 2
+            ;;
+    esac
+
+    if [[ "${REVIEW_TOOL}" == "codex" && -z "${REVIEW_MODEL}" ]]; then
+        echo "--review-model must not be empty when using codex." >&2
+        exit 2
+    fi
+}
+
+run_loop() {
+    local root_dir="$1"
+    local review_input="$2"
     local iteration
+
     for ((iteration = 1; iteration <= MAX_ITERATIONS; iteration++)); do
         CURRENT_ITERATION="${iteration}"
         log "iteration=${iteration}/${MAX_ITERATIONS}"
@@ -377,95 +472,32 @@ EOF
     done
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-fi
+main() {
+    initialize_defaults
+    parse_args "$@"
+    validate_args
 
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --review-file)
-            REVIEW_FILE="${2:-}"
-            shift 2
-            ;;
-        --base)
-            BASE_BRANCH="${2:-}"
-            shift 2
-            ;;
-        --max-iterations)
-            MAX_ITERATIONS="${2:-}"
-            shift 2
-            ;;
-        --verify-mode)
-            VERIFY_MODE="${2:-}"
-            shift 2
-            ;;
-        --heartbeat-seconds)
-            HEARTBEAT_SECONDS="${2:-}"
-            shift 2
-            ;;
-        --hard-timeout-minutes)
-            HARD_TIMEOUT_MINUTES="${2:-}"
-            shift 2
-            ;;
-        --review-tool)
-            REVIEW_TOOL="${2:-}"
-            shift 2
-            ;;
-        --review-model)
-            REVIEW_MODEL="${2:-}"
-            shift 2
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            echo "Unknown argument: $1" >&2
-            usage >&2
-            exit 2
-            ;;
-    esac
-done
+    local root_dir
+    root_dir="$(git rev-parse --show-toplevel)"
 
-if ! [[ "${MAX_ITERATIONS}" =~ ^[1-9][0-9]*$ ]]; then
-    echo "--max-iterations must be a positive integer." >&2
-    exit 2
-fi
-
-if ! [[ "${HEARTBEAT_SECONDS}" =~ ^[1-9][0-9]*$ ]]; then
-    echo "--heartbeat-seconds must be a positive integer." >&2
-    exit 2
-fi
-
-if ! [[ "${HARD_TIMEOUT_MINUTES}" =~ ^[1-9][0-9]*$ ]]; then
-    echo "--hard-timeout-minutes must be a positive integer." >&2
-    exit 2
-fi
-
-case "${VERIFY_MODE}" in
-    quick|full|none)
-        ;;
-    *)
-        echo "--verify-mode must be one of: quick, full, none." >&2
-        exit 2
-        ;;
-esac
-
-case "${REVIEW_TOOL}" in
-    codex|coderabbit)
-        ;;
-    *)
-        echo "--review-tool must be one of: codex, coderabbit." >&2
-        exit 2
-        ;;
-esac
-
-if [[ "${REVIEW_TOOL}" == "codex" ]]; then
-    if [[ -z "${REVIEW_MODEL}" ]]; then
-        echo "--review-model must not be empty when using codex." >&2
+    local review_input
+    review_input="$(read_review_input)"
+    if [[ -z "${review_input//[[:space:]]/}" ]]; then
+        echo "Review input is empty." >&2
         exit 2
     fi
-fi
 
-main
+    RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aidha-gemini-remediation-${RUN_ID}.XXXXXX")"
+    trap 'rm -rf "${RUN_DIR}"' EXIT
+    log "run_dir=${RUN_DIR}"
+    log "verify_mode=${VERIFY_MODE}"
+    log "review_tool=${REVIEW_TOOL}"
+
+    require_command "${GEMINI_BIN}"
+    require_command "${PNPM_BIN}"
+
+    run_loop "${root_dir}" "${review_input}"
+}
+
+main "$@"

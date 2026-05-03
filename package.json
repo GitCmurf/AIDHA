@@ -9,7 +9,8 @@
   "license": "Apache-2.0",
   "scripts": {
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
+    "test": "pnpm -r --if-present test:ci",
+    "test:full": "pnpm -r --if-present test:full",
     "build": "pnpm -r build",
     "docs:serve": "./scripts/python -m mkdocs serve",
     "docs:catalog": "./scripts/python docs/_scripts/gen_catalog.py",

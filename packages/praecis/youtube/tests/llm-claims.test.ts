@@ -248,6 +248,38 @@ describe('LLM claim extraction', () => {
     await rm(cacheDir, { recursive: true, force: true });
   });
 
+  it('clamps out-of-range LLM confidence values instead of rejecting the full response', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-confidence-clamp');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-confidence-clamp-'));
+    const client = new StubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Out of range confidence values should be clamped without discarding valid claim content.',
+            excerptIds: ['excerpt-2'],
+            startSeconds: 30,
+            type: 'insight',
+            confidence: 1.7,
+          },
+        ],
+      }),
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+
+    const claims = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.confidence).toBe(1);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
   it('persists LLM metadata on stored claims', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-video-2');
     const client = new StubLlmClient([
@@ -345,6 +377,7 @@ describe('LLM claim extraction', () => {
         resetTimeoutMs: 1,
         halfOpenMaxCalls: 1,
       },
+      fallback: { extractClaims: async () => [] },
     });
 
     await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
@@ -353,6 +386,44 @@ describe('LLM claim extraction', () => {
 
     expect(recovered[0]?.text).toContain('Retry feedback can recover');
     expect(client.calls).toBe(3);
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('caches fallback claims after an LLM failure for identical retry inputs', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-fallback-cache');
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-fallback-cache-'));
+    const client = new SequenceStubLlmClient([
+      { ok: false, error: new Error('provider down') },
+      {
+        ok: true,
+        value: JSON.stringify({
+          claims: [
+            {
+              text: 'LLM recovery should not be called when cached fallback claims are available.',
+              excerptIds: ['excerpt-2'],
+              startSeconds: 30,
+              type: 'insight',
+            },
+          ],
+        }),
+      },
+    ]);
+
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v1',
+      cacheDir,
+      chunkMinutes: 10,
+    });
+
+    const first = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+    const second = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+    expect(first.length).toBeGreaterThan(0);
+    expect(second.length).toBe(first.length);
+    expect(second.every((claim) => claim.method === 'heuristic-fallback')).toBe(true);
+    expect(client.calls).toBe(1);
     await rm(cacheDir, { recursive: true, force: true });
   });
 

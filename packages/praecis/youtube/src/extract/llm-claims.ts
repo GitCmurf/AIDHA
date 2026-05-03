@@ -48,9 +48,10 @@ const ClaimSchema = z.object({
   type: z.string().optional(),
   classification: z.string().optional(),
   domain: z.string().optional(),
-  confidence: z.number().min(0).max(1).optional(),
+  confidence: z.number().finite().optional(),
   why: z.string().optional(),
   evidenceType: z.string().optional(),
+  method: z.enum(['llm', 'heuristic-fallback']).optional(),
 });
 
 const ResponseSchema = z.object({
@@ -539,8 +540,7 @@ function isClientTimeoutError(message: string | undefined): boolean {
   if (!message) return false;
   return /\bclient\s*timeout\b/i.test(message)
     || /\baborted\s+due\s+to\s+timeout\b/i.test(message)
-    || /\btimeout\s+after\b/i.test(message)
-    || /\brequest\s*was\s*aborted\b/i.test(message);
+    || /\btimeout\s+after\b/i.test(message);
 }
 
 function isUpstreamAbortError(message: string | undefined): boolean {
@@ -631,6 +631,7 @@ async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCa
       confidence: claim.confidence,
       why: claim.why,
       evidenceType: claim.evidenceType,
+      method: claim.method,
     })),
   };
   await writeFile(path, JSON.stringify(payload), 'utf-8');
@@ -935,7 +936,7 @@ export async function loadCachedClaimCandidates(
     candidates.push(
       ...cached.map(claim => ({
         ...claim,
-        method: 'llm' as const,
+        method: claim.method ?? 'llm' as const,
         model: input.model,
         promptVersion: input.promptVersion,
         chunkIndex: chunk.index,
@@ -952,6 +953,12 @@ export async function loadCachedClaimCandidates(
   };
 }
 
+/**
+ * Stateful extractor for one extraction workflow at a time.
+ *
+ * The instance tracks per-run diagnostics, traces, and circuit-breaker state. Do not share a
+ * single instance across concurrent `extractClaims()` calls; create one extractor per run instead.
+ */
 export class LlmClaimExtractor implements ClaimExtractor {
   private client: LlmClient;
   private model: string;
@@ -1897,7 +1904,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     if (cached) {
       return cached.map(claim => ({
         ...claim,
-        method: 'llm' as const,
+        method: claim.method ?? 'llm' as const,
         model: this.model,
         promptVersion: effectivePromptVersion,
         chunkIndex: chunk.index,
@@ -1951,11 +1958,20 @@ export class LlmClaimExtractor implements ClaimExtractor {
         excerpts: chunk.excerpts,
         maxClaims: DEFAULT_MAX_CLAIMS_PER_CHUNK,
       });
-      return fallbackClaims.map(candidate => ({
+      const cachedFallbackClaims = fallbackClaims.map(candidate => ({
         ...candidate,
         method: 'heuristic-fallback',
         chunkIndex: chunk.index,
-      }));
+      } as ClaimCandidate));
+      if (cachedFallbackClaims.length > 0) {
+        try {
+          await writeCache(cachePath, cacheMetadata, cachedFallbackClaims);
+        } catch (cacheError) {
+          // skipcq: JS-0002
+          console.warn(`Failed to write fallback cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+        }
+      }
+      return cachedFallbackClaims;
     }
 
     // LLM succeeded but returned no claims - cache the empty result

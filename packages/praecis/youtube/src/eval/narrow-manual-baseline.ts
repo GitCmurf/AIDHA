@@ -418,6 +418,51 @@ interface NarrowVideoScoreArtifact {
   video: NarrowComparisonVideoReport;
 }
 
+const NarrowShortlistStageArtifactSchema = z.object({
+  stage: z.literal("shortlist"),
+  inputSignature: z.string().min(1),
+  initialHarnessCells: z.array(z.unknown()),
+  fallbackTriggeredFor: z.array(z.string()),
+  fallbackCells: z.array(z.unknown()),
+  videos: z.array(z.unknown()),
+  shortlistTargets: z.array(z.unknown()),
+}).passthrough();
+
+const NarrowRefineStageArtifactSchema = z.object({
+  stage: z.literal("refine"),
+  inputSignature: z.string().min(1),
+  refinedTargets: z.array(z.unknown()),
+  refinedSelfImproveCells: z.array(z.unknown()),
+  finalHarnessCells: z.array(z.unknown()),
+}).passthrough();
+
+const NarrowScoreStageArtifactSchema = z.object({
+  stage: z.literal("score"),
+  inputSignature: z.string().min(1),
+  videos: z.array(z.unknown()),
+}).passthrough();
+
+const NarrowJudgeStageArtifactSchema = z.object({
+  stage: z.literal("judge"),
+  inputSignature: z.string().min(1),
+  videos: z.array(z.unknown()),
+}).passthrough();
+
+const NarrowVideoScoreArtifactSchema = z.object({
+  stage: z.literal("score-video"),
+  videoId: z.string().min(1),
+  inputSignature: z.string().min(1),
+  video: z.unknown(),
+}).passthrough();
+
+const NarrowStageArtifactSchemas = {
+  shortlist: NarrowShortlistStageArtifactSchema,
+  refine: NarrowRefineStageArtifactSchema,
+  score: NarrowScoreStageArtifactSchema,
+  judge: NarrowJudgeStageArtifactSchema,
+  report: z.object({ stage: z.literal("report") }).passthrough(),
+} as const;
+
 const NARROW_MODE_PRESETS: Record<NarrowRunMode, NarrowModePreset> = {
   "fast-triage": {
     chunkModes: ["large-request"],
@@ -490,10 +535,11 @@ async function writeNarrowStageArtifact<T>(outputDir: string, stage: NarrowStage
 }
 
 // Returns undefined only for ENOENT; re-throws all other errors.
-async function readJsonArtifact<T>(filePath: string): Promise<T | undefined> {
+async function readJsonArtifact<T>(filePath: string, schema?: z.ZodTypeAny): Promise<T | undefined> {
   try {
     const raw = await readFile(filePath, "utf-8");
-    return JSON.parse(raw) as T;
+    const parsed = JSON.parse(raw);
+    return (schema ? schema.parse(parsed) : parsed) as T;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined;
@@ -503,7 +549,7 @@ async function readJsonArtifact<T>(filePath: string): Promise<T | undefined> {
 }
 
 async function readNarrowStageArtifact<T>(outputDir: string, stage: NarrowStageId): Promise<T | undefined> {
-  return readJsonArtifact<T>(buildNarrowStagePath(outputDir, stage));
+  return readJsonArtifact<T>(buildNarrowStagePath(outputDir, stage), NarrowStageArtifactSchemas[stage]);
 }
 
 async function writeNarrowVideoScoreArtifact(outputDir: string, payload: NarrowVideoScoreArtifact): Promise<void> {
@@ -511,7 +557,7 @@ async function writeNarrowVideoScoreArtifact(outputDir: string, payload: NarrowV
 }
 
 async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string): Promise<NarrowVideoScoreArtifact | undefined> {
-  return readJsonArtifact<NarrowVideoScoreArtifact>(buildNarrowVideoScorePath(outputDir, videoId));
+  return readJsonArtifact<NarrowVideoScoreArtifact>(buildNarrowVideoScorePath(outputDir, videoId), NarrowVideoScoreArtifactSchema);
 }
 
 export async function buildStageInputSignature(input: {

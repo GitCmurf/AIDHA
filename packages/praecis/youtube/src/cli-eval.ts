@@ -26,6 +26,7 @@ import {
   NarrowCorpusSchema,
   runNarrowManualBaselineComparison,
   writeNarrowComparisonReport,
+  type NarrowRunMode,
 } from "./eval/narrow-manual-baseline.js";
 import { wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
 import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
@@ -126,7 +127,7 @@ type ProviderConfigGetter = (
   isProviderProfile?: boolean
 ) => { apiKey: string; baseUrl: string } | null;
 
-// Only these four providers are supported (matching ModelProvider in model-registry.ts)
+// Provider support follows the model registry and the runtime client wiring below.
 // Provider-specific runtime wiring. Some providers use the OpenAI-compatible client;
 // Gemini uses its native generateContent API for full feature access.
 const providerConfigGetters: Record<string, ProviderConfigGetter> = {
@@ -653,7 +654,7 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
   // Validate positive numeric options
   const error1 = validatePositiveNumber(parsedOpts.maxConcurrency, "--max-concurrency");
   if (error1 !== 0) return error1;
-  const error2 = validatePositiveNumber(parsedOpts.timeoutMs, "--timeout");
+  const error2 = validatePositiveNumber(parsedOpts.timeoutMs, "--timeout-ms");
   if (error2 !== 0) return error2;
   const error3 = validatePositiveNumber(parsedOpts.judgeMaxTokens, "--judge-max-tokens");
   if (error3 !== 0) return error3;
@@ -774,7 +775,7 @@ const parseEvalOptions = (positionals: string[], options: Record<string, string 
 
 interface NarrowEvalOptions {
   dryRun: boolean;
-  mode: "fast-triage" | "compare" | "deep";
+  mode: NarrowRunMode;
   corpusPath: string;
   transcriptDir: string;
   manualBaselineDir: string;
@@ -801,15 +802,29 @@ interface NarrowEvalOptions {
 const hasOption = (options: CliOptions, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(options, key);
 
+const NARROW_RUN_MODES: readonly NarrowRunMode[] = ["fast-triage", "compare", "deep"] as const;
+const NARROW_REFRESH_STAGES = ["shortlist", "refine", "score", "judge", "all"] as const;
+
+function parseNarrowRunMode(rawMode: string): NarrowRunMode {
+  const mode = rawMode === "quota-safe" ? "fast-triage" : rawMode;
+  if (NARROW_RUN_MODES.includes(mode as NarrowRunMode)) {
+    return mode as NarrowRunMode;
+  }
+  throw new Error(`Invalid narrow eval mode '${mode}'. Supported modes: ${NARROW_RUN_MODES.join(", ")}`);
+}
+
+function parseNarrowRefreshStage(rawStage: string): NarrowEvalOptions["refreshStage"] {
+  if (rawStage === "") return undefined;
+  if (NARROW_REFRESH_STAGES.includes(rawStage as NonNullable<NarrowEvalOptions["refreshStage"]>)) {
+    return rawStage as NonNullable<NarrowEvalOptions["refreshStage"]>;
+  }
+  throw new Error(`Invalid refresh stage '${rawStage}'. Supported stages: ${NARROW_REFRESH_STAGES.join(", ")}`);
+}
+
 const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => {
   const rawMode = optionString(cleanOptions, "mode", "fast-triage");
-  const mode = rawMode === "quota-safe" ? "fast-triage" : rawMode;
+  const mode = parseNarrowRunMode(rawMode);
   const runId = optionString(cleanOptions, "run-id", "");
-
-  const validModes = ["fast-triage", "compare", "deep"];
-  if (!validModes.includes(mode)) {
-    throw new Error(`Invalid narrow eval mode '${mode}'. Supported modes: ${validModes.join(", ")}`);
-  }
 
   const explicitJudgeModel = optionString(cleanOptions, "judge-model", "");
   const judgeDefault = explicitJudgeModel || (mode === "fast-triage" ? "" : "gpt-5.4");
@@ -842,7 +857,7 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
     shortlistPerVideo: optionNumber(cleanOptions, "shortlist-per-video", 0) || undefined,
     maxEmbeddingRequestsPerRun: optionNumber(cleanOptions, "max-embedding-requests-per-run", 0) || undefined,
     maxRefinedSelfImproveCellsPerRun: optionNumber(cleanOptions, "max-refined-self-improve-cells-per-run", 0) || undefined,
-    refreshStage: optionString(cleanOptions, "refresh-stage", "") as NarrowEvalOptions["refreshStage"] | undefined,
+    refreshStage: parseNarrowRefreshStage(optionString(cleanOptions, "refresh-stage", "")),
     runId: runId || undefined,
   };
 };
@@ -1082,7 +1097,6 @@ const loadExecutionData = (parsedOpts: EvalRunOptions) => {
  * - 0: Success
  * - 1: General error
  * - 2: Invalid options
- * - 3: Dry-run mode (no execution)
  */
 export const runEvalMatrix = async (
   positionals: string[],

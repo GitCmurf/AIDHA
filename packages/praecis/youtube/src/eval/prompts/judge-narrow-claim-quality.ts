@@ -3,6 +3,7 @@ import type { FlattenedGoldenClaimNode } from "../golden-annotation-utils.js";
 import type { VideoContext } from "../matrix-runner.js";
 
 export const NARROW_JUDGE_PROMPT_VERSION = "v1";
+const MAX_TRANSCRIPT_PROMPT_CHARS = 50000;
 
 function sanitizePromptInput(text: string): string {
   return text
@@ -17,6 +18,11 @@ function sanitizePromptInput(text: string): string {
     .replace(/<\/GOLD_CLAIMS>/gi, "< /GOLD_CLAIMS>")
     .replace(/<TEACHER_CLAIMS>/gi, "< TEACHER_CLAIMS>")
     .replace(/<\/TEACHER_CLAIMS>/gi, "< /TEACHER_CLAIMS>");
+}
+
+function truncatePromptInput(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}\n[TRUNCATED ${text.length - maxChars} chars from transcript for judge context budget]`;
 }
 
 export function buildNarrowJudgePrompt(
@@ -67,7 +73,7 @@ Return ONLY valid JSON matching the exact schema requested.`;
     2
   );
 
-  const normalizedTranscript = nk(transcript);
+  const normalizedTranscript = truncatePromptInput(nk(transcript), MAX_TRANSCRIPT_PROMPT_CHARS);
 
   const user = `Here is the transcript context:
 <VIDEO_METADATA>

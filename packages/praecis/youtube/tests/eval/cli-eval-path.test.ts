@@ -219,4 +219,41 @@ describe("CLI Export Path Resolution", () => {
 
     consoleLogSpy.mockRestore();
   });
+
+  it("reports the actual --timeout-ms flag for invalid timeout values", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const exitCode = await runEvalMatrix(
+      ["node", "matrix"],
+      { format: "both", corpus: "test.json", "timeout-ms": "0" },
+      mockConfig
+    );
+
+    expect(exitCode).toBe(2);
+    expect(consoleErrorSpy.mock.calls.some((call) =>
+      String(call[0]).includes("--timeout-ms")
+    )).toBe(true);
+    expect(consoleErrorSpy.mock.calls.some((call) =>
+      String(call[0]).includes("--timeout ")
+    )).toBe(false);
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("rejects invalid narrow refresh stages before casting", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const exitCode = await runEvalMatrix(
+      ["node", "narrow-manual-baseline"],
+      { "dry-run": true, corpus: "test.json", "refresh-stage": "bogus" },
+      mockConfig
+    );
+
+    expect(exitCode).toBe(1);
+    expect(consoleErrorSpy.mock.calls.some((call) =>
+      call.some((part) => String(part).includes("Invalid refresh stage 'bogus'"))
+    )).toBe(true);
+
+    consoleErrorSpy.mockRestore();
+  });
 });

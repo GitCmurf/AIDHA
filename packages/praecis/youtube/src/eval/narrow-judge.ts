@@ -69,6 +69,13 @@ function normalizeFindingText(text: string): string {
   return normalizeText(text).toLowerCase();
 }
 
+function sanitizeRetryEcho(text: string, maxLength = 4000): string {
+  return normalizeText(text)
+    .slice(0, maxLength)
+    .replace(/```/g, "'''")
+    .replace(/<[^>\n]{1,80}>/g, (tag) => tag.replace(/</g, "< ").replace(/>/g, " >"));
+}
+
 function stripCodeFences(content: string): string {
   let text = content.trim();
   const jsonFenceIdx = text.indexOf("```json");
@@ -151,11 +158,11 @@ export function deriveNarrowJudgeScores(
 
   const goldCoverage = clampScore((matchedGoldIds.size / Math.max(goldClaims.length, 1)) * 10);
   const faithfulness = candidateClaims.length === 0
-    ? 10
+    ? 0
     : clampScore(10 - ((unsupportedCandidateCount / candidateCount) * 10));
   const structure = clampScore(10 - structuralPenalty - (missedRootCount * 1.5));
   const atomicity = candidateClaims.length === 0
-    ? 10
+    ? 0
     : clampScore(10 - ((redundantCandidateCount / candidateCount) * 10) - compoundPenalty);
   const overallScore = clampScore((goldCoverage + faithfulness + structure + atomicity) / 4);
 
@@ -240,7 +247,7 @@ ${user}
 ---
 
 Previous output to fix:
-${llmResult1.value}`;
+${sanitizeRetryEcho(llmResult1.value)}`;
 
   const llmResult2 = await judgeClient.generate({
     model: judgeModel,
