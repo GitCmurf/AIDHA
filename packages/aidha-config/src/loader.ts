@@ -237,17 +237,20 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     const required = envConfig!['dotenv_required'] === true;
 
     // Snapshot original env keys so later dotenv files can override
-    // earlier ones, but pre-existing process env vars are protected
-    // when override_existing is false.
+    // earlier ones, but pre-existing env inputs are protected when
+    // override_existing is false.
     const originalEnvKeys = new Set(
       Object.entries(env)
         .filter(([, v]) => v !== undefined)
         .map(([k]) => k),
     );
-
-    // Track keys introduced by previous dotenv files to correctly sync
-    // them to process.env even when overrideExisting is false.
-    const loadedDotenvKeys = new Set<string>();
+    const originalProcessEnvKeys = syncProcessEnv
+      ? new Set(
+          Object.entries(process.env)
+            .filter(([, v]) => v !== undefined)
+            .map(([k]) => k),
+        )
+      : null;
 
     for (const file of files) {
       const dotenvPath = resolve(baseDirPrelim, file);
@@ -282,9 +285,11 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         if (overrideExisting || !originalEnvKeys.has(key)) {
           env[key] = value;
           dotenvEnv[key] = value;
-          if (syncProcessEnv && (overrideExisting || process.env[key] === undefined || loadedDotenvKeys.has(key))) {
+          if (
+            syncProcessEnv &&
+            (overrideExisting || !originalProcessEnvKeys?.has(key))
+          ) {
             process.env[key] = value;
-            loadedDotenvKeys.add(key);
           }
         }
       }

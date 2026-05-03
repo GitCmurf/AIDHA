@@ -274,7 +274,7 @@ describe('IngestionPipeline', () => {
       // Content should be preserved, not wiped, when refresh fails
       expect(resource.value.content).toBe('stale transcript');
       expect(resource.value.metadata?.['transcriptStatus']).toBe('available');
-      expect(resource.value.metadata?.['transcriptError']).toBe('Transcript unavailable');
+      expect(resource.value.metadata?.['transcriptError']).toBeUndefined();
     });
   });
 

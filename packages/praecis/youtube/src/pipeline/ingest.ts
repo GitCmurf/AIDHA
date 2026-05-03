@@ -181,7 +181,7 @@ export class IngestionPipeline {
           const updatedMetadata: Record<string, unknown> = {
             ...(resource.metadata as Record<string, unknown>),
             transcriptStatus: (transcriptResult.ok || hasExcerpts) ? 'available' : 'missing',
-            transcriptError: transcriptResult.ok ? undefined : transcriptResult.error.message,
+            transcriptError: transcriptResult.ok || hasExcerpts ? undefined : transcriptResult.error.message,
             ...(transcriptResult.ok && transcript?.language !== undefined ? { transcriptLanguage: transcript.language } : {}),
           };
 
