@@ -1337,6 +1337,7 @@ describe("narrow-manual-baseline helpers", () => {
     expect(firstRun.metadata.stageExecution.refine).toBe("recomputed");
     expect(secondRun.metadata.stageExecution.refine).toBe("resumed");
     expect(secondRun.metadata.stageExecution.score).toBe("recomputed");
+    expect(judgeClient.generate).toHaveBeenCalledTimes(6);
 
     const candidateReports = secondRun.videos[0]?.candidateReports ?? [];
     const selfImproveIds = candidateReports
@@ -1348,6 +1349,7 @@ describe("narrow-manual-baseline helpers", () => {
 
     const refinedCandidate = candidateReports.find((candidate) => candidate.candidateId.endsWith("/refine"));
     expect(refinedCandidate?.judgeFindingsByModel).toBeDefined();
+    expect(refinedCandidate?.judgeFindingsByModel?.["judge-1"]).toBeDefined();
   });
 
   it("rejects path-traversal videoId values in narrow corpus entries", () => {

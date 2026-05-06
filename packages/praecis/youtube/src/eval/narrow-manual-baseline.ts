@@ -2384,7 +2384,7 @@ export async function runNarrowManualBaselineComparison(
       const comparableClaimSets: ComparableClaimSet[] = [
         ...harnessCells
           .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => toHarnessComparableClaimSet(cell, "harness")),
+          .map((cell) => buildHarnessComparableClaimSet(cell)),
         ...(includeManualBaselines ? (manualByVideo.get(video.videoId) ?? []) : []),
         ...fallbackCells
           .filter((cell) => cell.videoId === video.videoId)
