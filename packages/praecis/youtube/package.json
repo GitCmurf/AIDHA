@@ -26,7 +26,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "test:ci": "vitest run --silent --reporter=dot \"tests/eval/**/*.test.ts\" \"tests/eval/**/*.spec.ts\" \"tests/extract/**/*.test.ts\" tests/llm-claims.test.ts tests/pipeline.test.ts tests/prompt-routing.test.ts",
+    "test:ci": "vitest run --silent --reporter=dot",
     "test:full": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",

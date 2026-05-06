@@ -2,7 +2,7 @@
 document_id: PRAECIS-REF-001
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.1"
+version: "1.2"
 last_updated: 2026-05-03
 title: YouTube Ingestion Package README
 type: REF
@@ -15,7 +15,7 @@ keywords: [praecis, youtube, ingestion, cli, evaluation]
 > **Document ID:** PRAECIS-REF-001
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.1
+> **Version:** 1.2
 > **Last Updated:** 2026-05-03
 > **Type:** REF
 
@@ -29,6 +29,7 @@ YouTube ingestion and extraction package for the AIDHA MVP.
 | ------- | ---------- | ------ | --------------------------------------------------- | ------ |
 | 1.0     | 2026-05-03 | AI     | Add governed README metadata and current CLI usage. | Draft |
 | 1.1     | 2026-05-03 | AI     | Document CI-safe and exhaustive test commands.      | Draft |
+| 1.2     | 2026-05-03 | AI     | Restore eval coverage in the CI test entry point.   | Draft |
 
 Core capabilities:
 
@@ -58,8 +59,8 @@ Use `--verify-mode full` when you want the docs build in the loop, and `--heartb
 ## Testing
 
 - `pnpm test` at the repository root runs the bounded CI regression gate.
-- `pnpm -C packages/praecis/youtube test:ci` runs the YouTube package CI subset.
-- `pnpm -C packages/praecis/youtube test:full` runs the exhaustive YouTube package suite.
+- `pnpm -C packages/praecis/youtube test:ci` runs the full YouTube package suite with CI-friendly output.
+- `pnpm -C packages/praecis/youtube test:full` runs the same exhaustive suite with the default Vitest reporter.
 
 ## Environment Variables
 
