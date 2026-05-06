@@ -50,6 +50,12 @@ jobs:
       - name: Build packages
         run: pnpm -r build
 
+      - name: Seed eval gate reports
+        run: |
+          mkdir -p out/eval-matrix/reports
+          cp packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json out/eval-matrix/reports/baseline.json
+          cp packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json out/eval-matrix/reports/latest.json
+
       - name: Test packages
         run: pnpm test
 

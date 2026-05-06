@@ -41,9 +41,8 @@ structure and can be flattened for the current judge flow when needed.
 The CI quality gate in `packages/praecis/youtube/tests/eval/quality-gate.spec.ts` compares the
 `latest.json` convenience alias against `baseline.json`.
 
-**Prerequisite:** You must run the evaluation matrix (step 2 below) to generate a stamped report
-and refresh `latest.json`
-before running this test.
+**Prerequisite:** For local runs, you must run the evaluation matrix (step 2 below) to generate a
+stamped report and refresh `latest.json` before running this test.
 
 It fails if:
 
@@ -51,7 +50,10 @@ It fails if:
 - The schema of the report is invalid.
 - Required models are missing from the latest run.
 
-If `REQUIRE_EVAL_GATE=1` or `CI=true` is set, the gate requires both reports to exist.
+If `REQUIRE_EVAL_GATE=1` or `CI=true` is set, the gate requires both reports to exist. In the
+repository workflow, `.github/workflows/typescript-packages.yml` seeds both files from the checked-in
+`packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json` fixture before running
+the package test suite, so CI does not depend on an ad hoc report-generation step.
 
 ### Acceptance Criteria
 
