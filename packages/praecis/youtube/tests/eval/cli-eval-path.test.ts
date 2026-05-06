@@ -220,6 +220,30 @@ describe("CLI Export Path Resolution", () => {
     consoleLogSpy.mockRestore();
   });
 
+  it("preserves explicit zero values for narrow numeric options", async () => {
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const exitCode = await runEvalMatrix(
+      ["node", "narrow-manual-baseline"],
+      {
+        "dry-run": true,
+        corpus: "test.json",
+        "shortlist-per-video": 0,
+        "max-embedding-requests-per-run": 0,
+        "max-refined-self-improve-cells-per-run": 0,
+      },
+      mockConfig
+    );
+
+    const planOutput = consoleLogSpy.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(exitCode).toBe(0);
+    expect(planOutput).toContain("Shortlist Per Video: 0");
+    expect(planOutput).toContain("Max Embedding Requests: 0");
+    expect(planOutput).toContain("Max Refined Self-Improve Cells: 0");
+
+    consoleLogSpy.mockRestore();
+  });
+
   it("reports the actual --timeout-ms flag for invalid timeout values", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 

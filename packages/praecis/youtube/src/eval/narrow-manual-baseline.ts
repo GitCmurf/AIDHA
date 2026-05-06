@@ -560,9 +560,8 @@ async function readNarrowVideoScoreArtifact(outputDir: string, videoId: string):
   return readJsonArtifact<NarrowVideoScoreArtifact>(buildNarrowVideoScorePath(outputDir, videoId), NarrowVideoScoreArtifactSchema);
 }
 
-export async function buildStageInputSignature(input: {
+type NarrowStageSignatureBaseInput = {
   corpusSignature: string;
-  runMode: NarrowRunMode;
   corpus: CorpusEntry[];
   modelIds: string[];
   chunkModes: NarrowEvalChunkMode[];
@@ -572,7 +571,6 @@ export async function buildStageInputSignature(input: {
   transcriptDir: string;
   manualBaselineDir: string;
   fallbackModelId: string;
-  judgeEnabled: boolean;
   judgeModelIds: string[];
   judgeMaxTokens: number;
   includeManualBaselines: boolean;
@@ -580,13 +578,40 @@ export async function buildStageInputSignature(input: {
   maxEmbeddingRequestsPerRun?: number;
   maxRefinedSelfImproveCellsPerRun?: number;
   shortlistPerVideo?: number;
-  embeddingClientAvailable: boolean;
   embeddingModel?: string;
   embeddingBaseUrl?: string;
   embeddingBatchSize?: number;
   taskType?: string;
   outputDimensionality?: number;
-}): Promise<string> {
+};
+
+type NarrowStageSignaturePayload = {
+  corpusSignature: string;
+  corpus: CorpusEntry[];
+  modelIds: string[];
+  chunkModes: NarrowEvalChunkMode[];
+  promptConfigs: Pass1PromptConfigId[];
+  stage1Variants: ExtractorVariantId[];
+  stage2Variants: ExtractorVariantId[];
+  transcriptHash: string;
+  goldHash: string;
+  manualHash: string;
+  includeManualBaselines: boolean;
+  fallbackModelId: string;
+  judgeModelIds: string[];
+  judgeMaxTokens: number;
+  enablePromptRouting: boolean;
+  maxEmbeddingRequestsPerRun?: number;
+  maxRefinedSelfImproveCellsPerRun?: number;
+  shortlistPerVideo?: number;
+  embeddingModel?: string;
+  embeddingBaseUrl?: string;
+  embeddingBatchSize?: number;
+  taskType?: string;
+  outputDimensionality?: number;
+};
+
+async function buildNarrowStageSignaturePayload(input: NarrowStageSignatureBaseInput): Promise<NarrowStageSignaturePayload> {
   const corpusVideoIds = input.corpus.map((video) => video.videoId);
   const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
@@ -604,9 +629,8 @@ export async function buildStageInputSignature(input: {
     manualHash = await hashFiles(manualFiles);
   }
 
-  return hashId("narrow-stage", [JSON.stringify({
+  return {
     corpusSignature: input.corpusSignature,
-    runMode: input.runMode,
     corpus: [...input.corpus].sort((a, b) => a.videoId.localeCompare(b.videoId)),
     modelIds: [...input.modelIds].sort(),
     chunkModes: [...input.chunkModes],
@@ -616,21 +640,56 @@ export async function buildStageInputSignature(input: {
     transcriptHash,
     goldHash,
     manualHash,
+    includeManualBaselines: input.includeManualBaselines,
     fallbackModelId: input.fallbackModelId,
-    judgeEnabled: input.judgeEnabled,
     judgeModelIds: [...input.judgeModelIds].sort(),
     judgeMaxTokens: input.judgeMaxTokens,
-    includeManualBaselines: input.includeManualBaselines,
     enablePromptRouting: input.enablePromptRouting,
     maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
     maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
     shortlistPerVideo: input.shortlistPerVideo,
-    embeddingClientAvailable: input.embeddingClientAvailable,
     embeddingModel: input.embeddingModel,
     embeddingBaseUrl: input.embeddingBaseUrl,
     embeddingBatchSize: input.embeddingBatchSize,
     taskType: input.taskType,
     outputDimensionality: input.outputDimensionality,
+  };
+}
+
+export async function buildStageInputSignature(input: NarrowStageSignatureBaseInput & {
+  runMode: NarrowRunMode;
+  judgeEnabled: boolean;
+  embeddingClientAvailable: boolean;
+}): Promise<string> {
+  const payload = await buildNarrowStageSignaturePayload(input);
+
+  return hashId("narrow-stage", [JSON.stringify({
+    corpusSignature: payload.corpusSignature,
+    runMode: input.runMode,
+    corpus: payload.corpus,
+    modelIds: payload.modelIds,
+    chunkModes: payload.chunkModes,
+    promptConfigs: payload.promptConfigs,
+    stage1Variants: payload.stage1Variants,
+    stage2Variants: payload.stage2Variants,
+    transcriptHash: payload.transcriptHash,
+    goldHash: payload.goldHash,
+    manualHash: payload.manualHash,
+    fallbackModelId: payload.fallbackModelId,
+    judgeEnabled: input.judgeEnabled,
+    judgeModelIds: payload.judgeModelIds,
+    judgeMaxTokens: payload.judgeMaxTokens,
+    includeManualBaselines: payload.includeManualBaselines,
+    enablePromptRouting: payload.enablePromptRouting,
+    maxEmbeddingRequestsPerRun: payload.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: payload.maxRefinedSelfImproveCellsPerRun,
+    shortlistPerVideo: payload.shortlistPerVideo,
+    embeddingClientAvailable: input.embeddingClientAvailable,
+    embeddingModel: payload.embeddingModel,
+    embeddingBaseUrl: payload.embeddingBaseUrl,
+    embeddingBatchSize: payload.embeddingBatchSize,
+    taskType: payload.taskType,
+    outputDimensionality: payload.outputDimensionality,
   })]);
 }
 
@@ -639,72 +698,34 @@ async function hashFiles(filePaths: string[]): Promise<string> {
   return hashId("files", hashes.filter(Boolean) as string[]);
 }
 
-export async function buildExtractionStageInputSignature(input: {
-  corpusSignature: string;
-  corpus: CorpusEntry[];
-  modelIds: string[];
-  chunkModes: NarrowEvalChunkMode[];
-  promptConfigs: Pass1PromptConfigId[];
-  stage1Variants: ExtractorVariantId[];
-  stage2Variants: ExtractorVariantId[];
-  transcriptDir: string;
-  manualBaselineDir: string;
-  fallbackModelId: string;
-  judgeModelIds: string[];
-  judgeMaxTokens: number;
-  enablePromptRouting: boolean;
-  includeManualBaselines: boolean;
-  maxEmbeddingRequestsPerRun?: number;
-  maxRefinedSelfImproveCellsPerRun?: number;
-  shortlistPerVideo?: number;
-  embeddingModel?: string;
-  embeddingBaseUrl?: string;
-  embeddingBatchSize?: number;
-  taskType?: string;
-  outputDimensionality?: number;
-}): Promise<string> {
-  const corpusVideoIds = input.corpus.map((video) => video.videoId);
-  const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
-  const transcriptHash = await hashFiles(transcriptFiles);
-
-  const goldFiles = corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
-  const goldHash = await hashFiles(goldFiles);
-
-  let manualHash = "none";
-  if (input.includeManualBaselines) {
-    const manualFiles: string[] = [];
-    for (const id of corpusVideoIds) {
-      manualFiles.push(join(input.manualBaselineDir, `${id}-CG.json`));
-      manualFiles.push(join(input.manualBaselineDir, `${id}-GG.json`));
-    }
-    manualHash = await hashFiles(manualFiles);
-  }
+export async function buildExtractionStageInputSignature(input: NarrowStageSignatureBaseInput): Promise<string> {
+  const payload = await buildNarrowStageSignaturePayload(input);
 
   return hashId("narrow-extraction-stage", [JSON.stringify({
-    corpusSignature: input.corpusSignature,
-    corpus: [...input.corpus].sort((a, b) => a.videoId.localeCompare(b.videoId)),
-    modelIds: [...input.modelIds].sort(),
-    chunkModes: [...input.chunkModes],
-    promptConfigs: [...input.promptConfigs],
-    stage1Variants: [...input.stage1Variants],
-    stage2Variants: [...input.stage2Variants],
-    transcriptHash,
-    goldHash,
-    manualHash,
-    includeManualBaselines: input.includeManualBaselines,
+    corpusSignature: payload.corpusSignature,
+    corpus: payload.corpus,
+    modelIds: payload.modelIds,
+    chunkModes: payload.chunkModes,
+    promptConfigs: payload.promptConfigs,
+    stage1Variants: payload.stage1Variants,
+    stage2Variants: payload.stage2Variants,
+    transcriptHash: payload.transcriptHash,
+    goldHash: payload.goldHash,
+    manualHash: payload.manualHash,
+    includeManualBaselines: payload.includeManualBaselines,
     manualBaselineDir: input.manualBaselineDir,
-    fallbackModelId: input.fallbackModelId,
-    judgeModelIds: [...input.judgeModelIds].sort(),
-    judgeMaxTokens: input.judgeMaxTokens,
-    enablePromptRouting: input.enablePromptRouting,
-    maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
-    maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
-    shortlistPerVideo: input.shortlistPerVideo,
-    embeddingModel: input.embeddingModel,
-    embeddingBaseUrl: input.embeddingBaseUrl,
-    embeddingBatchSize: input.embeddingBatchSize,
-    taskType: input.taskType,
-    outputDimensionality: input.outputDimensionality,
+    fallbackModelId: payload.fallbackModelId,
+    judgeModelIds: payload.judgeModelIds,
+    judgeMaxTokens: payload.judgeMaxTokens,
+    enablePromptRouting: payload.enablePromptRouting,
+    maxEmbeddingRequestsPerRun: payload.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: payload.maxRefinedSelfImproveCellsPerRun,
+    shortlistPerVideo: payload.shortlistPerVideo,
+    embeddingModel: payload.embeddingModel,
+    embeddingBaseUrl: payload.embeddingBaseUrl,
+    embeddingBatchSize: payload.embeddingBatchSize,
+    taskType: payload.taskType,
+    outputDimensionality: payload.outputDimensionality,
   })]);
 }
 

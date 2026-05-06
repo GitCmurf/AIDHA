@@ -132,7 +132,7 @@ describe("checkSelfImprovementGate", () => {
     expect(result.regressions[0].dimension).toBe("incompatible-score-mode");
   });
 
-  it("should fail closed when the baseline cell has no score but self-improve is scored", () => {
+  it("should fail closed as incomparable when the baseline cell has no score but self-improve is scored", () => {
     const report = {
       ...mockReportBase,
       cells: [
@@ -163,7 +163,7 @@ describe("checkSelfImprovementGate", () => {
 
     expect(result.passed).toBe(false);
     expect(result.regressions).toHaveLength(1);
-    expect(result.regressions[0].dimension).toBe("missing-baseline-score");
+    expect(result.regressions[0].dimension).toBe("incomparable-baseline-score");
   });
 
   it("should pass if no regressions are found via narrow judge scores", () => {
@@ -176,11 +176,11 @@ describe("checkSelfImprovementGate", () => {
           extractorVariantId: "editorial-pass-v1",
           narrowJudgeResult: {
             derivedScores: {
-              goldCoverage: 0.8,
-              faithfulness: 0.9,
-              structure: 0.7,
-              atomicity: 0.8,
-              overallScore: 0.8
+              goldCoverage: 8,
+              faithfulness: 9,
+              structure: 7,
+              atomicity: 8,
+              overallScore: 8
             }
           }
         },
@@ -190,11 +190,11 @@ describe("checkSelfImprovementGate", () => {
           extractorVariantId: "self-improve-v1",
           narrowJudgeResult: {
             derivedScores: {
-              goldCoverage: 0.85,
-              faithfulness: 0.95,
-              structure: 0.75,
-              atomicity: 0.85,
-              overallScore: 0.85
+              goldCoverage: 8.5,
+              faithfulness: 9.5,
+              structure: 7.5,
+              atomicity: 8.5,
+              overallScore: 8.5
             }
           }
         }
@@ -215,11 +215,11 @@ describe("checkSelfImprovementGate", () => {
           extractorVariantId: "editorial-pass-v1",
           narrowJudgeResult: {
             derivedScores: {
-              goldCoverage: 0.8,
-              faithfulness: 0.9,
-              structure: 0.7,
-              atomicity: 0.8,
-              overallScore: 0.8
+              goldCoverage: 8,
+              faithfulness: 9,
+              structure: 7,
+              atomicity: 8,
+              overallScore: 8
             }
           }
         },
@@ -229,19 +229,18 @@ describe("checkSelfImprovementGate", () => {
           extractorVariantId: "self-improve-v1",
           narrowJudgeResult: {
             derivedScores: {
-              goldCoverage: 0.5, // regression > 1.0 (wait, tolerance is 1.0? That's huge if scores are 0-1)
-              faithfulness: 0.9,
-              structure: 0.7,
-              atomicity: 0.8,
-              overallScore: 0.8
+              goldCoverage: 6.5,
+              faithfulness: 9,
+              structure: 7,
+              atomicity: 8,
+              overallScore: 8
             }
           }
         }
       ]
     } as any as MatrixReport;
 
-    // Using small tolerance to detect the 0.3 drop
-    const result = checkSelfImprovementGate(report, { tolerance: 0.1 });
+    const result = checkSelfImprovementGate(report, { tolerance: 1.0 });
     expect(result.passed).toBe(false);
     expect(result.regressions).toHaveLength(1);
     expect(result.regressions[0].dimension).toBe("goldCoverage");
@@ -309,7 +308,7 @@ describe("checkSelfImprovementGate", () => {
           extractorVariantId: "self-improve-v1",
           consensusScore: {
             mean: {
-              completeness: 2.0, // regression > 1.0
+              completeness: 2.0,
               accuracy: 4.5,
               topicCoverage: 4.0,
               atomicity: 4.0,
@@ -396,11 +395,11 @@ describe("checkSelfImprovementGate", () => {
           extractorVariantId: "editorial-pass-v1",
           narrowJudgeResult: {
             derivedScores: {
-              goldCoverage: 0.9,
-              faithfulness: 0.9,
-              structure: 0.9,
-              atomicity: 0.9,
-              overallScore: 0.9
+              goldCoverage: 9,
+              faithfulness: 9,
+              structure: 9,
+              atomicity: 9,
+              overallScore: 9
             }
           }
         },
@@ -411,17 +410,17 @@ describe("checkSelfImprovementGate", () => {
           narrowJudgeResult: {
             derivedScores: {
               goldCoverage: Number.NaN,
-              faithfulness: 0.9,
-              structure: 0.9,
-              atomicity: 0.9,
-              overallScore: 0.9
+              faithfulness: 9,
+              structure: 9,
+              atomicity: 9,
+              overallScore: 9
             }
           }
         }
       ]
     } as any as MatrixReport;
 
-    const result = checkSelfImprovementGate(report, { tolerance: 0.1 });
+    const result = checkSelfImprovementGate(report, { tolerance: 1.0 });
     expect(result.passed).toBe(false);
     expect(result.regressions).toHaveLength(1);
     expect(result.regressions[0].dimension).toBe("goldCoverage");

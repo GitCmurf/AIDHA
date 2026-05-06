@@ -98,7 +98,7 @@ const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: s
   };
 };
 
-// Reserved for future use - OpenRouter support when ModelProvider is expanded
+// OpenRouter uses OpenAI-compatible routing with its own API key and base URL defaults.
 const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const envKey = process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"];
 
@@ -802,6 +802,9 @@ interface NarrowEvalOptions {
 const hasOption = (options: CliOptions, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(options, key);
 
+const optionNumberIfPresent = (options: CliOptions, key: string): number | undefined =>
+  hasOption(options, key) ? optionNumber(options, key, 0) : undefined;
+
 const NARROW_RUN_MODES: readonly NarrowRunMode[] = ["fast-triage", "compare", "deep"] as const;
 const NARROW_REFRESH_STAGES = ["shortlist", "refine", "score", "judge", "all"] as const;
 
@@ -854,9 +857,9 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
     maxRpmGeminiFlashLite: optionNumber(cleanOptions, "max-rpm-gemini-flash-lite", 12),
     maxRpmGeminiEmbedding: optionNumber(cleanOptions, "max-rpm-gemini-embedding", 80),
     maxRpmGpt54: optionNumber(cleanOptions, "max-rpm-gpt54", 20),
-    shortlistPerVideo: optionNumber(cleanOptions, "shortlist-per-video", 0) || undefined,
-    maxEmbeddingRequestsPerRun: optionNumber(cleanOptions, "max-embedding-requests-per-run", 0) || undefined,
-    maxRefinedSelfImproveCellsPerRun: optionNumber(cleanOptions, "max-refined-self-improve-cells-per-run", 0) || undefined,
+    shortlistPerVideo: optionNumberIfPresent(cleanOptions, "shortlist-per-video"),
+    maxEmbeddingRequestsPerRun: optionNumberIfPresent(cleanOptions, "max-embedding-requests-per-run"),
+    maxRefinedSelfImproveCellsPerRun: optionNumberIfPresent(cleanOptions, "max-refined-self-improve-cells-per-run"),
     refreshStage: parseNarrowRefreshStage(optionString(cleanOptions, "refresh-stage", "")),
     runId: runId || undefined,
   };
@@ -880,6 +883,9 @@ Max Concurrency: ${opts.maxConcurrency}
 Timeout: ${opts.timeoutMs}ms
 Judge Max Tokens: ${opts.judgeMaxTokens}
 RPM Caps: gemini-flash-lite=${opts.maxRpmGeminiFlashLite}, gemini-embedding=${opts.maxRpmGeminiEmbedding}, gpt-5.4=${opts.maxRpmGpt54}
+Shortlist Per Video: ${opts.shortlistPerVideo ?? "default"}
+Max Embedding Requests: ${opts.maxEmbeddingRequestsPerRun ?? "default"}
+Max Refined Self-Improve Cells: ${opts.maxRefinedSelfImproveCellsPerRun ?? "default"}
 Refresh Stage: ${opts.refreshStage || "none"}
 `);
 };
@@ -940,7 +946,7 @@ const runNarrowManualBaseline = async (
   if (optionString(cleanOptions, "mode", "fast-triage") === "quota-safe") {
     console.warn("Mode 'quota-safe' is deprecated; using 'fast-triage'.");
   }
-  if (parsedOpts.refreshStage && !["shortlist", "refine", "score", "judge", "all"].includes(parsedOpts.refreshStage)) {
+  if (parsedOpts.refreshStage && !NARROW_REFRESH_STAGES.includes(parsedOpts.refreshStage)) {
     console.error(`Invalid refresh stage: ${parsedOpts.refreshStage}`);
     return 2;
   }

@@ -99,7 +99,7 @@ export function checkSelfImprovementGate(
     if (!baselineHasAnyScore && selfImproveHasAnyScore) {
       regressions.push({
         entityId: `${siCell.videoId}/${siCell.modelId}`,
-        dimension: "missing-baseline-score",
+        dimension: "incomparable-baseline-score",
         baselineScore: 0,
         latestScore: 0,
         tolerance
