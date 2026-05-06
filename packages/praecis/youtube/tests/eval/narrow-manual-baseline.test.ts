@@ -818,9 +818,120 @@ describe("narrow-manual-baseline helpers", () => {
       expect(geminiEmbeddingClientMock).toHaveBeenCalledTimes(1);
       expect(geminiEmbeddingClientMock).toHaveBeenCalledWith(expect.objectContaining({
         apiKey: "from-dotenv-google", // pragma: allowlist secret
-        model: "gemini-embedding-2-preview",
+        model: "gemini-embedding-001",
       }));
-      expect(report.metadata.embeddingModel).toBe("gemini-embedding-2-preview");
+      expect(report.metadata.embeddingModel).toBe("gemini-embedding-001");
+    } finally {
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
+  it("uses the valid Gemini embedding default when no embedding model override is set", async () => {
+    const originalEnv = {
+      GOOGLE_AISTUDIO_API_KEY: process.env.GOOGLE_AISTUDIO_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+      AIDHA_GOOGLE_API_KEY: process.env.AIDHA_GOOGLE_API_KEY,
+      GOOGLE_EMBEDDING_MODEL: process.env.GOOGLE_EMBEDDING_MODEL,
+      AIDHA_GOOGLE_EMBEDDING_MODEL: process.env.AIDHA_GOOGLE_EMBEDDING_MODEL,
+      AIDHA_EVAL_EMBEDDING_MODEL: process.env.AIDHA_EVAL_EMBEDDING_MODEL,
+      GOOGLE_EMBEDDING_BASE_URL: process.env.GOOGLE_EMBEDDING_BASE_URL,
+      GOOGLE_EMBEDDING_TASK_TYPE: process.env.GOOGLE_EMBEDDING_TASK_TYPE,
+      GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY: process.env.GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY,
+    };
+
+    try {
+      delete process.env.GOOGLE_AISTUDIO_API_KEY;
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.GOOGLE_API_KEY;
+      delete process.env.AIDHA_GOOGLE_API_KEY;
+      delete process.env.GOOGLE_EMBEDDING_MODEL;
+      delete process.env.AIDHA_GOOGLE_EMBEDDING_MODEL;
+      delete process.env.AIDHA_EVAL_EMBEDDING_MODEL;
+      delete process.env.GOOGLE_EMBEDDING_BASE_URL;
+      delete process.env.GOOGLE_EMBEDDING_TASK_TYPE;
+      delete process.env.GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY;
+      geminiEmbeddingClientMock.mockClear();
+
+      const rootDir = await mkdtemp(join(tmpdir(), "narrow-manual-baseline-default-"));
+      const transcriptDir = await mkdtemp(join(rootDir, "transcripts-"));
+      const manualBaselineDir = await mkdtemp(join(rootDir, "manual-"));
+      const outputDir = await mkdtemp(join(rootDir, "output-"));
+
+      await writeFile(
+        join(transcriptDir, "video-1.json"),
+        JSON.stringify({
+          videoId: "video-1",
+          fullText: "There are five slide layouts.",
+          segments: [
+            { start: 0, duration: 1, text: "There are five slide layouts." },
+          ],
+        })
+      );
+      await writeFile(
+        join(manualBaselineDir, "video-1-gold-draft-v1.json"),
+        JSON.stringify({
+          videoId: "video-1",
+          title: "Video 1",
+          idealClaims: [
+            {
+              text: "There are five slide layouts.",
+              type: "fact",
+              children: [],
+            },
+          ],
+          rejectedClaims: [],
+        })
+      );
+
+      const report = await runNarrowManualBaselineComparison({
+        corpus: [
+          {
+            videoId: "video-1",
+            url: "https://youtube.com/watch?v=video-1",
+            title: "Video 1",
+            channelName: "Channel 1",
+            durationMinutes: 1,
+            topicDomain: "Business strategy",
+            expectedClaimDensity: "low",
+            rationale: "test",
+          },
+        ] as any,
+        transcriptDir,
+        manualBaselineDir,
+        outputDir,
+        models: [{ id: "model-1" }] as any,
+        variants: ["raw"] as any,
+        judgeModelIds: [],
+        fallbackModelId: "model-1",
+        config: {
+          llm: {
+            model: "gpt-4o-mini",
+            apiKey: "",
+            baseUrl: "",
+            timeoutMs: 1000,
+            cacheDir: "test-cache",
+          },
+        } as any,
+        clientFactory: () => ({}) as any,
+        runMode: "compare",
+        includeManualBaselines: false,
+        env: {
+          AIDHA_GOOGLE_API_KEY: "from-dotenv-google", // pragma: allowlist secret
+        } as NodeJS.ProcessEnv,
+      });
+
+      expect(geminiEmbeddingClientMock).toHaveBeenCalledTimes(1);
+      expect(geminiEmbeddingClientMock).toHaveBeenCalledWith(expect.objectContaining({
+        model: "gemini-embedding-001",
+      }));
+      expect(report.metadata.embeddingModel).toBe("gemini-embedding-001");
     } finally {
       for (const [key, value] of Object.entries(originalEnv)) {
         if (value === undefined) {

@@ -48,6 +48,7 @@ const EMBEDDING_THRESHOLD = 0.9;
 const BORDERLINE_EMBEDDING_THRESHOLD = 0.74;
 const DEFAULT_EMBEDDING_BUDGET_PER_RUN = 250;
 const DEFAULT_REFINED_SELF_IMPROVE_BUDGET_PER_RUN = 4;
+const DEFAULT_GOOGLE_EMBEDDING_MODEL = "gemini-embedding-001";
 
 export type NarrowRunMode = "fast-triage" | "compare" | "deep";
 export type NarrowStageId = "shortlist" | "refine" | "score" | "judge" | "report";
@@ -1101,7 +1102,7 @@ function getGoogleEmbeddingConfig(
       env["GOOGLE_EMBEDDING_MODEL"] ||
       env["AIDHA_GOOGLE_EMBEDDING_MODEL"] ||
       env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
-      "gemini-embedding-2-preview",
+      DEFAULT_GOOGLE_EMBEDDING_MODEL,
     batchSize: llm.embeddingBatchSize,
     taskType: (env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY") as GeminiEmbeddingClientConfig["taskType"],
     outputDimensionality: Number(env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) || llm.embeddingOutputDimensionality || 768,
@@ -2576,9 +2577,8 @@ export async function runNarrowManualBaselineComparison(
         if (!targetModel) continue;
 
         const hintKey = selfImproveHintKey(target.videoId, targetModelId, target.promptConfigId, target.chunkMode);
-        const selfImproveHints = teacherAwareHints[hintKey]
-          ? { [hintKey]: teacherAwareHints[hintKey] }
-          : undefined;
+        const hint = teacherAwareHints[hintKey];
+        const selfImproveHints = hint ? { [hintKey]: hint } : undefined;
         refinedSelfImproveCells.push(...await runHarnessExtractionOnly(
             targetCorpus,
             [targetModel],
@@ -2758,7 +2758,7 @@ export async function runNarrowManualBaselineComparison(
       transcriptDir: options.transcriptDir,
       shortlistSizePerVideo: shortlistPerVideo,
       refinedTargetCount: refinedTargets.length,
-      embeddingModel: googleEmbeddingConfig.model ?? "gemini-embedding-2-preview",
+      embeddingModel: googleEmbeddingConfig.model ?? DEFAULT_GOOGLE_EMBEDDING_MODEL,
       completedStages: [
         "shortlist",
         "refine",
