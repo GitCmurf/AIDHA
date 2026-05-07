@@ -55,7 +55,7 @@ describe("checkSelfImprovementGate", () => {
     expect(result.regressions).toHaveLength(0);
   });
 
-  it("should fail when the baseline is scored but the self-improve cell has no score data", () => {
+  it("should warn when the baseline is scored but the self-improve cell has no score data", () => {
     const report = {
       ...mockReportBase,
       cells: [
@@ -85,12 +85,13 @@ describe("checkSelfImprovementGate", () => {
     const result = checkSelfImprovementGate(report);
 
     expect(result.skipped).toBe(false);
-    expect(result.passed).toBe(false);
-    expect(result.regressions).toHaveLength(1);
-    expect(result.regressions[0].dimension).toBe("missing-self-improvement-score");
+    expect(result.passed).toBe(true);
+    expect(result.regressions).toHaveLength(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].reason).toBe("missing-self-improvement-score");
   });
 
-  it("should fail closed when comparable cells use different score sources", () => {
+  it("should warn when comparable cells use different score sources", () => {
     const report = {
       ...mockReportBase,
       cells: [
@@ -127,12 +128,13 @@ describe("checkSelfImprovementGate", () => {
 
     const result = checkSelfImprovementGate(report);
 
-    expect(result.passed).toBe(false);
-    expect(result.regressions).toHaveLength(1);
-    expect(result.regressions[0].dimension).toBe("incompatible-score-mode");
+    expect(result.passed).toBe(true);
+    expect(result.regressions).toHaveLength(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].reason).toBe("incompatible-score-mode");
   });
 
-  it("should fail closed as incomparable when the baseline cell has no score but self-improve is scored", () => {
+  it("should warn when the baseline cell has no score but self-improve is scored", () => {
     const report = {
       ...mockReportBase,
       cells: [
@@ -161,9 +163,10 @@ describe("checkSelfImprovementGate", () => {
 
     const result = checkSelfImprovementGate(report);
 
-    expect(result.passed).toBe(false);
-    expect(result.regressions).toHaveLength(1);
-    expect(result.regressions[0].dimension).toBe("incomparable-baseline-score");
+    expect(result.passed).toBe(true);
+    expect(result.regressions).toHaveLength(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].reason).toBe("incomparable-baseline-score");
   });
 
   it("should pass if no regressions are found via narrow judge scores", () => {
@@ -352,7 +355,7 @@ describe("checkSelfImprovementGate", () => {
     expect(result2.passed).toBe(false);
   });
 
-  it("should report missing-baseline regression when baseline variant is present but missing for a specific video", () => {
+  it("should warn when baseline variant is present but missing for a specific video", () => {
     const report = {
       ...mockReportBase,
       cells: [
@@ -378,9 +381,9 @@ describe("checkSelfImprovementGate", () => {
     } as MatrixReport;
     const result = checkSelfImprovementGate(report);
     expect(result.skipped).toBe(false);
-    expect(result.passed).toBe(false);
-    expect(result.regressions).toHaveLength(1);
-    const missingBaseline = result.regressions.filter(r => r.dimension === "missing-baseline");
+    expect(result.passed).toBe(true);
+    expect(result.regressions).toHaveLength(0);
+    const missingBaseline = result.warnings.filter(w => w.reason === "missing-baseline");
     expect(missingBaseline).toHaveLength(1);
     expect(missingBaseline[0].entityId).toContain("v2");
   });

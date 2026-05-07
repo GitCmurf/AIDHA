@@ -170,6 +170,17 @@ const renderQualityGates = (qualityGates: MatrixReport["qualityGates"]): string 
     md += `- Skipped: ${escapeMdTableCell(gate.message ?? "No self-improvement cells found.")}\n\n`;
     return md;
   }
+
+  if (gate.warnings?.length) {
+    md += "#### Warnings\n\n";
+    md += "| Entity | Reason |\n";
+    md += "| --- | --- |\n";
+    for (const warning of gate.warnings) {
+      md += `| ${escapeMdTableCell(warning.entityId)} | ${escapeMdTableCell(warning.reason)} |\n`;
+    }
+    md += "\n";
+  }
+
   if (gate.regressions.length === 0) {
     md += "- No regressions detected.\n\n";
     return md;

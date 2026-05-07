@@ -49,10 +49,10 @@ importers:
         specifier: workspace:*
         version: link:../../aidha-config
       '@aidha/graph-backend':
-        specifier: file:../../reconditum
+        specifier: workspace:*
         version: link:../../reconditum
       '@aidha/taxonomy':
-        specifier: file:../../phyla
+        specifier: workspace:*
         version: link:../../phyla
       compromise:
         specifier: ^14.14.4

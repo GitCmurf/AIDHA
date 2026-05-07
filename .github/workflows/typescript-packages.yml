@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace dependencies
+        run: pnpm build:deps
+
       - name: Install ShellCheck
         run: |
           sudo apt-get update

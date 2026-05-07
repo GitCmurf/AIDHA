@@ -8,9 +8,19 @@ export interface QualityGateRegression {
   tolerance: number;
 }
 
+export interface QualityGateWarning {
+  entityId: string;
+  reason:
+    | "missing-baseline"
+    | "missing-self-improvement-score"
+    | "incomparable-baseline-score"
+    | "incompatible-score-mode";
+}
+
 export interface SelfImprovementGateResult {
   passed: boolean;
   regressions: QualityGateRegression[];
+  warnings: QualityGateWarning[];
   skipped: boolean;
   message?: string;
 }
@@ -33,10 +43,11 @@ export function checkSelfImprovementGate(
   } = options;
 
   const regressions: QualityGateRegression[] = [];
+  const warnings: QualityGateWarning[] = [];
   const selfImproveCells = report.cells.filter(c => c.extractorVariantId === selfImproveVariantId);
 
   if (selfImproveCells.length === 0) {
-    return { passed: true, regressions: [], skipped: true, message: `No ${selfImproveVariantId} cells found in report.` };
+    return { passed: true, regressions: [], warnings: [], skipped: true, message: `No ${selfImproveVariantId} cells found in report.` };
   }
 
   const hasAnyBaseline = report.cells.some(c => c.extractorVariantId === baselineVariantId);
@@ -44,6 +55,7 @@ export function checkSelfImprovementGate(
     return {
       passed: true,
       regressions: [],
+      warnings: [],
       skipped: true,
       message: `Baseline variant ${baselineVariantId} not present in matrix; self-improvement gate is inapplicable.`
     };
@@ -61,12 +73,9 @@ export function checkSelfImprovementGate(
     );
 
     if (!baselineCell) {
-      regressions.push({
+      warnings.push({
         entityId: `${siCell.videoId}/${siCell.modelId}`,
-        dimension: "missing-baseline",
-        baselineScore: 0,
-        latestScore: 0,
-        tolerance
+        reason: "missing-baseline",
       });
       continue;
     }
@@ -82,12 +91,9 @@ export function checkSelfImprovementGate(
       baselineHasAnyScore &&
       !selfImproveHasAnyScore
     ) {
-      regressions.push({
+      warnings.push({
         entityId: `${siCell.videoId}/${siCell.modelId}`,
-        dimension: "missing-self-improvement-score",
-        baselineScore: 0,
-        latestScore: 0,
-        tolerance
+        reason: "missing-self-improvement-score",
       });
       continue;
     }
@@ -97,12 +103,9 @@ export function checkSelfImprovementGate(
     }
 
     if (!baselineHasAnyScore && selfImproveHasAnyScore) {
-      regressions.push({
+      warnings.push({
         entityId: `${siCell.videoId}/${siCell.modelId}`,
-        dimension: "incomparable-baseline-score",
-        baselineScore: 0,
-        latestScore: 0,
-        tolerance
+        reason: "incomparable-baseline-score",
       });
       continue;
     }
@@ -111,12 +114,9 @@ export function checkSelfImprovementGate(
       !(baselineHasNarrowJudgeScores && selfImproveHasNarrowJudgeScores) &&
       !(baselineHasConsensusScores && selfImproveHasConsensusScores)
     ) {
-      regressions.push({
+      warnings.push({
         entityId: `${siCell.videoId}/${siCell.modelId}`,
-        dimension: "incompatible-score-mode",
-        baselineScore: 0,
-        latestScore: 0,
-        tolerance
+        reason: "incompatible-score-mode",
       });
       continue;
     }
@@ -165,6 +165,7 @@ export function checkSelfImprovementGate(
   return {
     passed: regressions.length === 0,
     regressions,
+    warnings,
     skipped: false
   };
 }

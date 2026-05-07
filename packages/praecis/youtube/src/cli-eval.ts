@@ -723,6 +723,13 @@ const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOp
     return 1;
   }
 
+  if (report.qualityGates.selfImprovement.warnings?.length) {
+    for (const w of report.qualityGates.selfImprovement.warnings) {
+      // skipcq: JS-0002
+      console.warn(`Quality gate warning: ${w.entityId} — ${w.reason}`);
+    }
+  }
+
   return 0;
 };
 

@@ -1981,7 +1981,9 @@ async function runHarnessExtractionOnly(
   selfImproveHints?: Record<string, SelfImproveHintInput>,
   enablePromptRouting: boolean = true,
   promptPackId?: ExtractionPromptPackId,
-  refinementStage?: "refined"
+  refinementStage?: "refined",
+  outputDir?: string,
+  cacheDir?: string
 ): Promise<MatrixCell[]> {
   const chunkProfiles = Object.fromEntries(models.map((model) => {
     const profile = getNarrowEvalModelProfile(model.id, chunkMode);
@@ -1997,8 +1999,8 @@ async function runHarnessExtractionOnly(
   const firstProfile = chunkProfiles[firstModelId] ?? getNarrowEvalModelProfile(firstModelId, chunkMode);
 
   const options: MatrixOptions = {
-    outputDir: "out/eval-matrix/reports/narrow-manual-baseline",
-    cacheDir: ".cache/extraction/narrow-manual-baseline-optimizer",
+    outputDir: outputDir ?? "out/eval-matrix/reports/narrow-manual-baseline",
+    cacheDir: cacheDir ?? ".cache/extraction/narrow-manual-baseline-optimizer",
     transcriptDir,
     resume: false,
     dryRun: false,
@@ -2147,7 +2149,7 @@ export async function runNarrowManualBaselineComparison(
     ? new GeminiEmbeddingClient({
         apiKey: googleEmbeddingConfig.apiKey!,
         baseUrl: googleEmbeddingConfig.baseUrl,
-        cacheDir: ".cache/eval-embeddings/narrow-manual-baseline",
+        cacheDir: join(options.outputDir, ".cache", "eval-embeddings"),
         timeoutMs: options.timeoutMs ?? 120_000,
         model: googleEmbeddingConfig.model,
         batchSize: googleEmbeddingConfig.batchSize,
@@ -2190,7 +2192,11 @@ export async function runNarrowManualBaselineComparison(
           options.maxConcurrency ?? 1,
           options.timeoutMs ?? 120_000,
           undefined,
-          enablePromptRouting
+          enablePromptRouting,
+          undefined,
+          undefined,
+          options.outputDir,
+          join(options.outputDir, ".cache", "extraction")
         ));
       }
     }
@@ -2216,7 +2222,11 @@ export async function runNarrowManualBaselineComparison(
               options.maxConcurrency ?? 1,
               options.timeoutMs ?? 120_000,
               undefined,
-              enablePromptRouting
+              enablePromptRouting,
+              undefined,
+              undefined,
+              options.outputDir,
+              join(options.outputDir, ".cache", "extraction")
             ));
           }
         }
@@ -2502,7 +2512,10 @@ export async function runNarrowManualBaselineComparison(
           options.timeoutMs ?? 120_000,
           undefined,
           false,
-          promptPackId
+          promptPackId,
+          undefined,
+          options.outputDir,
+          join(options.outputDir, ".cache", "extraction")
         ));
       }
       if (escalatedVideos.length > 0) {
@@ -2592,7 +2605,9 @@ export async function runNarrowManualBaselineComparison(
             selfImproveHints,
             enablePromptRouting,
             target.promptPackId,
-            "refined"
+            "refined",
+            options.outputDir,
+            join(options.outputDir, ".cache", "extraction")
           ));
       }
     }
