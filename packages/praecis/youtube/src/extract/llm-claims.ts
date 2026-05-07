@@ -2033,12 +2033,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
     }
 
     if (!response.ok) {
+      this.circuitBreaker.recordFailure();
       if (isClientTimeoutError(response.error.message)) {
         this.lastRunStats.clientTimeoutCount += 1;
       } else if (isUpstreamAbortError(response.error.message)) {
         this.lastRunStats.upstreamAbortCount += 1;
-      } else {
-        this.circuitBreaker.recordFailure();
       }
       if (isTransientProviderError(response.error.message)) {
         this.lastRunStats.transientFailureCount += 1;
@@ -2085,12 +2084,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
     }
 
     if (!retry.ok) {
+      this.circuitBreaker.recordFailure();
       if (isClientTimeoutError(retry.error.message)) {
         this.lastRunStats.clientTimeoutCount += 1;
       } else if (isUpstreamAbortError(retry.error.message)) {
         this.lastRunStats.upstreamAbortCount += 1;
-      } else {
-        this.circuitBreaker.recordFailure();
       }
       if (isTransientProviderError(retry.error.message)) {
         this.lastRunStats.transientFailureCount += 1;
