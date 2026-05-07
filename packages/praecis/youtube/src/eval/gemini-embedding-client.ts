@@ -293,6 +293,8 @@ export class GeminiEmbeddingClient {
       }
     }
 
+    this.apiRequestCount += values.length;
+
     return { ok: true, value: values };
   }
 
@@ -310,7 +312,6 @@ export class GeminiEmbeddingClient {
         ? combineAbortSignals([init.signal, timeoutSignal])
         : timeoutSignal;
       try {
-        this.apiRequestCount += 1;
         const response = await fetch(url, { ...init, signal });
 
         if (response.ok) {

@@ -58,7 +58,12 @@ let cachedCtor: DatabaseSyncCtor | null = null;
 function getDatabaseSyncCtor(): DatabaseSyncCtor {
   if (!cachedCtor) {
     const require = createRequire(import.meta.url);
-    const mod = require('node:sqlite') as { DatabaseSync: DatabaseSyncCtor };
+    let mod: { DatabaseSync: DatabaseSyncCtor };
+    try {
+      mod = require('node:sqlite') as { DatabaseSync: DatabaseSyncCtor };
+    } catch {
+      throw new Error("node:sqlite is not available. SQLiteStore requires Node.js >= 22.5.0.");
+    }
     cachedCtor = mod.DatabaseSync;
   }
   return cachedCtor;
@@ -123,6 +128,10 @@ export class SQLiteStore implements GraphStore {
     const DatabaseSync = getDatabaseSyncCtor();
     const db = new DatabaseSync(':memory:');
     return new SQLiteStore(db);
+  }
+
+  static isAvailable(): boolean {
+    try { getDatabaseSyncCtor(); return true; } catch { return false; }
   }
 
   private async withTransactionLock<T>(work: () => Promise<T>): Promise<T> {

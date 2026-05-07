@@ -214,4 +214,9 @@ function runTransactionContract(name: string, createStore: StoreFactory): void {
 }
 
 runTransactionContract('InMemoryStore transactions', () => asTransactional(new InMemoryStore()));
-runTransactionContract('SQLiteStore transactions', () => asTransactional(SQLiteStore.createInMemory()));
+
+const runSqliteTransaction = SQLiteStore.isAvailable()
+  ? runTransactionContract
+  : (name: string) => describe.skip(name, () => {});
+
+runSqliteTransaction('SQLiteStore transactions', () => asTransactional(SQLiteStore.createInMemory()));

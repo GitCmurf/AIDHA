@@ -271,6 +271,7 @@ describe("GeminiEmbeddingClient", () => {
 
     expect(result.ok).toBe(true);
     expect(calls).toBe(2);
+    expect(client.getApiRequestCount()).toBe(1);
 
     await rm(cacheDir, { recursive: true, force: true });
   });
@@ -386,6 +387,72 @@ describe("GeminiEmbeddingClient", () => {
     if (!result.ok) {
       expect(result.error.message).toContain("Batch embedding length mismatch");
     }
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("counts embeddings produced, not fetch attempts", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+
+    let calls = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      calls++;
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 500,
+          headers: new Headers(),
+          text: async () => "Internal Server Error",
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          embeddings: [
+            { values: [1, 0, 0] },
+            { values: [0, 1, 0] },
+            { values: [0, 0, 1] },
+          ]
+        }),
+      } as Response;
+    });
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+    });
+
+    const result = await client.embedBatch(["text1", "text2", "text3"]);
+
+    expect(result.ok).toBe(true);
+    expect(calls).toBe(2);
+    expect(client.getApiRequestCount()).toBe(3);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("reports zero apiRequestCount when all fetch attempts fail", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+      text: async () => "Internal Server Error",
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir,
+      maxRetries: 2,
+    });
+
+    const result = await client.embedBatch(["text1", "text2"]);
+
+    expect(result.ok).toBe(false);
+    expect(client.getApiRequestCount()).toBe(0);
 
     await rm(cacheDir, { recursive: true, force: true });
   });
