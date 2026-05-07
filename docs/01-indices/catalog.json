@@ -676,6 +676,28 @@
     }
   },
   {
+    "path": "05-planning/tasks/task-007-tech-debt-backlog.md",
+    "title": "Task: Engineering Tech Debt Backlog",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-007",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "1.2",
+      "last_updated": "2026-05-07",
+      "title": "Engineering Tech Debt Backlog",
+      "type": "TASK",
+      "docops_version": "2.0",
+      "area": "INGEST",
+      "keywords": [
+        "tech-debt",
+        "backlog",
+        "refactoring",
+        "performance",
+        "eval"
+      ]
+    }
+  },
+  {
     "path": "05-planning/tasks/task-004-claim-extraction-evaluation-matrix.md",
     "title": "Claim Extraction Evaluation Matrix",
     "front_matter": {
