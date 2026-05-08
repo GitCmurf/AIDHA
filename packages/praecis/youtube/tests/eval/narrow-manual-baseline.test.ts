@@ -33,6 +33,7 @@ const { geminiEmbeddingClientMock } = vi.hoisted(() => ({
     getApiRequestCount: vi.fn().mockReturnValue(1),
     getStats: vi.fn().mockReturnValue({
       apiRequestCount: 1,
+      embeddingsComputed: 1,
       cacheHitCount: 0,
       cacheMissCount: 0,
     }),
@@ -234,6 +235,7 @@ describe("narrow-manual-baseline helpers", () => {
         judgeEnabled: true,
         manualBaselinesIncluded: true,
         apiCallCounts: {
+          apiRequests: 2,
           embeddingRequests: 2,
           embeddingCacheHits: 4,
           embeddingCacheMisses: 2,

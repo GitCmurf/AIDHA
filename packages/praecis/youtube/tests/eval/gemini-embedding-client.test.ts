@@ -272,6 +272,7 @@ describe("GeminiEmbeddingClient", () => {
     expect(result.ok).toBe(true);
     expect(calls).toBe(2);
     expect(client.getApiRequestCount()).toBe(1);
+    expect(client.getStats().embeddingsComputed).toBe(1);
 
     await rm(cacheDir, { recursive: true, force: true });
   });
@@ -427,12 +428,13 @@ describe("GeminiEmbeddingClient", () => {
 
     expect(result.ok).toBe(true);
     expect(calls).toBe(2);
-    expect(client.getApiRequestCount()).toBe(3);
+    expect(client.getApiRequestCount()).toBe(1);
+    expect(client.getStats().embeddingsComputed).toBe(3);
 
     await rm(cacheDir, { recursive: true, force: true });
   });
 
-  it("reports zero apiRequestCount when all fetch attempts fail", async () => {
+  it("reports zero embeddingsComputed when all fetch attempts fail", async () => {
     const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-"));
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -452,7 +454,8 @@ describe("GeminiEmbeddingClient", () => {
     const result = await client.embedBatch(["text1", "text2"]);
 
     expect(result.ok).toBe(false);
-    expect(client.getApiRequestCount()).toBe(0);
+    expect(client.getApiRequestCount()).toBe(3);
+    expect(client.getStats().embeddingsComputed).toBe(0);
 
     await rm(cacheDir, { recursive: true, force: true });
   });

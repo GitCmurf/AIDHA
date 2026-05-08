@@ -95,6 +95,7 @@ export class GeminiEmbeddingClient {
   private readonly batchSize: number;
   private readonly maxRetries: number;
   private apiRequestCount = 0;
+  private embeddingsComputed = 0;
   private cacheHitCount = 0;
   private cacheMissCount = 0;
 
@@ -293,12 +294,13 @@ export class GeminiEmbeddingClient {
       }
     }
 
-    this.apiRequestCount += values.length;
+    this.embeddingsComputed += values.length;
 
     return { ok: true, value: values };
   }
 
   private async fetchWithRetry(url: string, init: RequestInit): Promise<Result<unknown>> {
+    this.apiRequestCount += 1;
     let lastError: Error | undefined;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       const waitMs = await requestRateLimiterRegistry.waitForSlot(this.model, this.maxRequestsPerMinute);
@@ -367,9 +369,10 @@ export class GeminiEmbeddingClient {
     return this.apiRequestCount;
   }
 
-  getStats(): { apiRequestCount: number; cacheHitCount: number; cacheMissCount: number } {
+  getStats(): { apiRequestCount: number; embeddingsComputed: number; cacheHitCount: number; cacheMissCount: number } {
     return {
       apiRequestCount: this.apiRequestCount,
+      embeddingsComputed: this.embeddingsComputed,
       cacheHitCount: this.cacheHitCount,
       cacheMissCount: this.cacheMissCount,
     };

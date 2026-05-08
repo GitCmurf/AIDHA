@@ -209,6 +209,7 @@ export interface NarrowComparisonReport {
     judgeEnabled: boolean;
     manualBaselinesIncluded: boolean;
     apiCallCounts: {
+      apiRequests: number;
       embeddingRequests: number;
       embeddingCacheHits: number;
       embeddingCacheMisses: number;
@@ -1266,10 +1267,10 @@ async function scorePair(
     if (budgetState && budgetState.remainingEmbeddingRequests < 2) {
       embedding = undefined;
     } else {
-      const beforeRequests = embeddingClient!.getApiRequestCount();
+      const beforeEmbeddings = embeddingClient!.getStats().embeddingsComputed;
       const embeddingResult = await embeddingClient.similarity(goldClaim.text, candidate.text);
       if (budgetState) {
-        budgetState.remainingEmbeddingRequests -= embeddingClient!.getApiRequestCount() - beforeRequests;
+        budgetState.remainingEmbeddingRequests -= embeddingClient!.getStats().embeddingsComputed - beforeEmbeddings;
       }
       if (embeddingResult.ok) {
         embedding = embeddingResult.value.score;
@@ -1725,7 +1726,7 @@ export function renderNarrowComparisonMarkdown(report: NarrowComparisonReport): 
   md += `- Budget skips: ${report.metadata.budgetSkips.length > 0 ? report.metadata.budgetSkips.join(", ") : "none"}\n`;
   md += `- Stage execution: ${Object.entries(report.metadata.stageExecution).map(([stage, status]) => `${stage}=${status}`).join(", ")}\n`;
   md += `- Adaptive escalation: ${report.metadata.adaptiveEscalation ? `enabled (${report.metadata.escalatedVideos?.join(", ") || "none escalated"})` : "disabled"}\n`;
-  md += `- API calls: embeddings=${report.metadata.apiCallCounts.embeddingRequests}, embedding-cache-hits=${report.metadata.apiCallCounts.embeddingCacheHits}, embedding-cache-misses=${report.metadata.apiCallCounts.embeddingCacheMisses}\n`;
+  md += `- API calls: api-requests=${report.metadata.apiCallCounts.apiRequests}, embeddings=${report.metadata.apiCallCounts.embeddingRequests}, embedding-cache-hits=${report.metadata.apiCallCounts.embeddingCacheHits}, embedding-cache-misses=${report.metadata.apiCallCounts.embeddingCacheMisses}\n`;
   md += `- Rate-limit stats: ${Object.keys(report.metadata.rateLimitStatsByModel).length > 0 ? Object.entries(report.metadata.rateLimitStatsByModel).map(([modelId, stats]) => `${modelId}:requests=${stats.requests},waitMs=${stats.waitMs}`).join(" | ") : "none"}\n`;
   md += `- Fallback model: \`${report.metadata.fallbackModelId}\`\n`;
   md += `- Fallback triggered for: ${report.metadata.fallbackTriggeredFor.length > 0 ? report.metadata.fallbackTriggeredFor.join(", ") : "none"}\n\n`;
@@ -2753,7 +2754,7 @@ export async function runNarrowManualBaselineComparison(
     budgetSkips.push("manual-baselines-skipped-by-mode");
   }
 
-  const embeddingStats = embeddingClient?.getStats() ?? { apiRequestCount: 0, cacheHitCount: 0, cacheMissCount: 0 };
+  const embeddingStats = embeddingClient?.getStats() ?? { apiRequestCount: 0, embeddingsComputed: 0, cacheHitCount: 0, cacheMissCount: 0 };
 
   return {
     metadata: {
@@ -2786,7 +2787,8 @@ export async function runNarrowManualBaselineComparison(
       judgeEnabled,
       manualBaselinesIncluded: includeManualBaselines,
       apiCallCounts: {
-        embeddingRequests: embeddingStats.apiRequestCount,
+        apiRequests: embeddingStats.apiRequestCount,
+        embeddingRequests: embeddingStats.embeddingsComputed,
         embeddingCacheHits: embeddingStats.cacheHitCount,
         embeddingCacheMisses: embeddingStats.cacheMissCount,
       },
