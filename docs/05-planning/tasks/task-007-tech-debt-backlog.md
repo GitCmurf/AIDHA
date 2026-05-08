@@ -134,7 +134,7 @@ in place so future review passes can see that repeated findings were already tri
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | **High** |
 | Category   | Performance |
 | Location   | `packages/praecis/youtube/src/eval/matrix-runner.ts`, `getScoresForCell` |
@@ -818,7 +818,7 @@ behavior.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Test Quality |
 | Location   | `packages/praecis/youtube/tests/llm-claims.test.ts` |
@@ -849,15 +849,21 @@ context or exceeding the intended hard split budget.
 
 **Acceptance criteria:**
 
-- [ ] The semantic-overlap test fails if overlap excerpts are removed.
-- [ ] The hard max token split test fails if chunk count or token diagnostics exceed the expected
+- [x] The semantic-overlap test fails if overlap excerpts are removed.
+- [x] The hard max token split test fails if chunk count or token diagnostics exceed the expected
   fixture boundary.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/llm-claims.test.ts --silent --reporter=dot`
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/llm-claims.test.ts --silent --reporter=dot`
   passes.
 
 **Risks and caveats:**
 Do not overfit assertions to incidental prompt formatting. Prefer excerpt IDs or normalized excerpt
 text markers over brittle full-prompt snapshots.
+
+**Resolution:**
+Resolved on 2026-05-08 by capturing LLM requests in the semantic-overlap test and asserting that
+adjacent chunk prompts share at least one excerpt ID. The hard-max split test now asserts the
+fixture's diagnostic chunk count and verifies `maxChunkInputTokens` is derived from the recorded
+per-chunk diagnostics.
 
 ---
 
@@ -1346,6 +1352,8 @@ real capability gap.
   signatures.
 - TD-009 — Add collision protection to shortened deterministic IDs. Resolved by moving generated
   `hashId(...)` values to a 128-bit SHA-256 prefix and adding deterministic uniqueness tests.
+- TD-011 — Strengthen LLM chunking regression assertions. Resolved by asserting semantic overlap
+  in captured prompts and hard-max split diagnostics.
 - TD-012 — Call out embedding default change in PR and release notes. Resolved in
   `AIDHA-REF-006`.
 

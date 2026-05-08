@@ -379,7 +379,7 @@ without displacing higher-payoff performance and architecture work.
 ### T008-03-04: Strengthen LLM chunking regression assertions
 
 - **Backlog IDs:** TD-011
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Extraction maintainer
 - **Dependencies:** None
 
@@ -392,10 +392,10 @@ without displacing higher-payoff performance and architecture work.
 
 **Definition of done:**
 
-- [ ] Semantic-overlap test fails if overlap excerpts are removed.
-- [ ] Hard-max-token test fails if chunk count or token diagnostics exceed the expected fixture
+- [x] Semantic-overlap test fails if overlap excerpts are removed.
+- [x] Hard-max-token test fails if chunk count or token diagnostics exceed the expected fixture
   boundary.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/llm-claims.test.ts --silent --reporter=dot` passes.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/llm-claims.test.ts --silent --reporter=dot` passes.
 
 ---
 
