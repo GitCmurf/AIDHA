@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.2"
-last_updated: 2026-05-07
+version: "1.3"
+last_updated: 2026-05-08
 title: Engineering Tech Debt Backlog
 type: TASK
 docops_version: "2.0"
@@ -15,8 +15,8 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.2
-> **Last Updated:** 2026-05-07
+> **Version:** 1.3
+> **Last Updated:** 2026-05-08
 > **Type:** TASK
 
 <!-- markdownlint-disable MD013 -->
@@ -30,6 +30,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.0     | 2026-05-01 | AI     | Initial registry; four items from eval-refinement simplify pass. | — | Draft | — |
 | 1.1     | 2026-05-03 | AI     | Add deferred items from eval adversarial-review remediation batch. | — | Draft | — |
 | 1.2     | 2026-05-07 | AI     | Convert WIP register into governed task backlog and add final review follow-ups. | — | Draft | — |
+| 1.3     | 2026-05-08 | AI     | Add audited gaps from recent planning/task files and align backlog with Task 008 sprint plan. | — | Draft | — |
 
 ---
 
@@ -100,17 +101,24 @@ single precise item over a broad theme unless the remediation must be architectu
 | Location   | `path/to/file.ts` |
 | Effort     | S / M / L (days) |
 | Discovered | YYYY-MM-DD, source (code review / simplify pass / etc.) |
+| Source plan | `AIDHA-TASK-NNN` or path |
+| Depends on | `TD-NNN` / task ID / external dependency / None |
 
 **Problem:** …
 
 **Impact if deferred:** …
 
 **Remediation steps:**
+
 1. …
 
 **Acceptance criteria:**
 
 - [ ] …
+
+**Validation commands:**
+
+- `command`
 
 **Risks and caveats:** …
 ```
@@ -923,6 +931,378 @@ running the same command CI uses.
 **Risks and caveats:**
 Do not weaken CI by removing lint. The acceptable fix is better observability, package-level
 isolation, or timeout tuning after evidence from CI.
+
+---
+
+### TD-014 — Apply public repository operational settings
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Medium |
+| Category   | Release Governance / Security |
+| Location   | GitHub repository settings, `.github/**`, root governance docs |
+| Effort     | S (half day) |
+| Discovered | 2026-05-08, planning audit |
+| Source plan | `AIDHA-TASK-001`, `AIDHA-TASK-002` |
+| Depends on | Repository admin access |
+
+**Problem:**
+The public-repository tasks still leave operational GitHub settings unfinished: branch protection,
+Dependabot/security alert enablement, GitHub secret scanning, and final confirmation that the
+secret-scan workflow passes in GitHub. These settings cannot be fully proven from the local
+workspace, but they are part of the original public-readiness gate.
+
+**Impact if deferred:**
+The repo can have clean local hooks and CI files while still lacking server-side merge protection
+or platform security controls. That weakens the public-release safety model and makes PR quality
+dependent on maintainer discipline instead of enforced repository policy.
+
+**Remediation steps:**
+
+1. In GitHub repository settings, require pull requests and passing CI before merge on `main`.
+2. Enable Dependabot security alerts and, if available for the account, GitHub secret scanning.
+3. Confirm `.github/workflows/secret-scan.yml` passes on a pushed branch after the single-history
+   public-release strategy is applied.
+4. Record a short evidence note in `AIDHA-TASK-001` or a release checklist with links to the
+   passing workflow run and enabled settings.
+
+**Acceptance criteria:**
+
+- [ ] `main` has branch protection requiring PR review and required status checks.
+- [ ] Dependabot security alerts are enabled.
+- [ ] GitHub secret scanning is enabled when available for the repository/account tier, or the
+  limitation is documented.
+- [ ] The `Secret Scan` workflow passes on GitHub after publication/squash strategy is complete.
+- [ ] Public-readiness docs no longer contain unchecked operational settings without an evidence
+  note.
+
+**Validation commands:**
+
+- `gh api repos/:owner/:repo/branches/main/protection`
+- `gh run list --workflow secret-scan.yml --limit 5`
+
+**Risks and caveats:**
+Some settings are account-tier or permission dependent. Do not fake local evidence for remote
+controls; record unavailable controls explicitly.
+
+---
+
+### TD-015 — Finish citation, trademark, and contributor-rights governance
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Low |
+| Category   | Release Governance / Community |
+| Location   | `CITATION.cff`, `TRADEMARKS.md`, `CONTRIBUTING.md`, GitHub CLA integration |
+| Effort     | S-M (half day to 1 day) |
+| Discovered | 2026-05-08, planning audit |
+| Source plan | `AIDHA-TASK-001` |
+| Depends on | Maintainer policy decision on trademark and CLA posture |
+
+**Problem:**
+The public-repository strategy still lists optional-but-planned governance items that are not
+present in the workspace: `CITATION.cff`, `TRADEMARKS.md`, and CLA setup guidance/enforcement. The
+core Apache 2.0 release posture is implemented, but these follow-on governance artifacts remain
+open.
+
+**Impact if deferred:**
+This is not a code quality blocker, but it leaves public contribution and attribution expectations
+less explicit than intended. If external contributors arrive before the policy is settled, the
+project may need retroactive cleanup around contributor rights or brand usage.
+
+**Remediation steps:**
+
+1. Decide whether AIDHA needs CLA enforcement now or whether DCO/sign-off is sufficient for the
+   current contribution model.
+2. Add `CITATION.cff` with project title, authorship, repository URL, license, and preferred
+   citation metadata.
+3. Add `TRADEMARKS.md` if the maintainer wants explicit brand-usage terms.
+4. Update `CONTRIBUTING.md` to point to the chosen citation, trademark, and contribution-rights
+   policy.
+5. Update `AIDHA-TASK-001` checklist state with evidence or a clear supersession note.
+
+**Acceptance criteria:**
+
+- [ ] Maintainer has made a recorded CLA-vs-DCO decision.
+- [ ] `CITATION.cff` exists or `AIDHA-TASK-001` explicitly supersedes that item.
+- [ ] `TRADEMARKS.md` exists or `AIDHA-TASK-001` explicitly supersedes that item.
+- [ ] `CONTRIBUTING.md` reflects the final contribution-rights policy.
+- [ ] `pnpm docs:build` passes.
+
+**Validation commands:**
+
+- `test -f CITATION.cff`
+- `test -f TRADEMARKS.md`
+- `pnpm docs:build`
+
+**Risks and caveats:**
+Do not invent legal policy beyond maintainer intent. Keep the first pass factual and lightweight.
+
+---
+
+### TD-016 — Add speaker attribution through transcript, excerpt, and LLM payloads
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Medium |
+| Category   | Data Model / Provenance |
+| Location   | `packages/praecis/youtube/src/schema/transcript.ts`, `src/client/transcript.ts`, `src/pipeline/ingest.ts`, `src/extract/llm-claims.ts` |
+| Effort     | M (1-2 days) |
+| Discovered | 2026-05-08, planning audit |
+| Source plan | `AIDHA-TASK-003`, Phase 8 |
+| Depends on | None |
+
+**Problem:**
+Task 003 intentionally deferred speaker attribution. The current transcript schema has only
+`start`, `duration`, and `text`; parsers do not extract speaker prefixes; Excerpt nodes do not
+persist speaker metadata; and Pass 1 prompt payloads cannot ask the LLM to preserve speaker
+provenance.
+
+**Impact if deferred:**
+Multi-speaker interviews and panels produce claims without speaker attribution. That weakens
+auditability, makes attribution-sensitive claims harder to review, and limits future dossier
+quality for debate/interview content.
+
+**Remediation steps:**
+
+1. Add optional `speaker?: string` to the transcript segment schema and TypeScript type.
+2. Add speaker-prefix parsing for common patterns such as `Dr. Name: ...` and `[Speaker 1]: ...`.
+3. Persist `speaker` on Excerpt node metadata when available.
+4. Include `speaker` in excerpt JSON passed to LLM claim extraction and preserve it in traces where
+   applicable.
+5. Render speaker metadata in dossiers only when present and useful; avoid cluttering single-speaker
+   output.
+
+**Acceptance criteria:**
+
+- [ ] Existing transcript fixtures still parse without speaker fields.
+- [ ] Speaker-prefixed transcript fixtures parse into text plus speaker without timestamp drift.
+- [ ] Excerpt nodes persist speaker metadata when present.
+- [ ] LLM claim prompts include speaker fields for speaker-attributed excerpts.
+- [ ] Dossier or trace output exposes speaker attribution without changing output for transcripts
+  that lack speakers.
+
+**Validation commands:**
+
+- `pnpm --dir packages/praecis/youtube exec vitest run tests/transcript-parse.test.ts tests/pipeline.test.ts tests/llm-claims.test.ts --reporter=dot`
+- `pnpm --dir packages/praecis/youtube build`
+
+**Risks and caveats:**
+Speaker-prefix parsing is heuristic. Keep it optional and non-destructive: preserve original text if
+the parser is uncertain.
+
+---
+
+### TD-017 — Add durable store/export schema versions and migration runner
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Medium |
+| Category   | Data Model / Migration |
+| Location   | `packages/reconditum/**`, `packages/praecis/youtube/src/export/**`, CLI migration surface |
+| Effort     | M-L (2-4 days) |
+| Discovered | 2026-05-08, planning audit |
+| Source plan | `docs/05-planning/WIP-mvp-strengthening.md` |
+| Depends on | Data-model owner decision on version scope |
+
+**Problem:**
+The strengthening plan called for `schemaVersion` on nodes/edges and exports plus a migration
+runner. Cache metadata now carries schema versions in extraction paths, but there is no
+repo-wide durable graph/export schema-version policy or migration command for persisted store
+data.
+
+**Impact if deferred:**
+As the graph model evolves, old local databases and exported dossiers can become ambiguous. Without
+a migration runner, maintainers either silently tolerate mixed schemas or force users to rebuild
+state from source inputs.
+
+**Remediation steps:**
+
+1. Define a version policy for persisted graph nodes, edges, and exported machine-readable
+   artifacts.
+2. Add `schemaVersion` metadata to new graph writes where the data contract is versioned.
+3. Implement a minimal migration runner with dry-run, backup, apply, and status modes.
+4. Add one no-op or v1-to-v2 migration so the command path is tested before a breaking data change
+   requires it.
+5. Document migration usage in the relevant runbook or DevEx guide.
+
+**Acceptance criteria:**
+
+- [ ] New versioned graph writes include a documented `schemaVersion`.
+- [ ] Exported machine-readable artifacts include a version field.
+- [ ] Migration CLI supports `status`, `dry-run`, and `apply`.
+- [ ] Migration tests cover no-op state, an applied migration, and idempotent re-run.
+- [ ] Runbook or DevEx docs describe backup and rollback expectations.
+
+**Validation commands:**
+
+- `pnpm --dir packages/reconditum test`
+- `pnpm --dir packages/praecis/youtube test`
+- `pnpm docs:build`
+
+**Risks and caveats:**
+Keep the first migration intentionally small. A migration framework is valuable only if it is easy
+to run and hard to misuse.
+
+---
+
+### TD-018 — Complete deferred verification and extraction quality refactors
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Medium |
+| Category   | Correctness / Maintainability |
+| Location   | `packages/praecis/youtube/src/extract/verification.ts`, `llm-claims.ts`, `editorial-ranking.ts`, shared utilities |
+| Effort     | M (1-2 days) |
+| Discovered | 2026-05-08, planning audit |
+| Source plan | `AIDHA-TASK-005` |
+| Depends on | None |
+
+**Problem:**
+Task 005 still contains unresolved deferred improvements: custom verification threshold
+normalization, invalid n-gram parameter handling, token/cost warning constants, legacy-cache guard
+clarity, echo-detection default reuse, shared token-budget constants, and shared memoization
+utilities. Some adjacent work has since been implemented, but the task itself remains a mix of
+resolved and open items.
+
+**Impact if deferred:**
+The remaining items are mostly small, but they live in correctness-sensitive extraction and
+verification paths. Leaving them scattered in an older task file makes them easy to lose and keeps
+review comments recurring.
+
+**Remediation steps:**
+
+1. Re-audit each open Task 005 item against current source and mark false positives or already-fixed
+   items with evidence.
+2. Implement the still-valid correctness items first: threshold derivation and n-gram validation.
+3. Implement maintainability items next: named constants, cache guard clarity, echo defaults, and
+   shared memoization only where it removes real duplication.
+4. Update Task 005 or supersede it with this backlog entry once the work is complete.
+5. Keep changes small enough that verification behavior can be reviewed without unrelated prompt or
+   scoring changes.
+
+**Acceptance criteria:**
+
+- [ ] Task 005 has no stale open item whose current source state is unknown.
+- [ ] Verification threshold overrides are covered by tests.
+- [ ] Invalid n-gram sizes fail explicitly or are documented as unsupported.
+- [ ] Token/cost warning thresholds are named constants from the intended module.
+- [ ] Echo-detection defaults use one source of truth.
+- [ ] Shared memoization is added only if at least two call sites can use it cleanly.
+
+**Validation commands:**
+
+- `pnpm --dir packages/praecis/youtube exec vitest run tests/verification.test.ts tests/llm-claims.test.ts tests/editorial-ranking.v2.test.ts tests/token-budget.test.ts --reporter=dot`
+- `pnpm --dir packages/praecis/youtube build`
+
+**Risks and caveats:**
+Avoid turning this into a broad extraction refactor. If any item requires larger architecture work,
+split it into a new backlog item before implementation.
+
+---
+
+### TD-019 — Capture actual LLM token usage and billing in eval reports
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Low |
+| Category   | Evaluation Accuracy / Cost Control |
+| Location   | `packages/praecis/youtube/src/eval/matrix-runner.ts`, LLM client response types, eval reports |
+| Effort     | M (1-2 days) |
+| Discovered | 2026-05-08, planning audit |
+| Source plan | `AIDHA-TASK-004` completion note |
+| Depends on | LLM client usage metadata availability |
+
+**Problem:**
+Task 004’s completion note explicitly defers per-token actual billing. Current eval reports estimate
+cost from text length and registry prices rather than using provider-reported token usage when it is
+available.
+
+**Impact if deferred:**
+Estimated costs are useful for planning, but they can drift from actual provider billing. That
+limits confidence in budget ceilings and makes model comparisons less precise.
+
+**Remediation steps:**
+
+1. Extend LLM client response types to carry provider usage metadata when returned.
+2. Preserve estimated cost fields for clients that do not provide usage.
+3. Add report fields that distinguish `estimated` from `actual` token/cost values.
+4. Update matrix aggregation to prefer actual usage where available and fall back to estimates.
+5. Add fixture-backed tests for both usage-present and usage-absent providers.
+
+**Acceptance criteria:**
+
+- [ ] Eval cell output distinguishes actual usage from estimated usage.
+- [ ] Aggregated reports include actual totals when all cells provide usage metadata.
+- [ ] Mixed-provider runs clearly mark partial actual/estimated totals.
+- [ ] Existing dry-run estimate behavior remains available before live execution.
+
+**Validation commands:**
+
+- `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/matrix-runner.test.ts tests/eval/report-files.test.ts --reporter=dot`
+- `pnpm --dir packages/praecis/youtube build`
+
+**Risks and caveats:**
+Provider usage formats differ. Keep the internal usage type small and normalize at client
+boundaries.
+
+---
+
+### TD-020 — Decide native provider clients versus OpenAI-compatible bridge strategy
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Low |
+| Category   | Architecture / Provider Strategy |
+| Location   | `packages/praecis/youtube/src/eval/**`, provider client adapters |
+| Effort     | S-M (decision plus optional implementation spike) |
+| Discovered | 2026-05-08, planning audit |
+| Source plan | `AIDHA-TASK-004` completion note |
+| Depends on | Evidence from eval runs across target providers |
+
+**Problem:**
+Task 004 intentionally deferred native Anthropic and Google Gemini client implementations because
+OpenRouter/LiteLLM-style OpenAI-compatible bridges were sufficient for the evaluation harness. That
+is a reasonable current strategy, but it remains an architecture decision that should be explicit.
+
+**Impact if deferred:**
+The system may accumulate provider-specific assumptions in OpenAI-compatible wrappers. If a target
+provider exposes materially better native features, usage metadata, JSON mode, safety settings, or
+rate-limit behavior, the bridge-only approach could become a constraint.
+
+**Remediation steps:**
+
+1. Add a short ADR or decision note comparing bridge-only versus native-provider client support.
+2. Define decision triggers for adding a native client, such as missing usage metadata, JSON-mode
+   incompatibility, unacceptable latency, or provider-specific auth/rate-limit requirements.
+3. If evidence warrants, implement one native-client spike behind the existing eval client
+   interface.
+4. Keep model registry fields explicit about whether a model is reached through a bridge or native
+   client.
+
+**Acceptance criteria:**
+
+- [ ] Provider strategy is documented as a decision, not an accidental implementation detail.
+- [ ] Model registry entries identify bridge/native routing clearly.
+- [ ] Native-client work is either explicitly deferred with triggers or implemented for one
+  provider with tests.
+- [ ] Eval runner behavior is unchanged unless a native client is intentionally selected.
+
+**Validation commands:**
+
+- `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/model-routing.test.ts tests/eval/model-registry.test.ts --reporter=dot`
+- `pnpm docs:build`
+
+**Risks and caveats:**
+Do not add native clients speculatively. The bridge strategy is acceptable until evidence shows a
+real capability gap.
 
 ---
 
