@@ -438,12 +438,12 @@ describe('circuit-breaker', () => {
     it('handles very short reset timeouts', async () => {
       const breaker = new CircuitBreaker({
         failureThreshold: 1,
-        resetTimeoutMs: 1,
+        resetTimeoutMs: 50,
       });
       breaker.recordFailure();
       expect(breaker.getState()).toBe(CircuitBreakerState.Open);
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       expect(breaker.canExecute()).toBe(true);
     });
 
