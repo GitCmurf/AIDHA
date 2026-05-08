@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   NarrowCorpusSchema,
@@ -943,6 +944,13 @@ describe("narrow-manual-baseline helpers", () => {
         }
       }
     }
+  });
+
+  it("keeps the sample env embedding model aligned with the validated default", () => {
+    const envExample = readFileSync(resolve(process.cwd(), "../../../../.env.example"), "utf8");
+    const match = envExample.match(/^AIDHA_GOOGLE_EMBEDDING_MODEL=(.+)$/m);
+
+    expect(match?.[1]).toBe("gemini-embedding-001");
   });
 
   it("matches only OpenAI hostnames when detecting OpenAI base URLs", () => {
