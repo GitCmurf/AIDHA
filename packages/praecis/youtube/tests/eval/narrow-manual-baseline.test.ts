@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   NarrowCorpusSchema,
@@ -26,6 +27,8 @@ import {
 } from "../../src/eval/narrow-manual-baseline";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
 import { validateSafeId } from "../../src/utils/ids.js";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../");
 
 const { geminiEmbeddingClientMock } = vi.hoisted(() => ({
   geminiEmbeddingClientMock: vi.fn().mockImplementation(() => ({
@@ -947,7 +950,7 @@ describe("narrow-manual-baseline helpers", () => {
   });
 
   it("keeps the sample env embedding model aligned with the validated default", () => {
-    const envExample = readFileSync(resolve(process.cwd(), "../../../../.env.example"), "utf8");
+    const envExample = readFileSync(resolve(repoRoot, ".env.example"), "utf8");
     const match = envExample.match(/^AIDHA_GOOGLE_EMBEDDING_MODEL=(.+)$/m);
 
     expect(match?.[1]).toBe("gemini-embedding-001");
