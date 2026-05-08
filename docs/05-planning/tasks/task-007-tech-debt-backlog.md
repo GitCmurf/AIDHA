@@ -692,7 +692,7 @@ large baseline runner, promote them into a small production module rather than b
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Correctness / Reliability |
 | Location   | `packages/praecis/youtube/src/utils/ids.ts`, shortened SHA-256-derived IDs |
@@ -733,13 +733,20 @@ hard to trust.
   fixture batches.
 - [ ] Any remaining 64-bit ID includes either collision detection or a comment explaining why the
   collision domain is bounded.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run packages/praecis/youtube/tests/utils/ids.test.ts --reporter=dot`
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/utils/ids.test.ts tests/claim-id-collision.test.ts --reporter=dot`
   passes.
 
 **Risks and caveats:**
 Changing ID length may invalidate local caches and generated fixtures. Because the project is
 greenfield, prefer correctness over compatibility, but keep the change isolated and call out the
 cache/fixture impact in the PR.
+
+**Resolution:**
+Resolved on 2026-05-08 by changing `hashId(...)` to use a 128-bit SHA-256 prefix, adding
+deterministic length and representative uniqueness tests in
+`packages/praecis/youtube/tests/utils/ids.test.ts`, and updating exact claim-ID fixtures in
+`packages/praecis/youtube/tests/claim-id-collision.test.ts`. The cache/fixture impact is called
+out in `AIDHA-REF-006`.
 
 ---
 
@@ -843,7 +850,7 @@ text markers over brittle full-prompt snapshots.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Documentation / Release Hygiene |
 | Location   | PR description; `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts` embedding defaults |
@@ -881,6 +888,11 @@ comparability, embedding cost, and downstream score reproducibility.
 **Risks and caveats:**
 This is documentation debt, not a code blocker. Do not create a second default or compatibility
 alias without a separate design decision.
+
+**Resolution:**
+Resolved on 2026-05-08 in `AIDHA-REF-006` by documenting the default embedding model change from
+`gemini-embedding-2-preview` to `gemini-embedding-001`, including the cache and eval-comparability
+impact for runs that do not pin the embedding model explicitly.
 
 ---
 
@@ -1311,6 +1323,10 @@ real capability gap.
 - TD-005 — Consolidate narrow-stage input signature builders. Resolved by extracting shared
   `buildNarrowStageSignaturePayload(...)` normalization while preserving stage-specific wrapper
   signatures.
+- TD-009 — Add collision protection to shortened deterministic IDs. Resolved by moving generated
+  `hashId(...)` values to a 128-bit SHA-256 prefix and adding deterministic uniqueness tests.
+- TD-012 — Call out embedding default change in PR and release notes. Resolved in
+  `AIDHA-REF-006`.
 
 ---
 

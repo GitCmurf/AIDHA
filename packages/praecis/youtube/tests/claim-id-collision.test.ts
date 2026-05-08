@@ -18,8 +18,8 @@ describe('Claim ID Collision', () => {
 
     expect(id1).not.toBe(id2);
     // Values verified from manual hashId call on raw strings
-    expect(id1).toBe('claim-18127c2b5df3174c');
-    expect(id2).toBe('claim-3bd436a138179d88');
+    expect(id1).toBe('claim-18127c2b5df3174c02c9e9a2a19262ea');
+    expect(id2).toBe('claim-3bd436a138179d88e821aecdb86561eb');
   });
 
   it('generates identical IDs for identical text and excerpts', () => {

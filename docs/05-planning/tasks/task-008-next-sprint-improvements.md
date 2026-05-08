@@ -137,9 +137,9 @@ Findings:
 
 **Definition of done:**
 
-- [ ] The first implementation PR updates its TD-NNN status block in AIDHA-TASK-007.
-- [ ] `node scripts/meminit-check.mjs docs/05-planning/tasks/task-007-tech-debt-backlog.md docs/05-planning/tasks/task-008-next-sprint-improvements.md` passes.
-- [ ] `pnpm docs:build` passes.
+- [x] The first implementation PR updates its TD-NNN status block in AIDHA-TASK-007.
+- [x] `node scripts/meminit-check.mjs docs/05-planning/tasks/task-007-tech-debt-backlog.md docs/05-planning/tasks/task-008-next-sprint-improvements.md` passes.
+- [x] `pnpm docs:build` passes.
 
 ### T008-00-02: Close release-note and greenfield ID policy quick wins
 
@@ -158,10 +158,10 @@ Findings:
 
 **Definition of done:**
 
-- [ ] TD-012 acceptance criteria are met, including explicit cache/eval comparability impact.
-- [ ] TD-009 acceptance criteria are met, including deterministic ID length and uniqueness tests.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run packages/praecis/youtube/tests/utils/ids.test.ts --reporter=dot` passes when TD-009 changes code.
-- [ ] `pnpm docs:build` passes when TD-012 changes docs.
+- [x] TD-012 acceptance criteria are met, including explicit cache/eval comparability impact.
+- [x] TD-009 acceptance criteria are met, including deterministic ID length and uniqueness tests.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/utils/ids.test.ts tests/claim-id-collision.test.ts --reporter=dot` passes when TD-009 changes code.
+- [x] `pnpm docs:build` passes when TD-012 changes docs.
 
 ### T008-00-03: Watch lint reliability before it blocks CI
 
