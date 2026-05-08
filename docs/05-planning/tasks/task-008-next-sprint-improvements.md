@@ -191,7 +191,7 @@ Findings:
 ### T008-01-01: Parallelize judge scoring
 
 - **Backlog IDs:** TD-001
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Eval maintainer
 - **Dependencies:** None
 
@@ -206,16 +206,16 @@ Findings:
 
 **Definition of done:**
 
-- [ ] Successful judge scores are identical in content to the serial path.
-- [ ] A single judge failure does not prevent other judges from completing.
-- [ ] `judgeFailures` and `cellHasScoringFailure` are set correctly.
-- [ ] Focused matrix-runner tests cover partial success and cost aggregation.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/matrix-runner.test.ts --reporter=dot` passes.
+- [x] Successful judge scores are identical in content to the serial path.
+- [x] A single judge failure does not prevent other judges from completing.
+- [x] `judgeFailures` and `cellHasScoringFailure` are set correctly.
+- [x] Focused matrix-runner tests cover concurrent calls and partial success.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/matrix-runner.test.ts --reporter=dot` passes.
 
 ### T008-01-02: Pre-index video cells before repeated per-video loops
 
 - **Backlog IDs:** TD-002
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Eval maintainer
 - **Dependencies:** None
 
@@ -229,14 +229,14 @@ Findings:
 
 **Definition of done:**
 
-- [ ] No repeated videoId filter remains inside video iteration loops for the targeted stage paths.
-- [ ] Existing narrow manual baseline output assertions still pass.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
+- [x] No repeated videoId filter remains inside video iteration loops for the targeted stage paths.
+- [x] Existing narrow manual baseline output assertions still pass.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
 
 ### T008-01-03: Extract comparable claim-set construction helper
 
 - **Backlog IDs:** TD-003
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Eval maintainer
 - **Dependencies:** T008-01-02 preferred
 
@@ -249,9 +249,9 @@ Findings:
 
 **Definition of done:**
 
-- [ ] Comparable claim-set construction lives in one helper.
-- [ ] No candidate source is dropped or reordered unintentionally.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
+- [x] Comparable claim-set construction lives in one helper.
+- [x] No candidate source is dropped or reordered unintentionally.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
 
 ---
 

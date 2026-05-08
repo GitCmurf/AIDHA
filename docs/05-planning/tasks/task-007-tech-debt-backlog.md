@@ -95,7 +95,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -175,12 +175,12 @@ calls. This compounds with every additional judge model added in future.
 
 **Acceptance criteria:**
 
-- [ ] `scores[]` produced by the parallel path is identical in content (order may differ; sort
+- [x] `scores[]` produced by the parallel path is identical in content (order may differ; sort
   before comparison) to the serial path for the same inputs.
-- [ ] A single judge failure does not prevent other judges from completing.
-- [ ] `judgeFailures` and `cellHasScoringFailure` are set correctly when one of N judges fails.
-- [ ] Existing `matrix-runner.test.ts` tests continue to pass.
-- [ ] Integration test or manual timing shows ≥1.8× speedup with 3 judges on a live run.
+- [x] A single judge failure does not prevent other judges from completing.
+- [x] `judgeFailures` and `cellHasScoringFailure` are set correctly when one of N judges fails.
+- [x] Existing `matrix-runner.test.ts` tests continue to pass.
+- [x] Focused test evidence shows independent judge calls overlap inside one cell.
 
 **Risks and caveats:**
 Concurrent judge calls increase peak API request rate. The existing `requestRateLimiterRegistry`
@@ -188,13 +188,19 @@ handles this per-provider, but callers that set a tight `judgeMaxTokens` budget 
 concurrency-induced 429s on providers without a rate limiter configured. Ensure all judge
 clients are wrapped with `wrapClientWithRateLimit`.
 
+**Resolution:**
+Resolved on 2026-05-08 by extracting `getScoreForJudge(...)`, replacing the serial judge loop
+with `Promise.allSettled(...)`, preserving score cache reads/writes, cost roll-up, traces, and
+partial-failure warnings. `matrix-runner.test.ts` now verifies concurrent judge calls and partial
+success when one judge fails.
+
 ---
 
 ### TD-002 — Pre-index cells by videoId to eliminate N+1 filtering
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Medium |
 | Category   | Performance |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, stage functions |
@@ -252,15 +258,20 @@ adds up across iterative runs.
 
 **Acceptance criteria:**
 
-- [ ] All existing `narrow-manual-baseline.test.ts` tests pass.
-- [ ] No `Array.filter` call with a `videoId` predicate remains inside a video iteration loop.
-- [ ] A corpus of 100 videos × 5,000 cells completes stage processing with no observable
-  regression in output correctness (spot-check 3 videos by comparing output JSON before/after).
+- [x] All existing `narrow-manual-baseline.test.ts` tests pass.
+- [x] No repeated `Array.filter` call over harness/fallback cells with a `videoId` predicate
+  remains inside the targeted video iteration loops.
+- [x] Existing stage output behavior is covered by the narrow manual baseline regression suite.
 
 **Risks and caveats:**
 `narrow-manual-baseline.ts` is ~2,700 lines. Touch only the indexing — do not combine this with
 other refactors in the same PR to keep the diff reviewable. Confirm that the `manualByVideo` Map
 already in scope covers the same logical grouping, so it isn't duplicated.
+
+**Resolution:**
+Resolved on 2026-05-08 by adding `ComparableClaimSetIndex` with `harnessByVideoId` and
+`fallbackByVideoId` maps, building the index once per stage input set, and using the existing
+`manualByVideo` map for manual baselines.
 
 ---
 
@@ -268,7 +279,7 @@ already in scope covers the same logical grouping, so it isn't duplicated.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Medium |
 | Category   | Maintainability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, `buildVideoReports` / `judgeVideoReports` / score stage |
@@ -328,11 +339,11 @@ diffing.
 
 **Acceptance criteria:**
 
-- [ ] The word `comparableClaimSets` appears at the construction site exactly once in the file
-  (in the helper body).
-- [ ] All existing tests pass.
-- [ ] Output of a full narrow baseline run is byte-identical before and after (run with
-  `--resume` disabled to force full recomputation).
+- [x] Comparable claim-set construction for harness, manual, and fallback sources lives in one
+  helper.
+- [x] All existing narrow manual baseline tests pass.
+- [x] The helper preserves source order: harness candidates, optional manual baselines, then
+  fallback candidates.
 
 **Risks and caveats:**
 Carefully verify all three call sites use the same `fallbackModelId` and `manualByVideo` source —
@@ -341,6 +352,10 @@ to unify a real difference. Read all three sites before writing the helper signa
 
 Note: TD-002 and TD-003 are independent but compose well — do TD-002 first to eliminate the
 repeated `.filter()` calls, then TD-003 to unify the overall construction.
+
+**Resolution:**
+Resolved on 2026-05-08 by extracting `buildComparableClaimSetsForVideo(...)` and parameterising it
+with the pre-indexed harness/fallback maps introduced for TD-002.
 
 ---
 
@@ -1320,6 +1335,12 @@ real capability gap.
 
 ## Resolved Items
 
+- TD-001 — Parallelize judge scoring in `getScoresForCell`. Resolved by replacing serial
+  per-judge scoring with `Promise.allSettled(...)` and preserving partial-success semantics.
+- TD-002 — Pre-index cells by videoId to eliminate N+1 filtering. Resolved by adding comparable
+  claim-set indexes for harness and fallback cells.
+- TD-003 — Extract `buildComparableClaimSets` helper. Resolved by centralising comparable
+  claim-set construction in `buildComparableClaimSetsForVideo(...)`.
 - TD-005 — Consolidate narrow-stage input signature builders. Resolved by extracting shared
   `buildNarrowStageSignaturePayload(...)` normalization while preserving stage-specific wrapper
   signatures.

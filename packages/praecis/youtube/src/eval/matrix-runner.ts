@@ -369,6 +369,102 @@ const performScoring = async (
   }
 };
 
+interface JudgeScoreOutcome {
+  judgeModelId: string;
+  scores: ClaimSetScore[];
+  judgeUsdEstimate: number;
+  traces?: Array<{ prompt: { system: string; user: string }; response: string }>;
+  failure?: string;
+}
+
+const getScoreForJudge = async (
+  video: CorpusEntry,
+  model: EvalModel,
+  cell: MatrixCell,
+  options: MatrixOptions,
+  fullText: string,
+  videoContext: VideoContext,
+  claimSetHash: string,
+  judgePromptVersion: string,
+  judgeModelId: string
+): Promise<JudgeScoreOutcome> => {
+  const judgeModel = getModel(judgeModelId);
+
+  const cachedScores = options.resume && !options.dryRun
+    ? await getCachedScore(
+        video.videoId,
+        model.id,
+        judgeModelId,
+        claimSetHash,
+        judgePromptVersion,
+        { cacheDir: options.cacheDir }
+      )
+    : null;
+
+  if (cachedScores) {
+    return { judgeModelId, scores: cachedScores, judgeUsdEstimate: 0 };
+  }
+
+  if (options.dryRun) {
+    const judgeUsdEstimate = judgeModel
+      ? estimateJudgeCost(
+          fullText,
+          cell.claimSet,
+          judgeModel,
+          DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
+        )
+      : 0;
+    // skipcq: JS-0002
+    console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
+    return { judgeModelId, scores: [], judgeUsdEstimate };
+  }
+
+  const judgeUsdEstimate = judgeModel
+    ? estimateJudgeCost(fullText, cell.claimSet, judgeModel)
+    : 0;
+
+  try {
+    const scoreResult = await performScoring(
+      model.id,
+      judgeModelId,
+      fullText,
+      cell.claimSet,
+      videoContext,
+      options
+    );
+
+    const score = scoreResult.score;
+    try {
+      await setCachedScore(
+        video.videoId,
+        model.id,
+        judgeModelId,
+        claimSetHash,
+        judgePromptVersion,
+        [score],
+        { cacheDir: options.cacheDir }
+      );
+    } catch (cacheErr) {
+      // skipcq: JS-0002
+      console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
+    }
+
+    return {
+      judgeModelId,
+      scores: [score],
+      judgeUsdEstimate,
+      traces: scoreResult.traces,
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error && err.name === "AbortError"
+        ? `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`
+        : (err instanceof Error ? err.message : String(err));
+    console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
+    return { judgeModelId, scores: [], judgeUsdEstimate, failure: message };
+  }
+};
+
 const getScoresForCell = async (
   video: CorpusEntry,
   model: EvalModel,
@@ -391,74 +487,39 @@ const getScoresForCell = async (
   const traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>> = {};
   const judgeFailures: Record<string, string> = {};
 
-  for (const judgeModelId of options.judgeModels) {
-    const judgeModel = getModel(judgeModelId);
+  const outcomes = await Promise.allSettled(
+    options.judgeModels.map((judgeModelId) => getScoreForJudge(
+      video,
+      model,
+      cell,
+      options,
+      fullText,
+      videoContext,
+      claimSetHash,
+      judgePromptVersion,
+      judgeModelId
+    ))
+  );
 
-    const cachedScores = options.resume && !options.dryRun
-      ? await getCachedScore(
-          video.videoId,
-          model.id,
-          judgeModelId,
-          claimSetHash,
-          judgePromptVersion,
-          { cacheDir: options.cacheDir }
-        )
-      : null;
+  for (const [index, outcome] of outcomes.entries()) {
+    const fallbackJudgeModelId = options.judgeModels[index] ?? `judge-${index}`;
+    if (outcome.status === "rejected") {
+      cellHasScoringFailure = true;
+      judgeFailures[fallbackJudgeModelId] = outcome.reason instanceof Error
+        ? outcome.reason.message
+        : String(outcome.reason);
+      continue;
+    }
 
-    if (cachedScores) {
-      scores.push(...cachedScores);
-    } else if (options.dryRun) {
-      if (judgeModel) {
-        judgeUsdEstimate += estimateJudgeCost(
-          fullText,
-          cell.claimSet,
-          judgeModel,
-          DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
-        );
-      }
-      // skipcq: JS-0002
-      console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
-    } else {
-      if (judgeModel) {
-        judgeUsdEstimate += estimateJudgeCost(fullText, cell.claimSet, judgeModel);
-      }
-      try {
-        const scoreResult = await performScoring(
-          model.id,
-          judgeModelId,
-          fullText,
-          cell.claimSet,
-          videoContext,
-          options
-        );
-
-        const score = scoreResult.score;
-        traces[judgeModelId] = scoreResult.traces;
-
-        scores.push(score);
-        try {
-          await setCachedScore(
-            video.videoId,
-            model.id,
-            judgeModelId,
-            claimSetHash,
-            judgePromptVersion,
-            [score],
-            { cacheDir: options.cacheDir }
-          );
-        } catch (cacheErr) {
-          // skipcq: JS-0002
-          console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
-        }
-      } catch (err) {
-        const message =
-          err instanceof Error && err.name === "AbortError"
-            ? `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`
-            : (err instanceof Error ? err.message : String(err));
-        console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
-        cellHasScoringFailure = true;
-        judgeFailures[judgeModelId] = message;
-      }
+    const result = outcome.value;
+    scores.push(...result.scores);
+    judgeUsdEstimate += result.judgeUsdEstimate;
+    if (result.traces && result.traces.length > 0) {
+      traces[result.judgeModelId] = result.traces;
+    }
+    if (result.failure) {
+      cellHasScoringFailure = true;
+      judgeFailures[result.judgeModelId] = result.failure;
     }
   }
 

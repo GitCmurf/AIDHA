@@ -283,4 +283,71 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells[0]?.scores).toHaveLength(1);
     expect(result.cells[0]?.costEstimate?.judgeUsd).toBe(0);
   });
+
+  it("should score independent judges concurrently while preserving partial success", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+    ];
+    const models = [getModel("gpt-4o-mini")!];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
+    let activeJudgeCalls = 0;
+    let maxActiveJudgeCalls = 0;
+    const judgeClientFactory = (judgeModelId: string) => ({
+      generate: vi.fn().mockImplementation(async () => {
+        activeJudgeCalls++;
+        maxActiveJudgeCalls = Math.max(maxActiveJudgeCalls, activeJudgeCalls);
+        await new Promise((resolve) => setTimeout(resolve, judgeModelId === "gpt-4o-mini" ? 25 : 5));
+        activeJudgeCalls--;
+        if (judgeModelId === "gemini-2.5-flash") {
+          throw new Error("judge unavailable");
+        }
+        return {
+          ok: true,
+          value: JSON.stringify({
+            completeness: 8,
+            accuracy: 8,
+            topicCoverage: 8,
+            atomicity: 8,
+            overallScore: 8,
+            reasoning: "Mock reasoning long enough",
+            missingClaims: [],
+            hallucinations: [],
+            redundancies: [],
+            gapAreas: []
+          })
+        };
+      })
+    });
+
+    const result = await runEvaluationMatrix(corpus, models, {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: false,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini", "gemini-2.5-flash"],
+      maxConcurrency: 1,
+      timeoutMs: 1000,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: judgeClientFactory as unknown as (modelId: string) => LlmClient,
+    });
+
+    expect(maxActiveJudgeCalls).toBe(2);
+    expect(result.metadata.failedCellCount).toBe(0);
+    expect(result.metadata.partialFailureCount).toBe(1);
+    expect(result.cells[0]?.scores).toHaveLength(1);
+    expect(result.cells[0]?.warnings).toContainEqual(
+      expect.stringContaining("gemini-2.5-flash")
+    );
+    expect(result.cells[0]?.warnings).toContainEqual(
+      expect.stringContaining("judge unavailable")
+    );
+  });
 });

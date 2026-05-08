@@ -1525,6 +1525,54 @@ async function selectTeacherComparableCandidate(
     })[0]?.candidate;
 }
 
+interface ComparableClaimSetIndex {
+  harnessByVideoId: Map<string, ComparableClaimSet[]>;
+  fallbackByVideoId: Map<string, ComparableClaimSet[]>;
+}
+
+function appendComparableClaimSet(
+  index: Map<string, ComparableClaimSet[]>,
+  candidate: ComparableClaimSet
+): void {
+  const candidates = index.get(candidate.videoId) ?? [];
+  candidates.push(candidate);
+  index.set(candidate.videoId, candidates);
+}
+
+function buildComparableClaimSetIndex(
+  harnessCells: MatrixCell[],
+  fallbackCells: MatrixCell[],
+  fallbackNote: string
+): ComparableClaimSetIndex {
+  const harnessByVideoId = new Map<string, ComparableClaimSet[]>();
+  const fallbackByVideoId = new Map<string, ComparableClaimSet[]>();
+
+  for (const cell of harnessCells) {
+    appendComparableClaimSet(harnessByVideoId, buildHarnessComparableClaimSet(cell));
+  }
+  for (const cell of fallbackCells) {
+    appendComparableClaimSet(
+      fallbackByVideoId,
+      toHarnessComparableClaimSet(cell, "fallback-harness", fallbackNote)
+    );
+  }
+
+  return { harnessByVideoId, fallbackByVideoId };
+}
+
+function buildComparableClaimSetsForVideo(
+  videoId: string,
+  index: ComparableClaimSetIndex,
+  manualByVideo: Map<string, ComparableClaimSet[]>,
+  includeManualBaselines: boolean
+): ComparableClaimSet[] {
+  return [
+    ...(index.harnessByVideoId.get(videoId) ?? []),
+    ...(includeManualBaselines ? (manualByVideo.get(videoId) ?? []) : []),
+    ...(index.fallbackByVideoId.get(videoId) ?? []),
+  ];
+}
+
 function renderScore(value: number | undefined): string {
   return value === undefined ? "n/a" : value.toFixed(2);
 }
@@ -2245,7 +2293,7 @@ export async function runNarrowManualBaselineComparison(
   // exist before the helper closures are created to avoid a TDZ on fresh runs.
   const buildSingleVideoReport = async (
     video: CorpusEntry,
-    harnessCells: MatrixCell[],
+    comparableClaimSetIndex: ComparableClaimSetIndex,
     includeManualBaselinesForVideo: boolean,
     embeddingEligibleCandidateIdsByVideo?: Map<string, Set<string>>
   ): Promise<NarrowComparisonVideoReport> => {
@@ -2258,15 +2306,12 @@ export async function runNarrowManualBaselineComparison(
     }
     const transcriptProfile = transcript.structureProfile;
 
-    const comparableClaimSets: ComparableClaimSet[] = [
-      ...harnessCells
-        .filter((cell) => cell.videoId === video.videoId)
-        .map((cell) => buildHarnessComparableClaimSet(cell)),
-      ...(includeManualBaselinesForVideo ? (manualByVideo.get(video.videoId) ?? []) : []),
-      ...fallbackCells
-        .filter((cell) => cell.videoId === video.videoId)
-        .map((cell) => toHarnessComparableClaimSet(cell, "fallback-harness", `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`)),
-    ];
+    const comparableClaimSets = buildComparableClaimSetsForVideo(
+      video.videoId,
+      comparableClaimSetIndex,
+      manualByVideo,
+      includeManualBaselinesForVideo
+    );
     const coverageCache = new Map<CoverageCacheKey, GoldCoverageSummary>();
     const embeddingEligibleCandidateIds = embeddingEligibleCandidateIdsByVideo?.get(video.videoId);
     let effectiveEmbeddingClient = embeddingClient && embeddingEligibleCandidateIds && embeddingEligibleCandidateIds.size > 0
@@ -2333,11 +2378,16 @@ export async function runNarrowManualBaselineComparison(
     embeddingEligibleCandidateIdsByVideo?: Map<string, Set<string>>
   ): Promise<NarrowComparisonVideoReport[]> => {
     const videos: NarrowComparisonVideoReport[] = [];
+    const comparableClaimSetIndex = buildComparableClaimSetIndex(
+      harnessCells,
+      fallbackCells,
+      `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`
+    );
 
     for (const video of options.corpus) {
       videos.push(await buildSingleVideoReport(
         video,
-        harnessCells,
+        comparableClaimSetIndex,
         includeManualBaselines,
         embeddingEligibleCandidateIdsByVideo
       ));
@@ -2355,15 +2405,12 @@ export async function runNarrowManualBaselineComparison(
       if (!transcript || !goldClaims) {
         throw new Error(`Missing transcript or gold baseline for ${video.videoId}`);
       }
-      const comparableClaimSets: ComparableClaimSet[] = [
-        ...harnessCells
-          .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => buildHarnessComparableClaimSet(cell)),
-        ...(includeManualBaselines ? (manualByVideo.get(video.videoId) ?? []) : []),
-        ...fallbackCells
-          .filter((cell) => cell.videoId === video.videoId)
-        .map((cell) => toHarnessComparableClaimSet(cell, "fallback-harness", `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`)),
-      ];
+      const comparableClaimSets = buildComparableClaimSetsForVideo(
+        video.videoId,
+        comparableClaimSetIndex,
+        manualByVideo,
+        includeManualBaselines
+      );
       const candidateById = new Map(comparableClaimSets.map((candidate) => [candidate.candidateId, candidate]));
       const teacherComparable = await selectTeacherComparableCandidate(
         comparableClaimSets.filter((candidate) => candidate.sourceKind === "manual-baseline"),
@@ -2408,21 +2455,23 @@ export async function runNarrowManualBaselineComparison(
     includeManualBaselines: boolean
   ): Promise<void> => {
     console.log("[stage4-start] judge");
+    const comparableClaimSetIndex = buildComparableClaimSetIndex(
+      harnessCells,
+      fallbackCells,
+      `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`
+    );
     for (const video of videos) {
       const transcript = transcriptByVideo.get(video.videoId);
       const goldClaims = goldByVideo.get(video.videoId);
       if (!transcript || !goldClaims) {
         throw new Error(`Missing transcript or gold baseline for ${video.videoId}`);
       }
-      const comparableClaimSets: ComparableClaimSet[] = [
-        ...harnessCells
-          .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => buildHarnessComparableClaimSet(cell)),
-        ...(includeManualBaselines ? (manualByVideo.get(video.videoId) ?? []) : []),
-        ...fallbackCells
-          .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => toHarnessComparableClaimSet(cell, "fallback-harness", `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`)),
-      ];
+      const comparableClaimSets = buildComparableClaimSetsForVideo(
+        video.videoId,
+        comparableClaimSetIndex,
+        manualByVideo,
+        includeManualBaselines
+      );
       const candidateById = new Map(comparableClaimSets.map((candidate) => [candidate.candidateId, candidate]));
       const teacherComparable = await selectTeacherComparableCandidate(
         comparableClaimSets.filter((candidate) => candidate.sourceKind === "manual-baseline"),
@@ -2661,20 +2710,22 @@ export async function runNarrowManualBaselineComparison(
       }
     }
     const scoredVideos: NarrowComparisonVideoReport[] = [];
+    const finalComparableClaimSetIndex = buildComparableClaimSetIndex(
+      finalHarnessCells,
+      fallbackCells,
+      `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`
+    );
     for (const video of options.corpus) {
       const goldClaims = goldByVideo.get(video.videoId);
       if (!goldClaims) {
         throw new Error(`Missing gold baseline for ${video.videoId}`);
       }
-      const comparableClaimSets: ComparableClaimSet[] = [
-        ...finalHarnessCells
-          .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => buildHarnessComparableClaimSet(cell)),
-        ...(includeManualBaselines ? (manualByVideo.get(video.videoId) ?? []) : []),
-        ...fallbackCells
-          .filter((cell) => cell.videoId === video.videoId)
-          .map((cell) => toHarnessComparableClaimSet(cell, "fallback-harness", `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`)),
-      ];
+      const comparableClaimSets = buildComparableClaimSetsForVideo(
+        video.videoId,
+        finalComparableClaimSetIndex,
+        manualByVideo,
+        includeManualBaselines
+      );
       const videoScoreSignature = buildVideoScoreInputSignature({
         corpusSignature,
         runMode,
@@ -2699,7 +2750,7 @@ export async function runNarrowManualBaselineComparison(
       }
       const scoredVideo = await buildSingleVideoReport(
         video,
-        finalHarnessCells,
+        finalComparableClaimSetIndex,
         includeManualBaselines,
         preset.enableEmbeddings ? embeddingEligibleCandidateIdsByVideo : undefined
       );
