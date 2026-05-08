@@ -18,6 +18,7 @@ namespaces:
           GOV: 00-governance
           INDEX: 01-indices
           PLAN: 05-planning
+          TASK: 05-planning/tasks
           STRATEGY: 02-strategy
           PRD: 10-prd
           ADR: 20-adr

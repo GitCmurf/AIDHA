@@ -441,8 +441,8 @@
       "document_id": "AIDHA-ADR-007",
       "owner": "Ingestion Architecture Lead",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-02-06",
+      "version": "0.2",
+      "last_updated": "2026-04-21",
       "title": "Two-Pass LLM Extraction Architecture",
       "type": "ADR",
       "docops_version": "2.0"
@@ -626,8 +626,8 @@
       "document_id": "AIDHA-EVAL-BASELINE",
       "owner": "Ingestion Engineering Lead",
       "status": "Published",
-      "version": "0.2",
-      "last_updated": "2026-03-13",
+      "version": "0.4",
+      "last_updated": "2026-05-03",
       "title": "Evaluation Matrix Baseline Workflow",
       "type": "TESTING",
       "docops_version": "2.0"
@@ -654,8 +654,8 @@
       "document_id": "AIDHA-EVAL-MANUAL-BASELINE",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-03-09",
+      "version": "0.2",
+      "last_updated": "2026-03-15",
       "title": "Manual Baseline (No Harness)",
       "type": "TESTING",
       "docops_version": "2.0"
@@ -676,6 +676,28 @@
     }
   },
   {
+    "path": "05-planning/tasks/task-007-tech-debt-backlog.md",
+    "title": "Task: Engineering Tech Debt Backlog",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-007",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "1.2",
+      "last_updated": "2026-05-07",
+      "title": "Engineering Tech Debt Backlog",
+      "type": "TASK",
+      "docops_version": "2.0",
+      "area": "INGEST",
+      "keywords": [
+        "tech-debt",
+        "backlog",
+        "refactoring",
+        "performance",
+        "eval"
+      ]
+    }
+  },
+  {
     "path": "05-planning/tasks/task-004-claim-extraction-evaluation-matrix.md",
     "title": "Claim Extraction Evaluation Matrix",
     "front_matter": {
@@ -685,6 +707,20 @@
       "version": "0.6",
       "last_updated": "2026-03-03",
       "title": "Claim Extraction Evaluation Matrix",
+      "type": "TASK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/tasks/task-006-eval-refinement.md",
+    "title": "Tasks: Evaluation Refinement and Self-Improvement Validation",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-006",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "0.4",
+      "last_updated": "2026-04-21",
+      "title": "Evaluation Refinement and Self-Improvement Validation",
       "type": "TASK",
       "docops_version": "2.0"
     }

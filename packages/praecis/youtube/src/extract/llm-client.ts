@@ -42,6 +42,7 @@ export interface ModelCapabilities {
   supportsReasoningEffort: boolean;
   supportsVerbosity: boolean;
   supportsStructuredOutput: boolean;
+  usesMaxCompletionTokens: boolean;
   defaultMaxTokens: number;
 }
 
@@ -61,6 +62,7 @@ export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
   supportsReasoningEffort: false,
   supportsVerbosity: false,
   supportsStructuredOutput: false,
+  usesMaxCompletionTokens: false,
   defaultMaxTokens: DEFAULT_MAX_TOKENS_FOR_UNKNOWN_MODELS,
 };
 
@@ -80,6 +82,7 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
       supportsReasoningEffort: true,
       supportsVerbosity: true,
       supportsStructuredOutput: true,
+      usesMaxCompletionTokens: true,
       defaultMaxTokens: 4096,
     };
   }
@@ -90,6 +93,7 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
       supportsReasoningEffort: false,
       supportsVerbosity: false,
       supportsStructuredOutput: true,
+      usesMaxCompletionTokens: false,
       defaultMaxTokens: 4096,
     };
   }
@@ -100,6 +104,18 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
       supportsReasoningEffort: false,
       supportsVerbosity: false,
       supportsStructuredOutput: false,
+      usesMaxCompletionTokens: false,
+      defaultMaxTokens: 4096,
+    };
+  }
+
+  // OpenAI o-series (o1, o3, etc.) - reasoning models
+  if (/^o\d/.test(normalized)) {
+    return {
+      supportsReasoningEffort: true,
+      supportsVerbosity: false,
+      supportsStructuredOutput: true,
+      usesMaxCompletionTokens: true,
       defaultMaxTokens: 4096,
     };
   }
@@ -108,10 +124,29 @@ export function detectModelCapabilities(model: string): ModelCapabilities {
   return DEFAULT_MODEL_CAPABILITIES;
 }
 
+function handleAbortOrError(
+  error: unknown,
+  combinedSignal: AbortSignal | undefined,
+  clientTimeoutSignal: AbortSignal | undefined,
+  requestSignal: AbortSignal | undefined,
+  clientLabel: string,
+  timeoutMs: number
+): Result<string> {
+  if (combinedSignal?.aborted) {
+    if (clientTimeoutSignal?.aborted) {
+      return { ok: false, error: new Error(`${clientLabel} client timeout after ${timeoutMs}ms`) };
+    }
+    if (requestSignal?.aborted) {
+      return { ok: false, error: new Error(`${clientLabel} request aborted by upstream timeout or cancellation`) };
+    }
+  }
+  return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+}
+
 /** Maximum base URL length to prevent potential ReDoS attacks. */
 const MAX_URL_LENGTH = 2048;
 
-function normalizeBaseUrl(baseUrl: string): string {
+export function normalizeBaseUrl(baseUrl: string): string {
   // Use validateLength from @aidha/config to avoid duplication
   validateLength(baseUrl, MAX_URL_LENGTH, 'Base URL');
   return baseUrl.replace(/\/+$/, '');
@@ -187,8 +222,9 @@ export class OpenAiCompatibleClient implements LlmClient {
 
   async generate(request: LlmCompletionRequest): Promise<Result<string>> {
     const signals: AbortSignal[] = [];
-    if (this.timeoutMs > 0) {
-      signals.push(AbortSignal.timeout(this.timeoutMs));
+    const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
+    if (clientTimeoutSignal) {
+      signals.push(clientTimeoutSignal);
     }
     if (request.signal) {
       signals.push(request.signal);
@@ -227,10 +263,11 @@ export class OpenAiCompatibleClient implements LlmClient {
         body['temperature'] = 0.2;
       }
 
-      if (request.maxTokens !== undefined) {
-        body['max_tokens'] = request.maxTokens;
+      const tokenLimit = request.maxTokens ?? modelCapabilities.defaultMaxTokens;
+      if (modelCapabilities.usesMaxCompletionTokens) {
+        body['max_completion_tokens'] = tokenLimit;
       } else {
-        body['max_tokens'] = modelCapabilities.defaultMaxTokens;
+        body['max_tokens'] = tokenLimit;
       }
 
       // OpenAI-compatible structured output
@@ -266,7 +303,7 @@ export class OpenAiCompatibleClient implements LlmClient {
       }
       return { ok: true, value: content };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'LLM', this.timeoutMs);
     }
   }
 }
@@ -284,8 +321,9 @@ export class GeminiApiClient implements LlmClient {
 
   async generate(request: LlmCompletionRequest): Promise<Result<string>> {
     const signals: AbortSignal[] = [];
-    if (this.timeoutMs > 0) {
-      signals.push(AbortSignal.timeout(this.timeoutMs));
+    const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
+    if (clientTimeoutSignal) {
+      signals.push(clientTimeoutSignal);
     }
     if (request.signal) {
       signals.push(request.signal);
@@ -357,7 +395,7 @@ export class GeminiApiClient implements LlmClient {
 
       return { ok: true, value: content };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'Gemini', this.timeoutMs);
     }
   }
 }
@@ -369,6 +407,7 @@ export interface LlmResolvedConfig {
   baseUrl: string;
   timeoutMs: number;
   cacheDir: string;
+  modelCapabilities?: ModelCapabilities;
 }
 
 /**
@@ -385,6 +424,7 @@ export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmCli
         baseUrl: cfg.baseUrl,
         apiKey: cfg.apiKey || undefined,
         timeoutMs: cfg.timeoutMs ?? 60_000,
+        modelCapabilities: cfg.modelCapabilities,
       }),
     };
   } catch (error) {

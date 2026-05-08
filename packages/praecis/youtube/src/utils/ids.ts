@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 
 const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const MAX_ID_LENGTH = 100;
@@ -93,4 +94,19 @@ export function hashId(prefix: string, parts: Array<string | number | undefined>
   const input = [prefix, ...parts.map(part => (part === undefined ? '' : String(part)))].join('|');
   const digest = createHash('sha256').update(input).digest('hex').slice(0, 16);
   return `${prefix}-${digest}`;
+}
+
+export function hashText(text: string): string {
+  return createHash("sha256").update(text).digest("hex").slice(0, 32);
+}
+
+// Hashes file as raw bytes (not UTF-8) for cross-platform consistency. Returns null on any read error.
+export async function hashFile(filePath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const hash = createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => { hash.update(chunk); });
+    stream.on("end", () => resolve(hash.digest("hex").slice(0, 32)));
+    stream.on("error", () => resolve(null));
+  });
 }

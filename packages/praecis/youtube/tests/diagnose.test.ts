@@ -190,6 +190,7 @@ describe('diagnostics', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.editorial?.available).toBe(true);
+    expect(result.value.editorial?.promptVersion).toContain(':pack:');
     expect(result.value.editorial?.cacheHits).toBeGreaterThan(0);
     expect(result.value.editorial?.consistencyOk).toBe(true);
 

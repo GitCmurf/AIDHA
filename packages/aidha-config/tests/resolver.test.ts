@@ -237,6 +237,52 @@ describe('resolveConfig — edge cases', () => {
     expect(resolved.llm.reasoningEffort).toBeUndefined();
     expect(resolved.llm.verbosity).toBeUndefined();
   });
+
+  it('should resolve embedding fields from config and CLI overrides', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          llm: {
+            model: 'config-default-model',
+            embedding_batch_size: 40,
+            embedding_task_type: 'RETRIEVAL_DOCUMENT',
+            embedding_output_dimensionality: 512,
+          },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({
+      rawConfig: config,
+      cliOverrides: {
+        llm: {
+          embedding_batch_size: 12,
+          embedding_task_type: 'CLASSIFICATION',
+          embedding_output_dimensionality: 256,
+        },
+      },
+    });
+
+    expect(resolved.llm.embeddingBatchSize).toBe(12);
+    expect(resolved.llm.embeddingTaskType).toBe('CLASSIFICATION');
+    expect(resolved.llm.embeddingOutputDimensionality).toBe(256);
+  });
+
+  it('should fall back to safe embedding defaults for unsupported task types', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          llm: {
+            model: 'config-default-model',
+            embedding_task_type: 'INVALID_TASK' as never,
+          },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({ rawConfig: config });
+    expect(resolved.llm.embeddingTaskType).toBe('SEMANTIC_SIMILARITY');
+  });
 });
 
 // ── Extensions ───────────────────────────────────────────────────────────────

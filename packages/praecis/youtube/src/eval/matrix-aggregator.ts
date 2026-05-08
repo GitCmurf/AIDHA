@@ -1,6 +1,8 @@
 import { getModel } from "./model-registry.js";
 import { SCORE_DIMENSIONS, type ClaimSetScore } from "./scoring-rubric.js";
 import type { MatrixCell, ScoreDimension } from "./matrix-runner.js";
+import type { NarrowDerivedJudgeScores } from "./narrow-judge.js";
+import type { SelfImprovementGateResult } from "./quality-gate.js";
 
 export type StatName = "mean" | "median" | "min" | "max" | "stddev";
 export type DimensionStats = Record<ScoreDimension, Record<StatName, number>>;
@@ -18,6 +20,15 @@ export interface MatrixReport {
     judgeUsd: number;
     totalUsd: number;
   };
+  variantCostSummary?: Record<string, {
+    extractionUsd: number;
+    judgeUsd: number;
+    totalUsd: number;
+  }>;
+  qualityGates?: {
+    selfImprovement: SelfImprovementGateResult;
+  };
+  narrowJudgeResults?: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>>; // variantId -> modelId -> videoKey (videoId|promptConfigId|chunkMode) -> scores
   modelStats: Record<string, { dimensions: DimensionStats }>;
   variantStats: Record<string, { dimensions: DimensionStats }>;
   videoStats: Record<string, { dimensions: DimensionStats }>;
@@ -82,13 +93,23 @@ const recordCellScore = (
 const accumulateCosts = (cells: MatrixCell[]) => {
   let extractionUsd = 0;
   let judgeUsd = 0;
+  const variantCosts: Record<string, { extractionUsd: number; judgeUsd: number; totalUsd: number }> = Object.create(null);
+
   for (const cell of cells) {
     if (cell.costEstimate) {
       extractionUsd += cell.costEstimate.extractionUsd;
       judgeUsd += cell.costEstimate.judgeUsd;
+
+      const vId = cell.extractorVariantId || "unknown";
+      if (!variantCosts[vId]) {
+        variantCosts[vId] = { extractionUsd: 0, judgeUsd: 0, totalUsd: 0 };
+      }
+      variantCosts[vId].extractionUsd += cell.costEstimate.extractionUsd;
+      variantCosts[vId].judgeUsd += cell.costEstimate.judgeUsd;
+      variantCosts[vId].totalUsd += cell.costEstimate.totalUsd;
     }
   }
-  return { extractionUsd, judgeUsd };
+  return { extractionUsd, judgeUsd, variantCosts };
 };
 
 const processCells = (cells: MatrixCell[]) => {
@@ -96,7 +117,7 @@ const processCells = (cells: MatrixCell[]) => {
   const variantScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const videoScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
 
-  const { extractionUsd: totalExtractionUsd, judgeUsd: totalJudgeUsd } = accumulateCosts(cells);
+  const { extractionUsd: totalExtractionUsd, judgeUsd: totalJudgeUsd, variantCosts } = accumulateCosts(cells);
 
   for (const cell of cells) {
     if (cell.error || !cell.scores || cell.scores.length === 0) continue;
@@ -107,7 +128,7 @@ const processCells = (cells: MatrixCell[]) => {
     recordCellScore(videoScores, cell.videoId, aggregatedScore);
   }
 
-  return { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd };
+  return { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd, variantCosts };
 };
 
 const calculateMedian = (sorted: number[]): number => {
@@ -241,7 +262,7 @@ const generateRecommendations = (cells: MatrixCell[], leaderboards: Record<Score
 };
 
 export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
-  const { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd } = processCells(cells);
+  const { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd, variantCosts } = processCells(cells);
 
   const modelStats = calculateAllStats(modelScores);
   const variantStats = calculateAllStats(variantScores);
@@ -251,6 +272,24 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
   const summary = determineSummary(leaderboards, videoStats);
   const recommendations = generateRecommendations(cells, leaderboards, variantStats);
 
+  const narrowJudgeResults: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>> = {};
+  for (const cell of cells) {
+    if (cell.narrowJudgeResult?.derivedScores) {
+      const vId = cell.extractorVariantId;
+      const mId = cell.modelId;
+      if (!vId || !mId) continue; // Guard against missing variant or model ID
+
+      if (!narrowJudgeResults[vId]) {
+        narrowJudgeResults[vId] = {};
+      }
+      if (!narrowJudgeResults[vId][mId]) {
+        narrowJudgeResults[vId][mId] = {};
+      }
+      const videoKey = [cell.videoId, cell.promptConfigId || "", cell.chunkMode || ""].join("|");
+      narrowJudgeResults[vId][mId][videoKey] = cell.narrowJudgeResult.derivedScores;
+    }
+  }
+
   return {
     summary,
     recommendations,
@@ -259,6 +298,8 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
       judgeUsd: totalJudgeUsd,
       totalUsd: totalExtractionUsd + totalJudgeUsd
     },
+    variantCostSummary: variantCosts,
+    narrowJudgeResults: Object.keys(narrowJudgeResults).length > 0 ? narrowJudgeResults : undefined,
     modelStats,
     variantStats,
     videoStats,

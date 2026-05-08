@@ -159,6 +159,7 @@ export class IngestionPipeline {
 
         const atomicResult = await runAtomically(this.graphStore, async () => {
           let localTagsAssigned = 0;
+
           if (transcriptResult.ok && transcript) {
             if (hasExcerpts) {
               const purgeResult = await this.deleteTranscriptExcerpts(nodeId);
@@ -179,14 +180,14 @@ export class IngestionPipeline {
 
           const updatedMetadata: Record<string, unknown> = {
             ...(resource.metadata as Record<string, unknown>),
-            transcriptStatus: transcriptResult.ok ? 'available' : 'missing',
-            transcriptError: transcriptResult.ok ? undefined : transcriptResult.error.message,
-            transcriptLanguage: transcript?.language,
+            transcriptStatus: (transcriptResult.ok || hasExcerpts) ? 'available' : 'missing',
+            transcriptError: transcriptResult.ok || hasExcerpts ? undefined : transcriptResult.error.message,
+            ...(transcriptResult.ok && transcript?.language !== undefined ? { transcriptLanguage: transcript.language } : {}),
           };
 
           const updateData: NodeDataInput = {
             label: resource.label,
-            content: transcript?.fullText ?? resource.content,
+            content: transcriptResult.ok ? (transcript?.fullText ?? resource.content) : resource.content,
             metadata: updatedMetadata,
           };
 

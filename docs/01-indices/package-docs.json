@@ -15,7 +15,24 @@
     "package": "praecis/youtube",
     "path": "packages/praecis/youtube/README.md",
     "title": "@aidha/ingestion-youtube",
-    "front_matter": {}
+    "front_matter": {
+      "document_id": "PRAECIS-REF-001",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "1.2",
+      "last_updated": "2026-05-03",
+      "title": "YouTube Ingestion Package README",
+      "type": "REF",
+      "docops_version": "2.0",
+      "area": "INGEST",
+      "keywords": [
+        "praecis",
+        "youtube",
+        "ingestion",
+        "cli",
+        "evaluation"
+      ]
+    }
   },
   {
     "package": "reconditum",

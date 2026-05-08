@@ -9,6 +9,8 @@
  *
  * @module
  */
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   ResolvedConfig,
   Profile,
@@ -71,8 +73,17 @@ export async function resolveCliConfig(
   opts: ConfigBridgeOptions = {},
 ): Promise<ConfigBridgeResult> {
   try {
+    const processCwd = process.cwd();
+    const initCwd = process.env['INIT_CWD'];
+    const hasLocalProjectConfig = existsSync(join(processCwd, '.aidha', 'config.yaml'));
+    const discoveryCwd =
+      !opts.configPath && initCwd && initCwd !== processCwd && !hasLocalProjectConfig
+        ? initCwd
+        : processCwd;
     const loadResult = await loadConfig({
       configPath: opts.configPath || undefined,
+      cwd: discoveryCwd,
+      syncProcessEnv: false,
       onWarning: (msg) => {
         // eslint-disable-next-line no-console
         console.warn(`[config] ${msg}`);
@@ -123,6 +134,7 @@ export async function resolveCliConfig(
       configPath,
       baseDir: process.cwd(), // Fallback
       warnings: [],
+      dotenvEnv: {},
     };
 
     return {
@@ -265,6 +277,12 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
   const cacheDir = optStr(options, 'cache-dir');
   if (cacheDir !== undefined && cacheDir.length > 0) {
     overrides.llm = { ...(overrides.llm ?? {}), cache_dir: cacheDir };
+  }
+
+  // ── embedding-batch-size ──
+  const embeddingBatchSize = optNum(options, 'embedding-batch-size');
+  if (embeddingBatchSize !== undefined && embeddingBatchSize > 0) {
+    overrides.llm = { ...(overrides.llm ?? {}), embedding_batch_size: embeddingBatchSize };
   }
 
   return overrides;

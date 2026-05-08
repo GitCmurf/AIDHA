@@ -4,7 +4,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { SQLiteStore } from '../src/store/index.js';
 
-describe('SQLiteStore FTS', () => {
+const sqliteDescribe = SQLiteStore.isAvailable() ? describe : describe.skip;
+
+sqliteDescribe('SQLiteStore FTS', () => {
   let store: SQLiteStore;
 
   beforeEach(() => {

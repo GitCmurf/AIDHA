@@ -22,9 +22,9 @@ run_cmd() {
     {
         echo "### ${label}"
         echo "\$ $*"
-    } >> "${COMMAND_LOG}"
-    "$@" >> "${COMMAND_LOG}" 2>&1
-    echo >> "${COMMAND_LOG}"
+        "$@"
+        echo
+    } >> "${COMMAND_LOG}" 2>&1
 }
 
 # Heuristic (non-LLM) acceptance lane

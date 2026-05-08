@@ -61,6 +61,8 @@ specs/**/.pytest_cache/
 specs/**/tmp/
 specs/**/.DS_Store
 .aidha/config.yaml
+.aidha/config.yaml.bak*
+packages/praecis/youtube/custom/dir/
 
 # Generated specification data
 .specify/memory/*.json
@@ -126,4 +128,3 @@ package-lock.json
 npm-shrinkwrap.json
 yarn.lock
 telemetry-id
-pnpm-lock.yaml

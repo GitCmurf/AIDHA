@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { writeJsonAtomic } from "../utils/io.js";
 import { join } from "node:path";
 import { hashId } from "../utils/ids.js";
 import type { MatrixCell } from "./matrix-runner.js";
@@ -28,8 +29,38 @@ export interface CacheOptions {
   cacheDir: string;
 }
 
-async function ensureCacheDir(cacheDir: string): Promise<void> {
-  await mkdir(cacheDir, { recursive: true });
+const UNDEFINED_CACHE_PART = "__undefined__";
+
+function encodeCachePart(value: string | undefined): string {
+  return value === undefined ? UNDEFINED_CACHE_PART : value;
+}
+
+function buildExtractionCacheFilePath(
+  cacheDir: string,
+  videoId: string,
+  modelId: string,
+  extractorVariantId: string,
+  promptVersion: string,
+  extractorVersion: string,
+  promptConfigId: string | undefined,
+  chunkMode: string | undefined,
+  promptPackId: string | undefined,
+  selfImproveMaxRounds: number,
+  selfImproveGuidance: string | undefined
+): string {
+  const key = hashId("extraction", [
+    videoId,
+    modelId,
+    extractorVariantId,
+    promptVersion,
+    extractorVersion,
+    encodeCachePart(promptConfigId),
+    encodeCachePart(chunkMode),
+    encodeCachePart(promptPackId),
+    String(selfImproveMaxRounds),
+    encodeCachePart(selfImproveGuidance)
+  ]);
+  return join(cacheDir, `extraction-${key}.json`);
 }
 
 export async function getCachedExtraction(
@@ -38,10 +69,18 @@ export async function getCachedExtraction(
   extractorVariantId: string,
   promptVersion: string,
   extractorVersion: string,
+  promptConfigId: string | undefined,
+  chunkMode: string | undefined,
+  promptPackId: string | undefined,
+  selfImproveMaxRounds: number,
+  selfImproveGuidance: string | undefined,
   options: CacheOptions
 ): Promise<MatrixCell | null> {
-  const key = hashId("extraction", [videoId, modelId, extractorVariantId, promptVersion, extractorVersion]);
-  const filePath = join(options.cacheDir, `extraction-${key}.json`);
+  const filePath = buildExtractionCacheFilePath(
+    options.cacheDir, videoId, modelId, extractorVariantId,
+    promptVersion, extractorVersion, promptConfigId, chunkMode,
+    promptPackId, selfImproveMaxRounds, selfImproveGuidance
+  );
 
   try {
     const data = await readFile(filePath, "utf-8");
@@ -62,14 +101,20 @@ export async function setCachedExtraction(
   extractorVariantId: string,
   promptVersion: string,
   extractorVersion: string,
+  promptConfigId: string | undefined,
+  chunkMode: string | undefined,
+  promptPackId: string | undefined,
+  selfImproveMaxRounds: number,
+  selfImproveGuidance: string | undefined,
   cell: MatrixCell,
   options: CacheOptions
 ): Promise<void> {
-  const key = hashId("extraction", [videoId, modelId, extractorVariantId, promptVersion, extractorVersion]);
-  const filePath = join(options.cacheDir, `extraction-${key}.json`);
-
-  await ensureCacheDir(options.cacheDir);
-  await writeFile(filePath, JSON.stringify(cell, null, 2), "utf-8");
+  const filePath = buildExtractionCacheFilePath(
+    options.cacheDir, videoId, modelId, extractorVariantId,
+    promptVersion, extractorVersion, promptConfigId, chunkMode,
+    promptPackId, selfImproveMaxRounds, selfImproveGuidance
+  );
+  await writeJsonAtomic(filePath, cell);
 }
 
 export async function getCachedScore(
@@ -108,8 +153,7 @@ export async function setCachedScore(
   const key = hashId("score", [videoId, extractionModelId, judgeModelId, claimSetHash, judgePromptVersion]);
   const filePath = join(options.cacheDir, `score-${key}.json`);
 
-  await ensureCacheDir(options.cacheDir);
-  await writeFile(filePath, JSON.stringify(scores, null, 2), "utf-8");
+  await writeJsonAtomic(filePath, scores);
 }
 
 export function computeClaimSetHash(claims: ClaimCandidate[]): string {

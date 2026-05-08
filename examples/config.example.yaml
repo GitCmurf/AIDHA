@@ -21,6 +21,7 @@ profiles:
       base_url: https://api.openai.com/v1
       reasoning_effort: medium
       verbosity: medium
+      embedding_batch_size: 20
     db: ./out/aidha.sqlite
 
   # flagship quality / GPT-5.2
@@ -44,6 +45,7 @@ profiles:
       api_key: ${AIDHA_GOOGLE_API_KEY}
       # Gemini's OpenAI-compatible endpoint
       base_url: https://generativelanguage.googleapis.com/v1beta/openai
+      embedding_batch_size: 20
 
   # OpenRouter (Aggregator)
   openrouter:

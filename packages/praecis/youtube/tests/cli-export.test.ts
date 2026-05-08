@@ -10,14 +10,22 @@ describeIfSqlite('CLI export flows', () => {
   let tempRoot = '';
   let dbPath = '';
   let originalCwd = '';
+  let originalInitCwd = process.env['INIT_CWD'];
 
   beforeEach(async () => {
     originalCwd = process.cwd();
     tempRoot = await mkdtemp(join(tmpdir(), 'aidha-cli-export-'));
     dbPath = join(tempRoot, 'aidha.sqlite');
+    process.chdir(tempRoot);
+    delete process.env['INIT_CWD'];
   });
 
   afterEach(async () => {
+    if (originalInitCwd === undefined) {
+      delete process.env['INIT_CWD'];
+    } else {
+      process.env['INIT_CWD'] = originalInitCwd;
+    }
     if (originalCwd) {
       process.chdir(originalCwd);
     }

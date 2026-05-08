@@ -102,10 +102,96 @@ const renderRecommendations = (recommendations: MatrixReport["recommendations"])
 const renderCostEstimate = (cost: MatrixReport["costEstimate"]): string => {
   if (!cost || cost.totalUsd === 0) return "";
 
-  let md = "### Cost Estimate\n\n";
+  let md = "### Total Cost Estimate\n\n";
   md += `- **Extraction:** $${cost.extractionUsd.toFixed(4)}\n`;
   md += `- **Judge:** $${cost.judgeUsd.toFixed(4)}\n`;
   md += `- **Total:** $${cost.totalUsd.toFixed(4)}\n\n`;
+  return md;
+};
+
+const renderVariantCostBreakdown = (variantCosts: MatrixReport["variantCostSummary"]): string => {
+  if (!variantCosts || Object.keys(variantCosts).length === 0) return "";
+
+  let md = "### Variant Cost Breakdown\n\n";
+  md += "| Variant | Extraction | Judge | Total |\n";
+  md += "| --- | --- | --- | --- |\n";
+
+  const sortedVariants = Object.keys(variantCosts).sort();
+  for (const variantId of sortedVariants) {
+    const cost = variantCosts[variantId]!;
+    md += `| ${escapeMdTableCell(variantId)} | $${cost.extractionUsd.toFixed(4)} | $${cost.judgeUsd.toFixed(4)} | $${cost.totalUsd.toFixed(4)} |\n`;
+  }
+  md += "\n";
+  return md;
+};
+
+const renderNarrowJudgeSummary = (results: MatrixReport["narrowJudgeResults"]): string => {
+  if (!results || Object.keys(results).length === 0) return "";
+
+  let md = "## Narrow Judge Summary\n\n";
+  const sortedVariants = Object.keys(results).sort();
+
+  for (const variantId of sortedVariants) {
+    md += `### Variant: ${escapeMdTableCell(variantId)}\n\n`;
+    const modelResults = results[variantId]!;
+    const sortedModels = Object.keys(modelResults).sort();
+
+    for (const modelId of sortedModels) {
+      md += `#### Model: ${escapeMdTableCell(modelId)}\n\n`;
+      md += "| Video/Config | Coverage | Faithfulness | Structure | Atomicity | Overall |\n";
+      md += "| --- | --- | --- | --- | --- | --- |\n";
+
+      const videoResults = modelResults[modelId]!;
+      const sortedVideos = Object.keys(videoResults).sort();
+
+      for (const videoId of sortedVideos) {
+        const s = videoResults[videoId];
+        if (!s) continue;
+        const goldCoverage = Number.isFinite(s.goldCoverage) ? s.goldCoverage : 0;
+        const faithfulness = Number.isFinite(s.faithfulness) ? s.faithfulness : 0;
+        const structure = Number.isFinite(s.structure) ? s.structure : 0;
+        const atomicity = Number.isFinite(s.atomicity) ? s.atomicity : 0;
+        const overallScore = Number.isFinite(s.overallScore) ? s.overallScore : 0;
+        md += `| ${escapeMdTableCell(videoId)} | ${goldCoverage.toFixed(2)} | ${faithfulness.toFixed(2)} | ${structure.toFixed(2)} | ${atomicity.toFixed(2)} | **${overallScore.toFixed(2)}** |\n`;
+      }
+      md += "\n";
+    }
+  }
+  return md;
+};
+
+const renderQualityGates = (qualityGates: MatrixReport["qualityGates"]): string => {
+  if (!qualityGates) return "";
+
+  const gate = qualityGates.selfImprovement;
+  let md = "## Quality Gates\n\n";
+  md += `### Self-Improvement Regression Gate: ${gate.passed ? "passed" : "failed"}\n\n`;
+  if (gate.skipped) {
+    md += `- Skipped: ${escapeMdTableCell(gate.message ?? "No self-improvement cells found.")}\n\n`;
+    return md;
+  }
+
+  if (gate.warnings?.length) {
+    md += "#### Warnings\n\n";
+    md += "| Entity | Reason |\n";
+    md += "| --- | --- |\n";
+    for (const warning of gate.warnings) {
+      md += `| ${escapeMdTableCell(warning.entityId)} | ${escapeMdTableCell(warning.reason)} |\n`;
+    }
+    md += "\n";
+  }
+
+  if (gate.regressions.length === 0) {
+    md += "- No regressions detected.\n\n";
+    return md;
+  }
+
+  md += "| Entity | Dimension | Baseline | Latest | Tolerance |\n";
+  md += "| --- | --- | --- | --- | --- |\n";
+  for (const regression of gate.regressions) {
+    md += `| ${escapeMdTableCell(regression.entityId)} | ${escapeMdTableCell(regression.dimension)} | ${regression.baselineScore.toFixed(2)} | ${regression.latestScore.toFixed(2)} | ${regression.tolerance.toFixed(2)} |\n`;
+  }
+  md += "\n";
   return md;
 };
 
@@ -116,6 +202,9 @@ export const renderMatrixReport = (report: MatrixReport): string => {
   md += renderHighVarianceAlerts(report.recommendations?.caveats);
   md += renderRecommendations(report.recommendations);
   md += renderCostEstimate(report.costEstimate);
+  md += renderVariantCostBreakdown(report.variantCostSummary);
+  md += renderQualityGates(report.qualityGates);
+  md += renderNarrowJudgeSummary(report.narrowJudgeResults);
   md += renderLeaderboards(report);
   md += renderAllScorecards(report);
 

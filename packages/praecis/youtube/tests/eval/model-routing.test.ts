@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createProviderAwareClient } from "../../src/cli-eval";
+import { createProviderAwareClient, resolveProviderConnection } from "../../src/cli-eval";
 import type { ResolvedConfig } from "@aidha/config";
 import * as llmClient from "../../src/extract/llm-client";
 
@@ -14,6 +14,7 @@ vi.mock("../../src/eval/model-registry", async (importOriginal) => {
       if (id === "test-google-aistudio") return { id, provider: "google-aistudio" };
       if (id === "test-zai") return { id, provider: "zai" };
       if (id === "test-xiaomi") return { id, provider: "xiaomi", baseUrl: "https://custom.xiaomi.com" };
+      if (id === "test-openrouter") return { id, provider: "openrouter" };
       if (id === "test-alien") return { id, provider: "alien" };
       if (id === "test-unknown") return undefined;
       return mod.getModel(id);
@@ -34,6 +35,15 @@ describe("Model-Aware Runtime Wiring", () => {
   beforeEach(() => {
     originalEnv = process.env;
     process.env = { ...originalEnv };
+
+    // Clean up environment variables that might leak into tests
+    delete process.env.GOOGLE_AISTUDIO_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    delete process.env.AIDHA_GOOGLE_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.AIDHA_OPENAI_API_KEY;
+
     vi.spyOn(llmClient, "createLlmClientFromConfig").mockImplementation((config) => {
       return {
         ok: true,
@@ -62,6 +72,23 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.baseUrl).toBe("https://base.url");
   });
 
+  it("should use AIDHA_OPENAI_API_KEY when OPENAI_API_KEY is not set", () => {
+    process.env.AIDHA_OPENAI_API_KEY = "mock-aidha-openai-key"; // pragma: allowlist secret
+    delete process.env.OPENAI_API_KEY;
+    const client = createProviderAwareClient("test-openai", { ...mockBaseConfig, apiKey: "" }) as any;
+
+    expect(client.config.apiKey).toBe("mock-aidha-openai-key"); // pragma: allowlist secret
+  });
+
+  it("should not reuse an unrelated profile apiKey for openai models", () => {
+    const client = createProviderAwareClient("test-openai", {
+      ...mockBaseConfig,
+      apiKey: "AIza-mock-google-key", // pragma: allowlist secret
+    }) as any;
+
+    expect(client.config.apiKey).toBe("");
+  });
+
   it("should override base URL for openai if base config has no URL", () => {
     process.env.OPENAI_API_KEY = "mock-openai-key"; // pragma: allowlist secret
     const emptyBase = { ...mockBaseConfig, baseUrl: "" };
@@ -72,11 +99,43 @@ describe("Model-Aware Runtime Wiring", () => {
 
   it("should use Gemini API configuration for google-aistudio models", () => {
     process.env.GEMINI_API_KEY = "mock-gemini-key"; // pragma: allowlist secret
-    const emptyBase = { ...mockBaseConfig, baseUrl: "" };
-    const client = createProviderAwareClient("test-google-aistudio", emptyBase) as any;
+    const client = createProviderAwareClient("test-google-aistudio", mockBaseConfig) as any;
 
     expect(client.config.apiKey).toBe("mock-gemini-key"); // pragma: allowlist secret
     expect(client.config.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta");
+  });
+
+  it("should use AIDHA_GOOGLE_API_KEY for google-aistudio models", () => {
+    process.env.AIDHA_GOOGLE_API_KEY = "mock-aidha-google-key"; // pragma: allowlist secret
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GOOGLE_AISTUDIO_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    const client = createProviderAwareClient("test-google-aistudio", { ...mockBaseConfig, apiKey: "" }) as any;
+
+    expect(client.config.apiKey).toBe("mock-aidha-google-key"); // pragma: allowlist secret
+  });
+
+  it("should not reuse an unrelated profile apiKey for google-aistudio models", () => {
+    const connection = resolveProviderConnection("test-google-aistudio", mockBaseConfig);
+
+    expect(connection.apiKey).toBe("");
+    expect(connection.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta");
+  });
+
+  it("should reuse an AIza-style apiKey for google-aistudio models", () => {
+    const connection = resolveProviderConnection("test-google-aistudio", {
+      ...mockBaseConfig,
+      apiKey: "AIza-mock-google-key", // pragma: allowlist secret
+    });
+
+    expect(connection.apiKey).toBe("AIza-mock-google-key"); // pragma: allowlist secret
+  });
+
+  it("should not inherit the generic llm baseUrl for google-aistudio models", () => {
+    process.env.GEMINI_API_KEY = "mock-gemini-key"; // pragma: allowlist secret
+    const connection = resolveProviderConnection("test-google-aistudio", mockBaseConfig);
+
+    expect(connection.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta");
   });
 
   it("should use ZAI_API_KEY for zai models", () => {
@@ -88,6 +147,22 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.baseUrl).toBe("https://api.zai.ai/v1");
   });
 
+  it("should not reuse an unrelated profile apiKey for zai models", () => {
+    const connection = resolveProviderConnection("test-zai", mockBaseConfig);
+
+    expect(connection.apiKey).toBe("");
+    expect(connection.baseUrl).toBe("https://api.zai.ai/v1");
+  });
+
+  it("should reuse a zai-shaped apiKey for zai models", () => {
+    const connection = resolveProviderConnection("test-zai", {
+      ...mockBaseConfig,
+      apiKey: "zai-mock-key", // pragma: allowlist secret
+    });
+
+    expect(connection.apiKey).toBe("zai-mock-key"); // pragma: allowlist secret
+  });
+
   it("should use XIAOMI_API_KEY for xiaomi models and respect explicit baseUrl", () => {
     process.env.XIAOMI_API_KEY = "mock-xiaomi-key"; // pragma: allowlist secret
     const emptyBase = { ...mockBaseConfig, baseUrl: "" };
@@ -96,6 +171,31 @@ describe("Model-Aware Runtime Wiring", () => {
     expect(client.config.apiKey).toBe("mock-xiaomi-key"); // pragma: allowlist secret
     // Model has explicit baseUrl, should use that
     expect(client.config.baseUrl).toBe("https://custom.xiaomi.com");
+  });
+
+  it("should not reuse an unrelated profile apiKey for xiaomi models", () => {
+    const connection = resolveProviderConnection("test-xiaomi", mockBaseConfig);
+
+    expect(connection.apiKey).toBe("");
+    expect(connection.baseUrl).toBe("https://custom.xiaomi.com");
+  });
+
+  it("should reuse a xiaomi-shaped apiKey for xiaomi models", () => {
+    const connection = resolveProviderConnection("test-xiaomi", {
+      ...mockBaseConfig,
+      apiKey: "xiaomi-mock-key", // pragma: allowlist secret
+    });
+
+    expect(connection.apiKey).toBe("xiaomi-mock-key"); // pragma: allowlist secret
+  });
+
+  it("should use OPENROUTER_API_KEY for openrouter models", () => {
+    process.env.OPENROUTER_API_KEY = "mock-openrouter-key"; // pragma: allowlist secret
+    const emptyBase = { ...mockBaseConfig, baseUrl: "" };
+    const client = createProviderAwareClient("test-openrouter", emptyBase) as any;
+
+    expect(client.config.apiKey).toBe("mock-openrouter-key"); // pragma: allowlist secret
+    expect(client.config.baseUrl).toBe("https://openrouter.ai/api/v1");
   });
 
   it("should fail explicitly if provider is completely unsupported", () => {

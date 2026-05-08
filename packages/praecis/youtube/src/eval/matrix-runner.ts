@@ -20,14 +20,29 @@ import { scoreClaimSet } from "./scoring-executor.js";
 import { computeConsensus } from "./consensus-scorer.js";
 import { LlmClaimExtractor } from "../extract/llm-claims.js";
 import type { LlmClient } from "../extract/llm-client.js";
-import { PROMPT_VERSION as EXTRACT_PROMPT_VERSION } from "../extract/prompts/pass1-claim-mining-v2.js";
+import {
+  PROMPT_VERSION as EXTRACT_PROMPT_VERSION,
+  type Pass1PromptConfigId,
+} from "../extract/prompts/pass1-claim-mining-v2.js";
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 import { isValidSafeId } from "../utils/ids.js";
+import { decidePromptPack, type ExtractionPromptPackId, type PromptRoutingDecision } from "../extract/prompt-routing.js";
+import type { NarrowJudgeResult } from "./narrow-judge.js";
 
 export const EXTRACTOR_VERSION = "v1";
 
 // Log prefixes for consistent formatting
 const LOG_PREFIX_PARTIAL_SCORING = "[partial-scoring]";
+
+function buildSelfImproveHintKey(
+  videoId: string,
+  variant: ExtractorVariantId,
+  modelId: string,
+  promptConfigId?: string,
+  chunkModeId?: string
+): string {
+  return [videoId, variant, modelId, promptConfigId ?? "baseline", chunkModeId ?? "default"].join("|");
+}
 
 export interface VideoContext {
   videoId: string;
@@ -52,6 +67,31 @@ export interface MatrixOptions {
   timeoutMs: number;
   extractionMaxTokens?: number;
   extractionMaxChunks?: number;
+  extractionChunkStrategy?: 'time' | 'semantic-overlap' | 'whole-transcript';
+  extractionChunkTargetInputTokens?: number;
+  extractionChunkHardMaxInputTokens?: number;
+  extractionChunkOverlapExcerpts?: number;
+  extractionChunkProfiles?: Record<string, {
+    chunkStrategy?: 'time' | 'semantic-overlap' | 'whole-transcript';
+    targetInputTokens?: number;
+    hardMaxInputTokens?: number;
+    overlapExcerpts?: number;
+  }>;
+  extractionSelfImproveMaxRounds?: number;
+  extractionTransportRetryMaxAttempts?: number;
+  extractionTransportRetryBaseDelayMs?: number;
+  extractionChunkModeId?: string;
+  extractionSelfImproveHints?: Record<string, {
+    teacherCandidateId?: string;
+    focusAreas?: string[];
+    missingTeacherClaims?: string[];
+    extraCandidateClaims?: string[];
+  }>;
+  extractionEnablePromptRouting?: boolean;
+  extractionPromptPackId?: ExtractionPromptPackId;
+  extractionPromptVersion?: string;
+  extractionPromptConfigId?: Pass1PromptConfigId;
+  cellLabelPrefix?: string;
   judgeMaxTokens?: number;
   extractorClientFactory: (modelId: string) => LlmClient;
   judgeClientFactory: (modelId: string) => LlmClient;
@@ -68,6 +108,9 @@ export interface MatrixCell {
   videoId: string;
   modelId: string;
   extractorVariantId: ExtractorVariantId;
+  refinementStage?: "refined";
+  chunkMode?: string;
+  promptConfigId?: string;
   claimSet: ClaimCandidate[];
   scores?: ClaimSetScore[];
   consensusScore?: {
@@ -75,6 +118,7 @@ export interface MatrixCell {
     variance: Partial<Record<ScoreDimension, number>>;
     isHighVariance: boolean;
   };
+  narrowJudgeResult?: NarrowJudgeResult;
   error?: { message: string; code?: string; details?: Record<string, string> };
   costEstimate?: {
     extractionUsd: number;
@@ -86,6 +130,23 @@ export interface MatrixCell {
     scoring?: Record<string, { prompt: { system: string; user: string }; response: string }[]>;
   };
   warnings?: string[];
+  extractionDiagnostics?: {
+    transportRetryCount: number;
+    fallbackChunkCount: number;
+    transientFailureCount: number;
+    clientTimeoutCount: number;
+    upstreamAbortCount: number;
+    chunkInputTokenCounts: number[];
+    maxChunkInputTokens: number;
+    selfImproveRoundCount: number;
+    promptPackId: string;
+    routeSource: string;
+    routeConfidence: number;
+    routeSignals: string[];
+    retryTriggered: boolean;
+    retryReason?: string;
+    retryPromptPackId?: string;
+  };
 }
 
 export interface MatrixResult {
@@ -126,9 +187,7 @@ class Semaphore {
   }
 }
 
-// Estimated prompt overhead (system prompt, formatting, etc.) in tokens
 const JUDGE_PROMPT_OVERHEAD_TOKENS = 1000;
-// Estimated output tokens for judge response
 const JUDGE_OUTPUT_TOKENS_ESTIMATE = 200;
 /**
  * Estimated claim text length (in characters) for dry-run cost projections.
@@ -171,27 +230,53 @@ const estimateJudgeCost = (
 };
 
 const performExtraction = async (
-
+  videoId: string,
   modelId: string,
   variant: ExtractorVariantId,
   options: MatrixOptions,
   resource: GraphNode,
   excerpts: GraphNode[],
-  promptVersion: string
-): Promise<{ claims: ClaimCandidate[]; traces: { prompt: { system: string; user: string }; response: string }[] }> => {
+  promptVersion: string,
+  runtimePromptPackId?: ExtractionPromptPackId,
+  promptRoutingDecision?: PromptRoutingDecision
+): Promise<{
+  claims: ClaimCandidate[];
+  traces: { prompt: { system: string; user: string }; response: string }[];
+  warnings?: string[];
+  diagnostics: NonNullable<MatrixCell["extractionDiagnostics"]>;
+}> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
+    const chunkProfile = options.extractionChunkProfiles?.[modelId];
+    const selfImproveHintKey = buildSelfImproveHintKey(videoId, variant, modelId, options.extractionPromptConfigId, options.extractionChunkModeId);
     const client = options.extractorClientFactory(modelId);
+    const usesInternalRouting = runtimePromptPackId !== options.extractionPromptPackId;
     const extractor = new LlmClaimExtractor({
       client,
       model: modelId,
       promptVersion,
       cacheDir: options.cacheDir,
       editorVersion: variant === "editorial-pass-v1" ? "v1" : variant === "editorial-pass-v2" ? "v2" : undefined,
-      editorLlm: variant.startsWith("editorial-pass-"),
+      editorLlm: variant.startsWith("editorial-pass-") || variant === "self-improve-v1",
+      selfImproveMaxRounds: variant === "self-improve-v1" ? (options.extractionSelfImproveMaxRounds ?? 1) : 0,
+      promptConfigId: options.extractionPromptConfigId,
+      promptPackId: usesInternalRouting ? undefined : options.extractionPromptPackId,
+      promptRoutingDecision: usesInternalRouting && promptRoutingDecision
+        ? promptRoutingDecision
+        : undefined,
       maxTokens: options.extractionMaxTokens,
       maxChunks: options.extractionMaxChunks,
+      selfImproveGuidance: options.extractionSelfImproveHints?.[selfImproveHintKey],
+      enablePromptRouting: options.extractionEnablePromptRouting,
+      chunkStrategy: chunkProfile?.chunkStrategy ?? options.extractionChunkStrategy,
+      chunkTargetInputTokens: chunkProfile?.targetInputTokens ?? options.extractionChunkTargetInputTokens,
+      chunkHardMaxInputTokens: chunkProfile?.hardMaxInputTokens ?? options.extractionChunkHardMaxInputTokens,
+      chunkOverlapExcerpts: chunkProfile?.overlapExcerpts ?? options.extractionChunkOverlapExcerpts,
+      transportRetry: {
+        maxAttempts: options.extractionTransportRetryMaxAttempts,
+        baseDelayMs: options.extractionTransportRetryBaseDelayMs,
+      },
     });
 
     const claims = await extractor.extractClaims({
@@ -201,7 +286,52 @@ const performExtraction = async (
       collectTraces: true,
     });
 
-    return { claims, traces: extractor.getLastTraces() };
+    const runStats = extractor.getLastRunStats();
+    const warnings: string[] = [];
+    if (runStats.transportRetryCount > 0) {
+      warnings.push(`transport-retries:${runStats.transportRetryCount}`);
+    }
+    if (runStats.fallbackChunkCount > 0) {
+      warnings.push(`fallback-chunks:${runStats.fallbackChunkCount}`);
+    }
+    if (runStats.transientFailureCount > 0) {
+      warnings.push(`transient-provider-errors:${runStats.transientFailureCount}`);
+    }
+    if (runStats.clientTimeoutCount > 0) {
+      warnings.push(`client-timeouts:${runStats.clientTimeoutCount}`);
+    }
+    if (runStats.upstreamAbortCount > 0) {
+      warnings.push(`upstream-aborts:${runStats.upstreamAbortCount}`);
+    }
+    if (runStats.retryTriggered) {
+      warnings.push(`prompt-retry:${runStats.retryReason ?? "retry-triggered"}->${runStats.retryPromptPackId ?? "unknown"}`);
+    }
+    if (options.extractionSelfImproveHints?.[selfImproveHintKey]) {
+      warnings.push("teacher-gap-hints-applied");
+    }
+
+    return {
+      claims,
+      traces: extractor.getLastTraces(),
+      warnings,
+      diagnostics: {
+        transportRetryCount: runStats.transportRetryCount,
+        fallbackChunkCount: runStats.fallbackChunkCount,
+        transientFailureCount: runStats.transientFailureCount,
+        clientTimeoutCount: runStats.clientTimeoutCount,
+        upstreamAbortCount: runStats.upstreamAbortCount,
+        chunkInputTokenCounts: runStats.chunkInputTokenCounts,
+        maxChunkInputTokens: runStats.maxChunkInputTokens,
+        selfImproveRoundCount: runStats.selfImproveRoundCount,
+        promptPackId: runStats.promptPackId,
+        routeSource: runStats.routeSource,
+        routeConfidence: runStats.routeConfidence,
+        routeSignals: runStats.routeSignals,
+        retryTriggered: runStats.retryTriggered,
+        retryReason: runStats.retryReason,
+        retryPromptPackId: runStats.retryPromptPackId,
+      },
+    };
   } finally {
     clearTimeout(timeout);
   }
@@ -278,7 +408,6 @@ const getScoresForCell = async (
     if (cachedScores) {
       scores.push(...cachedScores);
     } else if (options.dryRun) {
-      // Estimate judge cost even in dry-run mode so user sees projected budget
       if (judgeModel) {
         judgeUsdEstimate += estimateJudgeCost(
           fullText,
@@ -346,6 +475,26 @@ const getExtractionForCell = async (
   promptVersion: string,
   extractorVersion: string
 ): Promise<MatrixCell | { error: { message: string } }> => {
+  let runtimePromptPackId = options.extractionPromptPackId;
+  let promptRoutingDecision: PromptRoutingDecision | undefined;
+  if (options.extractionEnablePromptRouting) {
+    const routing = decidePromptPack({
+      topicDomain: resource.metadata?.["topicDomain"] as string | undefined,
+      title: resource.label,
+      transcriptText: resource.content as string,
+    });
+    promptRoutingDecision = routing.decision;
+    // Only override explicit extractionPromptPackId when routing is high-confidence (>= 0.85)
+    if (!runtimePromptPackId || routing.decision.routeConfidence >= 0.85) {
+      runtimePromptPackId = routing.decision.promptPackId;
+    }
+  }
+
+  const selfImproveMaxRounds = variant === "self-improve-v1" ? (options.extractionSelfImproveMaxRounds ?? 1) : 0;
+  const selfImproveHintKey = buildSelfImproveHintKey(video.videoId, variant, model.id, options.extractionPromptConfigId, options.extractionChunkModeId);
+  const selfImproveGuidanceObj = options.extractionSelfImproveHints?.[selfImproveHintKey];
+  const selfImproveGuidance = selfImproveGuidanceObj ? JSON.stringify(selfImproveGuidanceObj) : undefined;
+
   // Check cache for extraction
   let cell: MatrixCell | null = null;
   if (options.resume && !options.dryRun) {
@@ -355,6 +504,11 @@ const getExtractionForCell = async (
       variant,
       promptVersion,
       extractorVersion,
+      options.extractionPromptConfigId,
+      options.extractionChunkModeId,
+      runtimePromptPackId,
+      selfImproveMaxRounds,
+      selfImproveGuidance,
       { cacheDir: options.cacheDir }
     );
   }
@@ -379,6 +533,7 @@ const getExtractionForCell = async (
       videoId: video.videoId,
       modelId: model.id,
       extractorVariantId: variant,
+      promptConfigId: options.extractionPromptConfigId,
       claimSet: [],
       costEstimate,
     };
@@ -386,20 +541,26 @@ const getExtractionForCell = async (
 
   try {
     const extractionResult = await performExtraction(
+      video.videoId,
       model.id,
       variant,
       options,
       resource,
       excerpts,
-      promptVersion
+      promptVersion,
+      runtimePromptPackId,
+      promptRoutingDecision
     );
 
     const newCell: MatrixCell = {
       videoId: video.videoId,
       modelId: model.id,
       extractorVariantId: variant,
+      promptConfigId: options.extractionPromptConfigId,
       claimSet: extractionResult.claims,
       costEstimate,
+      warnings: extractionResult.warnings,
+      extractionDiagnostics: extractionResult.diagnostics,
       traces: {
         extraction: extractionResult.traces,
       }
@@ -415,6 +576,11 @@ const getExtractionForCell = async (
         variant,
         promptVersion,
         extractorVersion,
+        options.extractionPromptConfigId,
+        options.extractionChunkModeId,
+        runtimePromptPackId,
+        selfImproveMaxRounds,
+        selfImproveGuidance,
         cellWithoutTraces,
         { cacheDir: options.cacheDir }
       );
@@ -505,6 +671,7 @@ const prepareTranscriptDataAsync = async (
       videoId: video.videoId,
       channelName: video.channelName,
       description: video.description || "",
+      topicDomain: video.topicDomain,
     },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -537,13 +704,15 @@ const processCell = async (
   const cellStartedAt = Date.now();
   try {
     // skipcq: JS-0002
-    console.log(`[cell ${cellIndex + 1}/${totalCells}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
+    const labelSuffix = options.cellLabelPrefix ? ` ${options.cellLabelPrefix}` : "";
+    console.log(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
     if ("error" in transcriptDataResult) {
       cells.push({
         videoId: video.videoId,
         modelId: model.id,
         extractorVariantId: variant,
+        promptConfigId: options.extractionPromptConfigId,
         claimSet: [],
         error: { message: `Transcript unavailable or malformed for ${video.videoId}` },
       });
@@ -552,7 +721,7 @@ const processCell = async (
     }
 
     const { videoContext, excerpts, resource, fullText } = transcriptDataResult;
-    const promptVersion = EXTRACT_PROMPT_VERSION;
+    const promptVersion = options.extractionPromptVersion ?? EXTRACT_PROMPT_VERSION;
     const extractorVersion = EXTRACTOR_VERSION;
 
     const extractionResult = await getExtractionForCell(
@@ -571,6 +740,7 @@ const processCell = async (
         videoId: video.videoId,
         modelId: model.id,
         extractorVariantId: variant,
+        promptConfigId: options.extractionPromptConfigId,
         claimSet: [],
         error: extractionResult.error,
       });
@@ -649,7 +819,7 @@ const processCell = async (
     cells.push(cell);
     const durationMs = Date.now() - cellStartedAt;
     // skipcq: JS-0002
-    console.log(`[cell ${cellIndex + 1}/${totalCells}] done in ${durationMs}ms`);
+    console.log(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] done in ${durationMs}ms`);
   } finally {
     semaphore.release();
   }

@@ -142,6 +142,8 @@ export interface LoadOptions {
   cwd?: string;
   /** Environment map for interpolation and discovery. */
   env?: Record<string, string | undefined>;
+  /** If true, copy dotenv-loaded keys into process.env. */
+  syncProcessEnv?: boolean;
   /** Callback for non-fatal warnings (permissions, missing dotenv). */
   onWarning?: (message: string) => void;
 }
@@ -156,6 +158,8 @@ export interface LoadResult {
   baseDir: string;
   /** Any warnings generated during loading. */
   warnings: string[];
+  /** Key-value pairs loaded from dotenv files (not originally in the env map). */
+  dotenvEnv: Record<string, string>;
 }
 
 /**
@@ -168,6 +172,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     // Always work on a copy so we never mutate the caller's env (or
     // process.env when no explicit env is provided).
     env = { ...process.env } as Record<string, string | undefined>,
+    syncProcessEnv = false,
     onWarning,
   } = options;
 
@@ -189,7 +194,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     if (explicitPath) {
       throw new ConfigNotFoundError(explicitPath);
     }
-    return { config: null, configPath: null, baseDir: cwd, warnings };
+    return { config: null, configPath: null, baseDir: cwd, warnings, dotenvEnv: {} };
   }
 
   // ── Step 2: Compute base_dir_prelim ─────────────────────────────────
@@ -215,6 +220,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
   const rawObj = raw as Record<string, unknown>;
 
   // ── Step 4: Load dotenv files (if configured) ───────────────────────
+  const dotenvEnv: Record<string, string> = {};
   const envRaw = rawObj['env'];
   const envConfig =
     envRaw !== null && typeof envRaw === 'object' && !Array.isArray(envRaw)
@@ -231,14 +237,13 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     const required = envConfig!['dotenv_required'] === true;
 
     // Snapshot original env keys so later dotenv files can override
-    // earlier ones, but pre-existing process env vars are protected
-    // when override_existing is false.
+    // earlier ones, but pre-existing env inputs are protected when
+    // override_existing is false.
     const originalEnvKeys = new Set(
       Object.entries(env)
         .filter(([, v]) => v !== undefined)
         .map(([k]) => k),
     );
-
     for (const file of files) {
       const dotenvPath = resolve(baseDirPrelim, file);
       if (!existsSync(dotenvPath)) {
@@ -271,6 +276,10 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
         // Only protect pre-existing process env vars when override_existing is false.
         if (overrideExisting || !originalEnvKeys.has(key)) {
           env[key] = value;
+          dotenvEnv[key] = value;
+          if (syncProcessEnv) {
+            process.env[key] = value;
+          }
         }
       }
     }
@@ -299,5 +308,5 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
   // ── Step 8: Resolve path-like values ────────────────────────────────
   resolvePathValues(config as unknown as Record<string, unknown>, baseDir);
 
-  return { config, configPath, baseDir, warnings };
+  return { config, configPath, baseDir, warnings, dotenvEnv };
 }

@@ -438,12 +438,12 @@ describe('circuit-breaker', () => {
     it('handles very short reset timeouts', async () => {
       const breaker = new CircuitBreaker({
         failureThreshold: 1,
-        resetTimeoutMs: 1,
+        resetTimeoutMs: 50,
       });
       breaker.recordFailure();
       expect(breaker.getState()).toBe(CircuitBreakerState.Open);
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       expect(breaker.canExecute()).toBe(true);
     });
 
@@ -497,6 +497,60 @@ describe('circuit-breaker', () => {
 
       expect(result).toBe('delayed success');
       expect(breaker.getStats().failures).toBe(0);
+    });
+  });
+
+  describe('HALF_OPEN probe completeness', () => {
+    it('transitions HALF_OPEN back to OPEN on failure after incrementHalfOpenCallCount', async () => {
+      const breaker = new CircuitBreaker({
+        failureThreshold: 2,
+        resetTimeoutMs: 50,
+        halfOpenMaxCalls: 3,
+      });
+
+      breaker.recordFailure();
+      breaker.recordFailure();
+      expect(breaker.getState()).toBe(CircuitBreakerState.Open);
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(breaker.getState()).toBe(CircuitBreakerState.HalfOpen);
+      expect(breaker.canExecute()).toBe(true);
+
+      breaker.incrementHalfOpenCallCount();
+      breaker.recordFailure();
+
+      expect(breaker.getState()).toBe(CircuitBreakerState.Open);
+    });
+
+    it('does not get stuck in HALF_OPEN when all probes timeout', async () => {
+      const breaker = new CircuitBreaker({
+        failureThreshold: 2,
+        resetTimeoutMs: 50,
+        halfOpenMaxCalls: 3,
+      });
+
+      breaker.recordFailure();
+      breaker.recordFailure();
+      expect(breaker.getState()).toBe(CircuitBreakerState.Open);
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(breaker.getState()).toBe(CircuitBreakerState.HalfOpen);
+
+      for (let i = 0; i < 3; i++) {
+        expect(breaker.canExecute()).toBe(true);
+        breaker.incrementHalfOpenCallCount();
+        breaker.recordFailure();
+        expect(breaker.getState()).toBe(CircuitBreakerState.Open);
+
+        if (i < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          expect(breaker.getState()).toBe(CircuitBreakerState.HalfOpen);
+        }
+      }
+
+      expect(breaker.canExecute()).toBe(false);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(breaker.canExecute()).toBe(true);
     });
   });
 });

@@ -2,8 +2,8 @@
 document_id: AIDHA-EVAL-BASELINE
 owner: Ingestion Engineering Lead
 status: Published
-version: "0.2"
-last_updated: 2026-03-13
+version: "0.4"
+last_updated: 2026-05-03
 title: Evaluation Matrix Baseline Workflow
 type: TESTING
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-EVAL-BASELINE
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Published
-> **Version:** 0.2
-> **Last Updated:** 2026-03-13
+> **Version:** 0.4
+> **Last Updated:** 2026-05-03
 > **Type:** TESTING
 
 # Evaluation Matrix Baseline Workflow
@@ -26,17 +26,23 @@ docops_version: "2.0"
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | ------ | --------------------- |
 | 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Published | AIDHA-TASK-004        |
 | 0.2     | 2026-03-13 | AI-assisted | Replace non-doc quality-gate link with MkDocs-safe code reference | —         | Published | AIDHA-TASK-004        |
+| 0.3     | 2026-03-15 | AI-assisted | Document hierarchical JSON golden annotations                   | —         | Published | AIDHA-TASK-004        |
+| 0.4     | 2026-05-03 | AI-assisted | Document TypeScript package CI gate and self-improvement guardrails | —       | Published | AIDHA-TASK-006        |
 
 The evaluation matrix (`eval matrix`) provides a quantitative assessment of the LLM extraction
 pipeline. To prevent regressions, we maintain a pinned baseline report.
 
+Hierarchical golden claim annotations are stored separately from the aggregate report fixture as
+JSON with nested `children`. These annotations are the canonical source for manual/gold claim
+structure and can be flattened for the current judge flow when needed.
+
 ## CI Quality Gate
 
 The CI quality gate in `packages/praecis/youtube/tests/eval/quality-gate.spec.ts` compares the
-`latest.json` report against `baseline.json`.
+`latest.json` convenience alias against `baseline.json`.
 
-**Prerequisite:** You must run the evaluation matrix (step 2 below) to generate `latest.json`
-before running this test.
+**Prerequisite:** For local runs, you must run the evaluation matrix (step 2 below) to generate a
+stamped report and refresh `latest.json` before running this test.
 
 It fails if:
 
@@ -44,7 +50,10 @@ It fails if:
 - The schema of the report is invalid.
 - Required models are missing from the latest run.
 
-If `REQUIRE_EVAL_GATE=1` or `CI=true` is set, the gate requires both reports to exist.
+If `REQUIRE_EVAL_GATE=1` or `CI=true` is set, the gate requires both reports to exist. In the
+repository workflow, `.github/workflows/typescript-packages.yml` seeds both files from the checked-in
+`packages/praecis/youtube/tests/fixtures/eval-matrix/baseline-report.json` fixture before running
+the package test suite, so CI does not depend on an ad hoc report-generation step.
 
 ### Acceptance Criteria
 
@@ -54,7 +63,22 @@ This test protects against:
 - **Schema invalid**: Report structure changes break downstream consumers
 - **Missing models**: Baseline and latest must have comparable models
 
-Run the test with: `pnpm test --filter praecis-youtube -- quality-gate`
+Run the targeted gate with:
+
+```bash
+pnpm --dir packages/praecis/youtube exec vitest run tests/eval/quality-gate.spec.ts tests/eval/quality-gate.test.ts
+```
+
+The repository also runs the TypeScript package build and test suite in
+`.github/workflows/typescript-packages.yml` on pull requests and pushes to the default branches.
+The YouTube package full test suite is not skipped in CI; the workflow timeout is intentionally
+larger than the local package runtime so slow tests fail clearly instead of silently omitting the
+package gate.
+
+Self-improvement gate comparisons are fail-closed: a baseline and self-improvement cell must use
+the same score source for a comparable row. Narrow Judge coverage only counts matches whose
+`candidateText` exists in the evaluated claim set, and the extraction self-improvement loop is
+bounded by an input-token budget before each LLM round.
 
 ## Refreshing the Baseline
 
@@ -84,12 +108,14 @@ baseline needs to be refreshed.
 
 3. **Verify the new report:**
 
-   Check the run output directory (default: `out/eval-matrix/reports/`;
-   if a run ID is provided via `--run-id`, use `out/eval-matrix/runs/<runId>/`).
+   Check the run output directory (default: `out/eval-matrix/reports/`);
+   if a run ID is provided via `--run-id`, use
+   `out/eval-matrix/runs/<runId>/`).
 
    Review:
-   - `latest.md`: Executive summary and scorecards.
-   - `latest.json`: Machine-readable aggregate data.
+   - `eval-matrix-<stamp>.md` or `eval-matrix-<runId>-<stamp>.md`: Executive scorecard.
+   - `eval-matrix-<stamp>.json` or `eval-matrix-<runId>-<stamp>.json`: Aggregate data.
+   - `latest.md` / `latest.json`: Convenience aliases to the newest stamped report.
    - `cells/*.json`: Per-cell detailed artifacts including extraction/scoring traces.
 
    Ensure the scores are acceptable and truly reflect an improvement (or an expected change).

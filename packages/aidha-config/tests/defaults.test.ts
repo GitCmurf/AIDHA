@@ -55,4 +55,11 @@ describe('DEFAULTS', () => {
     expect(llm?.reasoning_effort).toBe('medium');
     expect(llm?.verbosity).toBe('medium');
   });
+
+  it('should have embedding defaults for eval and retrieval clients', () => {
+    const llm = DEFAULTS.profiles['default']?.llm;
+    expect(llm?.embedding_batch_size).toBe(20);
+    expect(llm?.embedding_task_type).toBe('SEMANTIC_SIMILARITY');
+    expect(llm?.embedding_output_dimensionality).toBe(768);
+  });
 });

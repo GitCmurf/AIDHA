@@ -1,16 +1,35 @@
 import type { ResolvedConfig } from "@aidha/config";
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, resolve, isAbsolute, relative } from "node:path";
+import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
+import { getHostnameFromUrl, isOpenAiBaseUrl } from "./utils/urls.js";
+import { fileURLToPath, URL } from "node:url";
 import { runEvaluationMatrix, type MatrixOptions, type MatrixResult } from "./eval/matrix-runner.js";
 import { getModel, MODEL_REGISTRY, type EvalModel } from "./eval/model-registry.js";
 import { aggregateMatrixResults, type MatrixReport } from "./eval/matrix-aggregator.js";
 import { renderMatrixReport } from "./eval/report-markdown.js";
 import { exportMatrixJson } from "./eval/report-json.js";
+import { checkSelfImprovementGate } from "./eval/quality-gate.js";
+import { buildReportFileSet } from "./eval/report-files.js";
 import { EXTRACTOR_VARIANTS, isValidVariant, type ExtractorVariantId } from "./eval/extractor-variants.js";
-import { createGeminiClientFromConfig, createLlmClientFromConfig } from "./extract/llm-client.js";
+import {
+  createGeminiClientFromConfig,
+  createLlmClientFromConfig,
+  detectModelCapabilities,
+  type ModelCapabilities,
+  type LlmCompletionRequest
+} from "./extract/llm-client.js";
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
+import {
+  NarrowCorpusSchema,
+  runNarrowManualBaselineComparison,
+  writeNarrowComparisonReport,
+  type NarrowRunMode,
+} from "./eval/narrow-manual-baseline.js";
+import { wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
+import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
 import { validateSafeId } from "./utils/ids.js";
 import { sanitizeFilename } from "./utils/ids.js";
 
@@ -18,43 +37,108 @@ import { sanitizeFilename } from "./utils/ids.js";
 // Provider Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["OPENAI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1"
-});
+const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"];
+  const looksLikeOpenAiKey = apiKey.startsWith("sk-") && !apiKey.startsWith("sk-or-");
+  // Preserve configured OpenAI-compatible endpoints even when the profile
+  // heuristic does not classify the base config as a provider profile.
+  const effectiveBaseUrl = baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1";
+  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
 
-const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["GOOGLE_AISTUDIO_API_KEY"] || process.env["GEMINI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://generativelanguage.googleapis.com/v1beta"
-});
+  return {
+    apiKey: isProviderProfile || looksLikeOpenAiKey ? apiKey : "",
+    baseUrl: effectiveBaseUrl
+  };
+};
 
-const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["ZAI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.zai.ai/v1"
-});
+const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey =
+    process.env["GOOGLE_AISTUDIO_API_KEY"] ||
+    process.env["GEMINI_API_KEY"] ||
+    process.env["GOOGLE_API_KEY"] ||
+    process.env["AIDHA_GOOGLE_API_KEY"];
 
-const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["XIAOMI_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://api.xiaomi.com/v1"
-});
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "");
+  const isOpenAiHost = isOpenAiBaseUrl(effectiveBaseUrl);
+  const finalBaseUrl = isOpenAiHost
+        ? "https://generativelanguage.googleapis.com/v1beta"
+        : (effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : "https://generativelanguage.googleapis.com/v1beta");
+  const looksLikeGoogleApiKey = apiKey.startsWith("AIza");
+  const shouldReuseProfileKey = isProviderProfile || looksLikeGoogleApiKey;
 
-// Reserved for future use - OpenRouter support when ModelProvider is expanded
-const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => ({
-  apiKey: process.env["OPENROUTER_API_KEY"] || apiKey,
-  baseUrl: baseUrl || baseConfigBaseUrl || "https://openrouter.ai/api/v1"
-});
+  if (envKey) return { apiKey: envKey, baseUrl: finalBaseUrl };
 
-// Only these four providers are supported (matching ModelProvider in model-registry.ts)
+  return {
+    apiKey: shouldReuseProfileKey ? apiKey : "",
+    baseUrl: finalBaseUrl
+  };
+};
+
+const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["ZAI_API_KEY"] || process.env["AIDHA_ZAI_API_KEY"];
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.zai.ai/v1";
+  const shouldReuseProfileKey = isProviderProfile || apiKey.startsWith("zai-");
+  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
+
+  return {
+    apiKey: shouldReuseProfileKey ? apiKey : "",
+    baseUrl: effectiveBaseUrl
+  };
+};
+
+const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["XIAOMI_API_KEY"] || process.env["AIDHA_XIAOMI_API_KEY"];
+  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.xiaomi.com/v1";
+  const shouldReuseProfileKey = isProviderProfile || apiKey.startsWith("xiaomi-");
+  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
+
+  return {
+    apiKey: shouldReuseProfileKey ? apiKey : "",
+    baseUrl: effectiveBaseUrl
+  };
+};
+
+// OpenRouter uses OpenAI-compatible routing with its own API key and base URL defaults.
+const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  const envKey = process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"];
+
+  // Only fall back to profile apiKey if it explicitly looks like an OpenRouter key or profile matches
+  const baseConfigHostname = getHostnameFromUrl(baseConfigBaseUrl);
+  const looksLikeOpenRouterHost = baseConfigHostname === "openrouter.ai" || (baseConfigHostname?.endsWith(".openrouter.ai") ?? false);
+  const looksLikeOpenRouter = apiKey.startsWith("sk-or-v1-") || looksLikeOpenRouterHost;
+  const useProfile = isProviderProfile || looksLikeOpenRouter;
+
+  const effectiveBaseUrl = baseUrl || (useProfile ? baseConfigBaseUrl : "") || "https://openrouter.ai/api/v1";
+
+  if (envKey) {
+    return { apiKey: envKey, baseUrl: effectiveBaseUrl };
+  }
+
+  return {
+    apiKey: useProfile ? apiKey : "",
+    baseUrl: effectiveBaseUrl
+  };
+};
+
+type ProviderConfigGetter = (
+  apiKey: string,
+  baseUrl?: string,
+  baseConfigBaseUrl?: string,
+  isProviderProfile?: boolean
+) => { apiKey: string; baseUrl: string } | null;
+
+// Provider support follows the model registry and the runtime client wiring below.
 // Provider-specific runtime wiring. Some providers use the OpenAI-compatible client;
 // Gemini uses its native generateContent API for full feature access.
-const providerConfigGetters: Record<string, (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => { apiKey: string; baseUrl: string } | null> = {
+const providerConfigGetters: Record<string, ProviderConfigGetter> = {
   openai: getOpenAiConfig,
   "google-aistudio": getGoogleAiStudioConfig,
   zai: getZaiConfig,
   xiaomi: getXiaomiConfig,
+  openrouter: getOpenRouterConfig,
 };
 
-const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "xiaomi"]);
+const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "xiaomi", "openrouter"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI Utilities
@@ -69,6 +153,14 @@ const SUPPORTED_EVAL_PROVIDERS = new Set(["openai", "google-aistudio", "zai", "x
 const EXIT_SUCCESS = 0;
 const EXIT_ERROR = 1;
 const EXIT_INVALID_OPTIONS = 2;
+
+const CLI_EVAL_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(CLI_EVAL_DIR, "../../../..");
+
+function resolveRepoRelativePath(pathValue: string): string {
+  if (isAbsolute(pathValue)) return pathValue;
+  return resolve(REPO_ROOT, pathValue);
+}
 
 /**
  * Parses a comma-separated list string into an array of trimmed, non-empty values.
@@ -120,10 +212,39 @@ function resolveCacheDir(runId: string): string {
   return runId ? join(".cache/extraction", runId) : ".cache/extraction";
 }
 
-const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string) => {
+const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
   const getter = providerConfigGetters[provider];
-  return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl) : null;
+  return getter ? getter(apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile) : null;
 };
+
+
+/**
+ * Determines if a given LLM configuration profile matches the target provider
+ * based on model name, base URL, or API key format heuristics.
+ */
+function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"]): boolean {
+  const isGoogle = provider === "google-aistudio";
+  const isOpenAi = provider === "openai";
+  const modelPrefix = isGoogle ? "gemini-" : provider;
+
+  const configuredModel = baseConfig.model ? getModel(baseConfig.model) : undefined;
+  const isMatch = baseConfig.model?.toLowerCase().startsWith(modelPrefix) || configuredModel?.provider === provider;
+
+  const baseHostname = getHostnameFromUrl(baseConfig.baseUrl);
+  const baseUrlMatch =
+    (isGoogle && baseHostname === "generativelanguage.googleapis.com") ||
+    (provider === "zai" && (baseHostname === "api.zai.ai" || baseHostname === "api.z.ai")) ||
+    (provider === "xiaomi" && (baseHostname === "api.xiaomi.com" || baseHostname === "api.xiaomi.ai"));
+
+  const isGoogleKey = isGoogle && !!baseConfig.apiKey?.startsWith("AIza");
+  const isZaiKey = provider === "zai" && !!baseConfig.apiKey?.startsWith("zai-");
+  const isXiaomiKey = provider === "xiaomi" && !!baseConfig.apiKey?.startsWith("xiaomi-");
+  const isOpenAiKey = isOpenAi && !!baseConfig.apiKey?.startsWith("sk-") && !baseConfig.apiKey?.startsWith("sk-or-");
+  const isOpenAiUrl = isOpenAi && isOpenAiBaseUrl(baseConfig.baseUrl);
+  const isOpenAiModel = isOpenAi && (baseConfig.model?.toLowerCase().startsWith("gpt-") || /^o\d/i.test(baseConfig.model ?? ""));
+
+  return (isOpenAi && (isOpenAiKey || isOpenAiUrl || isOpenAiModel)) || isMatch || baseUrlMatch || isGoogleKey || isZaiKey || isXiaomiKey;
+}
 
 /**
  * Creates an LLM client configured for a specific model by resolving the appropriate
@@ -134,7 +255,11 @@ const resolveProviderConfig = (provider: string, apiKey: string, baseUrl?: strin
  * @returns Configured LLM client for the given model
  * @throws Error if the provider is unsupported or baseUrl cannot be resolved
  */
-export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
+export const createProviderAwareClient = (
+  modelId: string,
+  baseConfig: ResolvedConfig["llm"],
+  overrides?: Partial<Pick<ResolvedConfig["llm"], "timeoutMs" | "apiKey" | "baseUrl">> & { maxRequestsPerMinute?: number }
+) => {
   const model = getModel(modelId);
   if (!model) {
     throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
@@ -147,7 +272,8 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
     );
   }
 
-  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl);
+  const isProviderProfile = isProviderProfileFor(provider, baseConfig);
+  const resolved = resolveProviderConfig(provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
   if (!resolved) {
     throw new Error(`Unsupported provider '${provider}' for model ${modelId}. Cannot resolve baseUrl.`);
   }
@@ -160,15 +286,51 @@ export const createProviderAwareClient = (modelId: string, baseConfig: ResolvedC
     ? createGeminiClientFromConfig
     : createLlmClientFromConfig;
 
+  const capabilities: ModelCapabilities = {
+    ...detectModelCapabilities(modelId),
+    supportsStructuredOutput: model.supportsJsonMode,
+  };
+
   const clientResult = clientFactory({
     ...baseConfig,
     model: modelId,
-    apiKey: resolved.apiKey,
-    baseUrl: resolved.baseUrl,
+    apiKey: overrides?.apiKey ?? resolved.apiKey,
+    baseUrl: overrides?.baseUrl ?? resolved.baseUrl,
+    timeoutMs: overrides?.timeoutMs ?? baseConfig.timeoutMs,
+    modelCapabilities: capabilities,
   });
 
   if (!clientResult.ok) throw clientResult.error;
-  return clientResult.value;
+  const remappedClient = !model.apiModelId || model.apiModelId === modelId
+    ? clientResult.value
+    : {
+    generate: (request: LlmCompletionRequest) => clientResult.value.generate({
+      ...request,
+      model: request.model === modelId ? (model.apiModelId ?? request.model) : request.model,
+    }),
+  };
+
+  return overrides?.maxRequestsPerMinute
+    ? wrapClientWithRateLimit(remappedClient, modelId, overrides.maxRequestsPerMinute)
+    : remappedClient;
+};
+
+export const resolveProviderConnection = (modelId: string, baseConfig: ResolvedConfig["llm"]) => {
+  const model = getModel(modelId);
+  if (!model) {
+    throw new Error(`Model '${modelId}' not found in the evaluation registry.`);
+  }
+
+  const isProviderProfile = isProviderProfileFor(model.provider, baseConfig);
+  const resolved = resolveProviderConfig(model.provider, baseConfig.apiKey, model.baseUrl, baseConfig.baseUrl, isProviderProfile);
+  if (!resolved) {
+    throw new Error(`Unsupported provider '${model.provider}' for model ${modelId}. Cannot resolve baseUrl.`);
+  }
+  return {
+    model,
+    apiKey: resolved.apiKey,
+    baseUrl: resolved.baseUrl,
+  };
 };
 
 const loadCorpusData = (corpusPath: string) => {
@@ -188,6 +350,32 @@ const loadCorpusData = (corpusPath: string) => {
   }
 };
 
+const loadNarrowCorpusData = (corpusPath: string) => {
+  try {
+    const raw = JSON.parse(readFileSync(corpusPath, "utf-8"));
+    const parsed = NarrowCorpusSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("Narrow corpus file validation failed:", JSON.stringify(parsed.error.format(), null, 2));
+      return { ok: false, error: 1 };
+    }
+    const unsafeIds = parsed.data
+      .map((entry) => ({ videoId: entry.videoId, safe: validateSafeId(entry.videoId) }))
+      .filter((entry) => entry.safe === null)
+      .map((entry) => entry.videoId);
+    if (unsafeIds.length > 0) {
+      console.error(
+        `Narrow corpus contains unsafe videoId values: ${unsafeIds.join(", ")}. ` +
+        "Each videoId must match /^[a-zA-Z0-9_-]+$/ and must not contain path traversal sequences."
+      );
+      return { ok: false, error: 1 };
+    }
+    return { ok: true, data: parsed.data };
+  } catch (err) {
+    console.error(`Failed to read or validate narrow corpus file at ${corpusPath}:`, err);
+    return { ok: false, error: 1 };
+  }
+};
+
 const resolveModelIds = (modelsStr: string, tier: string): string[] | number => {
   if (modelsStr) {
     const ids = parseCsvList(modelsStr);
@@ -202,7 +390,7 @@ const resolveModelIds = (modelsStr: string, tier: string): string[] | number => 
     if (ids.length === 0) {
       // skipcq: JS-0002
       console.error(`No verified supported models found for tier: ${tier}. Use explicit --models with a supported provider.`);
-      return 1;
+      return EXIT_ERROR;
     }
     return ids;
   }
@@ -222,7 +410,7 @@ const getModelsFromIdsOrTier = (modelsStr: string, tier: string): EvalModel[] | 
   } catch (err) {
     // skipcq: JS-0002
     console.error(err instanceof Error ? err.message : String(err));
-    return 1;
+    return EXIT_ERROR;
   }
 };
 
@@ -234,33 +422,39 @@ const writeCellArtifacts = async (cells: MatrixResult["cells"], outputDir: strin
       const safeVideoId = sanitizeFilename(cell.videoId);
       const safeModelId = sanitizeFilename(cell.modelId);
       const safeVariantId = sanitizeFilename(cell.extractorVariantId);
-      const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}.json`;
+      const cellFileName = `${safeVideoId}-${safeModelId}-${safeVariantId}-${cell.promptConfigId || 'default'}-${cell.chunkMode || 'default'}.json`;
       const cellPath = join(cellsDir, cellFileName);
-      return writeFile(cellPath, JSON.stringify(cell));
+      return writeJsonAtomic(cellPath, cell);
     })
   );
   // skipcq: JS-0002
   console.log(`Wrote ${cells.length} cell artifacts to ${cellsDir}`);
 };
 
-const writeReports = async (report: MatrixReport, outputDir: string, format: string) => {
+const writeReports = async (report: MatrixReport, outputDir: string, format: string, stub: string) => {
   mkdirSync(outputDir, { recursive: true });
+  const files = buildReportFileSet(outputDir, stub);
+  const jsonContent = exportMatrixJson(report, { pretty: true });
+  const mdContent = renderMatrixReport(report);
+
+  // Always refresh both convenience aliases regardless of chosen format
+  await writeFileAtomic(files.latestJsonPath, jsonContent);
+  await writeFileAtomic(files.latestMdPath, mdContent);
 
   if (format === "both" || format === "json") {
-    const jsonPath = join(outputDir, "latest.json");
-    writeFileSync(jsonPath, exportMatrixJson(report, { pretty: true }));
+    await writeFileAtomic(files.jsonPath, jsonContent);
     // skipcq: JS-0002
-    console.log(`Wrote JSON report to ${jsonPath}`);
+    console.log(`Wrote JSON report to ${files.jsonPath}`);
   }
 
   if (format === "both" || format === "md") {
-    const mdPath = join(outputDir, "latest.md");
-    writeFileSync(mdPath, renderMatrixReport(report));
+    await writeFileAtomic(files.mdPath, mdContent);
     // skipcq: JS-0002
-    console.log(`Wrote Markdown report to ${mdPath}`);
+    console.log(`Wrote Markdown report to ${files.mdPath}`);
   }
 
   await writeCellArtifacts(report.cells, outputDir);
+  return files;
 };
 
 interface PrintPlanArgs {
@@ -460,7 +654,7 @@ const validateBasicInputs = (parsedOpts: EvalRunOptions, variantIds: string[]) =
   // Validate positive numeric options
   const error1 = validatePositiveNumber(parsedOpts.maxConcurrency, "--max-concurrency");
   if (error1 !== 0) return error1;
-  const error2 = validatePositiveNumber(parsedOpts.timeoutMs, "--timeout");
+  const error2 = validatePositiveNumber(parsedOpts.timeoutMs, "--timeout-ms");
   if (error2 !== 0) return error2;
   const error3 = validatePositiveNumber(parsedOpts.judgeMaxTokens, "--judge-max-tokens");
   if (error3 !== 0) return error3;
@@ -506,7 +700,11 @@ const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOp
   }
 
   const report = aggregateMatrixResults(result.cells);
-  await writeReports(report, finalOutputDir, parsedOpts.format);
+  report.qualityGates = {
+    selfImprovement: checkSelfImprovementGate(report),
+  };
+  const reportStub = parsedOpts.runId ? `eval-matrix-${parsedOpts.runId}` : "eval-matrix";
+  await writeReports(report, finalOutputDir, parsedOpts.format, reportStub);
 
   if (result.metadata.partialFailureCount > 0) {
     // skipcq: JS-0002
@@ -517,6 +715,19 @@ const handleExecutionResult = async (result: MatrixResult, parsedOpts: EvalRunOp
     // skipcq: JS-0002
     console.warn(`Evaluation completed with ${result.metadata.failedCellCount} failed cells.`);
     return 1;
+  }
+
+  if (!report.qualityGates.selfImprovement.passed && !report.qualityGates.selfImprovement.skipped) {
+    // skipcq: JS-0002
+    console.warn(`Self-improvement quality gate failed with ${report.qualityGates.selfImprovement.regressions.length} regression(s).`);
+    return 1;
+  }
+
+  if (report.qualityGates.selfImprovement.warnings?.length) {
+    for (const w of report.qualityGates.selfImprovement.warnings) {
+      // skipcq: JS-0002
+      console.warn(`Quality gate warning: ${w.entityId} — ${w.reason}`);
+    }
   }
 
   return 0;
@@ -557,9 +768,8 @@ const executeMatrixEvaluation = async (
 
 const parseEvalOptions = (positionals: string[], options: Record<string, string | boolean | undefined>): { mode: string; cleanOptions: CliOptions } | number => {
   const mode = positionals[1];
-  if (mode !== "matrix") {
-    // skipcq: JS-0002
-    console.error("Usage: eval matrix [options]");
+  if (mode !== "matrix" && mode !== "narrow-manual-baseline") {
+    console.error("Usage: eval <matrix|narrow-manual-baseline> [options]");
     return 1;
   }
 
@@ -568,6 +778,304 @@ const parseEvalOptions = (positionals: string[], options: Record<string, string 
     if (v !== undefined) cleanOptions[k] = v;
   }
   return { mode, cleanOptions };
+};
+
+interface NarrowEvalOptions {
+  dryRun: boolean;
+  mode: NarrowRunMode;
+  corpusPath: string;
+  transcriptDir: string;
+  manualBaselineDir: string;
+  outputDir: string;
+  modelsStr: string;
+  variantsStr: string;
+  judgeModelIds: string[];
+  fallbackModelId: string;
+  maxConcurrency: number;
+  timeoutMs: number;
+  judgeMaxTokens: number;
+  judgeEnabled: boolean;
+  includeManualBaselines: boolean;
+  maxRpmGeminiFlashLite: number;
+  maxRpmGeminiEmbedding: number;
+  maxRpmGpt54: number;
+  shortlistPerVideo?: number;
+  maxEmbeddingRequestsPerRun?: number;
+  maxRefinedSelfImproveCellsPerRun?: number;
+  refreshStage?: "shortlist" | "refine" | "score" | "judge" | "all";
+  runId?: string;
+}
+
+const hasOption = (options: CliOptions, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(options, key);
+
+const optionNumberIfPresent = (options: CliOptions, key: string): number | undefined =>
+  hasOption(options, key) ? optionNumber(options, key, 0) : undefined;
+
+const NARROW_RUN_MODES: readonly NarrowRunMode[] = ["fast-triage", "compare", "deep"] as const;
+const NARROW_REFRESH_STAGES = ["shortlist", "refine", "score", "judge", "all"] as const;
+
+function parseNarrowRunMode(rawMode: string): NarrowRunMode {
+  const mode = rawMode === "quota-safe" ? "fast-triage" : rawMode;
+  if (NARROW_RUN_MODES.includes(mode as NarrowRunMode)) {
+    return mode as NarrowRunMode;
+  }
+  throw new Error(`Invalid narrow eval mode '${mode}'. Supported modes: ${NARROW_RUN_MODES.join(", ")}`);
+}
+
+function parseNarrowRefreshStage(rawStage: string): NarrowEvalOptions["refreshStage"] {
+  if (rawStage === "") return undefined;
+  if (NARROW_REFRESH_STAGES.includes(rawStage as NonNullable<NarrowEvalOptions["refreshStage"]>)) {
+    return rawStage as NonNullable<NarrowEvalOptions["refreshStage"]>;
+  }
+  throw new Error(`Invalid refresh stage '${rawStage}'. Supported stages: ${NARROW_REFRESH_STAGES.join(", ")}`);
+}
+
+const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => {
+  const rawMode = optionString(cleanOptions, "mode", "fast-triage");
+  const mode = parseNarrowRunMode(rawMode);
+  const runId = optionString(cleanOptions, "run-id", "");
+
+  const explicitJudgeModel = optionString(cleanOptions, "judge-model", "");
+  const judgeDefault = explicitJudgeModel || (mode === "fast-triage" ? "" : "gpt-5.4");
+  const judgeModelsStr = optionString(cleanOptions, "judge-models", judgeDefault);
+  const judgeEnabled = hasOption(cleanOptions, "judge")
+    ? optionBool(cleanOptions, "judge")
+    : mode !== "fast-triage";
+  const includeManualBaselines = hasOption(cleanOptions, "with-manual-baselines")
+    ? optionBool(cleanOptions, "with-manual-baselines")
+    : mode !== "fast-triage";
+  return {
+    dryRun: optionBool(cleanOptions, "dry-run"),
+    mode: mode as NarrowEvalOptions["mode"],
+    corpusPath: resolveRepoRelativePath(optionString(cleanOptions, "corpus", "out/eval-matrix/corpus.narrow-manual-baseline.json")),
+    transcriptDir: resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")),
+    manualBaselineDir: resolveRepoRelativePath(optionString(cleanOptions, "manual-baseline-dir", "out/eval-matrix/manual-baseline")),
+    outputDir: resolveRepoRelativePath(optionString(cleanOptions, "output-dir", "out/eval-matrix/reports/narrow-manual-baseline")),
+    modelsStr: optionString(cleanOptions, "models", "gemini-3.1-flash-lite-preview"),
+    variantsStr: optionString(cleanOptions, "variants", "raw,editorial-pass-v1,self-improve-v1"),
+    judgeModelIds: judgeEnabled ? parseCsvList(judgeModelsStr) : [],
+    fallbackModelId: optionString(cleanOptions, "fallback-model", "gemini-3.1-flash-lite-preview"),
+    maxConcurrency: optionNumber(cleanOptions, "max-concurrency", 1),
+    timeoutMs: optionNumber(cleanOptions, "timeout-ms", 120000),
+    judgeMaxTokens: optionNumber(cleanOptions, "judge-max-tokens", 4000),
+    judgeEnabled,
+    includeManualBaselines,
+    maxRpmGeminiFlashLite: optionNumber(cleanOptions, "max-rpm-gemini-flash-lite", 12),
+    maxRpmGeminiEmbedding: optionNumber(cleanOptions, "max-rpm-gemini-embedding", 80),
+    maxRpmGpt54: optionNumber(cleanOptions, "max-rpm-gpt54", 20),
+    shortlistPerVideo: optionNumberIfPresent(cleanOptions, "shortlist-per-video"),
+    maxEmbeddingRequestsPerRun: optionNumberIfPresent(cleanOptions, "max-embedding-requests-per-run"),
+    maxRefinedSelfImproveCellsPerRun: optionNumberIfPresent(cleanOptions, "max-refined-self-improve-cells-per-run"),
+    refreshStage: parseNarrowRefreshStage(optionString(cleanOptions, "refresh-stage", "")),
+    runId: runId || undefined,
+  };
+};
+
+const printNarrowPlan = (opts: NarrowEvalOptions, models: EvalModel[], variants: string[]) => {
+  console.log(`Narrow Manual Baseline Comparison Plan:
+Mode: ${opts.mode}
+Corpus: ${opts.corpusPath}
+Manual Baseline Dir: ${opts.manualBaselineDir}
+Transcript Dir: ${opts.transcriptDir}
+Models: ${models.map((model) => model.id).join(", ")}
+Variants: ${variants.join(", ")}
+Prompt Configs: baseline, hierarchy-first, enumeration-first
+Judge Enabled: ${opts.judgeEnabled}
+Judge Models: ${opts.judgeModelIds.join(", ") || "none"}
+Manual Baselines: ${opts.includeManualBaselines}
+Fallback Model: ${opts.fallbackModelId}
+Output Dir: ${opts.outputDir}
+Max Concurrency: ${opts.maxConcurrency}
+Timeout: ${opts.timeoutMs}ms
+Judge Max Tokens: ${opts.judgeMaxTokens}
+RPM Caps: gemini-flash-lite=${opts.maxRpmGeminiFlashLite}, gemini-embedding=${opts.maxRpmGeminiEmbedding}, gpt-5.4=${opts.maxRpmGpt54}
+Shortlist Per Video: ${opts.shortlistPerVideo ?? "default"}
+Max Embedding Requests: ${opts.maxEmbeddingRequestsPerRun ?? "default"}
+Max Refined Self-Improve Cells: ${opts.maxRefinedSelfImproveCellsPerRun ?? "default"}
+Refresh Stage: ${opts.refreshStage || "none"}
+`);
+};
+
+const NARROW_STAGE_ORDER = ["shortlist", "refine", "score", "judge"] as const;
+
+function assertSafeWorkspacePath(pathValue: string, label: string): string {
+  const resolved = resolve(pathValue);
+  const workspaceRelative = relative(REPO_ROOT, resolved);
+  if (workspaceRelative.startsWith("..") || isAbsolute(workspaceRelative)) {
+    throw new Error(`Refusing to operate on ${label} outside the repository workspace: ${pathValue}`);
+  }
+  return resolved;
+}
+
+const invalidateNarrowStages = (outputDir: string, refreshStage: NarrowEvalOptions["refreshStage"]) => {
+  if (!refreshStage) return;
+
+  const stagesDir = assertSafeWorkspacePath(join(outputDir, "stages"), "narrow stage output");
+  if (refreshStage === "all") {
+    rmSync(stagesDir, { recursive: true, force: true });
+    console.log(`[refresh-stage] removed ${stagesDir}`);
+    return;
+  }
+
+  const startIndex = NARROW_STAGE_ORDER.indexOf(refreshStage);
+  if (startIndex === -1) {
+    throw new Error(`Invalid refresh stage: ${refreshStage}`);
+  }
+
+  const stagesToInvalidate = NARROW_STAGE_ORDER.slice(startIndex);
+  for (const stage of stagesToInvalidate) {
+    const stagePath = join(stagesDir, `${stage}.json`);
+    rmSync(stagePath, { force: true });
+    console.log(`[refresh-stage] removed ${stagePath}`);
+  }
+
+  // If score or judge is invalidated, we must also clear the per-video artifacts
+  if (stagesToInvalidate.includes("score") || stagesToInvalidate.includes("judge")) {
+    if (existsSync(stagesDir)) {
+      const files = readdirSync(stagesDir);
+      for (const file of files) {
+        if (file.startsWith("score-video-") && file.endsWith(".json")) {
+          const filePath = join(stagesDir, file);
+          rmSync(filePath, { force: true });
+          console.log(`[refresh-stage] removed ${filePath}`);
+        }
+      }
+    }
+  }
+};
+
+const runNarrowManualBaseline = async (
+  cleanOptions: CliOptions,
+  config: ResolvedConfig
+): Promise<number> => {
+  const parsedOpts = parseNarrowEvalOptions(cleanOptions);
+  if (optionString(cleanOptions, "mode", "fast-triage") === "quota-safe") {
+    console.warn("Mode 'quota-safe' is deprecated; using 'fast-triage'.");
+  }
+  if (parsedOpts.refreshStage && !NARROW_REFRESH_STAGES.includes(parsedOpts.refreshStage)) {
+    console.error(`Invalid refresh stage: ${parsedOpts.refreshStage}`);
+    return 2;
+  }
+  const models = getModelsFromIdsOrTier(parsedOpts.modelsStr, "");
+  if (typeof models === "number") return models;
+
+  const variantIds = parseCsvList(parsedOpts.variantsStr);
+  const invalidVariants = variantIds.filter((variant) => !isValidVariant(variant));
+  if (invalidVariants.length > 0) {
+    console.error(`Invalid variants: ${invalidVariants.join(", ")}`);
+    return 2;
+  }
+
+  const corpusResult = loadNarrowCorpusData(parsedOpts.corpusPath);
+  if (!corpusResult.ok || !corpusResult.data) return corpusResult.error ?? 1;
+
+  if (parsedOpts.judgeEnabled && parsedOpts.judgeModelIds.length === 0) {
+    console.error("At least one narrow judge model is required.");
+    return 1;
+  }
+  const unknownJudgeModels = parsedOpts.judgeModelIds.filter((modelId) => !getModel(modelId));
+  if (unknownJudgeModels.length > 0) {
+    console.error(`Unknown judge model(s): ${unknownJudgeModels.join(", ")}`);
+    return 1;
+  }
+  if (!getModel(parsedOpts.fallbackModelId)) {
+    console.error(`Unknown fallback model: ${parsedOpts.fallbackModelId}`);
+    return 1;
+  }
+
+  const requiredModelIds = Array.from(new Set([
+    ...models.map((model) => model.id),
+    ...parsedOpts.judgeModelIds,
+  ]));
+
+  const unsupportedModels: string[] = [];
+  const missingCredentialModels = requiredModelIds.filter((modelId) => {
+    try {
+      const connection = resolveProviderConnection(modelId, config.llm);
+      return !connection.apiKey || connection.apiKey.trim().length === 0;
+    } catch {
+      unsupportedModels.push(modelId);
+      return false;
+    }
+  });
+  if (unsupportedModels.length > 0) {
+    console.error(`Unsupported model IDs: ${unsupportedModels.join(", ")}`);
+    return 1;
+  }
+  if (!parsedOpts.dryRun && missingCredentialModels.length > 0) {
+    console.error(
+      `Missing provider credentials for: ${missingCredentialModels.join(", ")}. ` +
+      "Set the relevant API keys before running the narrow manual baseline comparison."
+    );
+    return 1;
+  }
+
+  if (!models.some(m => m.id === parsedOpts.fallbackModelId)) {
+    try {
+      const fallbackConnection = resolveProviderConnection(parsedOpts.fallbackModelId, config.llm);
+      if (!fallbackConnection.apiKey || fallbackConnection.apiKey.trim().length === 0) {
+        if (!parsedOpts.dryRun) {
+          console.warn(
+            `Warning: Fallback model ${parsedOpts.fallbackModelId} has no credentials. ` +
+            "Fallback extraction will be skipped if needed."
+          );
+        }
+      }
+    } catch {
+      // Already validated as a known model above
+    }
+  }
+
+  printNarrowPlan(parsedOpts, models, variantIds);
+
+  if (parsedOpts.dryRun) {
+    console.log("Dry run only; no harness execution or comparison performed.");
+    return 0;
+  }
+
+  invalidateNarrowStages(parsedOpts.outputDir, parsedOpts.refreshStage);
+
+  const report = await runNarrowManualBaselineComparison({
+    corpus: corpusResult.data,
+    transcriptDir: parsedOpts.transcriptDir,
+    manualBaselineDir: parsedOpts.manualBaselineDir,
+    outputDir: parsedOpts.outputDir,
+    models,
+    variants: variantIds as ExtractorVariantId[],
+    judgeModelIds: parsedOpts.judgeModelIds,
+    fallbackModelId: parsedOpts.fallbackModelId,
+    config,
+    clientFactory: (modelId: string) => createProviderAwareClient(
+      modelId,
+      config.llm,
+      {
+        timeoutMs: getNarrowEvalModelProfile(modelId).requestTimeoutMs,
+        maxRequestsPerMinute: modelId === "gpt-5.4"
+          ? parsedOpts.maxRpmGpt54
+          : modelId === "gemini-3.1-flash-lite-preview"
+            ? parsedOpts.maxRpmGeminiFlashLite
+            : undefined,
+      }
+    ),
+    maxConcurrency: parsedOpts.maxConcurrency,
+    timeoutMs: parsedOpts.timeoutMs,
+    judgeMaxTokens: parsedOpts.judgeMaxTokens,
+    runMode: parsedOpts.mode,
+    judgeEnabled: parsedOpts.judgeEnabled,
+    includeManualBaselines: parsedOpts.includeManualBaselines,
+    maxEmbeddingRequestsPerMinute: parsedOpts.maxRpmGeminiEmbedding,
+    shortlistPerVideo: parsedOpts.shortlistPerVideo,
+    maxEmbeddingRequestsPerRun: parsedOpts.maxEmbeddingRequestsPerRun,
+    maxRefinedSelfImproveCellsPerRun: parsedOpts.maxRefinedSelfImproveCellsPerRun,
+    env: process.env,
+  });
+
+  const narrowReportStub = parsedOpts.runId ? `narrow-manual-${parsedOpts.runId}` : "narrow-manual";
+  const files = await writeNarrowComparisonReport(report, parsedOpts.outputDir, narrowReportStub);
+  console.log(`Wrote Markdown report to ${files.mdPath}`);
+  console.log(`Wrote JSON report to ${files.jsonPath}`);
+  return 0;
 };
 
 const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
@@ -602,7 +1110,6 @@ const loadExecutionData = (parsedOpts: EvalRunOptions) => {
  * - 0: Success
  * - 1: General error
  * - 2: Invalid options
- * - 3: Dry-run mode (no execution)
  */
 export const runEvalMatrix = async (
   positionals: string[],
@@ -612,7 +1119,11 @@ export const runEvalMatrix = async (
   try {
     const parseResult = parseEvalOptions(positionals, options);
     if (typeof parseResult === "number") return parseResult;
-    const { cleanOptions } = parseResult;
+    const { mode, cleanOptions } = parseResult;
+
+    if (mode === "narrow-manual-baseline") {
+      return await runNarrowManualBaseline(cleanOptions, config);
+    }
 
     const cacheInvalidationResult = invalidateCache(cleanOptions);
     if (cacheInvalidationResult !== undefined) return cacheInvalidationResult;

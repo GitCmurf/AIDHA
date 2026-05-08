@@ -369,9 +369,16 @@ function runGraphStoreContract(name: string, createStore: StoreFactory): void {
 }
 
 runGraphStoreContract('InMemoryStore', () => new InMemoryStore());
-runGraphStoreContract('SQLiteStore', () => SQLiteStore.createInMemory());
 
-describe('SQLiteStore VIEWs', () => {
+const runSqliteContract = SQLiteStore.isAvailable()
+  ? runGraphStoreContract
+  : (name: string) => describe.skip(name, () => {});
+
+runSqliteContract('SQLiteStore', () => SQLiteStore.createInMemory());
+
+const sqliteViewsDescribe = SQLiteStore.isAvailable() ? describe : describe.skip;
+
+sqliteViewsDescribe('SQLiteStore VIEWs', () => {
   let store: SQLiteStore;
 
   beforeEach(() => {

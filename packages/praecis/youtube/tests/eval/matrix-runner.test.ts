@@ -7,6 +7,7 @@ import { getModel } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
 import type { LlmClient } from "../../src/extract/llm-client";
+import * as matrixCache from "../../src/eval/matrix-cache";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
@@ -32,13 +33,34 @@ vi.mock("../../src/extract/llm-claims", () => ({
       confidence: 1,
       why: "reason"
     }]),
-    getLastTraces: vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }])
+    getLastTraces: vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }]),
+    getLastRunStats: vi.fn().mockReturnValue({
+      transportRetryCount: 0,
+      fallbackChunkCount: 0,
+      transientFailureCount: 0,
+      clientTimeoutCount: 0,
+      upstreamAbortCount: 0,
+      maxChunkInputTokens: 100,
+      selfImproveRoundCount: 0,
+      promptPackId: "generic-hierarchy",
+      routeSource: "fallback-default",
+      retryTriggered: false,
+    })
   }))
 }));
 
+vi.mock("../../src/eval/matrix-cache", async () => {
+  const actual = await vi.importActual<typeof import("../../src/eval/matrix-cache")>("../../src/eval/matrix-cache");
+  return {
+    ...actual,
+    getCachedScore: vi.fn().mockResolvedValue(null),
+  };
+});
+
 describe("Matrix Runner Integration", () => {
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
+    vi.mocked(matrixCache.getCachedScore).mockResolvedValue(null);
   });
 
   const createTestVideo = (
@@ -134,10 +156,14 @@ describe("Matrix Runner Integration", () => {
     const report = aggregateMatrixResults(result.cells);
     expect(report.modelStats[models[0].id]).toBeDefined();
     expect(report.videoStats["v1"]).toBeDefined();
+    expect(report.variantCostSummary).toBeDefined();
+    expect(report.variantCostSummary!["raw"]).toBeDefined();
 
     const md = renderMatrixReport(report);
     expect(md).toContain("Video Heatmap");
     expect(md).toContain(models[0].id);
+    expect(md).toContain("Variant Cost Breakdown");
+    expect(md).toContain("raw");
     expect(md).toContain(`| 1 | ${models[1].id} | 8.50 |`);
     expect(md).toContain("### v1");
     expect(md).toContain("| completeness | 8.00 | 8.00 | 8.00 | 8.00 | 0.00 |");
@@ -208,5 +234,53 @@ describe("Matrix Runner Integration", () => {
     const report = aggregateMatrixResults(cells);
     expect(report.modelStats["m1"].dimensions.overallScore.mean).toBe(5);
     expect(report.modelStats["m1"].dimensions.completeness.mean).toBe(5);
+  });
+
+  it("should report zero judge cost when scores are resumed from cache", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+    ];
+    const models = [getModel("gpt-4o-mini")!];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
+    vi.mocked(matrixCache.getCachedScore).mockResolvedValue([
+      {
+        completeness: 8,
+        accuracy: 9,
+        topicCoverage: 7,
+        atomicity: 10,
+        overallScore: 8.5,
+        reasoning: "Mock reasoning that is long enough",
+        missingClaims: [],
+        hallucinations: [],
+        redundancies: [],
+        gapAreas: []
+      }
+    ]);
+
+    const options = {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: true,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini"],
+      maxConcurrency: 1,
+      timeoutMs: 1000,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: () => ({}) as unknown as LlmClient,
+    };
+
+    const result = await runEvaluationMatrix(corpus, models, options);
+
+    expect(result.cells).toHaveLength(1);
+    expect(result.cells[0]?.scores).toHaveLength(1);
+    expect(result.cells[0]?.costEstimate?.judgeUsd).toBe(0);
   });
 });
