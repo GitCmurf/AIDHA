@@ -166,7 +166,7 @@ Findings:
 ### T008-00-03: Watch lint reliability before it blocks CI
 
 - **Backlog IDs:** TD-013
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Coding agent or CI maintainer
 - **Dependencies:** First GitHub Actions run with `pnpm lint`
 
@@ -178,9 +178,9 @@ Findings:
 
 **Definition of done:**
 
-- [ ] GitHub Actions evidence shows root `pnpm lint` passes or has been split by package.
-- [ ] The fallback preserves the CI contract order: lint, unit, integration.
-- [ ] Cross-sprint gates include `pnpm lint` or the documented package-level fallback.
+- [x] GitHub Actions evidence shows root `pnpm lint` passes or has been split by package.
+- [x] The fallback preserves the CI contract order: lint, unit, integration.
+- [x] Cross-sprint gates include `pnpm lint` or the documented package-level fallback.
 
 ---
 
@@ -315,7 +315,7 @@ without displacing higher-payoff performance and architecture work.
 ### T008-03-01: Collapse provider config getters into a factory
 
 - **Backlog IDs:** TD-004
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** CLI maintainer
 - **Dependencies:** None
 
@@ -336,7 +336,7 @@ without displacing higher-payoff performance and architecture work.
 ### T008-03-02: Clarify coverage scoring public/test boundary
 
 - **Backlog IDs:** TD-008
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Eval maintainer
 - **Dependencies:** TD-006 preferred if coverage engine is moved first
 
@@ -358,7 +358,7 @@ without displacing higher-payoff performance and architecture work.
 ### T008-03-03: Normalize config permission fixtures in test setup
 
 - **Backlog IDs:** TD-010
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** CLI/config maintainer
 - **Dependencies:** None
 

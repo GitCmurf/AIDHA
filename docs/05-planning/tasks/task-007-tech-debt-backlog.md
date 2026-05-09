@@ -95,7 +95,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -781,7 +781,7 @@ out in `AIDHA-REF-006`.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Test Hygiene / Security |
 | Location   | `packages/praecis/youtube/tests/fixtures/config/aidha.yaml`, config-permission tests |
@@ -972,16 +972,22 @@ running the same command CI uses.
 
 **Acceptance criteria:**
 
-- [ ] GitHub Actions evidence shows `pnpm lint` either passes reliably or has been split into
+- [x] GitHub Actions evidence shows `pnpm lint` either passes reliably or has been split into
   package-specific lint steps.
-- [ ] The repo has one documented local lint fallback if root recursive lint remains too slow in
+- [x] The repo has one documented local lint fallback if root recursive lint remains too slow in
   constrained environments.
-- [ ] Any timeout remediation preserves the CI contract order: lint, unit, integration.
-- [ ] `pnpm docs:build` remains a separate CI gate and is not treated as a substitute for lint.
+- [x] Any timeout remediation preserves the CI contract order: lint, unit, integration.
+- [x] `pnpm docs:build` remains a separate CI gate and is not treated as a substitute for lint.
 
 **Risks and caveats:**
 Do not weaken CI by removing lint. The acceptable fix is better observability, package-level
 isolation, or timeout tuning after evidence from CI.
+
+**Resolution:**
+Resolved on 2026-05-09 after local root `pnpm lint` completed successfully across all four
+workspace packages and GitHub Actions run `25554272691` showed the `TypeScript Packages` workflow
+passing in 1m25s. The workflow keeps the CI order explicit: `pnpm lint`, shell lint, package build,
+package tests, and `pnpm docs:build`.
 
 ---
 
@@ -1380,6 +1386,8 @@ real capability gap.
   in captured prompts and hard-max split diagnostics.
 - TD-012 — Call out embedding default change in PR and release notes. Resolved in
   `AIDHA-REF-006`.
+- TD-013 — Monitor recursive `pnpm lint` timeout against CI behavior. Resolved after root lint
+  completed locally and the TypeScript Packages workflow passed in GitHub Actions.
 
 ---
 
