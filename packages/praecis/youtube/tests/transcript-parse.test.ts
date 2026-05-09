@@ -20,6 +20,17 @@ describe('transcript parsing', () => {
     expect(segments[0]).toEqual({ start: 0, duration: 1.2, text: 'Hello world & friend' });
   });
 
+  it('extracts conservative speaker prefixes from XML transcript text', () => {
+    const xml = [
+      '<transcript>',
+      '<text start="0.0" dur="1.2">Host: Hello world</text>',
+      '</transcript>',
+    ].join('');
+
+    const segments = parseTranscriptXml(xml);
+    expect(segments[0]).toEqual({ start: 0, duration: 1.2, speaker: 'Host', text: 'Hello world' });
+  });
+
   it('parses JSON3 transcripts with events', () => {
     const payload = JSON.stringify({
       events: [
@@ -34,6 +45,21 @@ describe('transcript parsing', () => {
     const segments = parseTranscriptJson(payload);
     expect(segments).toHaveLength(1);
     expect(segments[0]).toEqual({ start: 1.5, duration: 2, text: 'Hello world' });
+  });
+
+  it('extracts conservative speaker prefixes from JSON3 transcript text', () => {
+    const payload = JSON.stringify({
+      events: [
+        {
+          tStartMs: 1500,
+          dDurationMs: 2000,
+          segs: [{ utf8: 'Dr. Smith: ' }, { utf8: 'Hello world' }],
+        },
+      ],
+    });
+
+    const segments = parseTranscriptJson(payload);
+    expect(segments[0]).toEqual({ start: 1.5, duration: 2, speaker: 'Dr. Smith', text: 'Hello world' });
   });
 
   it('handles XSSI-prefixed JSON responses', () => {
@@ -65,6 +91,18 @@ describe('transcript parsing', () => {
     expect(segments[1]?.text).toBe('Second line');
   });
 
+  it('extracts WebVTT voice tags as speakers', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.500',
+      '<v Interviewer>Hello world</v>',
+    ].join('\n');
+
+    const segments = parseTranscriptVtt(payload);
+    expect(segments[0]).toEqual({ start: 1, duration: 2.5, speaker: 'Interviewer', text: 'Hello world' });
+  });
+
   it('parses TTML transcripts', () => {
     const payload = [
       '<?xml version="1.0" encoding="UTF-8"?>',
@@ -78,6 +116,42 @@ describe('transcript parsing', () => {
     expect(segments).toHaveLength(2);
     expect(segments[0]).toEqual({ start: 1, duration: 1.5, text: 'Hello world' });
     expect(segments[1]).toEqual({ start: 3.5, duration: 1, text: 'Second line' });
+  });
+
+  it('extracts conservative speaker prefixes from TTML transcript text', () => {
+    const payload = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<tt><body><div>',
+      '<p begin="00:00:01.000" end="00:00:02.500">Guest: Hello world</p>',
+      '</div></body></tt>',
+    ].join('');
+
+    const segments = parseTranscriptTtml(payload);
+    expect(segments[0]).toEqual({ start: 1, duration: 1.5, speaker: 'Guest', text: 'Hello world' });
+  });
+
+  it.each([
+    'Note: keep this note intact',
+    'Update: keep this update intact',
+    'Q: keep this question marker intact',
+    'A: keep this answer marker intact',
+    '0:00 keep this timecode intact',
+    '12:34 keep this timecode intact',
+    'https://example.com: keep this URI intact',
+    'key: value stays code-like',
+  ])('leaves ambiguous speaker-like text untouched: %s', text => {
+    const payload = JSON.stringify({
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 1000,
+          segs: [{ utf8: text }],
+        },
+      ],
+    });
+
+    const segments = parseTranscriptJson(payload);
+    expect(segments[0]).toEqual({ start: 0, duration: 1, text });
   });
 });
 

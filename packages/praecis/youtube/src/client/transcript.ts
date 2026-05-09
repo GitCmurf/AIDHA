@@ -1,4 +1,4 @@
-export type TranscriptSegment = { start: number; duration: number; text: string };
+export type TranscriptSegment = { start: number; duration: number; text: string; speaker?: string };
 type TranscriptJsonSegment = { utf8?: string };
 type TranscriptJsonEvent = {
   tStartMs?: number;
@@ -6,6 +6,62 @@ type TranscriptJsonEvent = {
   segs?: TranscriptJsonSegment[];
 };
 type TranscriptJson = { events?: TranscriptJsonEvent[] };
+
+const SPEAKER_LABEL_PATTERN = /^[\p{L}][\p{L}\p{N}.' -]{1,39}$/u;
+const AMBIGUOUS_PREFIXES = new Set(['a', 'q', 'note', 'update']);
+
+function normalizeTranscriptText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function parseSpeakerPrefix(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
+  const match = text.match(/^([^:]{2,40}):\s+(.+)$/u);
+  if (!match) return null;
+
+  const speaker = normalizeTranscriptText(match[1] ?? '');
+  const body = normalizeTranscriptText(match[2] ?? '');
+  if (!speaker || !body) return null;
+
+  const speakerLower = speaker.toLowerCase();
+  if (AMBIGUOUS_PREFIXES.has(speakerLower)) return null;
+  if (/^\d/.test(speaker) || /^[a-z][\w-]*$/u.test(speaker)) return null;
+  if (!SPEAKER_LABEL_PATTERN.test(speaker)) return null;
+
+  return { speaker, text: body };
+}
+
+function parseVttVoiceTag(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
+  const match = text.match(/^<v\s+([^>]+)>([\s\S]*?)(?:<\/v>)?$/u);
+  if (!match) return null;
+
+  const speaker = normalizeTranscriptText(match[1] ?? '');
+  const body = normalizeTranscriptText((match[2] ?? '').replace(/<[^>]+>/g, ''));
+  if (!speaker || !body) return null;
+  return { speaker, text: body };
+}
+
+function buildTranscriptSegment(input: {
+  start: number;
+  duration: number;
+  text: string;
+  allowVoiceTag?: boolean;
+}): TranscriptSegment | null {
+  const normalized = normalizeTranscriptText(input.text);
+  if (!normalized) return null;
+
+  // Strip speaker labels only for high-confidence cues: WebVTT <v Speaker> tags or a conservative
+  // multi-character/capitalized name prefix. Ambiguous labels such as "Note:", "Q:", timecodes,
+  // URI schemes, and code-like lowercase keys remain part of the transcript text.
+  const parsed = input.allowVoiceTag
+    ? parseVttVoiceTag(normalized) ?? parseSpeakerPrefix(normalized)
+    : parseSpeakerPrefix(normalized);
+
+  return {
+    start: input.start,
+    duration: input.duration,
+    ...(parsed ?? { text: normalized }),
+  };
+}
 
 export function decodeXmlEntities(value: string): string {
   // Use a single-pass approach to avoid ReDoS and prevent double escaping.
@@ -31,9 +87,8 @@ export function parseTranscriptXml(xml: string): TranscriptSegment[] {
       .replace(/\s+/g, ' ')
       .trim();
 
-    if (text) {
-      segments.push({ start, duration, text });
-    }
+    const segment = buildTranscriptSegment({ start, duration, text });
+    if (segment) segments.push(segment);
   }
 
   return segments;
@@ -55,11 +110,14 @@ export function parseTranscriptJson(payload: string): TranscriptSegment[] {
   for (const event of events) {
     const segs = Array.isArray(event?.segs) ? event?.segs : null;
     if (!segs) continue;
-    const text = segs.map((segment: TranscriptJsonSegment) => segment?.utf8 ?? '').join('');
-    if (!text.trim()) continue;
     const start = typeof event?.tStartMs === 'number' ? event.tStartMs / 1000 : 0;
     const duration = typeof event?.dDurationMs === 'number' ? event.dDurationMs / 1000 : 0;
-    segments.push({ start, duration, text: text.replace(/\s+/g, ' ').trim() });
+    const segment = buildTranscriptSegment({
+      start,
+      duration,
+      text: segs.map((segmentPart: TranscriptJsonSegment) => segmentPart?.utf8 ?? '').join(''),
+    });
+    if (segment) segments.push(segment);
   }
 
   return segments;
@@ -109,9 +167,10 @@ export function parseTranscriptVtt(payload: string): TranscriptSegment[] {
         index += 1;
       }
       const text = textLines.join(' ').replace(/\s+/g, ' ').trim();
-      if (start !== null && text) {
+      if (start !== null) {
         const duration = end !== null && end >= start ? end - start : 0;
-        segments.push({ start, duration, text });
+        const segment = buildTranscriptSegment({ start, duration, text, allowVoiceTag: true });
+        if (segment) segments.push(segment);
       }
       continue;
     }
@@ -171,8 +230,9 @@ export function parseTranscriptTtml(payload: string): TranscriptSegment[] {
       .replace(/\s+/g, ' ')
       .trim();
 
-    if (start !== null && text) {
-      segments.push({ start, duration: Math.max(0, duration), text });
+    if (start !== null) {
+      const segment = buildTranscriptSegment({ start, duration: Math.max(0, duration), text });
+      if (segment) segments.push(segment);
     }
   }
 

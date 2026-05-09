@@ -31,7 +31,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.1     | 2026-05-08 | AI     | Initial sprint-ready task plan derived from planning audit and tech-debt backlog. | — | Draft | AIDHA-TASK-007 |
 | 0.2     | 2026-05-08 | AI     | Reorder around unblocked engineering payoff, add readiness map, separate maintainer-gated work, and strengthen validation contracts. | — | Draft | AIDHA-TASK-007 |
 | 0.3     | 2026-05-08 | AI     | Account for omitted backlog items with hygiene and extensibility sprint and complete scope criteria. | — | Draft | AIDHA-TASK-007 |
-| 0.4     | 2026-05-09 | AI     | Record completed verification threshold, n-gram validation, and low-risk maintainability slices. | — | Draft | AIDHA-TASK-007 |
+| 0.4     | 2026-05-09 | AI     | Record completed verification, extraction-maintainability, and speaker parser slices. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -475,7 +475,7 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 ### T008-05-01: Extend transcript schema and parsers with optional speaker metadata
 
 - **Backlog IDs:** TD-016
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Ingestion implementer
 - **Dependencies:** None
 
@@ -492,11 +492,11 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 
 **Definition of done:**
 
-- [ ] Existing transcript fixtures parse unchanged.
-- [ ] Speaker-prefixed fixtures preserve timestamps and extract speaker metadata.
-- [ ] False-positive fixtures leave text untouched.
-- [ ] Parser comments document the confidence rule.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/transcript-parse.test.ts --reporter=dot` passes.
+- [x] Existing transcript fixtures parse unchanged.
+- [x] Speaker-prefixed fixtures preserve timestamps and extract speaker metadata.
+- [x] False-positive fixtures leave text untouched.
+- [x] Parser comments document the confidence rule.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/transcript-parse.test.ts --reporter=dot` passes.
 
 ### T008-05-02: Persist, propagate, and document speaker metadata
 
