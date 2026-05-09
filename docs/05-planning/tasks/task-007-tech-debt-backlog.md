@@ -573,6 +573,8 @@ harder: many behaviors can only be exercised through a broad end-to-end-style ha
 
 **Acceptance criteria:**
 
+- [x] Characterization tests fail if report structure or resume behavior drifts.
+- [x] Characterization tests use deterministic fixtures and no live LLM calls.
 - [ ] `runNarrowManualBaselineComparison` is reduced to orchestration only and is under roughly
   150–200 lines.
 - [ ] Coverage scoring, report rendering, teacher analysis, artifact persistence, and stage
@@ -589,6 +591,11 @@ harder: many behaviors can only be exercised through a broad end-to-end-style ha
 This should be its own PR. Do not mix it with algorithm changes, scoring changes, or prompt
 changes. The first commit should add characterization tests around current report output and
 resume behavior; only then start moving code.
+
+**Progress:**
+On 2026-05-09, the characterization-test slice was completed by extending
+`narrow-manual-baseline.test.ts` to verify persisted JSON/Markdown report shape and resume-stage
+metadata with deterministic fixtures and mocked clients. Module extraction remains open.
 
 ---
 

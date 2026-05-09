@@ -262,7 +262,7 @@ Findings:
 ### T008-02-01: Add characterization tests for narrow baseline reports and resume behavior
 
 - **Backlog IDs:** TD-006
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Eval maintainer
 - **Dependencies:** T008-01-02, T008-01-03 preferred
 
@@ -275,9 +275,9 @@ Findings:
 
 **Definition of done:**
 
-- [ ] Characterization tests fail if report structure or resume behavior drifts.
-- [ ] Tests use deterministic fixtures and no live LLM calls.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
+- [x] Characterization tests fail if report structure or resume behavior drifts.
+- [x] Tests use deterministic fixtures and no live LLM calls.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
 
 ### T008-02-02: Extract coverage, rendering, teacher analysis, and artifact modules
 

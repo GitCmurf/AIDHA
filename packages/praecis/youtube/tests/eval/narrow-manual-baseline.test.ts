@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +22,7 @@ import {
   selectShortlistCandidatesForVideo,
   selectFastTriageEscalationPack,
   shouldFastTriageEscalate,
+  writeNarrowComparisonReport,
   type EmbeddingBudgetState,
 } from "../../src/eval/narrow-manual-baseline";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
@@ -1353,11 +1354,47 @@ describe("narrow-manual-baseline helpers", () => {
       runMode: "fast-triage",
     });
 
-  expect(report.metadata.completedStages).toEqual(
+    expect(report.metadata.completedStages).toEqual(
       expect.arrayContaining(["shortlist", "score", "report"])
     );
     expect(report.videos).toHaveLength(1);
     expect(report.videos[0]?.candidateReports.length).toBeGreaterThan(0);
+
+    await writeNarrowComparisonReport(report, outputDir, "characterization");
+    const persistedReport = JSON.parse(await readFile(join(outputDir, "latest.json"), "utf-8"));
+    expect(persistedReport).toMatchObject({
+      metadata: {
+        runMode: "fast-triage",
+        completedStages: expect.arrayContaining(["shortlist", "score", "report"]),
+        stageExecution: {
+          shortlist: "recomputed",
+          score: "recomputed",
+          report: "recomputed",
+        },
+      },
+      videos: [
+        {
+          videoId: "video-1",
+          title: "Video 1",
+          candidateReports: expect.arrayContaining([
+            expect.objectContaining({
+              candidateId: expect.any(String),
+              sourceKind: expect.any(String),
+              semanticCoverage: expect.objectContaining({
+                matched: expect.any(Number),
+                total: 1,
+              }),
+            }),
+          ]),
+        },
+      ],
+    });
+
+    const persistedMarkdown = await readFile(join(outputDir, "latest.md"), "utf-8");
+    expect(persistedMarkdown).toContain("# Narrow Manual Baseline Comparison");
+    expect(persistedMarkdown).toContain("- Run mode: `fast-triage`");
+    expect(persistedMarkdown).toContain("- Stage execution:");
+    expect(persistedMarkdown).toContain("## video-1 - Video 1");
   });
 
   it("resumes refine artifacts and still judges refined rows after a score recompute", async () => {
@@ -1474,6 +1511,30 @@ describe("narrow-manual-baseline helpers", () => {
     const refinedCandidate = candidateReports.find((candidate) => candidate.candidateId.endsWith("/refine"));
     expect(refinedCandidate?.judgeFindingsByModel).toBeDefined();
     expect(refinedCandidate?.judgeFindingsByModel?.["judge-1"]).toBeDefined();
+
+    await writeNarrowComparisonReport(secondRun, outputDir, "resume-characterization");
+    const persistedReport = JSON.parse(await readFile(join(outputDir, "latest.json"), "utf-8"));
+    expect(persistedReport.metadata.stageExecution).toMatchObject({
+      refine: "resumed",
+      score: "recomputed",
+      judge: "recomputed",
+      report: "recomputed",
+    });
+    expect(persistedReport.videos[0].candidateReports).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          candidateId: expect.stringContaining("/refine"),
+          variantId: "self-improve-v1",
+          judgeFindingsByModel: expect.objectContaining({
+            "judge-1": expect.any(Object),
+          }),
+        }),
+      ])
+    );
+
+    const persistedMarkdown = await readFile(join(outputDir, "latest.md"), "utf-8");
+    expect(persistedMarkdown).toContain("refine=resumed");
+    expect(persistedMarkdown).toContain("score=recomputed");
   });
 
   it("rejects path-traversal videoId values in narrow corpus entries", () => {
