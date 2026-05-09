@@ -233,6 +233,7 @@ export class SQLiteStore implements GraphStore {
         updated_at TEXT NOT NULL
       )
     `);
+    this.migrateSchemaVersionColumn('nodes');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS edges (
         schema_version INTEGER NOT NULL DEFAULT 1,
@@ -244,12 +245,22 @@ export class SQLiteStore implements GraphStore {
         PRIMARY KEY (subject, predicate, object)
       )
     `);
+    this.migrateSchemaVersionColumn('edges');
     this.db.exec(`CREATE INDEX IF NOT EXISTS nodes_type_idx ON nodes (type)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_predicate_idx ON edges (subject, predicate)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_predicate_object_idx ON edges (predicate, object)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_object_idx ON edges (subject, object)`);
     this.initializeViews();
     this.initializeFts();
+  }
+
+  private migrateSchemaVersionColumn(tableName: 'nodes' | 'edges'): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+    if (columns.some(column => column.name === 'schema_version')) return;
+
+    // Older graph stores were created before schema_version existed. Add it in place so
+    // existing databases continue to open without requiring a manual reset.
+    this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1`);
   }
 
   private initializeViews(): void {

@@ -2,8 +2,8 @@
 document_id: RECON-REF-002
 owner: Reconditum Maintainers
 status: Draft
-version: '0.1'
-last_updated: 2026-02-22
+version: '0.2'
+last_updated: 2026-05-09
 title: SQLite VIEWs - Graph Inspection
 type: REF
 docops_version: '2.0'
@@ -13,8 +13,8 @@ docops_version: '2.0'
 > **Owner:** Reconditum Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-02-22
+> **Version:** 0.2
+> **Last Updated:** 2026-05-09
 > **Type:** REF
 
 # SQLite VIEWs - Graph Inspection
@@ -24,9 +24,14 @@ docops_version: '2.0'
 | Version | Date       | Author | Change Summary                | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | ----------------------------- | --------- | ------ | --------- |
 | 0.1     | 2026-02-22 | AI     | Add DocOps metadata baseline. | —         | Draft  | —         |
+| 0.2     | 2026-05-09 | AI     | Document schema migration on store open. | — | Draft | — |
 
 The `SQLiteStore` creates three read-only VIEWs on initialization to simplify
 graph inspection without building a graphical interface.
+
+When the store opens an older SQLite graph file, it also adds the missing
+`schema_version` column to the `nodes` and `edges` tables before the store
+starts issuing reads or writes.
 
 ## `v_nodes`
 
