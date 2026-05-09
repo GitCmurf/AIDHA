@@ -386,6 +386,46 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells[0]?.warnings).toContainEqual(
       expect.stringContaining("judge unavailable")
     );
+    expect(result.cells[0]?.usage?.judge?.estimatedCostUsd).toBeCloseTo(result.cells[0]?.costEstimate?.judgeUsd ?? 0, 10);
+  });
+
+  it("should retain judge usage projections when every judge call fails", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+    ];
+    const models = [getModel("gpt-4o-mini")!];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
+    const failingJudgeClientFactory = () => ({
+      generate: vi.fn().mockRejectedValue(new Error("judge unavailable")),
+    });
+
+    const result = await runEvaluationMatrix(corpus, models, {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: false,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini", "gemini-2.5-flash"],
+      maxConcurrency: 1,
+      timeoutMs: 1000,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: failingJudgeClientFactory as unknown as (modelId: string) => LlmClient,
+    });
+
+    expect(result.metadata.failedCellCount).toBe(1);
+    expect(result.metadata.partialFailureCount).toBe(0);
+    expect(result.cells).toHaveLength(1);
+    expect(result.cells[0]?.scores).toHaveLength(0);
+    expect(result.cells[0]?.usage?.judge).toBeDefined();
+    expect(result.cells[0]?.usage?.judge?.estimatedCostUsd).toBeCloseTo(result.cells[0]?.costEstimate?.judgeUsd ?? 0, 10);
+    expect(result.cells[0]?.usage?.availability).toBe("estimated-only");
   });
 
   it("should not count semaphore queue time toward judge timeouts", async () => {

@@ -520,7 +520,7 @@ const getScoreForJudge = async (
         ? `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`
         : (err instanceof Error ? err.message : String(err));
     console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
-    return { judgeModelId, scores: [], judgeUsdEstimate, failure: message };
+    return { judgeModelId, scores: [], judgeUsdEstimate, estimatedUsage, failure: message };
   }
 };
 
