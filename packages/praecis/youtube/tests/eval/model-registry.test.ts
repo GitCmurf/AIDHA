@@ -14,7 +14,18 @@ describe("Model Registry", () => {
       expect(typeof m.id).toBe("string");
       expect(m.provider).toBeTruthy();
       expect(typeof m.provider).toBe("string");
+      expect(["native", "openai-compatible"]).toContain(m.clientRoute);
     });
+  });
+
+  it("should make provider client routing explicit", () => {
+    const routesByProvider = new Map(MODEL_REGISTRY.map(m => [m.provider, m.clientRoute]));
+
+    expect(routesByProvider.get("google-aistudio")).toBe("native");
+    expect(routesByProvider.get("openai")).toBe("openai-compatible");
+    expect(routesByProvider.get("zai")).toBe("openai-compatible");
+    expect(routesByProvider.get("xiaomi")).toBe("openai-compatible");
+    expect(routesByProvider.get("openrouter")).toBe("openai-compatible");
   });
 
   it("should retrieve an OpenAI model by id", () => {

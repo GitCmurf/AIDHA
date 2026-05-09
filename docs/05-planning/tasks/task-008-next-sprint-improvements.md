@@ -591,7 +591,7 @@ choice.
 ### T008-07-02: Document provider-client routing decision
 
 - **Backlog IDs:** TD-020
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Eval maintainer and architecture reviewer
 - **Dependencies:** Evidence from model routing tests and current eval runs
 
@@ -605,12 +605,12 @@ choice.
 
 **Definition of done:**
 
-- [ ] Provider strategy is documented in an ADR, task note, or eval runbook.
-- [ ] Model registry identifies bridge/native route for relevant models.
-- [ ] Native-client work is either explicitly deferred with triggers or implemented for one
+- [x] Provider strategy is documented in an ADR, task note, or eval runbook.
+- [x] Model registry identifies bridge/native route for relevant models.
+- [x] Native-client work is either explicitly deferred with triggers or implemented for one
   provider with tests.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/model-routing.test.ts tests/eval/model-registry.test.ts --reporter=dot` passes.
-- [ ] `pnpm docs:build` passes.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/model-routing.test.ts tests/eval/model-registry.test.ts --reporter=dot` passes.
+- [x] `pnpm docs:build` passes.
 
 ---
 

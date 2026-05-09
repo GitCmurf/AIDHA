@@ -637,11 +637,11 @@
     "path": "55-testing/eval-matrix/task-004-completion-note.md",
     "title": "Task 004 Completion Engineering Note",
     "front_matter": {
-      "document_id": "AIDHA-EVAL-TASK-004",
+      "document_id": "AIDHA-EVAL-004",
       "owner": "Ingestion Engineering Lead",
       "status": "Approved",
-      "version": "0.1",
-      "last_updated": "2026-03-09",
+      "version": "0.2",
+      "last_updated": "2026-05-09",
       "title": "Task 004 Completion Engineering Note",
       "type": "TESTING",
       "docops_version": "2.0"

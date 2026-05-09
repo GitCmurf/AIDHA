@@ -95,7 +95,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | Open |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -946,7 +946,7 @@ impact for runs that do not pin the embedding model explicitly.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | CI Reliability / Developer Experience |
 | Location   | root `package.json`, `.github/workflows/typescript-packages.yml`, package lint scripts |
@@ -1322,7 +1322,7 @@ boundaries.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Architecture / Provider Strategy |
 | Location   | `packages/praecis/youtube/src/eval/**`, provider client adapters |
@@ -1332,9 +1332,12 @@ boundaries.
 | Depends on | Evidence from eval runs across target providers |
 
 **Problem:**
-Task 004 intentionally deferred native Anthropic and Google Gemini client implementations because
-OpenRouter/LiteLLM-style OpenAI-compatible bridges were sufficient for the evaluation harness. That
-is a reasonable current strategy, but it remains an architecture decision that should be explicit.
+Task 004 intentionally deferred additional native provider client implementations because
+OpenRouter/LiteLLM-style OpenAI-compatible bridges were sufficient for much of the evaluation
+harness. The current runtime already uses a native Gemini client for `google-aistudio` models and
+OpenAI-compatible clients for OpenAI, z.AI, Xiaomi, and OpenRouter routes. That hybrid strategy is
+reasonable, but it must remain an explicit architecture decision rather than an accidental
+implementation detail.
 
 **Impact if deferred:**
 The system may accumulate provider-specific assumptions in OpenAI-compatible wrappers. If a target
@@ -1353,11 +1356,11 @@ rate-limit behavior, the bridge-only approach could become a constraint.
 
 **Acceptance criteria:**
 
-- [ ] Provider strategy is documented as a decision, not an accidental implementation detail.
-- [ ] Model registry entries identify bridge/native routing clearly.
-- [ ] Native-client work is either explicitly deferred with triggers or implemented for one
+- [x] Provider strategy is documented as a decision, not an accidental implementation detail.
+- [x] Model registry entries identify bridge/native routing clearly.
+- [x] Native-client work is either explicitly deferred with triggers or implemented for one
   provider with tests.
-- [ ] Eval runner behavior is unchanged unless a native client is intentionally selected.
+- [x] Eval runner behavior is unchanged unless a native client is intentionally selected.
 
 **Validation commands:**
 
@@ -1367,6 +1370,11 @@ rate-limit behavior, the bridge-only approach could become a constraint.
 **Risks and caveats:**
 Do not add native clients speculatively. The bridge strategy is acceptable until evidence shows a
 real capability gap.
+
+**Resolution:**
+Resolved on 2026-05-09 by documenting the hybrid provider-client strategy in
+`AIDHA-EVAL-004`, adding explicit `clientRoute` metadata to the model registry, and testing
+that the registry distinguishes native Gemini routing from OpenAI-compatible routes.
 
 ---
 
@@ -1395,6 +1403,8 @@ real capability gap.
   `AIDHA-REF-006`.
 - TD-013 — Monitor recursive `pnpm lint` timeout against CI behavior. Resolved after root lint
   completed locally and the TypeScript Packages workflow passed in GitHub Actions.
+- TD-020 — Decide native provider clients versus OpenAI-compatible bridge strategy. Resolved by
+  documenting the hybrid routing decision and adding explicit model-registry route metadata.
 
 ---
 
