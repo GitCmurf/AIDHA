@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { GeminiEmbeddingClient } from "../../src/eval/gemini-embedding-client.js";
 import { requestRateLimiterRegistry } from "../../src/eval/request-rate-limiter.js";
+import { BufferedLogger } from "../../src/utils/logger.js";
 
 describe("GeminiEmbeddingClient", () => {
   beforeEach(() => {
@@ -456,6 +457,38 @@ describe("GeminiEmbeddingClient", () => {
     expect(result.ok).toBe(false);
     expect(client.getApiRequestCount()).toBe(3);
     expect(client.getStats().embeddingsComputed).toBe(0);
+
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it("routes non-fatal cache write failures through the injected logger", async () => {
+    const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-file-"));
+    const cacheDirAsFile = join(cacheDir, "cache-file");
+    await writeFile(cacheDirAsFile, "not a directory");
+    const logger = new BufferedLogger();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ embeddings: [{ values: [1, 0] }] }),
+    } as Response);
+
+    const client = new GeminiEmbeddingClient({
+      apiKey: "test-key", // pragma: allowlist secret
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      cacheDir: cacheDirAsFile,
+      logger,
+      maxRetries: 0,
+    });
+
+    const result = await client.getEmbedding("cache warning");
+
+    expect(result.ok).toBe(true);
+    expect(logger.entries).toEqual([
+      {
+        level: "warn",
+        message: expect.stringContaining("[embedding-cache-write-failed]"),
+        args: [],
+      },
+    ]);
 
     await rm(cacheDir, { recursive: true, force: true });
   });

@@ -1,5 +1,6 @@
 import type { LlmClient, LlmCompletionRequest } from "../extract/llm-client.js";
 import type { Result } from "../pipeline/types.js";
+import { consoleLogger, type Logger } from "../utils/logger.js";
 
 interface LimiterState {
   windowStartMs: number;
@@ -108,14 +109,14 @@ export const requestRateLimiterRegistry = new RequestRateLimiterRegistry();
 export function wrapClientWithRateLimit(
   client: LlmClient,
   key: string,
-  rpm: number
+  rpm: number,
+  logger: Logger = consoleLogger
 ): LlmClient {
   return {
     async generate(request: LlmCompletionRequest): Promise<Result<string>> {
       const waitMs = await requestRateLimiterRegistry.waitForSlot(key, rpm);
       if (waitMs > 0) {
-        // skipcq: JS-0002
-        console.log(`[rate-limit-wait] model=${key} waitMs=${waitMs}`);
+        logger.info(`[rate-limit-wait] model=${key} waitMs=${waitMs}`);
       }
       return client.generate(request);
     },

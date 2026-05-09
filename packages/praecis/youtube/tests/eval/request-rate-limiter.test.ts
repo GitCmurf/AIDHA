@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestRateLimiterRegistry } from "../../src/eval/request-rate-limiter.js";
+import { requestRateLimiterRegistry, wrapClientWithRateLimit } from "../../src/eval/request-rate-limiter.js";
+import { BufferedLogger } from "../../src/utils/logger.js";
 
 describe("RequestRateLimiterRegistry", () => {
   afterEach(() => {
@@ -86,5 +87,29 @@ describe("RequestRateLimiterRegistry", () => {
     const wait3 = await wait3Promise;
     expect(wait3).toBeGreaterThan(wait2);
     expect(wait3Resolved).toBe(true);
+  });
+
+  it("routes wrapped client rate-limit waits through the injected logger", async () => {
+    vi.useFakeTimers();
+    const logger = new BufferedLogger();
+    const client = {
+      generate: vi.fn(async () => ({ ok: true as const, value: "ok" })),
+    };
+    const wrapped = wrapClientWithRateLimit(client, "logged-model", 1, logger);
+
+    await expect(wrapped.generate({ model: "test", system: "system", user: "first" })).resolves.toEqual({ ok: true, value: "ok" });
+
+    const second = wrapped.generate({ model: "test", system: "system", user: "second" });
+    await vi.advanceTimersByTimeAsync(61000);
+    await expect(second).resolves.toEqual({ ok: true, value: "ok" });
+
+    expect(logger.entries).toEqual([
+      {
+        level: "info",
+        message: expect.stringMatching(/^\[rate-limit-wait\] model=logged-model waitMs=\d+$/),
+        args: [],
+      },
+    ]);
+    expect(client.generate).toHaveBeenCalledTimes(2);
   });
 });
