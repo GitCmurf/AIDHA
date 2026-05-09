@@ -1,7 +1,7 @@
 /**
  * LLM claim extraction tests - WRITTEN FIRST (TDD Red Phase)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -14,6 +14,7 @@ import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
 import { HeuristicClaimExtractor } from '../src/extract/claims.js';
 import { decidePromptPack } from '../src/extract/prompt-routing.js';
 import { hashId } from '../src/utils/ids.js';
+import { BufferedLogger } from '../src/utils/logger.js';
 
 class StubLlmClient implements LlmClient {
   calls = 0;
@@ -229,6 +230,35 @@ describe('LLM claim extraction', () => {
     expect(client.requests[0]?.user).toContain('"speaker": "Dr. Smith"');
     expect(client.requests[0]?.user).toContain('"id": "speaker-excerpt-1"');
     await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('uses the injected logger for LLM extraction warnings and errors', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-logger');
+    const logger = new BufferedLogger();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-logger-cache-'));
+
+    try {
+      const extractor = new LlmClaimExtractor({
+        client: new SequenceStubLlmClient([{ ok: false, error: new Error('provider down') }]),
+        model: 'test-model',
+        promptVersion: 'v1',
+        cacheDir,
+        logger,
+      });
+
+      await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+      expect(logger.entries.some(entry => entry.level === 'error' && entry.message.includes('provider down'))).toBe(true);
+      expect(logger.entries.some(entry => entry.level === 'warn' && entry.message.includes('[LLM-FALLBACK]'))).toBe(true);
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+      await rm(cacheDir, { recursive: true, force: true });
+    }
   });
 
   it('caches LLM responses per chunk', async () => {

@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.4"
+version: "0.5"
 last_updated: 2026-05-09
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.4
+> **Version:** 0.5
 > **Last Updated:** 2026-05-09
 > **Type:** TASK
 
@@ -32,6 +32,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.2     | 2026-05-08 | AI     | Reorder around unblocked engineering payoff, add readiness map, separate maintainer-gated work, and strengthen validation contracts. | — | Draft | AIDHA-TASK-007 |
 | 0.3     | 2026-05-08 | AI     | Account for omitted backlog items with hygiene and extensibility sprint and complete scope criteria. | — | Draft | AIDHA-TASK-007 |
 | 0.4     | 2026-05-09 | AI     | Record completed verification, extraction-maintainability, and speaker attribution slices. | — | Draft | AIDHA-TASK-007 |
+| 0.5     | 2026-05-09 | AI     | Mark logger abstraction in progress with LLM extraction coverage. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -623,7 +624,7 @@ under control.
 ### T008-08-01: Introduce injectable logging
 
 - **Backlog IDs:** TD-007
-- **Status:** Planned
+- **Status:** In Progress
 - **Owner:** YouTube package maintainer
 - **Dependencies:** None
 
@@ -640,7 +641,7 @@ under control.
 - [ ] Library modules under `src/extract`, `src/eval`, and `src/client` do not call `console.*`
   directly except examples in comments or explicitly documented exceptions.
 - [ ] CLI modules either write directly to the console intentionally or inject a logger downstream.
-- [ ] Quiet-mode or buffered-logger tests prove output can be suppressed.
+- [x] Quiet-mode or buffered-logger tests prove output can be suppressed.
 - [ ] `pnpm --dir packages/praecis/youtube test` passes.
 
 ---

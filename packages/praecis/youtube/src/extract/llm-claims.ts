@@ -15,6 +15,7 @@ import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './toke
 import { normalizeClaimClassification, normalizeClaimType, CLAIM_TYPES, CLAIM_CLASSIFICATIONS } from './claim-candidate-schema.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
+import { consoleLogger, type Logger } from '../utils/logger.js';
 import { sanitizeForPrompt, escapeTripleQuoted } from './prompt-safety.js';
 import {
   buildPass1PromptV2,
@@ -233,6 +234,7 @@ export interface LlmClaimExtractorConfig {
     maxAttempts?: number;
     baseDelayMs?: number;
   };
+  logger?: Logger;
 }
 
 export function getEffectivePromptVersion(
@@ -994,6 +996,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   private verbosity?: ResolvedConfig['llm']['verbosity'];
   private maxTokens: number;
   private fallback?: ClaimExtractor;
+  private logger: Logger;
   private circuitBreaker: CircuitBreaker;
   private transportRetry: TransportRetryConfig;
   private usesEditorRewriteV3: boolean;
@@ -1059,6 +1062,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.verbosity = config.verbosity;
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.fallback = config.fallback ?? new HeuristicClaimExtractor();
+    this.logger = config.logger ?? consoleLogger;
 
     // Initialize circuit breaker with config or defaults
     // CircuitBreaker constructor handles undefined values with built-in defaults
@@ -1217,7 +1221,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
           continue;
         }
         if (prompt.totalRequestTokens > safeMaxTokens && chunk.excerpts.length === 1) {
-          console.warn(`[TOKEN-BUDGET] Chunk ${chunk.index} has a single excerpt exceeding token budget (${prompt.totalRequestTokens} > ${safeMaxTokens}). Cannot split further.`);
+          this.logger.warn(`[TOKEN-BUDGET] Chunk ${chunk.index} has a single excerpt exceeding token budget (${prompt.totalRequestTokens} > ${safeMaxTokens}). Cannot split further.`);
         }
         next.push(chunk);
       }
@@ -1283,7 +1287,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       this.lastRunStats.transportRetryCount += 1;
       this.lastRunStats.transientFailureCount += 1;
       const delayMs = computeRetryDelayMs(this.transportRetry.baseDelayMs, attempt);
-      console.warn(
+      this.logger.warn(
         `[LLM-RETRY] Chunk ${chunkIndex}: transient provider error on attempt ${attempt}/${this.transportRetry.maxAttempts}; retrying in ${delayMs}ms`
       );
       await sleepWithSignal(delayMs, request.signal);
@@ -1541,7 +1545,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
           await writeRewriteCache(cachePath, metadata, rewrites);
         } catch (cacheError) {
           // skipcq: JS-0002
-          console.warn(`Failed to write rewrite cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+          this.logger.warn(`Failed to write rewrite cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
         }
       }
     }
@@ -1620,7 +1624,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Check circuit breaker before first LLM call
     if (!this.circuitBreaker.canExecute()) {
-      console.warn('[CIRCUIT-OPEN] Editor rewrite: Circuit breaker is open, skipping rewrite call');
+      this.logger.warn('[CIRCUIT-OPEN] Editor rewrite: Circuit breaker is open, skipping rewrite call');
       return null;
     }
     this.circuitBreaker.incrementHalfOpenCallCount();
@@ -1639,13 +1643,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
         throw error;
       }
       this.circuitBreaker.recordFailure();
-      console.error(`Editor rewrite error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Editor rewrite error: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
 
     if (!response.ok) {
       this.circuitBreaker.recordFailure();
-      console.error(`Editor rewrite error: ${response.error.message}`);
+      this.logger.error(`Editor rewrite error: ${response.error.message}`);
       return null;
     }
 
@@ -1675,13 +1679,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
         throw error;
       }
       this.circuitBreaker.recordFailure();
-      console.error(`Editor rewrite retry error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`Editor rewrite retry error: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
 
     if (!retry.ok) {
       this.circuitBreaker.recordFailure();
-      console.error(`Editor rewrite retry error: ${retry.error.message}`);
+      this.logger.error(`Editor rewrite retry error: ${retry.error.message}`);
       return null;
     }
 
@@ -1781,7 +1785,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         });
       }
       if (estimateTokens(`${prompt.system}\n${prompt.user}`) > this.selfImproveMaxInputTokens) {
-        console.warn(`[TOKEN-BUDGET] Self-improvement round ${round + 1} exceeds input budget (${this.selfImproveMaxInputTokens} tokens); skipping further rounds.`);
+        this.logger.warn(`[TOKEN-BUDGET] Self-improvement round ${round + 1} exceeds input budget (${this.selfImproveMaxInputTokens} tokens); skipping further rounds.`);
         break;
       }
 
@@ -1917,13 +1921,13 @@ export class LlmClaimExtractor implements ClaimExtractor {
     }
 
     if (totalRequestTokens > OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD) {
-      console.warn(`[TOKEN-BUDGET] Chunk ${chunk.index} exceeds optimal token budget (${totalRequestTokens} tokens). Extraction quality may be reduced.`);
+      this.logger.warn(`[TOKEN-BUDGET] Chunk ${chunk.index} exceeds optimal token budget (${totalRequestTokens} tokens). Extraction quality may be reduced.`);
     }
 
     // Cost estimation warning (Task 5.6) - includes full request cost
     const projectedCost = estimateCost(totalRequestTokens, DEFAULT_COST_PER_1K_TOKENS);
     if (projectedCost > SINGLE_CHUNK_COST_WARNING_USD) {
-      console.warn(`[COST-WARNING] Chunk ${chunk.index} projected cost ($${projectedCost.toFixed(2)}) exceeds single-chunk warning threshold.`);
+      this.logger.warn(`[COST-WARNING] Chunk ${chunk.index} projected cost ($${projectedCost.toFixed(2)}) exceeds single-chunk warning threshold.`);
     }
 
     const { claims, success } = await this.fetchAndParseClaims({
@@ -1943,7 +1947,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         await writeCache(cachePath, cacheMetadata, claims);
       } catch (cacheError) {
         // skipcq: JS-0002
-        console.warn(`Failed to write cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+        this.logger.warn(`Failed to write cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
       }
       return claims;
     }
@@ -1954,7 +1958,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         ? (resource.metadata?.['videoId'] as string)
         : resource.id;
       this.lastRunStats.fallbackChunkCount += 1;
-      console.warn(
+      this.logger.warn(
         `[LLM-FALLBACK] video=${videoId} chunk=${chunk.index} ` +
         `LLM extraction failed; falling back to heuristic extraction`
       );
@@ -1973,7 +1977,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
           await writeCache(cachePath, cacheMetadata, cachedFallbackClaims);
         } catch (cacheError) {
           // skipcq: JS-0002
-          console.warn(`Failed to write fallback cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+          this.logger.warn(`Failed to write fallback cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
         }
       }
       return cachedFallbackClaims;
@@ -1985,7 +1989,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         await writeCache(cachePath, cacheMetadata, []);
       } catch (cacheError) {
         // skipcq: JS-0002
-        console.warn(`Failed to write cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
+        this.logger.warn(`Failed to write cache: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}`);
       }
     }
 
@@ -2007,7 +2011,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Check circuit breaker before calling LLM
     if (!this.circuitBreaker.canExecute()) {
-      console.warn(`[CIRCUIT-OPEN] Chunk ${chunk.index}: Circuit breaker is open, skipping LLM call`);
+      this.logger.warn(`[CIRCUIT-OPEN] Chunk ${chunk.index}: Circuit breaker is open, skipping LLM call`);
       return { claims: [], success: false };
     }
 
@@ -2033,7 +2037,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         throw error;
       }
       this.circuitBreaker.recordFailure();
-      console.error(`LLM error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`LLM error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
       return { claims: [], success: false };
     }
 
@@ -2047,7 +2051,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       if (isTransientProviderError(response.error.message)) {
         this.lastRunStats.transientFailureCount += 1;
       }
-      console.error(`LLM error in chunk ${chunk.index}: ${response.error.message}`);
+      this.logger.error(`LLM error in chunk ${chunk.index}: ${response.error.message}`);
       return { claims: [], success: false };
     }
 
@@ -2084,7 +2088,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
         throw error;
       }
       this.circuitBreaker.recordFailure();
-      console.error(`LLM retry error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(`LLM retry error in chunk ${chunk.index}: ${error instanceof Error ? error.message : String(error)}`);
       return { claims: [], success: false };
     }
 
@@ -2098,7 +2102,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       if (isTransientProviderError(retry.error.message)) {
         this.lastRunStats.transientFailureCount += 1;
       }
-      console.error(`LLM retry error in chunk ${chunk.index}: ${retry.error.message}`);
+      this.logger.error(`LLM retry error in chunk ${chunk.index}: ${retry.error.message}`);
       return { claims: [], success: false };
     }
 

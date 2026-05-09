@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.4"
+version: "1.5"
 last_updated: 2026-05-09
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.4
+> **Version:** 1.5
 > **Last Updated:** 2026-05-09
 > **Type:** TASK
 
@@ -32,6 +32,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.2     | 2026-05-07 | AI     | Convert WIP register into governed task backlog and add final review follow-ups. | — | Draft | — |
 | 1.3     | 2026-05-08 | AI     | Add audited gaps from recent planning/task files and align backlog with Task 008 sprint plan. | — | Draft | — |
 | 1.4     | 2026-05-09 | AI     | Record resolved Task 008 extraction-maintainability and speaker attribution slices. | — | Draft | AIDHA-TASK-008 |
+| 1.5     | 2026-05-09 | AI     | Record first logger-abstraction progress for LLM extraction. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -639,9 +640,9 @@ diagnostic output cannot be correlated with run IDs or emitted as JSON without i
    }
    ```
 
-2. Provide `consoleLogger`, `silentLogger`, and `createBufferedLogger()` implementations. Keep
-   the interface minimal; do not introduce a heavyweight dependency unless structured logging is
-   needed immediately.
+2. Provide `consoleLogger`, `silentLogger`, and `BufferedLogger` implementations. Keep the
+   interface minimal; do not introduce a heavyweight dependency unless structured logging is needed
+   immediately.
 3. Thread `logger?: Logger` through high-chatter library entry points first:
    `LlmClaimExtractor`, `runNarrowManualBaselineComparison`, transcript clients, and eval CLI
    helpers.
@@ -666,6 +667,13 @@ diagnostic output cannot be correlated with run IDs or emitted as JSON without i
 **Risks and caveats:**
 Do not obscure user-facing CLI errors. Preserve existing exit-code behavior and ensure fatal
 errors still reach stderr. This is a separation-of-concerns change, not a logging product.
+
+**Progress:**
+On 2026-05-09, the first logger slice added `Logger`, `consoleLogger`, `silentLogger`, and
+`BufferedLogger`, exported them from the package entry point, and threaded `logger?: Logger` through
+`LlmClaimExtractor`. `llm-claims.test.ts` now proves extraction warning/error paths can be captured
+without writing to global `console`. Remaining work: transcript clients, eval orchestration,
+`runNarrowManualBaselineComparison`, and CLI handoff/quiet-mode coverage.
 
 ---
 
