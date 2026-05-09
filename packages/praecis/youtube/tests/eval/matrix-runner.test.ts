@@ -284,7 +284,7 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells[0]?.costEstimate?.judgeUsd).toBe(0);
   });
 
-  it("should score independent judges concurrently while preserving partial success", async () => {
+  it("should bound judge fan-out by maxConcurrency while preserving partial success", async () => {
     const corpus = [
       createTestVideo("v1", 10, "low"),
     ];
@@ -339,7 +339,7 @@ describe("Matrix Runner Integration", () => {
       judgeClientFactory: judgeClientFactory as unknown as (modelId: string) => LlmClient,
     });
 
-    expect(maxActiveJudgeCalls).toBe(2);
+    expect(maxActiveJudgeCalls).toBe(1);
     expect(result.metadata.failedCellCount).toBe(0);
     expect(result.metadata.partialFailureCount).toBe(1);
     expect(result.cells[0]?.scores).toHaveLength(1);

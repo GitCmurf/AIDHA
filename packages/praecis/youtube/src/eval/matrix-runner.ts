@@ -382,6 +382,7 @@ const getScoreForJudge = async (
   model: EvalModel,
   cell: MatrixCell,
   options: MatrixOptions,
+  judgeSemaphore: Semaphore,
   fullText: string,
   videoContext: VideoContext,
   claimSetHash: string,
@@ -424,37 +425,44 @@ const getScoreForJudge = async (
     : 0;
 
   try {
-    const scoreResult = await performScoring(
-      model.id,
-      judgeModelId,
-      fullText,
-      cell.claimSet,
-      videoContext,
-      options
-    );
-
-    const score = scoreResult.score;
+    // Keep actual judge LLM calls within the matrix concurrency budget so
+    // multi-judge cells do not fan out past the user's configured limit.
+    await judgeSemaphore.acquire();
     try {
-      await setCachedScore(
-        video.videoId,
+      const scoreResult = await performScoring(
         model.id,
         judgeModelId,
-        claimSetHash,
-        judgePromptVersion,
-        [score],
-        { cacheDir: options.cacheDir }
+        fullText,
+        cell.claimSet,
+        videoContext,
+        options
       );
-    } catch (cacheErr) {
-      // skipcq: JS-0002
-      console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
-    }
 
-    return {
-      judgeModelId,
-      scores: [score],
-      judgeUsdEstimate,
-      traces: scoreResult.traces,
-    };
+      const score = scoreResult.score;
+      try {
+        await setCachedScore(
+          video.videoId,
+          model.id,
+          judgeModelId,
+          claimSetHash,
+          judgePromptVersion,
+          [score],
+          { cacheDir: options.cacheDir }
+        );
+      } catch (cacheErr) {
+        // skipcq: JS-0002
+        console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
+      }
+
+      return {
+        judgeModelId,
+        scores: [score],
+        judgeUsdEstimate,
+        traces: scoreResult.traces,
+      };
+    } finally {
+      judgeSemaphore.release();
+    }
   } catch (err) {
     const message =
       err instanceof Error && err.name === "AbortError"
@@ -473,7 +481,8 @@ const getScoresForCell = async (
   fullText: string,
   videoContext: VideoContext,
   claimSetHash: string,
-  judgePromptVersion: string
+  judgePromptVersion: string,
+  judgeSemaphore: Semaphore
 ): Promise<{
   scores: ClaimSetScore[];
   hasFailure: boolean;
@@ -493,6 +502,7 @@ const getScoresForCell = async (
       model,
       cell,
       options,
+      judgeSemaphore,
       fullText,
       videoContext,
       claimSetHash,
@@ -757,6 +767,7 @@ const processCell = async (
       }
     | { error: number },
   semaphore: Semaphore,
+  judgeSemaphore: Semaphore,
   cells: MatrixCell[],
   onFailure: () => void,
   onPartialFailure: () => void
@@ -831,7 +842,8 @@ const processCell = async (
       fullText,
       videoContext,
       claimSetHash,
-      judgePromptVersion
+      judgePromptVersion,
+      judgeSemaphore
     );
 
     if (hasFailure) {
@@ -911,6 +923,7 @@ export const runEvaluationMatrix = async (
   let partialFailureCount = 0;
 
   const semaphore = new Semaphore(options.maxConcurrency || 1);
+  const judgeSemaphore = new Semaphore(options.maxConcurrency || 1);
   const tasks: Promise<void>[] = [];
 
   // Pre-load transcripts once per video to avoid redundant I/O and event loop blocking
@@ -956,6 +969,7 @@ export const runEvaluationMatrix = async (
             options,
             transcriptDataResult,
             semaphore,
+            judgeSemaphore,
             cells,
             () => {
               failedCellCount++;
