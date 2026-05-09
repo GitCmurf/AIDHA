@@ -95,7 +95,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -1308,10 +1308,10 @@ limits confidence in budget ceilings and makes model comparisons less precise.
 
 **Acceptance criteria:**
 
-- [ ] Eval cell output distinguishes actual usage from estimated usage.
-- [ ] Aggregated reports include actual totals when all cells provide usage metadata.
-- [ ] Mixed-provider runs clearly mark partial actual/estimated totals.
-- [ ] Existing dry-run estimate behavior remains available before live execution.
+- [x] Eval cell output distinguishes actual usage from estimated usage.
+- [x] Aggregated reports include actual totals when cells provide usage metadata.
+- [x] Mixed-provider runs clearly mark partial actual/estimated availability.
+- [x] Existing dry-run estimate behavior remains available before live execution.
 
 **Validation commands:**
 
@@ -1321,6 +1321,11 @@ limits confidence in budget ceilings and makes model comparisons less precise.
 **Risks and caveats:**
 Provider usage formats differ. Keep the internal usage type small and normalize at client
 boundaries.
+
+**Resolution:**
+Resolved on 2026-05-09 by adding normalized `LlmTokenUsage` metadata, preserving estimated usage
+and cost projections, aggregating actual usage when providers return it, and documenting the mixed
+actual/estimated semantics in `AIDHA-EVAL-004`.
 
 ---
 
@@ -1411,6 +1416,8 @@ that the registry distinguishes native Gemini routing from OpenAI-compatible rou
   completed locally and the TypeScript Packages workflow passed in GitHub Actions.
 - TD-017 — Add durable store/export schema versions and migration runner. Resolved for the Task
   008 scope by stamping graph records and exports while deferring a runner until a real migration.
+- TD-019 — Capture actual LLM token usage and billing in eval reports. Resolved by preserving
+  estimates while surfacing normalized provider usage when available.
 - TD-020 — Decide native provider clients versus OpenAI-compatible bridge strategy. Resolved by
   documenting the hybrid routing decision and adding explicit model-registry route metadata.
 

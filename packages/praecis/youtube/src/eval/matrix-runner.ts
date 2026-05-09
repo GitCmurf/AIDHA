@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { GraphNode } from "@aidha/graph-backend";
+import { CURRENT_GRAPH_SCHEMA_VERSION, type GraphNode } from "@aidha/graph-backend";
 import { Transcript } from "../schema/transcript.js";
 import type { ClaimCandidate } from "../extract/types.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
@@ -19,7 +19,7 @@ import {
 import { scoreClaimSet } from "./scoring-executor.js";
 import { computeConsensus } from "./consensus-scorer.js";
 import { LlmClaimExtractor } from "../extract/llm-claims.js";
-import type { LlmClient } from "../extract/llm-client.js";
+import type { LlmClient, LlmTokenUsage } from "../extract/llm-client.js";
 import {
   PROMPT_VERSION as EXTRACT_PROMPT_VERSION,
   type Pass1PromptConfigId,
@@ -125,6 +125,11 @@ export interface MatrixCell {
     judgeUsd: number;
     totalUsd: number;
   };
+  usage?: {
+    extraction?: UsageProjection;
+    judge?: UsageProjection;
+    availability: "estimated-only" | "partial-actual" | "complete-actual";
+  };
   traces?: {
     extraction?: { prompt: { system: string; user: string }; response: string }[];
     scoring?: Record<string, { prompt: { system: string; user: string }; response: string }[]>;
@@ -147,6 +152,13 @@ export interface MatrixCell {
     retryReason?: string;
     retryPromptPackId?: string;
   };
+}
+
+export interface UsageProjection {
+  estimated: LlmTokenUsage;
+  actual?: LlmTokenUsage;
+  estimatedCostUsd: number;
+  actualCostUsd?: number;
 }
 
 export interface MatrixResult {
@@ -220,13 +232,22 @@ const DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE = {
   high: 3200,
 } as const;
 
+const estimateJudgeUsage = (
+  fullText: string,
+  claimSet: ClaimCandidate[],
+  estimatedClaimTextLength = 0
+): LlmTokenUsage => {
+  const claimTextLen = claimSet.length > 0
+    ? claimSet.reduce((acc, c) => acc + c.text.length, 0)
+    : estimatedClaimTextLength;
+  const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
+  const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + JUDGE_PROMPT_OVERHEAD_TOKENS;
+  const outputTokens = JUDGE_OUTPUT_TOKENS_ESTIMATE;
+  return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+};
+
 /**
  * Estimates the USD cost for a judge to score a claim set.
- * @param fullText - The full transcript text
- * @param claimSet - The claims to be scored (empty in dry-run mode)
- * @param model - The judge model to use
- * @param estimatedClaimTextLength - Fallback claim text length for dry-run projections
- * @returns Estimated cost in USD
  */
 const estimateJudgeCost = (
   fullText: string,
@@ -234,16 +255,11 @@ const estimateJudgeCost = (
   model: EvalModel,
   estimatedClaimTextLength = 0
 ): number => {
-  const claimTextLen = claimSet.length > 0
-    ? claimSet.reduce((acc, c) => acc + c.text.length, 0)
-    : estimatedClaimTextLength;
-  const estimatedClaimTokens = Math.ceil(claimTextLen / 4);
-  const inputTokens = estimateTokens(fullText) + estimatedClaimTokens + JUDGE_PROMPT_OVERHEAD_TOKENS;
-  const outputTokens = JUDGE_OUTPUT_TOKENS_ESTIMATE;
+  const usage = estimateJudgeUsage(fullText, claimSet, estimatedClaimTextLength);
 
   return (
-    estimateCost(inputTokens, model.costPer1kTokens.input) +
-    estimateCost(outputTokens, model.costPer1kTokens.output)
+    estimateCost(usage.inputTokens, model.costPer1kTokens.input) +
+    estimateCost(usage.outputTokens, model.costPer1kTokens.output)
   );
 };
 
@@ -360,7 +376,7 @@ const performScoring = async (
   videoContext: VideoContext,
   options: MatrixOptions,
   requestSemaphore: Semaphore
-): Promise<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }> }> => {
+): Promise<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }>; usage?: LlmTokenUsage }> => {
   return withRequestBudget(requestSemaphore, options.timeoutMs, async (signal) => {
     const judgeClient = options.judgeClientFactory(judgeModelId);
     const scoreResult = await scoreClaimSet(
@@ -385,8 +401,33 @@ interface JudgeScoreOutcome {
   judgeModelId: string;
   scores: ClaimSetScore[];
   judgeUsdEstimate: number;
+  judgeUsdActual?: number;
+  estimatedUsage?: LlmTokenUsage;
   traces?: Array<{ prompt: { system: string; user: string }; response: string }>;
+  usage?: LlmTokenUsage;
   failure?: string;
+}
+
+function costFromUsage(usage: LlmTokenUsage, model: EvalModel): number {
+  return estimateCost(usage.inputTokens, model.costPer1kTokens.input)
+    + estimateCost(usage.outputTokens, model.costPer1kTokens.output);
+}
+
+function buildUsageProjection(estimated: LlmTokenUsage, model: EvalModel, actual?: LlmTokenUsage): UsageProjection {
+  return {
+    estimated,
+    actual,
+    estimatedCostUsd: costFromUsage(estimated, model),
+    actualCostUsd: actual ? costFromUsage(actual, model) : undefined,
+  };
+}
+
+function usageAvailability(usage: MatrixCell["usage"]): "estimated-only" | "partial-actual" | "complete-actual" {
+  const projections = [usage?.extraction, usage?.judge].filter(Boolean) as UsageProjection[];
+  if (projections.length === 0) return "estimated-only";
+  const actualCount = projections.filter((projection) => projection.actual).length;
+  if (actualCount === 0) return "estimated-only";
+  return actualCount === projections.length ? "complete-actual" : "partial-actual";
 }
 
 const getScoreForJudge = async (
@@ -418,22 +459,21 @@ const getScoreForJudge = async (
     return { judgeModelId, scores: cachedScores, judgeUsdEstimate: 0 };
   }
 
+  const estimatedUsage = estimateJudgeUsage(
+    fullText,
+    cell.claimSet,
+    DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
+  );
+
   if (options.dryRun) {
-    const judgeUsdEstimate = judgeModel
-      ? estimateJudgeCost(
-          fullText,
-          cell.claimSet,
-          judgeModel,
-          DRY_RUN_CLAIM_TEXT_LENGTH_ESTIMATE[video.expectedClaimDensity]
-        )
-      : 0;
+    const judgeUsdEstimate = judgeModel ? costFromUsage(estimatedUsage, judgeModel) : 0;
     // skipcq: JS-0002
     console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
-    return { judgeModelId, scores: [], judgeUsdEstimate };
+    return { judgeModelId, scores: [], judgeUsdEstimate, estimatedUsage };
   }
 
   const judgeUsdEstimate = judgeModel
-    ? estimateJudgeCost(fullText, cell.claimSet, judgeModel)
+    ? costFromUsage(estimatedUsage, judgeModel)
     : 0;
 
   try {
@@ -469,7 +509,10 @@ const getScoreForJudge = async (
       judgeModelId,
       scores: [score],
       judgeUsdEstimate,
+      judgeUsdActual: judgeModel && scoreResult.usage ? costFromUsage(scoreResult.usage, judgeModel) : undefined,
+      estimatedUsage,
       traces: scoreResult.traces,
+      usage: scoreResult.usage,
     };
   } catch (err) {
     const message =
@@ -495,12 +538,18 @@ const getScoresForCell = async (
   scores: ClaimSetScore[];
   hasFailure: boolean;
   judgeUsdEstimate: number;
+  judgeEstimatedUsage?: LlmTokenUsage;
+  judgeUsage?: LlmTokenUsage;
+  judgeUsdActual?: number;
   traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>>;
   failures: Record<string, string>;
 }> => {
   const scores: ClaimSetScore[] = [];
   let cellHasScoringFailure = false;
   let judgeUsdEstimate = 0;
+  let judgeEstimatedUsage: LlmTokenUsage | undefined;
+  let judgeUsage: LlmTokenUsage | undefined;
+  let judgeUsdActual: number | undefined;
   const traces: Record<string, Array<{ prompt: { system: string; user: string }; response: string }>> = {};
   const judgeFailures: Record<string, string> = {};
 
@@ -532,6 +581,27 @@ const getScoresForCell = async (
     const result = outcome.value;
     scores.push(...result.scores);
     judgeUsdEstimate += result.judgeUsdEstimate;
+    if (result.estimatedUsage) {
+      judgeEstimatedUsage = judgeEstimatedUsage
+        ? {
+            inputTokens: judgeEstimatedUsage.inputTokens + result.estimatedUsage.inputTokens,
+            outputTokens: judgeEstimatedUsage.outputTokens + result.estimatedUsage.outputTokens,
+            totalTokens: judgeEstimatedUsage.totalTokens + result.estimatedUsage.totalTokens,
+          }
+        : result.estimatedUsage;
+    }
+    if (result.usage) {
+      judgeUsage = judgeUsage
+        ? {
+            inputTokens: judgeUsage.inputTokens + result.usage.inputTokens,
+            outputTokens: judgeUsage.outputTokens + result.usage.outputTokens,
+            totalTokens: judgeUsage.totalTokens + result.usage.totalTokens,
+          }
+        : result.usage;
+    }
+    if (result.judgeUsdActual !== undefined) {
+      judgeUsdActual = (judgeUsdActual ?? 0) + result.judgeUsdActual;
+    }
     if (result.traces && result.traces.length > 0) {
       traces[result.judgeModelId] = result.traces;
     }
@@ -541,7 +611,7 @@ const getScoresForCell = async (
     }
   }
 
-  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, traces, failures: judgeFailures };
+  return { scores, hasFailure: cellHasScoringFailure, judgeUsdEstimate, judgeEstimatedUsage, judgeUsage, judgeUsdActual, traces, failures: judgeFailures };
 };
 
 const getExtractionForCell = async (
@@ -597,6 +667,11 @@ const getExtractionForCell = async (
 
   const inputTokens = estimateTokens(resource.content as string) + 1000; // roughly 1k for prompt
   const outputTokens = 500;
+  const extractionEstimatedUsage = {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+  };
   const extractionUsd =
     (inputTokens / 1000) * model.costPer1kTokens.input +
     (outputTokens / 1000) * model.costPer1kTokens.output;
@@ -616,6 +691,10 @@ const getExtractionForCell = async (
       promptConfigId: options.extractionPromptConfigId,
       claimSet: [],
       costEstimate,
+      usage: {
+        extraction: buildUsageProjection(extractionEstimatedUsage, model),
+        availability: "estimated-only",
+      },
     };
   }
 
@@ -640,6 +719,10 @@ const getExtractionForCell = async (
       promptConfigId: options.extractionPromptConfigId,
       claimSet: extractionResult.claims,
       costEstimate,
+      usage: {
+        extraction: buildUsageProjection(extractionEstimatedUsage, model),
+        availability: "estimated-only",
+      },
       warnings: extractionResult.warnings,
       extractionDiagnostics: extractionResult.diagnostics,
       traces: {
@@ -731,6 +814,7 @@ const prepareTranscriptDataAsync = async (
   const fullText = transcriptData.fullText;
 
   const excerpts = segments.map((s, i: number) => ({
+    schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION as 1,
     id: `excerpt-${video.videoId}-${i}`,
     type: "Excerpt" as const,
     label: `Excerpt ${i}`,
@@ -744,6 +828,7 @@ const prepareTranscriptDataAsync = async (
   }));
 
   const resource = {
+    schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION as 1,
     id: `youtube-${video.videoId}`,
     type: "Resource" as const,
     label: video.title,
@@ -845,7 +930,7 @@ const processCell = async (
     const claimSetHash = computeClaimSetHash(cell.claimSet);
     const judgePromptVersion = JUDGE_PROMPT_VERSION;
 
-    const { scores, hasFailure, judgeUsdEstimate, traces: scoringTraces, failures: judgeFailures } = await getScoresForCell(
+    const { scores, hasFailure, judgeUsdEstimate, judgeEstimatedUsage, judgeUsage, judgeUsdActual, traces: scoringTraces, failures: judgeFailures } = await getScoresForCell(
       video,
       model,
       cell,
@@ -877,6 +962,19 @@ const processCell = async (
     if (cell.costEstimate) {
       cell.costEstimate.judgeUsd = judgeUsdEstimate;
       cell.costEstimate.totalUsd += judgeUsdEstimate;
+    }
+    if (judgeEstimatedUsage) {
+      cell.usage = {
+        ...cell.usage,
+        judge: {
+          estimated: judgeEstimatedUsage,
+          actual: judgeUsage,
+          estimatedCostUsd: judgeUsdEstimate,
+          actualCostUsd: judgeUsdActual,
+        },
+        availability: "estimated-only",
+      };
+      cell.usage.availability = usageAvailability(cell.usage);
     }
 
     cell.scores = scores;

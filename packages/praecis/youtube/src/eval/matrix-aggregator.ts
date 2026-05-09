@@ -20,6 +20,14 @@ export interface MatrixReport {
     judgeUsd: number;
     totalUsd: number;
   };
+  actualUsageSummary?: {
+    cellsWithActualUsage: number;
+    cellsWithEstimatedOnlyUsage: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    actualCostUsd: number;
+  };
   variantCostSummary?: Record<string, {
     extractionUsd: number;
     judgeUsd: number;
@@ -93,9 +101,31 @@ const recordCellScore = (
 const accumulateCosts = (cells: MatrixCell[]) => {
   let extractionUsd = 0;
   let judgeUsd = 0;
+  let cellsWithActualUsage = 0;
+  let cellsWithEstimatedOnlyUsage = 0;
+  let actualInputTokens = 0;
+  let actualOutputTokens = 0;
+  let actualTotalTokens = 0;
+  let actualCostUsd = 0;
   const variantCosts: Record<string, { extractionUsd: number; judgeUsd: number; totalUsd: number }> = Object.create(null);
 
   for (const cell of cells) {
+    const actualUsages = [cell.usage?.extraction, cell.usage?.judge]
+      .map((projection) => projection?.actual)
+      .filter((usage): usage is NonNullable<typeof usage> => usage !== undefined);
+    if (actualUsages.length > 0) {
+      cellsWithActualUsage += 1;
+      for (const usage of actualUsages) {
+        actualInputTokens += usage.inputTokens;
+        actualOutputTokens += usage.outputTokens;
+        actualTotalTokens += usage.totalTokens;
+      }
+      actualCostUsd += cell.usage?.extraction?.actualCostUsd ?? 0;
+      actualCostUsd += cell.usage?.judge?.actualCostUsd ?? 0;
+    } else if (cell.usage) {
+      cellsWithEstimatedOnlyUsage += 1;
+    }
+
     if (cell.costEstimate) {
       extractionUsd += cell.costEstimate.extractionUsd;
       judgeUsd += cell.costEstimate.judgeUsd;
@@ -109,7 +139,19 @@ const accumulateCosts = (cells: MatrixCell[]) => {
       variantCosts[vId].totalUsd += cell.costEstimate.totalUsd;
     }
   }
-  return { extractionUsd, judgeUsd, variantCosts };
+  return {
+    extractionUsd,
+    judgeUsd,
+    variantCosts,
+    actualUsageSummary: {
+      cellsWithActualUsage,
+      cellsWithEstimatedOnlyUsage,
+      inputTokens: actualInputTokens,
+      outputTokens: actualOutputTokens,
+      totalTokens: actualTotalTokens,
+      actualCostUsd,
+    },
+  };
 };
 
 const processCells = (cells: MatrixCell[]) => {
@@ -117,7 +159,7 @@ const processCells = (cells: MatrixCell[]) => {
   const variantScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
   const videoScores: Record<string, Record<ScoreDimension, number[]>> = Object.create(null);
 
-  const { extractionUsd: totalExtractionUsd, judgeUsd: totalJudgeUsd, variantCosts } = accumulateCosts(cells);
+  const { extractionUsd: totalExtractionUsd, judgeUsd: totalJudgeUsd, variantCosts, actualUsageSummary } = accumulateCosts(cells);
 
   for (const cell of cells) {
     if (cell.error || !cell.scores || cell.scores.length === 0) continue;
@@ -128,7 +170,7 @@ const processCells = (cells: MatrixCell[]) => {
     recordCellScore(videoScores, cell.videoId, aggregatedScore);
   }
 
-  return { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd, variantCosts };
+  return { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd, variantCosts, actualUsageSummary };
 };
 
 const calculateMedian = (sorted: number[]): number => {
@@ -262,7 +304,7 @@ const generateRecommendations = (cells: MatrixCell[], leaderboards: Record<Score
 };
 
 export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
-  const { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd, variantCosts } = processCells(cells);
+  const { modelScores, variantScores, videoScores, totalExtractionUsd, totalJudgeUsd, variantCosts, actualUsageSummary } = processCells(cells);
 
   const modelStats = calculateAllStats(modelScores);
   const variantStats = calculateAllStats(variantScores);
@@ -298,6 +340,7 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
       judgeUsd: totalJudgeUsd,
       totalUsd: totalExtractionUsd + totalJudgeUsd
     },
+    actualUsageSummary,
     variantCostSummary: variantCosts,
     narrowJudgeResults: Object.keys(narrowJudgeResults).length > 0 ? narrowJudgeResults : undefined,
     modelStats,

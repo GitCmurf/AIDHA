@@ -155,7 +155,8 @@ describe("Matrix Runner Integration", () => {
           hallucinations: [],
           redundancies: [],
           gapAreas: []
-        })
+        }),
+        usage: { inputTokens: 120, outputTokens: 40, totalTokens: 160 },
       })
     };
 
@@ -180,6 +181,8 @@ describe("Matrix Runner Integration", () => {
       expect(cell.scores).toBeDefined();
       expect(cell.scores!.length).toBeGreaterThan(0);
       expect(cell.scores![0].overallScore).toBeGreaterThanOrEqual(0);
+      expect(cell.usage?.availability).toBe("partial-actual");
+      expect(cell.usage?.judge?.actual?.totalTokens).toBe(160);
     }
 
     const report = aggregateMatrixResults(result.cells);
@@ -187,11 +190,14 @@ describe("Matrix Runner Integration", () => {
     expect(report.videoStats["v1"]).toBeDefined();
     expect(report.variantCostSummary).toBeDefined();
     expect(report.variantCostSummary!["raw"]).toBeDefined();
+    expect(report.actualUsageSummary?.cellsWithActualUsage).toBe(10);
+    expect(report.actualUsageSummary?.totalTokens).toBe(1600);
 
     const md = renderMatrixReport(report);
     expect(md).toContain("Video Heatmap");
     expect(md).toContain(models[0].id);
     expect(md).toContain("Variant Cost Breakdown");
+    expect(md).toContain("Actual Usage Captured");
     expect(md).toContain("raw");
     expect(md).toContain(`| 1 | ${models[1].id} | 8.50 |`);
     expect(md).toContain("### v1");
@@ -232,6 +238,8 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells.length).toBe(1);
     expect(result.cells[0].costEstimate).toBeDefined();
     expect(result.cells[0].costEstimate!.totalUsd).toBeGreaterThan(0);
+    expect(result.cells[0].usage?.availability).toBe("estimated-only");
+    expect(result.cells[0].usage?.extraction?.estimated.totalTokens).toBeGreaterThan(0);
     // In dry run, it shouldn't actually call the judge so scores is empty array
     expect(result.cells[0].scores).toEqual([]);
   });

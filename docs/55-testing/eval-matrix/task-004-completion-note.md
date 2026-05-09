@@ -2,7 +2,7 @@
 document_id: AIDHA-EVAL-004
 owner: Ingestion Engineering Lead
 status: Approved
-version: "0.2"
+version: "0.3"
 last_updated: 2026-05-09
 title: Task 004 Completion Engineering Note
 type: TESTING
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-EVAL-004
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Approved
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-05-09
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ docops_version: "2.0"
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | -------- | --------------------- |
 | 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Approved | AIDHA-TASK-004        |
 | 0.2     | 2026-05-09 | AI-assisted | Clarified provider-client routing strategy and native-client triggers | —         | Approved | AIDHA-TASK-008 / TD-020 |
+| 0.3     | 2026-05-09 | AI-assisted | Added actual usage capture semantics for eval reports           | —         | Approved | AIDHA-TASK-008 / TD-019 |
 
 ## What Was Fixed
 
@@ -58,6 +59,11 @@ docops_version: "2.0"
 - **Baseline CI Integration**: A deterministic quality gate is active, failing builds that deviate
   beyond the tolerance threshold when compared to `baseline-report.json`.
 
+- **Actual Usage Capture**: LLM clients normalize provider token usage when responses include it.
+  Matrix cells now keep estimated usage and actual usage separately, aggregate reports surface the
+  number of cells with actual usage, and Markdown reports include an actual-usage section whenever
+  provider metadata is available.
+
 ## What Remains Intentionally Deferred
 
 - **Additional Native Provider Implementations**: The runtime uses `GeminiApiClient` for
@@ -66,9 +72,9 @@ docops_version: "2.0"
   bridge route blocks correctness, usage capture, JSON-mode behavior, rate-limit handling, or
   provider-specific safety/auth controls.
 
-- **Per-Token Actual Billing**: Actual token usage counts are not currently extracted from the LLM
-  responses. Cost output in the report remains an *estimate* based on text length heuristics rather
-  than strict API billing.
+- **Complete Provider Billing Parity**: Some providers or bridge routes may omit usage metadata.
+  Eval reports therefore retain dry-run and fallback estimates, and mark mixed availability instead
+  of silently treating estimates as actual billing.
 
 ## Provider-Client Routing Decision
 

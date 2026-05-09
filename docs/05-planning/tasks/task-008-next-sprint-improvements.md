@@ -567,7 +567,7 @@ choice.
 ### T008-07-01: Add actual usage capture to eval reports
 
 - **Backlog IDs:** TD-019
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Eval maintainer
 - **Dependencies:** LLM clients expose usage metadata or fixtures simulate it
 
@@ -582,11 +582,11 @@ choice.
 
 **Definition of done:**
 
-- [ ] Reports distinguish actual usage from estimates.
-- [ ] Mixed usage availability is visible and not silently averaged.
-- [ ] Dry-run estimates still work without live calls.
-- [ ] Eval docs are updated or the PR explains why docs are unaffected.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/matrix-runner.test.ts tests/eval/report-files.test.ts --reporter=dot` passes.
+- [x] Reports distinguish actual usage from estimates.
+- [x] Mixed usage availability is visible and not silently averaged.
+- [x] Dry-run estimates still work without live calls.
+- [x] Eval docs are updated or the PR explains why docs are unaffected.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/matrix-runner.test.ts tests/eval/report-files.test.ts --reporter=dot` passes.
 
 ### T008-07-02: Document provider-client routing decision
 

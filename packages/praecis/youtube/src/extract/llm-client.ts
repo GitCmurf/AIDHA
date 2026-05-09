@@ -17,8 +17,16 @@ export interface LlmCompletionRequest {
   signal?: AbortSignal;
 }
 
+export interface LlmTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export type LlmCompletionResult = Result<string> & { usage?: LlmTokenUsage };
+
 export interface LlmClient {
-  generate(request: LlmCompletionRequest): Promise<Result<string>>;
+  generate(request: LlmCompletionRequest): Promise<LlmCompletionResult>;
 }
 
 export interface OpenAiCompatibleConfig {
@@ -143,6 +151,14 @@ function handleAbortOrError(
   return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
 }
 
+function normalizeTokenUsage(input: unknown, output: unknown, total?: unknown): LlmTokenUsage | undefined {
+  const inputTokens = typeof input === 'number' && Number.isFinite(input) ? input : undefined;
+  const outputTokens = typeof output === 'number' && Number.isFinite(output) ? output : undefined;
+  if (inputTokens === undefined || outputTokens === undefined) return undefined;
+  const totalTokens = typeof total === 'number' && Number.isFinite(total) ? total : inputTokens + outputTokens;
+  return { inputTokens, outputTokens, totalTokens };
+}
+
 /** Maximum base URL length to prevent potential ReDoS attacks. */
 const MAX_URL_LENGTH = 2048;
 
@@ -220,7 +236,7 @@ export class OpenAiCompatibleClient implements LlmClient {
     return this.modelCapabilities;
   }
 
-  async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+  async generate(request: LlmCompletionRequest): Promise<LlmCompletionResult> {
     const signals: AbortSignal[] = [];
     const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
     if (clientTimeoutSignal) {
@@ -296,12 +312,27 @@ export class OpenAiCompatibleClient implements LlmClient {
 
       const json = (await response.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          input_tokens?: number;
+          output_tokens?: number;
+        };
       };
       const content = json.choices?.[0]?.message?.content;
       if (typeof content !== 'string' || content.length === 0) {
         return { ok: false, error: new Error('LLM response missing message content') };
       }
-      return { ok: true, value: content };
+      return {
+        ok: true,
+        value: content,
+        usage: normalizeTokenUsage(
+          json.usage?.prompt_tokens ?? json.usage?.input_tokens,
+          json.usage?.completion_tokens ?? json.usage?.output_tokens,
+          json.usage?.total_tokens
+        ),
+      };
     } catch (error) {
       return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'LLM', this.timeoutMs);
     }
@@ -319,7 +350,7 @@ export class GeminiApiClient implements LlmClient {
     this.timeoutMs = config.timeoutMs ?? 60_000;
   }
 
-  async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+  async generate(request: LlmCompletionRequest): Promise<LlmCompletionResult> {
     const signals: AbortSignal[] = [];
     const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
     if (clientTimeoutSignal) {
@@ -382,6 +413,11 @@ export class GeminiApiClient implements LlmClient {
             parts?: Array<{ text?: string }>;
           };
         }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        };
       };
 
       const content = json.candidates?.[0]?.content?.parts
@@ -393,7 +429,15 @@ export class GeminiApiClient implements LlmClient {
         return { ok: false, error: new Error("Gemini response missing text content") };
       }
 
-      return { ok: true, value: content };
+      return {
+        ok: true,
+        value: content,
+        usage: normalizeTokenUsage(
+          json.usageMetadata?.promptTokenCount,
+          json.usageMetadata?.candidatesTokenCount,
+          json.usageMetadata?.totalTokenCount
+        ),
+      };
     } catch (error) {
       return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'Gemini', this.timeoutMs);
     }
