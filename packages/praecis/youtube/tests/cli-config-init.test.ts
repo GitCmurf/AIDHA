@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runCli } from '../src/cli.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { writeSecureConfig } from './helpers/config-files.js';
 
 describe('CLI Config Init (Phase 2A)', () => {
   let tmpDir: string;
@@ -59,7 +60,7 @@ describe('CLI Config Init (Phase 2A)', () => {
     const configFile = join(tmpDir, '.aidha', 'config.yaml');
     await import('node:fs/promises').then(fs => fs.mkdir(join(tmpDir, '.aidha'), { recursive: true }));
     // use valid config to pass loadConfig validation
-    await writeFile(configFile, 'config_version: 1\ndefault_profile: existing\nprofiles:\n  existing: {}');
+    await writeSecureConfig(configFile, 'config_version: 1\ndefault_profile: existing\nprofiles:\n  existing: {}');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const code = await runCli(['config', 'init', '--project-local']);
@@ -71,7 +72,7 @@ describe('CLI Config Init (Phase 2A)', () => {
     const configFile = join(tmpDir, '.aidha', 'config.yaml');
     await import('node:fs/promises').then(fs => fs.mkdir(join(tmpDir, '.aidha'), { recursive: true }));
     // use valid config
-    await writeFile(configFile, 'config_version: 1\ndefault_profile: existing\nprofiles:\n  existing: {}');
+    await writeSecureConfig(configFile, 'config_version: 1\ndefault_profile: existing\nprofiles:\n  existing: {}');
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const code = await runCli(['config', 'init', '--project-local', '--force']);

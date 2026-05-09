@@ -526,7 +526,7 @@ remaining narrow-baseline structural work is tracked separately in TD-006.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | High |
 | Category   | Maintainability / Testability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, `runNarrowManualBaselineComparison` |
@@ -806,17 +806,23 @@ minor mismatch between security guidance and fixture setup.
 
 **Acceptance criteria:**
 
-- [ ] Permission-sensitive config tests create temp config files with explicit mode bits.
-- [ ] Secure fixture mode produces no warning.
-- [ ] Insecure fixture mode produces the expected warning and does not mutate the file silently.
-- [ ] Tests do not depend on Git preserving executable/read bits in a platform-specific way.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run packages/praecis/youtube/tests/cli-config*.test.ts --reporter=dot`
+- [x] Permission-sensitive config tests create temp config files with explicit mode bits.
+- [x] Secure fixture mode produces no warning.
+- [x] Insecure fixture mode produces the expected warning and does not mutate the file silently.
+- [x] Tests do not depend on Git preserving executable/read bits in a platform-specific way.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/cli-config-cmd.test.ts tests/cli-config-phase-gate.test.ts tests/cli-config.test.ts tests/cli-config-secrets.test.ts tests/cli-config-set.test.ts tests/cli-config-init.test.ts --reporter=dot`
   passes.
 
 **Risks and caveats:**
 Windows and some mounted filesystems handle POSIX modes differently. If tests run cross-platform,
 guard permission assertions behind a platform capability check rather than weakening the Unix
 behavior.
+
+**Resolution:**
+Resolved on 2026-05-09 by adding config test helpers that create secure `0600` and insecure
+`0644` files explicitly. Config tests now copy the committed fixture into a temporary secure file,
+write temporary configs with explicit secure mode, and include secure/no-warning plus
+insecure/warning/no-mutation assertions.
 
 ---
 
@@ -1360,6 +1366,8 @@ real capability gap.
   signatures.
 - TD-009 — Add collision protection to shortened deterministic IDs. Resolved by moving generated
   `hashId(...)` values to a 128-bit SHA-256 prefix and adding deterministic uniqueness tests.
+- TD-010 — Normalize config fixture permissions in test setup. Resolved by adding explicit
+  secure/insecure config test helpers and warning/no-warning coverage.
 - TD-011 — Strengthen LLM chunking regression assertions. Resolved by asserting semantic overlap
   in captured prompts and hard-max split diagnostics.
 - TD-012 — Call out embedding default change in PR and release notes. Resolved in

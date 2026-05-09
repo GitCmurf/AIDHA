@@ -144,7 +144,7 @@ Findings:
 ### T008-00-02: Close release-note and greenfield ID policy quick wins
 
 - **Backlog IDs:** TD-009, TD-012
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Coding agent
 - **Dependencies:** None
 
@@ -371,10 +371,10 @@ without displacing higher-payoff performance and architecture work.
 
 **Definition of done:**
 
-- [ ] Permission-sensitive tests create temp config files with explicit mode bits.
-- [ ] Secure mode produces no warning.
-- [ ] Insecure mode produces the expected warning without silently mutating the file.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/cli-config*.test.ts --reporter=dot` passes.
+- [x] Permission-sensitive tests create temp config files with explicit mode bits.
+- [x] Secure mode produces no warning.
+- [x] Insecure mode produces the expected warning without silently mutating the file.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/cli-config-cmd.test.ts tests/cli-config-phase-gate.test.ts tests/cli-config.test.ts tests/cli-config-secrets.test.ts tests/cli-config-set.test.ts tests/cli-config-init.test.ts --reporter=dot` passes.
 
 ### T008-03-04: Strengthen LLM chunking regression assertions
 

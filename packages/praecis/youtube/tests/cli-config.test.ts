@@ -1,11 +1,24 @@
-import { describe, it, expect } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveCliConfig, buildCliOverrides } from '../src/cli/config-bridge.js';
+import { copySecureConfigSync, writeInsecureConfig, writeSecureConfigSync } from './helpers/config-files.js';
 
 describe('CLI Configuration Bridge', () => {
-  const fixturePath = resolve(__dirname, 'fixtures/config/aidha.yaml');
+  const sourceFixturePath = resolve(__dirname, 'fixtures/config/aidha.yaml');
+  let fixtureRoot: string;
+  let fixturePath: string;
+
+  beforeEach(() => {
+    fixtureRoot = mkdtempSync(join(tmpdir(), 'aidha-cli-config-fixture-'));
+    fixturePath = join(fixtureRoot, 'aidha.yaml');
+    copySecureConfigSync(sourceFixturePath, fixturePath);
+  });
+
+  afterEach(() => {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  });
 
   it('resolves defaults when no options provided', async () => {
     // This looks for aidha.yaml in CWD, likely won't find it, so returns defaults
@@ -63,6 +76,34 @@ describe('CLI Configuration Bridge', () => {
     expect(config).toBeDefined();
   });
 
+  it('does not warn for secure explicit config permissions', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await resolveCliConfig({ configPath: fixturePath });
+
+    expect(result.ok).toBe(true);
+    expect(consoleWarn).not.toHaveBeenCalledWith(expect.stringContaining('expected 0600'));
+    consoleWarn.mockRestore();
+  });
+
+  it('warns for insecure explicit config permissions without mutating the file', async () => {
+    const insecurePath = join(fixtureRoot, 'insecure.yaml');
+    await writeInsecureConfig(insecurePath, [
+      'config_version: 1',
+      'default_profile: local',
+      'profiles:',
+      '  local: {}',
+    ].join('\n'));
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await resolveCliConfig({ configPath: insecurePath });
+
+    expect(result.ok).toBe(true);
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('expected 0600'));
+    expect(statSync(insecurePath).mode & 0o777).toBe(0o644);
+    consoleWarn.mockRestore();
+  });
+
   it('uses only explicit CLI flags for overrides', () => {
     const originalEnv = {
       AIDHA_LLM_MODEL: process.env['AIDHA_LLM_MODEL'],
@@ -112,7 +153,7 @@ describe('CLI Configuration Bridge', () => {
 
     try {
       mkdirSync(join(tempRoot, '.aidha'), { recursive: true });
-      writeFileSync(configPath, [
+      writeSecureConfigSync(configPath, [
         'config_version: 1',
         'default_profile: default',
         'env:',
@@ -165,7 +206,7 @@ describe('CLI Configuration Bridge', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'aidha-cli-dotenv-env-'));
     try {
       mkdirSync(join(tempRoot, '.aidha'), { recursive: true });
-      writeFileSync(join(tempRoot, '.aidha', 'config.yaml'), [
+      writeSecureConfigSync(join(tempRoot, '.aidha', 'config.yaml'), [
         'config_version: 1',
         'default_profile: default',
         'profiles:',
@@ -190,7 +231,7 @@ describe('CLI Configuration Bridge', () => {
 
     try {
       mkdirSync(join(tempRoot, '.aidha'), { recursive: true });
-      writeFileSync(configPath, [
+      writeSecureConfigSync(configPath, [
         'config_version: 1',
         'default_profile: default',
         'env:',
@@ -249,7 +290,7 @@ describe('CLI Configuration Bridge', () => {
 
     try {
       mkdirSync(join(tempRoot, '.aidha'), { recursive: true });
-      writeFileSync(join(tempRoot, '.aidha', 'config.yaml'), [
+      writeSecureConfigSync(join(tempRoot, '.aidha', 'config.yaml'), [
         'config_version: 1',
         'default_profile: default',
         'profiles:',

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runCli } from '../src/cli.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { writeSecureConfig } from './helpers/config-files.js';
 
 describe('CLI Config Set Regressions (Phase 2B)', () => {
   let tempRoot: string;
@@ -23,7 +24,7 @@ describe('CLI Config Set Regressions (Phase 2B)', () => {
   });
 
   it('permits set command and validates behavior', async () => {
-    await writeFile(configPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}\n', 'utf-8');
+    await writeSecureConfig(configPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}\n');
 
     // Success path
     const code = await runCli(['config', 'set', 'default_profile', 'prod', '--config', configPath]);
