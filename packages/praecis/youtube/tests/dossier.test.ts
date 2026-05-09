@@ -102,6 +102,7 @@ describe('DossierExporter', () => {
     expect(claimLines.length).toBeGreaterThan(0);
     const excerptLines = md.split('\n').filter(line => line.trim().startsWith('- Excerpt:'));
     expect(excerptLines.length).toBeGreaterThan(0);
+    expect(md).toContain('- Speaker: Host');
   });
 
   it('excludes rejected claims from the dossier', async () => {
@@ -206,7 +207,7 @@ describe('DossierExporter', () => {
     const parsed = JSON.parse(transcript.value) as {
       videoId: string;
       resourceId: string;
-      segments: Array<{ id: string; start: number; end: number; duration: number; text: string }>;
+      segments: Array<{ id: string; start: number; end: number; duration: number; text: string; speaker?: string }>;
     };
     expect(parsed.videoId).toBe('test-video');
     expect(parsed.resourceId).toBe('youtube-test-video');
@@ -215,6 +216,7 @@ describe('DossierExporter', () => {
     expect(parsed.segments[0]?.start).toBeTypeOf('number');
     expect(parsed.segments[0]?.duration).toBeTypeOf('number');
     expect(parsed.segments[0]?.text.length).toBeGreaterThan(0);
+    expect(parsed.segments[0]?.speaker).toBe('Host');
 
     const second = await exporter.exportTranscriptJson('test-video');
     expect(second.ok).toBe(true);

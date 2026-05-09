@@ -62,6 +62,9 @@ function renderVideoMarkdown(dossier: VideoDossier): string {
       const statePrefix = claim.state === 'accepted' ? '' : `[${claim.state}] `;
       lines.push(`${index + 1}. [${claim.timestampLabel}](${claim.timestampUrl}) ${statePrefix}${claim.text}`);
       lines.push(`   - Excerpt: ${claim.excerptText}`);
+      if (claim.speaker) {
+        lines.push(`   - Speaker: ${claim.speaker}`);
+      }
       if (claim.domain || claim.classification) {
         const resolutionBits = [
           claim.domain ? `**Domain:** ${claim.domain}` : null,
@@ -140,6 +143,9 @@ function renderPlaylistMarkdown(dossier: PlaylistDossier): string {
         const statePrefix = claim.state === 'accepted' ? '' : `[${claim.state}] `;
         lines.push(`${index + 1}. [${claim.timestampLabel}](${claim.timestampUrl}) ${statePrefix}${claim.text}`);
         lines.push(`   - Excerpt: ${claim.excerptText}`);
+        if (claim.speaker) {
+          lines.push(`   - Speaker: ${claim.speaker}`);
+        }
         if (claim.domain || claim.classification) {
           const resolutionBits = [
             claim.domain ? `**Domain:** ${claim.domain}` : null,
@@ -254,6 +260,7 @@ export class DossierExporter {
         ? toNumber(excerpt.metadata?.['start'], 0)
         : toNumber(claim.metadata?.['startSeconds'], 0);
       const excerptText = excerpt ? normalizeText(excerpt.content ?? '') : '';
+      const speaker = getStringMetadata(excerpt?.metadata, 'speaker');
 
       const referenceEdges = await this.graphStore.getEdges({
         predicate: 'claimMentionsReference',
@@ -275,6 +282,7 @@ export class DossierExporter {
         timestampUrl: buildTimestampUrl(baseUrl, timestampSeconds),
         excerptText: truncateText(excerptText, 220),
         excerptId: excerpt?.id,
+        speaker,
         referenceUrls,
         type: getStringMetadata(claim.metadata, 'type'),
         classification: getStringMetadata(claim.metadata, 'classification'),
@@ -374,6 +382,7 @@ export class DossierExporter {
           end,
           duration: Math.max(0, duration),
           text: normalizeText(excerpt.content ?? ''),
+          ...(typeof excerpt.metadata?.['speaker'] === 'string' ? { speaker: excerpt.metadata['speaker'] } : {}),
         };
       })
     );

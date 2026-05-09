@@ -31,7 +31,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.1     | 2026-05-08 | AI     | Initial sprint-ready task plan derived from planning audit and tech-debt backlog. | — | Draft | AIDHA-TASK-007 |
 | 0.2     | 2026-05-08 | AI     | Reorder around unblocked engineering payoff, add readiness map, separate maintainer-gated work, and strengthen validation contracts. | — | Draft | AIDHA-TASK-007 |
 | 0.3     | 2026-05-08 | AI     | Account for omitted backlog items with hygiene and extensibility sprint and complete scope criteria. | — | Draft | AIDHA-TASK-007 |
-| 0.4     | 2026-05-09 | AI     | Record completed verification, extraction-maintainability, and speaker parser slices. | — | Draft | AIDHA-TASK-007 |
+| 0.4     | 2026-05-09 | AI     | Record completed verification, extraction-maintainability, and speaker attribution slices. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -501,7 +501,7 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 ### T008-05-02: Persist, propagate, and document speaker metadata
 
 - **Backlog IDs:** TD-016
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Ingestion and extraction implementer
 - **Dependencies:** T008-05-01
 
@@ -517,12 +517,12 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 
 **Definition of done:**
 
-- [ ] Excerpt metadata includes speaker when available.
-- [ ] LLM prompt payload includes speaker for attributed excerpts.
-- [ ] Dossier output for non-speaker transcripts is unchanged.
-- [ ] Relevant schema/runbook/dossier docs are updated or explicitly deemed unaffected in the PR.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/transcript-parse.test.ts tests/pipeline.test.ts tests/llm-claims.test.ts --reporter=dot` passes.
-- [ ] `pnpm docs:build` passes.
+- [x] Excerpt metadata includes speaker when available.
+- [x] LLM prompt payload includes speaker for attributed excerpts.
+- [x] Dossier output for non-speaker transcripts is unchanged.
+- [x] Relevant schema/runbook/dossier docs are updated or explicitly deemed unaffected in the PR.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/transcript-parse.test.ts tests/pipeline.test.ts tests/llm-claims.test.ts --reporter=dot` passes.
+- [x] `pnpm docs:build` passes.
 
 ---
 

@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-02-23
-version: '1.17'
+last_updated: 2026-05-09
+version: '1.18'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.17
-> **Last Updated:** 2026-02-23
+> **Version:** 1.18
+> **Last Updated:** 2026-05-09
 > **Type:** RUNBOOK
 
 ## Version History
@@ -48,6 +48,7 @@ docops_version: '2.0'
 | 1.15    | 2026-02-09 | AI     | Add source-prefixed export filename defaults | — | Draft | — |
 | 1.16    | 2026-02-15 | AI     | Document config file setup for ingestion runs | — | Draft | — |
 | 1.17    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
+| 1.18    | 2026-05-09 | AI     | Document optional speaker metadata propagation for excerpts, prompts, and exports. | — | Draft | AIDHA-TASK-008 |
 
 ## Purpose
 
@@ -215,6 +216,11 @@ auditing steps.
    ```
 
    Without `--out`, default is `./out/transcript-youtube-<id>.json`.
+
+   Transcript segment exports include `speaker` only when the transcript parser extracted a
+   high-confidence speaker label. Speaker labels are also persisted on Excerpt metadata and passed
+   through to LLM excerpt payloads, so multi-speaker interviews can preserve attribution without
+   changing output for single-speaker transcripts.
 
 - **Create area/goal/project planning nodes**
 

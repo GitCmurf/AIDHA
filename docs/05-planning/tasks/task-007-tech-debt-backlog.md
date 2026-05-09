@@ -31,7 +31,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.1     | 2026-05-03 | AI     | Add deferred items from eval adversarial-review remediation batch. | — | Draft | — |
 | 1.2     | 2026-05-07 | AI     | Convert WIP register into governed task backlog and add final review follow-ups. | — | Draft | — |
 | 1.3     | 2026-05-08 | AI     | Add audited gaps from recent planning/task files and align backlog with Task 008 sprint plan. | — | Draft | — |
-| 1.4     | 2026-05-09 | AI     | Record resolved Task 008 extraction-maintainability slices and speaker parser progress. | — | Draft | AIDHA-TASK-008 |
+| 1.4     | 2026-05-09 | AI     | Record resolved Task 008 extraction-maintainability and speaker attribution slices. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -96,7 +96,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -1145,9 +1145,9 @@ quality for debate/interview content.
 
 - [x] Existing transcript fixtures still parse without speaker fields.
 - [x] Speaker-prefixed transcript fixtures parse into text plus speaker without timestamp drift.
-- [ ] Excerpt nodes persist speaker metadata when present.
-- [ ] LLM claim prompts include speaker fields for speaker-attributed excerpts.
-- [ ] Dossier or trace output exposes speaker attribution without changing output for transcripts
+- [x] Excerpt nodes persist speaker metadata when present.
+- [x] LLM claim prompts include speaker fields for speaker-attributed excerpts.
+- [x] Dossier or trace output exposes speaker attribution without changing output for transcripts
   that lack speakers.
 
 **Validation commands:**
@@ -1159,12 +1159,14 @@ quality for debate/interview content.
 Speaker-prefix parsing is heuristic. Keep it optional and non-destructive: preserve original text if
 the parser is uncertain.
 
-**Progress:**
-On 2026-05-09, the parser/schema slice was completed. `TranscriptSegment` now supports optional
-`speaker`, transcript parsers extract conservative speaker cues from XML, JSON3, VTT voice tags,
-and TTML, and false-positive fixtures keep ambiguous labels such as `Note:`, `Q:`, timecodes, URI
-schemes, and code-like lowercase keys untouched. Excerpt persistence, LLM prompt propagation, and
-dossier rendering remain open under T008-05-02.
+**Resolution:**
+Resolved on 2026-05-09 across the Task 008 speaker slices. `TranscriptSegment` now supports
+optional `speaker`, transcript parsers extract conservative speaker cues from XML, JSON3, VTT voice
+tags, and TTML, and false-positive fixtures keep ambiguous labels such as `Note:`, `Q:`, timecodes,
+URI schemes, and code-like lowercase keys untouched. Ingestion persists speaker labels on Excerpt
+metadata, Pass 1 and self-improvement excerpt payloads include speaker labels when present, and
+dossier/transcript exports expose speaker attribution without adding fields for unattributed
+segments.
 
 ---
 

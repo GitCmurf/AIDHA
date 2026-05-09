@@ -57,7 +57,7 @@ const MOCK_TRANSCRIPTS: Record<string, Transcript> = {
     videoId: 'test-video',
     language: 'en',
     segments: [
-      { start: 0, duration: 5, text: 'Hello and welcome to this tutorial.' },
+      { start: 0, duration: 5, speaker: 'Host', text: 'Hello and welcome to this tutorial.' },
       {
         start: 5,
         duration: 5,

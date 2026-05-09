@@ -71,6 +71,7 @@ describe('IngestionPipeline', () => {
       expect(firstExcerpt.metadata).toMatchObject({
         videoId: 'test-video',
         resourceId: 'youtube-test-video',
+        speaker: 'Host',
       });
     });
 

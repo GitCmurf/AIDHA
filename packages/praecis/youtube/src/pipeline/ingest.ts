@@ -333,6 +333,7 @@ export class IngestionPipeline {
           end: segment.start + segment.duration,
           sequence: index,
           source: 'youtube',
+          ...(segment.speaker ? { speaker: segment.speaker } : {}),
         },
       };
       const upsert = await this.graphStore.upsertNode('Excerpt', excerptId, data, { detectNoop: true });

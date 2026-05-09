@@ -1106,7 +1106,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     chunkCount: number;
     promptPackId: ExtractionPromptPackId;
   }): {
-    excerptsPayload: Array<{ id: string; startSeconds: number; text: string }>;
+    excerptsPayload: Array<{ id: string; startSeconds: number; text: string; speaker?: string }>;
     system: string;
     user: string;
     totalRequestTokens: number;
@@ -1116,6 +1116,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       id: excerpt.id,
       startSeconds: toNumber(excerpt.metadata?.['start'], 0),
       text: normalizeText(excerpt.content ?? ''),
+      ...(typeof excerpt.metadata?.['speaker'] === 'string' ? { speaker: excerpt.metadata['speaker'] } : {}),
     }));
 
     let system: string;
@@ -1714,6 +1715,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
           id: excerpt.id,
           startSeconds: toNumber(excerpt.metadata?.['start'], 0),
           text: normalizeText(excerpt.content ?? ''),
+          ...(typeof excerpt.metadata?.['speaker'] === 'string' ? { speaker: excerpt.metadata['speaker'] } : {}),
         }))
         .sort((left, right) => {
           const leftReferenced = referencedExcerptIds.has(left.id) ? 0 : 1;

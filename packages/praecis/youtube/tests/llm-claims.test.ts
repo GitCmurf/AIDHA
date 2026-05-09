@@ -168,6 +168,69 @@ describe('LLM claim extraction', () => {
     await store.close();
   });
 
+  it('includes speaker metadata in excerpt payloads when present', async () => {
+    const resourceId = 'youtube-llm-speaker';
+    await store.upsertNode(
+      'Resource',
+      resourceId,
+      {
+        label: 'Speaker metadata video',
+        metadata: { videoId: 'llm-speaker' },
+      },
+      { detectNoop: true }
+    );
+    await store.upsertNode(
+      'Excerpt',
+      'speaker-excerpt-1',
+      {
+        label: 'Speaker excerpt',
+        content: 'Protein synthesis increases after resistance training.',
+        metadata: {
+          resourceId,
+          videoId: 'llm-speaker',
+          start: 12,
+          duration: 8,
+          sequence: 0,
+          speaker: 'Dr. Smith',
+        },
+      },
+      { detectNoop: true }
+    );
+
+    const resource = await store.getNode(resourceId);
+    const excerptResults = await store.queryNodes({ type: 'Excerpt', filters: { resourceId } });
+    expect(resource.ok).toBe(true);
+    expect(excerptResults.ok).toBe(true);
+    if (!resource.ok || !resource.value || !excerptResults.ok) return;
+
+    const client = new RecordingStubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Resistance training increases protein synthesis.',
+            excerptIds: ['speaker-excerpt-1'],
+            startSeconds: 12,
+            confidence: 0.8,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-speaker-cache-'));
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v2',
+      cacheDir,
+    });
+
+    await extractor.extractClaims({ resource: resource.value, excerpts: excerptResults.value.items, maxClaims: 3 });
+
+    expect(client.requests[0]?.user).toContain('"speaker": "Dr. Smith"');
+    expect(client.requests[0]?.user).toContain('"id": "speaker-excerpt-1"');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
   it('caches LLM responses per chunk', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-video');
     const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
