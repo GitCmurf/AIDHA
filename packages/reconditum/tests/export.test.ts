@@ -3,11 +3,17 @@
  */
 import { describe, it, expect } from 'vitest';
 import { toJsonLd, nodeToJsonLd, serializeJsonLd, JSONLD_CONTEXT } from '../src/export/index.js';
-import type { GraphNode, GraphEdge } from '../src/schema/index.js';
+import {
+  CURRENT_GRAPH_SCHEMA_VERSION,
+  CURRENT_JSONLD_EXPORT_SCHEMA_VERSION,
+  type GraphNode,
+  type GraphEdge,
+} from '../src/schema/index.js';
 
 describe('JSON-LD export', () => {
   const testNode: GraphNode = {
     id: 'node-1',
+    schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
     type: 'Knowledge',
     label: 'Test Knowledge',
     content: 'This is test content',
@@ -22,6 +28,7 @@ describe('JSON-LD export', () => {
 
       expect(result['@id']).toBe('urn:aidha:node:node-1');
       expect(result['@type']).toBe('Knowledge');
+      expect(result.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
       expect(result.label).toBe('Test Knowledge');
       expect(result.content).toBe('This is test content');
       expect(result.createdAt).toBe('2025-01-01T00:00:00.000Z');
@@ -44,6 +51,7 @@ describe('JSON-LD export', () => {
       const doc = toJsonLd([testNode]);
 
       expect(doc['@context']).toEqual(JSONLD_CONTEXT['@context']);
+      expect(doc.schemaVersion).toBe(CURRENT_JSONLD_EXPORT_SCHEMA_VERSION);
       expect(doc['@graph']).toHaveLength(1);
       expect(doc['@graph'][0]?.['@id']).toBe('urn:aidha:node:node-1');
     });
@@ -67,6 +75,7 @@ describe('JSON-LD export', () => {
       const edges: GraphEdge[] = [
         {
           subject: 'node-1',
+          schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
           predicate: 'relatedTo',
           object: 'node-2',
           metadata: {},
@@ -88,8 +97,8 @@ describe('JSON-LD export', () => {
       ];
 
       const edges: GraphEdge[] = [
-        { subject: 'node-1', predicate: 'relatedTo', object: 'node-2', metadata: {}, createdAt: '2025-01-01T00:00:00.000Z' },
-        { subject: 'node-1', predicate: 'relatedTo', object: 'node-3', metadata: {}, createdAt: '2025-01-01T00:00:00.000Z' },
+        { subject: 'node-1', schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION, predicate: 'relatedTo', object: 'node-2', metadata: {}, createdAt: '2025-01-01T00:00:00.000Z' },
+        { subject: 'node-1', schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION, predicate: 'relatedTo', object: 'node-3', metadata: {}, createdAt: '2025-01-01T00:00:00.000Z' },
       ];
 
       const doc = toJsonLd(nodes, edges);

@@ -7,6 +7,7 @@
  * Uses RDF-style subject-predicate-object triple structure.
  */
 import { z } from 'zod';
+import { CURRENT_GRAPH_SCHEMA_VERSION } from './version.js';
 
 /**
  * Predicate types for edges (relationship semantics).
@@ -45,6 +46,9 @@ export type EdgeMetadata = z.infer<typeof EdgeMetadata>;
  * Follows RDF triple pattern: (subject) --[predicate]--> (object)
  */
 export const GraphEdge = z.object({
+  /** Durable graph edge contract version */
+  schemaVersion: z.literal(CURRENT_GRAPH_SCHEMA_VERSION).default(CURRENT_GRAPH_SCHEMA_VERSION),
+
   /** Subject node ID (source of the relationship) */
   subject: z.string().min(1),
 
@@ -67,6 +71,7 @@ export type GraphEdge = z.infer<typeof GraphEdge>;
  * Input schema for creating a new edge (auto-generates timestamp).
  */
 export const CreateEdgeInput = GraphEdge.omit({
+  schemaVersion: true,
   createdAt: true,
 });
 

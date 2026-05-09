@@ -11,6 +11,7 @@ import {
   NodeType,
   Predicate,
   SourceType,
+  CURRENT_GRAPH_SCHEMA_VERSION,
 } from '../src/schema/index.js';
 
 describe('GraphNode schema', () => {
@@ -27,6 +28,9 @@ describe('GraphNode schema', () => {
   it('accepts valid node data', () => {
     const result = GraphNode.safeParse(validNode);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
+    }
   });
 
   it('rejects node without id', () => {
@@ -85,6 +89,9 @@ describe('GraphEdge schema', () => {
   it('accepts valid edge data', () => {
     const result = GraphEdge.safeParse(validEdge);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
+    }
   });
 
   it('rejects invalid predicate', () => {

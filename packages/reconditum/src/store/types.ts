@@ -98,6 +98,7 @@ export interface ExportSnapshotOptions {
 }
 
 export interface GraphSnapshot {
+  schemaVersion: number;
   nodes: GraphNode[];
   edges: GraphEdge[];
 }

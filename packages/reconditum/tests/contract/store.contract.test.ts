@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore, SQLiteStore } from '../../src/store/index.js';
 import type { GraphStore } from '../../src/store/types.js';
+import { CURRENT_GRAPH_SCHEMA_VERSION } from '../../src/schema/index.js';
 
 type StoreFactory = () => GraphStore;
 
@@ -22,6 +23,7 @@ function runGraphStoreContract(name: string, createStore: StoreFactory): void {
       expect(first.ok).toBe(true);
       if (!first.ok) return;
       expect(first.value.created).toBe(true);
+      expect(first.value.node.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
 
       const second = await store.upsertNode('Resource', 'node-1', data, { detectNoop: true });
       expect(second.ok).toBe(true);
@@ -69,6 +71,7 @@ function runGraphStoreContract(name: string, createStore: StoreFactory): void {
       expect(first.ok).toBe(true);
       if (!first.ok) return;
       expect(first.value.created).toBe(true);
+      expect(first.value.edge.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
 
       const second = await store.upsertEdge('t1', 'taskDependsOn', 't2', { metadata: { weight: 1 } }, { detectNoop: true });
       expect(second.ok).toBe(true);
@@ -121,6 +124,7 @@ function runGraphStoreContract(name: string, createStore: StoreFactory): void {
       const snapshot = await store.exportSnapshot({ scope: 'knowledge' });
       expect(snapshot.ok).toBe(true);
       if (!snapshot.ok) return;
+      expect(snapshot.value.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
       const ids = snapshot.value.nodes.map(node => node.id);
       expect(ids).not.toContain('proj-1');
       expect(snapshot.value.edges).toHaveLength(0);

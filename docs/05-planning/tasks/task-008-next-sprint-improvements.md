@@ -532,7 +532,7 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 ### T008-06-01: Define and implement graph/export schema-version stamping
 
 - **Backlog IDs:** TD-017
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Data-model implementer
 - **Dependencies:** None
 
@@ -549,13 +549,13 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 
 **Definition of done:**
 
-- [ ] Version policy is documented in code comments or a governed doc.
-- [ ] New graph writes under selected contracts include `schemaVersion`.
-- [ ] Export JSON includes an artifact schema version.
-- [ ] Migration runner is not implemented unless a real migration is part of the same PR.
-- [ ] `pnpm --dir packages/reconditum test` passes if graph store code changes.
-- [ ] `pnpm --dir packages/praecis/youtube test` passes if export or YouTube package code changes.
-- [ ] `pnpm docs:build` passes.
+- [x] Version policy is documented in code comments or a governed doc.
+- [x] New graph writes under selected contracts include `schemaVersion`.
+- [x] Export JSON includes an artifact schema version.
+- [x] Migration runner is not implemented unless a real migration is part of the same PR.
+- [x] `pnpm --dir packages/reconditum test` passes if graph store code changes.
+- [x] YouTube package test gate is not applicable; no YouTube package code changed.
+- [x] `pnpm docs:build` passes.
 
 ---
 

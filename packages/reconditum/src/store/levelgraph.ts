@@ -40,7 +40,11 @@ import type {
   Predicate,
   LevelGraphTriple,
 } from '../schema/index.js';
-import { GraphNode as GraphNodeSchema, GraphEdge as GraphEdgeSchema } from '../schema/index.js';
+import {
+  CURRENT_GRAPH_SCHEMA_VERSION,
+  GraphNode as GraphNodeSchema,
+  GraphEdge as GraphEdgeSchema,
+} from '../schema/index.js';
 import {
   nowIso,
   deepEqual,
@@ -77,6 +81,7 @@ function tripleToEdge(triple: LevelGraphTriple): GraphEdge | null {
     subject: triple.subject,
     predicate: triple.predicate,
     object: triple.object,
+    schemaVersion: triple['schemaVersion'],
     metadata: triple['metadata'] ?? {},
     createdAt: triple['createdAt'],
   });
@@ -166,6 +171,7 @@ export class LevelGraphStore implements GraphStore {
       if (!existing) {
         const timestamp = nowIso();
         const node: GraphNode = {
+          schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
           id,
           type,
           label: data.label,
@@ -198,6 +204,7 @@ export class LevelGraphStore implements GraphStore {
 
       const updated: GraphNode = {
         ...existing,
+        schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
         id: existing.id,
         type,
         label: data.label,
@@ -237,6 +244,7 @@ export class LevelGraphStore implements GraphStore {
 
       const node = GraphNodeSchema.parse({
         id: triple['id'],
+        schemaVersion: triple['schemaVersion'],
         type: triple['type'],
         label: triple['label'],
         content: triple['content'],
@@ -284,6 +292,7 @@ export class LevelGraphStore implements GraphStore {
         try {
           const node = GraphNodeSchema.parse({
             id: triple['id'],
+            schemaVersion: triple['schemaVersion'],
             type: triple['type'],
             label: triple['label'],
             content: triple['content'],
@@ -329,6 +338,7 @@ export class LevelGraphStore implements GraphStore {
 
       if (!existingEdge) {
         const edge: GraphEdge = {
+          schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
           subject,
           predicate,
           object,
@@ -340,6 +350,7 @@ export class LevelGraphStore implements GraphStore {
           subject: validated.subject,
           predicate: validated.predicate,
           object: validated.object,
+          schemaVersion: validated.schemaVersion,
           metadata: validated.metadata,
           createdAt: validated.createdAt,
         };
@@ -354,6 +365,7 @@ export class LevelGraphStore implements GraphStore {
 
       const updated: GraphEdge = {
         ...existingEdge,
+        schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
         subject,
         predicate,
         object,
@@ -366,6 +378,7 @@ export class LevelGraphStore implements GraphStore {
         subject: validated.subject,
         predicate: validated.predicate,
         object: validated.object,
+        schemaVersion: validated.schemaVersion,
         metadata: validated.metadata,
         createdAt: validated.createdAt,
       };
@@ -418,7 +431,7 @@ export class LevelGraphStore implements GraphStore {
       if (!edgesResult.ok) return { ok: false, error: edgesResult.error };
       let edges = edgesResult.value.items.filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
       edges = sortEdges(edges);
-      return { ok: true, value: { nodes: sortedNodes, edges } };
+      return { ok: true, value: { schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION, nodes: sortedNodes, edges } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

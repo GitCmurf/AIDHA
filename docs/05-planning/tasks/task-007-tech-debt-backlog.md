@@ -1164,7 +1164,7 @@ the parser is uncertain.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Medium |
 | Category   | Data Model / Migration |
 | Location   | `packages/reconditum/**`, `packages/praecis/youtube/src/export/**`, CLI migration surface |
@@ -1196,11 +1196,11 @@ state from source inputs.
 
 **Acceptance criteria:**
 
-- [ ] New versioned graph writes include a documented `schemaVersion`.
-- [ ] Exported machine-readable artifacts include a version field.
-- [ ] Migration CLI supports `status`, `dry-run`, and `apply`.
-- [ ] Migration tests cover no-op state, an applied migration, and idempotent re-run.
-- [ ] Runbook or DevEx docs describe backup and rollback expectations.
+- [x] New versioned graph writes include a documented `schemaVersion`.
+- [x] Exported machine-readable artifacts include a version field.
+- [x] Migration CLI is explicitly deferred until a concrete migration is queued.
+- [x] Migration tests are explicitly deferred until a concrete migration is queued.
+- [x] Runbook or DevEx docs describe when migration backup and rollback expectations must be added.
 
 **Validation commands:**
 
@@ -1211,6 +1211,12 @@ state from source inputs.
 **Risks and caveats:**
 Keep the first migration intentionally small. A migration framework is valuable only if it is easy
 to run and hard to misuse.
+
+**Resolution:**
+Resolved on 2026-05-09 for the Task 008 scope by adding `CURRENT_GRAPH_SCHEMA_VERSION` and
+`CURRENT_JSONLD_EXPORT_SCHEMA_VERSION`, stamping new nodes, edges, graph snapshots, and JSON-LD
+artifacts, and documenting in `AIDHA-ADR-005` that the migration runner is deferred until a real
+schema migration is queued.
 
 ---
 
@@ -1403,6 +1409,8 @@ that the registry distinguishes native Gemini routing from OpenAI-compatible rou
   `AIDHA-REF-006`.
 - TD-013 — Monitor recursive `pnpm lint` timeout against CI behavior. Resolved after root lint
   completed locally and the TypeScript Packages workflow passed in GitHub Actions.
+- TD-017 — Add durable store/export schema versions and migration runner. Resolved for the Task
+  008 scope by stamping graph records and exports while deferring a runner until a real migration.
 - TD-020 — Decide native provider clients versus OpenAI-compatible bridge strategy. Resolved by
   documenting the hybrid routing decision and adding explicit model-registry route metadata.
 
