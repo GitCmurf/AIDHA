@@ -123,7 +123,7 @@ Findings:
 ### T008-00-01: Confirm ledger readiness and PR protocol
 
 - **Backlog IDs:** AIDHA-TASK-007 overall
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Agentic coding orchestrator
 - **Dependencies:** None
 
@@ -328,10 +328,10 @@ without displacing higher-payoff performance and architecture work.
 
 **Definition of done:**
 
-- [ ] No provider config env-var lookup logic is duplicated across equivalent functions.
-- [ ] Provider-specific fields remain explicit rather than hidden behind a leaky abstraction.
-- [ ] Adding a new similar provider requires a new spec literal, not a copied function body.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/cli-config*.test.ts --reporter=dot` passes.
+- [x] No provider config env-var lookup logic is duplicated across equivalent functions.
+- [x] Provider-specific fields remain explicit rather than hidden behind a leaky abstraction.
+- [x] Adding a new similar provider requires a new spec literal, not a copied function body.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/cli-config*.test.ts --reporter=dot` passes.
 
 ### T008-03-02: Clarify coverage scoring public/test boundary
 

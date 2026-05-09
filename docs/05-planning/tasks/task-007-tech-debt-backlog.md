@@ -363,7 +363,7 @@ with the pre-indexed harness/fallback maps introduced for TD-002.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Maintainability |
 | Location   | `packages/praecis/youtube/src/cli-eval.ts`, `getOpenAiConfig` / `getZaiConfig` / `getXiaomiConfig` and similar |
@@ -425,9 +425,9 @@ rather than trusting a shared abstraction.
 
 **Acceptance criteria:**
 
-- [ ] No provider config env-var lookup logic is duplicated across functions.
-- [ ] All existing CLI tests pass (including the config phase gate tests).
-- [ ] Adding a hypothetical sixth provider requires only a new `ProviderConfigSpec` literal, not
+- [x] No provider config env-var lookup logic is duplicated across functions.
+- [x] All existing CLI tests pass (including the config phase gate tests).
+- [x] Adding a hypothetical sixth provider requires only a new `ProviderConfigSpec` literal, not
   a new function body.
 
 **Risks and caveats:**
@@ -436,6 +436,12 @@ API key, organisation ID, custom headers) that are not immediately visible from 
 The factory must handle all variations or the abstraction will be leaky. If more than one or two
 providers have unique shapes, it may be cleaner to keep explicit functions and accept the
 duplication as intentional.
+
+**Resolution:**
+Resolved on 2026-05-09 by introducing `ProviderConfigSpec`, `PROVIDER_CONFIG_SPECS`, and
+`makeProviderConfig(...)` in `packages/praecis/youtube/src/cli-eval.ts`. Named provider wrappers
+remain in place, while provider-specific key reuse and base-URL normalization are explicit spec
+functions for OpenAI, Google AI Studio, ZAI, Xiaomi, and OpenRouter.
 
 ---
 
@@ -1347,6 +1353,8 @@ real capability gap.
   claim-set indexes for harness and fallback cells.
 - TD-003 — Extract `buildComparableClaimSets` helper. Resolved by centralising comparable
   claim-set construction in `buildComparableClaimSetsForVideo(...)`.
+- TD-004 — Collapse provider config getter functions into a factory. Resolved by adding
+  `ProviderConfigSpec` and `makeProviderConfig(...)` while preserving named wrappers.
 - TD-005 — Consolidate narrow-stage input signature builders. Resolved by extracting shared
   `buildNarrowStageSignaturePayload(...)` normalization while preserving stage-specific wrapper
   signatures.

@@ -37,87 +37,133 @@ import { sanitizeFilename } from "./utils/ids.js";
 // Provider Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
-  const envKey = process.env["OPENAI_API_KEY"] || process.env["AIDHA_OPENAI_API_KEY"];
-  const looksLikeOpenAiKey = apiKey.startsWith("sk-") && !apiKey.startsWith("sk-or-");
-  // Preserve configured OpenAI-compatible endpoints even when the profile
-  // heuristic does not classify the base config as a provider profile.
-  const effectiveBaseUrl = baseUrl || baseConfigBaseUrl || "https://api.openai.com/v1";
-  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
+interface ProviderConfigContext {
+  apiKey: string;
+  baseUrl?: string;
+  baseConfigBaseUrl?: string;
+  isProviderProfile?: boolean;
+}
+
+interface ProviderConfigSpec {
+  envKeys: string[];
+  defaultBaseUrl: string;
+  resolveBaseUrl?: (context: ProviderConfigContext, defaultBaseUrl: string) => string;
+  shouldReuseProfileKey?: (context: ProviderConfigContext) => boolean;
+}
+
+interface ProviderConnectionConfig {
+  apiKey: string;
+  baseUrl: string;
+}
+
+const resolveProviderEnvKey = (envKeys: string[]): string | undefined => {
+  for (const envKey of envKeys) {
+    const value = process.env[envKey];
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const resolveProfileScopedBaseUrl = (
+  context: ProviderConfigContext,
+  defaultBaseUrl: string
+): string => context.baseUrl || (context.isProviderProfile ? context.baseConfigBaseUrl : "") || defaultBaseUrl;
+
+const makeProviderConfig = (
+  spec: ProviderConfigSpec,
+  context: ProviderConfigContext
+): ProviderConnectionConfig => {
+  const envKey = resolveProviderEnvKey(spec.envKeys);
+  const baseUrl = spec.resolveBaseUrl
+    ? spec.resolveBaseUrl(context, spec.defaultBaseUrl)
+    : resolveProfileScopedBaseUrl(context, spec.defaultBaseUrl);
+
+  if (envKey) {
+    return { apiKey: envKey, baseUrl };
+  }
+
+  const shouldReuseProfileKey = spec.shouldReuseProfileKey
+    ? spec.shouldReuseProfileKey(context)
+    : !!context.isProviderProfile;
 
   return {
-    apiKey: isProviderProfile || looksLikeOpenAiKey ? apiKey : "",
-    baseUrl: effectiveBaseUrl
+    apiKey: shouldReuseProfileKey ? context.apiKey : "",
+    baseUrl,
   };
+};
+
+const PROVIDER_CONFIG_SPECS = {
+  openai: {
+    envKeys: ["OPENAI_API_KEY", "AIDHA_OPENAI_API_KEY"],
+    defaultBaseUrl: "https://api.openai.com/v1",
+    resolveBaseUrl: (context, defaultBaseUrl) =>
+      context.baseUrl || context.baseConfigBaseUrl || defaultBaseUrl,
+    shouldReuseProfileKey: (context) =>
+      !!context.isProviderProfile || (context.apiKey.startsWith("sk-") && !context.apiKey.startsWith("sk-or-")),
+  },
+  "google-aistudio": {
+    envKeys: ["GOOGLE_AISTUDIO_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "AIDHA_GOOGLE_API_KEY"],
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    resolveBaseUrl: (context, defaultBaseUrl) => {
+      const effectiveBaseUrl = context.baseUrl || (context.isProviderProfile ? context.baseConfigBaseUrl : "");
+      if (isOpenAiBaseUrl(effectiveBaseUrl)) return defaultBaseUrl;
+      return effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : defaultBaseUrl;
+    },
+    shouldReuseProfileKey: (context) =>
+      !!context.isProviderProfile || context.apiKey.startsWith("AIza"),
+  },
+  zai: {
+    envKeys: ["ZAI_API_KEY", "AIDHA_ZAI_API_KEY"],
+    defaultBaseUrl: "https://api.zai.ai/v1",
+    shouldReuseProfileKey: (context) =>
+      !!context.isProviderProfile || context.apiKey.startsWith("zai-"),
+  },
+  xiaomi: {
+    envKeys: ["XIAOMI_API_KEY", "AIDHA_XIAOMI_API_KEY"],
+    defaultBaseUrl: "https://api.xiaomi.com/v1",
+    shouldReuseProfileKey: (context) =>
+      !!context.isProviderProfile || context.apiKey.startsWith("xiaomi-"),
+  },
+  openrouter: {
+    envKeys: ["OPENROUTER_API_KEY", "AIDHA_OPENROUTER_API_KEY"],
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
+    resolveBaseUrl: (context, defaultBaseUrl) => {
+      const baseConfigHostname = getHostnameFromUrl(context.baseConfigBaseUrl);
+      const looksLikeOpenRouterHost = baseConfigHostname === "openrouter.ai"
+        || (baseConfigHostname?.endsWith(".openrouter.ai") ?? false);
+      const useProfile = !!context.isProviderProfile
+        || context.apiKey.startsWith("sk-or-v1-")
+        || looksLikeOpenRouterHost;
+      return context.baseUrl || (useProfile ? context.baseConfigBaseUrl : "") || defaultBaseUrl;
+    },
+    shouldReuseProfileKey: (context) => {
+      const baseConfigHostname = getHostnameFromUrl(context.baseConfigBaseUrl);
+      const looksLikeOpenRouterHost = baseConfigHostname === "openrouter.ai"
+        || (baseConfigHostname?.endsWith(".openrouter.ai") ?? false);
+      return !!context.isProviderProfile || context.apiKey.startsWith("sk-or-v1-") || looksLikeOpenRouterHost;
+    },
+  },
+} satisfies Record<string, ProviderConfigSpec>;
+
+const getOpenAiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
+  return makeProviderConfig(PROVIDER_CONFIG_SPECS.openai, { apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile });
 };
 
 const getGoogleAiStudioConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
-  const envKey =
-    process.env["GOOGLE_AISTUDIO_API_KEY"] ||
-    process.env["GEMINI_API_KEY"] ||
-    process.env["GOOGLE_API_KEY"] ||
-    process.env["AIDHA_GOOGLE_API_KEY"];
-
-  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "");
-  const isOpenAiHost = isOpenAiBaseUrl(effectiveBaseUrl);
-  const finalBaseUrl = isOpenAiHost
-        ? "https://generativelanguage.googleapis.com/v1beta"
-        : (effectiveBaseUrl ? effectiveBaseUrl.replace(/\/openai\/?$/, "") : "https://generativelanguage.googleapis.com/v1beta");
-  const looksLikeGoogleApiKey = apiKey.startsWith("AIza");
-  const shouldReuseProfileKey = isProviderProfile || looksLikeGoogleApiKey;
-
-  if (envKey) return { apiKey: envKey, baseUrl: finalBaseUrl };
-
-  return {
-    apiKey: shouldReuseProfileKey ? apiKey : "",
-    baseUrl: finalBaseUrl
-  };
+  return makeProviderConfig(PROVIDER_CONFIG_SPECS["google-aistudio"], { apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile });
 };
 
 const getZaiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
-  const envKey = process.env["ZAI_API_KEY"] || process.env["AIDHA_ZAI_API_KEY"];
-  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.zai.ai/v1";
-  const shouldReuseProfileKey = isProviderProfile || apiKey.startsWith("zai-");
-  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
-
-  return {
-    apiKey: shouldReuseProfileKey ? apiKey : "",
-    baseUrl: effectiveBaseUrl
-  };
+  return makeProviderConfig(PROVIDER_CONFIG_SPECS.zai, { apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile });
 };
 
 const getXiaomiConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
-  const envKey = process.env["XIAOMI_API_KEY"] || process.env["AIDHA_XIAOMI_API_KEY"];
-  const effectiveBaseUrl = baseUrl || (isProviderProfile ? baseConfigBaseUrl : "") || "https://api.xiaomi.com/v1";
-  const shouldReuseProfileKey = isProviderProfile || apiKey.startsWith("xiaomi-");
-  if (envKey) return { apiKey: envKey, baseUrl: effectiveBaseUrl };
-
-  return {
-    apiKey: shouldReuseProfileKey ? apiKey : "",
-    baseUrl: effectiveBaseUrl
-  };
+  return makeProviderConfig(PROVIDER_CONFIG_SPECS.xiaomi, { apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile });
 };
 
 // OpenRouter uses OpenAI-compatible routing with its own API key and base URL defaults.
 const getOpenRouterConfig = (apiKey: string, baseUrl?: string, baseConfigBaseUrl?: string, isProviderProfile?: boolean) => {
-  const envKey = process.env["OPENROUTER_API_KEY"] || process.env["AIDHA_OPENROUTER_API_KEY"];
-
-  // Only fall back to profile apiKey if it explicitly looks like an OpenRouter key or profile matches
-  const baseConfigHostname = getHostnameFromUrl(baseConfigBaseUrl);
-  const looksLikeOpenRouterHost = baseConfigHostname === "openrouter.ai" || (baseConfigHostname?.endsWith(".openrouter.ai") ?? false);
-  const looksLikeOpenRouter = apiKey.startsWith("sk-or-v1-") || looksLikeOpenRouterHost;
-  const useProfile = isProviderProfile || looksLikeOpenRouter;
-
-  const effectiveBaseUrl = baseUrl || (useProfile ? baseConfigBaseUrl : "") || "https://openrouter.ai/api/v1";
-
-  if (envKey) {
-    return { apiKey: envKey, baseUrl: effectiveBaseUrl };
-  }
-
-  return {
-    apiKey: useProfile ? apiKey : "",
-    baseUrl: effectiveBaseUrl
-  };
+  return makeProviderConfig(PROVIDER_CONFIG_SPECS.openrouter, { apiKey, baseUrl, baseConfigBaseUrl, isProviderProfile });
 };
 
 type ProviderConfigGetter = (
