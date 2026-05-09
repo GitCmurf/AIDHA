@@ -1236,13 +1236,6 @@ export function assessStructuralTargets(
   };
 }
 
-export function computeStructuralTargetScore(
-  claims: ClaimCandidate[],
-  transcriptProfile: TranscriptStructureProfile
-): number {
-  return assessStructuralTargets(claims, transcriptProfile).score;
-}
-
 async function scorePair(
   goldClaim: FlattenedGoldenClaimNode,
   candidate: ClaimCandidate,
@@ -1367,6 +1360,9 @@ function summarizeCoverage(
 
 export type EmbeddingBudgetState = { remainingEmbeddingRequests: number };
 
+// Production coverage primitive for narrow-baseline scoring. Tests import this
+// directly so they exercise the same strict/semantic/embedding behavior used by
+// report generation instead of relying on test-only wrapper exports.
 export async function computeCoverageByMode(
   candidateClaims: ClaimCandidate[],
   goldClaims: FlattenedGoldenClaimNode[],
@@ -1441,13 +1437,6 @@ export async function computeCoverageByMode(
   const summary = summarizeCoverage(goldClaims, candidateClaims, matchedPairs, mode, nearestMisses);
   coverageCache?.set(cacheKey, summary);
   return summary;
-}
-
-export async function computeGoldCoverage(
-  candidateClaims: ClaimCandidate[],
-  goldClaims: FlattenedGoldenClaimNode[]
-): Promise<GoldCoverageSummary> {
-  return computeCoverageByMode(candidateClaims, goldClaims, "strict");
 }
 
 function toTeacherClaimNodes(candidate: ComparableClaimSet): FlattenedGoldenClaimNode[] {

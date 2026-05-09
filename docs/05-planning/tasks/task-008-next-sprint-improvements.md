@@ -350,10 +350,10 @@ without displacing higher-payoff performance and architecture work.
 
 **Definition of done:**
 
-- [ ] There are no ambiguous test-only exports from `narrow-manual-baseline.ts`.
-- [ ] Coverage scoring tests still cover strict, semantic, and embedding modes.
-- [ ] Public package exports, if any, are intentional and documented in code.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
+- [x] There are no ambiguous test-only exports from `narrow-manual-baseline.ts`.
+- [x] Coverage scoring tests still cover strict, semantic, and embedding modes.
+- [x] Public package exports, if any, are intentional and documented in code.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passes.
 
 ### T008-03-03: Normalize config permission fixtures in test setup
 

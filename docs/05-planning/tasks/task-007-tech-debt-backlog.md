@@ -95,7 +95,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | Open |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -526,7 +526,7 @@ remaining narrow-baseline structural work is tracked separately in TD-006.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | Open |
 | Priority   | High |
 | Category   | Maintainability / Testability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, `runNarrowManualBaselineComparison` |
@@ -665,7 +665,7 @@ errors still reach stderr. This is a separation-of-concerns change, not a loggin
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Maintainability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, `computeGoldCoverage` / `computeStructuralTargetScore` |
@@ -697,15 +697,21 @@ API change.
 
 **Acceptance criteria:**
 
-- [ ] There are no ambiguous test-only exports from `narrow-manual-baseline.ts`.
-- [ ] Coverage scoring tests still cover strict, semantic, and embedding modes.
-- [ ] Public package exports, if any, are intentional and documented in code.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run packages/praecis/youtube/tests/eval/narrow-manual-baseline.test.ts --reporter=dot`
+- [x] There are no ambiguous test-only exports from `narrow-manual-baseline.ts`.
+- [x] Coverage scoring tests still cover strict, semantic, and embedding modes.
+- [x] Public package exports, if any, are intentional and documented in code.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot`
   passes.
 
 **Risks and caveats:**
 Do not reduce coverage just to hide an export. If these helpers are genuinely useful outside the
 large baseline runner, promote them into a small production module rather than burying them.
+
+**Resolution:**
+Resolved on 2026-05-09 by removing the unused exported `computeStructuralTargetScore(...)`
+wrapper and replacing the test-only `computeGoldCoverage(...)` wrapper with direct use of the
+production `computeCoverageByMode(...)` coverage primitive. The export boundary now documents
+`computeCoverageByMode(...)` as the supported narrow-baseline coverage surface.
 
 ---
 
@@ -1364,6 +1370,8 @@ real capability gap.
 - TD-005 — Consolidate narrow-stage input signature builders. Resolved by extracting shared
   `buildNarrowStageSignaturePayload(...)` normalization while preserving stage-specific wrapper
   signatures.
+- TD-008 — Replace test-only exported coverage wrappers with a stable test surface. Resolved by
+  removing wrapper exports and using the documented `computeCoverageByMode(...)` primitive.
 - TD-009 — Add collision protection to shortened deterministic IDs. Resolved by moving generated
   `hashId(...)` values to a 128-bit SHA-256 prefix and adding deterministic uniqueness tests.
 - TD-010 — Normalize config fixture permissions in test setup. Resolved by adding explicit

@@ -13,7 +13,6 @@ import {
   buildVideoScoreInputSignature,
   buildHarnessComparableClaimSet,
   computeOptimizationScore,
-  computeGoldCoverage,
   computeCoverageByMode,
   buildComparableCandidateId,
   needsFallbackForModel,
@@ -121,7 +120,7 @@ vi.mock("../../src/eval/gemini-embedding-client.js", () => ({
 
 describe("narrow-manual-baseline helpers", () => {
   it("computes root and child gold coverage separately", async () => {
-    const coverage = await computeGoldCoverage(
+    const coverage = await computeCoverageByMode(
       [
         { text: "Primary claim", excerptIds: ["e1"] },
         { text: "Supporting detail", excerptIds: ["e2"] },
@@ -130,7 +129,8 @@ describe("narrow-manual-baseline helpers", () => {
         { id: "video:1", parentId: undefined, depth: 0, path: [1], text: "Primary claim", type: "fact", evidence: undefined },
         { id: "video:1.1", parentId: "video:1", depth: 1, path: [1, 1], text: "Supporting detail", type: "fact", evidence: undefined },
         { id: "video:1.2", parentId: "video:1", depth: 1, path: [1, 2], text: "Missed child", type: "fact", evidence: undefined },
-      ]
+      ],
+      "strict"
     );
 
     expect(coverage.matched).toBe(2);
