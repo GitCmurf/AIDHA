@@ -187,6 +187,24 @@ class Semaphore {
   }
 }
 
+const withRequestBudget = async <T>(
+  requestSemaphore: Semaphore,
+  timeoutMs: number,
+  run: (signal: AbortSignal) => Promise<T>
+): Promise<T> => {
+  await requestSemaphore.acquire();
+  // Start the per-request timeout only after the shared slot is acquired so
+  // queueing time does not eat into the request's own LLM budget.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await run(controller.signal);
+  } finally {
+    clearTimeout(timeout);
+    requestSemaphore.release();
+  }
+};
+
 const JUDGE_PROMPT_OVERHEAD_TOKENS = 1000;
 const JUDGE_OUTPUT_TOKENS_ESTIMATE = 200;
 /**
@@ -246,9 +264,7 @@ const performExtraction = async (
   warnings?: string[];
   diagnostics: NonNullable<MatrixCell["extractionDiagnostics"]>;
 }> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
-  try {
+  return withRequestBudget(requestSemaphore, options.timeoutMs, async (signal) => {
     const chunkProfile = options.extractionChunkProfiles?.[modelId];
     const selfImproveHintKey = buildSelfImproveHintKey(videoId, variant, modelId, options.extractionPromptConfigId, options.extractionChunkModeId);
     const client = options.extractorClientFactory(modelId);
@@ -280,67 +296,60 @@ const performExtraction = async (
       },
     });
 
-    await requestSemaphore.acquire();
-    try {
-      const claims = await extractor.extractClaims({
-        resource,
-        excerpts,
-        signal: controller.signal,
-        collectTraces: true,
-      });
+    const claims = await extractor.extractClaims({
+      resource,
+      excerpts,
+      signal,
+      collectTraces: true,
+    });
 
-      const runStats = extractor.getLastRunStats();
-      const warnings: string[] = [];
-      if (runStats.transportRetryCount > 0) {
-        warnings.push(`transport-retries:${runStats.transportRetryCount}`);
-      }
-      if (runStats.fallbackChunkCount > 0) {
-        warnings.push(`fallback-chunks:${runStats.fallbackChunkCount}`);
-      }
-      if (runStats.transientFailureCount > 0) {
-        warnings.push(`transient-provider-errors:${runStats.transientFailureCount}`);
-      }
-      if (runStats.clientTimeoutCount > 0) {
-        warnings.push(`client-timeouts:${runStats.clientTimeoutCount}`);
-      }
-      if (runStats.upstreamAbortCount > 0) {
-        warnings.push(`upstream-aborts:${runStats.upstreamAbortCount}`);
-      }
-      if (runStats.retryTriggered) {
-        warnings.push(`prompt-retry:${runStats.retryReason ?? "retry-triggered"}->${runStats.retryPromptPackId ?? "unknown"}`);
-      }
-      if (options.extractionSelfImproveHints?.[selfImproveHintKey]) {
-        warnings.push("teacher-gap-hints-applied");
-      }
-
-      return {
-        claims,
-        traces: extractor.getLastTraces(),
-        warnings,
-        diagnostics: {
-          transportRetryCount: runStats.transportRetryCount,
-          fallbackChunkCount: runStats.fallbackChunkCount,
-          transientFailureCount: runStats.transientFailureCount,
-          clientTimeoutCount: runStats.clientTimeoutCount,
-          upstreamAbortCount: runStats.upstreamAbortCount,
-          chunkInputTokenCounts: runStats.chunkInputTokenCounts,
-          maxChunkInputTokens: runStats.maxChunkInputTokens,
-          selfImproveRoundCount: runStats.selfImproveRoundCount,
-          promptPackId: runStats.promptPackId,
-          routeSource: runStats.routeSource,
-          routeConfidence: runStats.routeConfidence,
-          routeSignals: runStats.routeSignals,
-          retryTriggered: runStats.retryTriggered,
-          retryReason: runStats.retryReason,
-          retryPromptPackId: runStats.retryPromptPackId,
-        },
-      };
-    } finally {
-      requestSemaphore.release();
+    const runStats = extractor.getLastRunStats();
+    const warnings: string[] = [];
+    if (runStats.transportRetryCount > 0) {
+      warnings.push(`transport-retries:${runStats.transportRetryCount}`);
     }
-  } finally {
-    clearTimeout(timeout);
-  }
+    if (runStats.fallbackChunkCount > 0) {
+      warnings.push(`fallback-chunks:${runStats.fallbackChunkCount}`);
+    }
+    if (runStats.transientFailureCount > 0) {
+      warnings.push(`transient-provider-errors:${runStats.transientFailureCount}`);
+    }
+    if (runStats.clientTimeoutCount > 0) {
+      warnings.push(`client-timeouts:${runStats.clientTimeoutCount}`);
+    }
+    if (runStats.upstreamAbortCount > 0) {
+      warnings.push(`upstream-aborts:${runStats.upstreamAbortCount}`);
+    }
+    if (runStats.retryTriggered) {
+      warnings.push(`prompt-retry:${runStats.retryReason ?? "retry-triggered"}->${runStats.retryPromptPackId ?? "unknown"}`);
+    }
+    if (options.extractionSelfImproveHints?.[selfImproveHintKey]) {
+      warnings.push("teacher-gap-hints-applied");
+    }
+
+    return {
+      claims,
+      traces: extractor.getLastTraces(),
+      warnings,
+      diagnostics: {
+        transportRetryCount: runStats.transportRetryCount,
+        fallbackChunkCount: runStats.fallbackChunkCount,
+        transientFailureCount: runStats.transientFailureCount,
+        clientTimeoutCount: runStats.clientTimeoutCount,
+        upstreamAbortCount: runStats.upstreamAbortCount,
+        chunkInputTokenCounts: runStats.chunkInputTokenCounts,
+        maxChunkInputTokens: runStats.maxChunkInputTokens,
+        selfImproveRoundCount: runStats.selfImproveRoundCount,
+        promptPackId: runStats.promptPackId,
+        routeSource: runStats.routeSource,
+        routeConfidence: runStats.routeConfidence,
+        routeSignals: runStats.routeSignals,
+        retryTriggered: runStats.retryTriggered,
+        retryReason: runStats.retryReason,
+        retryPromptPackId: runStats.retryPromptPackId,
+      },
+    };
+  });
 };
 
 const performScoring = async (
@@ -352,33 +361,24 @@ const performScoring = async (
   options: MatrixOptions,
   requestSemaphore: Semaphore
 ): Promise<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }> }> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
-  try {
+  return withRequestBudget(requestSemaphore, options.timeoutMs, async (signal) => {
     const judgeClient = options.judgeClientFactory(judgeModelId);
-    await requestSemaphore.acquire();
-    try {
-      const scoreResult = await scoreClaimSet(
-        judgeClient,
-        judgeModelId,
-        fullText,
-        claimSet,
-        videoContext,
-        options.judgeMaxTokens || 4000,
-        controller.signal
-      );
+    const scoreResult = await scoreClaimSet(
+      judgeClient,
+      judgeModelId,
+      fullText,
+      claimSet,
+      videoContext,
+      options.judgeMaxTokens || 4000,
+      signal
+    );
 
-      if (scoreResult.ok) {
-        return scoreResult.value;
-      } else {
-        throw scoreResult.error;
-      }
-    } finally {
-      requestSemaphore.release();
+    if (scoreResult.ok) {
+      return scoreResult.value;
+    } else {
+      throw scoreResult.error;
     }
-  } finally {
-    clearTimeout(timeout);
-  }
+  });
 };
 
 interface JudgeScoreOutcome {

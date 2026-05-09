@@ -380,6 +380,125 @@ describe("Matrix Runner Integration", () => {
     );
   });
 
+  it("should not count semaphore queue time toward judge timeouts", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+    ];
+    const models = [getModel("gpt-4o-mini")!];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
+    let activeJudgeCalls = 0;
+    let maxActiveJudgeCalls = 0;
+    const judgeClientFactory = () => ({
+      generate: vi.fn().mockImplementation(async () => {
+        activeJudgeCalls++;
+        maxActiveJudgeCalls = Math.max(maxActiveJudgeCalls, activeJudgeCalls);
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          return {
+            ok: true,
+            value: JSON.stringify({
+              completeness: 8,
+              accuracy: 8,
+              topicCoverage: 8,
+              atomicity: 8,
+              overallScore: 8,
+              reasoning: "Mock reasoning long enough",
+              missingClaims: [],
+              hallucinations: [],
+              redundancies: [],
+              gapAreas: []
+            })
+          };
+        } finally {
+          activeJudgeCalls--;
+        }
+      })
+    });
+
+    const result = await runEvaluationMatrix(corpus, models, {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: false,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+      maxConcurrency: 1,
+      timeoutMs: 50,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: judgeClientFactory as unknown as (modelId: string) => LlmClient,
+    });
+
+    expect(maxActiveJudgeCalls).toBe(1);
+    expect(result.metadata.failedCellCount).toBe(0);
+    expect(result.metadata.partialFailureCount).toBe(0);
+    expect(result.cells).toHaveLength(1);
+    expect(result.cells[0]?.scores).toHaveLength(3);
+  });
+
+  it("should not count semaphore queue time toward extraction timeouts", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+      createTestVideo("v2", 12, "low"),
+      createTestVideo("v3", 14, "low"),
+    ];
+    const models = [getModel("gpt-4o-mini")!];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
+    mockExtractionDelaysByVideoId.set("v1", 30);
+    mockExtractionDelaysByVideoId.set("v2", 30);
+    mockExtractionDelaysByVideoId.set("v3", 30);
+
+    const result = await runEvaluationMatrix(corpus, models, {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: false,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini"],
+      maxConcurrency: 1,
+      timeoutMs: 50,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: () => ({
+        generate: vi.fn().mockResolvedValue({
+          ok: true,
+          value: JSON.stringify({
+            completeness: 8,
+            accuracy: 8,
+            topicCoverage: 8,
+            atomicity: 8,
+            overallScore: 8,
+            reasoning: "Mock reasoning long enough",
+            missingClaims: [],
+            hallucinations: [],
+            redundancies: [],
+            gapAreas: []
+          })
+        })
+      }) as unknown as LlmClient,
+    });
+
+    expect(result.metadata.failedCellCount).toBe(0);
+    expect(result.metadata.partialFailureCount).toBe(0);
+    expect(result.cells).toHaveLength(3);
+    for (const cell of result.cells) {
+      expect(cell.scores).toHaveLength(1);
+      expect(cell.error).toBeUndefined();
+    }
+  });
+
   it("should keep extraction and judge calls within the shared maxConcurrency budget", async () => {
     const corpus = [
       createTestVideo("v1", 10, "low"),
