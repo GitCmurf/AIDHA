@@ -9,6 +9,19 @@ type TranscriptJson = { events?: TranscriptJsonEvent[] };
 
 const SPEAKER_LABEL_PATTERN = /^[\p{L}][\p{L}\p{N}.' -]{1,39}$/u;
 const AMBIGUOUS_PREFIXES = new Set(['a', 'q', 'note', 'update']);
+const AMBIGUOUS_LABEL_PATTERNS = [
+  /^docs?$/i,
+  /^summary$/i,
+  /^section(?:\s+\d+)?$/i,
+  /^chapter(?:\s+\d+)?$/i,
+  /^part(?:\s+\d+)?$/i,
+  /^slide(?:\s+\d+)?$/i,
+  /^agenda$/i,
+  /^overview$/i,
+  /^title$/i,
+  /^intro(?:duction)?$/i,
+  /^conclusion$/i,
+];
 
 function normalizeTranscriptText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
@@ -24,6 +37,7 @@ function parseSpeakerPrefix(text: string): Pick<TranscriptSegment, 'text' | 'spe
 
   const speakerLower = speaker.toLowerCase();
   if (AMBIGUOUS_PREFIXES.has(speakerLower)) return null;
+  if (AMBIGUOUS_LABEL_PATTERNS.some(pattern => pattern.test(speaker))) return null;
   if (/^\d/.test(speaker) || /^[a-z][\w-]*$/u.test(speaker)) return null;
   if (!SPEAKER_LABEL_PATTERN.test(speaker)) return null;
 

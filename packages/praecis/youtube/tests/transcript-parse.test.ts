@@ -131,6 +131,9 @@ describe('transcript parsing', () => {
   });
 
   it.each([
+    'Docs: keep this docs label intact',
+    'Summary: keep this summary intact',
+    'Section 1: keep this section label intact',
     'Note: keep this note intact',
     'Update: keep this update intact',
     'Q: keep this question marker intact',
