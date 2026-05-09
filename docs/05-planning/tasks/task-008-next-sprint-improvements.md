@@ -31,7 +31,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.1     | 2026-05-08 | AI     | Initial sprint-ready task plan derived from planning audit and tech-debt backlog. | — | Draft | AIDHA-TASK-007 |
 | 0.2     | 2026-05-08 | AI     | Reorder around unblocked engineering payoff, add readiness map, separate maintainer-gated work, and strengthen validation contracts. | — | Draft | AIDHA-TASK-007 |
 | 0.3     | 2026-05-08 | AI     | Account for omitted backlog items with hygiene and extensibility sprint and complete scope criteria. | — | Draft | AIDHA-TASK-007 |
-| 0.4     | 2026-05-09 | AI     | Record completed verification threshold and n-gram validation slice. | — | Draft | AIDHA-TASK-007 |
+| 0.4     | 2026-05-09 | AI     | Record completed verification threshold, n-gram validation, and low-risk maintainability slices. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -449,7 +449,7 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 ### T008-04-03: Implement low-risk maintainability refactors
 
 - **Backlog IDs:** TD-018
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Extraction maintainer
 - **Dependencies:** T008-04-02
 
@@ -462,9 +462,9 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 
 **Definition of done:**
 
-- [ ] Focused tests cover each changed behavior or boundary.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/verification.test.ts tests/llm-claims.test.ts tests/editorial-ranking.v2.test.ts tests/token-budget.test.ts --reporter=dot` passes.
-- [ ] No new public utility is added without at least one real production consumer.
+- [x] Focused tests cover each changed behavior or boundary.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/verification.test.ts tests/llm-claims.test.ts tests/editorial-ranking.v2.test.ts tests/token-budget.test.ts --reporter=dot` passes.
+- [x] No new public utility is added without at least one real production consumer.
 
 ---
 

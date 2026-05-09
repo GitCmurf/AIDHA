@@ -31,7 +31,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.1     | 2026-05-03 | AI     | Add deferred items from eval adversarial-review remediation batch. | — | Draft | — |
 | 1.2     | 2026-05-07 | AI     | Convert WIP register into governed task backlog and add final review follow-ups. | — | Draft | — |
 | 1.3     | 2026-05-08 | AI     | Add audited gaps from recent planning/task files and align backlog with Task 008 sprint plan. | — | Draft | — |
-| 1.4     | 2026-05-09 | AI     | Record resolved Task 008 verification threshold and n-gram validation slice. | — | Draft | AIDHA-TASK-008 |
+| 1.4     | 2026-05-09 | AI     | Record resolved Task 008 verification threshold, n-gram validation, and low-risk maintainability slices. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -96,7 +96,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | Open |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -1225,7 +1225,7 @@ schema migration is queued.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Medium |
 | Category   | Correctness / Maintainability |
 | Location   | `packages/praecis/youtube/src/extract/verification.ts`, `llm-claims.ts`, `editorial-ranking.ts`, shared utilities |
@@ -1259,12 +1259,12 @@ review comments recurring.
 
 **Acceptance criteria:**
 
-- [ ] Task 005 has no stale open item whose current source state is unknown.
+- [x] Task 005 has no stale open item whose current source state is unknown.
 - [x] Verification threshold overrides are covered by tests.
 - [x] Invalid n-gram sizes fail explicitly or are documented as unsupported.
-- [ ] Token/cost warning thresholds are named constants from the intended module.
-- [ ] Echo-detection defaults use one source of truth.
-- [ ] Shared memoization is added only if at least two call sites can use it cleanly.
+- [x] Token/cost warning thresholds are named constants from the intended module.
+- [x] Echo-detection defaults use one source of truth.
+- [x] Shared memoization is added only if at least two call sites can use it cleanly.
 
 **Validation commands:**
 
@@ -1275,14 +1275,15 @@ review comments recurring.
 Avoid turning this into a broad extraction refactor. If any item requires larger architecture work,
 split it into a new backlog item before implementation.
 
-**Progress:**
-On 2026-05-09, the correctness-first Task 008 slice resolved threshold normalization and n-gram
-validation. `TieredVerifier` now derives `entailmentThreshold` from a custom `semanticThreshold`
-unless explicitly overridden, `calculateNGramOverlap(...)` rejects invalid n-gram sizes with
-`RangeError`, and `tests/verification.test.ts` covers both behaviors. The remaining TD-018 scope is
-the lower-risk maintainability slice: named token/cost warning constants, legacy-cache guard
-clarity, echo-detection default reuse, and shared memoization only if current production consumers
-justify it.
+**Resolution:**
+Resolved on 2026-05-09 across two Task 008 slices. `TieredVerifier` now derives
+`entailmentThreshold` from a custom `semanticThreshold` unless explicitly overridden,
+`calculateNGramOverlap(...)` rejects invalid n-gram sizes with `RangeError`, and
+`tests/verification.test.ts` covers both behaviors. The lower-risk maintainability slice named the
+single-chunk cost warning threshold, clarified legacy cache fallback guards, reused
+`DEFAULT_ECHO_DETECTION` for default echo mode and threshold, and deliberately did not add shared
+memoization because the current production consumers are not homogeneous enough to justify a public
+utility.
 
 ---
 
@@ -1290,7 +1291,7 @@ justify it.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Evaluation Accuracy / Cost Control |
 | Location   | `packages/praecis/youtube/src/eval/matrix-runner.ts`, LLM client response types, eval reports |

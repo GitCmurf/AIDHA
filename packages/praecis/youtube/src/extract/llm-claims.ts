@@ -300,6 +300,7 @@ const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v2';
  */
 const OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD = 6000;
 const DEFAULT_SELF_IMPROVE_MAX_INPUT_TOKENS = OPTIMAL_CHUNK_INPUT_TOKEN_THRESHOLD;
+const SINGLE_CHUNK_COST_WARNING_USD = 0.50;
 
 function hashTranscript(excerpts: GraphNode[]): string {
   const hash = createHash('sha256');
@@ -911,7 +912,8 @@ export async function loadCachedClaimCandidates(
     const capabilities = detectModelCapabilities(input.model);
     const defaultMaxTokens = capabilities.defaultMaxTokens;
 
-    // Try new cache key first, then fall back to legacy key for backward compatibility
+    // Try the strategy-aware key first. Legacy fallback is only safe for default request tuning
+    // and default time chunking because older keys did not encode those dimensions.
     let cached = await readCache(join(cacheDir, `${cacheKey}.json`), metadata);
     if (
       !cached
@@ -1895,7 +1897,8 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.lastRunStats.chunkInputTokenCounts.push(totalRequestTokens);
     this.lastRunStats.maxChunkInputTokens = Math.max(this.lastRunStats.maxChunkInputTokens, totalRequestTokens);
 
-    // Try new cache key first, then fall back to legacy key for backward compatibility
+    // Try the strategy-aware key first. Legacy fallback is only safe for default request tuning
+    // and default time chunking because older keys did not encode those dimensions.
     let cached = await readCache(cachePath, cacheMetadata);
     if (!cached && this.usesDefaultRequestTuning() && this.usesDefaultChunking() && cacheKey !== legacyCacheKey) {
       cached = await readCache(join(this.cacheDir, `${legacyCacheKey}.json`), legacyCacheMetadata(cacheMetadata));
@@ -1917,7 +1920,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Cost estimation warning (Task 5.6) - includes full request cost
     const projectedCost = estimateCost(totalRequestTokens, DEFAULT_COST_PER_1K_TOKENS);
-    if (projectedCost > 0.50) {
+    if (projectedCost > SINGLE_CHUNK_COST_WARNING_USD) {
       console.warn(`[COST-WARNING] Chunk ${chunk.index} projected cost ($${projectedCost.toFixed(2)}) exceeds single-chunk warning threshold.`);
     }
 
