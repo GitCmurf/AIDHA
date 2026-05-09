@@ -3,7 +3,7 @@ document_id: AIDHA-REF-006
 owner: DocOps Working Group
 status: Draft
 last_updated: 2026-05-08
-version: '0.4'
+version: '0.5'
 title: Repository Changelog
 type: REF
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** DocOps Working Group
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.4
+> **Version:** 0.5
 > **Last Updated:** 2026-05-08
 > **Type:** REF
 
@@ -27,7 +27,8 @@ docops_version: '2.0'
 | 0.1     | 2025-11-09 | DocOps Agent | Initialized DocOps-aware changelog              | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF          | Adopt DocOps 2.0 ID + metadata                  | —         | Draft  | —         |
 | 0.3     | 2026-02-20 | AI           | Add MVP baseline release entry and evidence refs | —         | Draft  | —         |
-| 0.4     | 2026-05-08 | AI           | Document eval default and deterministic ID behavior changes | — | Draft | — |
+| 0.4     | 2026-02-27 | AI           | Phase 1/2 completion: config package, editorial ranking, regression fixes, license audit, and fast-path onboarding | — | Draft | — |
+| 0.5     | 2026-05-08 | AI           | Document eval default and deterministic ID behavior changes | — | Draft | — |
 
 ## Entries
 
