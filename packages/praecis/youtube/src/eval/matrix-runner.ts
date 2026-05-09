@@ -234,6 +234,7 @@ const performExtraction = async (
   modelId: string,
   variant: ExtractorVariantId,
   options: MatrixOptions,
+  requestSemaphore: Semaphore,
   resource: GraphNode,
   excerpts: GraphNode[],
   promptVersion: string,
@@ -279,59 +280,64 @@ const performExtraction = async (
       },
     });
 
-    const claims = await extractor.extractClaims({
-      resource,
-      excerpts,
-      signal: controller.signal,
-      collectTraces: true,
-    });
+    await requestSemaphore.acquire();
+    try {
+      const claims = await extractor.extractClaims({
+        resource,
+        excerpts,
+        signal: controller.signal,
+        collectTraces: true,
+      });
 
-    const runStats = extractor.getLastRunStats();
-    const warnings: string[] = [];
-    if (runStats.transportRetryCount > 0) {
-      warnings.push(`transport-retries:${runStats.transportRetryCount}`);
-    }
-    if (runStats.fallbackChunkCount > 0) {
-      warnings.push(`fallback-chunks:${runStats.fallbackChunkCount}`);
-    }
-    if (runStats.transientFailureCount > 0) {
-      warnings.push(`transient-provider-errors:${runStats.transientFailureCount}`);
-    }
-    if (runStats.clientTimeoutCount > 0) {
-      warnings.push(`client-timeouts:${runStats.clientTimeoutCount}`);
-    }
-    if (runStats.upstreamAbortCount > 0) {
-      warnings.push(`upstream-aborts:${runStats.upstreamAbortCount}`);
-    }
-    if (runStats.retryTriggered) {
-      warnings.push(`prompt-retry:${runStats.retryReason ?? "retry-triggered"}->${runStats.retryPromptPackId ?? "unknown"}`);
-    }
-    if (options.extractionSelfImproveHints?.[selfImproveHintKey]) {
-      warnings.push("teacher-gap-hints-applied");
-    }
+      const runStats = extractor.getLastRunStats();
+      const warnings: string[] = [];
+      if (runStats.transportRetryCount > 0) {
+        warnings.push(`transport-retries:${runStats.transportRetryCount}`);
+      }
+      if (runStats.fallbackChunkCount > 0) {
+        warnings.push(`fallback-chunks:${runStats.fallbackChunkCount}`);
+      }
+      if (runStats.transientFailureCount > 0) {
+        warnings.push(`transient-provider-errors:${runStats.transientFailureCount}`);
+      }
+      if (runStats.clientTimeoutCount > 0) {
+        warnings.push(`client-timeouts:${runStats.clientTimeoutCount}`);
+      }
+      if (runStats.upstreamAbortCount > 0) {
+        warnings.push(`upstream-aborts:${runStats.upstreamAbortCount}`);
+      }
+      if (runStats.retryTriggered) {
+        warnings.push(`prompt-retry:${runStats.retryReason ?? "retry-triggered"}->${runStats.retryPromptPackId ?? "unknown"}`);
+      }
+      if (options.extractionSelfImproveHints?.[selfImproveHintKey]) {
+        warnings.push("teacher-gap-hints-applied");
+      }
 
-    return {
-      claims,
-      traces: extractor.getLastTraces(),
-      warnings,
-      diagnostics: {
-        transportRetryCount: runStats.transportRetryCount,
-        fallbackChunkCount: runStats.fallbackChunkCount,
-        transientFailureCount: runStats.transientFailureCount,
-        clientTimeoutCount: runStats.clientTimeoutCount,
-        upstreamAbortCount: runStats.upstreamAbortCount,
-        chunkInputTokenCounts: runStats.chunkInputTokenCounts,
-        maxChunkInputTokens: runStats.maxChunkInputTokens,
-        selfImproveRoundCount: runStats.selfImproveRoundCount,
-        promptPackId: runStats.promptPackId,
-        routeSource: runStats.routeSource,
-        routeConfidence: runStats.routeConfidence,
-        routeSignals: runStats.routeSignals,
-        retryTriggered: runStats.retryTriggered,
-        retryReason: runStats.retryReason,
-        retryPromptPackId: runStats.retryPromptPackId,
-      },
-    };
+      return {
+        claims,
+        traces: extractor.getLastTraces(),
+        warnings,
+        diagnostics: {
+          transportRetryCount: runStats.transportRetryCount,
+          fallbackChunkCount: runStats.fallbackChunkCount,
+          transientFailureCount: runStats.transientFailureCount,
+          clientTimeoutCount: runStats.clientTimeoutCount,
+          upstreamAbortCount: runStats.upstreamAbortCount,
+          chunkInputTokenCounts: runStats.chunkInputTokenCounts,
+          maxChunkInputTokens: runStats.maxChunkInputTokens,
+          selfImproveRoundCount: runStats.selfImproveRoundCount,
+          promptPackId: runStats.promptPackId,
+          routeSource: runStats.routeSource,
+          routeConfidence: runStats.routeConfidence,
+          routeSignals: runStats.routeSignals,
+          retryTriggered: runStats.retryTriggered,
+          retryReason: runStats.retryReason,
+          retryPromptPackId: runStats.retryPromptPackId,
+        },
+      };
+    } finally {
+      requestSemaphore.release();
+    }
   } finally {
     clearTimeout(timeout);
   }
@@ -343,26 +349,32 @@ const performScoring = async (
   fullText: string,
   claimSet: ClaimCandidate[],
   videoContext: VideoContext,
-  options: MatrixOptions
+  options: MatrixOptions,
+  requestSemaphore: Semaphore
 ): Promise<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }> }> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
     const judgeClient = options.judgeClientFactory(judgeModelId);
-    const scoreResult = await scoreClaimSet(
-      judgeClient,
-      judgeModelId,
-      fullText,
-      claimSet,
-      videoContext,
-      options.judgeMaxTokens || 4000,
-      controller.signal
-    );
+    await requestSemaphore.acquire();
+    try {
+      const scoreResult = await scoreClaimSet(
+        judgeClient,
+        judgeModelId,
+        fullText,
+        claimSet,
+        videoContext,
+        options.judgeMaxTokens || 4000,
+        controller.signal
+      );
 
-    if (scoreResult.ok) {
-      return scoreResult.value;
-    } else {
-      throw scoreResult.error;
+      if (scoreResult.ok) {
+        return scoreResult.value;
+      } else {
+        throw scoreResult.error;
+      }
+    } finally {
+      requestSemaphore.release();
     }
   } finally {
     clearTimeout(timeout);
@@ -382,7 +394,7 @@ const getScoreForJudge = async (
   model: EvalModel,
   cell: MatrixCell,
   options: MatrixOptions,
-  judgeSemaphore: Semaphore,
+  requestSemaphore: Semaphore,
   fullText: string,
   videoContext: VideoContext,
   claimSetHash: string,
@@ -425,44 +437,40 @@ const getScoreForJudge = async (
     : 0;
 
   try {
-    // Keep actual judge LLM calls within the matrix concurrency budget so
+    // Keep actual judge LLM calls within the shared matrix request budget so
     // multi-judge cells do not fan out past the user's configured limit.
-    await judgeSemaphore.acquire();
+    const scoreResult = await performScoring(
+      model.id,
+      judgeModelId,
+      fullText,
+      cell.claimSet,
+      videoContext,
+      options,
+      requestSemaphore
+    );
+
+    const score = scoreResult.score;
     try {
-      const scoreResult = await performScoring(
+      await setCachedScore(
+        video.videoId,
         model.id,
         judgeModelId,
-        fullText,
-        cell.claimSet,
-        videoContext,
-        options
+        claimSetHash,
+        judgePromptVersion,
+        [score],
+        { cacheDir: options.cacheDir }
       );
-
-      const score = scoreResult.score;
-      try {
-        await setCachedScore(
-          video.videoId,
-          model.id,
-          judgeModelId,
-          claimSetHash,
-          judgePromptVersion,
-          [score],
-          { cacheDir: options.cacheDir }
-        );
-      } catch (cacheErr) {
-        // skipcq: JS-0002
-        console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
-      }
-
-      return {
-        judgeModelId,
-        scores: [score],
-        judgeUsdEstimate,
-        traces: scoreResult.traces,
-      };
-    } finally {
-      judgeSemaphore.release();
+    } catch (cacheErr) {
+      // skipcq: JS-0002
+      console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
     }
+
+    return {
+      judgeModelId,
+      scores: [score],
+      judgeUsdEstimate,
+      traces: scoreResult.traces,
+    };
   } catch (err) {
     const message =
       err instanceof Error && err.name === "AbortError"
@@ -482,7 +490,7 @@ const getScoresForCell = async (
   videoContext: VideoContext,
   claimSetHash: string,
   judgePromptVersion: string,
-  judgeSemaphore: Semaphore
+  requestSemaphore: Semaphore
 ): Promise<{
   scores: ClaimSetScore[];
   hasFailure: boolean;
@@ -502,7 +510,7 @@ const getScoresForCell = async (
       model,
       cell,
       options,
-      judgeSemaphore,
+      requestSemaphore,
       fullText,
       videoContext,
       claimSetHash,
@@ -544,7 +552,8 @@ const getExtractionForCell = async (
   resource: GraphNode,
   excerpts: GraphNode[],
   promptVersion: string,
-  extractorVersion: string
+  extractorVersion: string,
+  requestSemaphore: Semaphore
 ): Promise<MatrixCell | { error: { message: string } }> => {
   let runtimePromptPackId = options.extractionPromptPackId;
   let promptRoutingDecision: PromptRoutingDecision | undefined;
@@ -616,6 +625,7 @@ const getExtractionForCell = async (
       model.id,
       variant,
       options,
+      requestSemaphore,
       resource,
       excerpts,
       promptVersion,
@@ -767,7 +777,7 @@ const processCell = async (
       }
     | { error: number },
   semaphore: Semaphore,
-  judgeSemaphore: Semaphore,
+  requestSemaphore: Semaphore,
   cells: MatrixCell[],
   onFailure: () => void,
   onPartialFailure: () => void
@@ -804,7 +814,8 @@ const processCell = async (
       resource,
       excerpts,
       promptVersion,
-      extractorVersion
+      extractorVersion,
+      requestSemaphore
     );
 
     if ("error" in extractionResult) {
@@ -843,7 +854,7 @@ const processCell = async (
       videoContext,
       claimSetHash,
       judgePromptVersion,
-      judgeSemaphore
+      requestSemaphore
     );
 
     if (hasFailure) {
@@ -923,7 +934,7 @@ export const runEvaluationMatrix = async (
   let partialFailureCount = 0;
 
   const semaphore = new Semaphore(options.maxConcurrency || 1);
-  const judgeSemaphore = new Semaphore(options.maxConcurrency || 1);
+  const requestSemaphore = new Semaphore(options.maxConcurrency || 1);
   const tasks: Promise<void>[] = [];
 
   // Pre-load transcripts once per video to avoid redundant I/O and event loop blocking
@@ -969,7 +980,7 @@ export const runEvaluationMatrix = async (
             options,
             transcriptDataResult,
             semaphore,
-            judgeSemaphore,
+            requestSemaphore,
             cells,
             () => {
               failedCellCount++;

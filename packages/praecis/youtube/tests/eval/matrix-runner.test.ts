@@ -21,18 +21,44 @@ vi.mock("fs/promises", () => ({
   readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
 }));
 
+const mockExtractionDelaysByVideoId = new Map<string, number>();
+let activeProviderCalls = 0;
+let maxActiveProviderCalls = 0;
+
+const trackActiveProviderCall = async <T>(fn: () => Promise<T>): Promise<T> => {
+  activeProviderCalls++;
+  maxActiveProviderCalls = Math.max(maxActiveProviderCalls, activeProviderCalls);
+  try {
+    return await fn();
+  } finally {
+    activeProviderCalls--;
+  }
+};
+
+const makeMockClaim = () => ({
+  text: "Mock claim",
+  excerptIds: ["excerpt-1"],
+  startSeconds: 0,
+  type: "Fact",
+  classification: "Fact",
+  domain: "Test",
+  confidence: 1,
+  why: "reason",
+});
+
 vi.mock("../../src/extract/llm-claims", () => ({
   LlmClaimExtractor: vi.fn().mockImplementation(() => ({
-    extractClaims: vi.fn().mockResolvedValue([{
-      text: "Mock claim",
-      excerptIds: ["excerpt-1"],
-      startSeconds: 0,
-      type: "Fact",
-      classification: "Fact",
-      domain: "Test",
-      confidence: 1,
-      why: "reason"
-    }]),
+    extractClaims: vi.fn().mockImplementation(async (input: { resource: { id?: string } }) =>
+      trackActiveProviderCall(async () => {
+        const resourceId = input.resource.id ?? "";
+        const videoId = resourceId.startsWith("youtube-") ? resourceId.slice("youtube-".length) : resourceId;
+        const delayMs = mockExtractionDelaysByVideoId.get(videoId) ?? 0;
+        if (delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+        return [makeMockClaim()];
+      })
+    ),
     getLastTraces: vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }]),
     getLastRunStats: vi.fn().mockReturnValue({
       transportRetryCount: 0,
@@ -61,6 +87,9 @@ describe("Matrix Runner Integration", () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.mocked(matrixCache.getCachedScore).mockResolvedValue(null);
+    mockExtractionDelaysByVideoId.clear();
+    activeProviderCalls = 0;
+    maxActiveProviderCalls = 0;
   });
 
   const createTestVideo = (
@@ -349,5 +378,63 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells[0]?.warnings).toContainEqual(
       expect.stringContaining("judge unavailable")
     );
+  });
+
+  it("should keep extraction and judge calls within the shared maxConcurrency budget", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+      createTestVideo("v2", 12, "low"),
+    ];
+    const models = [getModel("gpt-4o-mini")!];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockImplementation(mockTranscriptImplementation as (path: string | URL | number) => string);
+    vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
+      Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
+    );
+
+    mockExtractionDelaysByVideoId.set("v1", 5);
+    mockExtractionDelaysByVideoId.set("v2", 60);
+
+    const judgeClientFactory = (judgeModelId: string) => ({
+      generate: vi.fn().mockImplementation(async () =>
+        trackActiveProviderCall(async () => {
+          await new Promise((resolve) => setTimeout(resolve, judgeModelId === "gpt-4o-mini" ? 35 : 20));
+          return {
+            ok: true,
+            value: JSON.stringify({
+              completeness: 8,
+              accuracy: 8,
+              topicCoverage: 8,
+              atomicity: 8,
+              overallScore: 8,
+              reasoning: "Mock reasoning long enough",
+              missingClaims: [],
+              hallucinations: [],
+              redundancies: [],
+              gapAreas: []
+            })
+          };
+        })
+      )
+    });
+
+    const result = await runEvaluationMatrix(corpus, models, {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: false,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini", "gemini-2.5-flash"],
+      maxConcurrency: 2,
+      timeoutMs: 1000,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: judgeClientFactory as unknown as (modelId: string) => LlmClient,
+    });
+
+    expect(result.cells).toHaveLength(2);
+    expect(result.cells.every((cell) => cell.scores?.length === 2)).toBe(true);
+    expect(maxActiveProviderCalls).toBeLessThanOrEqual(2);
   });
 });
