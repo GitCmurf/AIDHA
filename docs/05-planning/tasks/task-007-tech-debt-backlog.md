@@ -675,8 +675,11 @@ On 2026-05-09, the first logger slice added `Logger`, `consoleLogger`, `silentLo
 without writing to global `console`. A follow-up slice routed transcript client and `yt-dlp` debug
 output through the same logger config while preserving console-backed defaults. A third slice routed
 eval utility rate-limit and embedding-cache diagnostics through injectable loggers with buffered
-logger coverage in `request-rate-limiter.test.ts` and `gemini-embedding-client.test.ts`. Remaining
-work: eval orchestration, `runNarrowManualBaselineComparison`, and CLI handoff/quiet-mode coverage.
+logger coverage in `request-rate-limiter.test.ts` and `gemini-embedding-client.test.ts`. A fourth
+slice threaded `logger?: Logger` through `runEvaluationMatrix`, routed matrix dry-run/status,
+cache-warning, transcript-error, and scoring diagnostics through it, and forwarded the logger into
+`LlmClaimExtractor`. Remaining work: `runNarrowManualBaselineComparison`, claim-validation warning
+paths in `src/extract/claims.ts`, and CLI handoff/quiet-mode coverage.
 
 ---
 

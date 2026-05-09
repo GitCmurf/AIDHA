@@ -28,6 +28,7 @@ import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
 import { isValidSafeId } from "../utils/ids.js";
 import { decidePromptPack, type ExtractionPromptPackId, type PromptRoutingDecision } from "../extract/prompt-routing.js";
 import type { NarrowJudgeResult } from "./narrow-judge.js";
+import { consoleLogger, type Logger } from "../utils/logger.js";
 
 export const EXTRACTOR_VERSION = "v1";
 
@@ -93,6 +94,7 @@ export interface MatrixOptions {
   extractionPromptConfigId?: Pass1PromptConfigId;
   cellLabelPrefix?: string;
   judgeMaxTokens?: number;
+  logger?: Logger;
   extractorClientFactory: (modelId: string) => LlmClient;
   judgeClientFactory: (modelId: string) => LlmClient;
 }
@@ -310,6 +312,7 @@ const performExtraction = async (
         maxAttempts: options.extractionTransportRetryMaxAttempts,
         baseDelayMs: options.extractionTransportRetryBaseDelayMs,
       },
+      logger: options.logger,
     });
 
     const claims = await extractor.extractClaims({
@@ -467,8 +470,7 @@ const getScoreForJudge = async (
 
   if (options.dryRun) {
     const judgeUsdEstimate = judgeModel ? costFromUsage(estimatedUsage, judgeModel) : 0;
-    // skipcq: JS-0002
-    console.log(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
+    (options.logger ?? consoleLogger).info(`[dry-run] Would score claims for ${video.videoId} using ${judgeModelId}`);
     return { judgeModelId, scores: [], judgeUsdEstimate, estimatedUsage };
   }
 
@@ -501,8 +503,7 @@ const getScoreForJudge = async (
         { cacheDir: options.cacheDir }
       );
     } catch (cacheErr) {
-      // skipcq: JS-0002
-      console.warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
+      (options.logger ?? consoleLogger).warn(`Failed to cache score for ${video.videoId} / ${model.id} by ${judgeModelId}: ${cacheErr}`);
     }
 
     return {
@@ -519,7 +520,7 @@ const getScoreForJudge = async (
       err instanceof Error && err.name === "AbortError"
         ? `Scoring timeout for ${video.videoId} / ${model.id} by ${judgeModelId}`
         : (err instanceof Error ? err.message : String(err));
-    console.error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
+    (options.logger ?? consoleLogger).error(`Scoring failed for ${video.videoId} / ${model.id} by ${judgeModelId}:`, message);
     return { judgeModelId, scores: [], judgeUsdEstimate, estimatedUsage, failure: message };
   }
 };
@@ -682,8 +683,7 @@ const getExtractionForCell = async (
   };
 
   if (options.dryRun) {
-    // skipcq: JS-0002
-    console.log(`[dry-run] Would extract claims for ${video.videoId} using ${model.id}`);
+    (options.logger ?? consoleLogger).info(`[dry-run] Would extract claims for ${video.videoId} using ${model.id}`);
     return {
       videoId: video.videoId,
       modelId: model.id,
@@ -749,8 +749,7 @@ const getExtractionForCell = async (
         { cacheDir: options.cacheDir }
       );
     } catch (cacheErr) {
-      // skipcq: JS-0002
-      console.warn(`Failed to cache extraction for ${video.videoId} / ${model.id}: ${cacheErr}`);
+      (options.logger ?? consoleLogger).warn(`Failed to cache extraction for ${video.videoId} / ${model.id}: ${cacheErr}`);
     }
 
     return newCell;
@@ -759,7 +758,7 @@ const getExtractionForCell = async (
       err instanceof Error && err.name === "AbortError"
         ? `Extraction timeout for ${video.videoId} / ${model.id}`
         : (err instanceof Error ? err.message : String(err));
-    console.error(message);
+    (options.logger ?? consoleLogger).error(message);
     return { error: { message } };
   }
 };
@@ -776,8 +775,9 @@ const prepareTranscriptDataAsync = async (
     }
   | { error: number }
 > => {
+  const logger = options.logger ?? consoleLogger;
   if (!isValidSafeId(video.videoId)) {
-    console.error(`Invalid videoId: ${video.videoId}`);
+    logger.error(`Invalid videoId: ${video.videoId}`);
     return { error: 1 };
   }
   const transcriptPath = join(options.transcriptDir, `${video.videoId}.json`);
@@ -787,15 +787,15 @@ const prepareTranscriptDataAsync = async (
     const raw = await readFile(transcriptPath, "utf-8");
     const parsed = Transcript.safeParse(JSON.parse(raw));
     if (!parsed.success) {
-      console.error(`Invalid transcript format for ${video.videoId}:`, parsed.error.format());
+      logger.error(`Invalid transcript format for ${video.videoId}:`, parsed.error.format());
       return { error: 1 };
     }
     transcriptData = parsed.data;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      console.warn(`Transcript not found for ${video.videoId} at ${transcriptPath}, skipping.`);
+      logger.warn(`Transcript not found for ${video.videoId} at ${transcriptPath}, skipping.`);
     } else {
-      console.error(`Failed to read or parse transcript for ${video.videoId}:`, err);
+      logger.error(`Failed to read or parse transcript for ${video.videoId}:`, err);
     }
     return { error: 1 };
   }
@@ -869,10 +869,10 @@ const processCell = async (
 ) => {
   await semaphore.acquire();
   const cellStartedAt = Date.now();
+  const logger = options.logger ?? consoleLogger;
   try {
-    // skipcq: JS-0002
     const labelSuffix = options.cellLabelPrefix ? ` ${options.cellLabelPrefix}` : "";
-    console.log(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
+    logger.info(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] videoId=${video.videoId} modelId=${model.id} variant=${variant}`);
 
     if ("error" in transcriptDataResult) {
       cells.push({
@@ -920,8 +920,7 @@ const processCell = async (
 
     // Scoring
     if (!options.dryRun && cell.claimSet.length === 0) {
-      // skipcq: JS-0002
-      console.warn(`[skip-scoring] No claims extracted for ${video.videoId} / ${model.id}, skipping judge.`);
+      logger.warn(`[skip-scoring] No claims extracted for ${video.videoId} / ${model.id}, skipping judge.`);
       cell.scores = [];
       cells.push(cell);
       return;
@@ -950,7 +949,7 @@ const processCell = async (
         };
         onFailure();
       } else {
-        console.warn(
+        logger.warn(
           `${LOG_PREFIX_PARTIAL_SCORING} ${scores.length}/${options.judgeModels.length} judges succeeded for ${video.videoId} / ${model.id}`
         );
         onPartialFailure();
@@ -993,15 +992,13 @@ const processCell = async (
         isHighVariance: consensus.isHighVariance,
       };
       if (consensus.isHighVariance) {
-        // skipcq: JS-0002
-        console.warn(`[high-variance] Cell ${video.videoId} / ${model.id} has high score variance between judges.`);
+        logger.warn(`[high-variance] Cell ${video.videoId} / ${model.id} has high score variance between judges.`);
       }
     }
 
     cells.push(cell);
     const durationMs = Date.now() - cellStartedAt;
-    // skipcq: JS-0002
-    console.log(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] done in ${durationMs}ms`);
+    logger.info(`[cell ${cellIndex + 1}/${totalCells}${labelSuffix}] done in ${durationMs}ms`);
   } finally {
     semaphore.release();
   }
@@ -1061,8 +1058,7 @@ export const runEvaluationMatrix = async (
     const transcriptDataResult = transcriptCache.get(video.videoId);
     // Defensive: this should never be undefined since we populated the cache above
     if (transcriptDataResult === undefined) {
-      // skipcq: JS-0002
-      console.error(`[internal] No transcript cache entry for ${video.videoId} — this is a bug`);
+      (options.logger ?? consoleLogger).error(`[internal] No transcript cache entry for ${video.videoId} - this is a bug`);
       continue;
     }
 

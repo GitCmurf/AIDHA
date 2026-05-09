@@ -8,6 +8,7 @@ import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
 import type { LlmClient } from "../../src/extract/llm-client";
 import * as matrixCache from "../../src/eval/matrix-cache";
+import { BufferedLogger } from "../../src/utils/logger";
 
 vi.mock("node:fs");
 vi.mock("node:fs/promises", () => ({
@@ -218,6 +219,7 @@ describe("Matrix Runner Integration", () => {
     vi.mocked(readFileAsync).mockImplementation((path: string | Buffer | URL | number) =>
       Promise.resolve(mockTranscriptImplementation(path as string)) as Promise<string>
     );
+    const logger = new BufferedLogger();
 
     const options = {
       outputDir: "out/test",
@@ -229,6 +231,7 @@ describe("Matrix Runner Integration", () => {
       judgeModels: ["gpt-4o-mini"],
       maxConcurrency: 1,
       timeoutMs: 1000,
+      logger,
       extractorClientFactory: () => ({}) as unknown as LlmClient,
       judgeClientFactory: () => ({}) as unknown as LlmClient,
     };
@@ -242,6 +245,14 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells[0].usage?.extraction?.estimated.totalTokens).toBeGreaterThan(0);
     // In dry run, it shouldn't actually call the judge so scores is empty array
     expect(result.cells[0].scores).toEqual([]);
+    expect(logger.entries.map((entry) => entry.message)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("[cell 1/1] videoId=v1 modelId=gpt-4o-mini variant=raw"),
+        expect.stringContaining("[dry-run] Would extract claims for v1 using gpt-4o-mini"),
+        expect.stringContaining("[dry-run] Would score claims for v1 using gpt-4o-mini"),
+        expect.stringContaining("[cell 1/1] done in"),
+      ])
+    );
   });
 
   it("should average scores from multiple judges", () => {
