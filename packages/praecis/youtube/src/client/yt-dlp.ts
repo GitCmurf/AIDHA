@@ -10,6 +10,7 @@ import {
   parseTranscriptTtml,
   parseTranscriptVtt,
 } from './transcript.js';
+import { consoleLogger, type Logger } from '../utils/logger.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -24,6 +25,7 @@ export interface YtDlpRuntimeConfig {
   timeoutMs: number;
   keepFiles: boolean;
   debugTranscript: boolean;
+  logger?: Logger;
 }
 
 /** Default runtime config (no environment-variable lookup). */
@@ -35,6 +37,7 @@ export function ytDlpDefaultConfig(): YtDlpRuntimeConfig {
     timeoutMs: 120000,
     keepFiles: false,
     debugTranscript: false,
+    logger: consoleLogger,
   };
 }
 
@@ -62,10 +65,15 @@ export function ytDlpConfigFromEnv(): YtDlpRuntimeConfig {
     timeoutMs: Number.isNaN(parsed) ? 120000 : parsed,
     keepFiles: process.env['AIDHA_YTDLP_KEEP_FILES'] === '1',
     debugTranscript: process.env['AIDHA_DEBUG_TRANSCRIPT'] === '1',
+    logger: consoleLogger,
   };
 }
 
 const FORMAT_PRIORITY = ['.vtt', '.ttml', '.json3', '.json'];
+
+function transcriptLogger(cfg: YtDlpRuntimeConfig): Logger {
+  return cfg.logger ?? consoleLogger;
+}
 
 export interface ToolingCheck {
   executable: string;
@@ -416,8 +424,7 @@ export async function fetchTranscriptWithYtDlp(
 
   try {
     if (cfg.debugTranscript) {
-      // eslint-disable-next-line no-console
-      console.log(`[transcript] yt-dlp: ${cfg.bin} ${args.join(' ')}`);
+      transcriptLogger(cfg).debug(`[transcript] yt-dlp: ${cfg.bin} ${args.join(' ')}`);
     }
 
     await execFileAsync(cfg.bin, args, {
@@ -475,13 +482,11 @@ export async function fetchTranscriptWithYtDlp(
         } catch (error) {
           if (cfg.debugTranscript) {
             const message = error instanceof Error ? error.message : String(error);
-            // eslint-disable-next-line no-console
-            console.log(`[transcript] cleanup warning: ${message}`);
+            transcriptLogger(cfg).debug(`[transcript] cleanup warning: ${message}`);
           }
         }
       } else if (cfg.debugTranscript) {
-        // eslint-disable-next-line no-console
-        console.log(`[transcript] yt-dlp files kept at ${tmpPath}`);
+        transcriptLogger(cfg).debug(`[transcript] yt-dlp files kept at ${tmpPath}`);
       }
     }
   }

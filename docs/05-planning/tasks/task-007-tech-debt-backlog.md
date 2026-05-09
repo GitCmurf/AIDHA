@@ -672,8 +672,9 @@ errors still reach stderr. This is a separation-of-concerns change, not a loggin
 On 2026-05-09, the first logger slice added `Logger`, `consoleLogger`, `silentLogger`, and
 `BufferedLogger`, exported them from the package entry point, and threaded `logger?: Logger` through
 `LlmClaimExtractor`. `llm-claims.test.ts` now proves extraction warning/error paths can be captured
-without writing to global `console`. Remaining work: transcript clients, eval orchestration,
-`runNarrowManualBaselineComparison`, and CLI handoff/quiet-mode coverage.
+without writing to global `console`. A follow-up slice routed transcript client and `yt-dlp` debug
+output through the same logger config while preserving console-backed defaults. Remaining work: eval
+orchestration, `runNarrowManualBaselineComparison`, and CLI handoff/quiet-mode coverage.
 
 ---
 
