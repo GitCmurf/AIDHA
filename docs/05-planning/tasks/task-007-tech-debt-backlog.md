@@ -678,8 +678,10 @@ eval utility rate-limit and embedding-cache diagnostics through injectable logge
 logger coverage in `request-rate-limiter.test.ts` and `gemini-embedding-client.test.ts`. A fourth
 slice threaded `logger?: Logger` through `runEvaluationMatrix`, routed matrix dry-run/status,
 cache-warning, transcript-error, and scoring diagnostics through it, and forwarded the logger into
-`LlmClaimExtractor`. Remaining work: `runNarrowManualBaselineComparison`, claim-validation warning
-paths in `src/extract/claims.ts`, and CLI handoff/quiet-mode coverage.
+`LlmClaimExtractor`. A fifth slice routed claim-validation warnings in
+`ClaimExtractionPipeline` through the configured logger and added buffered-logger coverage in
+`extraction.test.ts`. Remaining work: `runNarrowManualBaselineComparison` and CLI
+handoff/quiet-mode coverage.
 
 ---
 
