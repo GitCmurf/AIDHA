@@ -68,6 +68,10 @@ describe('verification', () => {
       const overlap2 = calculateNGramOverlap('the cat sat', 'the cat sat', 2);
       expect(overlap1).toBe(overlap2);
     });
+
+    it.each([0, -1, 1.5, Number.NaN])('rejects invalid n-gram size %s', n => {
+      expect(() => calculateNGramOverlap('cat sat', 'cat sat', n)).toThrow(RangeError);
+    });
   });
 
   describe('extractKeyPhrases', () => {
@@ -148,6 +152,37 @@ describe('verification', () => {
         const verifier = new TieredVerifier({ lexicalThreshold: 0.8 });
         const result = verifier.verifyLexical('cat dog', ['cat dog bird']);
         // Overlap is 0.67, threshold is 0.8
+        expect(result.verified).toBe(false);
+      });
+
+      it('derives the entailment threshold from a custom semantic threshold', async () => {
+        const verifier = new TieredVerifier({
+          lexicalThreshold: 0.01,
+          semanticThreshold: 0.7,
+        });
+
+        const result = await verifier.verifyEntailment(
+          'renewable energy reduces emissions',
+          ['renewable energy reduces emissions']
+        );
+
+        expect(result.score).toBeCloseTo(0.8);
+        expect(result.verified).toBe(true);
+      });
+
+      it('respects an explicit entailment threshold over the derived default', async () => {
+        const verifier = new TieredVerifier({
+          lexicalThreshold: 0.01,
+          semanticThreshold: 0.7,
+          entailmentThreshold: 0.9,
+        });
+
+        const result = await verifier.verifyEntailment(
+          'renewable energy reduces emissions',
+          ['renewable energy reduces emissions']
+        );
+
+        expect(result.score).toBeCloseTo(0.8);
         expect(result.verified).toBe(false);
       });
     });

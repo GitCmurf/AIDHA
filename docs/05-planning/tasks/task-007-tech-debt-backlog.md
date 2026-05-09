@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.3"
-last_updated: 2026-05-08
+version: "1.4"
+last_updated: 2026-05-09
 title: Engineering Tech Debt Backlog
 type: TASK
 docops_version: "2.0"
@@ -15,8 +15,8 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.3
-> **Last Updated:** 2026-05-08
+> **Version:** 1.4
+> **Last Updated:** 2026-05-09
 > **Type:** TASK
 
 <!-- markdownlint-disable MD013 -->
@@ -31,6 +31,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.1     | 2026-05-03 | AI     | Add deferred items from eval adversarial-review remediation batch. | — | Draft | — |
 | 1.2     | 2026-05-07 | AI     | Convert WIP register into governed task backlog and add final review follow-ups. | — | Draft | — |
 | 1.3     | 2026-05-08 | AI     | Add audited gaps from recent planning/task files and align backlog with Task 008 sprint plan. | — | Draft | — |
+| 1.4     | 2026-05-09 | AI     | Record resolved Task 008 verification threshold and n-gram validation slice. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1259,8 +1260,8 @@ review comments recurring.
 **Acceptance criteria:**
 
 - [ ] Task 005 has no stale open item whose current source state is unknown.
-- [ ] Verification threshold overrides are covered by tests.
-- [ ] Invalid n-gram sizes fail explicitly or are documented as unsupported.
+- [x] Verification threshold overrides are covered by tests.
+- [x] Invalid n-gram sizes fail explicitly or are documented as unsupported.
 - [ ] Token/cost warning thresholds are named constants from the intended module.
 - [ ] Echo-detection defaults use one source of truth.
 - [ ] Shared memoization is added only if at least two call sites can use it cleanly.
@@ -1273,6 +1274,15 @@ review comments recurring.
 **Risks and caveats:**
 Avoid turning this into a broad extraction refactor. If any item requires larger architecture work,
 split it into a new backlog item before implementation.
+
+**Progress:**
+On 2026-05-09, the correctness-first Task 008 slice resolved threshold normalization and n-gram
+validation. `TieredVerifier` now derives `entailmentThreshold` from a custom `semanticThreshold`
+unless explicitly overridden, `calculateNGramOverlap(...)` rejects invalid n-gram sizes with
+`RangeError`, and `tests/verification.test.ts` covers both behaviors. The remaining TD-018 scope is
+the lower-risk maintainability slice: named token/cost warning constants, legacy-cache guard
+clarity, echo-detection default reuse, and shared memoization only if current production consumers
+justify it.
 
 ---
 

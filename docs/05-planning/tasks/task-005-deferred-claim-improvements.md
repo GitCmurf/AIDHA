@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-005
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.1"
-last_updated: 2026-03-05
+version: "1.2"
+last_updated: 2026-05-09
 title: Deferred Claim Extraction Improvements
 type: TASK
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-005
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.1
-> **Last Updated:** 2026-03-05
+> **Version:** 1.2
+> **Last Updated:** 2026-05-09
 > **Type:** TASK
 
 # Task 005: Deferred Claim Extraction Improvements
@@ -31,6 +31,7 @@ docops_version: "2.0"
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 1.0     | 2026-03-05 | AI     | Initial release documenting deferred improvements from code review rounds 1-2. | — | Draft | — |
 | 1.1     | 2026-03-05 | AI     | Marked A.1, A.3, C.2 as resolved. Added D.2 (shared memoization utility). | — | Draft | — |
+| 1.2     | 2026-05-09 | AI     | Marked threshold normalization and n-gram validation resolved with focused regression tests. | — | Draft | AIDHA-TASK-008 |
 
 ## Overview
 
@@ -103,7 +104,12 @@ const COMMON_NOUNS = new Set([
 
 ---
 
-### A.2. Unify Entailment Scaling for Custom Configs
+### A.2. Unify Entailment Scaling for Custom Configs ✅ RESOLVED
+
+**Status:** Completed in Task 008.
+**Resolution:** The `TieredVerifier` constructor now derives `entailmentThreshold` from a caller's
+custom `semanticThreshold` unless `entailmentThreshold` is explicitly provided. Entailment scoring
+uses the named `ENTAILMENT_SCALING_FACTOR` constant.
 
 **File:** `packages/praecis/youtube/src/extract/verification.ts`
 
@@ -141,11 +147,13 @@ Also update line 267:
 
 **Acceptance Criteria:**
 
-- [ ] Custom configs with `semanticThreshold` override derive correct `entailmentThreshold`
-- [ ] Hardcoded `0.8` replaced with `ENTAILMENT_SCALING_FACTOR` constant
-- [ ] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
-  - [ ] Test: `uses default config when none provided`
-  - [ ] Test: `allows custom thresholds`
+- [x] Custom configs with `semanticThreshold` override derive correct `entailmentThreshold`
+- [x] Hardcoded `0.8` replaced with `ENTAILMENT_SCALING_FACTOR` constant
+- [x] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
+  - [x] Test: `uses default config when none provided`
+  - [x] Test: `allows custom thresholds`
+  - [x] Test: `derives the entailment threshold from a custom semantic threshold`
+  - [x] Test: `respects an explicit entailment threshold over the derived default`
 
 ---
 
@@ -190,7 +198,11 @@ for (const source of sources) {
 
 ---
 
-### A.4. Validate `n` Parameter in calculateNGramOverlap
+### A.4. Validate `n` Parameter in calculateNGramOverlap ✅ RESOLVED
+
+**Status:** Completed in Task 008.
+**Resolution:** `calculateNGramOverlap(...)` now rejects non-positive, non-integer, and `NaN`
+n-gram sizes with a `RangeError` before tokenization or fallback scoring.
 
 **File:** `packages/praecis/youtube/src/extract/verification.ts` (line 405)
 
@@ -221,10 +233,10 @@ function extractNgrams(tokens: string[], n: number): string[] {
 
 **Acceptance Criteria:**
 
-- [ ] Invalid `n` values throw `RangeError`
-- [ ] Edge cases (n=0, negative, non-integer) are handled
-- [ ] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
-  - [ ] Test: `calculateNGramOverlap` -> `validates n parameter`
+- [x] Invalid `n` values throw `RangeError`
+- [x] Edge cases (n=0, negative, non-integer, `NaN`) are handled
+- [x] All tests pass in `packages/praecis/youtube/tests/verification.test.ts`
+  - [x] Test: `calculateNGramOverlap` -> `rejects invalid n-gram size`
 
 ---
 

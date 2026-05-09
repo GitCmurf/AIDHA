@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.3"
-last_updated: 2026-05-08
+version: "0.4"
+last_updated: 2026-05-09
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.3
-> **Last Updated:** 2026-05-08
+> **Version:** 0.4
+> **Last Updated:** 2026-05-09
 > **Type:** TASK
 
 # Task: Next Sprint Improvements and Backlog Burn-Down
@@ -31,6 +31,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.1     | 2026-05-08 | AI     | Initial sprint-ready task plan derived from planning audit and tech-debt backlog. | — | Draft | AIDHA-TASK-007 |
 | 0.2     | 2026-05-08 | AI     | Reorder around unblocked engineering payoff, add readiness map, separate maintainer-gated work, and strengthen validation contracts. | — | Draft | AIDHA-TASK-007 |
 | 0.3     | 2026-05-08 | AI     | Account for omitted backlog items with hygiene and extensibility sprint and complete scope criteria. | — | Draft | AIDHA-TASK-007 |
+| 0.4     | 2026-05-09 | AI     | Record completed verification threshold and n-gram validation slice. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -428,7 +429,7 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 ### T008-04-02: Implement correctness-first verification refactors
 
 - **Backlog IDs:** TD-018
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Extraction maintainer
 - **Dependencies:** T008-04-01
 
@@ -441,9 +442,9 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 
 **Definition of done:**
 
-- [ ] Custom `semanticThreshold` produces the expected derived `entailmentThreshold`.
-- [ ] Invalid n-gram sizes fail explicitly.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/verification.test.ts --reporter=dot` passes.
+- [x] Custom `semanticThreshold` produces the expected derived `entailmentThreshold`.
+- [x] Invalid n-gram sizes fail explicitly.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/verification.test.ts --reporter=dot` passes.
 
 ### T008-04-03: Implement low-risk maintainability refactors
 
