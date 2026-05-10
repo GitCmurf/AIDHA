@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.21"
+version: "0.22"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.21
+> **Version:** 0.22
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -49,6 +49,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.19    | 2026-05-10 | AI     | Extend TD-006 module extraction with harness extraction. | — | Draft | AIDHA-TASK-007 |
 | 0.20    | 2026-05-10 | AI     | Record full YouTube package test-timeout stabilization. | — | Draft | AIDHA-TASK-007 |
 | 0.21    | 2026-05-10 | AI     | Extend TD-006 module extraction with embedding config. | — | Draft | AIDHA-TASK-007 |
+| 0.22    | 2026-05-10 | AI     | Extend TD-006 module extraction with mode selection. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -359,6 +360,9 @@ Findings:
 - 2026-05-10: Extracted Google embedding runtime configuration and default-model ownership to
   `packages/praecis/youtube/src/eval/narrow-embedding-config.ts`; `narrow-manual-baseline.ts` is
   down to 1,334 lines.
+- 2026-05-10: Extracted run-mode presets, variant intersection, fast-triage escalation, and
+  shortlist selection to `packages/praecis/youtube/src/eval/narrow-mode-selection.ts`;
+  `narrow-manual-baseline.ts` is down to 1,207 lines.
 
 **Definition of done:**
 
