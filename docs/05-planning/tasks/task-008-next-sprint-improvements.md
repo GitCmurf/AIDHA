@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.6"
+version: "0.7"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.6
+> **Version:** 0.7
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -34,6 +34,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.4     | 2026-05-09 | AI     | Record completed verification, extraction-maintainability, and speaker attribution slices. | — | Draft | AIDHA-TASK-007 |
 | 0.5     | 2026-05-09 | AI     | Mark logger abstraction in progress with LLM extraction coverage. | — | Draft | AIDHA-TASK-007 |
 | 0.6     | 2026-05-10 | AI     | Mark Task 005 re-audit complete and close the TD-018 documentation loop. | — | Draft | AIDHA-TASK-007 |
+| 0.7     | 2026-05-10 | AI     | Start TD-006 module extraction with the narrow report renderer. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -285,7 +286,7 @@ Findings:
 ### T008-02-02: Extract coverage, rendering, teacher analysis, and artifact modules
 
 - **Backlog IDs:** TD-006
-- **Status:** Planned
+- **Status:** In Progress
 - **Owner:** Eval maintainer
 - **Dependencies:** T008-02-01
 
@@ -298,6 +299,12 @@ Findings:
 5. Reduce `runNarrowManualBaselineComparison` to context creation, sequencing, and persistence.
 6. Update docs or developer comments only where exported module boundaries need explanation.
 7. Update TD-006 in AIDHA-TASK-007 with evidence.
+
+**Progress:**
+
+- 2026-05-10: Extracted Markdown report rendering to
+  `packages/praecis/youtube/src/eval/narrow-report-renderer.ts`; the focused helper test imports
+  the renderer directly, and `narrow-manual-baseline.ts` keeps a compatibility re-export.
 
 **Definition of done:**
 

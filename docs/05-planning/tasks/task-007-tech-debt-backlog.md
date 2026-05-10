@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.6"
+version: "1.7"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.6
+> **Version:** 1.7
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -34,6 +34,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.4     | 2026-05-09 | AI     | Record resolved Task 008 extraction-maintainability and speaker attribution slices. | — | Draft | AIDHA-TASK-008 |
 | 1.5     | 2026-05-09 | AI     | Record first logger-abstraction progress for LLM extraction. | — | Draft | AIDHA-TASK-008 |
 | 1.6     | 2026-05-10 | AI     | Record Task 005 re-audit closure for deferred extraction-quality debt. | — | Draft | AIDHA-TASK-008 |
+| 1.7     | 2026-05-10 | AI     | Record first TD-006 renderer-module extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -529,7 +530,7 @@ remaining narrow-baseline structural work is tracked separately in TD-006.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | In Progress |
 | Priority   | High |
 | Category   | Maintainability / Testability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, `runNarrowManualBaselineComparison` |
@@ -599,6 +600,10 @@ resume behavior; only then start moving code.
 On 2026-05-09, the characterization-test slice was completed by extending
 `narrow-manual-baseline.test.ts` to verify persisted JSON/Markdown report shape and resume-stage
 metadata with deterministic fixtures and mocked clients. Module extraction remains open.
+On 2026-05-10, Markdown report rendering moved into
+`packages/praecis/youtube/src/eval/narrow-report-renderer.ts`; the narrow-baseline helper test now
+imports the renderer directly while `narrow-manual-baseline.ts` retains a compatibility re-export
+for existing callers.
 
 ---
 
