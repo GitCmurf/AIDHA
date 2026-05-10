@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.22"
+version: "1.23"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.22
+> **Version:** 1.23
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -50,6 +50,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.20    | 2026-05-10 | AI     | Record YouTube package test-timeout stabilization evidence. | — | Draft | AIDHA-TASK-008 |
 | 1.21    | 2026-05-10 | AI     | Record TD-006 embedding-config extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.22    | 2026-05-10 | AI     | Record TD-006 mode-selection extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.23    | 2026-05-10 | AI     | Record TD-006 input-loader extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -663,6 +664,9 @@ to 1,334 lines.
 Run-mode presets, variant intersection, fast-triage escalation, and shortlist selection now live in
 `packages/praecis/youtube/src/eval/narrow-mode-selection.ts`; the main baseline module is down to
 1,207 lines.
+Transcript loading, gold annotation loading, and manual-baseline claim loading now live in
+`packages/praecis/youtube/src/eval/narrow-input-loader.ts`; the main baseline module is down to
+1,123 lines.
 
 ---
 

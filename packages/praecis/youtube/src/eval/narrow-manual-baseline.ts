@@ -1,12 +1,11 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { ResolvedConfig } from "@aidha/config";
 import type { ClaimCandidate, LlmClient } from "../extract/index.js";
-import { GoldenAnnotationEntrySchema } from "./golden-annotation-schema.js";
-import { flattenGoldenClaimForest, type FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
+import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
-import type { MatrixCell, VideoContext } from "./matrix-runner.js";
+import type { MatrixCell } from "./matrix-runner.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import { getModel, type EvalModel } from "./model-registry.js";
 import { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
@@ -60,7 +59,6 @@ import {
   buildComparableClaimSetsForVideo,
   buildHarnessComparableClaimSet,
   needsFallbackForModel,
-  toManualComparableClaimSet,
   type ComparableClaimSetIndex,
 } from "./narrow-comparable-claim-set.js";
 import {
@@ -84,6 +82,11 @@ import {
   selectFastTriageEscalationPack,
   selectShortlistCandidatesForVideo,
 } from "./narrow-mode-selection.js";
+import {
+  loadTranscript,
+  loadVideoBaselines,
+  type TranscriptData,
+} from "./narrow-input-loader.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -107,15 +110,6 @@ export {
   selectShortlistCandidatesForVideo,
   shouldFastTriageEscalate,
 } from "./narrow-mode-selection.js";
-
-const ManualBaselineClaimsFileSchema = z.object({
-  claims: z.array(z.object({
-    text: z.string().min(1),
-    type: z.string().optional(),
-    confidence: z.number().optional(),
-    why: z.string().optional(),
-  })),
-});
 
 export const NarrowCorpusSchema = z.array(CorpusEntrySchema).min(1);
 
@@ -326,17 +320,6 @@ export { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 export { writeNarrowComparisonReport } from "./narrow-report-writer.js";
 export { computeCoverageByMode, type EmbeddingBudgetState } from "./coverage-engine.js";
 
-interface TranscriptData {
-  videoContext: VideoContext;
-  fullText: string;
-  structureProfile: TranscriptStructureProfile;
-}
-
-interface LoadedVideoBaselines {
-  goldFlatClaims: FlattenedGoldenClaimNode[];
-  comparableClaimSets: ComparableClaimSet[];
-}
-
 interface CorpusSignatureEntry {
   videoId: string;
   url: string;
@@ -372,77 +355,6 @@ export function buildCorpusSignature(corpus: CorpusEntry[]): string {
     }));
 
   return hashId("narrow-corpus", [JSON.stringify(normalizedCorpus)]);
-}
-
-async function readJsonFile<T>(path: string, schema: z.ZodSchema<T>): Promise<T> {
-  const raw = await readFile(path, "utf-8");
-  return schema.parse(JSON.parse(raw));
-}
-
-async function loadTranscript(video: CorpusEntry, transcriptDir: string): Promise<TranscriptData> {
-  const transcript = await readJsonFile(
-    join(transcriptDir, `${video.videoId}.json`),
-    z.object({
-      videoId: z.string(),
-      language: z.string().optional(),
-      fullText: z.string(),
-      segments: z.array(z.object({
-        start: z.number(),
-        duration: z.number(),
-        text: z.string(),
-      })),
-    })
-  );
-
-  return {
-    videoContext: {
-      videoId: video.videoId,
-      title: video.title,
-      channelName: video.channelName,
-      description: video.description,
-      url: video.url,
-      durationMinutes: video.durationMinutes,
-      topicDomain: video.topicDomain,
-    },
-    fullText: transcript.fullText,
-    structureProfile: profileTranscriptStructure(transcript.fullText),
-  };
-}
-
-async function loadVideoBaselines(
-  videoId: string,
-  manualBaselineDir: string,
-  options: { includeManualBaselines?: boolean } = {}
-): Promise<LoadedVideoBaselines> {
-  const goldEntry = await readJsonFile(
-    join(manualBaselineDir, `${videoId}-gold-draft-v1.json`),
-    GoldenAnnotationEntrySchema
-  );
-
-  const goldFlatClaims = flattenGoldenClaimForest(videoId, goldEntry.idealClaims);
-  const comparableClaimSets: ComparableClaimSet[] = [];
-
-  if (options.includeManualBaselines) {
-    const baselineIds = ["CG", "GG"] as const;
-    for (const baselineId of baselineIds) {
-      const baseline = await readJsonFile(
-        join(manualBaselineDir, `${videoId}-${baselineId}.json`),
-        ManualBaselineClaimsFileSchema
-      );
-      const claims: ClaimCandidate[] = baseline.claims.map((claim, index) => ({
-        text: claim.text,
-        excerptIds: [`manual-${baselineId.toLowerCase()}-${index}`],
-        type: claim.type?.toLowerCase(),
-        confidence: claim.confidence,
-        why: claim.why,
-        method: "llm",
-        state: "accepted",
-      }));
-      comparableClaimSets.push(toManualComparableClaimSet(videoId, baselineId, claims));
-    }
-  }
-
-  return { goldFlatClaims, comparableClaimSets };
 }
 
 export async function runNarrowManualBaselineComparison(
