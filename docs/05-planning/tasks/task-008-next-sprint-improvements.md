@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.11"
+version: "0.12"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.11
+> **Version:** 0.12
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -39,6 +39,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.9     | 2026-05-10 | AI     | Extend TD-006 module extraction with the coverage engine. | — | Draft | AIDHA-TASK-007 |
 | 0.10    | 2026-05-10 | AI     | Extend TD-006 module extraction with stage artifact storage. | — | Draft | AIDHA-TASK-007 |
 | 0.11    | 2026-05-10 | AI     | Extend TD-006 module extraction with teacher analysis. | — | Draft | AIDHA-TASK-007 |
+| 0.12    | 2026-05-10 | AI     | Record full YouTube package test evidence for TD-006 extraction slices. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -319,6 +320,8 @@ Findings:
   `packages/praecis/youtube/src/eval/stage-artifact-store.ts`.
 - 2026-05-10: Extracted teacher candidate selection, teacher coverage enrichment, and
   self-improvement hint construction to `packages/praecis/youtube/src/eval/teacher-analysis.ts`.
+- 2026-05-10: `pnpm --dir packages/praecis/youtube test` passed with 89 test files passed, 1
+  skipped; 889 tests passed, 6 skipped.
 
 **Definition of done:**
 
@@ -327,7 +330,7 @@ Findings:
 - [ ] `runNarrowManualBaselineComparison` is orchestration-only and materially shorter.
 - [ ] Generated JSON and Markdown reports are byte-identical for at least one deterministic
   fixture-backed run, except documented intentional ordering changes.
-- [ ] `pnpm --dir packages/praecis/youtube test` passes.
+- [x] `pnpm --dir packages/praecis/youtube test` passes.
 
 ---
 

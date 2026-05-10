@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.11"
+version: "1.12"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.11
+> **Version:** 1.12
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -39,6 +39,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.9     | 2026-05-10 | AI     | Record TD-006 coverage-engine extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.10    | 2026-05-10 | AI     | Record TD-006 stage-artifact-store extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.11    | 2026-05-10 | AI     | Record TD-006 teacher-analysis extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.12    | 2026-05-10 | AI     | Record full YouTube package test evidence for TD-006 extraction slices. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -593,7 +594,7 @@ harder: many behaviors can only be exercised through a broad end-to-end-style ha
 - [ ] Generated JSON and Markdown reports are byte-identical for at least one deterministic
   fixture-backed run, except where the refactor intentionally changes ordering and the change is
   documented.
-- [ ] `pnpm --dir packages/praecis/youtube test` passes.
+- [x] `pnpm --dir packages/praecis/youtube test` passes.
 
 **Risks and caveats:**
 This should be its own PR. Do not mix it with algorithm changes, scoring changes, or prompt
@@ -619,6 +620,8 @@ Stage artifact schemas plus atomic resume read/write helpers now live in
 the main orchestration module.
 Teacher candidate selection, teacher coverage enrichment, and self-improvement hint construction
 now live in `packages/praecis/youtube/src/eval/teacher-analysis.ts`.
+After these extraction slices, `pnpm --dir packages/praecis/youtube test` passed with 89 test files
+passed, 1 skipped; 889 tests passed, 6 skipped.
 
 ---
 
