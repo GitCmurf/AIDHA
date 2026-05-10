@@ -822,6 +822,7 @@ const prepareTranscriptDataAsync = async (
     metadata: {
       start: s.start,
       duration: s.duration,
+      ...(typeof s.speaker === "string" ? { speaker: s.speaker } : {}),
     },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

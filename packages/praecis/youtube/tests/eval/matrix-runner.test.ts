@@ -25,6 +25,7 @@ vi.mock("fs/promises", () => ({
 const mockExtractionDelaysByVideoId = new Map<string, number>();
 let activeProviderCalls = 0;
 let maxActiveProviderCalls = 0;
+const mockExtractorInputs: Array<{ resource: { id?: string }; excerpts?: Array<{ metadata?: { speaker?: string } }> }> = [];
 
 const trackActiveProviderCall = async <T>(fn: () => Promise<T>): Promise<T> => {
   activeProviderCalls++;
@@ -49,8 +50,9 @@ const makeMockClaim = () => ({
 
 vi.mock("../../src/extract/llm-claims", () => ({
   LlmClaimExtractor: vi.fn().mockImplementation(() => ({
-    extractClaims: vi.fn().mockImplementation(async (input: { resource: { id?: string } }) =>
+    extractClaims: vi.fn().mockImplementation(async (input: { resource: { id?: string }; excerpts?: Array<{ metadata?: { speaker?: string } }> }) =>
       trackActiveProviderCall(async () => {
+        mockExtractorInputs.push(input);
         const resourceId = input.resource.id ?? "";
         const videoId = resourceId.startsWith("youtube-") ? resourceId.slice("youtube-".length) : resourceId;
         const delayMs = mockExtractionDelaysByVideoId.get(videoId) ?? 0;
@@ -89,6 +91,7 @@ describe("Matrix Runner Integration", () => {
     vi.clearAllMocks();
     vi.mocked(matrixCache.getCachedScore).mockResolvedValue(null);
     mockExtractionDelaysByVideoId.clear();
+    mockExtractorInputs.length = 0;
     activeProviderCalls = 0;
     maxActiveProviderCalls = 0;
   });
@@ -253,6 +256,64 @@ describe("Matrix Runner Integration", () => {
         expect.stringContaining("[cell 1/1] done in"),
       ])
     );
+  });
+
+  it("preserves speaker metadata in eval excerpt payloads", async () => {
+    const corpus = [
+      createTestVideo("v1", 10, "low"),
+    ];
+
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+      videoId: "v1",
+      language: "en",
+      segments: [{ start: 0, duration: 10, text: "segment 1", speaker: "Host" }],
+      fullText: "full text",
+    }));
+    vi.mocked(readFileAsync).mockResolvedValue(JSON.stringify({
+      videoId: "v1",
+      language: "en",
+      segments: [{ start: 0, duration: 10, text: "segment 1", speaker: "Host" }],
+      fullText: "full text",
+    }));
+
+    const mockJudgeClient = {
+      generate: vi.fn().mockResolvedValue({
+        ok: true,
+        value: JSON.stringify({
+          completeness: 8,
+          accuracy: 9,
+          topicCoverage: 7,
+          atomicity: 10,
+          overallScore: 8.5,
+          reasoning: "Mock reasoning that is long enough",
+          missingClaims: [],
+          hallucinations: [],
+          redundancies: [],
+          gapAreas: []
+        }),
+        usage: { inputTokens: 120, outputTokens: 40, totalTokens: 160 },
+      })
+    };
+
+    const options = {
+      outputDir: "out/test",
+      cacheDir: "out/test/cache",
+      transcriptDir: "out/test/transcripts",
+      resume: false,
+      dryRun: false,
+      variants: ["raw" as const],
+      judgeModels: ["gpt-4o-mini"],
+      maxConcurrency: 1,
+      timeoutMs: 1000,
+      extractorClientFactory: () => ({}) as unknown as LlmClient,
+      judgeClientFactory: () => mockJudgeClient as unknown as LlmClient,
+    };
+
+    await runEvaluationMatrix(corpus, [getModel("gpt-4o-mini")!], options);
+
+    expect(mockExtractorInputs).toHaveLength(1);
+    expect(mockExtractorInputs[0]?.excerpts?.[0]?.metadata?.speaker).toBe("Host");
   });
 
   it("should average scores from multiple judges", () => {
