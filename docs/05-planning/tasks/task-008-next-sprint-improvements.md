@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.18"
+version: "0.19"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.18
+> **Version:** 0.19
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -46,6 +46,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.16    | 2026-05-10 | AI     | Extend TD-006 module extraction with comparable claim sets. | — | Draft | AIDHA-TASK-007 |
 | 0.17    | 2026-05-10 | AI     | Extend TD-006 module extraction with candidate reports. | — | Draft | AIDHA-TASK-007 |
 | 0.18    | 2026-05-10 | AI     | Extend TD-006 module extraction with stage signatures. | — | Draft | AIDHA-TASK-007 |
+| 0.19    | 2026-05-10 | AI     | Extend TD-006 module extraction with harness extraction. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -347,6 +348,9 @@ Findings:
 - 2026-05-10: Extracted stage, extraction-stage, video-score, and refine-stage signature builders
   to `packages/praecis/youtube/src/eval/narrow-stage-signatures.ts`;
   `narrow-manual-baseline.ts` is down to 1,440 lines.
+- 2026-05-10: Extracted harness-only matrix execution for shortlist/refine extraction to
+  `packages/praecis/youtube/src/eval/narrow-harness-extraction.ts`; `narrow-manual-baseline.ts` is
+  down to 1,374 lines.
 
 **Definition of done:**
 

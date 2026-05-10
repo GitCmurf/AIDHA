@@ -6,20 +6,19 @@ import type { ClaimCandidate, LlmClient } from "../extract/index.js";
 import { GoldenAnnotationEntrySchema } from "./golden-annotation-schema.js";
 import { flattenGoldenClaimForest, type FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
-import { runEvaluationMatrix, type MatrixCell, type MatrixOptions, type VideoContext } from "./matrix-runner.js";
+import type { MatrixCell, VideoContext } from "./matrix-runner.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import { getModel, type EvalModel } from "./model-registry.js";
 import { GeminiEmbeddingClient, type GeminiEmbeddingClientConfig } from "./gemini-embedding-client.js";
-import { getHostnameFromUrl, isOpenAiBaseUrl } from "../utils/urls.js";
+import { isOpenAiBaseUrl } from "../utils/urls.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
-import { getNarrowEvalChunkModes, getNarrowEvalModelProfile, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
+import { getNarrowEvalChunkModes, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import { hashId } from "../utils/ids.js";
 import { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 import type { NarrowDerivedJudgeScores, NarrowJudgeFindings } from "./narrow-judge.js";
 import {
   PASS1_PROMPT_CONFIG_IDS,
-  promptVersionForConfig,
   type Pass1PromptConfigId,
 } from "../extract/prompts/pass1-claim-mining-v2.js";
 import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
@@ -78,6 +77,7 @@ import {
   buildStageInputSignature,
   buildVideoScoreInputSignature,
 } from "./narrow-stage-signatures.js";
+import { runHarnessExtractionOnly } from "./narrow-harness-extraction.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -607,72 +607,6 @@ function getGoogleEmbeddingConfig(
   };
 }
 
-
-async function runHarnessExtractionOnly(
-  corpus: CorpusEntry[],
-  models: EvalModel[],
-  variants: ExtractorVariantId[],
-  promptConfigId: Pass1PromptConfigId,
-  chunkMode: NarrowEvalChunkMode,
-  transcriptDir: string,
-  clientFactory: (modelId: string) => LlmClient,
-  maxConcurrency: number,
-  timeoutMs: number,
-  selfImproveHints?: Record<string, SelfImproveHintInput>,
-  enablePromptRouting: boolean = true,
-  promptPackId?: ExtractionPromptPackId,
-  refinementStage?: "refined",
-  outputDir?: string,
-  cacheDir?: string,
-  logger?: Logger
-): Promise<MatrixCell[]> {
-  const chunkProfiles = Object.fromEntries(models.map((model) => {
-    const profile = getNarrowEvalModelProfile(model.id, chunkMode);
-    return [model.id, {
-      chunkStrategy: profile.chunkStrategy,
-      targetInputTokens: profile.targetInputTokens,
-      hardMaxInputTokens: profile.hardMaxInputTokens,
-      overlapExcerpts: profile.overlapExcerpts,
-    }];
-  }));
-
-  const firstModelId = models[0]?.id ?? "gemini-3.1-flash-lite-preview";
-  const firstProfile = chunkProfiles[firstModelId] ?? getNarrowEvalModelProfile(firstModelId, chunkMode);
-
-  const options: MatrixOptions = {
-    outputDir: outputDir ?? "out/eval-matrix/reports/narrow-manual-baseline",
-    cacheDir: cacheDir ?? ".cache/extraction/narrow-manual-baseline-optimizer",
-    transcriptDir,
-    resume: false,
-    dryRun: false,
-    variants,
-    judgeModels: [],
-    maxConcurrency,
-    timeoutMs,
-    extractionChunkStrategy: firstProfile.chunkStrategy,
-    extractionChunkTargetInputTokens: firstProfile.targetInputTokens,
-    extractionChunkHardMaxInputTokens: firstProfile.hardMaxInputTokens,
-    extractionChunkOverlapExcerpts: firstProfile.overlapExcerpts,
-    extractionChunkProfiles: chunkProfiles,
-    extractionChunkModeId: chunkMode,
-    extractionTransportRetryMaxAttempts: 3,
-    extractionTransportRetryBaseDelayMs: 750,
-    extractionSelfImproveHints: selfImproveHints,
-    extractionEnablePromptRouting: enablePromptRouting,
-    extractionPromptPackId: promptPackId,
-    extractionPromptVersion: promptVersionForConfig(promptConfigId, promptPackId),
-    extractionPromptConfigId: promptConfigId,
-    cellLabelPrefix: `mode=${chunkMode} prompt=${promptConfigId}`,
-    logger,
-    extractorClientFactory: clientFactory,
-    judgeClientFactory: () => {
-      throw new Error("Judge client should not be used during extraction-only run");
-    },
-  };
-
-  const result = await runEvaluationMatrix(corpus, models, options);
-  return result.cells.map((cell) => ({ ...cell, chunkMode, promptConfigId, refinementStage }));
-}
 
 export async function runNarrowManualBaselineComparison(
   options: RunNarrowManualBaselineOptions
