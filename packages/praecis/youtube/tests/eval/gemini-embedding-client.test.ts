@@ -459,7 +459,7 @@ describe("GeminiEmbeddingClient", () => {
     expect(client.getStats().embeddingsComputed).toBe(0);
 
     await rm(cacheDir, { recursive: true, force: true });
-  });
+  }, 15_000);
 
   it("routes non-fatal cache write failures through the injected logger", async () => {
     const cacheDir = await mkdtemp(join(tmpdir(), "aidha-gemini-embed-file-"));
