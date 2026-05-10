@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.15"
+version: "0.16"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.15
+> **Version:** 0.16
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -43,6 +43,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.13    | 2026-05-10 | AI     | Extend TD-006 module extraction with judge enrichment. | — | Draft | AIDHA-TASK-007 |
 | 0.14    | 2026-05-10 | AI     | Extend TD-006 module extraction with optimization ranking. | — | Draft | AIDHA-TASK-007 |
 | 0.15    | 2026-05-10 | AI     | Extend TD-006 module extraction with structural targets. | — | Draft | AIDHA-TASK-007 |
+| 0.16    | 2026-05-10 | AI     | Extend TD-006 module extraction with comparable claim sets. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -334,6 +335,10 @@ Findings:
 - 2026-05-10: Extracted transcript-structure profiling and structural-target assessment to
   `packages/praecis/youtube/src/eval/narrow-structural-targets.ts`; `narrow-manual-baseline.ts`
   is down to 1,934 lines.
+- 2026-05-10: Extracted matrix-cell comparable claim-set conversion, fallback diagnostics,
+  candidate-ID generation, and per-video comparable indexing to
+  `packages/praecis/youtube/src/eval/narrow-comparable-claim-set.ts`;
+  `narrow-manual-baseline.ts` is down to 1,740 lines.
 
 **Definition of done:**
 
