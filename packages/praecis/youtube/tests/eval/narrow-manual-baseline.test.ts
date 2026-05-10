@@ -13,7 +13,6 @@ import {
   buildVideoScoreInputSignature,
   buildHarnessComparableClaimSet,
   computeOptimizationScore,
-  computeCoverageByMode,
   buildComparableCandidateId,
   needsFallbackForModel,
   profileTranscriptStructure,
@@ -21,8 +20,11 @@ import {
   selectShortlistCandidatesForVideo,
   selectFastTriageEscalationPack,
   shouldFastTriageEscalate,
-  type EmbeddingBudgetState,
 } from "../../src/eval/narrow-manual-baseline";
+import {
+  computeCoverageByMode,
+  type EmbeddingBudgetState,
+} from "../../src/eval/coverage-engine.js";
 import { renderNarrowComparisonMarkdown } from "../../src/eval/narrow-report-renderer.js";
 import { writeNarrowComparisonReport } from "../../src/eval/narrow-report-writer.js";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";

@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.8"
+version: "0.9"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.8
+> **Version:** 0.9
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -36,6 +36,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.6     | 2026-05-10 | AI     | Mark Task 005 re-audit complete and close the TD-018 documentation loop. | — | Draft | AIDHA-TASK-007 |
 | 0.7     | 2026-05-10 | AI     | Start TD-006 module extraction with the narrow report renderer. | — | Draft | AIDHA-TASK-007 |
 | 0.8     | 2026-05-10 | AI     | Extend TD-006 module extraction with report writer persistence. | — | Draft | AIDHA-TASK-007 |
+| 0.9     | 2026-05-10 | AI     | Extend TD-006 module extraction with the coverage engine. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -309,6 +310,9 @@ Findings:
 - 2026-05-10: Extracted report file persistence to
   `packages/praecis/youtube/src/eval/narrow-report-writer.ts`; the focused helper test imports the
   writer directly, and `narrow-manual-baseline.ts` keeps a compatibility re-export.
+- 2026-05-10: Extracted coverage matching and embedding-budget-aware scoring to
+  `packages/praecis/youtube/src/eval/coverage-engine.ts`; coverage tests import the engine
+  directly, and `narrow-manual-baseline.ts` keeps a compatibility re-export.
 
 **Definition of done:**
 

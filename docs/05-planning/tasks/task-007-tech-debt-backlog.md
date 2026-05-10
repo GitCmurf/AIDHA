@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.8"
+version: "1.9"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.8
+> **Version:** 1.9
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -36,6 +36,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.6     | 2026-05-10 | AI     | Record Task 005 re-audit closure for deferred extraction-quality debt. | — | Draft | AIDHA-TASK-008 |
 | 1.7     | 2026-05-10 | AI     | Record first TD-006 renderer-module extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.8     | 2026-05-10 | AI     | Record TD-006 report-writer extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.9     | 2026-05-10 | AI     | Record TD-006 coverage-engine extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -608,6 +609,9 @@ for existing callers.
 The same slice was extended by moving report file persistence into
 `packages/praecis/youtube/src/eval/narrow-report-writer.ts`, giving artifact writing its own
 module while preserving the existing `narrow-manual-baseline.ts` export surface.
+Coverage matching and embedding-budget-aware scoring now live in
+`packages/praecis/youtube/src/eval/coverage-engine.ts`; coverage tests import the engine directly
+while `narrow-manual-baseline.ts` keeps compatibility re-exports.
 
 ---
 
