@@ -12,7 +12,6 @@ import { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
-import { hashId } from "../utils/ids.js";
 import { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 import type { NarrowDerivedJudgeScores, NarrowJudgeFindings } from "./narrow-judge.js";
 import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
@@ -87,6 +86,7 @@ import {
   loadVideoBaselines,
   type TranscriptData,
 } from "./narrow-input-loader.js";
+import { buildCorpusSignature } from "./narrow-corpus-signature.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -110,6 +110,7 @@ export {
   selectShortlistCandidatesForVideo,
   shouldFastTriageEscalate,
 } from "./narrow-mode-selection.js";
+export { buildCorpusSignature } from "./narrow-corpus-signature.js";
 
 export const NarrowCorpusSchema = z.array(CorpusEntrySchema).min(1);
 
@@ -319,43 +320,6 @@ export interface RunNarrowManualBaselineOptions {
 export { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 export { writeNarrowComparisonReport } from "./narrow-report-writer.js";
 export { computeCoverageByMode, type EmbeddingBudgetState } from "./coverage-engine.js";
-
-interface CorpusSignatureEntry {
-  videoId: string;
-  url: string;
-  title: string;
-  channelName: string;
-  durationMinutes: number;
-  topicDomain: string;
-  expectedClaimDensity: string;
-  description: string;
-  language: string;
-  captionSource: string;
-  speakerStyle: string;
-  rationale: string;
-}
-
-export function buildCorpusSignature(corpus: CorpusEntry[]): string {
-  const normalizedCorpus: CorpusSignatureEntry[] = corpus
-    .slice()
-    .sort((a, b) => a.videoId.localeCompare(b.videoId))
-    .map((entry) => ({
-      videoId: entry.videoId,
-      url: entry.url,
-      title: entry.title,
-      channelName: entry.channelName,
-      durationMinutes: entry.durationMinutes,
-      topicDomain: entry.topicDomain,
-      expectedClaimDensity: entry.expectedClaimDensity,
-      description: entry.description ?? "",
-      language: entry.language ?? "",
-      captionSource: entry.captionSource ?? "",
-      speakerStyle: entry.speakerStyle ?? "",
-      rationale: entry.rationale,
-    }));
-
-  return hashId("narrow-corpus", [JSON.stringify(normalizedCorpus)]);
-}
 
 export async function runNarrowManualBaselineComparison(
   options: RunNarrowManualBaselineOptions

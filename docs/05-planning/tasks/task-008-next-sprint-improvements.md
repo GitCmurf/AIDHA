@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.23"
+version: "0.24"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.23
+> **Version:** 0.24
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -51,6 +51,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.21    | 2026-05-10 | AI     | Extend TD-006 module extraction with embedding config. | — | Draft | AIDHA-TASK-007 |
 | 0.22    | 2026-05-10 | AI     | Extend TD-006 module extraction with mode selection. | — | Draft | AIDHA-TASK-007 |
 | 0.23    | 2026-05-10 | AI     | Extend TD-006 module extraction with input loading. | — | Draft | AIDHA-TASK-007 |
+| 0.24    | 2026-05-10 | AI     | Extend TD-006 module extraction with corpus signatures. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -367,6 +368,9 @@ Findings:
 - 2026-05-10: Extracted transcript loading, gold annotation loading, and manual-baseline claim
   loading to `packages/praecis/youtube/src/eval/narrow-input-loader.ts`;
   `narrow-manual-baseline.ts` is down to 1,123 lines.
+- 2026-05-10: Extracted deterministic corpus-signature normalization to
+  `packages/praecis/youtube/src/eval/narrow-corpus-signature.ts`; `narrow-manual-baseline.ts` is
+  down to 1,087 lines.
 
 **Definition of done:**
 

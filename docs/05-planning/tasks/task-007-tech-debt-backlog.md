@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.23"
+version: "1.24"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.23
+> **Version:** 1.24
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -51,6 +51,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.21    | 2026-05-10 | AI     | Record TD-006 embedding-config extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.22    | 2026-05-10 | AI     | Record TD-006 mode-selection extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.23    | 2026-05-10 | AI     | Record TD-006 input-loader extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.24    | 2026-05-10 | AI     | Record TD-006 corpus-signature extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -667,6 +668,9 @@ Run-mode presets, variant intersection, fast-triage escalation, and shortlist se
 Transcript loading, gold annotation loading, and manual-baseline claim loading now live in
 `packages/praecis/youtube/src/eval/narrow-input-loader.ts`; the main baseline module is down to
 1,123 lines.
+Deterministic corpus-signature normalization now lives in
+`packages/praecis/youtube/src/eval/narrow-corpus-signature.ts`; the main baseline module is down
+to 1,087 lines.
 
 ---
 
