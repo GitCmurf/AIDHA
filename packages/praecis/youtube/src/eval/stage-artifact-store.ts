@@ -12,6 +12,7 @@ import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
 import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
 import { writeJsonAtomic } from "../utils/io.js";
+import { sanitizeFilename } from "../utils/ids.js";
 
 export interface NarrowShortlistTarget {
   videoId: string;
@@ -125,7 +126,7 @@ function buildNarrowStagePath(outputDir: string, stage: NarrowStageId): string {
 }
 
 function buildNarrowVideoScorePath(outputDir: string, videoId: string): string {
-  return join(outputDir, "stages", `score-video-${videoId}.json`);
+  return join(outputDir, "stages", `score-video-${sanitizeFilename(videoId)}.json`);
 }
 
 export async function writeNarrowStageArtifact<T>(
