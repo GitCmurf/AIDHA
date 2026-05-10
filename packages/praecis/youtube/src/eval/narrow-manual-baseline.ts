@@ -70,6 +70,10 @@ import {
   toManualComparableClaimSet,
   type ComparableClaimSetIndex,
 } from "./narrow-comparable-claim-set.js";
+import {
+  backfillTranscriptStructureProfile,
+  buildCandidateReport,
+} from "./narrow-candidate-report.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -801,98 +805,6 @@ function getGoogleEmbeddingConfig(
   };
 }
 
-
-function backfillTranscriptStructureProfile(
-  video: NarrowComparisonVideoReport,
-  transcriptByVideo: Map<string, TranscriptData>
-): NarrowComparisonVideoReport {
-  if (video.transcriptStructureProfile) {
-    return video;
-  }
-  const transcript = transcriptByVideo.get(video.videoId);
-  return {
-    ...video,
-    transcriptStructureProfile: {
-      tags: [...(transcript?.structureProfile.tags ?? [])],
-      cueMatches: [...(transcript?.structureProfile.cueMatches ?? [])],
-    },
-  };
-}
-
-async function buildCandidateReport(
-  candidate: ComparableClaimSet,
-  goldClaims: FlattenedGoldenClaimNode[],
-  transcriptProfile: TranscriptStructureProfile,
-  embeddingClient?: GeminiEmbeddingClient,
-  coverageCache?: Map<CoverageCacheKey, GoldCoverageSummary>,
-  budgetState?: EmbeddingBudgetState
-): Promise<NarrowComparisonCandidateReport> {
-  const structuralTargetAssessment = assessStructuralTargets(candidate.claims, transcriptProfile);
-  const strictCoverage = await computeCoverageByMode(candidate.claims, goldClaims, "strict", undefined, coverageCache);
-  const semanticCoverage = await computeCoverageByMode(candidate.claims, goldClaims, "semantic", embeddingClient, coverageCache, budgetState);
-  const embeddingCoverage = embeddingClient
-    ? await computeCoverageByMode(candidate.claims, goldClaims, "embedding", embeddingClient, coverageCache, budgetState)
-    : undefined;
-
-  if (candidate.error) {
-    return {
-      candidateId: candidate.candidateId,
-      sourceKind: candidate.sourceKind,
-      modelId: candidate.modelId,
-      variantId: candidate.variantId,
-      chunkMode: candidate.chunkMode,
-      promptConfigId: candidate.promptConfigId,
-      note: candidate.note,
-      claimCount: candidate.claims.length,
-      structuralTargetScore: structuralTargetAssessment.score,
-      structuralTargetAssessment,
-      strictCoverage,
-      semanticCoverage,
-      embeddingCoverage,
-      goldCoverage: semanticCoverage,
-      diagnostics: candidate.diagnostics,
-      error: candidate.error,
-    };
-  }
-
-  if (candidate.claims.length === 0) {
-    return {
-      candidateId: candidate.candidateId,
-      sourceKind: candidate.sourceKind,
-      modelId: candidate.modelId,
-      variantId: candidate.variantId,
-      chunkMode: candidate.chunkMode,
-      promptConfigId: candidate.promptConfigId,
-      note: [candidate.note, "No claims extracted; judge skipped"].filter(Boolean).join(" - ") || undefined,
-      claimCount: 0,
-      structuralTargetScore: 0,
-      structuralTargetAssessment,
-      strictCoverage,
-      semanticCoverage,
-      embeddingCoverage,
-      goldCoverage: semanticCoverage,
-      diagnostics: candidate.diagnostics,
-    };
-  }
-
-  return {
-    candidateId: candidate.candidateId,
-    sourceKind: candidate.sourceKind,
-    modelId: candidate.modelId,
-    variantId: candidate.variantId,
-    chunkMode: candidate.chunkMode,
-    promptConfigId: candidate.promptConfigId,
-    note: candidate.note,
-    claimCount: candidate.claims.length,
-    structuralTargetScore: structuralTargetAssessment.score,
-    structuralTargetAssessment,
-    strictCoverage,
-    semanticCoverage,
-    embeddingCoverage,
-    goldCoverage: semanticCoverage,
-    diagnostics: candidate.diagnostics,
-  };
-}
 
 async function runHarnessExtractionOnly(
   corpus: CorpusEntry[],

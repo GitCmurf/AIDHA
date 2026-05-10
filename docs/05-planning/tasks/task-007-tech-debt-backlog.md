@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.16"
+version: "1.17"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.16
+> **Version:** 1.17
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -44,6 +44,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.14    | 2026-05-10 | AI     | Record TD-006 optimization-ranking extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.15    | 2026-05-10 | AI     | Record TD-006 structural-target extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.16    | 2026-05-10 | AI     | Record TD-006 comparable-claim-set extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.17    | 2026-05-10 | AI     | Record TD-006 candidate-report extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -639,6 +640,9 @@ Matrix-cell comparable claim-set conversion, fallback diagnostics, candidate-ID 
 per-video comparable indexing now live in
 `packages/praecis/youtube/src/eval/narrow-comparable-claim-set.ts`; the main baseline module is
 down to 1,740 lines.
+Candidate-report construction and transcript-structure backfill now live in
+`packages/praecis/youtube/src/eval/narrow-candidate-report.ts`; the main baseline module is down
+to 1,652 lines.
 
 ---
 
