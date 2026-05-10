@@ -1,6 +1,10 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { isOpenAiBaseUrl } from "../utils/urls.js";
-import type { GeminiEmbeddingClientConfig } from "./gemini-embedding-client.js";
+import type { Logger } from "../utils/logger.js";
+import {
+  GeminiEmbeddingClient,
+  type GeminiEmbeddingClientConfig,
+} from "./gemini-embedding-client.js";
 
 export const DEFAULT_GOOGLE_EMBEDDING_MODEL = "gemini-embedding-001";
 
@@ -11,6 +15,13 @@ export interface GoogleEmbeddingConfig {
   batchSize?: number;
   taskType?: GeminiEmbeddingClientConfig["taskType"];
   outputDimensionality?: number;
+}
+
+export interface CreateGoogleEmbeddingClientOptions {
+  cacheDir: string;
+  timeoutMs: number;
+  maxRequestsPerMinute: number;
+  logger: Logger;
 }
 
 export function getGoogleEmbeddingConfig(
@@ -51,4 +62,23 @@ export function getGoogleEmbeddingConfig(
       llm.embeddingOutputDimensionality ||
       768,
   };
+}
+
+export function createGoogleEmbeddingClient(
+  config: GoogleEmbeddingConfig,
+  options: CreateGoogleEmbeddingClientOptions
+): GeminiEmbeddingClient | undefined {
+  if (!config.apiKey) return undefined;
+  return new GeminiEmbeddingClient({
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
+    cacheDir: options.cacheDir,
+    timeoutMs: options.timeoutMs,
+    model: config.model,
+    batchSize: config.batchSize,
+    taskType: config.taskType,
+    outputDimensionality: config.outputDimensionality,
+    maxRequestsPerMinute: options.maxRequestsPerMinute,
+    logger: options.logger,
+  });
 }

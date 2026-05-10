@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.24"
+version: "0.25"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.24
+> **Version:** 0.25
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -52,6 +52,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.22    | 2026-05-10 | AI     | Extend TD-006 module extraction with mode selection. | — | Draft | AIDHA-TASK-007 |
 | 0.23    | 2026-05-10 | AI     | Extend TD-006 module extraction with input loading. | — | Draft | AIDHA-TASK-007 |
 | 0.24    | 2026-05-10 | AI     | Extend TD-006 module extraction with corpus signatures. | — | Draft | AIDHA-TASK-007 |
+| 0.25    | 2026-05-10 | AI     | Extend TD-006 module extraction with embedding client construction. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -371,6 +372,9 @@ Findings:
 - 2026-05-10: Extracted deterministic corpus-signature normalization to
   `packages/praecis/youtube/src/eval/narrow-corpus-signature.ts`; `narrow-manual-baseline.ts` is
   down to 1,087 lines.
+- 2026-05-10: Moved Google embedding client construction into
+  `packages/praecis/youtube/src/eval/narrow-embedding-config.ts`; `narrow-manual-baseline.ts` is
+  down to 1,081 lines.
 
 **Definition of done:**
 

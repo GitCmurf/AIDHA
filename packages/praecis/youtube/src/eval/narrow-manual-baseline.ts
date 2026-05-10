@@ -8,7 +8,6 @@ import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
 import type { MatrixCell } from "./matrix-runner.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import { getModel, type EvalModel } from "./model-registry.js";
-import { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
@@ -72,6 +71,7 @@ import {
 } from "./narrow-stage-signatures.js";
 import { runHarnessExtractionOnly } from "./narrow-harness-extraction.js";
 import {
+  createGoogleEmbeddingClient,
   DEFAULT_GOOGLE_EMBEDDING_MODEL,
   getGoogleEmbeddingConfig,
 } from "./narrow-embedding-config.js";
@@ -422,15 +422,9 @@ export async function runNarrowManualBaselineComparison(
   }));
 
   const embeddingClient = embeddingClientAvailable
-    ? new GeminiEmbeddingClient({
-        apiKey: googleEmbeddingConfig.apiKey!,
-        baseUrl: googleEmbeddingConfig.baseUrl,
+    ? createGoogleEmbeddingClient(googleEmbeddingConfig, {
         cacheDir: join(options.outputDir, ".cache", "eval-embeddings"),
         timeoutMs: options.timeoutMs ?? 120_000,
-        model: googleEmbeddingConfig.model,
-        batchSize: googleEmbeddingConfig.batchSize,
-        taskType: googleEmbeddingConfig.taskType,
-        outputDimensionality: googleEmbeddingConfig.outputDimensionality,
         maxRequestsPerMinute: options.maxEmbeddingRequestsPerMinute ?? 80,
         logger,
       })
