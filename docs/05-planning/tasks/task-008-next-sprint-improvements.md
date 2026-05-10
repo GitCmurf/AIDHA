@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.12"
+version: "0.13"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.12
+> **Version:** 0.13
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -40,6 +40,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.10    | 2026-05-10 | AI     | Extend TD-006 module extraction with stage artifact storage. | — | Draft | AIDHA-TASK-007 |
 | 0.11    | 2026-05-10 | AI     | Extend TD-006 module extraction with teacher analysis. | — | Draft | AIDHA-TASK-007 |
 | 0.12    | 2026-05-10 | AI     | Record full YouTube package test evidence for TD-006 extraction slices. | — | Draft | AIDHA-TASK-007 |
+| 0.13    | 2026-05-10 | AI     | Extend TD-006 module extraction with judge enrichment. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -322,6 +323,9 @@ Findings:
   self-improvement hint construction to `packages/praecis/youtube/src/eval/teacher-analysis.ts`.
 - 2026-05-10: `pnpm --dir packages/praecis/youtube test` passed with 89 test files passed, 1
   skipped; 889 tests passed, 6 skipped.
+- 2026-05-10: Extracted judge scoring enrichment and provider-error classification to
+  `packages/praecis/youtube/src/eval/narrow-judge-enrichment.ts`; `narrow-manual-baseline.ts` is
+  down to 2,139 lines.
 
 **Definition of done:**
 

@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.12"
+version: "1.13"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.12
+> **Version:** 1.13
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -40,6 +40,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.10    | 2026-05-10 | AI     | Record TD-006 stage-artifact-store extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.11    | 2026-05-10 | AI     | Record TD-006 teacher-analysis extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.12    | 2026-05-10 | AI     | Record full YouTube package test evidence for TD-006 extraction slices. | — | Draft | AIDHA-TASK-008 |
+| 1.13    | 2026-05-10 | AI     | Record TD-006 judge-enrichment extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -622,6 +623,9 @@ Teacher candidate selection, teacher coverage enrichment, and self-improvement h
 now live in `packages/praecis/youtube/src/eval/teacher-analysis.ts`.
 After these extraction slices, `pnpm --dir packages/praecis/youtube test` passed with 89 test files
 passed, 1 skipped; 889 tests passed, 6 skipped.
+Judge scoring enrichment and provider-error classification now live in
+`packages/praecis/youtube/src/eval/narrow-judge-enrichment.ts`; the main baseline module is down to
+2,139 lines.
 
 ---
 
