@@ -528,7 +528,7 @@ remaining narrow-baseline structural work is tracked separately in TD-006.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | High |
 | Category   | Maintainability / Testability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, `runNarrowManualBaselineComparison` |
@@ -680,8 +680,14 @@ slice threaded `logger?: Logger` through `runEvaluationMatrix`, routed matrix dr
 cache-warning, transcript-error, and scoring diagnostics through it, and forwarded the logger into
 `LlmClaimExtractor`. A fifth slice routed claim-validation warnings in
 `ClaimExtractionPipeline` through the configured logger and added buffered-logger coverage in
-`extraction.test.ts`. Remaining work: `runNarrowManualBaselineComparison` and CLI
-handoff/quiet-mode coverage.
+`extraction.test.ts`. A sixth slice threaded `logger?: Logger` through
+`runNarrowManualBaselineComparison`, `runHarnessExtractionOnly`, the narrow judge enrichment path,
+and the Gemini embedding client, leaving direct `console.*` calls only in CLI modules or comment
+examples. `narrow-manual-baseline.test.ts` now verifies injected logger propagation for narrow
+stage/status output. A full `pnpm --dir packages/praecis/youtube test` run completed with 888
+passing tests, 6 skipped tests, and one `cli-claims-purge.test.ts` timeout under full-suite load; the
+same timed-out file passed in isolation. Keep this item open until the package-level test gate is
+green in one run.
 
 ---
 

@@ -638,9 +638,9 @@ under control.
 
 **Definition of done:**
 
-- [ ] Library modules under `src/extract`, `src/eval`, and `src/client` do not call `console.*`
+- [x] Library modules under `src/extract`, `src/eval`, and `src/client` do not call `console.*`
   directly except examples in comments or explicitly documented exceptions.
-- [ ] CLI modules either write directly to the console intentionally or inject a logger downstream.
+- [x] CLI modules either write directly to the console intentionally or inject a logger downstream.
 - [x] Quiet-mode or buffered-logger tests prove output can be suppressed.
 - [ ] `pnpm --dir packages/praecis/youtube test` passes.
 

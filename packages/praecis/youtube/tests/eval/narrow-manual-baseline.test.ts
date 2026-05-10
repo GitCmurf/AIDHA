@@ -27,6 +27,7 @@ import {
 } from "../../src/eval/narrow-manual-baseline";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
 import { validateSafeId } from "../../src/utils/ids.js";
+import { BufferedLogger } from "../../src/utils/logger.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../");
 
@@ -870,6 +871,7 @@ describe("narrow-manual-baseline helpers", () => {
       const transcriptDir = await mkdtemp(join(rootDir, "transcripts-"));
       const manualBaselineDir = await mkdtemp(join(rootDir, "manual-"));
       const outputDir = await mkdtemp(join(rootDir, "output-"));
+      const logger = new BufferedLogger();
 
       await writeFile(
         join(transcriptDir, "video-1.json"),
@@ -932,13 +934,23 @@ describe("narrow-manual-baseline helpers", () => {
         env: {
           AIDHA_GOOGLE_API_KEY: "from-dotenv-google", // pragma: allowlist secret
         } as NodeJS.ProcessEnv,
+        logger,
       });
 
       expect(geminiEmbeddingClientMock).toHaveBeenCalledTimes(1);
       expect(geminiEmbeddingClientMock).toHaveBeenCalledWith(expect.objectContaining({
         model: "gemini-embedding-001",
+        logger,
       }));
       expect(report.metadata.embeddingModel).toBe("gemini-embedding-001");
+      expect(logger.entries.map((entry) => entry.message)).toEqual(
+        expect.arrayContaining([
+          "[stage1-start] shortlist",
+          expect.stringContaining("[coverage-start] video=video-1"),
+          "[stage4-start] judge",
+          "[stage4-done] judge",
+        ])
+      );
     } finally {
       for (const [key, value] of Object.entries(originalEnv)) {
         if (value === undefined) {

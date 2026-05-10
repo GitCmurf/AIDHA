@@ -15,6 +15,7 @@ import { buildReportFileSet, type ReportFileSet } from "./report-files.js";
 import { GeminiEmbeddingClient, type GeminiEmbeddingClientConfig } from "./gemini-embedding-client.js";
 import { getHostnameFromUrl, isOpenAiBaseUrl } from "../utils/urls.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
+import { consoleLogger, type Logger } from "../utils/logger.js";
 import { getNarrowEvalChunkModes, getNarrowEvalModelProfile, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import { computeClaimSetHash } from "./matrix-cache.js";
 import { hashId, hashFile } from "../utils/ids.js";
@@ -250,6 +251,7 @@ export interface RunNarrowManualBaselineOptions {
    * process.env globally.
    */
   env?: NodeJS.ProcessEnv;
+  logger?: Logger;
 }
 
 interface TranscriptData {
@@ -1935,7 +1937,8 @@ async function enrichCandidateReportWithJudges(
   teacherClaims: ClaimCandidate[],
   judgeClients: Map<string, LlmClient>,
   judgeModelIds: string[],
-  judgeMaxTokens: number
+  judgeMaxTokens: number,
+  logger: Logger
 ): Promise<void> {
   if (candidate.claims.length === 0 || candidate.error) {
     return;
@@ -1948,7 +1951,7 @@ async function enrichCandidateReportWithJudges(
   for (const judgeModelId of judgeModelIds) {
     const judgeClient = judgeClients.get(judgeModelId);
     if (!judgeClient) continue;
-    console.log(
+    logger.info(
       `[judge ${judgeModelId}] candidate=${candidate.candidateId} video=${candidate.videoId} claims=${candidate.claims.length}`
     );
     const scoreResult = await scoreNarrowClaimSet(
@@ -1963,7 +1966,7 @@ async function enrichCandidateReportWithJudges(
     );
     if (!scoreResult.ok) {
       const errorClass = classifyNarrowJudgeError(scoreResult.error.message);
-      console.warn(
+      logger.warn(
         `[judge-failed ${judgeModelId}] candidate=${candidate.candidateId} video=${candidate.videoId} class=${errorClass}: ${scoreResult.error.message}`
       );
       judgeErrors.push(`${judgeModelId}: ${scoreResult.error.message}`);
@@ -1971,7 +1974,7 @@ async function enrichCandidateReportWithJudges(
     }
     judgeFindingsByModel[judgeModelId] = scoreResult.value.result.findings;
     derivedScoresByModel[judgeModelId] = scoreResult.value.result.derivedScores;
-    console.log(
+    logger.info(
       `[judge-done ${judgeModelId}] candidate=${candidate.candidateId} video=${candidate.videoId} overall=${scoreResult.value.result.derivedScores.overallScore.toFixed(2)} gold=${scoreResult.value.result.derivedScores.goldCoverage.toFixed(2)}`
     );
   }
@@ -2021,7 +2024,8 @@ async function runHarnessExtractionOnly(
   promptPackId?: ExtractionPromptPackId,
   refinementStage?: "refined",
   outputDir?: string,
-  cacheDir?: string
+  cacheDir?: string,
+  logger?: Logger
 ): Promise<MatrixCell[]> {
   const chunkProfiles = Object.fromEntries(models.map((model) => {
     const profile = getNarrowEvalModelProfile(model.id, chunkMode);
@@ -2060,6 +2064,7 @@ async function runHarnessExtractionOnly(
     extractionPromptVersion: promptVersionForConfig(promptConfigId, promptPackId),
     extractionPromptConfigId: promptConfigId,
     cellLabelPrefix: `mode=${chunkMode} prompt=${promptConfigId}`,
+    logger,
     extractorClientFactory: clientFactory,
     judgeClientFactory: () => {
       throw new Error("Judge client should not be used during extraction-only run");
@@ -2088,6 +2093,7 @@ export async function runNarrowManualBaselineComparison(
   options: RunNarrowManualBaselineOptions
 ): Promise<NarrowComparisonReport> {
   const startedAt = new Date().toISOString();
+  const logger = options.logger ?? consoleLogger;
   requestRateLimiterRegistry.reset();
   const runMode = options.runMode ?? "fast-triage";
   const preset = getNarrowModePreset(runMode);
@@ -2194,6 +2200,7 @@ export async function runNarrowManualBaselineComparison(
         taskType: googleEmbeddingConfig.taskType,
         outputDimensionality: googleEmbeddingConfig.outputDimensionality,
         maxRequestsPerMinute: options.maxEmbeddingRequestsPerMinute ?? 80,
+        logger,
       })
     : undefined;
 
@@ -2206,7 +2213,7 @@ export async function runNarrowManualBaselineComparison(
   let escalationReasonsByVideo: Record<string, string[]> = {};
   const cachedShortlist = await readNarrowStageArtifact<NarrowShortlistStageArtifact>(options.outputDir, "shortlist");
   if (cachedShortlist?.inputSignature === extractionStageInputSignature) {
-    console.log("[resume-from] stage=shortlist");
+    logger.info("[resume-from] stage=shortlist");
     stageExecution.shortlist = "resumed";
     initialHarnessCells = cachedShortlist.initialHarnessCells;
     fallbackTriggeredFor.push(...cachedShortlist.fallbackTriggeredFor);
@@ -2216,7 +2223,7 @@ export async function runNarrowManualBaselineComparison(
     escalatedVideos = cachedShortlist.escalatedVideos ?? [];
     escalationReasonsByVideo = cachedShortlist.escalationReasonsByVideo ?? {};
   } else {
-    console.log("[stage1-start] shortlist");
+    logger.info("[stage1-start] shortlist");
     for (const promptConfigId of promptConfigs) {
       for (const chunkMode of chunkModes) {
         initialHarnessCells.push(...await runHarnessExtractionOnly(
@@ -2234,7 +2241,8 @@ export async function runNarrowManualBaselineComparison(
           undefined,
           undefined,
           options.outputDir,
-          join(options.outputDir, ".cache", "extraction")
+          join(options.outputDir, ".cache", "extraction"),
+          logger
         ));
       }
     }
@@ -2264,7 +2272,8 @@ export async function runNarrowManualBaselineComparison(
               undefined,
               undefined,
               options.outputDir,
-              join(options.outputDir, ".cache", "extraction")
+              join(options.outputDir, ".cache", "extraction"),
+              logger
             ));
           }
         }
@@ -2287,7 +2296,7 @@ export async function runNarrowManualBaselineComparison(
     embeddingEligibleCandidateIdsByVideo?: Map<string, Set<string>>
   ): Promise<NarrowComparisonVideoReport> => {
     const coverageStartedAt = Date.now();
-    console.log(`[coverage-start] video=${video.videoId}`);
+    logger.info(`[coverage-start] video=${video.videoId}`);
     const transcript = transcriptByVideo.get(video.videoId);
     const goldClaims = goldByVideo.get(video.videoId);
     if (!transcript || !goldClaims) {
@@ -2309,14 +2318,14 @@ export async function runNarrowManualBaselineComparison(
     if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
       budgetSkips.push(`embedding-budget-exceeded:${video.videoId}:0`);
       effectiveEmbeddingClient = undefined;
-      console.warn(`[embedding-skip-budget] video=${video.videoId} required=1 remaining=0`);
+      logger.warn(`[embedding-skip-budget] video=${video.videoId} required=1 remaining=0`);
     }
 
     const candidateReports: NarrowComparisonCandidateReport[] = [];
     for (const [candidateIndex, candidate] of comparableClaimSets.entries()) {
       if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
         effectiveEmbeddingClient = undefined;
-        console.warn(`[embedding-skip-budget] video=${video.videoId} candidate=${candidate.candidateId} remaining=0`);
+        logger.warn(`[embedding-skip-budget] video=${video.videoId} candidate=${candidate.candidateId} remaining=0`);
       }
 
       candidateReports.push(await buildCandidateReport(
@@ -2328,7 +2337,7 @@ export async function runNarrowManualBaselineComparison(
         budgetState
       ));
 
-      console.log(
+      logger.info(
         `[coverage-candidate] video=${video.videoId} index=${candidateIndex + 1}/${comparableClaimSets.length} candidate=${candidate.candidateId}`
       );
     }
@@ -2336,7 +2345,7 @@ export async function runNarrowManualBaselineComparison(
     if (includeManualBaselinesForVideo) {
       if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
         effectiveEmbeddingClient = undefined;
-        console.warn(`[embedding-skip-budget] video=${video.videoId} phase=teacher remaining=0`);
+        logger.warn(`[embedding-skip-budget] video=${video.videoId} phase=teacher remaining=0`);
       }
 
       await enrichReportsWithTeacherData(
@@ -2348,7 +2357,7 @@ export async function runNarrowManualBaselineComparison(
         budgetState
       );
     }
-    console.log(`[coverage-done] video=${video.videoId} durationMs=${Date.now() - coverageStartedAt}`);
+    logger.info(`[coverage-done] video=${video.videoId} durationMs=${Date.now() - coverageStartedAt}`);
     return {
       videoId: video.videoId,
       title: video.title,
@@ -2431,7 +2440,8 @@ export async function runNarrowManualBaselineComparison(
           teacherClaims,
           judgeClients,
           options.judgeModelIds,
-          options.judgeMaxTokens ?? 4000
+          options.judgeMaxTokens ?? 4000,
+          logger
         );
       }
     }
@@ -2443,7 +2453,7 @@ export async function runNarrowManualBaselineComparison(
     harnessCells: MatrixCell[],
     includeManualBaselines: boolean
   ): Promise<void> => {
-    console.log("[stage4-start] judge");
+    logger.info("[stage4-start] judge");
     const comparableClaimSetIndex = buildComparableClaimSetIndex(
       harnessCells,
       fallbackCells,
@@ -2505,11 +2515,12 @@ export async function runNarrowManualBaselineComparison(
           teacherClaims,
           judgeClients,
           options.judgeModelIds,
-          options.judgeMaxTokens ?? 4000
+          options.judgeMaxTokens ?? 4000,
+          logger
         );
       }
     }
-    console.log("[stage4-done] judge");
+    logger.info("[stage4-done] judge");
   };
 
   if (!cachedShortlist || cachedShortlist.inputSignature !== extractionStageInputSignature) {
@@ -2554,7 +2565,8 @@ export async function runNarrowManualBaselineComparison(
           promptPackId,
           undefined,
           options.outputDir,
-          join(options.outputDir, ".cache", "extraction")
+          join(options.outputDir, ".cache", "extraction"),
+          logger
         ));
       }
       if (escalatedVideos.length > 0) {
@@ -2593,13 +2605,13 @@ export async function runNarrowManualBaselineComparison(
       escalatedVideos,
       escalationReasonsByVideo,
     });
-    console.log(`[stage1-done] shortlist targets=${shortlistTargets.length}`);
+    logger.info(`[stage1-done] shortlist targets=${shortlistTargets.length}`);
   }
   const teacherAwareHints = includeManualBaselines ? buildTeacherAwareHints(initialVideos) : {};
   const refinedTargets = shortlistTargets.slice(0, budgetState.remainingRefinedSelfImproveCells);
   if (shortlistTargets.length > refinedTargets.length) {
     budgetSkips.push(`refine-budget-exceeded:${shortlistTargets.length - refinedTargets.length}`);
-    console.warn(
+    logger.warn(
       `[budget-skip] stage=refine skipped=${shortlistTargets.length - refinedTargets.length} remaining=${budgetState.remainingRefinedSelfImproveCells}`
     );
   }
@@ -2613,12 +2625,12 @@ export async function runNarrowManualBaselineComparison(
   });
   const cachedRefine = await readNarrowStageArtifact<NarrowRefineStageArtifact>(options.outputDir, "refine");
   if (cachedRefine?.inputSignature === refineStageInputSignature) {
-    console.log("[resume-from] stage=refine");
+    logger.info("[resume-from] stage=refine");
     stageExecution.refine = "resumed";
     refinedSelfImproveCells = cachedRefine.refinedSelfImproveCells;
     finalHarnessCells = cachedRefine.finalHarnessCells;
   } else {
-    console.log("[stage2-start] refine");
+    logger.info("[stage2-start] refine");
     if (stage2Variants.length > 0 && refinedTargets.length > 0) {
       for (const target of refinedTargets) {
         const targetModelId = target.modelId;
@@ -2646,11 +2658,12 @@ export async function runNarrowManualBaselineComparison(
             target.promptPackId,
             "refined",
             options.outputDir,
-            join(options.outputDir, ".cache", "extraction")
+            join(options.outputDir, ".cache", "extraction"),
+            logger
           ));
       }
     }
-    console.log(`[stage2-done] refine targets=${refinedTargets.length}`);
+    logger.info(`[stage2-done] refine targets=${refinedTargets.length}`);
 
     const shortlistedCandidateIds = new Set(shortlistTargets.map((target) => target.candidateId));
     const shortlistedHarnessCells = initialHarnessCells.filter((cell) => {
@@ -2673,11 +2686,11 @@ export async function runNarrowManualBaselineComparison(
   let videos: NarrowComparisonVideoReport[] = [];
   const cachedScore = await readNarrowStageArtifact<NarrowScoreStageArtifact>(options.outputDir, "score");
   if (cachedScore?.inputSignature === stageInputSignature) {
-    console.log("[resume-from] stage=score");
+    logger.info("[resume-from] stage=score");
     stageExecution.score = "resumed";
     videos = cachedScore.videos.map((video) => backfillTranscriptStructureProfile(video, transcriptByVideo));
   } else {
-    console.log("[stage3-start] score");
+    logger.info("[stage3-start] score");
     const embeddingEligibleCandidateIdsByVideo = new Map<string, Set<string>>();
     if (preset.enableEmbeddings) {
       for (const target of shortlistTargets) {
@@ -2733,7 +2746,7 @@ export async function runNarrowManualBaselineComparison(
       });
       const cachedVideoScore = await readNarrowVideoScoreArtifact(options.outputDir, video.videoId);
       if (cachedVideoScore?.inputSignature === videoScoreSignature) {
-        console.log(`[resume-from] stage=score video=${video.videoId}`);
+        logger.info(`[resume-from] stage=score video=${video.videoId}`);
         scoredVideos.push(backfillTranscriptStructureProfile(cachedVideoScore.video, transcriptByVideo));
         continue;
       }
@@ -2762,12 +2775,12 @@ export async function runNarrowManualBaselineComparison(
       inputSignature: stageInputSignature,
       videos,
     });
-    console.log("[stage3-done] score");
+    logger.info("[stage3-done] score");
   }
   if (judgeEnabled) {
     const cachedJudge = await readNarrowStageArtifact<NarrowJudgeStageArtifact>(options.outputDir, "judge");
     if (cachedJudge?.inputSignature === stageInputSignature) {
-      console.log("[resume-from] stage=judge");
+      logger.info("[resume-from] stage=judge");
       stageExecution.judge = "resumed";
       videos = cachedJudge.videos.map((video) => backfillTranscriptStructureProfile(video, transcriptByVideo));
     } else {
@@ -2781,8 +2794,8 @@ export async function runNarrowManualBaselineComparison(
       });
     }
   } else {
-    console.log("[stage4-start] judge");
-    console.log("[stage4-done] judge");
+    logger.info("[stage4-start] judge");
+    logger.info("[stage4-done] judge");
     budgetSkips.push("judge-disabled-by-mode");
     stageExecution.judge = "skipped";
   }
