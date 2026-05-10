@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.5"
-last_updated: 2026-05-09
+version: "1.6"
+last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
 docops_version: "2.0"
@@ -15,8 +15,8 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.5
-> **Last Updated:** 2026-05-09
+> **Version:** 1.6
+> **Last Updated:** 2026-05-10
 > **Type:** TASK
 
 <!-- markdownlint-disable MD013 -->
@@ -33,6 +33,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.3     | 2026-05-08 | AI     | Add audited gaps from recent planning/task files and align backlog with Task 008 sprint plan. | — | Draft | — |
 | 1.4     | 2026-05-09 | AI     | Record resolved Task 008 extraction-maintainability and speaker attribution slices. | — | Draft | AIDHA-TASK-008 |
 | 1.5     | 2026-05-09 | AI     | Record first logger-abstraction progress for LLM extraction. | — | Draft | AIDHA-TASK-008 |
+| 1.6     | 2026-05-10 | AI     | Record Task 005 re-audit closure for deferred extraction-quality debt. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1314,6 +1315,9 @@ single-chunk cost warning threshold, clarified legacy cache fallback guards, reu
 `DEFAULT_ECHO_DETECTION` for default echo mode and threshold, and deliberately did not add shared
 memoization because the current production consumers are not homogeneous enough to justify a public
 utility.
+The 2026-05-10 Task 005 re-audit marked the source task Complete, closed stale checkboxes, and
+recorded D.1/D.2 as superseded where the current implementation intentionally avoids speculative
+shared API surface.
 
 ---
 

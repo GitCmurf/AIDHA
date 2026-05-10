@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.5"
-last_updated: 2026-05-09
+version: "0.6"
+last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.5
-> **Last Updated:** 2026-05-09
+> **Version:** 0.6
+> **Last Updated:** 2026-05-10
 > **Type:** TASK
 
 # Task: Next Sprint Improvements and Backlog Burn-Down
@@ -33,6 +33,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.3     | 2026-05-08 | AI     | Account for omitted backlog items with hygiene and extensibility sprint and complete scope criteria. | — | Draft | AIDHA-TASK-007 |
 | 0.4     | 2026-05-09 | AI     | Record completed verification, extraction-maintainability, and speaker attribution slices. | — | Draft | AIDHA-TASK-007 |
 | 0.5     | 2026-05-09 | AI     | Mark logger abstraction in progress with LLM extraction coverage. | — | Draft | AIDHA-TASK-007 |
+| 0.6     | 2026-05-10 | AI     | Mark Task 005 re-audit complete and close the TD-018 documentation loop. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -411,7 +412,7 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 ### T008-04-01: Re-audit Task 005 against current code
 
 - **Backlog IDs:** TD-018
-- **Status:** Planned
+- **Status:** Resolved
 - **Owner:** Extraction maintainer
 - **Dependencies:** None
 
@@ -423,9 +424,9 @@ the narrow baseline coverage, rendering, teacher analysis, or orchestration modu
 
 **Definition of done:**
 
-- [ ] AIDHA-TASK-005 has no ambiguous open item.
-- [ ] AIDHA-TASK-007 TD-018 lists only still-valid work or is marked resolved.
-- [ ] `node scripts/meminit-check.mjs docs/05-planning/tasks/task-005-deferred-claim-improvements.md docs/05-planning/tasks/task-007-tech-debt-backlog.md` passes if those docs are touched.
+- [x] AIDHA-TASK-005 has no ambiguous open item.
+- [x] AIDHA-TASK-007 TD-018 lists only still-valid work or is marked resolved.
+- [x] `node scripts/meminit-check.mjs docs/05-planning/tasks/task-005-deferred-claim-improvements.md docs/05-planning/tasks/task-007-tech-debt-backlog.md docs/05-planning/tasks/task-008-next-sprint-improvements.md` passes.
 
 ### T008-04-02: Implement correctness-first verification refactors
 
