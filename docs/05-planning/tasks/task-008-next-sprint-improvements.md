@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.17"
+version: "0.18"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.17
+> **Version:** 0.18
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -45,6 +45,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.15    | 2026-05-10 | AI     | Extend TD-006 module extraction with structural targets. | — | Draft | AIDHA-TASK-007 |
 | 0.16    | 2026-05-10 | AI     | Extend TD-006 module extraction with comparable claim sets. | — | Draft | AIDHA-TASK-007 |
 | 0.17    | 2026-05-10 | AI     | Extend TD-006 module extraction with candidate reports. | — | Draft | AIDHA-TASK-007 |
+| 0.18    | 2026-05-10 | AI     | Extend TD-006 module extraction with stage signatures. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -343,6 +344,9 @@ Findings:
 - 2026-05-10: Extracted candidate-report construction and transcript-structure backfill to
   `packages/praecis/youtube/src/eval/narrow-candidate-report.ts`; `narrow-manual-baseline.ts` is
   down to 1,652 lines.
+- 2026-05-10: Extracted stage, extraction-stage, video-score, and refine-stage signature builders
+  to `packages/praecis/youtube/src/eval/narrow-stage-signatures.ts`;
+  `narrow-manual-baseline.ts` is down to 1,440 lines.
 
 **Definition of done:**
 

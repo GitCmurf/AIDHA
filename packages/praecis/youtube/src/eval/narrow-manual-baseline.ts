@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { ResolvedConfig } from "@aidha/config";
 import type { ClaimCandidate, LlmClient } from "../extract/index.js";
-import { normalizeKey } from "../extract/utils.js";
 import { GoldenAnnotationEntrySchema } from "./golden-annotation-schema.js";
 import { flattenGoldenClaimForest, type FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
@@ -15,8 +14,7 @@ import { getHostnameFromUrl, isOpenAiBaseUrl } from "../utils/urls.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 import { getNarrowEvalChunkModes, getNarrowEvalModelProfile, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
-import { computeClaimSetHash } from "./matrix-cache.js";
-import { hashId, hashFile } from "../utils/ids.js";
+import { hashId } from "../utils/ids.js";
 import { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 import type { NarrowDerivedJudgeScores, NarrowJudgeFindings } from "./narrow-judge.js";
 import {
@@ -74,6 +72,12 @@ import {
   backfillTranscriptStructureProfile,
   buildCandidateReport,
 } from "./narrow-candidate-report.js";
+import {
+  buildExtractionStageInputSignature,
+  buildRefineStageInputSignature,
+  buildStageInputSignature,
+  buildVideoScoreInputSignature,
+} from "./narrow-stage-signatures.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -87,6 +91,11 @@ export {
   buildHarnessComparableClaimSet,
   needsFallbackForModel,
 } from "./narrow-comparable-claim-set.js";
+export {
+  buildExtractionStageInputSignature,
+  buildStageInputSignature,
+  buildVideoScoreInputSignature,
+} from "./narrow-stage-signatures.js";
 
 const ManualBaselineClaimsFileSchema = z.object({
   claims: z.array(z.object({
@@ -415,175 +424,6 @@ function intersectVariants(requested: ExtractorVariantId[], allowed: ExtractorVa
   return allowed.filter((variant) => requestedSet.has(variant));
 }
 
-type NarrowStageSignatureBaseInput = {
-  corpusSignature: string;
-  corpus: CorpusEntry[];
-  modelIds: string[];
-  chunkModes: NarrowEvalChunkMode[];
-  promptConfigs: Pass1PromptConfigId[];
-  stage1Variants: ExtractorVariantId[];
-  stage2Variants: ExtractorVariantId[];
-  transcriptDir: string;
-  manualBaselineDir: string;
-  fallbackModelId: string;
-  judgeModelIds: string[];
-  judgeMaxTokens: number;
-  includeManualBaselines: boolean;
-  enablePromptRouting: boolean;
-  maxEmbeddingRequestsPerRun?: number;
-  maxRefinedSelfImproveCellsPerRun?: number;
-  shortlistPerVideo?: number;
-  embeddingModel?: string;
-  embeddingBaseUrl?: string;
-  embeddingBatchSize?: number;
-  taskType?: string;
-  outputDimensionality?: number;
-};
-
-type NarrowStageSignaturePayload = {
-  corpusSignature: string;
-  corpus: CorpusEntry[];
-  modelIds: string[];
-  chunkModes: NarrowEvalChunkMode[];
-  promptConfigs: Pass1PromptConfigId[];
-  stage1Variants: ExtractorVariantId[];
-  stage2Variants: ExtractorVariantId[];
-  transcriptHash: string;
-  goldHash: string;
-  manualHash: string;
-  includeManualBaselines: boolean;
-  fallbackModelId: string;
-  judgeModelIds: string[];
-  judgeMaxTokens: number;
-  enablePromptRouting: boolean;
-  maxEmbeddingRequestsPerRun?: number;
-  maxRefinedSelfImproveCellsPerRun?: number;
-  shortlistPerVideo?: number;
-  embeddingModel?: string;
-  embeddingBaseUrl?: string;
-  embeddingBatchSize?: number;
-  taskType?: string;
-  outputDimensionality?: number;
-};
-
-async function buildNarrowStageSignaturePayload(input: NarrowStageSignatureBaseInput): Promise<NarrowStageSignaturePayload> {
-  const corpusVideoIds = input.corpus.map((video) => video.videoId);
-  const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
-  const transcriptHash = await hashFiles(transcriptFiles);
-
-  const goldFiles = corpusVideoIds.map((id) => join(input.manualBaselineDir, `${id}-gold-draft-v1.json`));
-  const goldHash = await hashFiles(goldFiles);
-
-  let manualHash = "none";
-  if (input.includeManualBaselines) {
-    const manualFiles: string[] = [];
-    for (const id of corpusVideoIds) {
-      manualFiles.push(join(input.manualBaselineDir, `${id}-CG.json`));
-      manualFiles.push(join(input.manualBaselineDir, `${id}-GG.json`));
-    }
-    manualHash = await hashFiles(manualFiles);
-  }
-
-  return {
-    corpusSignature: input.corpusSignature,
-    corpus: [...input.corpus].sort((a, b) => a.videoId.localeCompare(b.videoId)),
-    modelIds: [...input.modelIds].sort(),
-    chunkModes: [...input.chunkModes],
-    promptConfigs: [...input.promptConfigs],
-    stage1Variants: [...input.stage1Variants],
-    stage2Variants: [...input.stage2Variants],
-    transcriptHash,
-    goldHash,
-    manualHash,
-    includeManualBaselines: input.includeManualBaselines,
-    fallbackModelId: input.fallbackModelId,
-    judgeModelIds: [...input.judgeModelIds].sort(),
-    judgeMaxTokens: input.judgeMaxTokens,
-    enablePromptRouting: input.enablePromptRouting,
-    maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
-    maxRefinedSelfImproveCellsPerRun: input.maxRefinedSelfImproveCellsPerRun,
-    shortlistPerVideo: input.shortlistPerVideo,
-    embeddingModel: input.embeddingModel,
-    embeddingBaseUrl: input.embeddingBaseUrl,
-    embeddingBatchSize: input.embeddingBatchSize,
-    taskType: input.taskType,
-    outputDimensionality: input.outputDimensionality,
-  };
-}
-
-export async function buildStageInputSignature(input: NarrowStageSignatureBaseInput & {
-  runMode: NarrowRunMode;
-  judgeEnabled: boolean;
-  embeddingClientAvailable: boolean;
-}): Promise<string> {
-  const payload = await buildNarrowStageSignaturePayload(input);
-
-  return hashId("narrow-stage", [JSON.stringify({
-    corpusSignature: payload.corpusSignature,
-    runMode: input.runMode,
-    corpus: payload.corpus,
-    modelIds: payload.modelIds,
-    chunkModes: payload.chunkModes,
-    promptConfigs: payload.promptConfigs,
-    stage1Variants: payload.stage1Variants,
-    stage2Variants: payload.stage2Variants,
-    transcriptHash: payload.transcriptHash,
-    goldHash: payload.goldHash,
-    manualHash: payload.manualHash,
-    fallbackModelId: payload.fallbackModelId,
-    judgeEnabled: input.judgeEnabled,
-    judgeModelIds: payload.judgeModelIds,
-    judgeMaxTokens: payload.judgeMaxTokens,
-    includeManualBaselines: payload.includeManualBaselines,
-    enablePromptRouting: payload.enablePromptRouting,
-    maxEmbeddingRequestsPerRun: payload.maxEmbeddingRequestsPerRun,
-    maxRefinedSelfImproveCellsPerRun: payload.maxRefinedSelfImproveCellsPerRun,
-    shortlistPerVideo: payload.shortlistPerVideo,
-    embeddingClientAvailable: input.embeddingClientAvailable,
-    embeddingModel: payload.embeddingModel,
-    embeddingBaseUrl: payload.embeddingBaseUrl,
-    embeddingBatchSize: payload.embeddingBatchSize,
-    taskType: payload.taskType,
-    outputDimensionality: payload.outputDimensionality,
-  })]);
-}
-
-async function hashFiles(filePaths: string[]): Promise<string> {
-  const hashes = await Promise.all(filePaths.map((p) => hashFile(p)));
-  return hashId("files", hashes.filter(Boolean) as string[]);
-}
-
-export async function buildExtractionStageInputSignature(input: NarrowStageSignatureBaseInput): Promise<string> {
-  const payload = await buildNarrowStageSignaturePayload(input);
-
-  return hashId("narrow-extraction-stage", [JSON.stringify({
-    corpusSignature: payload.corpusSignature,
-    corpus: payload.corpus,
-    modelIds: payload.modelIds,
-    chunkModes: payload.chunkModes,
-    promptConfigs: payload.promptConfigs,
-    stage1Variants: payload.stage1Variants,
-    stage2Variants: payload.stage2Variants,
-    transcriptHash: payload.transcriptHash,
-    goldHash: payload.goldHash,
-    manualHash: payload.manualHash,
-    includeManualBaselines: payload.includeManualBaselines,
-    manualBaselineDir: input.manualBaselineDir,
-    fallbackModelId: payload.fallbackModelId,
-    judgeModelIds: payload.judgeModelIds,
-    judgeMaxTokens: payload.judgeMaxTokens,
-    enablePromptRouting: payload.enablePromptRouting,
-    maxEmbeddingRequestsPerRun: payload.maxEmbeddingRequestsPerRun,
-    maxRefinedSelfImproveCellsPerRun: payload.maxRefinedSelfImproveCellsPerRun,
-    shortlistPerVideo: payload.shortlistPerVideo,
-    embeddingModel: payload.embeddingModel,
-    embeddingBaseUrl: payload.embeddingBaseUrl,
-    embeddingBatchSize: payload.embeddingBatchSize,
-    taskType: payload.taskType,
-    outputDimensionality: payload.outputDimensionality,
-  })]);
-}
-
 export function shouldFastTriageEscalate(input: {
   semanticCoverage: Pick<GoldCoverageSummary, "ratio" | "rootRatio" | "childRatio">;
   diagnostics?: Pick<CandidateDiagnostics, "promptPackId" | "retryReason">;
@@ -654,44 +494,6 @@ export function selectShortlistCandidatesForVideo(
     .slice()
     .sort(compareOptimizationPriority)
     .slice(0, shortlistPerVideo);
-}
-
-export function buildVideoScoreInputSignature(input: {
-  corpusSignature: string;
-  runMode: NarrowRunMode;
-  videoId: string;
-  includeManualBaselines: boolean;
-  enableEmbeddings: boolean;
-  embeddingClientAvailable: boolean;
-  goldClaims: FlattenedGoldenClaimNode[];
-  comparableClaimSets: ComparableClaimSet[];
-  embeddingModel?: string;
-  embeddingBaseUrl?: string;
-  embeddingBatchSize?: number;
-  maxEmbeddingRequestsPerRun?: number;
-  taskType?: string;
-  outputDimensionality?: number;
-}): string {
-  return hashId("narrow-video-score", [JSON.stringify({
-    corpusSignature: input.corpusSignature,
-    runMode: input.runMode,
-    videoId: input.videoId,
-    includeManualBaselines: input.includeManualBaselines,
-    enableEmbeddings: input.enableEmbeddings,
-    embeddingClientAvailable: input.embeddingClientAvailable,
-    embeddingModel: input.embeddingModel,
-    embeddingBaseUrl: input.embeddingBaseUrl,
-    embeddingBatchSize: input.embeddingBatchSize,
-    maxEmbeddingRequestsPerRun: input.maxEmbeddingRequestsPerRun,
-    taskType: input.taskType,
-    outputDimensionality: input.outputDimensionality,
-    goldClaims: input.goldClaims.map((claim) => ({ id: claim.id, depth: claim.depth, text: normalizeKey(claim.text) })),
-    candidates: input.comparableClaimSets.map((candidate) => ({
-      candidateId: candidate.candidateId,
-      sourceKind: candidate.sourceKind,
-      claimSetHash: computeClaimSetHash(candidate.claims),
-    })),
-  })]);
 }
 
 async function readJsonFile<T>(path: string, schema: z.ZodSchema<T>): Promise<T> {
@@ -870,20 +672,6 @@ async function runHarnessExtractionOnly(
 
   const result = await runEvaluationMatrix(corpus, models, options);
   return result.cells.map((cell) => ({ ...cell, chunkMode, promptConfigId, refinementStage }));
-}
-
-function buildRefineStageInputSignature(input: {
-  extractionStageInputSignature: string;
-  refinedTargets: NarrowShortlistTarget[];
-  teacherAwareHints: Record<string, SelfImproveHintInput>;
-}): string {
-  return hashId("narrow-refine-stage", [
-    input.extractionStageInputSignature,
-    JSON.stringify({
-      refinedTargets: input.refinedTargets,
-      teacherAwareHints: input.teacherAwareHints,
-    }),
-  ]);
 }
 
 export async function runNarrowManualBaselineComparison(
