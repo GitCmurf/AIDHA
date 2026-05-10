@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.14"
+version: "0.15"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.14
+> **Version:** 0.15
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -42,6 +42,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.12    | 2026-05-10 | AI     | Record full YouTube package test evidence for TD-006 extraction slices. | — | Draft | AIDHA-TASK-007 |
 | 0.13    | 2026-05-10 | AI     | Extend TD-006 module extraction with judge enrichment. | — | Draft | AIDHA-TASK-007 |
 | 0.14    | 2026-05-10 | AI     | Extend TD-006 module extraction with optimization ranking. | — | Draft | AIDHA-TASK-007 |
+| 0.15    | 2026-05-10 | AI     | Extend TD-006 module extraction with structural targets. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -330,6 +331,9 @@ Findings:
 - 2026-05-10: Extracted optimization scoring, priority sorting, and rank annotation to
   `packages/praecis/youtube/src/eval/narrow-optimization-ranking.ts`; `narrow-manual-baseline.ts`
   is down to 2,070 lines.
+- 2026-05-10: Extracted transcript-structure profiling and structural-target assessment to
+  `packages/praecis/youtube/src/eval/narrow-structural-targets.ts`; `narrow-manual-baseline.ts`
+  is down to 1,934 lines.
 
 **Definition of done:**
 

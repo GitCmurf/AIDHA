@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.14"
+version: "1.15"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.14
+> **Version:** 1.15
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -42,6 +42,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.12    | 2026-05-10 | AI     | Record full YouTube package test evidence for TD-006 extraction slices. | — | Draft | AIDHA-TASK-008 |
 | 1.13    | 2026-05-10 | AI     | Record TD-006 judge-enrichment extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.14    | 2026-05-10 | AI     | Record TD-006 optimization-ranking extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.15    | 2026-05-10 | AI     | Record TD-006 structural-target extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -630,6 +631,9 @@ Judge scoring enrichment and provider-error classification now live in
 Optimization scoring, priority sorting, and rank annotation now live in
 `packages/praecis/youtube/src/eval/narrow-optimization-ranking.ts`; the main baseline module is
 down to 2,070 lines.
+Transcript-structure profiling and structural-target assessment now live in
+`packages/praecis/youtube/src/eval/narrow-structural-targets.ts`; the main baseline module is down
+to 1,934 lines.
 
 ---
 
