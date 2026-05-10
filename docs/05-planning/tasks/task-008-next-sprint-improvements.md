@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.20"
+version: "0.21"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.20
+> **Version:** 0.21
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -48,6 +48,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.18    | 2026-05-10 | AI     | Extend TD-006 module extraction with stage signatures. | — | Draft | AIDHA-TASK-007 |
 | 0.19    | 2026-05-10 | AI     | Extend TD-006 module extraction with harness extraction. | — | Draft | AIDHA-TASK-007 |
 | 0.20    | 2026-05-10 | AI     | Record full YouTube package test-timeout stabilization. | — | Draft | AIDHA-TASK-007 |
+| 0.21    | 2026-05-10 | AI     | Extend TD-006 module extraction with embedding config. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -355,6 +356,9 @@ Findings:
 - 2026-05-10: Stabilized full-suite timing by setting a 30s YouTube package Vitest default and
   explicit budgets for slow integration tests; `pnpm --dir packages/praecis/youtube test` passed
   with 90 test files passed, 1 skipped; 891 tests passed, 6 skipped.
+- 2026-05-10: Extracted Google embedding runtime configuration and default-model ownership to
+  `packages/praecis/youtube/src/eval/narrow-embedding-config.ts`; `narrow-manual-baseline.ts` is
+  down to 1,334 lines.
 
 **Definition of done:**
 

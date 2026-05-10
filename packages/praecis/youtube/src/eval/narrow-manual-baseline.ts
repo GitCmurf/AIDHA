@@ -9,8 +9,7 @@ import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
 import type { MatrixCell, VideoContext } from "./matrix-runner.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import { getModel, type EvalModel } from "./model-registry.js";
-import { GeminiEmbeddingClient, type GeminiEmbeddingClientConfig } from "./gemini-embedding-client.js";
-import { isOpenAiBaseUrl } from "../utils/urls.js";
+import { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 import { getNarrowEvalChunkModes, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
@@ -78,6 +77,10 @@ import {
   buildVideoScoreInputSignature,
 } from "./narrow-stage-signatures.js";
 import { runHarnessExtractionOnly } from "./narrow-harness-extraction.js";
+import {
+  DEFAULT_GOOGLE_EMBEDDING_MODEL,
+  getGoogleEmbeddingConfig,
+} from "./narrow-embedding-config.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -110,8 +113,6 @@ export const NarrowCorpusSchema = z.array(CorpusEntrySchema).min(1);
 
 const DEFAULT_EMBEDDING_BUDGET_PER_RUN = 250;
 const DEFAULT_REFINED_SELF_IMPROVE_BUDGET_PER_RUN = 4;
-const DEFAULT_GOOGLE_EMBEDDING_MODEL = "gemini-embedding-001";
-
 export type NarrowRunMode = "fast-triage" | "compare" | "deep";
 export type NarrowStageId = "shortlist" | "refine" | "score" | "judge" | "report";
 
@@ -566,47 +567,6 @@ async function loadVideoBaselines(
 
   return { goldFlatClaims, comparableClaimSets };
 }
-
-function getGoogleEmbeddingConfig(
-  config: ResolvedConfig,
-  env: NodeJS.ProcessEnv = process.env
-): {
-  apiKey?: string;
-  baseUrl: string;
-  model?: string;
-  batchSize?: number;
-  taskType?: GeminiEmbeddingClientConfig["taskType"];
-  outputDimensionality?: number;
-} {
-  const llm = config.llm;
-  const isGeminiModel = llm.model?.toLowerCase().startsWith("gemini-");
-  const isOpenAiDefault = isOpenAiBaseUrl(llm.baseUrl);
-
-  return {
-    apiKey:
-      env["GOOGLE_AISTUDIO_API_KEY"] ||
-      env["GEMINI_API_KEY"] ||
-      env["GOOGLE_API_KEY"] ||
-      env["AIDHA_GOOGLE_API_KEY"] ||
-      ((isGeminiModel || llm.apiKey?.startsWith("AIza")) ? llm.apiKey : ""),
-    baseUrl:
-      env["GOOGLE_EMBEDDING_BASE_URL"] ||
-      (isGeminiModel
-        ? (isOpenAiDefault
-          ? "https://generativelanguage.googleapis.com/v1beta"
-          : llm.baseUrl.replace(/\/openai\/?$/, ""))
-        : "https://generativelanguage.googleapis.com/v1beta"),
-    model:
-      env["GOOGLE_EMBEDDING_MODEL"] ||
-      env["AIDHA_GOOGLE_EMBEDDING_MODEL"] ||
-      env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
-      DEFAULT_GOOGLE_EMBEDDING_MODEL,
-    batchSize: llm.embeddingBatchSize,
-    taskType: (env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || "SEMANTIC_SIMILARITY") as GeminiEmbeddingClientConfig["taskType"],
-    outputDimensionality: Number(env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) || llm.embeddingOutputDimensionality || 768,
-  };
-}
-
 
 export async function runNarrowManualBaselineComparison(
   options: RunNarrowManualBaselineOptions
