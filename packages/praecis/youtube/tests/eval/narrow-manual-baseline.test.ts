@@ -21,10 +21,10 @@ import {
   selectShortlistCandidatesForVideo,
   selectFastTriageEscalationPack,
   shouldFastTriageEscalate,
-  writeNarrowComparisonReport,
   type EmbeddingBudgetState,
 } from "../../src/eval/narrow-manual-baseline";
 import { renderNarrowComparisonMarkdown } from "../../src/eval/narrow-report-renderer.js";
+import { writeNarrowComparisonReport } from "../../src/eval/narrow-report-writer.js";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
 import { validateSafeId } from "../../src/utils/ids.js";
 import { BufferedLogger } from "../../src/utils/logger.js";

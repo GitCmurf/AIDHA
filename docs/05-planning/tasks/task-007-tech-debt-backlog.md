@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.7"
+version: "1.8"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.7
+> **Version:** 1.8
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -35,6 +35,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.5     | 2026-05-09 | AI     | Record first logger-abstraction progress for LLM extraction. | — | Draft | AIDHA-TASK-008 |
 | 1.6     | 2026-05-10 | AI     | Record Task 005 re-audit closure for deferred extraction-quality debt. | — | Draft | AIDHA-TASK-008 |
 | 1.7     | 2026-05-10 | AI     | Record first TD-006 renderer-module extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.8     | 2026-05-10 | AI     | Record TD-006 report-writer extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -604,6 +605,9 @@ On 2026-05-10, Markdown report rendering moved into
 `packages/praecis/youtube/src/eval/narrow-report-renderer.ts`; the narrow-baseline helper test now
 imports the renderer directly while `narrow-manual-baseline.ts` retains a compatibility re-export
 for existing callers.
+The same slice was extended by moving report file persistence into
+`packages/praecis/youtube/src/eval/narrow-report-writer.ts`, giving artifact writing its own
+module while preserving the existing `narrow-manual-baseline.ts` export surface.
 
 ---
 

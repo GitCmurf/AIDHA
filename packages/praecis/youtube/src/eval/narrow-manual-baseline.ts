@@ -11,7 +11,6 @@ import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
 import { runEvaluationMatrix, type MatrixCell, type MatrixOptions, type VideoContext } from "./matrix-runner.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import { getModel, type EvalModel } from "./model-registry.js";
-import { buildReportFileSet, type ReportFileSet } from "./report-files.js";
 import { GeminiEmbeddingClient, type GeminiEmbeddingClientConfig } from "./gemini-embedding-client.js";
 import { getHostnameFromUrl, isOpenAiBaseUrl } from "../utils/urls.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
@@ -31,7 +30,7 @@ import {
   type Pass1PromptConfigId,
 } from "../extract/prompts/pass1-claim-mining-v2.js";
 import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
-import { writeJsonAtomic, writeFileAtomic } from "../utils/io.js";
+import { writeJsonAtomic } from "../utils/io.js";
 
 const ManualBaselineClaimsFileSchema = z.object({
   claims: z.array(z.object({
@@ -255,6 +254,7 @@ export interface RunNarrowManualBaselineOptions {
 }
 
 export { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
+export { writeNarrowComparisonReport } from "./narrow-report-writer.js";
 
 interface TranscriptData {
   videoContext: VideoContext;
@@ -2749,19 +2749,4 @@ export async function runNarrowManualBaselineComparison(
     },
     videos,
   };
-}
-
-export async function writeNarrowComparisonReport(
-  report: NarrowComparisonReport,
-  outputDir: string,
-  stub: string
-): Promise<ReportFileSet> {
-  const files = buildReportFileSet(outputDir, stub);
-  const jsonContent = JSON.stringify(report, null, 2);
-  const mdContent = renderNarrowComparisonMarkdown(report);
-  await writeFileAtomic(files.jsonPath, jsonContent);
-  await writeFileAtomic(files.mdPath, mdContent);
-  await writeFileAtomic(files.latestJsonPath, jsonContent);
-  await writeFileAtomic(files.latestMdPath, mdContent);
-  return files;
 }
