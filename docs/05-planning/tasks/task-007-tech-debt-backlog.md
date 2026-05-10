@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.10"
+version: "1.11"
 last_updated: 2026-05-10
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.10
+> **Version:** 1.11
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -38,6 +38,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.8     | 2026-05-10 | AI     | Record TD-006 report-writer extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.9     | 2026-05-10 | AI     | Record TD-006 coverage-engine extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.10    | 2026-05-10 | AI     | Record TD-006 stage-artifact-store extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.11    | 2026-05-10 | AI     | Record TD-006 teacher-analysis extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -616,6 +617,8 @@ while `narrow-manual-baseline.ts` keeps compatibility re-exports.
 Stage artifact schemas plus atomic resume read/write helpers now live in
 `packages/praecis/youtube/src/eval/stage-artifact-store.ts`, separating artifact persistence from
 the main orchestration module.
+Teacher candidate selection, teacher coverage enrichment, and self-improvement hint construction
+now live in `packages/praecis/youtube/src/eval/teacher-analysis.ts`.
 
 ---
 

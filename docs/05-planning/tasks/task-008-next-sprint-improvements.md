@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.10"
+version: "0.11"
 last_updated: 2026-05-10
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.10
+> **Version:** 0.11
 > **Last Updated:** 2026-05-10
 > **Type:** TASK
 
@@ -38,6 +38,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.8     | 2026-05-10 | AI     | Extend TD-006 module extraction with report writer persistence. | — | Draft | AIDHA-TASK-007 |
 | 0.9     | 2026-05-10 | AI     | Extend TD-006 module extraction with the coverage engine. | — | Draft | AIDHA-TASK-007 |
 | 0.10    | 2026-05-10 | AI     | Extend TD-006 module extraction with stage artifact storage. | — | Draft | AIDHA-TASK-007 |
+| 0.11    | 2026-05-10 | AI     | Extend TD-006 module extraction with teacher analysis. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -316,6 +317,8 @@ Findings:
   directly, and `narrow-manual-baseline.ts` keeps a compatibility re-export.
 - 2026-05-10: Extracted stage artifact schemas and atomic resume read/write helpers to
   `packages/praecis/youtube/src/eval/stage-artifact-store.ts`.
+- 2026-05-10: Extracted teacher candidate selection, teacher coverage enrichment, and
+  self-improvement hint construction to `packages/praecis/youtube/src/eval/teacher-analysis.ts`.
 
 **Definition of done:**
 
