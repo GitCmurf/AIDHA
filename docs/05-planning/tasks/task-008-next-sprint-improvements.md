@@ -624,7 +624,7 @@ under control.
 ### T008-08-01: Introduce injectable logging
 
 - **Backlog IDs:** TD-007
-- **Status:** In Progress
+- **Status:** Complete
 - **Owner:** YouTube package maintainer
 - **Dependencies:** None
 
@@ -642,7 +642,7 @@ under control.
   directly except examples in comments or explicitly documented exceptions.
 - [x] CLI modules either write directly to the console intentionally or inject a logger downstream.
 - [x] Quiet-mode or buffered-logger tests prove output can be suppressed.
-- [ ] `pnpm --dir packages/praecis/youtube test` passes.
+- [x] `pnpm --dir packages/praecis/youtube test` passes.
 
 ---
 

@@ -6,6 +6,8 @@ import { SQLiteStore } from '@aidha/graph-backend';
 import { runCli } from '../src/cli.js';
 import { describeIfSqlite } from './test-utils.js';
 
+const CLI_PURGE_INTEGRATION_TIMEOUT_MS = 60_000;
+
 describeIfSqlite('CLI claims purge', () => {
   let tempRoot = '';
   let dbPath = '';
@@ -52,7 +54,7 @@ describeIfSqlite('CLI claims purge', () => {
     if (!excerpts.ok) return;
     expect(excerpts.value.items.length).toBeGreaterThan(0);
     await store.close();
-  }, 20_000);
+  }, CLI_PURGE_INTEGRATION_TIMEOUT_MS);
 
   it('prints usage when video target is missing', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);

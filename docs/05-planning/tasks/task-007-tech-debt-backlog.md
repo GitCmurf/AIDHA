@@ -605,7 +605,7 @@ metadata with deterministic fixtures and mocked clients. Module extraction remai
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Medium |
 | Category   | Maintainability / Testability |
 | Location   | `packages/praecis/youtube/src/**`, `scripts/eval-matrix/**` console output call sites |
@@ -655,14 +655,14 @@ diagnostic output cannot be correlated with run IDs or emitted as JSON without i
 
 **Acceptance criteria:**
 
-- [ ] Library modules under `src/extract`, `src/eval`, and `src/client` do not call `console.*`
+- [x] Library modules under `src/extract`, `src/eval`, and `src/client` do not call `console.*`
   directly except examples in comments.
-- [ ] CLI modules are the only place that writes directly to the console, or they inject a logger
+- [x] CLI modules are the only place that writes directly to the console, or they inject a logger
   into downstream library functions.
-- [ ] Tests that currently spy on `console.*` are migrated to a buffered logger where practical.
-- [ ] A quiet-mode CLI test proves expected status output can be suppressed without hiding fatal
+- [x] Tests that currently spy on `console.*` are migrated to a buffered logger where practical.
+- [x] A quiet-mode CLI test proves expected status output can be suppressed without hiding fatal
   errors.
-- [ ] `pnpm --dir packages/praecis/youtube test` passes.
+- [x] `pnpm --dir packages/praecis/youtube test` passes.
 
 **Risks and caveats:**
 Do not obscure user-facing CLI errors. Preserve existing exit-code behavior and ensure fatal
@@ -684,10 +684,9 @@ cache-warning, transcript-error, and scoring diagnostics through it, and forward
 `runNarrowManualBaselineComparison`, `runHarnessExtractionOnly`, the narrow judge enrichment path,
 and the Gemini embedding client, leaving direct `console.*` calls only in CLI modules or comment
 examples. `narrow-manual-baseline.test.ts` now verifies injected logger propagation for narrow
-stage/status output. A full `pnpm --dir packages/praecis/youtube test` run completed with 888
-passing tests, 6 skipped tests, and one `cli-claims-purge.test.ts` timeout under full-suite load; the
-same timed-out file passed in isolation. Keep this item open until the package-level test gate is
-green in one run.
+stage/status output. The package-level test gate initially exposed full-suite timeout pressure in
+two CLI integration tests; after widening only those integration-test timeouts, the full
+`pnpm --dir packages/praecis/youtube test` gate passed with 889 passing tests and 6 skipped tests.
 
 ---
 

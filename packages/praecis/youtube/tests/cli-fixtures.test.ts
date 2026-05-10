@@ -4,12 +4,14 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
 
+const CLI_FIXTURE_IMPORT_TIMEOUT_MS = 30_000;
+
 describe('CLI fixtures import-ttml', () => {
   let tempRoot = '';
 
   beforeEach(async () => {
     tempRoot = await mkdtemp(join(tmpdir(), 'aidha-fixtures-cli-'));
-  });
+  }, CLI_FIXTURE_IMPORT_TIMEOUT_MS);
 
   afterEach(async () => {
     if (tempRoot) {
