@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.37"
+version: "0.38"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.37
+> **Version:** 0.38
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -65,6 +65,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.35    | 2026-05-11 | AI     | Extend TD-006 module extraction with report metadata assembly. | — | Draft | AIDHA-TASK-007 |
 | 0.36    | 2026-05-11 | AI     | Extend TD-006 module extraction with run options and defaults. | — | Draft | AIDHA-TASK-007 |
 | 0.37    | 2026-05-11 | AI     | Extend TD-006 module extraction with run-context preparation. | — | Draft | AIDHA-TASK-007 |
+| 0.38    | 2026-05-11 | AI     | Extend TD-006 module extraction with stage-pipeline sequencing. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -428,12 +429,15 @@ Findings:
   embedding-client setup, and shared mutable run state into
   `packages/praecis/youtube/src/eval/narrow-run-context.ts`; `narrow-manual-baseline.ts` is down to
   308 lines.
+- 2026-05-11: Moved stage construction and sequencing into
+  `packages/praecis/youtube/src/eval/narrow-stage-pipeline.ts`; `runNarrowManualBaselineComparison`
+  is down to 56 lines, and the compatibility wrapper module is down to 131 lines.
 
 **Definition of done:**
 
-- [ ] Coverage scoring, report rendering, teacher analysis, artifact persistence, and orchestration
+- [x] Coverage scoring, report rendering, teacher analysis, artifact persistence, and orchestration
   live in separate modules with explicit exported types.
-- [ ] `runNarrowManualBaselineComparison` is orchestration-only and materially shorter.
+- [x] `runNarrowManualBaselineComparison` is orchestration-only and materially shorter.
 - [ ] Generated JSON and Markdown reports are byte-identical for at least one deterministic
   fixture-backed run, except documented intentional ordering changes.
 - [x] `pnpm --dir packages/praecis/youtube test` passes.

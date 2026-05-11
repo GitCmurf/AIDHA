@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.38"
+version: "1.39"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.38
+> **Version:** 1.39
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -66,6 +66,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.36    | 2026-05-11 | AI     | Record TD-006 report-metadata extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.37    | 2026-05-11 | AI     | Record TD-006 run-options extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.38    | 2026-05-11 | AI     | Record TD-006 run-context extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.39    | 2026-05-11 | AI     | Record TD-006 stage-pipeline extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -610,9 +611,9 @@ harder: many behaviors can only be exercised through a broad end-to-end-style ha
 
 - [x] Characterization tests fail if report structure or resume behavior drifts.
 - [x] Characterization tests use deterministic fixtures and no live LLM calls.
-- [ ] `runNarrowManualBaselineComparison` is reduced to orchestration only and is under roughly
+- [x] `runNarrowManualBaselineComparison` is reduced to orchestration only and is under roughly
   150–200 lines.
-- [ ] Coverage scoring, report rendering, teacher analysis, artifact persistence, and stage
+- [x] Coverage scoring, report rendering, teacher analysis, artifact persistence, and stage
   orchestration live in separate modules with explicit exported types.
 - [ ] Each extracted stage has a focused unit test for normal execution and resume-artifact reuse
   or invalidation.
@@ -727,6 +728,9 @@ the stage orchestrator.
 Mode resolution, signature construction, transcript/baseline loading, embedding-client setup, and
 shared mutable run state now live in `packages/praecis/youtube/src/eval/narrow-run-context.ts`;
 the main baseline module is down to 308 lines.
+Stage construction and sequencing now live in
+`packages/praecis/youtube/src/eval/narrow-stage-pipeline.ts`; `runNarrowManualBaselineComparison`
+is down to 56 lines, and the compatibility wrapper module is down to 131 lines.
 
 ---
 
