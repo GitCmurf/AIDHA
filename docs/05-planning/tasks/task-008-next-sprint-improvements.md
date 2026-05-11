@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.25"
-last_updated: 2026-05-10
+version: "0.26"
+last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.25
-> **Last Updated:** 2026-05-10
+> **Version:** 0.26
+> **Last Updated:** 2026-05-11
 > **Type:** TASK
 
 # Task: Next Sprint Improvements and Backlog Burn-Down
@@ -53,6 +53,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.23    | 2026-05-10 | AI     | Extend TD-006 module extraction with input loading. | — | Draft | AIDHA-TASK-007 |
 | 0.24    | 2026-05-10 | AI     | Extend TD-006 module extraction with corpus signatures. | — | Draft | AIDHA-TASK-007 |
 | 0.25    | 2026-05-10 | AI     | Extend TD-006 module extraction with embedding client construction. | — | Draft | AIDHA-TASK-007 |
+| 0.26    | 2026-05-11 | AI     | Extend TD-006 module extraction with embedding eligibility. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -375,6 +376,9 @@ Findings:
 - 2026-05-10: Moved Google embedding client construction into
   `packages/praecis/youtube/src/eval/narrow-embedding-config.ts`; `narrow-manual-baseline.ts` is
   down to 1,081 lines.
+- 2026-05-11: Extracted embedding candidate eligibility set construction to
+  `packages/praecis/youtube/src/eval/narrow-embedding-eligibility.ts`;
+  `narrow-manual-baseline.ts` is down to 1,070 lines.
 
 **Definition of done:**
 

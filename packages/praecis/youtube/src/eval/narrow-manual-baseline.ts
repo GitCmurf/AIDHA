@@ -87,6 +87,7 @@ import {
   type TranscriptData,
 } from "./narrow-input-loader.js";
 import { buildCorpusSignature } from "./narrow-corpus-signature.js";
+import { buildEmbeddingEligibleCandidateIdsByVideo } from "./narrow-embedding-eligibility.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -917,26 +918,14 @@ export async function runNarrowManualBaselineComparison(
     videos = cachedScore.videos.map((video) => backfillTranscriptStructureProfile(video, transcriptByVideo));
   } else {
     logger.info("[stage3-start] score");
-    const embeddingEligibleCandidateIdsByVideo = new Map<string, Set<string>>();
-    if (preset.enableEmbeddings) {
-      for (const target of shortlistTargets) {
-        const set = embeddingEligibleCandidateIdsByVideo.get(target.videoId) ?? new Set<string>();
-        set.add(target.candidateId);
-        embeddingEligibleCandidateIdsByVideo.set(target.videoId, set);
-      }
-      for (const cell of refinedSelfImproveCells) {
-        const set = embeddingEligibleCandidateIdsByVideo.get(cell.videoId) ?? new Set<string>();
-        set.add(buildComparableCandidateId(cell, "harness"));
-        embeddingEligibleCandidateIdsByVideo.set(cell.videoId, set);
-      }
-      if (includeManualBaselines) {
-        for (const [videoId, manualCandidates] of manualByVideo.entries()) {
-          const set = embeddingEligibleCandidateIdsByVideo.get(videoId) ?? new Set<string>();
-          for (const candidate of manualCandidates) set.add(candidate.candidateId);
-          embeddingEligibleCandidateIdsByVideo.set(videoId, set);
-        }
-      }
-    }
+    const embeddingEligibleCandidateIdsByVideo = preset.enableEmbeddings
+      ? buildEmbeddingEligibleCandidateIdsByVideo({
+          shortlistTargets,
+          refinedSelfImproveCells,
+          manualByVideo,
+          includeManualBaselines,
+        })
+      : undefined;
     const scoredVideos: NarrowComparisonVideoReport[] = [];
     const finalComparableClaimSetIndex = buildComparableClaimSetIndex(
       finalHarnessCells,
@@ -980,7 +969,7 @@ export async function runNarrowManualBaselineComparison(
         video,
         finalComparableClaimSetIndex,
         includeManualBaselines,
-        preset.enableEmbeddings ? embeddingEligibleCandidateIdsByVideo : undefined
+        embeddingEligibleCandidateIdsByVideo
       );
       await writeNarrowVideoScoreArtifact(options.outputDir, {
         stage: "score-video",
