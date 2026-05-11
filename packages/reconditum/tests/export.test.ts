@@ -39,6 +39,19 @@ describe('JSON-LD export', () => {
       expect(result['custom']).toBe('value');
     });
 
+    it('preserves node schemaVersion when metadata uses the same key', () => {
+      const result = nodeToJsonLd({
+        ...testNode,
+        metadata: {
+          ...testNode.metadata,
+          schemaVersion: 999,
+        },
+      });
+
+      expect(result.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
+      expect(result).not.toHaveProperty('metadata');
+    });
+
     it('omits undefined content', () => {
       const nodeWithoutContent = { ...testNode, content: undefined };
       const result = nodeToJsonLd(nodeWithoutContent);

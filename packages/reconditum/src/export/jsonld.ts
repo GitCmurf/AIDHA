@@ -74,6 +74,7 @@ export interface JsonLdDocument {
  * Convert a GraphNode to JSON-LD format.
  */
 export function nodeToJsonLd(node: GraphNode): JsonLdNode {
+  const { schemaVersion: _ignoredSchemaVersion, ...metadata } = node.metadata;
   return {
     '@id': `urn:aidha:node:${node.id}`,
     '@type': node.type,
@@ -82,7 +83,7 @@ export function nodeToJsonLd(node: GraphNode): JsonLdNode {
     ...(node.content && { content: node.content }),
     createdAt: node.createdAt,
     updatedAt: node.updatedAt,
-    ...node.metadata,
+    ...metadata,
   };
 }
 

@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.25"
-last_updated: 2026-05-10
+version: "1.26"
+last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
 docops_version: "2.0"
@@ -15,8 +15,8 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.25
-> **Last Updated:** 2026-05-10
+> **Version:** 1.26
+> **Last Updated:** 2026-05-11
 > **Type:** TASK
 
 <!-- markdownlint-disable MD013 -->
@@ -53,6 +53,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.23    | 2026-05-10 | AI     | Record TD-006 input-loader extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.24    | 2026-05-10 | AI     | Record TD-006 corpus-signature extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.25    | 2026-05-10 | AI     | Record TD-006 embedding-client factory extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.26    | 2026-05-11 | AI     | Align backlog defaults and close the completed TD-016 speaker attribution item. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -117,7 +118,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | Open |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -1101,7 +1102,7 @@ package tests, and `pnpm docs:build`.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Medium |
 | Category   | Release Governance / Security |
 | Location   | GitHub repository settings, `.github/**`, root governance docs |
@@ -1209,7 +1210,7 @@ Do not invent legal policy beyond maintainer intent. Keep the first pass factual
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Medium |
 | Category   | Data Model / Provenance |
 | Location   | `packages/praecis/youtube/src/schema/transcript.ts`, `src/client/transcript.ts`, `src/pipeline/ingest.ts`, `src/extract/llm-claims.ts` |
