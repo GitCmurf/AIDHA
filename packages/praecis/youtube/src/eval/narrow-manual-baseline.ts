@@ -54,6 +54,7 @@ import { createNarrowJudgeStage } from "./narrow-judge-stage.js";
 import { createNarrowRefineStage } from "./narrow-refine-stage.js";
 import { createNarrowScoreStage } from "./narrow-score-stage.js";
 import { createNarrowShortlistStage } from "./narrow-shortlist-stage.js";
+import { buildNarrowReportMetadata } from "./narrow-report-metadata.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -410,46 +411,33 @@ export async function runNarrowManualBaselineComparison(
   const embeddingStats = embeddingClient?.getStats() ?? { apiRequestCount: 0, embeddingsComputed: 0, cacheHitCount: 0, cacheMissCount: 0 };
 
   return {
-    metadata: {
+    metadata: buildNarrowReportMetadata({
       startedAt,
       completedAt: new Date().toISOString(),
       runMode,
-      judgeModelIds: judgeEnabled ? options.judgeModelIds : [],
-      requestedModels: options.models.map((model) => model.id),
+      judgeEnabled,
+      judgeModelIds: options.judgeModelIds,
+      requestedModels: options.models,
       chunkModes,
       promptConfigs,
-      variants: [...new Set([...stage1Variants, ...stage2Variants])],
-      teacherSelectionMode: "manual-baseline-best-by-gold-coverage",
-      judgedTopHarnessPerVideo: shortlistPerVideo,
+      stage1Variants,
+      stage2Variants,
+      shortlistPerVideo,
       fallbackModelId: options.fallbackModelId,
       fallbackTriggeredFor,
       manualBaselineDir: options.manualBaselineDir,
       transcriptDir: options.transcriptDir,
-      shortlistSizePerVideo: shortlistPerVideo,
       refinedTargetCount: refinedTargets.length,
       embeddingModel: googleEmbeddingConfig.model ?? DEFAULT_GOOGLE_EMBEDDING_MODEL,
-      completedStages: [
-        "shortlist",
-        "refine",
-        "score",
-        ...(judgeEnabled ? ["judge"] : []),
-        "report"
-      ] as NarrowStageId[],
       budgetSkips,
       stageExecution,
-      judgeEnabled,
-      manualBaselinesIncluded: includeManualBaselines,
-      apiCallCounts: {
-        apiRequests: embeddingStats.apiRequestCount,
-        embeddingRequests: embeddingStats.embeddingsComputed,
-        embeddingCacheHits: embeddingStats.cacheHitCount,
-        embeddingCacheMisses: embeddingStats.cacheMissCount,
-      },
+      includeManualBaselines,
+      embeddingStats,
       rateLimitStatsByModel: requestRateLimiterRegistry.getStats(),
       adaptiveEscalation,
       escalatedVideos,
       escalationReasonsByVideo,
-    },
+    }),
     videos,
   };
 }

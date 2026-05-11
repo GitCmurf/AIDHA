@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.35"
+version: "1.36"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.35
+> **Version:** 1.36
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -63,6 +63,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.33    | 2026-05-11 | AI     | Record TD-006 score-stage extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.34    | 2026-05-11 | AI     | Record TD-006 shortlist-stage extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.35    | 2026-05-11 | AI     | Record TD-006 judge artifact-cache extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.36    | 2026-05-11 | AI     | Record TD-006 report-metadata extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -715,6 +716,9 @@ selection, and shortlist-artifact writes now live in
 Judge-stage artifact resume and persistence now live with judge enrichment in
 `packages/praecis/youtube/src/eval/narrow-judge-stage.ts`; the main baseline module is down to 455
 lines.
+Final report metadata assembly now lives in
+`packages/praecis/youtube/src/eval/narrow-report-metadata.ts`; the main baseline module is down to
+443 lines.
 
 ---
 
