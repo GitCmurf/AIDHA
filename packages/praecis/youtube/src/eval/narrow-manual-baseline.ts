@@ -7,11 +7,10 @@ import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
 import type { MatrixCell } from "./matrix-runner.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
-import { getModel, type EvalModel } from "./model-registry.js";
+import type { EvalModel } from "./model-registry.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 import { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
-import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
 import {
   computeCoverageByMode,
   type EmbeddingBudgetState,
@@ -20,20 +19,15 @@ import {
   readNarrowStageArtifact,
   writeNarrowStageArtifact,
   type NarrowJudgeStageArtifact,
-  type NarrowShortlistStageArtifact,
-  type NarrowShortlistTarget,
 } from "./stage-artifact-store.js";
 import { buildTeacherAwareHints } from "./teacher-analysis.js";
-import { compareOptimizationPriority, computeOptimizationScore } from "./narrow-optimization-ranking.js";
+import { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 import {
   assessStructuralTargets,
   profileTranscriptStructure,
   type StructuralTargetAssessment,
   type TranscriptStructureProfile,
 } from "./narrow-structural-targets.js";
-import {
-  needsFallbackForModel,
-} from "./narrow-comparable-claim-set.js";
 import { backfillTranscriptStructureProfile } from "./narrow-candidate-report.js";
 import {
   buildExtractionStageInputSignature,
@@ -48,15 +42,12 @@ import {
 import type {
   ComparableClaimSet,
   NarrowComparisonReport,
-  NarrowComparisonVideoReport,
   NarrowRunMode,
   NarrowStageId,
 } from "./narrow-report-types.js";
 import {
   getNarrowModePreset,
   intersectVariants,
-  selectFastTriageEscalationPack,
-  selectShortlistCandidatesForVideo,
 } from "./narrow-mode-selection.js";
 import {
   loadTranscript,
@@ -68,6 +59,7 @@ import { createNarrowVideoReportBuilder } from "./narrow-video-report-builder.js
 import { createNarrowJudgeStage } from "./narrow-judge-stage.js";
 import { createNarrowRefineStage } from "./narrow-refine-stage.js";
 import { createNarrowScoreStage } from "./narrow-score-stage.js";
+import { createNarrowShortlistStage } from "./narrow-shortlist-stage.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -258,83 +250,57 @@ export async function runNarrowManualBaselineComparison(
       })
     : undefined;
 
-  const fallbackTriggeredFor: string[] = [];
-  let fallbackCells: MatrixCell[] = [];
-  let initialHarnessCells: MatrixCell[] = [];
-  let initialVideos: NarrowComparisonVideoReport[] = [];
-  let shortlistTargets: NarrowShortlistTarget[] = [];
-  let escalatedVideos: string[] = [];
-  let escalationReasonsByVideo: Record<string, string[]> = {};
-  const cachedShortlist = await readNarrowStageArtifact<NarrowShortlistStageArtifact>(options.outputDir, "shortlist");
-  if (cachedShortlist?.inputSignature === extractionStageInputSignature) {
-    logger.info("[resume-from] stage=shortlist");
-    stageExecution.shortlist = "resumed";
-    initialHarnessCells = cachedShortlist.initialHarnessCells;
-    fallbackTriggeredFor.push(...cachedShortlist.fallbackTriggeredFor);
-    fallbackCells = cachedShortlist.fallbackCells;
-    initialVideos = cachedShortlist.videos;
-    shortlistTargets = cachedShortlist.shortlistTargets;
-    escalatedVideos = cachedShortlist.escalatedVideos ?? [];
-    escalationReasonsByVideo = cachedShortlist.escalationReasonsByVideo ?? {};
-  } else {
-    logger.info("[stage1-start] shortlist");
-    for (const promptConfigId of promptConfigs) {
-      for (const chunkMode of chunkModes) {
-        initialHarnessCells.push(...await runHarnessExtractionOnly(
-          options.corpus,
-          options.models,
-          stage1Variants,
-          promptConfigId,
-          chunkMode,
-          options.transcriptDir,
-          options.clientFactory,
-          options.maxConcurrency ?? 1,
-          options.timeoutMs ?? 120_000,
-          undefined,
-          enablePromptRouting,
-          undefined,
-          undefined,
-          options.outputDir,
-          join(options.outputDir, ".cache", "extraction"),
-          logger
-        ));
-      }
-    }
-
-    const fallbackModel = options.models.find((model) => model.id === options.fallbackModelId) || getModel(options.fallbackModelId);
-    if (fallbackModel) {
-      const fallbackTargets = options.models
-        .filter((model) => model.id !== options.fallbackModelId)
-        .filter((model) => needsFallbackForModel(initialHarnessCells, model.id));
-
-      if (fallbackTargets.length > 0) {
-        fallbackTriggeredFor.push(...fallbackTargets.map((model) => model.id));
-        for (const promptConfigId of promptConfigs) {
-          for (const chunkMode of chunkModes) {
-            fallbackCells.push(...await runHarnessExtractionOnly(
-              options.corpus,
-              [fallbackModel],
-              stage1Variants,
-              promptConfigId,
-              chunkMode,
-              options.transcriptDir,
-              options.clientFactory,
-              options.maxConcurrency ?? 1,
-              options.timeoutMs ?? 120_000,
-              undefined,
-              enablePromptRouting,
-              undefined,
-              undefined,
-              options.outputDir,
-              join(options.outputDir, ".cache", "extraction"),
-              logger
-            ));
-          }
-        }
-      }
-    }
-
-  }
+  const buildVideoReports = (input: {
+    harnessCells: MatrixCell[];
+    fallbackCells: MatrixCell[];
+    fallbackTriggeredFor: string[];
+  }) => createNarrowVideoReportBuilder({
+    corpus: options.corpus,
+    transcriptByVideo,
+    goldByVideo,
+    manualByVideo,
+    fallbackCells: input.fallbackCells,
+    fallbackTriggeredFor: input.fallbackTriggeredFor,
+    embeddingClient,
+    budgetState,
+    budgetSkips,
+    logger,
+  }).buildVideoReports({
+    harnessCells: input.harnessCells,
+    includeManualBaselines,
+  });
+  const shortlistStage = createNarrowShortlistStage({
+    corpus: options.corpus,
+    models: options.models,
+    stage1Variants,
+    runMode,
+    outputDir: options.outputDir,
+    transcriptDir: options.transcriptDir,
+    fallbackModelId: options.fallbackModelId,
+    chunkModes,
+    promptConfigs,
+    shortlistPerVideo,
+    adaptiveEscalation,
+    enablePromptRouting,
+    inputSignature: extractionStageInputSignature,
+    clientFactory: options.clientFactory,
+    maxConcurrency: options.maxConcurrency ?? 1,
+    timeoutMs: options.timeoutMs ?? 120_000,
+    buildVideoReports,
+    includeManualBaselines,
+    logger,
+  });
+  const shortlistStageResult = await shortlistStage.run();
+  stageExecution.shortlist = shortlistStageResult.execution;
+  const {
+    initialHarnessCells,
+    fallbackTriggeredFor,
+    fallbackCells,
+    initialVideos,
+    shortlistTargets,
+    escalatedVideos,
+    escalationReasonsByVideo,
+  } = shortlistStageResult;
 
   const judgeClients = new Map(
     judgeEnabled
@@ -401,96 +367,6 @@ export async function runNarrowManualBaselineComparison(
     logger,
   });
 
-  if (!cachedShortlist || cachedShortlist.inputSignature !== extractionStageInputSignature) {
-    initialVideos = await videoReportBuilder.buildVideoReports({
-      harnessCells: initialHarnessCells,
-      includeManualBaselines,
-    });
-    if (adaptiveEscalation) {
-      for (const video of initialVideos) {
-        const topHarnessCandidate = video.candidateReports
-          .filter((candidate) => candidate.sourceKind === "harness")
-          .slice()
-          .sort(compareOptimizationPriority)[0];
-        if (!topHarnessCandidate?.promptConfigId) continue;
-        const promptPackId = selectFastTriageEscalationPack({
-          topicDomain: options.corpus.find((entry) => entry.videoId === video.videoId)?.topicDomain,
-          semanticCoverage: topHarnessCandidate.semanticCoverage,
-          diagnostics: topHarnessCandidate.diagnostics,
-        });
-        if (!promptPackId) continue;
-
-        const targetCorpus = options.corpus.filter((entry) => entry.videoId === video.videoId);
-        if (targetCorpus.length === 0) continue;
-        const reason = topHarnessCandidate.diagnostics?.retryReason
-          ?? (topHarnessCandidate.semanticCoverage.rootRatio === 0 ? "missing-root-claim" : "low-semantic-coverage");
-        escalationReasonsByVideo[video.videoId] = [...new Set([
-          ...(escalationReasonsByVideo[video.videoId] ?? []),
-          reason,
-          `prompt-pack:${promptPackId}`,
-        ])];
-        escalatedVideos.push(video.videoId);
-
-        initialHarnessCells.push(...await runHarnessExtractionOnly(
-          targetCorpus,
-          options.models,
-          stage1Variants,
-          topHarnessCandidate.promptConfigId,
-          "small-request",
-          options.transcriptDir,
-          options.clientFactory,
-          options.maxConcurrency ?? 1,
-          options.timeoutMs ?? 120_000,
-          undefined,
-          false,
-          promptPackId,
-          undefined,
-          options.outputDir,
-          join(options.outputDir, ".cache", "extraction"),
-          logger
-        ));
-      }
-      if (escalatedVideos.length > 0) {
-        escalatedVideos = [...new Set(escalatedVideos)];
-        initialVideos = await videoReportBuilder.buildVideoReports({
-          harnessCells: initialHarnessCells,
-          includeManualBaselines,
-        });
-      }
-    }
-    shortlistTargets = initialVideos.flatMap((video) =>
-      selectShortlistCandidatesForVideo(
-        video,
-        shortlistPerVideo,
-        adaptiveEscalation && escalatedVideos.includes(video.videoId)
-      )
-        .map((candidate) => ({
-          videoId: video.videoId,
-          modelId: candidate.modelId!,
-          promptConfigId: candidate.promptConfigId!,
-          chunkMode: candidate.chunkMode!,
-          candidateId: candidate.candidateId,
-          promptPackId: candidate.diagnostics?.promptPackId as ExtractionPromptPackId | undefined,
-        }))
-    );
-    await writeNarrowStageArtifact<NarrowShortlistStageArtifact>(options.outputDir, "shortlist", {
-      stage: "shortlist",
-      mode: runMode,
-      createdAt: new Date().toISOString(),
-      inputSignature: extractionStageInputSignature,
-      chunkModes,
-      promptConfigs,
-      stage1Variants,
-      initialHarnessCells,
-      fallbackTriggeredFor,
-      fallbackCells,
-      videos: initialVideos,
-      shortlistTargets,
-      escalatedVideos,
-      escalationReasonsByVideo,
-    });
-    logger.info(`[stage1-done] shortlist targets=${shortlistTargets.length}`);
-  }
   const teacherAwareHints = includeManualBaselines ? buildTeacherAwareHints(initialVideos) : {};
   const refineStageResult = await refineStage.run({
     extractionStageInputSignature,
