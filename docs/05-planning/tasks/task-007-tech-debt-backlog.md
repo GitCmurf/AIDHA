@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.42"
+version: "1.43"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.42
+> **Version:** 1.43
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -70,6 +70,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.40    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 pipeline extraction. | — | Draft | AIDHA-TASK-008 |
 | 1.41    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-008 |
 | 1.42    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-008 |
+| 1.43    | 2026-05-11 | AI     | Align resolved TD-005 acceptance checklist with implemented signature-builder refactor. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -540,13 +541,13 @@ one field can silently reuse stale stage artifacts.
 
 **Acceptance criteria:**
 
-- [ ] The two exported signature builders share a single normalization helper.
-- [ ] Existing cache-invalidation tests in
+- [x] The two exported signature builders share a single normalization helper.
+- [x] Existing cache-invalidation tests in
   `packages/praecis/youtube/tests/eval/narrow-manual-baseline.test.ts` still pass.
-- [ ] New tests cover at least corpus signature, model IDs, prompt configs, chunk modes, run mode,
+- [x] New tests cover at least corpus signature, model IDs, prompt configs, chunk modes, run mode,
   embedding model, embedding batch size, task type, and output dimensionality.
-- [ ] The helper output is deterministic when input arrays are reordered.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run packages/praecis/youtube/tests/eval/narrow-manual-baseline.test.ts --reporter=dot`
+- [x] The helper output is deterministic when input arrays are reordered.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot`
   passes.
 
 **Risks and caveats:**
