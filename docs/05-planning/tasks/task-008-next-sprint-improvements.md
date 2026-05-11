@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.36"
+version: "0.37"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.36
+> **Version:** 0.37
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -64,6 +64,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.34    | 2026-05-11 | AI     | Extend TD-006 module extraction with judge artifact-cache orchestration. | — | Draft | AIDHA-TASK-007 |
 | 0.35    | 2026-05-11 | AI     | Extend TD-006 module extraction with report metadata assembly. | — | Draft | AIDHA-TASK-007 |
 | 0.36    | 2026-05-11 | AI     | Extend TD-006 module extraction with run options and defaults. | — | Draft | AIDHA-TASK-007 |
+| 0.37    | 2026-05-11 | AI     | Extend TD-006 module extraction with run-context preparation. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -423,6 +424,10 @@ Findings:
   down to 443 lines.
 - 2026-05-11: Moved public run options and default budget constants into
   `packages/praecis/youtube/src/eval/narrow-run-options.ts`.
+- 2026-05-11: Moved mode resolution, signature construction, transcript/baseline loading,
+  embedding-client setup, and shared mutable run state into
+  `packages/praecis/youtube/src/eval/narrow-run-context.ts`; `narrow-manual-baseline.ts` is down to
+  308 lines.
 
 **Definition of done:**
 
