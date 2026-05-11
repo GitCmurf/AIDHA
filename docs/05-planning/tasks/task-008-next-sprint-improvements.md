@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.28"
+version: "0.29"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.28
+> **Version:** 0.29
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -56,6 +56,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.26    | 2026-05-11 | AI     | Extend TD-006 module extraction with embedding eligibility. | — | Draft | AIDHA-TASK-007 |
 | 0.27    | 2026-05-11 | AI     | Extend TD-006 module extraction with shared report types. | — | Draft | AIDHA-TASK-007 |
 | 0.28    | 2026-05-11 | AI     | Remove dead judge branch from baseline report building. | — | Draft | AIDHA-TASK-007 |
+| 0.29    | 2026-05-11 | AI     | Extend TD-006 module extraction with video report building. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -388,6 +389,10 @@ Findings:
 - 2026-05-11: Removed the unreachable `buildVideoReports` judge branch whose flag was only ever
   passed `false`; `judgeVideoReports` remains the canonical judge stage, and
   `narrow-manual-baseline.ts` is down to 870 lines.
+- 2026-05-11: Extracted video report construction, per-video coverage logging, teacher enrichment,
+  embedding budget checks, and optimization-rank annotation to
+  `packages/praecis/youtube/src/eval/narrow-video-report-builder.ts`; `narrow-manual-baseline.ts`
+  is down to 777 lines.
 
 **Definition of done:**
 

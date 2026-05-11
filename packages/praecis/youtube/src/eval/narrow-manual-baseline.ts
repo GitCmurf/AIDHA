@@ -31,7 +31,6 @@ import {
 } from "./stage-artifact-store.js";
 import {
   buildTeacherAwareHints,
-  enrichReportsWithTeacherData,
   selectTeacherComparableCandidate,
   selfImproveHintKey,
   type SelfImproveHintInput,
@@ -54,12 +53,8 @@ import {
   buildComparableClaimSetsForVideo,
   buildHarnessComparableClaimSet,
   needsFallbackForModel,
-  type ComparableClaimSetIndex,
 } from "./narrow-comparable-claim-set.js";
-import {
-  backfillTranscriptStructureProfile,
-  buildCandidateReport,
-} from "./narrow-candidate-report.js";
+import { backfillTranscriptStructureProfile } from "./narrow-candidate-report.js";
 import {
   buildExtractionStageInputSignature,
   buildRefineStageInputSignature,
@@ -94,6 +89,7 @@ import {
 } from "./narrow-input-loader.js";
 import { buildCorpusSignature } from "./narrow-corpus-signature.js";
 import { buildEmbeddingEligibleCandidateIdsByVideo } from "./narrow-embedding-eligibility.js";
+import { createNarrowVideoReportBuilder } from "./narrow-video-report-builder.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -367,113 +363,18 @@ export async function runNarrowManualBaselineComparison(
       ? options.judgeModelIds.map((judgeModelId) => [judgeModelId, options.clientFactory(judgeModelId)])
       : []
   );
-  // This set is read while building shortlist-stage video reports, so it must
-  // exist before the helper closures are created to avoid a TDZ on fresh runs.
-  const buildSingleVideoReport = async (
-    video: CorpusEntry,
-    comparableClaimSetIndex: ComparableClaimSetIndex,
-    includeManualBaselinesForVideo: boolean,
-    embeddingEligibleCandidateIdsByVideo?: Map<string, Set<string>>
-  ): Promise<NarrowComparisonVideoReport> => {
-    const coverageStartedAt = Date.now();
-    logger.info(`[coverage-start] video=${video.videoId}`);
-    const transcript = transcriptByVideo.get(video.videoId);
-    const goldClaims = goldByVideo.get(video.videoId);
-    if (!transcript || !goldClaims) {
-      throw new Error(`Missing transcript or gold baseline for ${video.videoId}`);
-    }
-    const transcriptProfile = transcript.structureProfile;
-
-    const comparableClaimSets = buildComparableClaimSetsForVideo(
-      video.videoId,
-      comparableClaimSetIndex,
-      manualByVideo,
-      includeManualBaselinesForVideo
-    );
-    const coverageCache = new Map<CoverageCacheKey, GoldCoverageSummary>();
-    const embeddingEligibleCandidateIds = embeddingEligibleCandidateIdsByVideo?.get(video.videoId);
-    let effectiveEmbeddingClient = embeddingClient && embeddingEligibleCandidateIds && embeddingEligibleCandidateIds.size > 0
-      ? embeddingClient
-      : undefined;
-    if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
-      budgetSkips.push(`embedding-budget-exceeded:${video.videoId}:0`);
-      effectiveEmbeddingClient = undefined;
-      logger.warn(`[embedding-skip-budget] video=${video.videoId} required=1 remaining=0`);
-    }
-
-    const candidateReports: NarrowComparisonCandidateReport[] = [];
-    for (const [candidateIndex, candidate] of comparableClaimSets.entries()) {
-      if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
-        effectiveEmbeddingClient = undefined;
-        logger.warn(`[embedding-skip-budget] video=${video.videoId} candidate=${candidate.candidateId} remaining=0`);
-      }
-
-      candidateReports.push(await buildCandidateReport(
-        candidate,
-        goldClaims,
-        transcriptProfile,
-        embeddingEligibleCandidateIds?.has(candidate.candidateId) ? effectiveEmbeddingClient : undefined,
-        coverageCache,
-        budgetState
-      ));
-
-      logger.info(
-        `[coverage-candidate] video=${video.videoId} index=${candidateIndex + 1}/${comparableClaimSets.length} candidate=${candidate.candidateId}`
-      );
-    }
-
-    if (includeManualBaselinesForVideo) {
-      if (effectiveEmbeddingClient && budgetState.remainingEmbeddingRequests <= 0) {
-        effectiveEmbeddingClient = undefined;
-        logger.warn(`[embedding-skip-budget] video=${video.videoId} phase=teacher remaining=0`);
-      }
-
-      await enrichReportsWithTeacherData(
-        candidateReports,
-        comparableClaimSets,
-        effectiveEmbeddingClient,
-        coverageCache,
-        embeddingEligibleCandidateIds,
-        budgetState
-      );
-    }
-    logger.info(`[coverage-done] video=${video.videoId} durationMs=${Date.now() - coverageStartedAt}`);
-    return {
-      videoId: video.videoId,
-      title: video.title,
-      transcriptStructureProfile: {
-        tags: [...transcriptProfile.tags],
-        cueMatches: [...transcriptProfile.cueMatches],
-      },
-      candidateReports,
-    };
-  };
-
-  const buildVideoReports = async (
-    harnessCells: MatrixCell[],
-    includeManualBaselines: boolean,
-    embeddingEligibleCandidateIdsByVideo?: Map<string, Set<string>>
-  ): Promise<NarrowComparisonVideoReport[]> => {
-    const videos: NarrowComparisonVideoReport[] = [];
-    const comparableClaimSetIndex = buildComparableClaimSetIndex(
-      harnessCells,
-      fallbackCells,
-      `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`
-    );
-
-    for (const video of options.corpus) {
-      videos.push(await buildSingleVideoReport(
-        video,
-        comparableClaimSetIndex,
-        includeManualBaselines,
-        embeddingEligibleCandidateIdsByVideo
-      ));
-    }
-
-    annotateOptimizationRanks(videos);
-
-    return videos;
-  };
+  const videoReportBuilder = createNarrowVideoReportBuilder({
+    corpus: options.corpus,
+    transcriptByVideo,
+    goldByVideo,
+    manualByVideo,
+    fallbackCells,
+    fallbackTriggeredFor,
+    embeddingClient,
+    budgetState,
+    budgetSkips,
+    logger,
+  });
 
   const judgeVideoReports = async (
     videos: NarrowComparisonVideoReport[],
@@ -551,7 +452,10 @@ export async function runNarrowManualBaselineComparison(
   };
 
   if (!cachedShortlist || cachedShortlist.inputSignature !== extractionStageInputSignature) {
-    initialVideos = await buildVideoReports(initialHarnessCells, includeManualBaselines);
+    initialVideos = await videoReportBuilder.buildVideoReports({
+      harnessCells: initialHarnessCells,
+      includeManualBaselines,
+    });
     if (adaptiveEscalation) {
       for (const video of initialVideos) {
         const topHarnessCandidate = video.candidateReports
@@ -598,7 +502,10 @@ export async function runNarrowManualBaselineComparison(
       }
       if (escalatedVideos.length > 0) {
         escalatedVideos = [...new Set(escalatedVideos)];
-        initialVideos = await buildVideoReports(initialHarnessCells, includeManualBaselines);
+        initialVideos = await videoReportBuilder.buildVideoReports({
+          harnessCells: initialHarnessCells,
+          includeManualBaselines,
+        });
       }
     }
     shortlistTargets = initialVideos.flatMap((video) =>
@@ -765,12 +672,12 @@ export async function runNarrowManualBaselineComparison(
         scoredVideos.push(backfillTranscriptStructureProfile(cachedVideoScore.video, transcriptByVideo));
         continue;
       }
-      const scoredVideo = await buildSingleVideoReport(
+      const scoredVideo = await videoReportBuilder.buildVideoReport({
         video,
-        finalComparableClaimSetIndex,
+        harnessCells: finalHarnessCells,
         includeManualBaselines,
-        embeddingEligibleCandidateIdsByVideo
-      );
+        embeddingEligibleCandidateIdsByVideo,
+      });
       await writeNarrowVideoScoreArtifact(options.outputDir, {
         stage: "score-video",
         mode: runMode,
