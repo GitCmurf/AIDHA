@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.38"
+version: "0.39"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.38
+> **Version:** 0.39
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -66,6 +66,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.36    | 2026-05-11 | AI     | Extend TD-006 module extraction with run options and defaults. | — | Draft | AIDHA-TASK-007 |
 | 0.37    | 2026-05-11 | AI     | Extend TD-006 module extraction with run-context preparation. | — | Draft | AIDHA-TASK-007 |
 | 0.38    | 2026-05-11 | AI     | Extend TD-006 module extraction with stage-pipeline sequencing. | — | Draft | AIDHA-TASK-007 |
+| 0.39    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 stage-pipeline extraction. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -432,6 +433,8 @@ Findings:
 - 2026-05-11: Moved stage construction and sequencing into
   `packages/praecis/youtube/src/eval/narrow-stage-pipeline.ts`; `runNarrowManualBaselineComparison`
   is down to 56 lines, and the compatibility wrapper module is down to 131 lines.
+- 2026-05-11: `pnpm --dir packages/praecis/youtube test` passed with 90 test files passed, 1
+  skipped; 891 tests passed, 6 skipped.
 
 **Definition of done:**
 

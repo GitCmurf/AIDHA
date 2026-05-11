@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.39"
+version: "1.40"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.39
+> **Version:** 1.40
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -67,6 +67,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.37    | 2026-05-11 | AI     | Record TD-006 run-options extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.38    | 2026-05-11 | AI     | Record TD-006 run-context extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.39    | 2026-05-11 | AI     | Record TD-006 stage-pipeline extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.40    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 pipeline extraction. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -617,7 +618,7 @@ harder: many behaviors can only be exercised through a broad end-to-end-style ha
   orchestration live in separate modules with explicit exported types.
 - [ ] Each extracted stage has a focused unit test for normal execution and resume-artifact reuse
   or invalidation.
-- [ ] Existing full comparison tests still pass without loosening assertions.
+- [x] Existing full comparison tests still pass without loosening assertions.
 - [ ] Generated JSON and Markdown reports are byte-identical for at least one deterministic
   fixture-backed run, except where the refactor intentionally changes ordering and the change is
   documented.
@@ -731,6 +732,8 @@ the main baseline module is down to 308 lines.
 Stage construction and sequencing now live in
 `packages/praecis/youtube/src/eval/narrow-stage-pipeline.ts`; `runNarrowManualBaselineComparison`
 is down to 56 lines, and the compatibility wrapper module is down to 131 lines.
+After the final stage-pipeline slice, `pnpm --dir packages/praecis/youtube test` passed with 90
+test files passed, 1 skipped; 891 tests passed, 6 skipped.
 
 ---
 
