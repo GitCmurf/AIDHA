@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.50"
+version: "1.51"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.50
+> **Version:** 1.51
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -78,6 +78,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.48    | 2026-05-11 | AI     | Close TD-021 with focused judge-stage tests and combined stage-test evidence. | — | Draft | AIDHA-TASK-008 |
 | 1.49    | 2026-05-11 | AI     | Align TD-021 status cell with resolved evidence. | — | Draft | AIDHA-TASK-008 |
 | 1.50    | 2026-05-11 | AI     | Correct maintainer-gated TD-014 and TD-015 statuses to blocked. | — | Draft | AIDHA-TASK-008 |
+| 1.51    | 2026-05-11 | AI     | Align TD-013 status with resolved lint-reliability evidence. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1126,7 +1127,7 @@ impact for runs that do not pin the embedding model explicitly.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Blocked |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | CI Reliability / Developer Experience |
 | Location   | root `package.json`, `.github/workflows/typescript-packages.yml`, package lint scripts |
