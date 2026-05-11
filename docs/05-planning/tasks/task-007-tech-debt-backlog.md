@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.44"
+version: "1.45"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.44
+> **Version:** 1.45
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -72,6 +72,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.42    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-008 |
 | 1.43    | 2026-05-11 | AI     | Align resolved TD-005 acceptance checklist with implemented signature-builder refactor. | — | Draft | AIDHA-TASK-008 |
 | 1.44    | 2026-05-11 | AI     | Align resolved TD-009 and TD-012 checklists and correct TD-014 as maintainer-blocked. | — | Draft | AIDHA-TASK-008 |
+| 1.45    | 2026-05-11 | AI     | Start TD-021 with focused refine-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1638,6 +1639,12 @@ changes cheaper to review.
 **Risks and caveats:**
 Avoid brittle tests that assert internal call order where an output assertion would be clearer.
 Prefer lightweight temp-dir artifacts plus mocked clients over full runner invocations.
+
+**Progress:**
+On 2026-05-11, `tests/eval/narrow-refine-stage.test.ts` added focused coverage for fresh
+execution, refine-budget truncation, final harness-cell composition, artifact persistence, and
+matching artifact resume. `pnpm --dir packages/praecis/youtube exec vitest run
+tests/eval/narrow-refine-stage.test.ts --reporter=dot` passed with 2 tests.
 
 ---
 
