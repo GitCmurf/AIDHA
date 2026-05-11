@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.47"
+version: "1.48"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.47
+> **Version:** 1.48
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -75,6 +75,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.45    | 2026-05-11 | AI     | Start TD-021 with focused refine-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
 | 1.46    | 2026-05-11 | AI     | Continue TD-021 with focused score-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
 | 1.47    | 2026-05-11 | AI     | Continue TD-021 with focused shortlist-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
+| 1.48    | 2026-05-11 | AI     | Close TD-021 with focused judge-stage tests and combined stage-test evidence. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -139,7 +140,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
@@ -1627,15 +1628,15 @@ changes cheaper to review.
 
 **Acceptance criteria:**
 
-- [ ] Each extracted narrow stage has at least one fresh-execution unit test.
-- [ ] Each artifact-backed stage has a resume or cache-reuse unit test.
-- [ ] Tests mock external LLM/embedding clients and do not require live credentials.
-- [ ] Existing `narrow-manual-baseline.test.ts` characterization tests remain in place.
-- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts tests/eval/narrow-*-stage.test.ts --reporter=dot` passes.
+- [x] Each extracted narrow stage has at least one fresh-execution unit test.
+- [x] Each artifact-backed stage has a resume or cache-reuse unit test.
+- [x] Tests mock external LLM/embedding clients and do not require live credentials.
+- [x] Existing `narrow-manual-baseline.test.ts` characterization tests remain in place.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts tests/eval/narrow-shortlist-stage.test.ts tests/eval/narrow-refine-stage.test.ts tests/eval/narrow-score-stage.test.ts tests/eval/narrow-judge-stage.test.ts --reporter=dot` passes.
 
 **Validation commands:**
 
-- `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts tests/eval/narrow-*-stage.test.ts --reporter=dot`
+- `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts tests/eval/narrow-shortlist-stage.test.ts tests/eval/narrow-refine-stage.test.ts tests/eval/narrow-score-stage.test.ts tests/eval/narrow-judge-stage.test.ts --reporter=dot`
 - `pnpm --dir packages/praecis/youtube lint`
 
 **Risks and caveats:**
@@ -1657,6 +1658,16 @@ On 2026-05-11, `tests/eval/narrow-shortlist-stage.test.ts` added focused coverag
 shortlist target selection, shortlist-stage artifact writes, and matching shortlist-stage resume
 without rebuilding video reports. `pnpm --dir packages/praecis/youtube exec vitest run
 tests/eval/narrow-shortlist-stage.test.ts --reporter=dot` passed with 2 tests.
+
+On 2026-05-11, `tests/eval/narrow-judge-stage.test.ts` added focused coverage for fresh judge
+execution, lower-ranked harness skip annotation, judge-stage artifact writes, and matching
+judge-stage resume with transcript-structure backfill. `pnpm --dir packages/praecis/youtube exec
+vitest run tests/eval/narrow-judge-stage.test.ts --reporter=dot` passed with 2 tests.
+
+On 2026-05-11, TD-021 was closed after the combined stage characterization command passed:
+`pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts
+tests/eval/narrow-shortlist-stage.test.ts tests/eval/narrow-refine-stage.test.ts
+tests/eval/narrow-score-stage.test.ts tests/eval/narrow-judge-stage.test.ts --reporter=dot`.
 
 ---
 
@@ -1695,6 +1706,9 @@ tests/eval/narrow-shortlist-stage.test.ts --reporter=dot` passed with 2 tests.
   estimates while surfacing normalized provider usage when available.
 - TD-020 — Decide native provider clients versus OpenAI-compatible bridge strategy. Resolved by
   documenting the hybrid routing decision and adding explicit model-registry route metadata.
+- TD-021 — Add focused unit tests for extracted narrow stage modules. Resolved with fresh-execution
+  and artifact-resume/cache tests for shortlist, refine, score, and judge stages while preserving
+  the broad narrow-baseline characterization suite.
 
 ---
 
