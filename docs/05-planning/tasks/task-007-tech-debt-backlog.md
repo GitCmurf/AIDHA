@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.46"
+version: "1.47"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.46
+> **Version:** 1.47
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -74,6 +74,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.44    | 2026-05-11 | AI     | Align resolved TD-009 and TD-012 checklists and correct TD-014 as maintainer-blocked. | — | Draft | AIDHA-TASK-008 |
 | 1.45    | 2026-05-11 | AI     | Start TD-021 with focused refine-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
 | 1.46    | 2026-05-11 | AI     | Continue TD-021 with focused score-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
+| 1.47    | 2026-05-11 | AI     | Continue TD-021 with focused shortlist-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1651,6 +1652,11 @@ On 2026-05-11, `tests/eval/narrow-score-stage.test.ts` added focused coverage fo
 execution, stage artifact writes, per-video score artifact writes, and matching score-stage resume
 without rebuilding video reports. `pnpm --dir packages/praecis/youtube exec vitest run
 tests/eval/narrow-score-stage.test.ts --reporter=dot` passed with 2 tests.
+
+On 2026-05-11, `tests/eval/narrow-shortlist-stage.test.ts` added focused coverage for fresh
+shortlist target selection, shortlist-stage artifact writes, and matching shortlist-stage resume
+without rebuilding video reports. `pnpm --dir packages/praecis/youtube exec vitest run
+tests/eval/narrow-shortlist-stage.test.ts --reporter=dot` passed with 2 tests.
 
 ---
 
