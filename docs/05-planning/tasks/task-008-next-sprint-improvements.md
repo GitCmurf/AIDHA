@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.39"
+version: "0.40"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.39
+> **Version:** 0.40
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -67,6 +67,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.37    | 2026-05-11 | AI     | Extend TD-006 module extraction with run-context preparation. | — | Draft | AIDHA-TASK-007 |
 | 0.38    | 2026-05-11 | AI     | Extend TD-006 module extraction with stage-pipeline sequencing. | — | Draft | AIDHA-TASK-007 |
 | 0.39    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 stage-pipeline extraction. | — | Draft | AIDHA-TASK-007 |
+| 0.40    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -435,13 +436,16 @@ Findings:
   is down to 56 lines, and the compatibility wrapper module is down to 131 lines.
 - 2026-05-11: `pnpm --dir packages/praecis/youtube test` passed with 90 test files passed, 1
   skipped; 891 tests passed, 6 skipped.
+- 2026-05-11: Extended the fixture-backed characterization test to write the same report twice and
+  assert byte-identical `latest.json` and `latest.md` output; the focused narrow-baseline test file
+  passed with 34 tests.
 
 **Definition of done:**
 
 - [x] Coverage scoring, report rendering, teacher analysis, artifact persistence, and orchestration
   live in separate modules with explicit exported types.
 - [x] `runNarrowManualBaselineComparison` is orchestration-only and materially shorter.
-- [ ] Generated JSON and Markdown reports are byte-identical for at least one deterministic
+- [x] Generated JSON and Markdown reports are byte-identical for at least one deterministic
   fixture-backed run, except documented intentional ordering changes.
 - [x] `pnpm --dir packages/praecis/youtube test` passes.
 

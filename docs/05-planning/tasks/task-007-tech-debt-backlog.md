@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.40"
+version: "1.41"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.40
+> **Version:** 1.41
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -68,6 +68,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.38    | 2026-05-11 | AI     | Record TD-006 run-context extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.39    | 2026-05-11 | AI     | Record TD-006 stage-pipeline extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.40    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 pipeline extraction. | — | Draft | AIDHA-TASK-008 |
+| 1.41    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -619,7 +620,7 @@ harder: many behaviors can only be exercised through a broad end-to-end-style ha
 - [ ] Each extracted stage has a focused unit test for normal execution and resume-artifact reuse
   or invalidation.
 - [x] Existing full comparison tests still pass without loosening assertions.
-- [ ] Generated JSON and Markdown reports are byte-identical for at least one deterministic
+- [x] Generated JSON and Markdown reports are byte-identical for at least one deterministic
   fixture-backed run, except where the refactor intentionally changes ordering and the change is
   documented.
 - [x] `pnpm --dir packages/praecis/youtube test` passes.
@@ -734,6 +735,9 @@ Stage construction and sequencing now live in
 is down to 56 lines, and the compatibility wrapper module is down to 131 lines.
 After the final stage-pipeline slice, `pnpm --dir packages/praecis/youtube test` passed with 90
 test files passed, 1 skipped; 891 tests passed, 6 skipped.
+The deterministic fixture-backed characterization test now writes the same report twice and asserts
+byte-identical `latest.json` and `latest.md` output; `pnpm --dir packages/praecis/youtube exec
+vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passed with 34 tests.
 
 ---
 

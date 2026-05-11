@@ -1409,6 +1409,17 @@ describe("narrow-manual-baseline helpers", () => {
     expect(persistedMarkdown).toContain("- Run mode: `fast-triage`");
     expect(persistedMarkdown).toContain("- Stage execution:");
     expect(persistedMarkdown).toContain("## video-1 - Video 1");
+
+    const firstDeterministicOutputDir = await mkdtemp(join(tmpdir(), "aidha-output-a-"));
+    const secondDeterministicOutputDir = await mkdtemp(join(tmpdir(), "aidha-output-b-"));
+    await writeNarrowComparisonReport(report, firstDeterministicOutputDir, "characterization");
+    await writeNarrowComparisonReport(report, secondDeterministicOutputDir, "characterization");
+    await expect(readFile(join(firstDeterministicOutputDir, "latest.json"), "utf-8")).resolves.toBe(
+      await readFile(join(secondDeterministicOutputDir, "latest.json"), "utf-8")
+    );
+    await expect(readFile(join(firstDeterministicOutputDir, "latest.md"), "utf-8")).resolves.toBe(
+      await readFile(join(secondDeterministicOutputDir, "latest.md"), "utf-8")
+    );
   }, 20_000);
 
   it("resumes refine artifacts and still judges refined rows after a score recompute", async () => {
