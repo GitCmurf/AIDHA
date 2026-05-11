@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.48"
+version: "1.49"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.48
+> **Version:** 1.49
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -76,6 +76,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.46    | 2026-05-11 | AI     | Continue TD-021 with focused score-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
 | 1.47    | 2026-05-11 | AI     | Continue TD-021 with focused shortlist-stage fresh execution and resume tests. | — | Draft | AIDHA-TASK-008 |
 | 1.48    | 2026-05-11 | AI     | Close TD-021 with focused judge-stage tests and combined stage-test evidence. | — | Draft | AIDHA-TASK-008 |
+| 1.49    | 2026-05-11 | AI     | Align TD-021 status cell with resolved evidence. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1234,7 +1235,7 @@ controls; record unavailable controls explicitly.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Release Governance / Community |
 | Location   | `CITATION.cff`, `TRADEMARKS.md`, `CONTRIBUTING.md`, GitHub CLA integration |
@@ -1593,7 +1594,7 @@ that the registry distinguishes native Gemini routing from OpenAI-compatible rou
 
 | Field      | Value |
 |------------|-------|
-| Status     | Open |
+| Status     | Resolved |
 | Priority   | Low |
 | Category   | Testability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-*-stage.ts`, `packages/praecis/youtube/tests/eval/` |

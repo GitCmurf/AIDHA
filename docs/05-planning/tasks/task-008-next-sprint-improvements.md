@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.41"
+version: "0.42"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.41
+> **Version:** 0.42
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -69,6 +69,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.39    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 stage-pipeline extraction. | — | Draft | AIDHA-TASK-007 |
 | 0.40    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-007 |
 | 0.41    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-007 |
+| 0.42    | 2026-05-11 | AI     | Record TD-021 per-stage unit-test closure. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -121,7 +122,7 @@ Findings:
   source tree show the eval matrix, corpus schema, model registry, scorer, reports, quality gate,
   manual baseline, and cache invalidation are implemented.
 - AIDHA-TASK-006 is complete.
-- The remaining actionable gaps are recorded in AIDHA-TASK-007 as TD-001 through TD-020.
+- The remaining actionable gaps are recorded in AIDHA-TASK-007 as TD-001 through TD-021.
 
 ## Execution Principles
 
@@ -442,6 +443,8 @@ Findings:
   passed with 34 tests.
 - 2026-05-11: Closed the TD-006 decomposition scope. Residual desire for narrower per-stage unit
   tests is tracked separately in AIDHA-TASK-007 as TD-021.
+- 2026-05-11: Closed TD-021 with focused shortlist, refine, score, and judge stage tests covering
+  fresh execution plus artifact resume/cache behavior.
 
 **Definition of done:**
 
@@ -862,7 +865,7 @@ For branches touching CI, verify at least one GitHub Actions run and record the 
 
 ## Done for Task 008
 
-- [ ] Every AIDHA-TASK-007 item from TD-001 through TD-020 is resolved, superseded with evidence,
+- [ ] Every AIDHA-TASK-007 item from TD-001 through TD-021 is resolved, superseded with evidence,
   split into a smaller governed task, or explicitly deferred beyond Task 008 with rationale.
 - [ ] AIDHA-TASK-007 statuses match actual implementation state.
 - [ ] Each implementation PR updates the relevant TD-NNN status block in AIDHA-TASK-007.
