@@ -7,13 +7,20 @@ import {
   buildComparableClaimSetIndex,
   buildComparableClaimSetsForVideo,
 } from "./narrow-comparable-claim-set.js";
+import { backfillTranscriptStructureProfile } from "./narrow-candidate-report.js";
 import { enrichCandidateReportWithJudges } from "./narrow-judge-enrichment.js";
 import { selectTeacherComparableCandidate } from "./teacher-analysis.js";
 import type { TranscriptData } from "./narrow-input-loader.js";
+import {
+  readNarrowStageArtifact,
+  writeNarrowStageArtifact,
+  type NarrowJudgeStageArtifact,
+} from "./stage-artifact-store.js";
 import type {
   ComparableClaimSet,
   GoldCoverageSummary,
   NarrowComparisonVideoReport,
+  NarrowRunMode,
 } from "./narrow-report-types.js";
 
 export interface JudgeNarrowVideoReportsInput {
@@ -22,7 +29,18 @@ export interface JudgeNarrowVideoReportsInput {
   includeManualBaselines: boolean;
 }
 
+export interface RunNarrowJudgeStageInput extends JudgeNarrowVideoReportsInput {
+  stageInputSignature: string;
+  runMode: NarrowRunMode;
+}
+
+export interface RunNarrowJudgeStageResult {
+  execution: "resumed" | "recomputed";
+  videos: NarrowComparisonVideoReport[];
+}
+
 export interface NarrowJudgeStageContext {
+  outputDir: string;
   transcriptByVideo: Map<string, TranscriptData>;
   goldByVideo: Map<string, FlattenedGoldenClaimNode[]>;
   manualByVideo: Map<string, ComparableClaimSet[]>;
@@ -37,6 +55,7 @@ export interface NarrowJudgeStageContext {
 
 export function createNarrowJudgeStage(context: NarrowJudgeStageContext): {
   judgeVideoReports: (input: JudgeNarrowVideoReportsInput) => Promise<void>;
+  run: (input: RunNarrowJudgeStageInput) => Promise<RunNarrowJudgeStageResult>;
 } {
   const judgeVideoReports = async (input: JudgeNarrowVideoReportsInput): Promise<void> => {
     context.logger.info("[stage4-start] judge");
@@ -109,5 +128,32 @@ export function createNarrowJudgeStage(context: NarrowJudgeStageContext): {
     context.logger.info("[stage4-done] judge");
   };
 
-  return { judgeVideoReports };
+  const run = async (input: RunNarrowJudgeStageInput): Promise<RunNarrowJudgeStageResult> => {
+    const cachedJudge = await readNarrowStageArtifact<NarrowJudgeStageArtifact>(context.outputDir, "judge");
+    if (cachedJudge?.inputSignature === input.stageInputSignature) {
+      context.logger.info("[resume-from] stage=judge");
+      return {
+        execution: "resumed",
+        videos: cachedJudge.videos.map((video) =>
+          backfillTranscriptStructureProfile(video, context.transcriptByVideo)
+        ),
+      };
+    }
+
+    await judgeVideoReports(input);
+    await writeNarrowStageArtifact<NarrowJudgeStageArtifact>(context.outputDir, "judge", {
+      stage: "judge",
+      mode: input.runMode,
+      createdAt: new Date().toISOString(),
+      inputSignature: input.stageInputSignature,
+      videos: input.videos,
+    });
+
+    return {
+      execution: "recomputed",
+      videos: input.videos,
+    };
+  };
+
+  return { judgeVideoReports, run };
 }

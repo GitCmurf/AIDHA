@@ -15,11 +15,6 @@ import {
   computeCoverageByMode,
   type EmbeddingBudgetState,
 } from "./coverage-engine.js";
-import {
-  readNarrowStageArtifact,
-  writeNarrowStageArtifact,
-  type NarrowJudgeStageArtifact,
-} from "./stage-artifact-store.js";
 import { buildTeacherAwareHints } from "./teacher-analysis.js";
 import { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 import {
@@ -28,7 +23,6 @@ import {
   type StructuralTargetAssessment,
   type TranscriptStructureProfile,
 } from "./narrow-structural-targets.js";
-import { backfillTranscriptStructureProfile } from "./narrow-candidate-report.js";
 import {
   buildExtractionStageInputSignature,
   buildStageInputSignature,
@@ -340,6 +334,7 @@ export async function runNarrowManualBaselineComparison(
     logger,
   });
   const judgeStage = createNarrowJudgeStage({
+    outputDir: options.outputDir,
     transcriptByVideo,
     goldByVideo,
     manualByVideo,
@@ -389,25 +384,15 @@ export async function runNarrowManualBaselineComparison(
   stageExecution.score = scoreStageResult.execution;
   let videos = scoreStageResult.videos;
   if (judgeEnabled) {
-    const cachedJudge = await readNarrowStageArtifact<NarrowJudgeStageArtifact>(options.outputDir, "judge");
-    if (cachedJudge?.inputSignature === stageInputSignature) {
-      logger.info("[resume-from] stage=judge");
-      stageExecution.judge = "resumed";
-      videos = cachedJudge.videos.map((video) => backfillTranscriptStructureProfile(video, transcriptByVideo));
-    } else {
-      await judgeStage.judgeVideoReports({
-        videos,
-        harnessCells: finalHarnessCells,
-        includeManualBaselines,
-      });
-      await writeNarrowStageArtifact<NarrowJudgeStageArtifact>(options.outputDir, "judge", {
-        stage: "judge",
-        mode: runMode,
-        createdAt: new Date().toISOString(),
-        inputSignature: stageInputSignature,
-        videos,
-      });
-    }
+    const judgeStageResult = await judgeStage.run({
+      stageInputSignature,
+      runMode,
+      videos,
+      harnessCells: finalHarnessCells,
+      includeManualBaselines,
+    });
+    stageExecution.judge = judgeStageResult.execution;
+    videos = judgeStageResult.videos;
   } else {
     logger.info("[stage4-start] judge");
     logger.info("[stage4-done] judge");
