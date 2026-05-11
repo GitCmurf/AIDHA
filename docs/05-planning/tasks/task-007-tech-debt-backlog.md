@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.43"
+version: "1.44"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.43
+> **Version:** 1.44
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -71,6 +71,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.41    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-008 |
 | 1.42    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-008 |
 | 1.43    | 2026-05-11 | AI     | Align resolved TD-005 acceptance checklist with implemented signature-builder refactor. | — | Draft | AIDHA-TASK-008 |
+| 1.44    | 2026-05-11 | AI     | Align resolved TD-009 and TD-012 checklists and correct TD-014 as maintainer-blocked. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -935,10 +936,10 @@ hard to trust.
 
 **Acceptance criteria:**
 
-- [ ] All shortened deterministic IDs have an explicit length policy in `ids.ts`.
-- [ ] Tests assert deterministic output, expected length, and uniqueness across representative
+- [x] All shortened deterministic IDs have an explicit length policy in `ids.ts`.
+- [x] Tests assert deterministic output, expected length, and uniqueness across representative
   fixture batches.
-- [ ] Any remaining 64-bit ID includes either collision detection or a comment explaining why the
+- [x] Any remaining 64-bit ID includes either collision detection or a comment explaining why the
   collision domain is bounded.
 - [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/utils/ids.test.ts tests/claim-id-collision.test.ts --reporter=dot`
   passes.
@@ -1099,9 +1100,9 @@ comparability, embedding cost, and downstream score reproducibility.
 
 **Acceptance criteria:**
 
-- [ ] PR description includes the default model change and its cache/eval comparability impact.
-- [ ] Any release notes or changelog updated by this branch include the same note.
-- [ ] No code change is made solely to preserve the old default unless a maintainer explicitly
+- [x] PR description includes the default model change and its cache/eval comparability impact.
+- [x] Any release notes or changelog updated by this branch include the same note.
+- [x] No code change is made solely to preserve the old default unless a maintainer explicitly
   reverses the behavioral decision.
 
 **Risks and caveats:**
@@ -1119,7 +1120,7 @@ impact for runs that do not pin the embedding model explicitly.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | Blocked |
 | Priority   | Low |
 | Category   | CI Reliability / Developer Experience |
 | Location   | root `package.json`, `.github/workflows/typescript-packages.yml`, package lint scripts |
