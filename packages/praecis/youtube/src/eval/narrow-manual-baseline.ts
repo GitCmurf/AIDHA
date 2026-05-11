@@ -1,7 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { ResolvedConfig } from "@aidha/config";
 import type { LlmClient } from "../extract/index.js";
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import { CorpusEntrySchema, type CorpusEntry } from "./corpus-schema.js";
@@ -39,6 +38,11 @@ import type {
   NarrowRunMode,
   NarrowStageId,
 } from "./narrow-report-types.js";
+import {
+  DEFAULT_EMBEDDING_BUDGET_PER_RUN,
+  DEFAULT_REFINED_SELF_IMPROVE_BUDGET_PER_RUN,
+  type RunNarrowManualBaselineOptions,
+} from "./narrow-run-options.js";
 import {
   getNarrowModePreset,
   intersectVariants,
@@ -99,38 +103,7 @@ export type {
 
 export const NarrowCorpusSchema = z.array(CorpusEntrySchema).min(1);
 
-const DEFAULT_EMBEDDING_BUDGET_PER_RUN = 250;
-const DEFAULT_REFINED_SELF_IMPROVE_BUDGET_PER_RUN = 4;
-export interface RunNarrowManualBaselineOptions {
-  corpus: CorpusEntry[];
-  transcriptDir: string;
-  manualBaselineDir: string;
-  outputDir: string;
-  models: EvalModel[];
-  variants: ExtractorVariantId[];
-  judgeModelIds: string[];
-  fallbackModelId: string;
-  config: ResolvedConfig;
-  clientFactory: (modelId: string) => LlmClient;
-  maxConcurrency?: number;
-  timeoutMs?: number;
-  judgeMaxTokens?: number;
-  runMode?: NarrowRunMode;
-  shortlistPerVideo?: number;
-  maxEmbeddingRequestsPerRun?: number;
-  maxRefinedSelfImproveCellsPerRun?: number;
-  judgeEnabled?: boolean;
-  includeManualBaselines?: boolean;
-  maxEmbeddingRequestsPerMinute?: number;
-  /**
-   * Explicit runtime environment snapshot.
-   *
-   * This lets callers forward dotenv-loaded values without mutating
-   * process.env globally.
-   */
-  env?: NodeJS.ProcessEnv;
-  logger?: Logger;
-}
+export type { RunNarrowManualBaselineOptions } from "./narrow-run-options.js";
 
 export { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 export { writeNarrowComparisonReport } from "./narrow-report-writer.js";

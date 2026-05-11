@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.36"
+version: "1.37"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.36
+> **Version:** 1.37
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -64,6 +64,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.34    | 2026-05-11 | AI     | Record TD-006 shortlist-stage extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.35    | 2026-05-11 | AI     | Record TD-006 judge artifact-cache extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.36    | 2026-05-11 | AI     | Record TD-006 report-metadata extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.37    | 2026-05-11 | AI     | Record TD-006 run-options extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -719,6 +720,9 @@ lines.
 Final report metadata assembly now lives in
 `packages/praecis/youtube/src/eval/narrow-report-metadata.ts`; the main baseline module is down to
 443 lines.
+Run options and default budget constants now live in
+`packages/praecis/youtube/src/eval/narrow-run-options.ts`, keeping public API types separate from
+the stage orchestrator.
 
 ---
 
