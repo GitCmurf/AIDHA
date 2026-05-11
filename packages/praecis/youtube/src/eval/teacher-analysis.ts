@@ -12,7 +12,7 @@ import type {
   ComparableClaimSet,
   GoldCoverageSummary,
   NarrowComparisonCandidateReport,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 
 export interface SelfImproveHintInput {
   teacherCandidateId?: string;

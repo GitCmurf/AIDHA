@@ -1,7 +1,7 @@
 import type { MatrixCell } from "./matrix-runner.js";
 import type { NarrowShortlistTarget } from "./stage-artifact-store.js";
 import { buildComparableCandidateId } from "./narrow-comparable-claim-set.js";
-import type { ComparableClaimSet } from "./narrow-manual-baseline.js";
+import type { ComparableClaimSet } from "./narrow-report-types.js";
 
 export interface BuildEmbeddingEligibilityInput {
   shortlistTargets: NarrowShortlistTarget[];

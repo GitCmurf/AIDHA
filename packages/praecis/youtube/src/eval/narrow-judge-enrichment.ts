@@ -9,7 +9,7 @@ import {
 import type {
   ComparableClaimSet,
   NarrowComparisonCandidateReport,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 import type { Logger } from "../utils/logger.js";
 
 export interface NarrowJudgeTranscriptContext {

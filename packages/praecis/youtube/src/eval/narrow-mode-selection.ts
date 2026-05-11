@@ -11,7 +11,7 @@ import type {
   NarrowComparisonCandidateReport,
   NarrowComparisonVideoReport,
   NarrowRunMode,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 import { compareOptimizationPriority } from "./narrow-optimization-ranking.js";
 
 interface NarrowModePreset {

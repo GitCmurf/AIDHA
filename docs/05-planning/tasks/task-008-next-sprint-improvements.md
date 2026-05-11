@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.26"
+version: "0.27"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.26
+> **Version:** 0.27
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -54,6 +54,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.24    | 2026-05-10 | AI     | Extend TD-006 module extraction with corpus signatures. | — | Draft | AIDHA-TASK-007 |
 | 0.25    | 2026-05-10 | AI     | Extend TD-006 module extraction with embedding client construction. | — | Draft | AIDHA-TASK-007 |
 | 0.26    | 2026-05-11 | AI     | Extend TD-006 module extraction with embedding eligibility. | — | Draft | AIDHA-TASK-007 |
+| 0.27    | 2026-05-11 | AI     | Extend TD-006 module extraction with shared report types. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -379,6 +380,10 @@ Findings:
 - 2026-05-11: Extracted embedding candidate eligibility set construction to
   `packages/praecis/youtube/src/eval/narrow-embedding-eligibility.ts`;
   `narrow-manual-baseline.ts` is down to 1,070 lines.
+- 2026-05-11: Extracted shared narrow comparison report, candidate, coverage, diagnostic, and
+  run-stage types to `packages/praecis/youtube/src/eval/narrow-report-types.ts`; extracted
+  modules no longer import those contracts from `narrow-manual-baseline.ts`, and the main baseline
+  module is down to 923 lines.
 
 **Definition of done:**
 

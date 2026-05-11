@@ -1,7 +1,7 @@
 import type {
   NarrowComparisonCandidateReport,
   NarrowComparisonVideoReport,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 
 export function computeOptimizationScore(candidate: NarrowComparisonCandidateReport): number | undefined {
   if (candidate.sourceKind !== "harness" && candidate.sourceKind !== "fallback-harness") {

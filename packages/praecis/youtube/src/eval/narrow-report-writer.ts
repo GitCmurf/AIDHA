@@ -1,5 +1,5 @@
 import { writeFileAtomic } from "../utils/io.js";
-import type { NarrowComparisonReport } from "./narrow-manual-baseline.js";
+import type { NarrowComparisonReport } from "./narrow-report-types.js";
 import { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 import { buildReportFileSet, type ReportFileSet } from "./report-files.js";
 

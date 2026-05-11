@@ -14,7 +14,7 @@ import {
   type TranscriptStructureProfile,
 } from "./narrow-structural-targets.js";
 import { toManualComparableClaimSet } from "./narrow-comparable-claim-set.js";
-import type { ComparableClaimSet } from "./narrow-manual-baseline.js";
+import type { ComparableClaimSet } from "./narrow-report-types.js";
 
 const ManualBaselineClaimsFileSchema = z.object({
   claims: z.array(z.object({

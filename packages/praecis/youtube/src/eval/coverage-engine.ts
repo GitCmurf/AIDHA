@@ -9,7 +9,7 @@ import type {
   CoverageNearMissDetail,
   GoldCoverageSummary,
   MatchKind,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 
 const STRICT_LEXICAL_THRESHOLD = 0.3;
 const SEMANTIC_PROXY_THRESHOLD = 0.6;

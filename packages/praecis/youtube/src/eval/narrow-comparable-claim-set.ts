@@ -8,7 +8,7 @@ import type {
   ComparableSourceKind,
   FallbackKind,
   TimeoutSource,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 
 export type HarnessCandidateIdSuffix = "refine";
 

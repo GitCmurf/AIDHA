@@ -7,7 +7,7 @@ import type {
   NarrowComparisonVideoReport,
   NarrowRunMode,
   NarrowStageId,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
 import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";

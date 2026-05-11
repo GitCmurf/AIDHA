@@ -1,7 +1,7 @@
 import type {
   NarrowComparisonReport,
   TimeoutSource,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 
 const BORDERLINE_EMBEDDING_THRESHOLD = 0.74;
 

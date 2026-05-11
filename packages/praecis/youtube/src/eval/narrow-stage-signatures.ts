@@ -12,7 +12,7 @@ import { hashFile, hashId } from "../utils/ids.js";
 import type {
   ComparableClaimSet,
   NarrowRunMode,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 
 export type NarrowStageSignatureBaseInput = {
   corpusSignature: string;

@@ -14,7 +14,7 @@ import type {
   GoldCoverageSummary,
   NarrowComparisonCandidateReport,
   NarrowComparisonVideoReport,
-} from "./narrow-manual-baseline.js";
+} from "./narrow-report-types.js";
 
 export interface TranscriptStructureLookupValue {
   structureProfile: TranscriptStructureProfile;
