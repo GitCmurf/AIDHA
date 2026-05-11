@@ -18,23 +18,13 @@ import {
 } from "./coverage-engine.js";
 import {
   readNarrowStageArtifact,
-  readNarrowVideoScoreArtifact,
   writeNarrowStageArtifact,
-  writeNarrowVideoScoreArtifact,
   type NarrowJudgeStageArtifact,
-  type NarrowScoreStageArtifact,
   type NarrowShortlistStageArtifact,
   type NarrowShortlistTarget,
-  type NarrowVideoScoreArtifact,
 } from "./stage-artifact-store.js";
-import {
-  buildTeacherAwareHints,
-} from "./teacher-analysis.js";
-import {
-  annotateOptimizationRanks,
-  compareOptimizationPriority,
-  computeOptimizationScore,
-} from "./narrow-optimization-ranking.js";
+import { buildTeacherAwareHints } from "./teacher-analysis.js";
+import { compareOptimizationPriority, computeOptimizationScore } from "./narrow-optimization-ranking.js";
 import {
   assessStructuralTargets,
   profileTranscriptStructure,
@@ -42,15 +32,12 @@ import {
   type TranscriptStructureProfile,
 } from "./narrow-structural-targets.js";
 import {
-  buildComparableClaimSetIndex,
-  buildComparableClaimSetsForVideo,
   needsFallbackForModel,
 } from "./narrow-comparable-claim-set.js";
 import { backfillTranscriptStructureProfile } from "./narrow-candidate-report.js";
 import {
   buildExtractionStageInputSignature,
   buildStageInputSignature,
-  buildVideoScoreInputSignature,
 } from "./narrow-stage-signatures.js";
 import { runHarnessExtractionOnly } from "./narrow-harness-extraction.js";
 import {
@@ -77,10 +64,10 @@ import {
   type TranscriptData,
 } from "./narrow-input-loader.js";
 import { buildCorpusSignature } from "./narrow-corpus-signature.js";
-import { buildEmbeddingEligibleCandidateIdsByVideo } from "./narrow-embedding-eligibility.js";
 import { createNarrowVideoReportBuilder } from "./narrow-video-report-builder.js";
 import { createNarrowJudgeStage } from "./narrow-judge-stage.js";
 import { createNarrowRefineStage } from "./narrow-refine-stage.js";
+import { createNarrowScoreStage } from "./narrow-score-stage.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -366,6 +353,26 @@ export async function runNarrowManualBaselineComparison(
     budgetSkips,
     logger,
   });
+  const scoreStage = createNarrowScoreStage({
+    corpus: options.corpus,
+    runMode,
+    outputDir: options.outputDir,
+    transcriptByVideo,
+    goldByVideo,
+    manualByVideo,
+    fallbackCells,
+    fallbackTriggeredFor,
+    enableEmbeddings: preset.enableEmbeddings,
+    embeddingClientAvailable,
+    embeddingModel: googleEmbeddingConfig.model,
+    embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
+    embeddingBatchSize: googleEmbeddingConfig.batchSize,
+    maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
+    taskType: googleEmbeddingConfig.taskType,
+    outputDimensionality: googleEmbeddingConfig.outputDimensionality,
+    videoReportBuilder,
+    logger,
+  });
   const judgeStage = createNarrowJudgeStage({
     transcriptByVideo,
     goldByVideo,
@@ -495,88 +502,16 @@ export async function runNarrowManualBaselineComparison(
   const refinedTargets = refineStageResult.refinedTargets;
   const refinedSelfImproveCells = refineStageResult.refinedSelfImproveCells;
   const finalHarnessCells = refineStageResult.finalHarnessCells;
-  let videos: NarrowComparisonVideoReport[] = [];
-  const cachedScore = await readNarrowStageArtifact<NarrowScoreStageArtifact>(options.outputDir, "score");
-  if (cachedScore?.inputSignature === stageInputSignature) {
-    logger.info("[resume-from] stage=score");
-    stageExecution.score = "resumed";
-    videos = cachedScore.videos.map((video) => backfillTranscriptStructureProfile(video, transcriptByVideo));
-  } else {
-    logger.info("[stage3-start] score");
-    const embeddingEligibleCandidateIdsByVideo = preset.enableEmbeddings
-      ? buildEmbeddingEligibleCandidateIdsByVideo({
-          shortlistTargets,
-          refinedSelfImproveCells,
-          manualByVideo,
-          includeManualBaselines,
-        })
-      : undefined;
-    const scoredVideos: NarrowComparisonVideoReport[] = [];
-    const finalComparableClaimSetIndex = buildComparableClaimSetIndex(
-      finalHarnessCells,
-      fallbackCells,
-      `Fallback for unavailable or degraded model rows: ${fallbackTriggeredFor.join(", ")}`
-    );
-    for (const video of options.corpus) {
-      const goldClaims = goldByVideo.get(video.videoId);
-      if (!goldClaims) {
-        throw new Error(`Missing gold baseline for ${video.videoId}`);
-      }
-      const comparableClaimSets = buildComparableClaimSetsForVideo(
-        video.videoId,
-        finalComparableClaimSetIndex,
-        manualByVideo,
-        includeManualBaselines
-      );
-      const videoScoreSignature = buildVideoScoreInputSignature({
-        corpusSignature,
-        runMode,
-        videoId: video.videoId,
-        includeManualBaselines,
-        enableEmbeddings: preset.enableEmbeddings,
-        embeddingClientAvailable,
-        goldClaims,
-        comparableClaimSets,
-        embeddingModel: googleEmbeddingConfig.model,
-        embeddingBaseUrl: googleEmbeddingConfig.baseUrl,
-        embeddingBatchSize: googleEmbeddingConfig.batchSize,
-        maxEmbeddingRequestsPerRun: options.maxEmbeddingRequestsPerRun,
-        taskType: googleEmbeddingConfig.taskType,
-        outputDimensionality: googleEmbeddingConfig.outputDimensionality,
-      });
-      const cachedVideoScore = await readNarrowVideoScoreArtifact(options.outputDir, video.videoId);
-      if (cachedVideoScore?.inputSignature === videoScoreSignature) {
-        logger.info(`[resume-from] stage=score video=${video.videoId}`);
-        scoredVideos.push(backfillTranscriptStructureProfile(cachedVideoScore.video, transcriptByVideo));
-        continue;
-      }
-      const scoredVideo = await videoReportBuilder.buildVideoReport({
-        video,
-        harnessCells: finalHarnessCells,
-        includeManualBaselines,
-        embeddingEligibleCandidateIdsByVideo,
-      });
-      await writeNarrowVideoScoreArtifact(options.outputDir, {
-        stage: "score-video",
-        mode: runMode,
-        createdAt: new Date().toISOString(),
-        videoId: video.videoId,
-        inputSignature: videoScoreSignature,
-        video: scoredVideo,
-      });
-      scoredVideos.push(scoredVideo);
-    }
-    videos = scoredVideos;
-    annotateOptimizationRanks(videos);
-    await writeNarrowStageArtifact<NarrowScoreStageArtifact>(options.outputDir, "score", {
-      stage: "score",
-      mode: runMode,
-      createdAt: new Date().toISOString(),
-      inputSignature: stageInputSignature,
-      videos,
-    });
-    logger.info("[stage3-done] score");
-  }
+  const scoreStageResult = await scoreStage.run({
+    stageInputSignature,
+    corpusSignature,
+    shortlistTargets,
+    refinedSelfImproveCells,
+    finalHarnessCells,
+    includeManualBaselines,
+  });
+  stageExecution.score = scoreStageResult.execution;
+  let videos = scoreStageResult.videos;
   if (judgeEnabled) {
     const cachedJudge = await readNarrowStageArtifact<NarrowJudgeStageArtifact>(options.outputDir, "judge");
     if (cachedJudge?.inputSignature === stageInputSignature) {

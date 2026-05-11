@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.32"
+version: "1.33"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.32
+> **Version:** 1.33
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -60,6 +60,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.30    | 2026-05-11 | AI     | Record TD-006 video-report-builder extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.31    | 2026-05-11 | AI     | Record TD-006 judge-stage extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.32    | 2026-05-11 | AI     | Record TD-006 refine-stage extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.33    | 2026-05-11 | AI     | Record TD-006 score-stage extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -702,6 +703,9 @@ the main baseline module is down to 714 lines.
 Refine-stage budgeting, resume handling, self-improvement extraction, and final harness-cell
 composition now live in `packages/praecis/youtube/src/eval/narrow-refine-stage.ts`; the main
 baseline module is down to 659 lines.
+Score-stage resume handling, per-video cache signatures, embedding eligibility, candidate scoring,
+and score-artifact writes now live in `packages/praecis/youtube/src/eval/narrow-score-stage.ts`;
+the main baseline module is down to 594 lines.
 
 ---
 

@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.31"
+version: "0.32"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.31
+> **Version:** 0.32
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -59,6 +59,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.29    | 2026-05-11 | AI     | Extend TD-006 module extraction with video report building. | — | Draft | AIDHA-TASK-007 |
 | 0.30    | 2026-05-11 | AI     | Extend TD-006 module extraction with judge-stage orchestration. | — | Draft | AIDHA-TASK-007 |
 | 0.31    | 2026-05-11 | AI     | Extend TD-006 module extraction with refine-stage orchestration. | — | Draft | AIDHA-TASK-007 |
+| 0.32    | 2026-05-11 | AI     | Extend TD-006 module extraction with score-stage orchestration. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -402,6 +403,10 @@ Findings:
 - 2026-05-11: Extracted refine-stage budgeting, resume handling, self-improvement extraction, and
   final harness-cell composition to `packages/praecis/youtube/src/eval/narrow-refine-stage.ts`;
   `narrow-manual-baseline.ts` is down to 659 lines.
+- 2026-05-11: Extracted score-stage resume handling, per-video cache signatures, embedding
+  eligibility, candidate scoring, and score-artifact writes to
+  `packages/praecis/youtube/src/eval/narrow-score-stage.ts`; `narrow-manual-baseline.ts` is down to
+  594 lines.
 
 **Definition of done:**
 
