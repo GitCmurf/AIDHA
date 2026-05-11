@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.40"
+version: "0.41"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.40
+> **Version:** 0.41
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -68,6 +68,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.38    | 2026-05-11 | AI     | Extend TD-006 module extraction with stage-pipeline sequencing. | — | Draft | AIDHA-TASK-007 |
 | 0.39    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 stage-pipeline extraction. | — | Draft | AIDHA-TASK-007 |
 | 0.40    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-007 |
+| 0.41    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -319,7 +320,7 @@ Findings:
 ### T008-02-02: Extract coverage, rendering, teacher analysis, and artifact modules
 
 - **Backlog IDs:** TD-006
-- **Status:** In Progress
+- **Status:** Resolved
 - **Owner:** Eval maintainer
 - **Dependencies:** T008-02-01
 
@@ -439,6 +440,8 @@ Findings:
 - 2026-05-11: Extended the fixture-backed characterization test to write the same report twice and
   assert byte-identical `latest.json` and `latest.md` output; the focused narrow-baseline test file
   passed with 34 tests.
+- 2026-05-11: Closed the TD-006 decomposition scope. Residual desire for narrower per-stage unit
+  tests is tracked separately in AIDHA-TASK-007 as TD-021.
 
 **Definition of done:**
 

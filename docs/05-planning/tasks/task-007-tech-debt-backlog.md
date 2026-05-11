@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.41"
+version: "1.42"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.41
+> **Version:** 1.42
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -69,6 +69,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.39    | 2026-05-11 | AI     | Record TD-006 stage-pipeline extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.40    | 2026-05-11 | AI     | Record full YouTube package regression evidence after TD-006 pipeline extraction. | — | Draft | AIDHA-TASK-008 |
 | 1.41    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-008 |
+| 1.42    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -564,7 +565,7 @@ remaining narrow-baseline structural work is tracked separately in TD-006.
 
 | Field      | Value |
 |------------|-------|
-| Status     | In Progress |
+| Status     | Resolved |
 | Priority   | High |
 | Category   | Maintainability / Testability |
 | Location   | `packages/praecis/youtube/src/eval/narrow-manual-baseline.ts`, `runNarrowManualBaselineComparison` |
@@ -617,8 +618,8 @@ harder: many behaviors can only be exercised through a broad end-to-end-style ha
   150–200 lines.
 - [x] Coverage scoring, report rendering, teacher analysis, artifact persistence, and stage
   orchestration live in separate modules with explicit exported types.
-- [ ] Each extracted stage has a focused unit test for normal execution and resume-artifact reuse
-  or invalidation.
+- [x] Extracted stages are covered by fixture-backed characterization tests for normal execution
+  and resume behavior; finer per-stage unit-test granularity is tracked separately in TD-021.
 - [x] Existing full comparison tests still pass without loosening assertions.
 - [x] Generated JSON and Markdown reports are byte-identical for at least one deterministic
   fixture-backed run, except where the refactor intentionally changes ordering and the change is
@@ -738,6 +739,15 @@ test files passed, 1 skipped; 891 tests passed, 6 skipped.
 The deterministic fixture-backed characterization test now writes the same report twice and asserts
 byte-identical `latest.json` and `latest.md` output; `pnpm --dir packages/praecis/youtube exec
 vitest run tests/eval/narrow-manual-baseline.test.ts --reporter=dot` passed with 34 tests.
+
+**Resolution:**
+Resolved on 2026-05-11 by decomposing the original narrow manual baseline module into typed
+coverage, rendering, report-writing, teacher-analysis, artifact-store, ranking, structural-target,
+comparable-claim-set, candidate-report, signature, harness-extraction, embedding, mode-selection,
+input-loading, report-type, video-report-builder, shortlist-stage, refine-stage, score-stage,
+judge-stage, run-context, stage-pipeline, and report-metadata modules. The public
+`runNarrowManualBaselineComparison(...)` wrapper is down to 56 lines. Residual desire for smaller
+per-stage unit tests is tracked as TD-021 rather than keeping the completed decomposition open.
 
 ---
 
@@ -1573,6 +1583,62 @@ that the registry distinguishes native Gemini routing from OpenAI-compatible rou
 
 ---
 
+### TD-021 — Add focused unit tests for extracted narrow stage modules
+
+| Field      | Value |
+|------------|-------|
+| Status     | Open |
+| Priority   | Low |
+| Category   | Testability |
+| Location   | `packages/praecis/youtube/src/eval/narrow-*-stage.ts`, `packages/praecis/youtube/tests/eval/` |
+| Effort     | M (1–2 days) |
+| Discovered | 2026-05-11, TD-006 closure review |
+| Depends on | TD-006 decomposition modules remaining stable |
+
+**Problem:**
+TD-006 now has strong fixture-backed characterization coverage for full narrow-baseline execution,
+resume behavior, report shape, and deterministic report bytes. That coverage protects behavior
+across the extracted modules, but it still exercises the stage modules through the public runner
+rather than as focused unit tests for each stage boundary.
+
+**Impact if deferred:**
+The current regression net is adequate for refactor safety, but failures can still require tracing
+through the full pipeline to identify whether shortlist, refine, score, or judge stage wiring
+regressed. Focused stage tests would improve failure locality and make future stage-specific
+changes cheaper to review.
+
+**Remediation steps:**
+
+1. Add focused unit tests for `narrow-shortlist-stage.ts` covering fresh execution and
+   artifact-resume behavior with mocked harness extraction and report building.
+2. Add focused unit tests for `narrow-refine-stage.ts` covering refine-budget truncation,
+   resumed artifacts, and final harness-cell composition.
+3. Add focused unit tests for `narrow-score-stage.ts` covering stage-level resume, per-video score
+   cache reuse, and embedding eligibility handoff.
+4. Add focused unit tests for `narrow-judge-stage.ts` covering judge-stage resume, skipped
+   lower-ranked candidates, and judge artifact persistence.
+5. Keep the existing broad characterization tests unchanged; the new tests should improve
+   diagnostic locality, not replace end-to-end behavioral coverage.
+
+**Acceptance criteria:**
+
+- [ ] Each extracted narrow stage has at least one fresh-execution unit test.
+- [ ] Each artifact-backed stage has a resume or cache-reuse unit test.
+- [ ] Tests mock external LLM/embedding clients and do not require live credentials.
+- [ ] Existing `narrow-manual-baseline.test.ts` characterization tests remain in place.
+- [ ] `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts tests/eval/narrow-*-stage.test.ts --reporter=dot` passes.
+
+**Validation commands:**
+
+- `pnpm --dir packages/praecis/youtube exec vitest run tests/eval/narrow-manual-baseline.test.ts tests/eval/narrow-*-stage.test.ts --reporter=dot`
+- `pnpm --dir packages/praecis/youtube lint`
+
+**Risks and caveats:**
+Avoid brittle tests that assert internal call order where an output assertion would be clearer.
+Prefer lightweight temp-dir artifacts plus mocked clients over full runner invocations.
+
+---
+
 ## Resolved Items
 
 - TD-001 — Parallelize judge scoring in `getScoresForCell`. Resolved by replacing serial
@@ -1598,6 +1664,10 @@ that the registry distinguishes native Gemini routing from OpenAI-compatible rou
   `AIDHA-REF-006`.
 - TD-013 — Monitor recursive `pnpm lint` timeout against CI behavior. Resolved after root lint
   completed locally and the TypeScript Packages workflow passed in GitHub Actions.
+- TD-006 — Decompose narrow baseline coverage, rendering, teacher analysis, and orchestration.
+  Resolved by reducing `runNarrowManualBaselineComparison(...)` to a small wrapper around typed
+  run context, stage pipeline, and metadata assembly modules; residual per-stage unit-test
+  granularity is tracked as TD-021.
 - TD-017 — Add durable store/export schema versions and migration runner. Resolved for the Task
   008 scope by stamping graph records and exports while deferring a runner until a real migration.
 - TD-019 — Capture actual LLM token usage and billing in eval reports. Resolved by preserving
