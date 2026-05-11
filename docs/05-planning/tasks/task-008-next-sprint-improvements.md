@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.30"
+version: "0.31"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.30
+> **Version:** 0.31
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -58,6 +58,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.28    | 2026-05-11 | AI     | Remove dead judge branch from baseline report building. | — | Draft | AIDHA-TASK-007 |
 | 0.29    | 2026-05-11 | AI     | Extend TD-006 module extraction with video report building. | — | Draft | AIDHA-TASK-007 |
 | 0.30    | 2026-05-11 | AI     | Extend TD-006 module extraction with judge-stage orchestration. | — | Draft | AIDHA-TASK-007 |
+| 0.31    | 2026-05-11 | AI     | Extend TD-006 module extraction with refine-stage orchestration. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -398,6 +399,9 @@ Findings:
   selection for judges, and judge enrichment dispatch to
   `packages/praecis/youtube/src/eval/narrow-judge-stage.ts`; `narrow-manual-baseline.ts` is down
   to 714 lines.
+- 2026-05-11: Extracted refine-stage budgeting, resume handling, self-improvement extraction, and
+  final harness-cell composition to `packages/praecis/youtube/src/eval/narrow-refine-stage.ts`;
+  `narrow-manual-baseline.ts` is down to 659 lines.
 
 **Definition of done:**
 

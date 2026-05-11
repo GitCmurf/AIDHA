@@ -22,7 +22,6 @@ import {
   writeNarrowStageArtifact,
   writeNarrowVideoScoreArtifact,
   type NarrowJudgeStageArtifact,
-  type NarrowRefineStageArtifact,
   type NarrowScoreStageArtifact,
   type NarrowShortlistStageArtifact,
   type NarrowShortlistTarget,
@@ -30,8 +29,6 @@ import {
 } from "./stage-artifact-store.js";
 import {
   buildTeacherAwareHints,
-  selfImproveHintKey,
-  type SelfImproveHintInput,
 } from "./teacher-analysis.js";
 import {
   annotateOptimizationRanks,
@@ -45,16 +42,13 @@ import {
   type TranscriptStructureProfile,
 } from "./narrow-structural-targets.js";
 import {
-  buildComparableCandidateId,
   buildComparableClaimSetIndex,
   buildComparableClaimSetsForVideo,
-  buildHarnessComparableClaimSet,
   needsFallbackForModel,
 } from "./narrow-comparable-claim-set.js";
 import { backfillTranscriptStructureProfile } from "./narrow-candidate-report.js";
 import {
   buildExtractionStageInputSignature,
-  buildRefineStageInputSignature,
   buildStageInputSignature,
   buildVideoScoreInputSignature,
 } from "./narrow-stage-signatures.js";
@@ -86,6 +80,7 @@ import { buildCorpusSignature } from "./narrow-corpus-signature.js";
 import { buildEmbeddingEligibleCandidateIdsByVideo } from "./narrow-embedding-eligibility.js";
 import { createNarrowVideoReportBuilder } from "./narrow-video-report-builder.js";
 import { createNarrowJudgeStage } from "./narrow-judge-stage.js";
+import { createNarrowRefineStage } from "./narrow-refine-stage.js";
 
 export { computeOptimizationScore } from "./narrow-optimization-ranking.js";
 export {
@@ -383,6 +378,21 @@ export async function runNarrowManualBaselineComparison(
     judgeMaxTokens: options.judgeMaxTokens ?? 4000,
     logger,
   });
+  const refineStage = createNarrowRefineStage({
+    corpus: options.corpus,
+    models: options.models,
+    stage2Variants,
+    runMode,
+    outputDir: options.outputDir,
+    transcriptDir: options.transcriptDir,
+    clientFactory: options.clientFactory,
+    maxConcurrency: options.maxConcurrency ?? 1,
+    timeoutMs: options.timeoutMs ?? 120_000,
+    enablePromptRouting,
+    remainingRefinedSelfImproveCells: () => budgetState.remainingRefinedSelfImproveCells,
+    budgetSkips,
+    logger,
+  });
 
   if (!cachedShortlist || cachedShortlist.inputSignature !== extractionStageInputSignature) {
     initialVideos = await videoReportBuilder.buildVideoReports({
@@ -475,81 +485,16 @@ export async function runNarrowManualBaselineComparison(
     logger.info(`[stage1-done] shortlist targets=${shortlistTargets.length}`);
   }
   const teacherAwareHints = includeManualBaselines ? buildTeacherAwareHints(initialVideos) : {};
-  const refinedTargets = shortlistTargets.slice(0, budgetState.remainingRefinedSelfImproveCells);
-  if (shortlistTargets.length > refinedTargets.length) {
-    budgetSkips.push(`refine-budget-exceeded:${shortlistTargets.length - refinedTargets.length}`);
-    logger.warn(
-      `[budget-skip] stage=refine skipped=${shortlistTargets.length - refinedTargets.length} remaining=${budgetState.remainingRefinedSelfImproveCells}`
-    );
-  }
-
-  let refinedSelfImproveCells: MatrixCell[] = [];
-  let finalHarnessCells: MatrixCell[] = [];
-  const refineStageInputSignature = buildRefineStageInputSignature({
+  const refineStageResult = await refineStage.run({
     extractionStageInputSignature,
-    refinedTargets,
+    shortlistTargets,
+    initialHarnessCells,
     teacherAwareHints,
   });
-  const cachedRefine = await readNarrowStageArtifact<NarrowRefineStageArtifact>(options.outputDir, "refine");
-  if (cachedRefine?.inputSignature === refineStageInputSignature) {
-    logger.info("[resume-from] stage=refine");
-    stageExecution.refine = "resumed";
-    refinedSelfImproveCells = cachedRefine.refinedSelfImproveCells;
-    finalHarnessCells = cachedRefine.finalHarnessCells;
-  } else {
-    logger.info("[stage2-start] refine");
-    if (stage2Variants.length > 0 && refinedTargets.length > 0) {
-      for (const target of refinedTargets) {
-        const targetModelId = target.modelId;
-
-        const targetCorpus = options.corpus.filter((video) => video.videoId === target.videoId);
-        if (targetCorpus.length === 0) continue;
-        const targetModel = options.models.find((model) => model.id === targetModelId) || getModel(targetModelId);
-        if (!targetModel) continue;
-
-        const hintKey = selfImproveHintKey(target.videoId, targetModelId, target.promptConfigId, target.chunkMode);
-        const hint = teacherAwareHints[hintKey];
-        const selfImproveHints = hint ? { [hintKey]: hint } : undefined;
-        refinedSelfImproveCells.push(...await runHarnessExtractionOnly(
-            targetCorpus,
-            [targetModel],
-            stage2Variants,
-            target.promptConfigId,
-            target.chunkMode,
-            options.transcriptDir,
-            options.clientFactory,
-            options.maxConcurrency ?? 1,
-            options.timeoutMs ?? 120_000,
-            selfImproveHints,
-            enablePromptRouting,
-            target.promptPackId,
-            "refined",
-            options.outputDir,
-            join(options.outputDir, ".cache", "extraction"),
-            logger
-          ));
-      }
-    }
-    logger.info(`[stage2-done] refine targets=${refinedTargets.length}`);
-
-    const shortlistedCandidateIds = new Set(shortlistTargets.map((target) => target.candidateId));
-    const shortlistedHarnessCells = initialHarnessCells.filter((cell) => {
-      const cid = buildComparableCandidateId(cell, "harness");
-      return shortlistedCandidateIds.has(cid);
-    });
-    finalHarnessCells = [...shortlistedHarnessCells, ...refinedSelfImproveCells];
-
-    await writeNarrowStageArtifact<NarrowRefineStageArtifact>(options.outputDir, "refine", {
-      stage: "refine",
-      mode: runMode,
-      createdAt: new Date().toISOString(),
-      inputSignature: refineStageInputSignature,
-      stage2Variants,
-      refinedTargets,
-      refinedSelfImproveCells,
-      finalHarnessCells,
-    });
-  }
+  stageExecution.refine = refineStageResult.execution;
+  const refinedTargets = refineStageResult.refinedTargets;
+  const refinedSelfImproveCells = refineStageResult.refinedSelfImproveCells;
+  const finalHarnessCells = refineStageResult.finalHarnessCells;
   let videos: NarrowComparisonVideoReport[] = [];
   const cachedScore = await readNarrowStageArtifact<NarrowScoreStageArtifact>(options.outputDir, "score");
   if (cachedScore?.inputSignature === stageInputSignature) {
