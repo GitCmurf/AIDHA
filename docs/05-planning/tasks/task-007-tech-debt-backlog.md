@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.30"
+version: "1.31"
 last_updated: 2026-05-11
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.30
+> **Version:** 1.31
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -58,6 +58,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.28    | 2026-05-11 | AI     | Record TD-006 shared report-type extraction progress. | — | Draft | AIDHA-TASK-008 |
 | 1.29    | 2026-05-11 | AI     | Record TD-006 dead judge-branch removal progress. | — | Draft | AIDHA-TASK-008 |
 | 1.30    | 2026-05-11 | AI     | Record TD-006 video-report-builder extraction progress. | — | Draft | AIDHA-TASK-008 |
+| 1.31    | 2026-05-11 | AI     | Record TD-006 judge-stage extraction progress. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -694,6 +695,9 @@ Video report construction, per-video coverage logging, teacher enrichment, embed
 checks, and optimization-rank annotation now live in
 `packages/praecis/youtube/src/eval/narrow-video-report-builder.ts`; the main baseline module is
 down to 777 lines.
+Judge-stage orchestration, judgeable-candidate selection, teacher-claim selection for judges, and
+judge enrichment dispatch now live in `packages/praecis/youtube/src/eval/narrow-judge-stage.ts`;
+the main baseline module is down to 714 lines.
 
 ---
 

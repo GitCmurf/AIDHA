@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.29"
+version: "0.30"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.29
+> **Version:** 0.30
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -57,6 +57,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.27    | 2026-05-11 | AI     | Extend TD-006 module extraction with shared report types. | — | Draft | AIDHA-TASK-007 |
 | 0.28    | 2026-05-11 | AI     | Remove dead judge branch from baseline report building. | — | Draft | AIDHA-TASK-007 |
 | 0.29    | 2026-05-11 | AI     | Extend TD-006 module extraction with video report building. | — | Draft | AIDHA-TASK-007 |
+| 0.30    | 2026-05-11 | AI     | Extend TD-006 module extraction with judge-stage orchestration. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -393,6 +394,10 @@ Findings:
   embedding budget checks, and optimization-rank annotation to
   `packages/praecis/youtube/src/eval/narrow-video-report-builder.ts`; `narrow-manual-baseline.ts`
   is down to 777 lines.
+- 2026-05-11: Extracted judge-stage orchestration, judgeable-candidate selection, teacher-claim
+  selection for judges, and judge enrichment dispatch to
+  `packages/praecis/youtube/src/eval/narrow-judge-stage.ts`; `narrow-manual-baseline.ts` is down
+  to 714 lines.
 
 **Definition of done:**
 
