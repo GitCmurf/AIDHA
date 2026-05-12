@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.12"
+version: "1.13"
 last_updated: 2026-05-12
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.12
+> **Version:** 1.13
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -37,6 +37,7 @@ docops_version: "2.0"
 | 1.10    | 2026-02-27 | AI     | Complete PII review, dependency license audit, and create CONTRIBUTING_QUICK.md. | — | Draft | — |
 | 1.11    | 2026-05-12 | AI     | Record live GitHub repository-security evidence from TASK-007 closeout audit. | — | Draft | AIDHA-TASK-007 |
 | 1.12    | 2026-05-12 | AI     | Add local gitleaks history-scan evidence and false-positive allowlist remediation. | — | Draft | AIDHA-TASK-007 |
+| 1.13    | 2026-05-12 | AI     | Accept ownership of release-governance gates superseded out of TASK-007. | — | Draft | AIDHA-TASK-007 |
 
 ## Project Status
 
@@ -75,6 +76,10 @@ Version History records document revisions only.
   `packages/aidha-config/tests/loader-order.test.ts`. The fixture was renamed away from
   secret-shaped text and `.gitleaks.toml` now allowlists only those known historical false-positive
   paths. A pushed GitHub run is still required before the gitleaks gate can be checked off.
+- `AIDHA-TASK-007` now supersedes the remaining release-governance gates into this task rather than
+  tracking them as ingestion/eval technical debt. This task remains the owner for branch protection,
+  remote Secret Scan evidence, CLA/DCO posture, citation metadata, trademark guidance, and final
+  public-release checklist closure.
 
 ## Go/No-Go Gates (Flip Repo To Public)
 

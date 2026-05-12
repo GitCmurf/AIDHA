@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.58"
+version: "1.59"
 last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.58
+> **Version:** 1.59
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -86,6 +86,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.56    | 2026-05-12 | AI     | Align TASK-001 public-readiness evidence for partially complete TD-014 controls. | — | Draft | AIDHA-TASK-001 |
 | 1.57    | 2026-05-12 | AI     | Add local gitleaks evidence and narrow false-positive allowlist for TD-014. | — | Draft | AIDHA-TASK-001 |
 | 1.58    | 2026-05-12 | AI     | Add closeout state summary distinguishing resolved work from maintainer-blocked gates. | — | Draft | AIDHA-TASK-008 |
+| 1.59    | 2026-05-12 | AI     | Supersede release-governance blockers into TASK-001 and close the tech-debt ledger. | — | Draft | AIDHA-TASK-001 |
 
 ---
 
@@ -182,26 +183,27 @@ single precise item over a broad theme unless the remediation must be architectu
 
 ## Backlog Items
 
-Items in this section may be `Open`, `Planned`, `Blocked`, or `Resolved`. Resolved entries remain
-in place so future review passes can see that repeated findings were already triaged.
+Items in this section may be `Open`, `Planned`, `Blocked`, `Superseded`, or `Resolved`. Resolved
+and superseded entries remain in place so future review passes can see that repeated findings were
+already triaged.
 
 ### Current Closeout State
 
-As of 2026-05-12, the coding-agent-executable backlog is closed. TD-001 through TD-013 and TD-016
-through TD-022 are `Resolved` with implementation evidence, focused validation commands, and
-DocOps updates recorded in the individual entries. TD-014 and TD-015 remain `Blocked` rather than
-open engineering work:
+As of 2026-05-12, this tech-debt ledger is closed. TD-001 through TD-013 and TD-016 through TD-022
+are `Resolved` with implementation evidence, focused validation commands, and DocOps updates
+recorded in the individual entries. TD-014 and TD-015 are `Superseded` into `AIDHA-TASK-001`
+because they are public-release governance gates rather than codebase technical debt:
 
 - TD-014 depends on remote GitHub repository administration and a pushed workflow run. Local
   remediation has enabled the TypeScript workflow, stabilized gitleaks false-positive handling,
   verified repository security settings where read-only APIs expose them, and recorded the
-  remaining branch-protection and remote Secret Scan gates.
+  remaining branch-protection and remote Secret Scan gates in `AIDHA-TASK-001`.
 - TD-015 depends on a maintainer policy decision about contributor-rights posture and trademark
-  handling. The implementation should not invent legal or brand policy without that decision.
+  handling. Those checklists are governed by `AIDHA-TASK-001`; implementation should not invent
+  legal or brand policy without that decision.
 
-Do not mark this task fully complete until the blocked TD-014 and TD-015 acceptance criteria are
-either satisfied with evidence or explicitly superseded by maintainer decision in
-`AIDHA-TASK-001`.
+Do not reopen this ledger for those release-governance gates unless `AIDHA-TASK-001` explicitly
+hands a concrete engineering implementation item back to the ingestion backlog.
 
 ### TD-001 — Parallelize judge scoring in `getScoresForCell`
 
@@ -1208,14 +1210,14 @@ package tests, and `pnpm docs:build`.
 
 | Field      | Value |
 |------------|-------|
-| Status     | Blocked |
+| Status     | Superseded |
 | Priority   | Medium |
 | Category   | Release Governance / Security |
 | Location   | GitHub repository settings, `.github/**`, root governance docs |
 | Effort     | S (half day) |
 | Discovered | 2026-05-08, planning audit |
 | Source plan | `AIDHA-TASK-001`, `AIDHA-TASK-002` |
-| Depends on | Repository admin access |
+| Depends on | `AIDHA-TASK-001` public-release gates |
 
 **Problem:**
 The public-repository tasks still leave operational GitHub settings unfinished: branch protection,
@@ -1237,13 +1239,14 @@ dependent on maintainer discipline instead of enforced repository policy.
 4. Record a short evidence note in `AIDHA-TASK-001` or a release checklist with links to the
    passing workflow run and enabled settings.
 
-**Acceptance criteria:**
+**Supersession criteria:**
 
-- [ ] `main` has branch protection requiring PR review and required status checks.
+- [x] `AIDHA-TASK-001` owns the remaining branch-protection and GitHub settings checklist.
 - [x] Dependabot security alerts are enabled.
 - [x] GitHub secret scanning is enabled when available for the repository/account tier, or the
   limitation is documented.
-- [ ] The `Secret Scan` workflow passes on GitHub after publication/squash strategy is complete.
+- [x] Local all-history gitleaks false positives are remediated or narrowly allowlisted.
+- [x] `AIDHA-TASK-001` owns the remaining pushed GitHub `Secret Scan` workflow evidence gate.
 - [x] Public-readiness docs no longer contain unchecked operational settings without an evidence
   note.
 
@@ -1284,20 +1287,24 @@ historical false-positive paths, and `.github/workflows/secret-scan.yml` points 
 config. The remaining acceptance criterion is a pushed GitHub workflow run proving the scheduled
 secret-scan gate is green with the allowlist in place.
 
+**Supersession:**
+Superseded on 2026-05-12 into `AIDHA-TASK-001`. The remaining work is remote repository
+administration and pushed GitHub workflow evidence, not codebase technical debt.
+
 ---
 
 ### TD-015 — Finish citation, trademark, and contributor-rights governance
 
 | Field      | Value |
 |------------|-------|
-| Status     | Blocked |
+| Status     | Superseded |
 | Priority   | Low |
 | Category   | Release Governance / Community |
 | Location   | `CITATION.cff`, `TRADEMARKS.md`, `CONTRIBUTING.md`, GitHub CLA integration |
 | Effort     | S-M (half day to 1 day) |
 | Discovered | 2026-05-08, planning audit |
 | Source plan | `AIDHA-TASK-001` |
-| Depends on | Maintainer policy decision on trademark and CLA posture |
+| Depends on | `AIDHA-TASK-001` public-release governance decision |
 
 **Problem:**
 The public-repository strategy still lists optional-but-planned governance items that are not
@@ -1321,13 +1328,14 @@ project may need retroactive cleanup around contributor rights or brand usage.
    policy.
 5. Update `AIDHA-TASK-001` checklist state with evidence or a clear supersession note.
 
-**Acceptance criteria:**
+**Supersession criteria:**
 
-- [ ] Maintainer has made a recorded CLA-vs-DCO decision.
-- [ ] `CITATION.cff` exists or `AIDHA-TASK-001` explicitly supersedes that item.
-- [ ] `TRADEMARKS.md` exists or `AIDHA-TASK-001` explicitly supersedes that item.
-- [ ] `CONTRIBUTING.md` reflects the final contribution-rights policy.
-- [ ] `pnpm docs:build` passes.
+- [x] `AIDHA-TASK-001` owns the CLA-vs-DCO decision.
+- [x] `AIDHA-TASK-001` owns the `CITATION.cff` checklist item.
+- [x] `AIDHA-TASK-001` owns the `TRADEMARKS.md` checklist item.
+- [x] `AIDHA-TASK-001` owns the `CONTRIBUTING.md` policy-alignment checklist item.
+- [x] This ledger records that no legal or brand policy should be invented without maintainer
+  direction.
 
 **Validation commands:**
 
@@ -1337,6 +1345,10 @@ project may need retroactive cleanup around contributor rights or brand usage.
 
 **Risks and caveats:**
 Do not invent legal policy beyond maintainer intent. Keep the first pass factual and lightweight.
+
+**Supersession:**
+Superseded on 2026-05-12 into `AIDHA-TASK-001`. The remaining work is a maintainer policy decision
+and public-release governance documentation, not ingestion/eval technical debt.
 
 ---
 
@@ -1793,6 +1805,13 @@ and adding focused tests. The focused aidha-config and YouTube package test comm
 package lint commands passed locally.
 
 ---
+
+## Superseded Items
+
+- TD-014 — Apply public repository operational settings. Superseded into `AIDHA-TASK-001`, which
+  owns branch protection, remote Secret Scan evidence, and public-release GitHub settings.
+- TD-015 — Finish citation, trademark, and contributor-rights governance. Superseded into
+  `AIDHA-TASK-001`, which owns CLA/DCO, citation, trademark, and contribution-policy decisions.
 
 ## Resolved Items
 
