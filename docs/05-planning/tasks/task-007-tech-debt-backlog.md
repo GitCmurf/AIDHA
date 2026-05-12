@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.53"
+version: "1.54"
 last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.53
+> **Version:** 1.54
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -81,6 +81,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.51    | 2026-05-11 | AI     | Align TD-013 status with resolved lint-reliability evidence. | — | Draft | AIDHA-TASK-008 |
 | 1.52    | 2026-05-12 | AI     | Record live GitHub evidence for blocked TD-014 repository controls. | — | Draft | AIDHA-TASK-008 |
 | 1.53    | 2026-05-12 | AI     | Record enabled Dependabot and GitHub secret scanning evidence for TD-014. | — | Draft | AIDHA-TASK-008 |
+| 1.54    | 2026-05-12 | AI     | Correct the reusable backlog item template default status. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -145,7 +146,7 @@ single precise item over a broad theme unless the remediation must be architectu
 
 | Field      | Value |
 |------------|-------|
-| Status     | Resolved |
+| Status     | Open |
 | Priority   | High / Medium / Low |
 | Category   | Performance / Maintainability / Correctness |
 | Location   | `path/to/file.ts` |
