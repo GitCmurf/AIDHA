@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.43"
-last_updated: 2026-05-11
+version: "0.44"
+last_updated: 2026-05-12
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.43
-> **Last Updated:** 2026-05-11
+> **Version:** 0.44
+> **Last Updated:** 2026-05-12
 > **Type:** TASK
 
 # Task: Next Sprint Improvements and Backlog Burn-Down
@@ -71,6 +71,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.41    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-007 |
 | 0.42    | 2026-05-11 | AI     | Record TD-021 per-stage unit-test closure. | — | Draft | AIDHA-TASK-007 |
 | 0.43    | 2026-05-12 | AI     | Mark agent-executable Task 008 scope complete with maintainer handoff remaining. | — | Draft | AIDHA-TASK-007 |
+| 0.44    | 2026-05-12 | AI     | Add live GitHub evidence to the TD-014 maintainer handoff. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -817,6 +818,15 @@ because they depend on repository administration or policy decisions.
 - [ ] `gh api repos/:owner/:repo/branches/main/protection` returns active protection.
 - [ ] `gh run list --workflow secret-scan.yml --limit 5` shows a passing run.
 - [ ] AIDHA-TASK-001 no longer has unchecked GitHub settings without evidence or supersession.
+
+**Current evidence, 2026-05-12:**
+Read-only GitHub checks show this remains blocked rather than complete. Branch protection exists,
+but required status checks are empty and required approving reviews are set to `0`. Recent
+scheduled `Secret Scan` runs are failing; the latest observed failure was run `25656999477` on
+2026-05-11. The latest observed passing run was the 2026-05-08 push run for Dependabot PR #9
+(`25554272706`). `gh run view 25656999477 --log-failed` did not expose leak detail locally, and the
+workflow disables gitleaks artifact upload, so the maintainer follow-up is to rerun with inspectable
+details or reproduce locally with `gitleaks` before changing branch protection requirements.
 
 ### MH-002: Decide contributor-rights and trademark policy
 

@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.51"
-last_updated: 2026-05-11
+version: "1.52"
+last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
 docops_version: "2.0"
@@ -15,8 +15,8 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.51
-> **Last Updated:** 2026-05-11
+> **Version:** 1.52
+> **Last Updated:** 2026-05-12
 > **Type:** TASK
 
 <!-- markdownlint-disable MD013 -->
@@ -79,6 +79,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.49    | 2026-05-11 | AI     | Align TD-021 status cell with resolved evidence. | — | Draft | AIDHA-TASK-008 |
 | 1.50    | 2026-05-11 | AI     | Correct maintainer-gated TD-014 and TD-015 statuses to blocked. | — | Draft | AIDHA-TASK-008 |
 | 1.51    | 2026-05-11 | AI     | Align TD-013 status with resolved lint-reliability evidence. | — | Draft | AIDHA-TASK-008 |
+| 1.52    | 2026-05-12 | AI     | Record live GitHub evidence for blocked TD-014 repository controls. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1230,6 +1231,18 @@ dependent on maintainer discipline instead of enforced repository policy.
 **Risks and caveats:**
 Some settings are account-tier or permission dependent. Do not fake local evidence for remote
 controls; record unavailable controls explicitly.
+
+**Progress:**
+On 2026-05-12, read-only GitHub checks confirmed the current repository state. `gh repo view
+--json nameWithOwner,isPrivate,viewerPermission` returned public repository `GitCmurf/AIDHA` with
+`ADMIN` viewer permission. `gh api repos/:owner/:repo/branches/main/protection` returned active
+branch protection, but with empty required status-check contexts and `required_approving_review_count:
+0`, so the acceptance criterion for required PR review and required checks remains unmet. `gh run
+list --workflow secret-scan.yml --limit 5` showed the latest scheduled `Secret Scan` run on
+2026-05-11 failed (`25656999477`), while the 2026-05-08 push run for Dependabot PR #9 passed
+(`25554272706`). `gh run view 25656999477 --log-failed` exposed no leak detail in this environment;
+the workflow also sets `GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"`, so follow-up requires maintainer
+workflow access, rerunning with an inspectable summary, or local reproduction with `gitleaks`.
 
 ---
 
