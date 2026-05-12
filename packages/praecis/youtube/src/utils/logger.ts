@@ -5,6 +5,10 @@ export interface Logger {
   error(message: string, ...args: unknown[]): void;
 }
 
+export function resolveLogger(cfg: { logger?: Logger }): Logger {
+  return cfg.logger ?? consoleLogger;
+}
+
 export const consoleLogger: Logger = {
   debug: (message, ...args) => console.debug(message, ...args),
   info: (message, ...args) => console.info(message, ...args),

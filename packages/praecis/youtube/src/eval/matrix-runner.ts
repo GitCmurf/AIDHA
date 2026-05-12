@@ -813,6 +813,7 @@ const prepareTranscriptDataAsync = async (
   const segments = transcriptData.segments;
   const fullText = transcriptData.fullText;
 
+  const now = new Date().toISOString();
   const excerpts = segments.map((s, i: number) => ({
     schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION as 1,
     id: `excerpt-${video.videoId}-${i}`,
@@ -824,8 +825,8 @@ const prepareTranscriptDataAsync = async (
       duration: s.duration,
       ...(typeof s.speaker === "string" ? { speaker: s.speaker } : {}),
     },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   }));
 
   const resource = {

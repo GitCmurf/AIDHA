@@ -10,7 +10,7 @@ import {
   parseTranscriptTtml,
   parseTranscriptVtt,
 } from './transcript.js';
-import { consoleLogger, type Logger } from '../utils/logger.js';
+import { consoleLogger, resolveLogger, type Logger } from '../utils/logger.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -70,10 +70,6 @@ export function ytDlpConfigFromEnv(): YtDlpRuntimeConfig {
 }
 
 const FORMAT_PRIORITY = ['.vtt', '.ttml', '.json3', '.json'];
-
-function transcriptLogger(cfg: YtDlpRuntimeConfig): Logger {
-  return cfg.logger ?? consoleLogger;
-}
 
 export interface ToolingCheck {
   executable: string;
@@ -424,7 +420,7 @@ export async function fetchTranscriptWithYtDlp(
 
   try {
     if (cfg.debugTranscript) {
-      transcriptLogger(cfg).debug(`[transcript] yt-dlp: ${cfg.bin} ${args.join(' ')}`);
+      resolveLogger(cfg).debug(`[transcript] yt-dlp: ${cfg.bin} ${args.join(' ')}`);
     }
 
     await execFileAsync(cfg.bin, args, {
@@ -482,11 +478,11 @@ export async function fetchTranscriptWithYtDlp(
         } catch (error) {
           if (cfg.debugTranscript) {
             const message = error instanceof Error ? error.message : String(error);
-            transcriptLogger(cfg).debug(`[transcript] cleanup warning: ${message}`);
+            resolveLogger(cfg).debug(`[transcript] cleanup warning: ${message}`);
           }
         }
       } else if (cfg.debugTranscript) {
-        transcriptLogger(cfg).debug(`[transcript] yt-dlp files kept at ${tmpPath}`);
+        resolveLogger(cfg).debug(`[transcript] yt-dlp files kept at ${tmpPath}`);
       }
     }
   }

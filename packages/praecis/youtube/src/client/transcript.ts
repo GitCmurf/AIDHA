@@ -64,9 +64,7 @@ export function parseTranscriptXml(xml: string): TranscriptSegment[] {
   for (const match of textMatches) {
     const start = parseFloat(match[1] ?? '0');
     const duration = parseFloat(match[2] ?? '0');
-    const text = stripMarkupTags(stripMarkupTags(decodeXmlEntities(match[3] ?? '')))
-      .replace(/\s+/g, ' ')
-      .trim();
+    const text = stripMarkupTags(decodeXmlEntities(match[3] ?? ''));
 
     const segment = buildTranscriptSegment({ start, duration, text });
     if (segment) segments.push(segment);
@@ -147,7 +145,7 @@ export function parseTranscriptVtt(payload: string): TranscriptSegment[] {
         textLines.push(textLine.trim());
         index += 1;
       }
-      const text = textLines.join(' ').replace(/\s+/g, ' ').trim();
+      const text = textLines.join(' ');
       if (start !== null) {
         const duration = end !== null && end >= start ? end - start : 0;
         const segment = buildTranscriptSegment({ start, duration, text, allowVoiceTag: true });
@@ -206,10 +204,7 @@ export function parseTranscriptTtml(payload: string): TranscriptSegment[] {
     const duration =
       end !== null && start !== null ? end - start : (durationFromDur ?? 0);
 
-    const text = decodeXmlEntities(textRaw)
-      .replace(/<[^>]+>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const text = stripMarkupTags(decodeXmlEntities(textRaw));
 
     if (start !== null) {
       const segment = buildTranscriptSegment({ start, duration: Math.max(0, duration), text });
