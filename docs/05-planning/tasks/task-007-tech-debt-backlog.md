@@ -1275,9 +1275,9 @@ Also on 2026-05-12, `gh api -i repos/:owner/:repo/vulnerability-alerts` returned
 which confirms vulnerability alerts are enabled for the repository. `gh api repos/:owner/:repo`
 reported `security_and_analysis.secret_scanning.status: enabled`,
 `security_and_analysis.secret_scanning_push_protection.status: enabled`, and
-`security_and_analysis.dependabot_security_updates.status: enabled`. TD-014 remains blocked because
-required status checks / PR-review enforcement and a passing scheduled Secret Scan run are still
-unmet.
+`security_and_analysis.dependabot_security_updates.status: enabled`. The public-release gate in
+`AIDHA-TASK-001` remains open because required status checks / PR-review enforcement and a passing
+scheduled Secret Scan run are still unmet.
 
 Local reproduction with gitleaks `8.28.0` identified the all-history failures as known
 false positives: `.secrets.baseline` contains detect-secrets hashed fingerprints, and
