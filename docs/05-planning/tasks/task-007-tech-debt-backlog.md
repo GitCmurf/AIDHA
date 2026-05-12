@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.52"
+version: "1.53"
 last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.52
+> **Version:** 1.53
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -80,6 +80,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.50    | 2026-05-11 | AI     | Correct maintainer-gated TD-014 and TD-015 statuses to blocked. | — | Draft | AIDHA-TASK-008 |
 | 1.51    | 2026-05-11 | AI     | Align TD-013 status with resolved lint-reliability evidence. | — | Draft | AIDHA-TASK-008 |
 | 1.52    | 2026-05-12 | AI     | Record live GitHub evidence for blocked TD-014 repository controls. | — | Draft | AIDHA-TASK-008 |
+| 1.53    | 2026-05-12 | AI     | Record enabled Dependabot and GitHub secret scanning evidence for TD-014. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1216,8 +1217,8 @@ dependent on maintainer discipline instead of enforced repository policy.
 **Acceptance criteria:**
 
 - [ ] `main` has branch protection requiring PR review and required status checks.
-- [ ] Dependabot security alerts are enabled.
-- [ ] GitHub secret scanning is enabled when available for the repository/account tier, or the
+- [x] Dependabot security alerts are enabled.
+- [x] GitHub secret scanning is enabled when available for the repository/account tier, or the
   limitation is documented.
 - [ ] The `Secret Scan` workflow passes on GitHub after publication/squash strategy is complete.
 - [ ] Public-readiness docs no longer contain unchecked operational settings without an evidence
@@ -1243,6 +1244,14 @@ list --workflow secret-scan.yml --limit 5` showed the latest scheduled `Secret S
 (`25554272706`). `gh run view 25656999477 --log-failed` exposed no leak detail in this environment;
 the workflow also sets `GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"`, so follow-up requires maintainer
 workflow access, rerunning with an inspectable summary, or local reproduction with `gitleaks`.
+
+Also on 2026-05-12, `gh api -i repos/:owner/:repo/vulnerability-alerts` returned `204 No Content`,
+which confirms vulnerability alerts are enabled for the repository. `gh api repos/:owner/:repo`
+reported `security_and_analysis.secret_scanning.status: enabled`,
+`security_and_analysis.secret_scanning_push_protection.status: enabled`, and
+`security_and_analysis.dependabot_security_updates.status: enabled`. TD-014 remains blocked because
+required status checks / PR-review enforcement and a passing scheduled Secret Scan run are still
+unmet.
 
 ---
 
