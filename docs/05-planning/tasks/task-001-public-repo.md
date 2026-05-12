@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.16"
+version: "1.17"
 last_updated: 2026-05-12
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.16
+> **Version:** 1.17
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -41,6 +41,7 @@ docops_version: "2.0"
 | 1.14    | 2026-05-12 | AI     | Record owner decisions on contribution rights, citation, and trademark guidance. | — | Draft | AIDHA-TASK-007 |
 | 1.15    | 2026-05-12 | AI     | Add fixture redistribution inventory and concrete provenance closure path. | — | Draft | AIDHA-GOV-005 |
 | 1.16    | 2026-05-12 | AI     | Record applied low-friction branch protection settings for `main`. | — | Draft | GitHub branch protection |
+| 1.17    | 2026-05-12 | AI     | Clarify fixture policy for Creative Commons transcript smoke tests and synthetic extraction goldens. | — | Draft | AIDHA-GOV-005 |
 
 ## Project Status
 
@@ -95,6 +96,10 @@ Version History records document revisions only.
 - Branch protection for `main` now requires pull requests, one approving review, strict required
   status checks, and admin enforcement. Required checks are `Docs Check / build`,
   `TypeScript Packages / verify`, and `Secret Scan / gitleaks`.
+- Fixture policy clarified on 2026-05-12: keep minimal Creative Commons YouTube transcript fixtures
+  for transcript-download smoke coverage; use committed synthetic data for extraction-quality
+  golden tests; keep broader real-video evaluation sets in ignored local directories until their
+  redistribution basis is settled.
 
 ## Go/No-Go Gates (Flip Repo To Public)
 
@@ -226,6 +231,19 @@ the branch will trigger code-review bots.
 **Owner decision, 2026-05-12:** keep fixture redistribution open until a focused provenance audit
 confirms that committed sample and fixture files are safe to redistribute. Prefer synthetic fixtures
 for additional golden tests unless a real fixture has clear provenance and compatible licensing.
+
+Keep at least one, and ideally two, real Creative Commons-licensed YouTube videos for transcript
+download and parser smoke coverage. Those committed fixtures should be minimal normalized excerpts
+with provenance in `AIDHA-GOV-005`; they should not become the main committed extraction-quality
+golden set.
+
+For extraction-quality golden tests, prefer internally authored synthetic data that deliberately
+covers edge cases such as enumeration, sponsor read-outs, show-note citations, fragments, speaker
+attribution, and claim hierarchy.
+
+Broader real-video candidate sets may remain valuable for private evaluation. Keep them in ignored
+local directories such as `testdata/youtube_local/` or `testdata/nonredistributable/` until they are
+converted to synthetic fixtures or registered with explicit redistribution provenance.
 
 **Current inventory, 2026-05-12:** `AIDHA-GOV-005` classifies fixture surfaces as synthetic,
 declared Creative Commons transcript-derived, or needing provenance closure. Before this gate is

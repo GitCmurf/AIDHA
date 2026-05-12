@@ -2,7 +2,7 @@
 document_id: AIDHA-GOV-005
 owner: Engineering
 status: Draft
-version: '0.4'
+version: '0.5'
 last_updated: 2026-05-12
 title: Third-Party Notices
 type: GOV
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.4
+> **Version:** 0.5
 > **Last Updated:** 2026-05-12
 > **Type:** GOV
 
@@ -28,6 +28,7 @@ docops_version: '2.0'
 | 0.2     | 2026-02-09 | AI     | Align with GOV type and add fixture governance context | — | Draft | — |
 | 0.3     | 2026-02-24 | AI     | Add explicit redistribution verification and acceptance-run coverage guidance | — | Draft | — |
 | 0.4     | 2026-05-12 | AI     | Add public-readiness fixture inventory and provenance status. | — | Draft | AIDHA-TASK-001 |
+| 0.5     | 2026-05-12 | AI     | Clarify committed versus local real-video fixture policy. | — | Draft | AIDHA-TASK-001 |
 
 ## Purpose
 
@@ -59,8 +60,12 @@ for engineering and test fixtures.
   - Source video was selected as Creative Commons-licensed at the time of capture.
   - Verified license metadata prior to public release.
 - Operational note:
-  - Raw downloaded subtitle artifacts are not committed; only normalized fixture
-    JSON and metadata are stored.
+  - Raw downloaded subtitle artifacts are not committed; only normalized fixture JSON and metadata
+    are stored.
+  - This fixture exists to smoke-test transcript download/parsing behavior, not to serve as the
+    primary extraction-quality golden dataset.
+  - Keep at least one, and preferably two, Creative Commons-licensed YouTube transcript fixtures for
+    continued transcript-download coverage.
 
 ### Synthetic eval-matrix fixtures
 
@@ -75,6 +80,9 @@ for engineering and test fixtures.
 - Operational note:
   - Prefer synthetic entries for new golden tests unless a real source has explicit redistribution
     permission and is registered here.
+  - Extraction-quality golden tests should primarily use synthetic fixtures that deliberately cover
+    important edge cases such as enumeration, sponsor read-outs, show-note citations, fragments,
+    speaker attribution, and claim hierarchy.
 
 ### Eval annotation fixtures requiring provenance closure
 
@@ -107,6 +115,10 @@ As of 2026-05-12, fixture redistribution is intentionally still open in `AIDHA-T
 project should not close that public-release gate until the eval annotation fixtures and
 acceptance-run artifacts above are either replaced with synthetic data or have explicit provenance
 records in this notice register.
+
+Broader real-video evaluation sets may be useful for private development, but they should live in
+ignored local directories such as `testdata/youtube_local/` or `testdata/nonredistributable/` until
+their redistribution basis is settled.
 
 ## Maintenance
 
