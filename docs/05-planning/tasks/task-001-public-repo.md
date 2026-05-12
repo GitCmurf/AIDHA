@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.14"
+version: "1.15"
 last_updated: 2026-05-12
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.14
+> **Version:** 1.15
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -39,6 +39,7 @@ docops_version: "2.0"
 | 1.12    | 2026-05-12 | AI     | Add local gitleaks history-scan evidence and false-positive allowlist remediation. | — | Draft | AIDHA-TASK-007 |
 | 1.13    | 2026-05-12 | AI     | Accept ownership of release-governance gates superseded out of TASK-007. | — | Draft | AIDHA-TASK-007 |
 | 1.14    | 2026-05-12 | AI     | Record owner decisions on contribution rights, citation, and trademark guidance. | — | Draft | AIDHA-TASK-007 |
+| 1.15    | 2026-05-12 | AI     | Add fixture redistribution inventory and concrete provenance closure path. | — | Draft | AIDHA-GOV-005 |
 
 ## Project Status
 
@@ -87,6 +88,9 @@ Version History records document revisions only.
   add low-friction citation metadata; add lightweight trademark guidance; defer formal trademark
   registration; defer GitHub Discussions until there is actual community demand; keep fixture
   redistribution open for a provenance audit and likely synthetic golden-test expansion.
+- `AIDHA-GOV-005` now records a public-readiness fixture inventory. Synthetic eval-matrix fixtures
+  are identified as internally authored; eval annotation fixtures with real video IDs/person names
+  and acceptance-run transcript artifacts still require provenance closure or synthetic replacement.
 
 ## Go/No-Go Gates (Flip Repo To Public)
 
@@ -218,6 +222,14 @@ the branch will trigger code-review bots.
 **Owner decision, 2026-05-12:** keep fixture redistribution open until a focused provenance audit
 confirms that committed sample and fixture files are safe to redistribute. Prefer synthetic fixtures
 for additional golden tests unless a real fixture has clear provenance and compatible licensing.
+
+**Current inventory, 2026-05-12:** `AIDHA-GOV-005` classifies fixture surfaces as synthetic,
+declared Creative Commons transcript-derived, or needing provenance closure. Before this gate is
+checked off, replace or register:
+
+- `packages/praecis/youtube/tests/fixtures/extraction-golden/h_1zlead9ZU.samples.json`;
+- `packages/praecis/youtube/tests/fixtures/eval-matrix/golden-annotations.json`;
+- transcript-derived artifacts under `docs/55-testing/acceptance-run-*/`.
 
 ### 1.8 Dependency Licence Audit
 
