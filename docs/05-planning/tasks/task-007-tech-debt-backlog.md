@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.55"
+version: "1.56"
 last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.55
+> **Version:** 1.56
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -83,6 +83,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.53    | 2026-05-12 | AI     | Record enabled Dependabot and GitHub secret scanning evidence for TD-014. | — | Draft | AIDHA-TASK-008 |
 | 1.54    | 2026-05-12 | AI     | Correct the reusable backlog item template default status. | — | Draft | AIDHA-TASK-008 |
 | 1.55    | 2026-05-12 | AI     | Add and resolve TD-022 for live CodeQL regex-safety alerts. | — | Draft | AIDHA-TASK-008 |
+| 1.56    | 2026-05-12 | AI     | Align TASK-001 public-readiness evidence for partially complete TD-014 controls. | — | Draft | AIDHA-TASK-001 |
 
 ---
 
@@ -1223,7 +1224,7 @@ dependent on maintainer discipline instead of enforced repository policy.
 - [x] GitHub secret scanning is enabled when available for the repository/account tier, or the
   limitation is documented.
 - [ ] The `Secret Scan` workflow passes on GitHub after publication/squash strategy is complete.
-- [ ] Public-readiness docs no longer contain unchecked operational settings without an evidence
+- [x] Public-readiness docs no longer contain unchecked operational settings without an evidence
   note.
 
 **Validation commands:**

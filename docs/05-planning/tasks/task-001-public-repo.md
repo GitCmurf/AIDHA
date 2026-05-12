@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.10"
-last_updated: 2026-02-27
+version: "1.11"
+last_updated: 2026-05-12
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.10
-> **Last Updated:** 2026-02-27
+> **Version:** 1.11
+> **Last Updated:** 2026-05-12
 > **Type:** TASK
 
 # Public Repository Readiness — Task List & Strategy
@@ -35,6 +35,7 @@ docops_version: "2.0"
 | 1.8     | 2026-02-24 | AI     | Add fixture/license and history-scan clarifications for public launch. | — | Draft | — |
 | 1.9     | 2026-02-27 | AI     | Refresh checklist evidence, close verified local gates, and add environment-variable documentation evidence. | — | Draft | — |
 | 1.10    | 2026-02-27 | AI     | Complete PII review, dependency license audit, and create CONTRIBUTING_QUICK.md. | — | Draft | — |
+| 1.11    | 2026-05-12 | AI     | Record live GitHub repository-security evidence from TASK-007 closeout audit. | — | Draft | AIDHA-TASK-007 |
 
 ## Project Status
 
@@ -51,6 +52,23 @@ Version History records document revisions only.
   - no `specs/` directory present
   - `node_modules/` is not tracked
   - no tracked `package-lock.json` or tracked `out/` artifacts
+
+## Execution Evidence (2026-05-12)
+
+- `gh repo view --json nameWithOwner,isPrivate,viewerPermission` returned public repository
+  `GitCmurf/AIDHA` with `ADMIN` viewer permission.
+- `gh api repos/:owner/:repo` reported `default_branch: main`,
+  `security_and_analysis.secret_scanning.status: enabled`,
+  `security_and_analysis.secret_scanning_push_protection.status: enabled`, and
+  `security_and_analysis.dependabot_security_updates.status: enabled`.
+- `gh api -i repos/:owner/:repo/vulnerability-alerts` returned `204 No Content`, confirming
+  Dependabot vulnerability alerts are enabled.
+- `gh api repos/:owner/:repo/branches/main/protection` returned active branch protection, but
+  required status-check contexts are empty and `required_approving_review_count` is `0`; branch
+  protection is therefore not complete against the go/no-go criterion.
+- `gh run list --workflow secret-scan.yml --limit 5` showed recent scheduled `Secret Scan` runs
+  failing, with latest observed failure `25656999477` on 2026-05-11. The latest observed passing
+  `Secret Scan` run was the 2026-05-08 push run for Dependabot PR #9 (`25554272706`).
 
 ## Go/No-Go Gates (Flip Repo To Public)
 
@@ -164,9 +182,9 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 - [x] Review `.github/workflows/docs-check.yml` — ensure it doesn't expose secrets in logs
 - [ ] Add branch protection rules (require PR reviews, passing CI before merge)
 - [ ] Configure GitHub repository settings:
-  - [ ] Enable Dependabot for security alerts
-  - [ ] Enable secret scanning (GitHub Advanced Security)
-  - [ ] Set default branch to `main`
+  - [x] Enable Dependabot for security alerts
+  - [x] Enable secret scanning (GitHub Advanced Security)
+  - [x] Set default branch to `main`
   - [ ] Consider enabling GitHub Discussions for community engagement
 
 ### 1.8 Dependency Licence Audit
@@ -514,6 +532,6 @@ cannot experience the core value of AIDHA within 5 minutes, they will move on.
 
 - [x] Add licence badge to README (§1.6)
 - [ ] Create `CITATION.cff` (§2.2D)
-- [ ] Enable Dependabot and secret scanning (§1.7)
+- [x] Enable Dependabot and secret scanning (§1.7)
 - [ ] Add `TRADEMARKS.md` (§3.5)
 - [ ] Set up branch protection rules (§1.7)
