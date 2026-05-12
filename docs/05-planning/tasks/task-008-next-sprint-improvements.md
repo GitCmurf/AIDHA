@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.46"
+version: "0.47"
 last_updated: 2026-05-12
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.46
+> **Version:** 0.47
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -74,6 +74,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.44    | 2026-05-12 | AI     | Add live GitHub evidence to the TD-014 maintainer handoff. | — | Draft | AIDHA-TASK-007 |
 | 0.45    | 2026-05-12 | AI     | Record enabled Dependabot and GitHub secret scanning evidence. | — | Draft | AIDHA-TASK-007 |
 | 0.46    | 2026-05-12 | AI     | Record TD-022 CodeQL regex-safety remediation. | — | Draft | AIDHA-TASK-007 |
+| 0.47    | 2026-05-12 | AI     | Record TD-014 gitleaks false-positive remediation and remaining remote gate. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -832,6 +833,13 @@ details or reproduce locally with `gitleaks` before changing branch protection r
 Dependabot vulnerability alerts are enabled (`gh api -i repos/:owner/:repo/vulnerability-alerts`
 returned `204 No Content`), and repository security metadata reports secret scanning, push
 protection, and Dependabot security updates as enabled.
+
+Local gitleaks `8.28.0` reproduction narrowed the scheduled workflow failures to known
+false-positive paths: detect-secrets hashed fingerprints in `.secrets.baseline` and the
+`aidha-config` synthetic dotenv fixture. The fixture now avoids secret-shaped names/values, and the
+workflow uses `.gitleaks.toml` to allowlist only those historical false-positive paths. The remaining
+maintainer action is to push this branch and confirm the GitHub `Secret Scan` run passes before
+making it a required branch-protection status check.
 
 ### MH-002: Decide contributor-rights and trademark policy
 

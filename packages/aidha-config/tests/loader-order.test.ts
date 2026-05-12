@@ -41,16 +41,16 @@ config_version: 1
 default_profile: default
 env:
   dotenv_files:
-    - secrets.env
+    - values.env
 profiles:
   default:
     llm:
-      api_key: \${SECRET_FROM_DOTENV}
+      model: \${DOTENV_MODEL_VALUE}
 `);
-    writeFile('secrets.env', 'SECRET_FROM_DOTENV=my-secret-key\n');
+    writeFile('values.env', 'DOTENV_MODEL_VALUE=dotenv-loaded-model\n');
 
     const result = await loadConfig({ cwd: tmpDir, env: {} });
-    expect(result.config!.profiles['default']?.llm?.api_key).toBe('my-secret-key');
+    expect(result.config!.profiles['default']?.llm?.model).toBe('dotenv-loaded-model');
   });
 
   it('should resolve base_dir from .aidha/ parent (step 2)', async () => {

@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.56"
+version: "1.57"
 last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.56
+> **Version:** 1.57
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -84,6 +84,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.54    | 2026-05-12 | AI     | Correct the reusable backlog item template default status. | — | Draft | AIDHA-TASK-008 |
 | 1.55    | 2026-05-12 | AI     | Add and resolve TD-022 for live CodeQL regex-safety alerts. | — | Draft | AIDHA-TASK-008 |
 | 1.56    | 2026-05-12 | AI     | Align TASK-001 public-readiness evidence for partially complete TD-014 controls. | — | Draft | AIDHA-TASK-001 |
+| 1.57    | 2026-05-12 | AI     | Add local gitleaks evidence and narrow false-positive allowlist for TD-014. | — | Draft | AIDHA-TASK-001 |
 
 ---
 
@@ -1255,6 +1256,14 @@ reported `security_and_analysis.secret_scanning.status: enabled`,
 `security_and_analysis.dependabot_security_updates.status: enabled`. TD-014 remains blocked because
 required status checks / PR-review enforcement and a passing scheduled Secret Scan run are still
 unmet.
+
+Local reproduction with gitleaks `8.28.0` identified the all-history failures as known
+false positives: `.secrets.baseline` contains detect-secrets hashed fingerprints, and
+`packages/aidha-config/tests/loader-order.test.ts` contained a synthetic dotenv fixture. The current
+fixture was renamed away from secret-shaped text, `.gitleaks.toml` now allowlists only those two
+historical false-positive paths, and `.github/workflows/secret-scan.yml` points the action at that
+config. The remaining acceptance criterion is a pushed GitHub workflow run proving the scheduled
+secret-scan gate is green with the allowlist in place.
 
 ---
 

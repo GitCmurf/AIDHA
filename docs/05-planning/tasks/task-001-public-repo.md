@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.11"
+version: "1.12"
 last_updated: 2026-05-12
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.11
+> **Version:** 1.12
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -36,6 +36,7 @@ docops_version: "2.0"
 | 1.9     | 2026-02-27 | AI     | Refresh checklist evidence, close verified local gates, and add environment-variable documentation evidence. | — | Draft | — |
 | 1.10    | 2026-02-27 | AI     | Complete PII review, dependency license audit, and create CONTRIBUTING_QUICK.md. | — | Draft | — |
 | 1.11    | 2026-05-12 | AI     | Record live GitHub repository-security evidence from TASK-007 closeout audit. | — | Draft | AIDHA-TASK-007 |
+| 1.12    | 2026-05-12 | AI     | Add local gitleaks history-scan evidence and false-positive allowlist remediation. | — | Draft | AIDHA-TASK-007 |
 
 ## Project Status
 
@@ -69,12 +70,18 @@ Version History records document revisions only.
 - `gh run list --workflow secret-scan.yml --limit 5` showed recent scheduled `Secret Scan` runs
   failing, with latest observed failure `25656999477` on 2026-05-11. The latest observed passing
   `Secret Scan` run was the 2026-05-08 push run for Dependabot PR #9 (`25554272706`).
+- Local reproduction with gitleaks `8.28.0` showed the all-history failure was caused by known
+  false positives in `.secrets.baseline` hash entries and the synthetic dotenv fixture in
+  `packages/aidha-config/tests/loader-order.test.ts`. The fixture was renamed away from
+  secret-shaped text and `.gitleaks.toml` now allowlists only those known historical false-positive
+  paths. A pushed GitHub run is still required before the gitleaks gate can be checked off.
 
 ## Go/No-Go Gates (Flip Repo To Public)
 
 - [x] `meminit check --root .` passes with 0 violations and 0 warnings
 - [x] `pre-commit run detect-secrets --all-files` passes (baseline reviewed)
-- [ ] GitHub Actions `Secret Scan` workflow passes (gitleaks)
+- [ ] GitHub Actions `Secret Scan` workflow passes (gitleaks; local history false positives fixed,
+      remote run still pending)
 - [x] `pnpm docs:build` passes (MkDocs site is the review artifact)
 - [ ] Git history strategy is executed (see §1.1): squash vs scrub
 - [ ] Fixture redistribution is verified or removed (see AIDHA-GOV-005)

@@ -1,0 +1,12 @@
+title = "AIDHA gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "detect-secrets baseline stores hashed fingerprints, not plaintext secrets"
+paths = ['''^\.secrets\.baseline$''']
+
+[[allowlists]]
+description = "aidha-config loader-order test uses a synthetic dotenv fixture"
+paths = ['''^packages/aidha-config/tests/loader-order\.test\.ts$''']
