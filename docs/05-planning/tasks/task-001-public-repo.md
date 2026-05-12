@@ -589,4 +589,4 @@ cannot experience the core value of AIDHA within 5 minutes, they will move on.
 - [x] Create `CITATION.cff` (§2.2D)
 - [x] Enable Dependabot and secret scanning (§1.7)
 - [x] Add `TRADEMARKS.md` (§3.5)
-- [ ] Set up branch protection rules (§1.7)
+- [x] Set up branch protection rules (§1.7)
