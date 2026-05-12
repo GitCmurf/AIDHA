@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.57"
+version: "1.58"
 last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.57
+> **Version:** 1.58
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -85,6 +85,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.55    | 2026-05-12 | AI     | Add and resolve TD-022 for live CodeQL regex-safety alerts. | — | Draft | AIDHA-TASK-008 |
 | 1.56    | 2026-05-12 | AI     | Align TASK-001 public-readiness evidence for partially complete TD-014 controls. | — | Draft | AIDHA-TASK-001 |
 | 1.57    | 2026-05-12 | AI     | Add local gitleaks evidence and narrow false-positive allowlist for TD-014. | — | Draft | AIDHA-TASK-001 |
+| 1.58    | 2026-05-12 | AI     | Add closeout state summary distinguishing resolved work from maintainer-blocked gates. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -183,6 +184,24 @@ single precise item over a broad theme unless the remediation must be architectu
 
 Items in this section may be `Open`, `Planned`, `Blocked`, or `Resolved`. Resolved entries remain
 in place so future review passes can see that repeated findings were already triaged.
+
+### Current Closeout State
+
+As of 2026-05-12, the coding-agent-executable backlog is closed. TD-001 through TD-013 and TD-016
+through TD-022 are `Resolved` with implementation evidence, focused validation commands, and
+DocOps updates recorded in the individual entries. TD-014 and TD-015 remain `Blocked` rather than
+open engineering work:
+
+- TD-014 depends on remote GitHub repository administration and a pushed workflow run. Local
+  remediation has enabled the TypeScript workflow, stabilized gitleaks false-positive handling,
+  verified repository security settings where read-only APIs expose them, and recorded the
+  remaining branch-protection and remote Secret Scan gates.
+- TD-015 depends on a maintainer policy decision about contributor-rights posture and trademark
+  handling. The implementation should not invent legal or brand policy without that decision.
+
+Do not mark this task fully complete until the blocked TD-014 and TD-015 acceptance criteria are
+either satisfied with evidence or explicitly superseded by maintainer decision in
+`AIDHA-TASK-001`.
 
 ### TD-001 — Parallelize judge scoring in `getScoresForCell`
 
