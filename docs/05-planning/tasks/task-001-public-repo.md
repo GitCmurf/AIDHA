@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.13"
+version: "1.14"
 last_updated: 2026-05-12
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.13
+> **Version:** 1.14
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -38,6 +38,7 @@ docops_version: "2.0"
 | 1.11    | 2026-05-12 | AI     | Record live GitHub repository-security evidence from TASK-007 closeout audit. | — | Draft | AIDHA-TASK-007 |
 | 1.12    | 2026-05-12 | AI     | Add local gitleaks history-scan evidence and false-positive allowlist remediation. | — | Draft | AIDHA-TASK-007 |
 | 1.13    | 2026-05-12 | AI     | Accept ownership of release-governance gates superseded out of TASK-007. | — | Draft | AIDHA-TASK-007 |
+| 1.14    | 2026-05-12 | AI     | Record owner decisions on contribution rights, citation, and trademark guidance. | — | Draft | AIDHA-TASK-007 |
 
 ## Project Status
 
@@ -80,6 +81,12 @@ Version History records document revisions only.
   tracking them as ingestion/eval technical debt. This task remains the owner for branch protection,
   remote Secret Scan evidence, CLA/DCO posture, citation metadata, trademark guidance, and final
   public-release checklist closure.
+- Owner decisions recorded on 2026-05-12: require sensible public-repo branch protection with the
+  least practical sole-maintainer friction; push the branch and verify GitHub Secret Scan only after
+  local cleanup is complete; defer CLA/DCO until external contribution volume makes it a real issue;
+  add low-friction citation metadata; add lightweight trademark guidance; defer formal trademark
+  registration; defer GitHub Discussions until there is actual community demand; keep fixture
+  redistribution open for a provenance audit and likely synthetic golden-test expansion.
 
 ## Go/No-Go Gates (Flip Repo To Public)
 
@@ -180,7 +187,8 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
   - [x] Installation and quick-start instructions
   - [x] Link to `CONTRIBUTING.md`
   - [x] Link to `CODE_OF_CONDUCT.md`
-- [x] Create `CONTRIBUTING.md` (contributor guide: code style, PR process, CLA/DCO)
+- [x] Create `CONTRIBUTING.md` (contributor guide: code style, PR process, contribution-rights
+      posture)
 - [x] Create `CODE_OF_CONDUCT.md` (adopt Contributor Covenant or similar)
 - [x] Create or update `SECURITY.md` (vulnerability reporting process)
 - [x] Document required environment variables in package READMEs or a dedicated ENVIRONMENT.md:
@@ -197,7 +205,19 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
   - [x] Enable Dependabot for security alerts
   - [x] Enable secret scanning (GitHub Advanced Security)
   - [x] Set default branch to `main`
-  - [ ] Consider enabling GitHub Discussions for community engagement
+  - [x] Defer GitHub Discussions until there is actual community demand
+
+**Owner decision, 2026-05-12:** configure `main` with pull requests required, one approving review,
+and required CI checks. Do not allow admin bypass as the default. Defer stricter controls such as
+two-review rules or signed-commit enforcement until the project has external contributors or users.
+Do not push solely to prove Secret Scan until the local cleanup items are complete, because pushing
+the branch will trigger code-review bots.
+
+### 1.7.1 Fixture Redistribution and Golden-Test Data
+
+**Owner decision, 2026-05-12:** keep fixture redistribution open until a focused provenance audit
+confirms that committed sample and fixture files are safe to redistribute. Prefer synthetic fixtures
+for additional golden tests unless a real fixture has clear provenance and compatible licensing.
 
 ### 1.8 Dependency Licence Audit
 
@@ -322,6 +342,11 @@ Apache-licensed projects (the ASF itself requires CLAs).
 > **Without a CLA, each contributor retains copyright on their contributions**, and you cannot
 > unilaterally relicense the project. If dual-licensing or open-core commercialization is in your
 > plans (see Part 3), a CLA is strongly recommended from day one.
+
+**Owner decision, 2026-05-12:** do not require a CLA or DCO sign-off now. The project is pre-alpha,
+the maintainer is currently the sole developer, and the priority is to avoid discouraging a first
+potential contributor. Revisit DCO or CLA only if external contribution volume or commercialization
+plans make the extra process worthwhile.
 
 ---
 
@@ -452,7 +477,8 @@ GitCmurf/aidha-pro                ← PRIVATE (Proprietary)
 
 **Recommended timeline:**
 
-1. **Now:** Go public with the monorepo. Add Apache 2.0. Set up CLA.
+1. **Now:** Go public with the monorepo. Add Apache 2.0. Defer CLA/DCO until there is real
+   contributor demand or a commercialization need.
 2. **When the first proprietary component is built** (likely the UI): Create `aidha-pro` as a
    separate private repo that depends on the public package.
 3. **When packages are stable enough to publish:** Consider publishing `@aidha/graph-backend`,
@@ -463,10 +489,10 @@ GitCmurf/aidha-pro                ← PRIVATE (Proprietary)
 
 Apache 2.0 does **not** grant trademark rights. To formally protect the name:
 
-- [ ] Consider trademark registration for "AIDHA" (starts ~$250 USD for a US filing)
-- [ ] Add a `TRADEMARKS.md` file stating that "AIDHA" is a trademark of Colin Farmer and may not
+- [x] Defer formal trademark registration until brand protection becomes commercially relevant
+- [x] Add a `TRADEMARKS.md` file stating that "AIDHA" is a trademark of Colin Farmer and may not
       be used to endorse derivative products
-- [ ] Include trademark guidance in `CONTRIBUTING.md`
+- [x] Include trademark guidance in `CONTRIBUTING.md`
 
 ---
 
@@ -533,7 +559,8 @@ cannot experience the core value of AIDHA within 5 minutes, they will move on.
 - [x] Add SPDX headers to source files (§2.2B)
 - [x] Add `detect-secrets` pre-commit hook (§1.2)
 - [x] Run dependency licence audit (§1.8)
-- [ ] Set up CLA for contributors (§2.2E)
+- [x] Record decision to defer CLA/DCO until contribution volume or commercialization need justifies
+      it (§2.2E)
 - [x] Create `SECURITY.md` (§1.6)
 - [x] Clean up tracked-but-gitignored files:
       `coderabbit-review-*.txt`, `package-lock.json`, `telemetry-id` (§1.9)
@@ -543,7 +570,7 @@ cannot experience the core value of AIDHA within 5 minutes, they will move on.
 ### Nice to Have (Can Follow Shortly After)
 
 - [x] Add licence badge to README (§1.6)
-- [ ] Create `CITATION.cff` (§2.2D)
+- [x] Create `CITATION.cff` (§2.2D)
 - [x] Enable Dependabot and secret scanning (§1.7)
-- [ ] Add `TRADEMARKS.md` (§3.5)
+- [x] Add `TRADEMARKS.md` (§3.5)
 - [ ] Set up branch protection rules (§1.7)

@@ -1,4 +1,30 @@
+---
+document_id: AIDHA-GOV-007
+owner: GitCmurf
+status: Draft
+version: "1.0"
+last_updated: 2026-05-12
+title: Contributing to AIDHA
+type: GOV
+docops_version: "2.0"
+---
+
+<!-- MEMINIT_METADATA_BLOCK -->
+
+> **Document ID:** AIDHA-GOV-007
+> **Owner:** GitCmurf
+> **Status:** Draft
+> **Version:** 1.0
+> **Last Updated:** 2026-05-12
+> **Type:** GOV
+
 # Contributing to AIDHA
+
+## Version History
+
+| Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
+| ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
+| 1.0     | 2026-05-12 | AI     | Add DocOps metadata and record lightweight public contribution policy. | — | Draft | AIDHA-TASK-001 |
 
 First off, thank you for considering contributing to AIDHA! This guide outlines the process for contributing to the project.
 
@@ -112,6 +138,20 @@ pnpm docs:build
 ## License
 
 By contributing to AIDHA, you agree that your contributions will be licensed under the Apache License 2.0.
+
+## Contributor Rights
+
+AIDHA does not currently require a Contributor License Agreement or Developer Certificate of
+Origin sign-off. This is intentional while the project is pre-alpha and contributor friction should
+stay low.
+
+Contributors must still submit only work they have the right to contribute. If the project develops
+a larger contributor community, the maintainer may revisit whether DCO sign-off or a CLA is useful.
+
+## Citation and Trademark Guidance
+
+- Citation metadata is available in [CITATION.cff](./CITATION.cff).
+- Project-name guidance is available in [TRADEMARKS.md](./TRADEMARKS.md).
 
 ## Security
 
