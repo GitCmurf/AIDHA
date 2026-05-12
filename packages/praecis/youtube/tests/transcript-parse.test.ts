@@ -20,6 +20,18 @@ describe('transcript parsing', () => {
     expect(segments[0]).toEqual({ start: 0, duration: 1.2, text: 'Hello world & friend' });
   });
 
+  it('strips malformed nested markup from XML transcript text in one pass', () => {
+    const xml = [
+      '<transcript>',
+      '<text start="0.0" dur="1.2">Safe <scr<script>ipt>alert(1)</script> text</text>',
+      '</transcript>',
+    ].join('');
+
+    const segments = parseTranscriptXml(xml);
+    expect(segments[0]?.text).not.toContain('<script');
+    expect(segments[0]?.text).toContain('Safe');
+  });
+
   it('extracts conservative speaker prefixes from XML transcript text', () => {
     const xml = [
       '<transcript>',
@@ -97,6 +109,18 @@ describe('transcript parsing', () => {
       '',
       '00:00:01.000 --> 00:00:03.500',
       '<v Interviewer>Hello world</v>',
+    ].join('\n');
+
+    const segments = parseTranscriptVtt(payload);
+    expect(segments[0]).toEqual({ start: 1, duration: 2.5, speaker: 'Interviewer', text: 'Hello world' });
+  });
+
+  it('strips markup inside WebVTT voice tags without regex sanitization', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.500',
+      '<v Interviewer>Hello <b>world</b></v>',
     ].join('\n');
 
     const segments = parseTranscriptVtt(payload);

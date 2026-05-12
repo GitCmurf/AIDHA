@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.45"
+version: "0.46"
 last_updated: 2026-05-12
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.45
+> **Version:** 0.46
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -73,6 +73,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.43    | 2026-05-12 | AI     | Mark agent-executable Task 008 scope complete with maintainer handoff remaining. | — | Draft | AIDHA-TASK-007 |
 | 0.44    | 2026-05-12 | AI     | Add live GitHub evidence to the TD-014 maintainer handoff. | — | Draft | AIDHA-TASK-007 |
 | 0.45    | 2026-05-12 | AI     | Record enabled Dependabot and GitHub secret scanning evidence. | — | Draft | AIDHA-TASK-007 |
+| 0.46    | 2026-05-12 | AI     | Record TD-022 CodeQL regex-safety remediation. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -880,7 +881,7 @@ For branches touching CI, verify at least one GitHub Actions run and record the 
 
 ## Done for Task 008
 
-- [x] Every AIDHA-TASK-007 item from TD-001 through TD-021 is resolved, superseded with evidence,
+- [x] Every AIDHA-TASK-007 item from TD-001 through TD-022 is resolved, superseded with evidence,
   split into a smaller governed task, or explicitly deferred beyond Task 008 with rationale.
 - [x] AIDHA-TASK-007 statuses match actual implementation state.
 - [x] Each implementation PR updates the relevant TD-NNN status block in AIDHA-TASK-007.
@@ -889,7 +890,7 @@ For branches touching CI, verify at least one GitHub Actions run and record the 
   or fallback, and remaining deferred items.
 
 **Agent-executable closeout:**
-All coding-agent-ready backlog items from TD-001 through TD-021 are closed. TD-014 and TD-015 are
+All coding-agent-ready backlog items from TD-001 through TD-022 are closed. TD-014 and TD-015 are
 explicitly deferred to the maintainer handoff section because they require repository
 administration access or a maintainer policy decision. The remaining unchecked PR-description item
 must be satisfied in the eventual pull request body rather than in this planning document.

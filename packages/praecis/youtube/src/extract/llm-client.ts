@@ -165,7 +165,11 @@ const MAX_URL_LENGTH = 2048;
 export function normalizeBaseUrl(baseUrl: string): string {
   // Use validateLength from @aidha/config to avoid duplication
   validateLength(baseUrl, MAX_URL_LENGTH, 'Base URL');
-  return baseUrl.replace(/\/+$/, '');
+  let end = baseUrl.length;
+  while (end > 0 && baseUrl[end - 1] === '/') {
+    end -= 1;
+  }
+  return baseUrl.slice(0, end);
 }
 
 /** Maximum number of model capabilities to cache (LRU eviction). */

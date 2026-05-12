@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.54"
+version: "1.55"
 last_updated: 2026-05-12
 title: Engineering Tech Debt Backlog
 type: TASK
@@ -15,7 +15,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.54
+> **Version:** 1.55
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -82,6 +82,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.52    | 2026-05-12 | AI     | Record live GitHub evidence for blocked TD-014 repository controls. | — | Draft | AIDHA-TASK-008 |
 | 1.53    | 2026-05-12 | AI     | Record enabled Dependabot and GitHub secret scanning evidence for TD-014. | — | Draft | AIDHA-TASK-008 |
 | 1.54    | 2026-05-12 | AI     | Correct the reusable backlog item template default status. | — | Draft | AIDHA-TASK-008 |
+| 1.55    | 2026-05-12 | AI     | Add and resolve TD-022 for live CodeQL regex-safety alerts. | — | Draft | AIDHA-TASK-008 |
 
 ---
 
@@ -1697,6 +1698,73 @@ tests/eval/narrow-score-stage.test.ts tests/eval/narrow-judge-stage.test.ts --re
 
 ---
 
+### TD-022 — Remove regex-safety CodeQL findings from config and transcript parsing
+
+| Field      | Value |
+|------------|-------|
+| Status     | Resolved |
+| Priority   | High |
+| Category   | Security / Correctness |
+| Location   | `packages/aidha-config/src/interpolation.ts`, `packages/aidha-config/src/redact.ts`, `packages/praecis/youtube/src/client/transcript.ts`, `packages/praecis/youtube/src/extract/llm-client.ts` |
+| Effort     | S-M (half day to 1 day) |
+| Discovered | 2026-05-12, live GitHub CodeQL alert audit |
+| Depends on | None |
+
+**Problem:**
+The live GitHub CodeQL alert list reported open high-severity regex-safety findings on `main`:
+
+- `js/polynomial-redos` in `packages/praecis/youtube/src/extract/llm-client.ts`.
+- `js/polynomial-redos` in `packages/aidha-config/src/redact.ts`.
+- `js/polynomial-redos` in `packages/aidha-config/src/interpolation.ts`.
+- `js/incomplete-multi-character-sanitization` in
+  `packages/praecis/youtube/src/client/transcript.ts`.
+
+Some current branch code already had length guards, but the safer architectural fix is to avoid
+regex-driven tokenization, case splitting, trailing slash trimming, and tag stripping where a small
+linear scanner is clearer and easier to reason about.
+
+**Impact if deferred:**
+Leaving open CodeQL high-severity alerts weakens the public-repo quality bar and makes branch
+protection harder to tighten because security checks would remain noisy or red.
+
+**Remediation steps:**
+
+1. Replace trailing slash normalization in `normalizeBaseUrl(...)` with a bounded loop.
+2. Replace `toSnakeCase(...)` regex substitutions with deterministic character scanning.
+3. Replace interpolation token parsing with explicit scanning for `${...}` and escaped tokens.
+4. Replace transcript markup stripping with a single-pass tag scanner.
+5. Add regression tests for adversarial token prefixes, long acronym keys, long trailing slashes,
+   and malformed transcript markup.
+
+**Acceptance criteria:**
+
+- [x] Flagged transformations no longer rely on the previously reported regex patterns.
+- [x] Existing interpolation, redaction, transcript parsing, and LLM-client behavior remains covered.
+- [x] Focused tests cover adversarial or boundary inputs for each changed parser/normalizer.
+- [x] `pnpm --dir packages/aidha-config test -- --run tests/interpolation.test.ts tests/redact.test.ts` passes.
+- [x] `pnpm --dir packages/praecis/youtube exec vitest run tests/llm-client.test.ts tests/transcript-parse.test.ts --reporter=dot` passes.
+- [x] `pnpm --dir packages/aidha-config lint` passes.
+- [x] `pnpm --dir packages/praecis/youtube lint` passes.
+
+**Validation commands:**
+
+- `pnpm --dir packages/aidha-config test -- --run tests/interpolation.test.ts tests/redact.test.ts`
+- `pnpm --dir packages/praecis/youtube exec vitest run tests/llm-client.test.ts tests/transcript-parse.test.ts --reporter=dot`
+- `pnpm --dir packages/aidha-config lint`
+- `pnpm --dir packages/praecis/youtube lint`
+
+**Risks and caveats:**
+CodeQL alert closure on GitHub requires pushing the branch and letting CodeQL analyze the new commit.
+The local remediation removes the reported regex surfaces and adds focused regression coverage, but
+GitHub is the final authority for alert state.
+
+**Resolution:**
+Resolved on 2026-05-12 by replacing the regex-backed transformations with deterministic scanners
+and adding focused tests. The focused aidha-config and YouTube package test commands and both
+package lint commands passed locally.
+
+---
+
 ## Resolved Items
 
 - TD-001 — Parallelize judge scoring in `getScoresForCell`. Resolved by replacing serial
@@ -1735,6 +1803,8 @@ tests/eval/narrow-score-stage.test.ts tests/eval/narrow-judge-stage.test.ts --re
 - TD-021 — Add focused unit tests for extracted narrow stage modules. Resolved with fresh-execution
   and artifact-resume/cache tests for shortlist, refine, score, and judge stages while preserving
   the broad narrow-baseline characterization suite.
+- TD-022 — Remove regex-safety CodeQL findings from config and transcript parsing. Resolved by
+  replacing flagged regex transformations with deterministic scanners and focused regression tests.
 
 ---
 

@@ -142,20 +142,42 @@ export function isSecretKey(key: string): boolean {
 }
 
 function toSnakeCase(key: string): string {
-  // Handles camelCase, PascalCase, and common acronym transitions:
-  //   apiKey -> api_key
-  //   ApiKey -> api_key
-  //   APIKey -> api_key
-  //   YTdlpPath -> ytdlp_path
-  // Limit input length to prevent potential ReDoS attacks and to avoid
-  // silently truncating keys that may end with secret patterns (e.g., '..._password')
   validateLength(key, MAX_KEY_LENGTH, 'Key');
-  return key
-    .replace(/-/g, '_')
-    .replace(/([A-Z]+)([A-Z][a-z0-9]+)/g, '$1_$2')
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/^_+/, '')
-    .toLowerCase();
+  const output: string[] = [];
+
+  for (let index = 0; index < key.length; index += 1) {
+    const char = key[index] ?? '';
+    if (char === '-') {
+      output.push('_');
+      continue;
+    }
+
+    const previous = key[index - 1];
+    const next = key[index + 1];
+    const isUpper = char >= 'A' && char <= 'Z';
+    const previousIsLowerOrDigit = previous !== undefined && (
+      (previous >= 'a' && previous <= 'z') || (previous >= '0' && previous <= '9')
+    );
+    const previousIsUpper = previous !== undefined && previous >= 'A' && previous <= 'Z';
+    const nextIsLowerOrDigit = next !== undefined && (
+      (next >= 'a' && next <= 'z') || (next >= '0' && next <= '9')
+    );
+
+    if (
+      isUpper &&
+      output.length > 0 &&
+      output[output.length - 1] !== '_' &&
+      (previousIsLowerOrDigit || (previousIsUpper && nextIsLowerOrDigit))
+    ) {
+      output.push('_');
+    }
+    output.push(char.toLowerCase());
+  }
+
+  while (output[0] === '_') {
+    output.shift();
+  }
+  return output.join('');
 }
 
 /**

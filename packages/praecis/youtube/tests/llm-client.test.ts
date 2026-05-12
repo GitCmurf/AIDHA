@@ -73,6 +73,14 @@ describe('OpenAiCompatibleClient', () => {
         })).not.toThrow();
       }
     });
+
+    it('should strip long trailing slash runs without regex backtracking', () => {
+      const client = new OpenAiCompatibleClient({
+        baseUrl: `https://api.example.com${'/'.repeat(1000)}`,
+        apiKey: 'test-key', // pragma: allowlist secret
+      });
+      expect(client).toBeDefined();
+    });
   });
 
   it('should use max_completion_tokens for GPT-5 family requests', async () => {

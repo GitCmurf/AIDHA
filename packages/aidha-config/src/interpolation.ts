@@ -18,13 +18,6 @@ const MAX_DEPTH = 10;
 /** Maximum input string length to prevent potential ReDoS attacks. */
 const MAX_INPUT_LENGTH = 10000;
 
-/**
- * Pattern for interpolation tokens:
- *   - `\${...}` — escaped literal (group 1 captures the braces content)
- *   - `${VAR}` or `${VAR:-fallback}` — interpolation (group 2 = name, group 3 = fallback)
- */
-const TOKEN_RE = /\\(\$\{[^}]*\})|(\$\{([^:}]+)(?::-((?:[^}]|(?<=\\)\})*))?(?<!\\)\})/g;
-
 /** Error thrown when a circular reference is detected during interpolation. */
 export class InterpolationCycleError extends Error {
   constructor(chain: readonly string[]) {
@@ -68,6 +61,55 @@ export class UnsetVariableError extends Error {
   }
 }
 
+interface InterpolationToken {
+  raw: string;
+  escaped?: string;
+  varName?: string;
+  fallback?: string;
+}
+
+function findTokenEnd(value: string, start: number): number {
+  for (let index = start; index < value.length; index += 1) {
+    if (value[index] === '}' && value[index - 1] !== '\\') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function splitTokenBody(body: string): { varName: string; fallback?: string } {
+  const separator = body.indexOf(':-');
+  if (separator === -1) {
+    return { varName: body };
+  }
+  return {
+    varName: body.slice(0, separator),
+    fallback: body.slice(separator + 2),
+  };
+}
+
+function readInterpolationToken(value: string, start: number): InterpolationToken | undefined {
+  const escaped = value[start] === '\\' && value[start + 1] === '$' && value[start + 2] === '{';
+  const tokenStart = escaped ? start + 1 : start;
+  if (value[tokenStart] !== '$' || value[tokenStart + 1] !== '{') {
+    return undefined;
+  }
+
+  const bodyStart = tokenStart + 2;
+  const end = findTokenEnd(value, bodyStart);
+  if (end === -1) return undefined;
+
+  const raw = value.slice(start, end + 1);
+  const body = value.slice(bodyStart, end);
+  if (escaped) {
+    return { raw, escaped: raw.slice(1) };
+  }
+
+  const { varName, fallback } = splitTokenBody(body);
+  if (!varName) return undefined;
+  return { raw, varName, fallback };
+}
+
 /**
  * Interpolate environment variable references in a single string.
  *
@@ -94,57 +136,56 @@ export function interpolateString(
     throw new InterpolationDepthError(MAX_DEPTH);
   }
 
-  // Limit input length to prevent potential ReDoS attacks on the regex
   validateLength(value, MAX_INPUT_LENGTH, 'Input string');
 
-  return value.replace(
-    TOKEN_RE,
-    (
-      _match: string,
-      escaped: string | undefined,
-      _fullRef: string | undefined,
-      varName: string | undefined,
-      fallback: string | undefined,
-    ): string => {
-      // Escaped literal: \${FOO} → ${FOO}
-      if (escaped !== undefined) {
-        return escaped;
-      }
+  let output = '';
+  let index = 0;
 
-      if (varName === undefined) return _match;
+  while (index < value.length) {
+    const token = readInterpolationToken(value, index);
+    if (!token) {
+      output += value[index] ?? '';
+      index += 1;
+      continue;
+    }
 
-      // Cycle detection
-      if (_seen.has(varName)) {
-        throw new InterpolationCycleError([..._seen, varName]);
-      }
+    index += token.raw.length;
+    if (token.escaped !== undefined) {
+      output += token.escaped;
+      continue;
+    }
 
-      const envValue = env[varName];
+    const varName = token.varName;
+    if (varName === undefined) {
+      output += token.raw;
+      continue;
+    }
+    if (_seen.has(varName)) {
+      throw new InterpolationCycleError([..._seen, varName]);
+    }
 
-      // Resolve the raw value (env value or fallback)
-      let resolved: string;
-      if (envValue !== undefined && envValue !== '') {
-        resolved = envValue;
-      } else if (fallback !== undefined) {
-        // Use fallback when unset OR empty (shell-like semantics).
-        // Allow escaped closing braces: `${VAR:-a\}b}` -> `a}b`
-        resolved = fallback.replace(/\\}/g, '}');
-      } else if (envValue === '') {
-        // Empty string with no fallback defined; return as-is
-        resolved = envValue;
-      } else {
-        throw new UnsetVariableError(varName);
-      }
+    const envValue = env[varName];
+    let resolved: string;
+    if (envValue !== undefined && envValue !== '') {
+      resolved = envValue;
+    } else if (token.fallback !== undefined) {
+      resolved = token.fallback.split('\\}').join('}');
+    } else if (envValue === '') {
+      resolved = envValue;
+    } else {
+      throw new UnsetVariableError(varName);
+    }
 
-      // Recursively expand if the resolved value itself contains ${...}
-      if (resolved.includes('${')) {
-        const nextSeen = new Set(_seen);
-        nextSeen.add(varName);
-        return interpolateString(resolved, env, nextSeen, _depth + 1);
-      }
+    if (resolved.includes('${')) {
+      const nextSeen = new Set(_seen);
+      nextSeen.add(varName);
+      output += interpolateString(resolved, env, nextSeen, _depth + 1);
+    } else {
+      output += resolved;
+    }
+  }
 
-      return resolved;
-    },
-  );
+  return output;
 }
 
 /**

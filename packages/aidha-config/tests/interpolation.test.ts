@@ -138,8 +138,8 @@ describe('interpolateString', () => {
   // ── ReDoS protection (length limits) ─────────────────────────────────────
 
   it('should throw error for input strings exceeding maximum length (ReDoS protection)', () => {
-    // The interpolateString function has a MAX_INPUT_LENGTH of 10000 to prevent
-    // potential ReDoS attacks on the complex TOKEN_RE regex.
+    // The interpolateString function has a MAX_INPUT_LENGTH of 10000 to keep
+    // interpolation work bounded on adversarial inputs.
     const tooLong = 'a'.repeat(10001);
     expect(() => interpolateString(tooLong, env({}))).toThrow(
       /Input string length .* exceeds maximum/,
@@ -159,6 +159,15 @@ describe('interpolateString', () => {
     const longValue = 'x'.repeat(9994);
     expect(() => interpolateString(`${longValue}\${VAR}`, env({ VAR: 'y' }))).not.toThrow();
     expect(interpolateString(`${longValue}\${VAR}`, env({ VAR: 'y' }))).toBe(longValue + 'y');
+  });
+
+  it('should leave incomplete interpolation tokens unchanged', () => {
+    expect(interpolateString('prefix ${UNFINISHED', env({}))).toBe('prefix ${UNFINISHED');
+  });
+
+  it('should handle repeated token prefixes without regex backtracking', () => {
+    const adversarial = '${{'.repeat(1000);
+    expect(interpolateString(adversarial, env({}))).toBe(adversarial);
   });
 });
 

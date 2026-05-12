@@ -27,6 +27,25 @@ function normalizeTranscriptText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function stripMarkupTags(value: string): string {
+  let output = '';
+  let inTag = false;
+  for (const char of value) {
+    if (char === '<') {
+      inTag = true;
+      continue;
+    }
+    if (char === '>') {
+      inTag = false;
+      continue;
+    }
+    if (!inTag) {
+      output += char;
+    }
+  }
+  return output;
+}
+
 function parseSpeakerPrefix(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
   const match = text.match(/^([^:]{2,40}):\s+(.+)$/u);
   if (!match) return null;
@@ -49,7 +68,7 @@ function parseVttVoiceTag(text: string): Pick<TranscriptSegment, 'text' | 'speak
   if (!match) return null;
 
   const speaker = normalizeTranscriptText(match[1] ?? '');
-  const body = normalizeTranscriptText((match[2] ?? '').replace(/<[^>]+>/g, ''));
+  const body = normalizeTranscriptText(stripMarkupTags(match[2] ?? ''));
   if (!speaker || !body) return null;
   return { speaker, text: body };
 }
@@ -96,8 +115,7 @@ export function parseTranscriptXml(xml: string): TranscriptSegment[] {
   for (const match of textMatches) {
     const start = parseFloat(match[1] ?? '0');
     const duration = parseFloat(match[2] ?? '0');
-    const text = decodeXmlEntities(match[3] ?? '')
-      .replace(/<[^>]+>/g, '')
+    const text = stripMarkupTags(decodeXmlEntities(match[3] ?? ''))
       .replace(/\s+/g, ' ')
       .trim();
 

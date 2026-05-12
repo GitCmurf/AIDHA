@@ -118,4 +118,10 @@ describe('redactSecrets', () => {
     expect(() => isSecretKey(maxLengthSecretKey)).not.toThrow();
     expect(isSecretKey(maxLengthSecretKey)).toBe(true);
   });
+
+  it('should normalize acronym transitions without regex backtracking', () => {
+    expect(isSecretKey('APIKey')).toBe(true);
+    expect(isSecretKey('YTdlpPath')).toBe(false);
+    expect(isSecretKey('A'.repeat(128))).toBe(false);
+  });
 });
