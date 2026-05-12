@@ -28,22 +28,7 @@ function normalizeTranscriptText(value: string): string {
 }
 
 function stripMarkupTags(value: string): string {
-  let output = '';
-  let inTag = false;
-  for (const char of value) {
-    if (char === '<') {
-      inTag = true;
-      continue;
-    }
-    if (char === '>') {
-      inTag = false;
-      continue;
-    }
-    if (!inTag) {
-      output += char;
-    }
-  }
-  return output;
+  return value.replace(/<\/?[A-Za-z][^>]*>/g, '');
 }
 
 function parseSpeakerPrefix(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
@@ -115,7 +100,7 @@ export function parseTranscriptXml(xml: string): TranscriptSegment[] {
   for (const match of textMatches) {
     const start = parseFloat(match[1] ?? '0');
     const duration = parseFloat(match[2] ?? '0');
-    const text = stripMarkupTags(decodeXmlEntities(match[3] ?? ''))
+    const text = stripMarkupTags(stripMarkupTags(decodeXmlEntities(match[3] ?? '')))
       .replace(/\s+/g, ' ')
       .trim();
 

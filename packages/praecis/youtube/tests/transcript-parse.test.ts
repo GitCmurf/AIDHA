@@ -32,6 +32,30 @@ describe('transcript parsing', () => {
     expect(segments[0]?.text).toContain('Safe');
   });
 
+  it('preserves encoded less-than text in XML transcript cues', () => {
+    const xml = [
+      '<transcript>',
+      '<text start="0.0" dur="1.2">I &lt;3 this talk</text>',
+      '</transcript>',
+    ].join('');
+
+    const segments = parseTranscriptXml(xml);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.text).toBe('I <3 this talk');
+  });
+
+  it('removes encoded formatting tags from XML transcript cues after decoding', () => {
+    const xml = [
+      '<transcript>',
+      '<text start="0.0" dur="1.2">This is &lt;i&gt;important&lt;/i&gt; text</text>',
+      '</transcript>',
+    ].join('');
+
+    const segments = parseTranscriptXml(xml);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.text).toBe('This is important text');
+  });
+
   it('extracts conservative speaker prefixes from XML transcript text', () => {
     const xml = [
       '<transcript>',
