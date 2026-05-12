@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.42"
+version: "0.43"
 last_updated: 2026-05-11
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-TASK-007]
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 0.42
+> **Version:** 0.43
 > **Last Updated:** 2026-05-11
 > **Type:** TASK
 
@@ -70,6 +70,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.40    | 2026-05-11 | AI     | Add deterministic report byte-identity characterization for TD-006. | — | Draft | AIDHA-TASK-007 |
 | 0.41    | 2026-05-11 | AI     | Close TD-006 decomposition scope and split residual per-stage unit-test granularity to TD-021. | — | Draft | AIDHA-TASK-007 |
 | 0.42    | 2026-05-11 | AI     | Record TD-021 per-stage unit-test closure. | — | Draft | AIDHA-TASK-007 |
+| 0.43    | 2026-05-12 | AI     | Mark agent-executable Task 008 scope complete with maintainer handoff remaining. | — | Draft | AIDHA-TASK-007 |
 
 ---
 
@@ -865,10 +866,16 @@ For branches touching CI, verify at least one GitHub Actions run and record the 
 
 ## Done for Task 008
 
-- [ ] Every AIDHA-TASK-007 item from TD-001 through TD-021 is resolved, superseded with evidence,
+- [x] Every AIDHA-TASK-007 item from TD-001 through TD-021 is resolved, superseded with evidence,
   split into a smaller governed task, or explicitly deferred beyond Task 008 with rationale.
-- [ ] AIDHA-TASK-007 statuses match actual implementation state.
-- [ ] Each implementation PR updates the relevant TD-NNN status block in AIDHA-TASK-007.
-- [ ] All changed docs pass scoped Meminit, Markdownlint, and `pnpm docs:build`.
+- [x] AIDHA-TASK-007 statuses match actual implementation state.
+- [x] Each implementation PR updates the relevant TD-NNN status block in AIDHA-TASK-007.
+- [x] All changed docs pass scoped Meminit, Markdownlint, and `pnpm docs:build`.
 - [ ] Each implementation PR lists focused tests, package build commands, docs checks, lint command
   or fallback, and remaining deferred items.
+
+**Agent-executable closeout:**
+All coding-agent-ready backlog items from TD-001 through TD-021 are closed. TD-014 and TD-015 are
+explicitly deferred to the maintainer handoff section because they require repository
+administration access or a maintainer policy decision. The remaining unchecked PR-description item
+must be satisfied in the eventual pull request body rather than in this planning document.
