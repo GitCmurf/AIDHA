@@ -7,45 +7,12 @@ type TranscriptJsonEvent = {
 };
 type TranscriptJson = { events?: TranscriptJsonEvent[] };
 
-const SPEAKER_LABEL_PATTERN = /^[\p{L}][\p{L}\p{N}.' -]{1,39}$/u;
-const AMBIGUOUS_PREFIXES = new Set(['a', 'q', 'note', 'update']);
-const AMBIGUOUS_LABEL_PATTERNS = [
-  /^docs?$/i,
-  /^summary$/i,
-  /^section(?:\s+\d+)?$/i,
-  /^chapter(?:\s+\d+)?$/i,
-  /^part(?:\s+\d+)?$/i,
-  /^slide(?:\s+\d+)?$/i,
-  /^agenda$/i,
-  /^overview$/i,
-  /^title$/i,
-  /^intro(?:duction)?$/i,
-  /^conclusion$/i,
-];
-
 function normalizeTranscriptText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
 function stripMarkupTags(value: string): string {
   return value.replace(/<\/?[A-Za-z][^>]*>/g, '');
-}
-
-function parseSpeakerPrefix(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
-  const match = text.match(/^([^:]{2,40}):\s+(.+)$/u);
-  if (!match) return null;
-
-  const speaker = normalizeTranscriptText(match[1] ?? '');
-  const body = normalizeTranscriptText(match[2] ?? '');
-  if (!speaker || !body) return null;
-
-  const speakerLower = speaker.toLowerCase();
-  if (AMBIGUOUS_PREFIXES.has(speakerLower)) return null;
-  if (AMBIGUOUS_LABEL_PATTERNS.some(pattern => pattern.test(speaker))) return null;
-  if (/^\d/.test(speaker) || /^[a-z][\w-]*$/u.test(speaker)) return null;
-  if (!SPEAKER_LABEL_PATTERN.test(speaker)) return null;
-
-  return { speaker, text: body };
 }
 
 function parseVttVoiceTag(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
@@ -67,12 +34,9 @@ function buildTranscriptSegment(input: {
   const normalized = normalizeTranscriptText(input.text);
   if (!normalized) return null;
 
-  // Strip speaker labels only for high-confidence cues: WebVTT <v Speaker> tags or a conservative
-  // multi-character/capitalized name prefix. Ambiguous labels such as "Note:", "Q:", timecodes,
-  // URI schemes, and code-like lowercase keys remain part of the transcript text.
-  const parsed = input.allowVoiceTag
-    ? parseVttVoiceTag(normalized) ?? parseSpeakerPrefix(normalized)
-    : parseSpeakerPrefix(normalized);
+  // Only WebVTT cues with explicit <v Speaker> tags are treated as speaker-attributed.
+  // XML/JSON/TTML text is preserved verbatim so prose labels like "Definition:" remain intact.
+  const parsed = input.allowVoiceTag ? parseVttVoiceTag(normalized) : null;
 
   return {
     start: input.start,
