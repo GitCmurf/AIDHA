@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.15"
+version: "1.16"
 last_updated: 2026-05-12
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.15
+> **Version:** 1.16
 > **Last Updated:** 2026-05-12
 > **Type:** TASK
 
@@ -40,6 +40,7 @@ docops_version: "2.0"
 | 1.13    | 2026-05-12 | AI     | Accept ownership of release-governance gates superseded out of TASK-007. | — | Draft | AIDHA-TASK-007 |
 | 1.14    | 2026-05-12 | AI     | Record owner decisions on contribution rights, citation, and trademark guidance. | — | Draft | AIDHA-TASK-007 |
 | 1.15    | 2026-05-12 | AI     | Add fixture redistribution inventory and concrete provenance closure path. | — | Draft | AIDHA-GOV-005 |
+| 1.16    | 2026-05-12 | AI     | Record applied low-friction branch protection settings for `main`. | — | Draft | GitHub branch protection |
 
 ## Project Status
 
@@ -91,6 +92,9 @@ Version History records document revisions only.
 - `AIDHA-GOV-005` now records a public-readiness fixture inventory. Synthetic eval-matrix fixtures
   are identified as internally authored; eval annotation fixtures with real video IDs/person names
   and acceptance-run transcript artifacts still require provenance closure or synthetic replacement.
+- Branch protection for `main` now requires pull requests, one approving review, strict required
+  status checks, and admin enforcement. Required checks are `Docs Check / build`,
+  `TypeScript Packages / verify`, and `Secret Scan / gitleaks`.
 
 ## Go/No-Go Gates (Flip Repo To Public)
 
@@ -101,7 +105,7 @@ Version History records document revisions only.
 - [x] `pnpm docs:build` passes (MkDocs site is the review artifact)
 - [ ] Git history strategy is executed (see §1.1): squash vs scrub
 - [ ] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
-- [ ] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
+- [x] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
 
 ---
 
@@ -204,7 +208,7 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 ### 1.7 CI/CD & GitHub Repository Settings
 
 - [x] Review `.github/workflows/docs-check.yml` — ensure it doesn't expose secrets in logs
-- [ ] Add branch protection rules (require PR reviews, passing CI before merge)
+- [x] Add branch protection rules (require PR reviews, passing CI before merge)
 - [ ] Configure GitHub repository settings:
   - [x] Enable Dependabot for security alerts
   - [x] Enable secret scanning (GitHub Advanced Security)
