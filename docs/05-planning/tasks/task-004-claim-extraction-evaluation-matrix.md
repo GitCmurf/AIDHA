@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-004
 owner: Ingestion Engineering Lead
 status: Approved
-version: "0.8"
+version: "0.9"
 last_updated: 2026-05-13
 title: Claim Extraction Evaluation Matrix
 type: TASK
@@ -16,7 +16,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
 > **Status:** Approved
-> **Version:** 0.8
+> **Version:** 0.9
 > **Last Updated:** 2026-05-13
 > **Type:** TASK
 
@@ -34,6 +34,7 @@ docops_version: "2.0"
 | 0.6     | 2026-03-03 | AI-assisted | Add tier filtering and extraction-vs-judge cost breakdown | — | Draft | AIDHA-TASK-003 |
 | 0.7     | 2026-05-13 | AI-assisted | Add a concrete completion roadmap for the remaining matrix workstream and closeout order. | — | Draft | AIDHA-TASK-003 |
 | 0.8     | 2026-05-13 | AI-assisted | Reconcile implementation state with task checklist: mark shipped tasks resolved, correct model registry spec and model candidates, fix internal ScoreDimension duplication, add implementation-evolved notices at stale type specs, update Completion Roadmap to reflect gate completion and list remaining open items. | — | Approved | AIDHA-EVAL-TASK-004 |
+| 0.9     | 2026-05-13 | AI-assisted | Clarify that the core matrix harness is already implemented, reframe remaining work as evidence artifacts, and move PR-comment workflow to optional follow-up. | — | Approved | AIDHA-EVAL-TASK-004 |
 
 ## Overview
 
@@ -128,8 +129,10 @@ evaluation harness contract.
 
 ## Completion Roadmap
 
-> **Status as of 2026-05-13:** Gates 1–4 are closed. See AIDHA-EVAL-TASK-004 for the engineering
-> completion note. The remaining open items are listed below before the gate descriptions.
+> **Status as of 2026-05-13:** The core matrix harness, scoring pipeline, reporting, CLI, and CI
+> gates are already implemented. The remaining open items below are residual evidence artifacts and
+> one optional PR-visibility hardening step. See AIDHA-EVAL-TASK-004 for the engineering completion
+> note and current operational behavior.
 
 ### Remaining Open Items
 
@@ -138,10 +141,10 @@ phase sections above.
 
 | Task | Description | Blocker / Notes |
 | ---- | ----------- | --------------- |
-| **1.2 (partial)** | Commit additional transcript excerpt fixtures (need ≥2 more diverse excerpts beyond `short_solo_1.json` to satisfy ≥3 distinct topic domains) | Requires copyright-safe excerpts or synthetic transcripts |
-| **1.7 (partial)** | Commit prompt template files and ≥4 captured prompt/response snapshots to `tests/fixtures/eval-matrix/manual-baseline/` | Procedure doc exists (AIDHA-EVAL-MANUAL-BASELINE); snapshots not yet committed |
-| **1.8** | Document the editorial ablation variant delta comparison in report form (raw vs editorial-pass-v1 score deltas and qualitative missingClaims changes) | Requires running ablation and committing the comparison write-up |
-| **2.2b** | Commit calibration records (prompt version, judge model, per-dimension deltas, pass/fail determination against >0.7 agreement threshold) | One-time documentation task once judge is validated |
+| **1.2 (partial)** | Commit at least 2 more transcript excerpt fixtures beyond `short_solo_1.json` so the committed fixture set covers the required diversity of topic domains and speaker styles | Prefer synthetic or short excerpt transcripts with clear provenance; full transcripts remain local-only |
+| **1.7 (partial)** | Commit prompt template files and at least 4 captured prompt/response snapshots to `tests/fixtures/eval-matrix/manual-baseline/` | Procedure doc exists (`AIDHA-EVAL-MANUAL-BASELINE`); snapshots are still the missing evidence artifact |
+| **1.8** | Document the editorial ablation variant delta comparison in report form (raw vs editorial-pass-v1 score deltas, missingClaims deltas, and the default-model recommendation that follows) | Requires running the ablation and committing the comparison write-up |
+| **2.2b** | Commit calibration records (prompt version, judge model, per-dimension deltas, pass/fail determination against the >0.7 agreement threshold) | One-time documentation task once judge validation is complete; records should live beside the other eval evidence |
 
 ---
 
@@ -204,8 +207,10 @@ phase sections above.
 
 ## Acceptance Criteria
 
-1. No existing tests - validation defined in [Phase 4: Validation & CI Integration](#phase-4-validation--ci-integration) and references Phase 4 test tasks (4.1-4.7).
-2. Document-level artifacts defined:
+1. The matrix harness, scoring pipeline, reporting, and CI gate behavior are already implemented and
+   covered by the Phase 4 tests listed below; the remaining open tasks are limited to residual
+   evidence artifacts and optional PR-comment hardening.
+2. Document-level artifacts are defined and stable:
    - Cell-level extraction output
    - Cell-level scoring output / ClaimSetScore
    - Aggregated Reports
@@ -652,12 +657,19 @@ phase sections above.
 - **Rationale**: The test suite map is how reviewers keep coverage coherent across a growing repo; new eval tests should be discoverable.
 - **Completion Criteria**: AIDHA-TESTING-001 lists the new eval tests; baseline counts refreshed; \`pnpm docs:build\` succeeds.
 
-### Task 4.7: Add CI/CD Pull Request Integration (Smoke Test)
+### Optional Follow-up: CI/CD Pull Request Smoke Comment
 
-- [ ] **Task**: Create \`.github/workflows/eval-matrix-pr.yml\` that triggers on PRs modifying \`packages/praecis/youtube/src/extract/\` or \`prompts/\`.
-- **Rationale**: Prevent regressions in the extraction pipeline by automatically running a lightweight "smoke" matrix (e.g., 2 videos × 2 models) and posting the resulting markdown report as a PR comment.
-- **Execution Guidance**: Use \`--force-budget\` is not required as the smoke matrix should be well under the $25 ceiling. Ensure the workflow token has permissions to write PR comments.
-- **Completion Criteria**: GitHub Action is merged and successfully posts matrix reports on relevant PRs.
+The repository already has CI regression coverage for the matrix harness. A separate PR-commenting
+workflow is only worth adding if reviewers need the smoke report visible directly on pull requests.
+If that need appears, create a lightweight \`.github/workflows/eval-matrix-pr.yml\` that:
+
+1. Triggers only on changes to the extraction/prompt surfaces.
+2. Runs the same smoke matrix used by the CI quality gate.
+3. Posts the resulting markdown report as a PR comment when the workflow token has comment
+   permission.
+
+Do not treat this as a prerequisite for the core matrix feature or for closing the residual work
+items above.
 
 ---
 
