@@ -155,7 +155,10 @@ function normalizeTokenUsage(input: unknown, output: unknown, total?: unknown): 
   const inputTokens = typeof input === 'number' && Number.isInteger(input) && input >= 0 ? input : undefined;
   const outputTokens = typeof output === 'number' && Number.isInteger(output) && output >= 0 ? output : undefined;
   if (inputTokens === undefined || outputTokens === undefined) return undefined;
-  const totalTokens = typeof total === 'number' && Number.isInteger(total) && total >= 0 ? total : inputTokens + outputTokens;
+  const computedTotal = inputTokens + outputTokens;
+  const totalTokens = typeof total === 'number' && Number.isInteger(total) && total >= computedTotal
+    ? total
+    : computedTotal;
   return { inputTokens, outputTokens, totalTokens };
 }
 

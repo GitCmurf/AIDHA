@@ -66,7 +66,7 @@ export function buildNarrowReportMetadata(
     embeddingModel: input.embeddingModel,
     completedStages: [
       ...(Object.entries(input.stageExecution) as [NarrowStageId, string][])
-        .filter(([, status]) => status === "resumed" || status === "recomputed")
+        .filter(([stage, status]) => stage !== "report" && (status === "resumed" || status === "recomputed"))
         .map(([stage]) => stage),
       "report",
     ] as NarrowStageId[],

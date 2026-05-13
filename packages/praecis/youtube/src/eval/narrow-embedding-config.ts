@@ -37,7 +37,7 @@ function parseValidTaskType(raw: string | undefined, fallback: string): GeminiEm
   return fallback as GeminiEmbeddingClientConfig["taskType"];
 }
 
-function parsePositiveInteger(raw: string | undefined, fallback: number): number | undefined {
+function parsePositiveInteger(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
   const parsed = Number(raw);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
@@ -76,7 +76,7 @@ export function getGoogleEmbeddingConfig(
       "SEMANTIC_SIMILARITY"
     ),
     outputDimensionality:
-      parsePositiveInteger(env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"], 768)
+      parsePositiveInteger(env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"])
       ?? llm.embeddingOutputDimensionality
       ?? 768,
   };
