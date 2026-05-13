@@ -24,6 +24,25 @@ export interface CreateGoogleEmbeddingClientOptions {
   logger: Logger;
 }
 
+const VALID_TASK_TYPES = new Set<string>([
+  "SEMANTIC_SIMILARITY",
+  "RETRIEVAL_QUERY",
+  "RETRIEVAL_DOCUMENT",
+  "CLASSIFICATION",
+  "CLUSTERING",
+]);
+
+function parseValidTaskType(raw: string | undefined, fallback: string): GeminiEmbeddingClientConfig["taskType"] {
+  if (raw && VALID_TASK_TYPES.has(raw)) return raw as GeminiEmbeddingClientConfig["taskType"];
+  return fallback as GeminiEmbeddingClientConfig["taskType"];
+}
+
+function parsePositiveInteger(raw: string | undefined, fallback: number): number | undefined {
+  if (raw === undefined) return undefined;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 export function getGoogleEmbeddingConfig(
   config: ResolvedConfig,
   env: NodeJS.ProcessEnv = process.env
@@ -52,15 +71,14 @@ export function getGoogleEmbeddingConfig(
       env["AIDHA_EVAL_EMBEDDING_MODEL"] ||
       DEFAULT_GOOGLE_EMBEDDING_MODEL,
     batchSize: llm.embeddingBatchSize,
-    taskType: (
-      env["GOOGLE_EMBEDDING_TASK_TYPE"] ||
-      llm.embeddingTaskType ||
+    taskType: parseValidTaskType(
+      env["GOOGLE_EMBEDDING_TASK_TYPE"] || llm.embeddingTaskType || undefined,
       "SEMANTIC_SIMILARITY"
-    ) as GeminiEmbeddingClientConfig["taskType"],
+    ),
     outputDimensionality:
-      Number(env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"]) ||
-      llm.embeddingOutputDimensionality ||
-      768,
+      parsePositiveInteger(env["GOOGLE_EMBEDDING_OUTPUT_DIMENSIONALITY"], 768)
+      ?? llm.embeddingOutputDimensionality
+      ?? 768,
   };
 }
 

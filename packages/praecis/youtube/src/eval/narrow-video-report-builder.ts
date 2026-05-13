@@ -90,6 +90,7 @@ export function createNarrowVideoReportBuilder(context: NarrowVideoReportBuilder
     const candidateReports: NarrowComparisonCandidateReport[] = [];
     for (const [candidateIndex, candidate] of comparableClaimSets.entries()) {
       if (effectiveEmbeddingClient && context.budgetState.remainingEmbeddingRequests <= 0) {
+        context.budgetSkips.push(`embedding-budget-exceeded:${video.videoId}:${candidate.candidateId}`);
         effectiveEmbeddingClient = undefined;
         context.logger.warn(
           `[embedding-skip-budget] video=${video.videoId} candidate=${candidate.candidateId} remaining=0`
@@ -112,6 +113,7 @@ export function createNarrowVideoReportBuilder(context: NarrowVideoReportBuilder
 
     if (includeManualBaselinesForVideo) {
       if (effectiveEmbeddingClient && context.budgetState.remainingEmbeddingRequests <= 0) {
+        context.budgetSkips.push(`embedding-budget-exceeded:${video.videoId}:teacher`);
         effectiveEmbeddingClient = undefined;
         context.logger.warn(`[embedding-skip-budget] video=${video.videoId} phase=teacher remaining=0`);
       }
@@ -145,12 +147,14 @@ export function createNarrowVideoReportBuilder(context: NarrowVideoReportBuilder
       context.fallbackCells,
       `Fallback for unavailable or degraded model rows: ${context.fallbackTriggeredFor.join(", ")}`
     );
-    return buildSingleVideoReport(
+    const result = await buildSingleVideoReport(
       input.video,
       comparableClaimSetIndex,
       input.includeManualBaselines,
       input.embeddingEligibleCandidateIdsByVideo
     );
+    annotateOptimizationRanks([result]);
+    return result;
   };
 
   const buildVideoReports = async (

@@ -152,10 +152,10 @@ function handleAbortOrError(
 }
 
 function normalizeTokenUsage(input: unknown, output: unknown, total?: unknown): LlmTokenUsage | undefined {
-  const inputTokens = typeof input === 'number' && Number.isFinite(input) ? input : undefined;
-  const outputTokens = typeof output === 'number' && Number.isFinite(output) ? output : undefined;
+  const inputTokens = typeof input === 'number' && Number.isInteger(input) && input >= 0 ? input : undefined;
+  const outputTokens = typeof output === 'number' && Number.isInteger(output) && output >= 0 ? output : undefined;
   if (inputTokens === undefined || outputTokens === undefined) return undefined;
-  const totalTokens = typeof total === 'number' && Number.isFinite(total) ? total : inputTokens + outputTokens;
+  const totalTokens = typeof total === 'number' && Number.isInteger(total) && total >= 0 ? total : inputTokens + outputTokens;
   return { inputTokens, outputTokens, totalTokens };
 }
 

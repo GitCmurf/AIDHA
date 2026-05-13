@@ -128,7 +128,7 @@ export function assessStructuralTargets(
       && finiteSet.listNouns.some((noun) => text.includes(normalizeKey(noun)))
   );
   const hasMemberListClaim = claims.some((claim) => hasEnumerationSurface(claim.text));
-  const hasAvoidRuleClaim = normalizedClaims.some((text) => AVOID_RULE_CUE.test(text));
+  const hasAvoidRuleClaim = claims.some((claim) => AVOID_RULE_CUE.test(claim.text));
 
   const rootWeight = finiteSet.requiresAvoidRule ? 0.45 : 0.55;
   const memberWeight = finiteSet.requiresAvoidRule ? 0.35 : 0.45;

@@ -71,7 +71,7 @@ async function hashFiles(filePaths: string[]): Promise<string> {
 }
 
 async function buildNarrowStageSignaturePayload(input: NarrowStageSignatureBaseInput): Promise<NarrowStageSignaturePayload> {
-  const corpusVideoIds = input.corpus.map((video) => video.videoId);
+  const corpusVideoIds = [...new Set(input.corpus.map((video) => video.videoId))].sort();
   const transcriptFiles = corpusVideoIds.map((id) => join(input.transcriptDir, `${id}.json`));
   const transcriptHash = await hashFiles(transcriptFiles);
 
@@ -167,7 +167,6 @@ export async function buildExtractionStageInputSignature(input: NarrowStageSigna
     goldHash: payload.goldHash,
     manualHash: payload.manualHash,
     includeManualBaselines: payload.includeManualBaselines,
-    manualBaselineDir: input.manualBaselineDir,
     fallbackModelId: payload.fallbackModelId,
     judgeModelIds: payload.judgeModelIds,
     judgeMaxTokens: payload.judgeMaxTokens,
@@ -213,11 +212,13 @@ export function buildVideoScoreInputSignature(input: {
     taskType: input.taskType,
     outputDimensionality: input.outputDimensionality,
     goldClaims: input.goldClaims.map((claim) => ({ id: claim.id, depth: claim.depth, text: normalizeKey(claim.text) })),
-    candidates: input.comparableClaimSets.map((candidate) => ({
-      candidateId: candidate.candidateId,
-      sourceKind: candidate.sourceKind,
-      claimSetHash: computeClaimSetHash(candidate.claims),
-    })),
+    candidates: [...input.comparableClaimSets]
+      .sort((a, b) => a.candidateId.localeCompare(b.candidateId))
+      .map((candidate) => ({
+        candidateId: candidate.candidateId,
+        sourceKind: candidate.sourceKind,
+        claimSetHash: computeClaimSetHash(candidate.claims),
+      })),
   })]);
 }
 

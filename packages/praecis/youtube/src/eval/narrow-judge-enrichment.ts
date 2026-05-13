@@ -110,7 +110,7 @@ export async function enrichCandidateReportWithJudges(
     report.note,
     someJudgesFailed ? `Some judges failed: ${judgeErrors.join(" ; ")}` : undefined,
     allJudgesFailed ? `All judges failed: ${judgeErrors.join(" ; ")}` : undefined,
-    isLowerRankedSkip ? "Judge skipped for lower-ranked row" : undefined,
+    isLowerRankedSkip ? "No judge client available for configured judge models" : undefined,
   ].filter(Boolean).join(" - ") || undefined;
   if (allJudgesFailed) {
     report.error = judgeErrors.join(" ; ");

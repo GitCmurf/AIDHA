@@ -266,7 +266,7 @@ async function tryDirectTimedText(
         resolveLogger(ytCfg).debug(
           `[transcript] timedtext fmt=${result.fmt ?? 'default'} status=${result.status} ` +
           `length=${result.payload.length} content-type=${result.contentType ?? ''} ` +
-          `content-length=${result.contentLength ?? ''} url=${result.finalUrl} preview=${preview}`
+          `content-length=${result.contentLength ?? ''} url=${maskTranscriptUrl(result.finalUrl ?? '')} preview=${preview}`
         );
       }
       if (result.segments.length > 0) {
@@ -1005,7 +1005,7 @@ export class RealYouTubeClient implements YouTubeClient {
           resolveLogger(this.ytCfg).debug(
             `[transcript] attempt fmt=${result.fmt ?? 'default'} status=${result.status} ` +
             `length=${result.payload.length} content-type=${result.contentType ?? ''} ` +
-            `content-length=${result.contentLength ?? ''} url=${result.finalUrl} preview=${preview}`
+            `content-length=${result.contentLength ?? ''} url=${maskTranscriptUrl(result.finalUrl ?? '')} preview=${preview}`
           );
         }
       }
@@ -1031,7 +1031,7 @@ export class RealYouTubeClient implements YouTubeClient {
               resolveLogger(this.ytCfg).debug(
                 `[transcript] direct fmt=${result.fmt ?? 'default'} status=${result.status} ` +
                 `length=${result.payload.length} content-type=${result.contentType ?? ''} ` +
-                `content-length=${result.contentLength ?? ''} url=${result.finalUrl} preview=${preview}`
+                `content-length=${result.contentLength ?? ''} url=${maskTranscriptUrl(result.finalUrl ?? '')} preview=${preview}`
               );
             }
           }

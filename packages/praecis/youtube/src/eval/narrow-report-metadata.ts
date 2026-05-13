@@ -65,10 +65,9 @@ export function buildNarrowReportMetadata(
     refinedTargetCount: input.refinedTargetCount,
     embeddingModel: input.embeddingModel,
     completedStages: [
-      "shortlist",
-      "refine",
-      "score",
-      ...(input.judgeEnabled ? ["judge"] : []),
+      ...(Object.entries(input.stageExecution) as [NarrowStageId, string][])
+        .filter(([, status]) => status === "resumed" || status === "recomputed")
+        .map(([stage]) => stage),
       "report",
     ] as NarrowStageId[],
     budgetSkips: input.budgetSkips,

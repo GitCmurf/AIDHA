@@ -30,10 +30,9 @@ export function backfillTranscriptStructureProfile(
   const transcript = transcriptByVideo.get(video.videoId);
   return {
     ...video,
-    transcriptStructureProfile: {
-      tags: [...(transcript?.structureProfile.tags ?? [])],
-      cueMatches: [...(transcript?.structureProfile.cueMatches ?? [])],
-    },
+    transcriptStructureProfile: transcript
+      ? { ...transcript.structureProfile, tags: [...transcript.structureProfile.tags], cueMatches: [...transcript.structureProfile.cueMatches] }
+      : { tags: [], cueMatches: [] },
   };
 }
 

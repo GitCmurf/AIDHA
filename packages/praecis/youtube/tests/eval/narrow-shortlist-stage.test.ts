@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { MatrixCell } from "../../src/eval/matrix-runner.js";
 import type { NarrowComparisonVideoReport } from "../../src/eval/narrow-report-types.js";
+import { getModel } from "../../src/eval/model-registry.js";
 import { createNarrowShortlistStage } from "../../src/eval/narrow-shortlist-stage.js";
 import {
   writeNarrowStageArtifact,
@@ -93,7 +94,7 @@ function createStage(outputDir: string, buildVideoReports = vi.fn().mockResolved
     buildVideoReports,
     stage: createNarrowShortlistStage({
       corpus: [],
-      models: [],
+      models: [getModel("gemini-3.1-flash-lite-preview")!],
       stage1Variants: ["raw"],
       runMode: "fast-triage",
       outputDir,

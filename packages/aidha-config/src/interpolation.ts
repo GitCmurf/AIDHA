@@ -70,8 +70,16 @@ interface InterpolationToken {
 
 function findTokenEnd(value: string, start: number): number {
   for (let index = start; index < value.length; index += 1) {
-    if (value[index] === '}' && value[index - 1] !== '\\') {
-      return index;
+    if (value[index] === '}') {
+      let backslashCount = 0;
+      let peek = index - 1;
+      while (peek >= 0 && value[peek] === '\\') {
+        backslashCount += 1;
+        peek -= 1;
+      }
+      if (backslashCount % 2 === 0) {
+        return index;
+      }
     }
   }
   return -1;

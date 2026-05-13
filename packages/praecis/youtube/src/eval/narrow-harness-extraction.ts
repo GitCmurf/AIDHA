@@ -30,6 +30,10 @@ export async function runHarnessExtractionOnly(
   cacheDir?: string,
   logger?: Logger
 ): Promise<MatrixCell[]> {
+  if (models.length === 0) {
+    throw new Error('runHarnessExtractionOnly: models array must not be empty');
+  }
+
   const chunkProfiles = Object.fromEntries(models.map((model) => {
     const profile = getNarrowEvalModelProfile(model.id, chunkMode);
     return [model.id, {
@@ -40,7 +44,7 @@ export async function runHarnessExtractionOnly(
     }];
   }));
 
-  const firstModelId = models[0]?.id ?? "gemini-3.1-flash-lite-preview";
+  const firstModelId = models[0]!.id;
   const firstProfile = chunkProfiles[firstModelId] ?? getNarrowEvalModelProfile(firstModelId, chunkMode);
 
   const options: MatrixOptions = {

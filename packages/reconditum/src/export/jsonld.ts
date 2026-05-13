@@ -44,6 +44,7 @@ export const JSONLD_CONTEXT = {
     'projectServesGoal': { '@type': '@id' },
     'projectInArea': { '@type': '@id' },
     'taskDependsOn': { '@type': '@id' },
+    'schemaVersion': 'https://aidha.dev/graph/schemaVersion',
   },
 } as const;
 

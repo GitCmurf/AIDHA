@@ -19,13 +19,29 @@ describe("Model Registry", () => {
   });
 
   it("should make provider client routing explicit", () => {
-    const routesByProvider = new Map(MODEL_REGISTRY.map(m => [m.provider, m.clientRoute]));
+    const routesByProvider = new Map<string, Set<string>>();
+    for (const m of MODEL_REGISTRY) {
+      const existing = routesByProvider.get(m.provider);
+      if (existing) {
+        existing.add(m.clientRoute);
+      } else {
+        routesByProvider.set(m.provider, new Set([m.clientRoute]));
+      }
+    }
 
-    expect(routesByProvider.get("google-aistudio")).toBe("native");
-    expect(routesByProvider.get("openai")).toBe("openai-compatible");
-    expect(routesByProvider.get("zai")).toBe("openai-compatible");
-    expect(routesByProvider.get("xiaomi")).toBe("openai-compatible");
-    expect(routesByProvider.get("openrouter")).toBe("openai-compatible");
+    const expectedRoutes: Record<string, string> = {
+      "google-aistudio": "native",
+      "openai": "openai-compatible",
+      "zai": "openai-compatible",
+      "xiaomi": "openai-compatible",
+      "openrouter": "openai-compatible",
+    };
+    for (const [provider, expectedRoute] of Object.entries(expectedRoutes)) {
+      const routes = routesByProvider.get(provider);
+      expect(routes, `provider ${provider} should have models`).toBeDefined();
+      expect(routes!.size, `all models for ${provider} should share the same clientRoute`).toBe(1);
+      expect([...routes!][0], `clientRoute for ${provider}`).toBe(expectedRoute);
+    }
   });
 
   it("should retrieve an OpenAI model by id", () => {

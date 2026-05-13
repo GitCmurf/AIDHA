@@ -59,6 +59,13 @@ export async function loadTranscript(
     })
   );
 
+  if (transcript.videoId !== video.videoId) {
+    throw new Error(
+      `Transcript videoId mismatch: file contains "${transcript.videoId}" but expected "${video.videoId}" ` +
+      `(${join(transcriptDir, `${video.videoId}.json`)})`
+    );
+  }
+
   return {
     videoContext: {
       videoId: video.videoId,
