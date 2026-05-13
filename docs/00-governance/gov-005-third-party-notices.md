@@ -2,8 +2,8 @@
 document_id: AIDHA-GOV-005
 owner: Engineering
 status: Draft
-version: '0.5'
-last_updated: 2026-05-12
+version: '0.6'
+last_updated: 2026-05-13
 title: Third-Party Notices
 type: GOV
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.5
-> **Last Updated:** 2026-05-12
+> **Version:** 0.6
+> **Last Updated:** 2026-05-13
 > **Type:** GOV
 
 # Third-Party Notices
@@ -29,6 +29,7 @@ docops_version: '2.0'
 | 0.3     | 2026-02-24 | AI     | Add explicit redistribution verification and acceptance-run coverage guidance | — | Draft | — |
 | 0.4     | 2026-05-12 | AI     | Add public-readiness fixture inventory and provenance status. | — | Draft | AIDHA-TASK-001 |
 | 0.5     | 2026-05-12 | AI     | Clarify committed versus local real-video fixture policy. | — | Draft | AIDHA-TASK-001 |
+| 0.6     | 2026-05-13 | AI     | Correct eval and acceptance-run provenance classifications. | — | Draft | AIDHA-TASK-001 |
 
 ## Purpose
 
@@ -91,30 +92,31 @@ for engineering and test fixtures.
   - `packages/praecis/youtube/tests/fixtures/eval-matrix/golden-annotations.json`
 - Declared status:
   - Needs follow-up before public-release checklist closure.
-  - The fixtures include real video IDs, real channel/person names, or content-derived claim
-    examples without enough provenance metadata in this register.
+  - `h_1zlead9ZU.samples.json` is the output of an extraction run on a transcript of a copyrighted
+    YouTube video.
+  - `golden-annotations.json` is an initial human/AI-authored golden extraction attempt derived
+    from transcripts of copyrighted YouTube videos.
 - Required closure:
-  - Replace with synthetic fixtures where possible; or
-  - add source URL, capture date, authoring method, license/permission basis, and minimal-excerpt
-    rationale before treating them as redistribution-safe.
+  - Replace committed extraction-quality fixtures with synthetic data where possible.
+  - Keep broader real-video golden sets in ignored local directories unless a specific artifact has
+    explicit redistribution permission and a registered minimal-excerpt rationale.
 
-### Acceptance run artifacts derived from transcripts
+### Acceptance run report artifacts
 
 - Location:
-  - `docs/55-testing/acceptance-run-*/`
+  - `docs/55-testing/acceptance-run-20260220/testing-002-acceptance-run-20260220.md`
 - Declared status:
-  - These documents may contain transcript-derived excerpts and therefore inherit the same
-    redistribution constraints as their source content.
-  - Before making this repository public, either:
-    - verify the source content is licensed for redistribution, or
-    - redact/remove transcript-derived excerpts from the acceptance-run docs.
+  - AI-agent generated report on an acceptance testing run.
+  - No copyrighted transcript data is known to be present in this report.
+- Operational note:
+  - If future acceptance-run artifacts include transcript excerpts, classify those specific
+    artifacts separately before committing them.
 
 ### Public-readiness fixture audit summary
 
-As of 2026-05-12, fixture redistribution is intentionally still open in `AIDHA-TASK-001`. The
-project should not close that public-release gate until the eval annotation fixtures and
-acceptance-run artifacts above are either replaced with synthetic data or have explicit provenance
-records in this notice register.
+As of 2026-05-13, fixture redistribution is intentionally still open in `AIDHA-TASK-001`. The
+project should not close that public-release gate until the eval annotation fixtures above are
+either replaced with synthetic data or moved to ignored local data.
 
 Broader real-video evaluation sets may be useful for private development, but they should live in
 ignored local directories such as `testdata/youtube_local/` or `testdata/nonredistributable/` until

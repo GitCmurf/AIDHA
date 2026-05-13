@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.17"
-last_updated: 2026-05-12
+version: "1.18"
+last_updated: 2026-05-13
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.17
-> **Last Updated:** 2026-05-12
+> **Version:** 1.18
+> **Last Updated:** 2026-05-13
 > **Type:** TASK
 
 # Public Repository Readiness — Task List & Strategy
@@ -42,6 +42,7 @@ docops_version: "2.0"
 | 1.15    | 2026-05-12 | AI     | Add fixture redistribution inventory and concrete provenance closure path. | — | Draft | AIDHA-GOV-005 |
 | 1.16    | 2026-05-12 | AI     | Record applied low-friction branch protection settings for `main`. | — | Draft | GitHub branch protection |
 | 1.17    | 2026-05-12 | AI     | Clarify fixture policy for Creative Commons transcript smoke tests and synthetic extraction goldens. | — | Draft | AIDHA-GOV-005 |
+| 1.18    | 2026-05-13 | AI     | Correct fixture provenance scope for eval artifacts and acceptance-run report. | — | Draft | AIDHA-GOV-005 |
 
 ## Project Status
 
@@ -91,8 +92,10 @@ Version History records document revisions only.
   registration; defer GitHub Discussions until there is actual community demand; keep fixture
   redistribution open for a provenance audit and likely synthetic golden-test expansion.
 - `AIDHA-GOV-005` now records a public-readiness fixture inventory. Synthetic eval-matrix fixtures
-  are identified as internally authored; eval annotation fixtures with real video IDs/person names
-  and acceptance-run transcript artifacts still require provenance closure or synthetic replacement.
+  are identified as internally authored. The extraction-golden and golden-annotation fixtures are
+  derived from copyrighted YouTube transcripts and should be replaced with synthetic committed
+  fixtures or moved to ignored local data. The acceptance-run report is AI-agent generated test
+  evidence, not known copyrighted transcript data.
 - Branch protection for `main` now requires pull requests, one approving review, strict required
   status checks, and admin enforcement. Required checks are `Docs Check / build`,
   `TypeScript Packages / verify`, and `Secret Scan / gitleaks`.
@@ -251,7 +254,11 @@ checked off, replace or register:
 
 - `packages/praecis/youtube/tests/fixtures/extraction-golden/h_1zlead9ZU.samples.json`;
 - `packages/praecis/youtube/tests/fixtures/eval-matrix/golden-annotations.json`;
-- transcript-derived artifacts under `docs/55-testing/acceptance-run-*/`.
+
+The acceptance-run report at
+`docs/55-testing/acceptance-run-20260220/testing-002-acceptance-run-20260220.md` is classified as
+AI-agent generated test evidence and is not part of the fixture redistribution blocker unless
+future review finds embedded transcript excerpts in a specific artifact.
 
 ### 1.8 Dependency Licence Audit
 
