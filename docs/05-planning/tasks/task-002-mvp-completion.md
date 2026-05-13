@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-002
 owner: Product
 status: Approved
-version: "0.4"
+version: "0.5"
 last_updated: 2026-05-13
 title: MVP Vertical Slice Completion Task List
 type: TASK
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Product
 > **Approvers:** —
 > **Status:** Approved
-> **Version:** 0.4
+> **Version:** 0.5
 > **Last Updated:** 2026-05-13
 > **Type:** TASK
 

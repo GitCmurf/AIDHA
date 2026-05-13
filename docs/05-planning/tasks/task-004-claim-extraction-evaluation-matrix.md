@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-004
 owner: Ingestion Engineering Lead
 status: Approved
-version: "0.9"
+version: "1.0"
 last_updated: 2026-05-13
 title: Claim Extraction Evaluation Matrix
 type: TASK
@@ -16,7 +16,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
 > **Status:** Approved
-> **Version:** 0.9
+> **Version:** 1.0
 > **Last Updated:** 2026-05-13
 > **Type:** TASK
 
@@ -35,6 +35,7 @@ docops_version: "2.0"
 | 0.7     | 2026-05-13 | AI-assisted | Add a concrete completion roadmap for the remaining matrix workstream and closeout order. | — | Draft | AIDHA-TASK-003 |
 | 0.8     | 2026-05-13 | AI-assisted | Reconcile implementation state with task checklist: mark shipped tasks resolved, correct model registry spec and model candidates, fix internal ScoreDimension duplication, add implementation-evolved notices at stale type specs, update Completion Roadmap to reflect gate completion and list remaining open items. | — | Approved | AIDHA-EVAL-TASK-004 |
 | 0.9     | 2026-05-13 | AI-assisted | Clarify that the core matrix harness is already implemented, reframe remaining work as evidence artifacts, and move PR-comment workflow to optional follow-up. | — | Approved | AIDHA-EVAL-TASK-004 |
+| 1.0     | 2026-05-14 | AI-assisted | Fix Markdown code-span escapes, remove the optional PR workflow from the critical path diagram, and align the remaining open-item wording with the current repo state. | — | Approved | AIDHA-EVAL-TASK-004 |
 
 ## Overview
 
@@ -646,22 +647,22 @@ phase sections above.
 
 ### Task 4.5: Add cost tracking and budget alerting
 
-- [x] **Task**: Extend matrix runner to track token usage per cell and emit a cost summary in the report with fields: `extractionTokens`, `judgeTokens`, `extractionCostUsd`, `judgeCostUsd`, \`estimatedCostUsd\`, \`costPerCell\`, \`costPerModel\`, \`costPerVideo\`
+- [x] **Task**: Extend matrix runner to track token usage per cell and emit a cost summary in the report with fields: `extractionTokens`, `judgeTokens`, `extractionCostUsd`, `judgeCostUsd`, `estimatedCostUsd`, `costPerCell`, `costPerModel`, `costPerVideo`
 - **Rationale**: A 10×10 matrix with judge scoring could cost $5–50+ per run. Cost visibility prevents budget surprises and enables cost-optimised model selection. Engineering-principles.md §5: "Think failure-first" — cost overrun is a failure mode.
 - **Regression Guard**: Cost estimation uses conservative token-to-cost ratios from model registry; actual costs logged alongside estimates
 - **Completion Criteria**: Cost summary appears in both markdown and JSON reports; total estimated cost displayed before execution in `--dry-run` mode
 
 ### Task 4.6: Keep AIDHA-TESTING-001 current
 
-- [x] **Task**: When Phase 4 tests are added, update AIDHA-TESTING-001 to register the new eval tests in the \`packages/praecis/youtube\` map and refresh the baseline counts
+- [x] **Task**: When Phase 4 tests are added, update AIDHA-TESTING-001 to register the new eval tests in the `packages/praecis/youtube` map and refresh the baseline counts
 - **Rationale**: The test suite map is how reviewers keep coverage coherent across a growing repo; new eval tests should be discoverable.
-- **Completion Criteria**: AIDHA-TESTING-001 lists the new eval tests; baseline counts refreshed; \`pnpm docs:build\` succeeds.
+- **Completion Criteria**: AIDHA-TESTING-001 lists the new eval tests; baseline counts refreshed; `pnpm docs:build` succeeds.
 
 ### Optional Follow-up: CI/CD Pull Request Smoke Comment
 
 The repository already has CI regression coverage for the matrix harness. A separate PR-commenting
 workflow is only worth adding if reviewers need the smoke report visible directly on pull requests.
-If that need appears, create a lightweight \`.github/workflows/eval-matrix-pr.yml\` that:
+If that need appears, create a lightweight `.github/workflows/eval-matrix-pr.yml` that:
 
 1. Triggers only on changes to the extraction/prompt surfaces.
 2. Runs the same smoke matrix used by the CI quality gate.
@@ -705,5 +706,4 @@ flowchart TD
   E --> V[4.3 Mocked matrix integration test]
   R --> W[4.4 CI quality gate (pinned baseline)]
   S --> X[4.5 Cost tracking + dry-run estimate]
-  W --> Y2[4.7 CI PR Action]
 ```

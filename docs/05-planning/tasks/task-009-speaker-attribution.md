@@ -141,8 +141,8 @@ changing the transcript text or timestamps.
 
 ## Validation Commands
 
-- `pnpm --dir packages/praecis/youtube exec vitest run tests/transcript-parse.test.ts tests/schema.test.ts tests/pipeline.test.ts tests/llm-claims.test.ts`
-- `pnpm --dir packages/praecis/youtube build`
+- `pnpm -C packages/praecis/youtube exec vitest run tests/transcript-parse.test.ts tests/schema.test.ts tests/pipeline.test.ts tests/llm-claims.test.ts`
+- `pnpm -C packages/praecis/youtube build`
 - `pnpm docs:build`
 - `node scripts/meminit-check.mjs docs/05-planning/tasks/task-003-extraction-quality-atomic-breakdown.md docs/05-planning/tasks/task-009-speaker-attribution.md`
 
