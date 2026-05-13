@@ -681,9 +681,9 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-007",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "1.59",
-      "last_updated": "2026-05-12",
+      "status": "Approved",
+      "version": "1.60",
+      "last_updated": "2026-05-13",
       "title": "Engineering Tech Debt Backlog",
       "type": "TASK",
       "docops_version": "2.0",
@@ -731,8 +731,8 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-001",
       "owner": "GitCmurf",
-      "status": "Draft",
-      "version": "1.19",
+      "status": "Approved",
+      "version": "1.20",
       "last_updated": "2026-05-13",
       "title": "Public Repository Readiness — Task List & Strategy",
       "type": "TASK",
