@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-TASK-002
 owner: Product
-status: Draft
-version: "0.3"
-last_updated: 2026-02-27
+status: Approved
+version: "0.4"
+last_updated: 2026-05-13
 title: MVP Vertical Slice Completion Task List
 type: TASK
 docops_version: "2.0"
@@ -14,9 +14,9 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-002
 > **Owner:** Product
 > **Approvers:** —
-> **Status:** Draft
-> **Version:** 0.3
-> **Last Updated:** 2026-02-27
+> **Status:** Approved
+> **Version:** 0.4
+> **Last Updated:** 2026-05-13
 > **Type:** TASK
 
 # MVP Vertical Slice Completion Task List
@@ -29,6 +29,7 @@ docops_version: "2.0"
 | 0.2     | 2026-02-25 | AI     | Execute remaining MVP reconciliation tasks, refresh phase/task statuses, and record validation evidence. | — | Draft | — |
 | 0.3     | 2026-02-27 | AI     | Update Phase 3 status gates and expand execution evidence for Phase 4 documentation coverage. | — | Draft | — |
 | 0.4     | 2026-02-27 | AI     | Final reconciliation of all MVP phases, resolution of regression tests, and verification of public-repo readiness gates. | — | Draft | — |
+| 0.5     | 2026-05-13 | AI     | Mark the MVP vertical slice task list complete after final repository readiness verification. | — | Approved | AIDHA-TASK-001 |
 
 ## Purpose
 

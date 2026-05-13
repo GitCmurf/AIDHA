@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-TASK-006
 owner: Ingestion Engineering Lead
-status: Draft
-version: "0.4"
-last_updated: 2026-04-21
+status: Approved
+version: "0.5"
+last_updated: 2026-05-13
 title: Evaluation Refinement and Self-Improvement Validation
 type: TASK
 docops_version: "2.0"
@@ -15,9 +15,9 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-006
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
-> **Status:** Draft
-> **Version:** 0.4
-> **Last Updated:** 2026-04-21
+> **Status:** Approved
+> **Version:** 0.5
+> **Last Updated:** 2026-05-13
 > **Type:** TASK
 
 # Tasks: Evaluation Refinement and Self-Improvement Validation
@@ -30,6 +30,7 @@ docops_version: "2.0"
 | 0.2     | 2026-04-21 | AI     | Add open questions, phased TDD steps, and governance gates. | — | Draft | b640b5b |
 | 0.3     | 2026-04-21 | AI     | Correct stale assumptions, add engineering guardrails, and tighten PR-readiness gates. | — | Draft | b640b5b |
 | 0.4     | 2026-04-21 | AI     | Mark all tasks as complete after successful implementation and validation. | — | Draft | b640b5b |
+| 0.5     | 2026-05-13 | AI     | Mark evaluation refinement and self-improvement validation complete after implementation and doc closure. | — | Approved | AIDHA-TASK-001 |
 
 **Input**: Commit `b640b5b` (feat: implement narrow manual baseline and self-improvement prompts)
 **Prerequisites**: [AIDHA-PLAN-004](../plan-004-improve-claims-quality-editorial-ranking.md), [AIDHA-ADR-007](../../20-adr/adr-007-two-pass-llm-extraction-architecture.md)
