@@ -32,6 +32,22 @@ describe('transcript parsing', () => {
     expect(segments[0]?.text).toContain('Safe');
   });
 
+  it('fully eliminates nested tag-split markup constructs', () => {
+    const xml = [
+      '<transcript>',
+      '<text start="0.0" dur="1.0">a <scr<script>ipt>evil</script>b</text>',
+      '</transcript>',
+    ].join('');
+
+    const segments = parseTranscriptXml(xml);
+    expect(segments).toHaveLength(1);
+    const text = segments[0]?.text ?? '';
+    expect(text).not.toContain('<script');
+    expect(text).not.toContain('</script');
+    expect(text).toContain('a ');
+    expect(text).toContain('b');
+  });
+
   it('preserves encoded less-than text in XML transcript cues', () => {
     const xml = [
       '<transcript>',

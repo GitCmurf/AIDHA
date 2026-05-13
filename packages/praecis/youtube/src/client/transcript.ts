@@ -12,7 +12,24 @@ function normalizeTranscriptText(value: string): string {
 }
 
 function stripMarkupTags(value: string): string {
-  return value.replace(/<\/?[A-Za-z][^>]*>/g, '');
+  let result = '';
+  let i = 0;
+  while (i < value.length) {
+    if (value[i] === '<') {
+      const next = value[i + 1];
+      if (next === '/' || (next !== undefined && next >= 'A' && next <= 'Z') || (next !== undefined && next >= 'a' && next <= 'z')) {
+        let j = i + 1;
+        while (j < value.length && value[j] !== '>') j++;
+        if (j < value.length) {
+          i = j + 1;
+          continue;
+        }
+      }
+    }
+    result += value[i];
+    i++;
+  }
+  return result;
 }
 
 function parseVttVoiceTag(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
