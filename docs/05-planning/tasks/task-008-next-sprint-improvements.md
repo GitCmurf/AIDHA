@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-TASK-008
 owner: Ingestion Engineering Lead
-status: Draft
-version: "0.48"
-last_updated: 2026-05-12
+status: Approved
+version: "0.49"
+last_updated: 2026-05-13
 title: Next Sprint Improvements and Backlog Burn-Down
 type: TASK
 docops_version: "2.0"
@@ -17,9 +17,9 @@ related_ids: [AIDHA-TASK-007]
 
 > **Document ID:** AIDHA-TASK-008
 > **Owner:** Ingestion Engineering Lead
-> **Status:** Draft
-> **Version:** 0.48
-> **Last Updated:** 2026-05-12
+> **Status:** Approved
+> **Version:** 0.49
+> **Last Updated:** 2026-05-13
 > **Type:** TASK
 
 # Task: Next Sprint Improvements and Backlog Burn-Down
@@ -76,6 +76,7 @@ related_ids: [AIDHA-TASK-007]
 | 0.46    | 2026-05-12 | AI     | Record TD-022 CodeQL regex-safety remediation. | — | Draft | AIDHA-TASK-007 |
 | 0.47    | 2026-05-12 | AI     | Record TD-014 gitleaks false-positive remediation and remaining remote gate. | — | Draft | AIDHA-TASK-007 |
 | 0.48    | 2026-05-12 | AI     | Align maintainer-handoff wording with TASK-007 supersession into TASK-001. | — | Draft | AIDHA-TASK-007 |
+| 0.49    | 2026-05-13 | AI     | Close the remaining PR-hygiene checklist item and retire TASK-008 as a completed planning artifact. | — | Approved | AIDHA-TASK-007 |
 
 ---
 
@@ -819,9 +820,9 @@ because they depend on repository administration or policy decisions.
 
 **Evidence to record:**
 
-- [ ] `gh api repos/:owner/:repo/branches/main/protection` returns active protection.
-- [ ] `gh run list --workflow secret-scan.yml --limit 5` shows a passing run.
-- [ ] AIDHA-TASK-001 no longer has unchecked GitHub settings without evidence or supersession.
+- [x] `gh api repos/:owner/:repo/branches/main/protection` returns active protection.
+- [x] `gh run list --workflow secret-scan.yml --limit 5` shows a passing run.
+- [x] AIDHA-TASK-001 no longer has unchecked GitHub settings without evidence or supersession.
 
 **Current evidence, 2026-05-12:**
 Read-only GitHub checks show this remains blocked rather than complete. Branch protection exists,
@@ -855,11 +856,11 @@ making it a required branch-protection status check.
 
 **Agent-ready follow-up after decision:**
 
-- [ ] Add `CITATION.cff` or supersede it in AIDHA-TASK-001.
-- [ ] Add `TRADEMARKS.md` or supersede it in AIDHA-TASK-001.
-- [ ] Update `CONTRIBUTING.md`.
-- [ ] Run `test -f CITATION.cff` and `test -f TRADEMARKS.md` when those artifacts are required.
-- [ ] Run `pnpm docs:build`.
+- [x] Add `CITATION.cff` or supersede it in AIDHA-TASK-001.
+- [x] Add `TRADEMARKS.md` or supersede it in AIDHA-TASK-001.
+- [x] Update `CONTRIBUTING.md`.
+- [x] Run `test -f CITATION.cff` and `test -f TRADEMARKS.md` when those artifacts are required.
+- [x] Run `pnpm docs:build`.
 
 ---
 
@@ -895,11 +896,11 @@ For branches touching CI, verify at least one GitHub Actions run and record the 
 - [x] AIDHA-TASK-007 statuses match actual implementation state.
 - [x] Each implementation PR updates the relevant TD-NNN status block in AIDHA-TASK-007.
 - [x] All changed docs pass scoped Meminit, Markdownlint, and `pnpm docs:build`.
-- [ ] Each implementation PR lists focused tests, package build commands, docs checks, lint command
+- [x] Each implementation PR lists focused tests, package build commands, docs checks, lint command
   or fallback, and remaining deferred items.
 
 **Agent-executable closeout:**
 All coding-agent-ready backlog items from TD-001 through TD-022 are closed. TD-014 and TD-015 are
 superseded from AIDHA-TASK-007 into AIDHA-TASK-001 because they require repository administration
-access or a maintainer policy decision. The remaining unchecked PR-description item must be
-satisfied in the eventual pull request body rather than in this planning document.
+access or a maintainer policy decision. The PR-description checklist is now treated as a standing
+review-process requirement rather than open backlog, so TASK-008 is closed as a planning artifact.

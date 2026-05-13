@@ -703,9 +703,9 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-004",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "0.6",
-      "last_updated": "2026-03-03",
+      "status": "Approved",
+      "version": "1.0",
+      "last_updated": "2026-05-13",
       "title": "Claim Extraction Evaluation Matrix",
       "type": "TASK",
       "docops_version": "2.0"
@@ -717,9 +717,9 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-006",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "0.4",
-      "last_updated": "2026-04-21",
+      "status": "Approved",
+      "version": "0.5",
+      "last_updated": "2026-05-13",
       "title": "Evaluation Refinement and Self-Improvement Validation",
       "type": "TASK",
       "docops_version": "2.0"
@@ -743,11 +743,11 @@
     "path": "05-planning/tasks/task-003-extraction-quality-atomic-breakdown.md",
     "title": "YouTube Claim Extraction - Production-Grade Atomic Task Breakdown",
     "front_matter": {
-      "document_id": "AIDHA-TASK-003-ATOMIC",
+      "document_id": "AIDHA-TASK-003",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "1.2",
-      "last_updated": "2026-03-03",
+      "status": "Approved",
+      "version": "1.3",
+      "last_updated": "2026-05-13",
       "title": "YouTube Claim Extraction - Production-Grade Atomic Task Breakdown",
       "type": "TASK",
       "docops_version": "2.0"
@@ -759,9 +759,9 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-008",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "0.48",
-      "last_updated": "2026-05-12",
+      "status": "Approved",
+      "version": "0.49",
+      "last_updated": "2026-05-13",
       "title": "Next Sprint Improvements and Backlog Burn-Down",
       "type": "TASK",
       "docops_version": "2.0",
@@ -775,6 +775,31 @@
       ],
       "related_ids": [
         "AIDHA-TASK-007"
+      ]
+    }
+  },
+  {
+    "path": "05-planning/tasks/task-009-speaker-attribution.md",
+    "title": "Task: Speaker Attribution Pipeline",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-009",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-05-13",
+      "title": "Speaker Attribution Pipeline",
+      "type": "TASK",
+      "docops_version": "2.0",
+      "area": "INGEST",
+      "keywords": [
+        "speaker-attribution",
+        "transcripts",
+        "provenance",
+        "extraction",
+        "auditability"
+      ],
+      "related_ids": [
+        "AIDHA-TASK-003"
       ]
     }
   },
@@ -798,9 +823,9 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-002",
       "owner": "Product",
-      "status": "Draft",
-      "version": "0.3",
-      "last_updated": "2026-02-27",
+      "status": "Approved",
+      "version": "0.5",
+      "last_updated": "2026-05-13",
       "title": "MVP Vertical Slice Completion Task List",
       "type": "TASK",
       "docops_version": "2.0"
