@@ -111,7 +111,7 @@ These anchors are for humans and the judge prompt so scores are comparable over 
 - **Context window**: judges cannot always see a 2hr transcript; plan for chunked / sampled scoring where needed.
 - **Judge bias**: LLM-as-judge can drift; calibrate on Golden Set and use multi-judge consensus + variance flags.
 - **Cost**: matrix runs can be expensive; dry-run planning and caching are mandatory.
-- **Budget ceiling**: default ceiling for a “full matrix” run is `$25` estimated cost. Runs above this should require manual approval. (`--dry-run` must print estimated cost before execution.)
+- **Budget ceiling**: default ceiling for a “full matrix” run is `$25` estimated cost. The matrix orchestrator must automatically abort runs exceeding this estimate unless overridden with a CLI flag. (`--dry-run` must print estimated cost before execution.)
 - **Prompt injection (transcript content)**: transcripts may contain adversarial text. Judge prompts should wrap transcript in clear delimiters and instruct the judge to treat transcript text as data, not instructions.
 - **Rollback/recovery**: define how to invalidate a bad run/cell cache without deleting unrelated cache entries.
 
@@ -204,7 +204,7 @@ phase sections above.
 
 ## Acceptance Criteria
 
-1. No existing tests - validation defined in [Phase 4: Validation & CI Integration](#phase-4-validation--ci-integration) and references Phase 4 test tasks (4.1-4.6).
+1. No existing tests - validation defined in [Phase 4: Validation & CI Integration](#phase-4-validation--ci-integration) and references Phase 4 test tasks (4.1-4.7).
 2. Document-level artifacts defined:
    - Cell-level extraction output
    - Cell-level scoring output / ClaimSetScore
@@ -268,7 +268,7 @@ phase sections above.
 ### Task 1.4: Implement matrix runner orchestrator
 
 - [x] **Task**: Create [`packages/praecis/youtube/src/eval/matrix-runner.ts`] with `runEvaluationMatrix(corpus: CorpusEntry[], models: EvalModel[], options: MatrixOptions): Promise<MatrixResult>` that iterates video × model combinations, invokes extraction, and collects raw claim sets
-- **Rationale**: Orchestrator separates extraction execution from scoring (separation of concerns). Supports partial runs, resume-on-failure, and parallel execution per model. It must also support **pipeline variants** so we can measure deltas (e.g., editorial second pass on/off).
+- **Rationale**: Orchestrator separates extraction execution from scoring (separation of concerns). Supports partial runs, resume-on-failure, and parallel execution per model. Robust execution requires explicit concurrency controls, backoff for rate limits, and budget enforcement to prevent runaway costs on API errors. It must also support **pipeline variants** so we can measure deltas (e.g., editorial second pass on/off).
 - **Variant Requirement**: Matrix keys include an `extractorVariantId` (e.g., `raw`, `editorial-pass-v1`, `editorial-pass-v2`) so we can run ablations without changing model IDs.
 - **Contract Requirement**: Define (and export) the core eval types so downstream modules are not guesswork:
   - `ExtractorVariantId`
@@ -296,6 +296,7 @@ phase sections above.
     judgeModels: string[];
     maxConcurrency: number;
     timeoutMs: number;
+    forceBudget?: boolean;
     // Optional evaluation-only overrides to avoid silent truncation/drops.
     extractionMaxTokens?: number;
     extractionMaxChunks?: number;
@@ -331,10 +332,10 @@ phase sections above.
     };
   }
   ```
-- **Failure Semantics**: For any cell that still fails after extraction retries, record a structured `error` on that `MatrixCell` and continue the run (do not abort the entire matrix by default).
+- **Failure Semantics**: For any cell that still fails after extraction retries (including exponential backoff for `429 Too Many Requests` with jitter), record a structured `error` on that `MatrixCell` and continue the run (do not abort the entire matrix by default).
 - **Logging Requirement**: Emit structured progress logs so long runs are readable:
   - Example: `[cell 12/60] videoId=h_1zlead9ZU modelId=gpt-5-mini variant=raw status=ok durationMs=53210`
-- **Regression Guard**: Each run produces a deterministic output keyed by `videoId + modelId + extractorVariantId + promptVersion`; results cached to `out/eval-matrix/runs/`; raw prompt/response traces stored per cell for debugging
+- **Regression Guard**: Each run produces a deterministic output keyed by `videoId + modelId + extractorVariantId + promptVersion`; results cached to `out/eval-matrix/runs/`; raw prompt/response traces stored per cell for debugging; matrix run automatically aborts if the `estimatedCostUsd` exceeds the budget ceiling without `--force-budget`.
 - **Completion Criteria**: Orchestrator completes a 2-video × 2-model × 2-variant matrix in <10 minutes using cached transcripts; outputs structured JSON per cell
 
 ### Task 1.4b: Make extractor variants non-stringly-typed
@@ -518,7 +519,7 @@ phase sections above.
 - **Implementation Note**: The `LlmClient` interface lives at `packages/praecis/youtube/src/extract/llm-client.ts` and exposes `generate(request: LlmCompletionRequest): Promise<LlmCompletionResult>`. The `Result<T>` wrapper is defined in `packages/praecis/youtube/src/pipeline/types.ts` as `{ ok: true; value: T } | { ok: false; error: E }`. Judge model selection is per-call via `judgeModel`; client routing is driven by model registry `clientRoute` metadata, not ad-hoc conditionals.
 - **Judge Token Budget**: Configure a judge-specific `maxTokens` high enough to avoid truncation of structured diagnostics arrays (recommend starting range `4000–8000`, then tune). Expose as `AIDHA_EVAL_JUDGE_MAX_TOKENS`.
 - **JSON Mode Prerequisite**: If `supportsJsonMode` is true for a model, ensure the client can actually request JSON-only output (e.g., OpenAI-compatible `response_format`). If the current `LlmClient` cannot pass this through, add it as a prerequisite task before relying on JSON mode in eval.
-- **Regression Guard**: Parse failures logged with raw response for debugging; retry includes validation error in follow-up prompt; timeout configurable via `AIDHA_EVAL_JUDGE_TIMEOUT_MS`
+- **Regression Guard**: Parse failures logged with raw response for debugging; retry includes validation error in follow-up prompt; timeout configurable via `AIDHA_EVAL_JUDGE_TIMEOUT_MS`; must implement exponential backoff for `429 Too Many Requests` to handle judge rate limits across concurrent cells gracefully.
 - **Completion Criteria**: Executor returns validated `ClaimSetScore` or structured error; retry success rate >80% on intentionally malformed responses
 
 ### Task 2.4: Implement multi-judge consensus scoring
@@ -526,7 +527,7 @@ phase sections above.
 - [x] **Task**: Create [`packages/praecis/youtube/src/eval/consensus-scorer.ts`] with `scoreWithConsensus(...)` that runs ≥2 judge models (configurable) and computes mean scores with inter-rater variance
 - **Rationale**: Single-judge scoring is unreliable due to model-specific biases. Multi-judge consensus with variance reporting surfaces disagreements that indicate ambiguous extraction quality. Engineering-principles.md §8: "Optimise after measuring" — variance data guides judge selection.
 - **KISS Default**: Single-judge scoring should be the default path initially; add consensus after Task 2.2b calibration is stable.
-- **Consensus Method**: Mean of dimension scores; flag cells where any dimension variance >2.0 for manual review
+- **Consensus Method**: Mean of dimension scores; flag cells where any dimension variance >2.0 for manual review. High-variance cells must be structurally isolated so they do not silently skew top-line aggregates.
 - **Regression Guard**: Minimum 2 judges required; single-judge fallback emits warning; variance computed per dimension
 - **Completion Criteria**: Consensus scorer produces mean + variance for all four dimensions; high-variance cells flagged in output
 
@@ -545,7 +546,7 @@ phase sections above.
 
 - [x] **Task**: Create [`packages/praecis/youtube/src/eval/matrix-aggregator.ts`] with `aggregateMatrixResults(cells: MatrixCell[]): MatrixReport` that computes per-model averages, per-video averages, overall rankings, and dimension-specific leaderboards
 - **Rationale**: Raw cell scores are not actionable without aggregation. Per-model averages reveal which models extract best; per-video averages reveal which content types are hardest; dimension leaderboards show model strengths (e.g., "Model X is most accurate but least complete").
-- **Aggregation Metrics**: mean, median, min, max, stddev per dimension per model; rank ordering by overall score; cost-efficiency ratio (score / cost)
+- **Aggregation Metrics**: mean, median, min, max, stddev per dimension per model; rank ordering by overall score; cost-efficiency ratio (score / cost). Exclude high-variance consensus cells (variance >2.0) from the top-line mean averages, aggregating them into a separate "Ambiguous" bucket instead.
 - **Regression Guard**: Aggregator handles missing cells (partial matrix runs) gracefully; empty matrix returns structured error
 - **Spec Definition** *(import `ScoreDimension` from `scoring-rubric.ts`; do not redeclare here)*:
   ```typescript
@@ -561,6 +562,7 @@ phase sections above.
     modelStats: Record<string, { dimensions: DimensionStats; estimatedCostUsd?: number }>;
     videoStats: Record<string, { dimensions: DimensionStats }>;
     leaderboards: Record<ScoreDimension, { modelId: string; score: number }[]>;
+    ambiguousCalls?: MatrixCell[]; // High-variance cells
   }
   ```
 - **Completion Criteria**: Aggregator produces valid report from a 3×3 matrix; rankings are deterministic (tiebreaker by model name)
@@ -577,6 +579,7 @@ phase sections above.
   - Manual baseline delta notes (links to Task 1.7 artifacts)
   - Cost-efficiency analysis
   - Failure analysis (cells scoring <4 on any dimension)
+  - Ambiguous Calls (High-variance cells isolated for human review)
 - **Regression Guard**: Report renderer tested with mock data; output validated as parseable markdown
 - **Completion Criteria**: Report renders cleanly in MkDocs preview (`pnpm docs:serve`); all sections populated from mock matrix data
 
@@ -589,8 +592,8 @@ phase sections above.
 
 ### Task 3.4: Add CLI command for evaluation matrix
 
-- [x] **Task**: Add `eval matrix` subcommand to [`packages/praecis/youtube/src/cli-eval.ts`] with flags: `--corpus <path>`, `--models <comma-separated>`, `--tier <frontier|midtier|budget>`, `--judge-models <comma-separated>`, `--variants <comma-separated>`, `--output-dir <path>`, `--format <md|json|both>`, `--resume` (skip cached cells), `--dry-run` (show matrix plan without execution), `--max-concurrency <n>`, `--invalidate-run <runId>`. (Implemented in `cli-eval.ts`, not `cli.ts`.)
-- **Rationale**: CLI integration enables both interactive use and CI automation. `--dry-run` prevents accidental expensive runs; `--resume` enables incremental matrix completion.
+- [x] **Task**: Add `eval matrix` subcommand to [`packages/praecis/youtube/src/cli-eval.ts`] with flags: `--corpus <path>`, `--models <comma-separated>`, `--tier <frontier|midtier|budget>`, `--judge-models <comma-separated>`, `--variants <comma-separated>`, `--output-dir <path>`, `--format <md|json|both>`, `--resume` (skip cached cells), `--dry-run` (show matrix plan without execution), `--max-concurrency <n>`, `--invalidate-run <runId>`, `--video <videoId>`, `--force-budget`. (Implemented in `cli-eval.ts`, not `cli.ts`.)
+- **Rationale**: CLI integration enables both interactive use and CI automation. `--dry-run` prevents accidental expensive runs; `--resume` enables incremental matrix completion. Addition of single `--video` flag allows targeted debugging without full corpus cost.
 - **Regression Guard**: CLI help text updated; `--dry-run` produces no LLM calls; unknown flags produce clear error
 - **Completion Criteria**: `pnpm -C packages/praecis/youtube cli eval matrix --dry-run --corpus <path>` outputs planned matrix dimensions without API calls; `--help` documents all flags
 
@@ -638,16 +641,23 @@ phase sections above.
 
 ### Task 4.5: Add cost tracking and budget alerting
 
-- [x] **Task**: Extend matrix runner to track token usage per cell and emit a cost summary in the report with fields: `extractionTokens`, `judgeTokens`, `extractionCostUsd`, `judgeCostUsd`, `estimatedCostUsd`, `costPerCell`, `costPerModel`, `costPerVideo`
+- [x] **Task**: Extend matrix runner to track token usage per cell and emit a cost summary in the report with fields: `extractionTokens`, `judgeTokens`, `extractionCostUsd`, `judgeCostUsd`, \`estimatedCostUsd\`, \`costPerCell\`, \`costPerModel\`, \`costPerVideo\`
 - **Rationale**: A 10×10 matrix with judge scoring could cost $5–50+ per run. Cost visibility prevents budget surprises and enables cost-optimised model selection. Engineering-principles.md §5: "Think failure-first" — cost overrun is a failure mode.
 - **Regression Guard**: Cost estimation uses conservative token-to-cost ratios from model registry; actual costs logged alongside estimates
 - **Completion Criteria**: Cost summary appears in both markdown and JSON reports; total estimated cost displayed before execution in `--dry-run` mode
 
 ### Task 4.6: Keep AIDHA-TESTING-001 current
 
-- [x] **Task**: When Phase 4 tests are added, update AIDHA-TESTING-001 to register the new eval tests in the `packages/praecis/youtube` map and refresh the baseline counts
+- [x] **Task**: When Phase 4 tests are added, update AIDHA-TESTING-001 to register the new eval tests in the \`packages/praecis/youtube\` map and refresh the baseline counts
 - **Rationale**: The test suite map is how reviewers keep coverage coherent across a growing repo; new eval tests should be discoverable.
-- **Completion Criteria**: AIDHA-TESTING-001 lists the new eval tests; baseline counts refreshed; `pnpm docs:build` succeeds.
+- **Completion Criteria**: AIDHA-TESTING-001 lists the new eval tests; baseline counts refreshed; \`pnpm docs:build\` succeeds.
+
+### Task 4.7: Add CI/CD Pull Request Integration (Smoke Test)
+
+- [ ] **Task**: Create \`.github/workflows/eval-matrix-pr.yml\` that triggers on PRs modifying \`packages/praecis/youtube/src/extract/\` or \`prompts/\`.
+- **Rationale**: Prevent regressions in the extraction pipeline by automatically running a lightweight "smoke" matrix (e.g., 2 videos × 2 models) and posting the resulting markdown report as a PR comment.
+- **Execution Guidance**: Use \`--force-budget\` is not required as the smoke matrix should be well under the $25 ceiling. Ensure the workflow token has permissions to write PR comments.
+- **Completion Criteria**: GitHub Action is merged and successfully posts matrix reports on relevant PRs.
 
 ---
 
@@ -683,4 +693,5 @@ flowchart TD
   E --> V[4.3 Mocked matrix integration test]
   R --> W[4.4 CI quality gate (pinned baseline)]
   S --> X[4.5 Cost tracking + dry-run estimate]
+  W --> Y2[4.7 CI PR Action]
 ```
