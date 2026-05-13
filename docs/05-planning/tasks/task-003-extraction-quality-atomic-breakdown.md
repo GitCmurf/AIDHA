@@ -1,9 +1,9 @@
 ---
-document_id: AIDHA-TASK-003-ATOMIC
+document_id: AIDHA-TASK-003
 owner: Ingestion Engineering Lead
-status: Draft
-version: "1.2"
-last_updated: 2026-03-03
+status: Approved
+version: "1.3"
+last_updated: 2026-05-13
 title: YouTube Claim Extraction - Production-Grade Atomic Task Breakdown
 type: TASK
 docops_version: "2.0"
@@ -12,12 +12,12 @@ docops_version: "2.0"
 <!-- markdownlint-disable MD013 -->
 <!-- MEMINIT_METADATA_BLOCK -->
 
-> **Document ID:** AIDHA-TASK-003-ATOMIC
+> **Document ID:** AIDHA-TASK-003
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
-> **Status:** Draft
-> **Version:** 1.2
-> **Last Updated:** 2026-03-03
+> **Status:** Approved
+> **Version:** 1.3
+> **Last Updated:** 2026-05-13
 > **Type:** TASK
 
 # YouTube Claim Extraction - Production-Grade Atomic Task Breakdown
@@ -29,6 +29,7 @@ docops_version: "2.0"
 | 1.0     | 2026-03-02 | AI     | Initial atomic task breakdown across 5 phases                                                                                                                                                                                                                                                                                                                                                           | —         | Draft  | —                                 |
 | 1.1     | 2026-03-03 | AI     | Integrate Gemini NLP library research into Phase 1: add wink-nlp, Compromise.js, YAKE! evaluation; add SVO extraction, discourse marker, and grammatical completeness tasks; document SpaCy trade-off                                                                                                                                                                                                   | —         | Draft  | —                                 |
 | 1.2     | 2026-03-03 | AI     | Differential consolidation: incorporate all gaps from v1, v2, and GPT-5 fork. Add Pre-Mortem Analysis, Phase 6 (LLM Rewrite Pass), Phase 7 (Documentation & Maintenance), Phase 8 (Speaker Attribution — DEFERRED). Add Tasks 2.8, 2.13, 3.6, 3.7. Enhance Tasks 3.3, 3.5, 5.1, 5.4, 5.5. Add test coverage requirements. Renumber Phase 2 tasks. This version supersedes all prior Task-003 documents. | —         | Draft  | Task-003, Task-003-v2, GPT-5 fork |
+| 1.3     | 2026-05-13 | AI     | Move the deferred speaker-attribution work into TASK-009 and close this task as the canonical extraction-quality breakdown.                                                                                                                                                                                                                                                                            | —         | Approved | AIDHA-TASK-009                    |
 
 ## Technical Archaeology Summary
 
@@ -547,37 +548,18 @@ docops_version: "2.0"
 
 ---
 
-## Phase 8: Speaker Attribution Pipeline (DEFERRED)
+## Phase 8: Speaker Attribution Pipeline
 
-> **Status: DEFERRED** — Speaker attribution is a real capability gap but is orthogonal to extraction quality. These tasks should be addressed after Phases 1-7 are complete, or as a separate Task-004 if scope warrants.
+> **Status: MOVED** — The unfinished speaker-attribution work has been relocated to
+> [TASK-009](./task-009-speaker-attribution.md). This document is now the closed canonical
+> extraction-quality breakdown for TASK-003.
 
-### Task 8.1: Extend transcript segment schema with speaker field
+### Closure Note
 
-- [ ] **Task**: Add optional `speaker?: string` field to transcript segment zod schema in `packages/praecis/youtube/src/schema/transcript.ts`. Schema must validate both formats (with and without speaker).
-- **Rationale**: Speaker attribution is currently impossible; multi-speaker videos (interviews, panels) produce claims without source attribution, reducing auditability.
-- **Regression Guard**: `packages/praecis/youtube/tests/schema.test.ts` validates both formats
-- **Completion Criteria**: TypeScript build succeeds with optional field; existing transcript data parses without speaker field
-
-### Task 8.2: Implement speaker prefix parsing
-
-- [ ] **Task**: Add speaker prefix parser in `packages/praecis/youtube/src/client/transcript.ts` that extracts speaker names from common transcript formats (e.g., "Dr. Huberman: ...", "[Speaker 1]: ...").
-- **Rationale**: Attribution failures propagate into downstream claims; early parsing preserves speaker provenance.
-- **Regression Guard**: `packages/praecis/youtube/tests/transcript-parse.test.ts` covers common formats
-- **Completion Criteria**: Parser extracts speaker without altering timestamps or content text
-
-### Task 8.3: Persist excerpt speaker metadata
-
-- [ ] **Task**: Include speaker field in stored Excerpt nodes via `packages/praecis/youtube/src/pipeline/ingest.ts`.
-- **Rationale**: Pass 1 chunk mining cannot preserve speaker provenance unless it's stored during ingestion.
-- **Regression Guard**: `packages/praecis/youtube/tests/pipeline.test.ts` validates excerpt metadata
-- **Completion Criteria**: Stored Excerpt nodes include speaker when available; missing speaker defaults to undefined
-
-### Task 8.4: Include speaker field in Pass 1 excerpt payload
-
-- [ ] **Task**: Include speaker field in the excerpt JSON sent to LLM in `packages/praecis/youtube/src/extract/llm-claims.ts` Pass 1 prompt.
-- **Rationale**: Pass 1 must preserve provenance fields to enable speaker-attributed claims in dossier output.
-- **Regression Guard**: `packages/praecis/youtube/tests/llm-claims.test.ts` verifies excerpt payload includes speaker
-- **Completion Criteria**: Prompt excerpt JSON includes speaker when available; LLM extracts speaker-attributed claims
+- All remaining speaker-attribution implementation work now lives in `TASK-009`.
+- `TASK-003` has no open implementation checklist items left.
+- Future work on transcript speaker provenance should update the new task file rather than
+  re-opening this one.
 
 ---
 
@@ -686,7 +668,7 @@ flowchart TD
 7. Phase 5 (mitigations) before production deployment
 8. Phase 6 (LLM rewrite pass) after Phase 3 stabilization — opt-in enhancement
 9. Phase 7 (documentation) in parallel with Phases 5-6; FDD updates in same PR as implementation changes
-10. Phase 8 (speaker attribution) — DEFERRED until Phases 1-7 complete
+10. Phase 8 (speaker attribution) — moved to TASK-009 speaker attribution pipeline
 
 ---
 

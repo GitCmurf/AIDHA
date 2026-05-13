@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-004
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.6"
-last_updated: 2026-03-03
+version: "0.7"
+last_updated: 2026-05-13
 title: Claim Extraction Evaluation Matrix
 type: TASK
 docops_version: "2.0"
@@ -26,12 +26,13 @@ docops_version: "2.0"
 
 | Version | Date       | Author      | Change Summary                                                  | Reviewers | Status | Reference             |
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | ------ | --------------------- |
-| 0.1     | 2026-03-02 | AI-assisted | Initial atomic task breakdown                                   | —         | Draft  | AIDHA-TASK-003-ATOMIC |
-| 0.2     | 2026-03-03 | AI-assisted | Add independent manual baseline + rubric/fixture best practices | —         | Draft  | AIDHA-TASK-003-ATOMIC |
-| 0.3     | 2026-03-03 | AI-assisted | Add calibration loop, type contracts, CI smoke gating, and governance notes | — | Draft | AIDHA-TASK-003-ATOMIC |
-| 0.4     | 2026-03-03 | AI-assisted | Tighten type contracts and aggregator/report specs | — | Draft | AIDHA-TASK-003-ATOMIC |
-| 0.5     | 2026-03-03 | AI-assisted | Add extraction retry semantics, logging, token/chunk ablations, and JSON-mode prerequisites | — | Draft | AIDHA-TASK-003-ATOMIC |
-| 0.6     | 2026-03-03 | AI-assisted | Add tier filtering and extraction-vs-judge cost breakdown | — | Draft | AIDHA-TASK-003-ATOMIC |
+| 0.1     | 2026-03-02 | AI-assisted | Initial atomic task breakdown                                   | —         | Draft  | AIDHA-TASK-003 |
+| 0.2     | 2026-03-03 | AI-assisted | Add independent manual baseline + rubric/fixture best practices | —         | Draft  | AIDHA-TASK-003 |
+| 0.3     | 2026-03-03 | AI-assisted | Add calibration loop, type contracts, CI smoke gating, and governance notes | — | Draft | AIDHA-TASK-003 |
+| 0.4     | 2026-03-03 | AI-assisted | Tighten type contracts and aggregator/report specs | — | Draft | AIDHA-TASK-003 |
+| 0.5     | 2026-03-03 | AI-assisted | Add extraction retry semantics, logging, token/chunk ablations, and JSON-mode prerequisites | — | Draft | AIDHA-TASK-003 |
+| 0.6     | 2026-03-03 | AI-assisted | Add tier filtering and extraction-vs-judge cost breakdown | — | Draft | AIDHA-TASK-003 |
+| 0.7     | 2026-05-13 | AI-assisted | Add a concrete completion roadmap for the remaining matrix workstream and closeout order. | — | Draft | AIDHA-TASK-003 |
 
 ## Overview
 
@@ -115,13 +116,76 @@ These anchors are for humans and the judge prompt so scores are comparable over 
 
 ### Dependency
 
-This task depends on AIDHA-TASK-003-ATOMIC delivering (minimum):
+This task depends on AIDHA-TASK-003 delivering (minimum):
 
 - A stable `ClaimCandidate` shape and extraction pipeline outputs we can score deterministically.
 - Prompt/version metadata needed for cache keys (`promptVersion`, `extractorVersion`, and editor version/variant identifiers).
 - Editorial second-pass implementations (AIDHA-PLAN-004) that can be toggled for ablation as `extractorVariantId` values.
 
-Non-blocking: any optional heuristic enrichment work in AIDHA-TASK-003-ATOMIC that does not change the evaluation harness contract.
+Non-blocking: any optional heuristic enrichment work in AIDHA-TASK-003 that does not change the
+evaluation harness contract.
+
+## Completion Roadmap
+
+This document already defines the target evaluation matrix. The remaining work should be finished in
+the following order so that type contracts, fixtures, scoring, and reporting remain aligned.
+
+### Gate 1: Reconcile the source of truth
+
+1. Compare the live `packages/praecis/youtube` implementation with the checklist in this file.
+2. Mark any already-shipped items as resolved in the relevant task docs instead of re-implementing
+   them.
+3. Keep committed fixtures synthetic wherever possible and move any real-video working sets to
+   local-only cache paths.
+4. Confirm the canonical corpus, annotation, and manual-baseline fixtures are the only committed
+   inputs that future tests depend on.
+
+**Exit criteria:**
+
+- The remaining open checklist items reflect actual work, not stale planning text.
+- The task files match the current repository state before new code is added.
+
+### Gate 2: Finish the scoring core
+
+1. Finalize the corpus schema, model registry, and extractor-variant registry.
+2. Implement or harden the scoring rubric schema, judge prompt, calibration loop, chunking strategy,
+   and scoring executor.
+3. Add consensus scoring only if single-judge scoring proves too unstable after calibration.
+4. Keep prompt-injection hardening and response validation in the scoring path from the start.
+
+**Exit criteria:**
+
+- The judge prompt and scoring executor are deterministic under recorded fixtures.
+- Long transcripts can be scored by chunking without violating the configured context window.
+- All judge responses are schema-validated before aggregation.
+
+### Gate 3: Finish aggregation, reporting, and CLI control
+
+1. Implement the matrix aggregator and both report exporters.
+2. Wire the CLI subcommand so matrix runs can be planned, resumed, and invalidated without deleting
+   unrelated cache state.
+3. Track token usage and cost per cell, model, and video in the report output.
+4. Keep dry-run output honest: it must show the planned matrix, the cache reuse path, and the
+   estimated cost before execution starts.
+
+**Exit criteria:**
+
+- A matrix run can be resumed from cache and invalidated by run ID.
+- Both markdown and JSON reports are generated from the same underlying matrix result.
+- Cost summaries appear in dry-run output and in the completed report.
+
+### Gate 4: Close validation, CI, and documentation
+
+1. Add the unit, integration, and regression tests named in the checklist.
+2. Refresh `AIDHA-TESTING-001` so the eval tests are registered and visible in the testing map.
+3. Keep `pnpm docs:build` as a required verification step in the final PR.
+4. Keep the evaluation task and the backlog ledger synchronized in the same commit.
+
+**Exit criteria:**
+
+- The new matrix tests pass in isolation and as part of the package suite.
+- The docs site builds cleanly after the final task changes.
+- The completed state of the evaluation matrix is visible from the task frontmatter alone.
 
 ## Acceptance Criteria
 
@@ -275,7 +339,8 @@ Non-blocking: any optional heuristic enrichment work in AIDHA-TASK-003-ATOMIC th
 - [ ] **Task**: Create [`packages/praecis/youtube/tests/fixtures/eval-matrix/golden-annotations.json`] containing human-verified "ideal" claim sets for 2 representative videos from the corpus (one short, one long)
 - [ ] **Task**: Define schema for annotations: `videoId`, `idealClaims: { text: string, evidence?: { quote?: string, startMs?: number, endMs?: number } }[]`, `rejectedClaims: { text: string, reason: string }[]`
 - **Rationale**: To trust the "LLM-as-Judge", we must calibrate it against human judgment. This "Golden Set" serves as the ground truth for validating the scoring engine itself (Task 2.2).
-- **Note**: This Golden Set is distinct from the AIDHA-TASK-003-ATOMIC golden extraction fixtures (e.g., `claims-golden.json`). Those protect extraction outputs; this set calibrates the judge/scorer.
+- **Note**: This Golden Set is distinct from the AIDHA-TASK-003 golden extraction fixtures (e.g.,
+  `claims-golden.json`). Those protect extraction outputs; this set calibrates the judge/scorer.
 - **Annotation Guidance**: Create a short, co-located guideline (`golden-annotations-guidelines.md`) that defines what counts as a substantive claim, how to split atomic claims, and how to handle hedged language.
 - **Schema Change (Fixture Shape)**: `GoldenAnnotation.idealClaims` is now an object array (not `string[]`) to allow optional evidence metadata. Any existing `golden-annotations.json` fixtures and any parsing/validation code must migrate.
   - Before:
