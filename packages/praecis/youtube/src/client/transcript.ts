@@ -58,7 +58,7 @@ function buildTranscriptSegment(input: {
   return {
     start: input.start,
     duration: input.duration,
-    ...(parsed ?? { text: normalized }),
+    ...(parsed ?? { text: stripMarkupTags(normalized) }),
   };
 }
 
