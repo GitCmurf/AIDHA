@@ -5,6 +5,11 @@
  * Schema module - re-exports all schema definitions.
  */
 export {
+  CURRENT_GRAPH_SCHEMA_VERSION,
+  CURRENT_JSONLD_EXPORT_SCHEMA_VERSION,
+} from './version.js';
+
+export {
   NodeType,
   NodeMetadata,
   GraphNode,

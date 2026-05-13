@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runCli, sanitizeErrorMessage } from '../src/cli.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import * as readline from 'node:readline';
+import { writeSecureConfig } from './helpers/config-files.js';
 
 // Auto-mock readline module
 vi.mock('node:readline');
@@ -16,7 +17,7 @@ describe('CLI Config Security (Phase 2A)', () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'aidha-cli-config-secrets-'));
     configPath = join(tmpDir, 'config.yaml');
     // Create config with secrets
-    await writeFile(configPath, `
+    await writeSecureConfig(configPath, `
 config_version: 1
 default_profile: secret
 profiles:

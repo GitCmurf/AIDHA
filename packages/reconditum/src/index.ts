@@ -9,6 +9,8 @@
 
 // Schema exports
 export {
+  CURRENT_GRAPH_SCHEMA_VERSION,
+  CURRENT_JSONLD_EXPORT_SCHEMA_VERSION,
   NodeType,
   NodeMetadata,
   GraphNode,

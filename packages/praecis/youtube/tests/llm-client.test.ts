@@ -73,6 +73,14 @@ describe('OpenAiCompatibleClient', () => {
         })).not.toThrow();
       }
     });
+
+    it('should strip long trailing slash runs without regex backtracking', () => {
+      const client = new OpenAiCompatibleClient({
+        baseUrl: `https://api.example.com${'/'.repeat(1000)}`,
+        apiKey: 'test-key', // pragma: allowlist secret
+      });
+      expect(client).toBeDefined();
+    });
   });
 
   it('should use max_completion_tokens for GPT-5 family requests', async () => {
@@ -80,6 +88,7 @@ describe('OpenAiCompatibleClient', () => {
       ok: true,
       json: async () => ({
         choices: [{ message: { content: '{"ok":true}' } }],
+        usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 },
       }),
     } as Response);
 
@@ -96,6 +105,7 @@ describe('OpenAiCompatibleClient', () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(result.usage).toEqual({ inputTokens: 11, outputTokens: 7, totalTokens: 18 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
@@ -139,6 +149,7 @@ describe('GeminiApiClient', () => {
       ok: true,
       json: async () => ({
         candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }],
+        usageMetadata: { promptTokenCount: 13, candidatesTokenCount: 5, totalTokenCount: 18 },
       }),
     } as Response);
 
@@ -164,6 +175,7 @@ describe('GeminiApiClient', () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(result.usage).toEqual({ inputTokens: 13, outputTokens: 5, totalTokens: 18 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));

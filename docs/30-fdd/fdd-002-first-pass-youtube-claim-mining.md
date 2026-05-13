@@ -2,8 +2,8 @@
 document_id: AIDHA-FDD-002
 owner: Ingestion Engineering Lead
 status: Draft
-version: '0.2'
-last_updated: 2026-02-06
+version: '0.3'
+last_updated: 2026-05-09
 title: First-Pass YouTube Claim Mining
 type: FDD
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-02-06
+> **Version:** 0.3
+> **Last Updated:** 2026-05-09
 > **Type:** FDD
 
 # FDD: First-Pass YouTube Claim Mining
@@ -26,6 +26,7 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | ------------------------------------------ | --------- | ------ | --------- |
 | 0.1     | 2026-02-06 | AI     | Initial FDD for first-pass claim mining    | —         | Draft  | —         |
 | 0.2     | 2026-02-06 | AI-assisted | Add schema and cache key detail       | —         | Draft  | —         |
+| 0.3     | 2026-05-09 | AI     | Document optional speaker metadata in excerpt payloads | — | Draft | AIDHA-TASK-008 |
 
 ## Overview
 
@@ -36,7 +37,7 @@ This pass prioritizes high recall and auditability over strict precision.
 ## Inputs
 
 - Resource metadata (`videoId`, title, URL)
-- Transcript excerpts with stable IDs and timestamps
+- Transcript excerpts with stable IDs, timestamps, and optional speaker metadata
 - CLI controls (`--claims`, `--chunk-minutes`, `--max-chunks`, `--model`)
 - LLM environment configuration (`AIDHA_LLM_*`)
 
@@ -44,7 +45,8 @@ This pass prioritizes high recall and auditability over strict precision.
 
 1. Sort excerpts deterministically by timestamp and ID.
 2. Chunk excerpts by configured time window.
-3. Send each chunk to LLM with strict JSON schema requirements.
+3. Send each chunk to LLM with strict JSON schema requirements. Excerpt payloads include
+   `speaker` only when a parser or fixture provided a high-confidence speaker label.
 4. Validate and normalize candidate claims with required schema:
    - `text: string` (required, min length 1, normalized whitespace)
    - `excerptIds: string[]` (required, non-empty, each value must match known excerpt ID)

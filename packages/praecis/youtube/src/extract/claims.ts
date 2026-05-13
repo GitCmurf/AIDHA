@@ -25,6 +25,7 @@ import {
 } from './nlp-utils.js';
 import { runEditorPassV2, runEditorPassV2WithDiagnostics, type EditorialDiagnostics, DEFAULT_ECHO_DETECTION } from './editorial-ranking.js';
 import { ClaimCandidateSchema } from './claim-candidate-schema.js';
+import { consoleLogger, type Logger } from '../utils/logger.js';
 
 /**
  * Pre-compiled regex patterns for claim text analysis.
@@ -42,15 +43,14 @@ const ENV_HEURISTIC_NLP_LIBRARY = 'AIDHA_HEURISTIC_NLP_LIBRARY';
  * Validates a claim candidate against the runtime schema.
  * Returns the validated claim or null if validation fails.
  */
-function validateClaim(claim: ClaimCandidate): ClaimCandidate | null {
+function validateClaim(claim: ClaimCandidate, logger: Logger): ClaimCandidate | null {
   const result = ClaimCandidateSchema.safeParse(claim);
   if (!result.success) {
-    // Log validation error for debugging (in production, would use proper logger)
     // Safely access text property, handling non-string values
     const textPreview = typeof claim.text === 'string'
       ? claim.text.slice(0, 50)
       : '[non-string text]';
-    console.warn(`Claim validation failed for: "${textPreview}..."`, {
+    logger.warn(`Claim validation failed for: "${textPreview}..."`, {
       error: result.error.errors.map(e => e.message).join(', '),
     });
     return null;
@@ -62,6 +62,7 @@ function validateClaim(claim: ClaimCandidate): ClaimCandidate | null {
 export interface ClaimExtractionConfig {
   graphStore: GraphStore;
   extractor?: ClaimExtractor;
+  logger?: Logger;
 }
 
 interface TransactionalStore {
@@ -419,10 +420,12 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
 export class ClaimExtractionPipeline {
   private graphStore: GraphStore;
   private extractor: ClaimExtractor;
+  private logger: Logger;
 
   constructor(config: ClaimExtractionConfig) {
     this.graphStore = config.graphStore;
     this.extractor = config.extractor ?? new HeuristicClaimExtractor();
+    this.logger = config.logger ?? consoleLogger;
   }
 
   async extractClaimsForVideo(
@@ -466,11 +469,11 @@ export class ClaimExtractionPipeline {
     )?.promptVersion;
 
     // Validate claims against runtime schema before persistence
-    const validatedCandidates = candidates.map(validateClaim).filter((c): c is ClaimCandidate => c !== null);
+    const validatedCandidates = candidates.map(candidate => validateClaim(candidate, this.logger)).filter((c): c is ClaimCandidate => c !== null);
     const validationErrorCount = candidates.length - validatedCandidates.length;
 
     if (validationErrorCount > 0) {
-      console.warn(`Dropped ${validationErrorCount} invalid claims for ${resourceId}`);
+      this.logger.warn(`Dropped ${validationErrorCount} invalid claims for ${resourceId}`);
     }
 
     // Use validated candidates for persistence

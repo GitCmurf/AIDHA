@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.10"
-last_updated: 2026-02-27
+version: "1.19"
+last_updated: 2026-05-13
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.10
-> **Last Updated:** 2026-02-27
+> **Version:** 1.19
+> **Last Updated:** 2026-05-13
 > **Type:** TASK
 
 # Public Repository Readiness — Task List & Strategy
@@ -35,6 +35,15 @@ docops_version: "2.0"
 | 1.8     | 2026-02-24 | AI     | Add fixture/license and history-scan clarifications for public launch. | — | Draft | — |
 | 1.9     | 2026-02-27 | AI     | Refresh checklist evidence, close verified local gates, and add environment-variable documentation evidence. | — | Draft | — |
 | 1.10    | 2026-02-27 | AI     | Complete PII review, dependency license audit, and create CONTRIBUTING_QUICK.md. | — | Draft | — |
+| 1.11    | 2026-05-12 | AI     | Record live GitHub repository-security evidence from TASK-007 closeout audit. | — | Draft | AIDHA-TASK-007 |
+| 1.12    | 2026-05-12 | AI     | Add local gitleaks history-scan evidence and false-positive allowlist remediation. | — | Draft | AIDHA-TASK-007 |
+| 1.13    | 2026-05-12 | AI     | Accept ownership of release-governance gates superseded out of TASK-007. | — | Draft | AIDHA-TASK-007 |
+| 1.14    | 2026-05-12 | AI     | Record owner decisions on contribution rights, citation, and trademark guidance. | — | Draft | AIDHA-TASK-007 |
+| 1.15    | 2026-05-12 | AI     | Add fixture redistribution inventory and concrete provenance closure path. | — | Draft | AIDHA-GOV-005 |
+| 1.16    | 2026-05-12 | AI     | Record applied low-friction branch protection settings for `main`. | — | Draft | GitHub branch protection |
+| 1.17    | 2026-05-12 | AI     | Clarify fixture policy for Creative Commons transcript smoke tests and synthetic extraction goldens. | — | Draft | AIDHA-GOV-005 |
+| 1.18    | 2026-05-13 | AI     | Correct fixture provenance scope for eval artifacts and acceptance-run report. | — | Draft | AIDHA-GOV-005 |
+| 1.19    | 2026-05-13 | AI     | Replace committed extraction-quality eval fixtures with synthetic data and close the redistribution gate. | — | Draft | AIDHA-GOV-005 |
 
 ## Project Status
 
@@ -52,15 +61,60 @@ Version History records document revisions only.
   - `node_modules/` is not tracked
   - no tracked `package-lock.json` or tracked `out/` artifacts
 
+## Execution Evidence (2026-05-12)
+
+- `gh repo view --json nameWithOwner,isPrivate,viewerPermission` returned public repository
+  `GitCmurf/AIDHA` with `ADMIN` viewer permission.
+- `gh api repos/:owner/:repo` reported `default_branch: main`,
+  `security_and_analysis.secret_scanning.status: enabled`,
+  `security_and_analysis.secret_scanning_push_protection.status: enabled`, and
+  `security_and_analysis.dependabot_security_updates.status: enabled`.
+- `gh api -i repos/:owner/:repo/vulnerability-alerts` returned `204 No Content`, confirming
+  Dependabot vulnerability alerts are enabled.
+- `gh api repos/:owner/:repo/branches/main/protection` returned active branch protection, but
+  required status-check contexts are empty and `required_approving_review_count` is `0`; branch
+  protection is therefore not complete against the go/no-go criterion.
+- `gh run list --workflow secret-scan.yml --limit 5` showed recent scheduled `Secret Scan` runs
+  failing, with latest observed failure `25656999477` on 2026-05-11. The latest observed passing
+  `Secret Scan` run was the 2026-05-08 push run for Dependabot PR #9 (`25554272706`).
+- Local reproduction with gitleaks `8.28.0` showed the all-history failure was caused by known
+  false positives in `.secrets.baseline` hash entries and the synthetic dotenv fixture in
+  `packages/aidha-config/tests/loader-order.test.ts`. The fixture was renamed away from
+  secret-shaped text and `.gitleaks.toml` now allowlists only those known historical false-positive
+  paths. A pushed GitHub run is still required before the gitleaks gate can be checked off.
+- `AIDHA-TASK-007` now supersedes the remaining release-governance gates into this task rather than
+  tracking them as ingestion/eval technical debt. This task remains the owner for branch protection,
+  remote Secret Scan evidence, CLA/DCO posture, citation metadata, trademark guidance, and final
+  public-release checklist closure.
+- Owner decisions recorded on 2026-05-12: require sensible public-repo branch protection with the
+  least practical sole-maintainer friction; push the branch and verify GitHub Secret Scan only after
+  local cleanup is complete; defer CLA/DCO until external contribution volume makes it a real issue;
+  add low-friction citation metadata; add lightweight trademark guidance; defer formal trademark
+  registration; defer GitHub Discussions until there is actual community demand; keep fixture
+  redistribution open for a provenance audit and likely synthetic golden-test expansion.
+- `AIDHA-GOV-005` now records a public-readiness fixture inventory. Synthetic eval-matrix fixtures
+  are identified as internally authored. The committed extraction-golden fixture
+  `synthetic-claim-extraction.samples.json` and the committed `golden-annotations.json` fixture are
+  also synthetic, not transcript-derived redistribution artifacts. The acceptance-run report is
+  AI-agent generated test evidence, not known copyrighted transcript data.
+- Branch protection for `main` now requires pull requests, one approving review, strict required
+  status checks, and admin enforcement. Required checks are `Docs Check / build`,
+  `TypeScript Packages / verify`, and `Secret Scan / gitleaks`.
+- Fixture policy clarified on 2026-05-12: keep minimal Creative Commons YouTube transcript fixtures
+  for transcript-download smoke coverage; use committed synthetic data for extraction-quality
+  golden tests; keep broader real-video evaluation sets in ignored local directories until their
+  redistribution basis is settled.
+
 ## Go/No-Go Gates (Flip Repo To Public)
 
 - [x] `meminit check --root .` passes with 0 violations and 0 warnings
 - [x] `pre-commit run detect-secrets --all-files` passes (baseline reviewed)
-- [ ] GitHub Actions `Secret Scan` workflow passes (gitleaks)
+- [ ] GitHub Actions `Secret Scan` workflow passes (gitleaks; local history false positives fixed,
+      remote run still pending)
 - [x] `pnpm docs:build` passes (MkDocs site is the review artifact)
 - [ ] Git history strategy is executed (see §1.1): squash vs scrub
-- [ ] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
-- [ ] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
+- [x] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
+- [x] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
 
 ---
 
@@ -150,7 +204,8 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
   - [x] Installation and quick-start instructions
   - [x] Link to `CONTRIBUTING.md`
   - [x] Link to `CODE_OF_CONDUCT.md`
-- [x] Create `CONTRIBUTING.md` (contributor guide: code style, PR process, CLA/DCO)
+- [x] Create `CONTRIBUTING.md` (contributor guide: code style, PR process, contribution-rights
+      posture)
 - [x] Create `CODE_OF_CONDUCT.md` (adopt Contributor Covenant or similar)
 - [x] Create or update `SECURITY.md` (vulnerability reporting process)
 - [x] Document required environment variables in package READMEs or a dedicated ENVIRONMENT.md:
@@ -162,12 +217,46 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 ### 1.7 CI/CD & GitHub Repository Settings
 
 - [x] Review `.github/workflows/docs-check.yml` — ensure it doesn't expose secrets in logs
-- [ ] Add branch protection rules (require PR reviews, passing CI before merge)
+- [x] Add branch protection rules (require PR reviews, passing CI before merge)
 - [ ] Configure GitHub repository settings:
-  - [ ] Enable Dependabot for security alerts
-  - [ ] Enable secret scanning (GitHub Advanced Security)
-  - [ ] Set default branch to `main`
-  - [ ] Consider enabling GitHub Discussions for community engagement
+  - [x] Enable Dependabot for security alerts
+  - [x] Enable secret scanning (GitHub Advanced Security)
+  - [x] Set default branch to `main`
+  - [x] Defer GitHub Discussions until there is actual community demand
+
+**Owner decision, 2026-05-12:** configure `main` with pull requests required, one approving review,
+and required CI checks. Do not allow admin bypass as the default. Defer stricter controls such as
+two-review rules or signed-commit enforcement until the project has external contributors or users.
+Do not push solely to prove Secret Scan until the local cleanup items are complete, because pushing
+the branch will trigger code-review bots.
+
+### 1.7.1 Fixture Redistribution and Golden-Test Data
+
+**Owner decision, 2026-05-12:** keep fixture redistribution open until a focused provenance audit
+confirms that committed sample and fixture files are safe to redistribute. Prefer synthetic fixtures
+for additional golden tests unless a real fixture has clear provenance and compatible licensing.
+That condition is now satisfied for the committed extraction-quality eval fixtures.
+
+Keep at least one, and ideally two, real Creative Commons-licensed YouTube videos for transcript
+download and parser smoke coverage. Those committed fixtures should be minimal normalized excerpts
+with provenance in `AIDHA-GOV-005`; they should not become the main committed extraction-quality
+golden set.
+
+For extraction-quality golden tests, prefer internally authored synthetic data that deliberately
+covers edge cases such as enumeration, sponsor read-outs, show-note citations, fragments, speaker
+attribution, and claim hierarchy.
+
+Broader real-video candidate sets may remain valuable for private evaluation. Keep them in ignored
+local directories such as `testdata/youtube_local/` or `testdata/nonredistributable/` until they are
+converted to synthetic fixtures or registered with explicit redistribution provenance.
+
+**Current inventory, 2026-05-13:** `AIDHA-GOV-005` now classifies the committed extraction-quality
+eval fixtures as synthetic. The redistribution gate is checked off.
+
+The acceptance-run report at
+`docs/55-testing/acceptance-run-20260220/testing-002-acceptance-run-20260220.md` is classified as
+AI-agent generated test evidence and is not part of the fixture redistribution blocker unless
+future review finds embedded transcript excerpts in a specific artifact.
 
 ### 1.8 Dependency Licence Audit
 
@@ -292,6 +381,11 @@ Apache-licensed projects (the ASF itself requires CLAs).
 > **Without a CLA, each contributor retains copyright on their contributions**, and you cannot
 > unilaterally relicense the project. If dual-licensing or open-core commercialization is in your
 > plans (see Part 3), a CLA is strongly recommended from day one.
+
+**Owner decision, 2026-05-12:** do not require a CLA or DCO sign-off now. The project is pre-alpha,
+the maintainer is currently the sole developer, and the priority is to avoid discouraging a first
+potential contributor. Revisit DCO or CLA only if external contribution volume or commercialization
+plans make the extra process worthwhile.
 
 ---
 
@@ -422,7 +516,8 @@ GitCmurf/aidha-pro                ← PRIVATE (Proprietary)
 
 **Recommended timeline:**
 
-1. **Now:** Go public with the monorepo. Add Apache 2.0. Set up CLA.
+1. **Now:** Go public with the monorepo. Add Apache 2.0. Defer CLA/DCO until there is real
+   contributor demand or a commercialization need.
 2. **When the first proprietary component is built** (likely the UI): Create `aidha-pro` as a
    separate private repo that depends on the public package.
 3. **When packages are stable enough to publish:** Consider publishing `@aidha/graph-backend`,
@@ -433,10 +528,10 @@ GitCmurf/aidha-pro                ← PRIVATE (Proprietary)
 
 Apache 2.0 does **not** grant trademark rights. To formally protect the name:
 
-- [ ] Consider trademark registration for "AIDHA" (starts ~$250 USD for a US filing)
-- [ ] Add a `TRADEMARKS.md` file stating that "AIDHA" is a trademark of Colin Farmer and may not
+- [x] Defer formal trademark registration until brand protection becomes commercially relevant
+- [x] Add a `TRADEMARKS.md` file stating that "AIDHA" is a trademark of Colin Farmer and may not
       be used to endorse derivative products
-- [ ] Include trademark guidance in `CONTRIBUTING.md`
+- [x] Include trademark guidance in `CONTRIBUTING.md`
 
 ---
 
@@ -503,7 +598,8 @@ cannot experience the core value of AIDHA within 5 minutes, they will move on.
 - [x] Add SPDX headers to source files (§2.2B)
 - [x] Add `detect-secrets` pre-commit hook (§1.2)
 - [x] Run dependency licence audit (§1.8)
-- [ ] Set up CLA for contributors (§2.2E)
+- [x] Record decision to defer CLA/DCO until contribution volume or commercialization need justifies
+      it (§2.2E)
 - [x] Create `SECURITY.md` (§1.6)
 - [x] Clean up tracked-but-gitignored files:
       `coderabbit-review-*.txt`, `package-lock.json`, `telemetry-id` (§1.9)
@@ -513,7 +609,7 @@ cannot experience the core value of AIDHA within 5 minutes, they will move on.
 ### Nice to Have (Can Follow Shortly After)
 
 - [x] Add licence badge to README (§1.6)
-- [ ] Create `CITATION.cff` (§2.2D)
-- [ ] Enable Dependabot and secret scanning (§1.7)
-- [ ] Add `TRADEMARKS.md` (§3.5)
-- [ ] Set up branch protection rules (§1.7)
+- [x] Create `CITATION.cff` (§2.2D)
+- [x] Enable Dependabot and secret scanning (§1.7)
+- [x] Add `TRADEMARKS.md` (§3.5)
+- [x] Set up branch protection rules (§1.7)

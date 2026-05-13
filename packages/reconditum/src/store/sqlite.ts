@@ -26,7 +26,11 @@ import type {
   GraphStats,
 } from './types.js';
 import type { GraphNode, GraphEdge, NodeType, Predicate } from '../schema/index.js';
-import { GraphNode as GraphNodeSchema, GraphEdge as GraphEdgeSchema } from '../schema/index.js';
+import {
+  CURRENT_GRAPH_SCHEMA_VERSION,
+  GraphNode as GraphNodeSchema,
+  GraphEdge as GraphEdgeSchema,
+} from '../schema/index.js';
 import {
   nowIso,
   deepEqual,
@@ -70,6 +74,7 @@ function getDatabaseSyncCtor(): DatabaseSyncCtor {
 }
 
 type NodeRow = {
+  schema_version: number | null;
   id: string;
   type: string;
   label: string;
@@ -80,6 +85,7 @@ type NodeRow = {
 };
 
 type EdgeRow = {
+  schema_version: number | null;
   subject: string;
   predicate: string;
   object: string;
@@ -217,6 +223,7 @@ export class SQLiteStore implements GraphStore {
   private initialize(): void {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS nodes (
+        schema_version INTEGER NOT NULL DEFAULT 1,
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
         label TEXT NOT NULL,
@@ -226,8 +233,10 @@ export class SQLiteStore implements GraphStore {
         updated_at TEXT NOT NULL
       )
     `);
+    this.migrateSchemaVersionColumn('nodes');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS edges (
+        schema_version INTEGER NOT NULL DEFAULT 1,
         subject TEXT NOT NULL,
         predicate TEXT NOT NULL,
         object TEXT NOT NULL,
@@ -236,12 +245,22 @@ export class SQLiteStore implements GraphStore {
         PRIMARY KEY (subject, predicate, object)
       )
     `);
+    this.migrateSchemaVersionColumn('edges');
     this.db.exec(`CREATE INDEX IF NOT EXISTS nodes_type_idx ON nodes (type)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_predicate_idx ON edges (subject, predicate)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_predicate_object_idx ON edges (predicate, object)`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS edges_subject_object_idx ON edges (subject, object)`);
     this.initializeViews();
     this.initializeFts();
+  }
+
+  private migrateSchemaVersionColumn(tableName: 'nodes' | 'edges'): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+    if (columns.some(column => column.name === 'schema_version')) return;
+
+    // Older graph stores were created before schema_version existed. Add it in place so
+    // existing databases continue to open without requiring a manual reset.
+    this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1`);
   }
 
   private initializeViews(): void {
@@ -383,6 +402,7 @@ export class SQLiteStore implements GraphStore {
       if (!existing) {
         const timestamp = nowIso();
         const node: GraphNode = {
+          schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
           id,
           type,
           label: data.label,
@@ -393,8 +413,9 @@ export class SQLiteStore implements GraphStore {
         };
         const validated = GraphNodeSchema.parse(node);
         this.db.prepare(
-          'INSERT INTO nodes (id, type, label, content, metadata, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO nodes (schema_version, id, type, label, content, metadata, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         ).run(
+          validated.schemaVersion,
           validated.id,
           validated.type,
           validated.label,
@@ -420,6 +441,7 @@ export class SQLiteStore implements GraphStore {
 
       const updated: GraphNode = {
         ...existing,
+        schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
         id: existing.id,
         type,
         label: data.label,
@@ -430,8 +452,9 @@ export class SQLiteStore implements GraphStore {
       };
       const validated = GraphNodeSchema.parse(updated);
       this.db.prepare(
-        'UPDATE nodes SET type = ?, label = ?, content = ?, metadata = ?, updated_at = ? WHERE id = ?'
+        'UPDATE nodes SET schema_version = ?, type = ?, label = ?, content = ?, metadata = ?, updated_at = ? WHERE id = ?'
       ).run(
+        validated.schemaVersion,
         validated.type,
         validated.label,
         validated.content ?? null,
@@ -449,11 +472,12 @@ export class SQLiteStore implements GraphStore {
   async getNode(id: string): Promise<Result<GraphNode | null>> {
     try {
       const row = this.db.prepare(
-        'SELECT id, type, label, content, metadata, created_at, updated_at FROM nodes WHERE id = ?'
+        'SELECT schema_version, id, type, label, content, metadata, created_at, updated_at FROM nodes WHERE id = ?'
       ).get(id) as NodeRow | undefined;
       if (!row) return { ok: true, value: null };
       const node = GraphNodeSchema.parse({
         id: row.id,
+        schemaVersion: row.schema_version ?? undefined,
         type: row.type,
         label: row.label,
         content: row.content ?? undefined,
@@ -477,12 +501,13 @@ export class SQLiteStore implements GraphStore {
       }
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
       const rows = this.db.prepare(
-        `SELECT id, type, label, content, metadata, created_at, updated_at FROM nodes ${where}`
+        `SELECT schema_version, id, type, label, content, metadata, created_at, updated_at FROM nodes ${where}`
       ).all(...params) as NodeRow[];
       const nodes: GraphNode[] = [];
       for (const row of rows) {
         const parsed = GraphNodeSchema.safeParse({
           id: row.id,
+          schemaVersion: row.schema_version ?? undefined,
           type: row.type,
           label: row.label,
           content: row.content ?? undefined,
@@ -511,12 +536,13 @@ export class SQLiteStore implements GraphStore {
   ): Promise<Result<UpsertEdgeResult>> {
     try {
       const row = this.db.prepare(
-        'SELECT subject, predicate, object, metadata, created_at FROM edges WHERE subject = ? AND predicate = ? AND object = ?'
+        'SELECT schema_version, subject, predicate, object, metadata, created_at FROM edges WHERE subject = ? AND predicate = ? AND object = ?'
       ).get(subject, predicate, object) as EdgeRow | undefined;
       const metadata = data.metadata ?? {};
 
       if (!row) {
         const edge: GraphEdge = {
+          schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
           subject,
           predicate,
           object,
@@ -525,8 +551,9 @@ export class SQLiteStore implements GraphStore {
         };
         const validated = GraphEdgeSchema.parse(edge);
         this.db.prepare(
-          'INSERT INTO edges (subject, predicate, object, metadata, created_at) VALUES (?, ?, ?, ?, ?)'
+          'INSERT INTO edges (schema_version, subject, predicate, object, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)'
         ).run(
+          validated.schemaVersion,
           validated.subject,
           validated.predicate,
           validated.object,
@@ -538,6 +565,7 @@ export class SQLiteStore implements GraphStore {
 
       const existingEdge = GraphEdgeSchema.parse({
         subject: row.subject,
+        schemaVersion: row.schema_version ?? undefined,
         predicate: row.predicate,
         object: row.object,
         metadata: parseMetadata(row.metadata),
@@ -551,6 +579,7 @@ export class SQLiteStore implements GraphStore {
 
       const updated: GraphEdge = {
         ...existingEdge,
+        schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
         subject,
         predicate,
         object,
@@ -559,8 +588,9 @@ export class SQLiteStore implements GraphStore {
       };
       const validated = GraphEdgeSchema.parse(updated);
       this.db.prepare(
-        'UPDATE edges SET metadata = ? WHERE subject = ? AND predicate = ? AND object = ?'
+        'UPDATE edges SET schema_version = ?, metadata = ? WHERE subject = ? AND predicate = ? AND object = ?'
       ).run(
+        validated.schemaVersion,
         serializeMetadata(validated.metadata ?? {}),
         validated.subject,
         validated.predicate,
@@ -590,12 +620,13 @@ export class SQLiteStore implements GraphStore {
       }
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
       const rows = this.db.prepare(
-        `SELECT subject, predicate, object, metadata, created_at FROM edges ${where}`
+        `SELECT schema_version, subject, predicate, object, metadata, created_at FROM edges ${where}`
       ).all(...params) as EdgeRow[];
       const edges: GraphEdge[] = [];
       for (const row of rows) {
         const parsed = GraphEdgeSchema.safeParse({
           subject: row.subject,
+          schemaVersion: row.schema_version ?? undefined,
           predicate: row.predicate,
           object: row.object,
           metadata: parseMetadata(row.metadata),
@@ -641,7 +672,7 @@ export class SQLiteStore implements GraphStore {
       if (!edgesResult.ok) return { ok: false, error: edgesResult.error };
       let edges = edgesResult.value.items.filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
       edges = sortEdges(edges);
-      return { ok: true, value: { nodes: sortedNodes, edges } };
+      return { ok: true, value: { schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION, nodes: sortedNodes, edges } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

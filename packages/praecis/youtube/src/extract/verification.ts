@@ -135,7 +135,13 @@ export class TieredVerifier {
    * @param config - Partial configuration to override defaults
    */
   constructor(config?: Partial<VerificationConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    const semanticThreshold = config?.semanticThreshold ?? DEFAULT_CONFIG.semanticThreshold;
+    this.config = {
+      ...DEFAULT_CONFIG,
+      ...config,
+      entailmentThreshold:
+        config?.entailmentThreshold ?? semanticThreshold * ENTAILMENT_SCALING_FACTOR,
+    };
   }
 
   /**
@@ -406,6 +412,10 @@ export function calculateTokenOverlap(text1: string, text2: string): number {
  * ```
  */
 export function calculateNGramOverlap(text1: string, text2: string, n = 2): number {
+  if (!Number.isInteger(n) || n < 1) {
+    throw new RangeError(`n-gram size must be a positive integer, got ${String(n)}`);
+  }
+
   const tokens1 = tokenize(text1);
   const tokens2 = tokenize(text2);
 

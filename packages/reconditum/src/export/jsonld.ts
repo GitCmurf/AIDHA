@@ -7,7 +7,7 @@
  * Converts graph data to JSON-LD format for interoperability.
  */
 import type { GraphNode, GraphEdge } from '../schema/index.js';
-import { Predicate } from '../schema/index.js';
+import { CURRENT_JSONLD_EXPORT_SCHEMA_VERSION, Predicate } from '../schema/index.js';
 
 /**
  * JSON-LD context for AIDHA graph exports.
@@ -44,6 +44,7 @@ export const JSONLD_CONTEXT = {
     'projectServesGoal': { '@type': '@id' },
     'projectInArea': { '@type': '@id' },
     'taskDependsOn': { '@type': '@id' },
+    'schemaVersion': 'https://aidha.dev/graph/schemaVersion',
   },
 } as const;
 
@@ -53,6 +54,7 @@ export const JSONLD_CONTEXT = {
 export interface JsonLdNode {
   '@id': string;
   '@type': string;
+  schemaVersion: number;
   label: string;
   content?: string;
   createdAt: string;
@@ -65,6 +67,7 @@ export interface JsonLdNode {
  */
 export interface JsonLdDocument {
   '@context': typeof JSONLD_CONTEXT['@context'];
+  schemaVersion: number;
   '@graph': JsonLdNode[];
 }
 
@@ -72,14 +75,16 @@ export interface JsonLdDocument {
  * Convert a GraphNode to JSON-LD format.
  */
 export function nodeToJsonLd(node: GraphNode): JsonLdNode {
+  const { schemaVersion: _ignoredSchemaVersion, ...metadata } = node.metadata;
   return {
     '@id': `urn:aidha:node:${node.id}`,
     '@type': node.type,
+    schemaVersion: node.schemaVersion,
     label: node.label,
     ...(node.content && { content: node.content }),
     createdAt: node.createdAt,
     updatedAt: node.updatedAt,
-    ...node.metadata,
+    ...metadata,
   };
 }
 
@@ -148,6 +153,7 @@ export function toJsonLd(nodes: GraphNode[], edges: GraphEdge[] = []): JsonLdDoc
 
   return {
     '@context': JSONLD_CONTEXT['@context'],
+    schemaVersion: CURRENT_JSONLD_EXPORT_SCHEMA_VERSION,
     '@graph': Array.from(nodeMap.values()),
   };
 }

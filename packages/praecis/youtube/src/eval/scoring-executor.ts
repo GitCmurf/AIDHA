@@ -1,4 +1,4 @@
-import type { LlmClient } from "../extract/llm-client.js";
+import type { LlmClient, LlmTokenUsage } from "../extract/llm-client.js";
 import type { ClaimCandidate } from "../extract/types.js";
 import type { Result } from "../pipeline/types.js";
 import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
@@ -13,9 +13,10 @@ export async function scoreClaimSet(
   videoContext: VideoContext,
   maxTokens: number = 4000,
   signal?: AbortSignal
-): Promise<Result<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }> }>> {
+): Promise<Result<{ score: ClaimSetScore; traces: Array<{ prompt: { system: string; user: string }; response: string }>; usage?: LlmTokenUsage }>> {
   const { system, user } = buildJudgePrompt(transcript, claims, videoContext);
   const traces: Array<{ prompt: { system: string; user: string }; response: string }> = [];
+  const usageRecords: LlmTokenUsage[] = [];
 
   // First attempt
   const llmResult1 = await judgeClient.generate({
@@ -28,6 +29,7 @@ export async function scoreClaimSet(
   });
 
   traces.push({ prompt: { system, user }, response: llmResult1.ok ? llmResult1.value : `Error: ${llmResult1.error.message}` });
+  if (llmResult1.ok && llmResult1.usage) usageRecords.push(llmResult1.usage);
 
   if (!llmResult1.ok) {
     return { ok: false, error: llmResult1.error };
@@ -39,7 +41,7 @@ export async function scoreClaimSet(
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    return { ok: true, value: { score: result1.value, traces } };
+    return { ok: true, value: { score: result1.value, traces, usage: sumUsage(usageRecords) } };
   }
 
   // Retry once with error feedback - no need to re-send full transcript
@@ -61,6 +63,7 @@ Do not include explanatory text.`;
   });
 
   traces.push({ prompt: { system, user: retryUser }, response: llmResult2.ok ? llmResult2.value : `Error: ${llmResult2.error.message}` });
+  if (llmResult2.ok && llmResult2.usage) usageRecords.push(llmResult2.usage);
 
   if (!llmResult2.ok) {
     return { ok: false, error: llmResult2.error };
@@ -72,10 +75,22 @@ Do not include explanatory text.`;
       judgeModelId: judgeModel,
       judgePromptVersion: JUDGE_PROMPT_VERSION
     };
-    return { ok: true, value: { score: result2.value, traces } };
+    return { ok: true, value: { score: result2.value, traces, usage: sumUsage(usageRecords) } };
   }
 
   return { ok: false, error: new Error(`Failed to parse judge score after retry. Last error: ${result2.error.message}`) };
+}
+
+function sumUsage(records: LlmTokenUsage[]): LlmTokenUsage | undefined {
+  if (records.length === 0) return undefined;
+  return records.reduce<LlmTokenUsage>(
+    (total, usage) => ({
+      inputTokens: total.inputTokens + usage.inputTokens,
+      outputTokens: total.outputTokens + usage.outputTokens,
+      totalTokens: total.totalTokens + usage.totalTokens,
+    }),
+    { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+  );
 }
 
 function parseAndValidate(content: string): Result<ClaimSetScore> {

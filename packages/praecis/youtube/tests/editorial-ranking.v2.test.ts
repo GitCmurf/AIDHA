@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ClaimCandidate } from '../src/extract/types.js';
 import {
+  DEFAULT_ECHO_DETECTION,
   runEditorPassV2,
   runEditorPassV2WithDiagnostics,
 } from '../src/extract/editorial-ranking.js';
@@ -408,15 +409,17 @@ describe('editorial ranking v2', () => {
         },
       ];
 
-      // Should use default threshold of 0.9
       const result = runEditorPassV2WithDiagnostics(candidates, {
         maxClaims: 5,
         chunkCount: 1,
         excerptTextsById: excerptTexts,
-        // echoOverlapThreshold not specified, should use default
       });
 
       expect(result.selected.length).toBe(1);
+      expect(DEFAULT_ECHO_DETECTION.mode).toBe('tag');
+      expect(DEFAULT_ECHO_DETECTION.overlapThreshold).toBe(0.9);
+      expect(result.diagnostics.echoAnalyzedCount).toBe(1);
+      expect(result.diagnostics.echoTaggedCount).toBe(1);
     });
   });
 

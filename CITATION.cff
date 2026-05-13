@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use AIDHA, please cite it using this metadata."
+title: "AIDHA"
+type: software
+authors:
+  - family-names: "Farmer"
+    given-names: "Colin"
+    alias: "GitCmurf"
+repository-code: "https://github.com/GitCmurf/AIDHA"
+url: "https://github.com/GitCmurf/AIDHA"
+license: "Apache-2.0"
+version: "0.0.1"
+abstract: >-
+  AIDHA turns video content into a queryable knowledge graph with claim extraction,
+  provenance, refinement, and JSON-LD export workflows.

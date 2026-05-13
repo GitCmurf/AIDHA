@@ -150,3 +150,7 @@ export type {
   ProjectCreateResult,
 } from './planning/index.js';
 export { createArea, createGoal, createProject } from './planning/index.js';
+
+// Utility exports
+export type { Logger, BufferedLogEntry } from './utils/logger.js';
+export { consoleLogger, silentLogger, BufferedLogger } from './utils/logger.js';

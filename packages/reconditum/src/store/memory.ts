@@ -36,7 +36,11 @@ import type {
   NodeType,
   Predicate,
 } from '../schema/index.js';
-import { GraphNode as GraphNodeSchema, GraphEdge as GraphEdgeSchema } from '../schema/index.js';
+import {
+  CURRENT_GRAPH_SCHEMA_VERSION,
+  GraphNode as GraphNodeSchema,
+  GraphEdge as GraphEdgeSchema,
+} from '../schema/index.js';
 import {
   nowIso,
   deepEqual,
@@ -158,6 +162,7 @@ export class InMemoryStore implements GraphStore {
       if (!existing) {
         const timestamp = nowIso();
         const node: GraphNode = {
+          schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
           id,
           type,
           label: data.label,
@@ -184,6 +189,7 @@ export class InMemoryStore implements GraphStore {
 
       const updated: GraphNode = {
         ...existing,
+        schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
         id: existing.id,
         type,
         label: data.label,
@@ -259,6 +265,7 @@ export class InMemoryStore implements GraphStore {
 
       if (!existing) {
         const edge: GraphEdge = {
+          schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
           subject,
           predicate,
           object,
@@ -277,6 +284,7 @@ export class InMemoryStore implements GraphStore {
 
       const updated: GraphEdge = {
         ...existing,
+        schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
         subject,
         predicate,
         object,
@@ -324,7 +332,7 @@ export class InMemoryStore implements GraphStore {
       const nodeIds = new Set(sortedNodes.map(node => node.id));
       let edges = Array.from(this.edges.values()).filter(edge => nodeIds.has(edge.subject) && nodeIds.has(edge.object));
       edges = sortEdges(edges);
-      return { ok: true, value: { nodes: sortedNodes, edges } };
+      return { ok: true, value: { schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION, nodes: sortedNodes, edges } };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

@@ -2,8 +2,8 @@
 document_id: AIDHA-EVAL-TASK-004
 owner: Ingestion Engineering Lead
 status: Approved
-version: "0.1"
-last_updated: 2026-03-09
+version: "0.3"
+last_updated: 2026-05-09
 title: Task 004 Completion Engineering Note
 type: TESTING
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-EVAL-TASK-004
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Approved
-> **Version:** 0.1
-> **Last Updated:** 2026-03-09
+> **Version:** 0.3
+> **Last Updated:** 2026-05-09
 > **Type:** TESTING
 
 # Task 004 Completion Engineering Note
@@ -25,6 +25,8 @@ docops_version: "2.0"
 | Version | Date       | Author      | Change Summary                                                  | Reviewers | Status   | Reference             |
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | -------- | --------------------- |
 | 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Approved | AIDHA-TASK-004        |
+| 0.2     | 2026-05-09 | AI-assisted | Clarified provider-client routing strategy and native-client triggers | —         | Approved | AIDHA-TASK-008 / TD-020 |
+| 0.3     | 2026-05-09 | AI-assisted | Added actual usage capture semantics for eval reports           | —         | Approved | AIDHA-TASK-008 / TD-019 |
 
 ## What Was Fixed
 
@@ -57,15 +59,46 @@ docops_version: "2.0"
 - **Baseline CI Integration**: A deterministic quality gate is active, failing builds that deviate
   beyond the tolerance threshold when compared to `baseline-report.json`.
 
+- **Actual Usage Capture**: LLM clients normalize provider token usage when responses include it.
+  Matrix cells now keep estimated usage and actual usage separately, aggregate reports surface the
+  number of cells with actual usage, and Markdown reports include an actual-usage section whenever
+  provider metadata is available.
+
 ## What Remains Intentionally Deferred
 
-- **Non-OpenAI Client Implementations**: We continue to use the `OpenAiCompatibleClient`
-  exclusively. True native Anthropic or Google Gemini client objects are deferred since OpenRouter
-  and LiteLLM effectively bridge the API gap for evaluation purposes.
+- **Additional Native Provider Implementations**: The runtime uses `GeminiApiClient` for
+  `google-aistudio` models and OpenAI-compatible clients for OpenAI, z.AI, Xiaomi, and OpenRouter
+  routes. Additional native clients remain deferred until there is concrete evidence that the
+  bridge route blocks correctness, usage capture, JSON-mode behavior, rate-limit handling, or
+  provider-specific safety/auth controls.
 
-- **Per-Token Actual Billing**: Actual token usage counts are not currently extracted from the LLM
-  responses. Cost output in the report remains an *estimate* based on text length heuristics rather
-  than strict API billing.
+- **Complete Provider Billing Parity**: Some providers or bridge routes may omit usage metadata.
+  Eval reports therefore retain dry-run and fallback estimates, and mark mixed availability instead
+  of silently treating estimates as actual billing.
+
+## Provider-Client Routing Decision
+
+The eval harness is intentionally hybrid:
+
+- `google-aistudio` models use the native Gemini API client because Gemini request/response shapes
+  are not OpenAI-compatible and the code already has a focused `GeminiApiClient` adapter.
+- `openai`, `zai`, `xiaomi`, and `openrouter` models use the OpenAI-compatible client route. This
+  keeps the harness small while the providers expose compatible chat-completion surfaces.
+- The model registry records this decision in each model's `clientRoute` field so eval reports,
+  routing tests, and future provider additions do not have to infer the route from comments or
+  provider names.
+
+Add a new native provider client only when at least one of these triggers is observed in a current
+eval run or provider integration test:
+
+- OpenAI-compatible responses omit required usage metadata that cannot be recovered reliably.
+- JSON or structured-output behavior differs enough to affect claim extraction correctness.
+- Provider-specific rate-limit, retry, safety, or auth controls are required for stable eval runs.
+- The bridge adds unacceptable latency, truncation, or error translation that changes scoring
+  outcomes.
+
+Until one of those triggers is met, native-client work is deferred and eval behavior should remain
+unchanged.
 
 ## How to Run the Seed Evaluation Matrix
 

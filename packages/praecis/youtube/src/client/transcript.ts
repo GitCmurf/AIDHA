@@ -1,4 +1,4 @@
-export type TranscriptSegment = { start: number; duration: number; text: string };
+export type TranscriptSegment = { start: number; duration: number; text: string; speaker?: string };
 type TranscriptJsonSegment = { utf8?: string };
 type TranscriptJsonEvent = {
   tStartMs?: number;
@@ -6,6 +6,61 @@ type TranscriptJsonEvent = {
   segs?: TranscriptJsonSegment[];
 };
 type TranscriptJson = { events?: TranscriptJsonEvent[] };
+
+function normalizeTranscriptText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function stripMarkupTags(value: string): string {
+  let result = '';
+  let i = 0;
+  while (i < value.length) {
+    if (value[i] === '<') {
+      const next = value[i + 1];
+      if (next === '/' || (next !== undefined && next >= 'A' && next <= 'Z') || (next !== undefined && next >= 'a' && next <= 'z')) {
+        let j = i + 1;
+        while (j < value.length && value[j] !== '>') j++;
+        if (j < value.length) {
+          i = j + 1;
+          continue;
+        }
+      }
+    }
+    result += value[i];
+    i++;
+  }
+  return result;
+}
+
+function parseVttVoiceTag(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
+  const match = text.match(/^<v\s+([^>]+)>([\s\S]*?)(?:<\/v>)?$/u);
+  if (!match) return null;
+
+  const speaker = normalizeTranscriptText(match[1] ?? '');
+  const body = normalizeTranscriptText(stripMarkupTags(match[2] ?? ''));
+  if (!speaker || !body) return null;
+  return { speaker, text: body };
+}
+
+function buildTranscriptSegment(input: {
+  start: number;
+  duration: number;
+  text: string;
+  allowVoiceTag?: boolean;
+}): TranscriptSegment | null {
+  const normalized = normalizeTranscriptText(input.text);
+  if (!normalized) return null;
+
+  // Only WebVTT cues with explicit <v Speaker> tags are treated as speaker-attributed.
+  // XML/JSON/TTML text is preserved verbatim so prose labels like "Definition:" remain intact.
+  const parsed = input.allowVoiceTag ? parseVttVoiceTag(normalized) : null;
+
+  return {
+    start: input.start,
+    duration: input.duration,
+    ...(parsed ?? { text: stripMarkupTags(normalized) }),
+  };
+}
 
 export function decodeXmlEntities(value: string): string {
   // Use a single-pass approach to avoid ReDoS and prevent double escaping.
@@ -26,14 +81,10 @@ export function parseTranscriptXml(xml: string): TranscriptSegment[] {
   for (const match of textMatches) {
     const start = parseFloat(match[1] ?? '0');
     const duration = parseFloat(match[2] ?? '0');
-    const text = decodeXmlEntities(match[3] ?? '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const text = stripMarkupTags(decodeXmlEntities(match[3] ?? ''));
 
-    if (text) {
-      segments.push({ start, duration, text });
-    }
+    const segment = buildTranscriptSegment({ start, duration, text });
+    if (segment) segments.push(segment);
   }
 
   return segments;
@@ -55,11 +106,14 @@ export function parseTranscriptJson(payload: string): TranscriptSegment[] {
   for (const event of events) {
     const segs = Array.isArray(event?.segs) ? event?.segs : null;
     if (!segs) continue;
-    const text = segs.map((segment: TranscriptJsonSegment) => segment?.utf8 ?? '').join('');
-    if (!text.trim()) continue;
     const start = typeof event?.tStartMs === 'number' ? event.tStartMs / 1000 : 0;
     const duration = typeof event?.dDurationMs === 'number' ? event.dDurationMs / 1000 : 0;
-    segments.push({ start, duration, text: text.replace(/\s+/g, ' ').trim() });
+    const segment = buildTranscriptSegment({
+      start,
+      duration,
+      text: segs.map((segmentPart: TranscriptJsonSegment) => segmentPart?.utf8 ?? '').join(''),
+    });
+    if (segment) segments.push(segment);
   }
 
   return segments;
@@ -108,10 +162,11 @@ export function parseTranscriptVtt(payload: string): TranscriptSegment[] {
         textLines.push(textLine.trim());
         index += 1;
       }
-      const text = textLines.join(' ').replace(/\s+/g, ' ').trim();
-      if (start !== null && text) {
+      const text = textLines.join(' ');
+      if (start !== null) {
         const duration = end !== null && end >= start ? end - start : 0;
-        segments.push({ start, duration, text });
+        const segment = buildTranscriptSegment({ start, duration, text, allowVoiceTag: true });
+        if (segment) segments.push(segment);
       }
       continue;
     }
@@ -166,13 +221,11 @@ export function parseTranscriptTtml(payload: string): TranscriptSegment[] {
     const duration =
       end !== null && start !== null ? end - start : (durationFromDur ?? 0);
 
-    const text = decodeXmlEntities(textRaw)
-      .replace(/<[^>]+>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const text = stripMarkupTags(decodeXmlEntities(textRaw));
 
-    if (start !== null && text) {
-      segments.push({ start, duration: Math.max(0, duration), text });
+    if (start !== null) {
+      const segment = buildTranscriptSegment({ start, duration: Math.max(0, duration), text });
+      if (segment) segments.push(segment);
     }
   }
 

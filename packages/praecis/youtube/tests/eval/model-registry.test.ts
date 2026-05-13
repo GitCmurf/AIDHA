@@ -14,7 +14,34 @@ describe("Model Registry", () => {
       expect(typeof m.id).toBe("string");
       expect(m.provider).toBeTruthy();
       expect(typeof m.provider).toBe("string");
+      expect(["native", "openai-compatible"]).toContain(m.clientRoute);
     });
+  });
+
+  it("should make provider client routing explicit", () => {
+    const routesByProvider = new Map<string, Set<string>>();
+    for (const m of MODEL_REGISTRY) {
+      const existing = routesByProvider.get(m.provider);
+      if (existing) {
+        existing.add(m.clientRoute);
+      } else {
+        routesByProvider.set(m.provider, new Set([m.clientRoute]));
+      }
+    }
+
+    const expectedRoutes: Record<string, string> = {
+      "google-aistudio": "native",
+      "openai": "openai-compatible",
+      "zai": "openai-compatible",
+      "xiaomi": "openai-compatible",
+      "openrouter": "openai-compatible",
+    };
+    for (const [provider, expectedRoute] of Object.entries(expectedRoutes)) {
+      const routes = routesByProvider.get(provider);
+      expect(routes, `provider ${provider} should have models`).toBeDefined();
+      expect(routes!.size, `all models for ${provider} should share the same clientRoute`).toBe(1);
+      expect([...routes!][0], `clientRoute for ${provider}`).toBe(expectedRoute);
+    }
   });
 
   it("should retrieve an OpenAI model by id", () => {

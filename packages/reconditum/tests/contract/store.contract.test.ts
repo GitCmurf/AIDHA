@@ -1,6 +1,11 @@
+import { createRequire } from 'node:module';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore, SQLiteStore } from '../../src/store/index.js';
 import type { GraphStore } from '../../src/store/types.js';
+import { CURRENT_GRAPH_SCHEMA_VERSION } from '../../src/schema/index.js';
 
 type StoreFactory = () => GraphStore;
 
@@ -22,6 +27,7 @@ function runGraphStoreContract(name: string, createStore: StoreFactory): void {
       expect(first.ok).toBe(true);
       if (!first.ok) return;
       expect(first.value.created).toBe(true);
+      expect(first.value.node.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
 
       const second = await store.upsertNode('Resource', 'node-1', data, { detectNoop: true });
       expect(second.ok).toBe(true);
@@ -69,6 +75,7 @@ function runGraphStoreContract(name: string, createStore: StoreFactory): void {
       expect(first.ok).toBe(true);
       if (!first.ok) return;
       expect(first.value.created).toBe(true);
+      expect(first.value.edge.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
 
       const second = await store.upsertEdge('t1', 'taskDependsOn', 't2', { metadata: { weight: 1 } }, { detectNoop: true });
       expect(second.ok).toBe(true);
@@ -121,6 +128,7 @@ function runGraphStoreContract(name: string, createStore: StoreFactory): void {
       const snapshot = await store.exportSnapshot({ scope: 'knowledge' });
       expect(snapshot.ok).toBe(true);
       if (!snapshot.ok) return;
+      expect(snapshot.value.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
       const ids = snapshot.value.nodes.map(node => node.id);
       expect(ids).not.toContain('proj-1');
       expect(snapshot.value.edges).toHaveLength(0);
@@ -430,5 +438,72 @@ sqliteViewsDescribe('SQLiteStore VIEWs', () => {
     expect(rows[0]?.['sourceId']).toBe('res-1');
     expect(rows[0]?.['sourceLabel']).toBe('Video Transcript');
     expect(rows[0]?.['sourceType']).toBe('Resource');
+  });
+});
+
+const sqliteMigrationDescribe = SQLiteStore.isAvailable() ? describe : describe.skip;
+
+sqliteMigrationDescribe('SQLiteStore schema migration', () => {
+  it('adds schema_version to existing tables before using the store', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'aidha-reconditum-sqlite-'));
+    const dbPath = join(tempDir, 'graph.db');
+    const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as {
+      DatabaseSync: new (path: string) => {
+        exec(sql: string): void;
+        close(): void;
+      };
+    };
+
+    const db = new DatabaseSync(dbPath);
+    try {
+      db.exec(`
+        CREATE TABLE nodes (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          label TEXT NOT NULL,
+          content TEXT,
+          metadata TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE TABLE edges (
+          subject TEXT NOT NULL,
+          predicate TEXT NOT NULL,
+          object TEXT NOT NULL,
+          metadata TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY (subject, predicate, object)
+        );
+        INSERT INTO nodes (id, type, label, content, metadata, created_at, updated_at)
+        VALUES ('node-1', 'Claim', 'Legacy claim', 'Legacy content', '{}', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+        INSERT INTO edges (subject, predicate, object, metadata, created_at)
+        VALUES ('node-1', 'claimDerivedFrom', 'source-1', '{}', '2026-01-01T00:00:00.000Z');
+      `);
+    } finally {
+      db.close();
+    }
+
+    const store = SQLiteStore.open(dbPath);
+    try {
+      const columns = (store as SQLiteStore & {
+        db: { prepare(sql: string): { all(...params: unknown[]): Array<{ name: string }> } };
+      }).db.prepare('PRAGMA table_info(nodes)').all();
+      expect(columns.map(column => column.name)).toContain('schema_version');
+
+      const nodeResult = await store.getNode('node-1');
+      expect(nodeResult.ok).toBe(true);
+      if (!nodeResult.ok) return;
+      expect(nodeResult.value?.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
+      expect(nodeResult.value?.label).toBe('Legacy claim');
+
+      const edgeResult = await store.getEdges({});
+      expect(edgeResult.ok).toBe(true);
+      if (!edgeResult.ok) return;
+      expect(edgeResult.value.items).toHaveLength(1);
+      expect(edgeResult.value.items[0]?.schemaVersion).toBe(CURRENT_GRAPH_SCHEMA_VERSION);
+    } finally {
+      await store.close();
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });

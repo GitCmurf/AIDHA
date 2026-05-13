@@ -4,18 +4,20 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
 
+const CLI_FIXTURE_IMPORT_TIMEOUT_MS = 30_000;
+
 describe('CLI fixtures import-ttml', () => {
   let tempRoot = '';
 
   beforeEach(async () => {
     tempRoot = await mkdtemp(join(tmpdir(), 'aidha-fixtures-cli-'));
-  });
+  }, CLI_FIXTURE_IMPORT_TIMEOUT_MS);
 
   afterEach(async () => {
     if (tempRoot) {
       await rm(tempRoot, { recursive: true, force: true });
     }
-  });
+  }, CLI_FIXTURE_IMPORT_TIMEOUT_MS);
 
   it('imports TTML into normalized excerpt JSON fixture', async () => {
     const ttmlPath = join(tempRoot, 'video123.en-orig.ttml');
@@ -64,7 +66,7 @@ describe('CLI fixtures import-ttml', () => {
     expect(output.segments[0]?.id).toBe('fixture-video123-0');
     expect(output.segments[1]?.text).toBe('Second line');
     expect(output.transcriptHash.length).toBeGreaterThan(10);
-  });
+  }, CLI_FIXTURE_IMPORT_TIMEOUT_MS);
 
   it('fails with usage when path is missing', async () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);

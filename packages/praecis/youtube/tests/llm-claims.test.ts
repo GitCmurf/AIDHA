@@ -1,7 +1,7 @@
 /**
  * LLM claim extraction tests - WRITTEN FIRST (TDD Red Phase)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -14,6 +14,7 @@ import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
 import { HeuristicClaimExtractor } from '../src/extract/claims.js';
 import { decidePromptPack } from '../src/extract/prompt-routing.js';
 import { hashId } from '../src/utils/ids.js';
+import { BufferedLogger } from '../src/utils/logger.js';
 
 class StubLlmClient implements LlmClient {
   calls = 0;
@@ -74,6 +75,20 @@ class RecordingStubLlmClient implements LlmClient {
     if (!result.ok) return { ok: false, error: result.error };
     return { ok: true, text: result.value };
   }
+}
+
+function excerptIdsInPrompt(request: LlmCompletionRequest): Set<string> {
+  const matches = request.user.match(/excerpt-[a-z0-9-]+/g) ?? [];
+  return new Set(matches);
+}
+
+function hasAdjacentPromptOverlap(requests: LlmCompletionRequest[]): boolean {
+  return requests.some((request, index) => {
+    const next = requests[index + 1];
+    if (!next) return false;
+    const currentIds = excerptIdsInPrompt(request);
+    return [...excerptIdsInPrompt(next)].some((excerptId) => currentIds.has(excerptId));
+  });
 }
 
 async function seedVideo(store: InMemoryStore, videoId: string) {
@@ -154,10 +169,102 @@ describe('LLM claim extraction', () => {
     await store.close();
   });
 
+  it('includes speaker metadata in excerpt payloads when present', async () => {
+    const resourceId = 'youtube-llm-speaker';
+    await store.upsertNode(
+      'Resource',
+      resourceId,
+      {
+        label: 'Speaker metadata video',
+        metadata: { videoId: 'llm-speaker' },
+      },
+      { detectNoop: true }
+    );
+    await store.upsertNode(
+      'Excerpt',
+      'speaker-excerpt-1',
+      {
+        label: 'Speaker excerpt',
+        content: 'Protein synthesis increases after resistance training.',
+        metadata: {
+          resourceId,
+          videoId: 'llm-speaker',
+          start: 12,
+          duration: 8,
+          sequence: 0,
+          speaker: 'Dr. Smith',
+        },
+      },
+      { detectNoop: true }
+    );
+
+    const resource = await store.getNode(resourceId);
+    const excerptResults = await store.queryNodes({ type: 'Excerpt', filters: { resourceId } });
+    expect(resource.ok).toBe(true);
+    expect(excerptResults.ok).toBe(true);
+    if (!resource.ok || !resource.value || !excerptResults.ok) return;
+
+    const client = new RecordingStubLlmClient([
+      JSON.stringify({
+        claims: [
+          {
+            text: 'Resistance training increases protein synthesis.',
+            excerptIds: ['speaker-excerpt-1'],
+            startSeconds: 12,
+            confidence: 0.8,
+            type: 'fact',
+          },
+        ],
+      }),
+    ]);
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-speaker-cache-'));
+    const extractor = new LlmClaimExtractor({
+      client,
+      model: 'test-model',
+      promptVersion: 'v2',
+      cacheDir,
+    });
+
+    await extractor.extractClaims({ resource: resource.value, excerpts: excerptResults.value.items, maxClaims: 3 });
+
+    expect(client.requests[0]?.user).toContain('"speaker": "Dr. Smith"');
+    expect(client.requests[0]?.user).toContain('"id": "speaker-excerpt-1"');
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('uses the injected logger for LLM extraction warnings and errors', async () => {
+    const { resource, excerpts } = await seedVideo(store, 'llm-logger');
+    const logger = new BufferedLogger();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-logger-cache-'));
+
+    try {
+      const extractor = new LlmClaimExtractor({
+        client: new SequenceStubLlmClient([{ ok: false, error: new Error('provider down') }]),
+        model: 'test-model',
+        promptVersion: 'v1',
+        cacheDir,
+        logger,
+      });
+
+      await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+
+      expect(logger.entries.some(entry => entry.level === 'error' && entry.message.includes('provider down'))).toBe(true);
+      expect(logger.entries.some(entry => entry.level === 'warn' && entry.message.includes('[LLM-FALLBACK]'))).toBe(true);
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+      await rm(cacheDir, { recursive: true, force: true });
+    }
+  });
+
   it('caches LLM responses per chunk', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-video');
     const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-cache-'));
-    const client = new StubLlmClient([
+    const client = new RecordingStubLlmClient([
       JSON.stringify({
         claims: [
           {
@@ -251,7 +358,7 @@ describe('LLM claim extraction', () => {
   it('clamps out-of-range LLM confidence values instead of rejecting the full response', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-confidence-clamp');
     const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-confidence-clamp-'));
-    const client = new StubLlmClient([
+    const client = new RecordingStubLlmClient([
       JSON.stringify({
         claims: [
           {
@@ -282,7 +389,7 @@ describe('LLM claim extraction', () => {
 
   it('persists LLM metadata on stored claims', async () => {
     const { resource, excerpts } = await seedVideo(store, 'llm-video-2');
-    const client = new StubLlmClient([
+    const client = new RecordingStubLlmClient([
       JSON.stringify({
         claims: [
           {
@@ -1104,7 +1211,7 @@ describe('LLM claim extraction', () => {
       },
     ] as any;
     const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-llm-semantic-cache-'));
-    const client = new StubLlmClient([
+    const client = new RecordingStubLlmClient([
       JSON.stringify({
         claims: [
           {
@@ -1141,6 +1248,7 @@ describe('LLM claim extraction', () => {
     const claims = await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
 
     expect(client.calls).toBeGreaterThan(1);
+    expect(hasAdjacentPromptOverlap(client.requests)).toBe(true);
     expect(Array.isArray(claims)).toBe(true);
     await rm(cacheDir, { recursive: true, force: true });
   });
@@ -1544,8 +1652,11 @@ describe('LLM claim extraction', () => {
     });
 
     await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+    const stats = extractor.getLastRunStats();
 
     expect(client.calls).toBeGreaterThan(1);
+    expect(stats.chunkInputTokenCounts).toHaveLength(8);
+    expect(stats.maxChunkInputTokens).toBe(Math.max(...stats.chunkInputTokenCounts));
     await rm(cacheDir, { recursive: true, force: true });
   });
 

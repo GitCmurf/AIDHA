@@ -10,10 +10,10 @@ const __dirname = path.dirname(__filename);
 describe("Corpus Schema Validation", () => {
   it("should validate a valid corpus entry", () => {
     const entry = {
-      videoId: "h_1zlead9ZU",
-      url: "https://www.youtube.com/watch?v=h_1zlead9ZU",
-      title: "Dr. Andrew Huberman: The Science of Nutrition...",
-      channelName: "Huberman Lab",
+      videoId: "synthetic-lecture-1",
+      url: "https://www.youtube.com/watch?v=synthetic-lecture-1",
+      title: "Synthetic Lecture on Claim Extraction",
+      channelName: "AIDHA Research Lab",
       durationMinutes: 124,
       topicDomain: "Nutrition",
       expectedClaimDensity: "high",
@@ -28,10 +28,10 @@ describe("Corpus Schema Validation", () => {
 
   it("should reject an entry missing rationale", () => {
     const entry = {
-      videoId: "h_1zlead9ZU",
-      url: "https://www.youtube.com/watch?v=h_1zlead9ZU",
-      title: "Dr. Andrew Huberman: The Science of Nutrition...",
-      channelName: "Huberman Lab",
+      videoId: "synthetic-lecture-1",
+      url: "https://www.youtube.com/watch?v=synthetic-lecture-1",
+      title: "Synthetic Lecture on Claim Extraction",
+      channelName: "AIDHA Research Lab",
       durationMinutes: 124,
       topicDomain: "Nutrition",
       expectedClaimDensity: "high",

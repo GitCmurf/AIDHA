@@ -33,6 +33,7 @@ nav:
       - MVP Test Suite: 55-testing/testing-001-mvp-tests.md
   - Planning:
       - Engineering Tech Debt Backlog: 05-planning/tasks/task-007-tech-debt-backlog.md
+      - Next Sprint Improvements: 05-planning/tasks/task-008-next-sprint-improvements.md
   - DevEx & Tooling:
       - Initial Tools Roadmap: 60-devex/initial-tools-roadmap.md
       - Repository Structure: 60-devex/repo-structure.md

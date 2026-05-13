@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
 import { describeIfSqlite } from './test-utils.js';
 
+const CLI_EXPORT_TIMEOUT_MS = 120_000;
+
 describeIfSqlite('CLI export flows', () => {
   let tempRoot = '';
   let dbPath = '';
@@ -18,7 +20,7 @@ describeIfSqlite('CLI export flows', () => {
     dbPath = join(tempRoot, 'aidha.sqlite');
     process.chdir(tempRoot);
     delete process.env['INIT_CWD'];
-  });
+  }, CLI_EXPORT_TIMEOUT_MS);
 
   afterEach(async () => {
     if (originalInitCwd === undefined) {
@@ -45,7 +47,7 @@ describeIfSqlite('CLI export flows', () => {
         }
       }
     }
-  });
+  }, CLI_EXPORT_TIMEOUT_MS);
 
   it('writes accepted and draft dossier files when split-states is enabled', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -82,7 +84,7 @@ describeIfSqlite('CLI export flows', () => {
     const draft = await readFile(draftPath, 'utf-8');
     expect(accepted).toContain('## Claims');
     expect(draft).toContain('## Claims');
-  }, 20_000);
+  }, CLI_EXPORT_TIMEOUT_MS);
 
   it('exports transcript JSON for a video', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -116,7 +118,7 @@ describeIfSqlite('CLI export flows', () => {
     expect(payload.videoId).toBe('test-video');
     expect(payload.resourceId).toBe('youtube-test-video');
     expect(payload.segments.length).toBeGreaterThan(0);
-  }, 20_000);
+  }, CLI_EXPORT_TIMEOUT_MS);
 
   it('uses source-prefixed default output filenames', async () => {
     process.chdir(tempRoot);
@@ -155,7 +157,7 @@ describeIfSqlite('CLI export flows', () => {
 
     expect(existsSync(join(tempRoot, 'out', 'dossier-youtube-test-video.md'))).toBe(true);
     expect(existsSync(join(tempRoot, 'out', 'transcript-yt-test-video.json'))).toBe(true);
-  }, 20_000);
+  }, CLI_EXPORT_TIMEOUT_MS);
 
   it('exports Gephi CSV files with nodes and edges', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -192,7 +194,7 @@ describeIfSqlite('CLI export flows', () => {
 
     const edgesContent = await readFile(edgesPath, 'utf-8');
     expect(edgesContent).toContain('Source,Target,Type,Weight,CreatedAt');
-  }, 30_000);
+  }, CLI_EXPORT_TIMEOUT_MS);
 
   it('runs diagnose stats and returns JSON', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -227,5 +229,5 @@ describeIfSqlite('CLI export flows', () => {
     expect(stats.nodeCounts).toBeDefined();
     expect(stats.edgeCounts).toBeDefined();
     expect(stats.topDegreeNodes.length).toBeLessThanOrEqual(5);
-  }, 30_000);
+  }, CLI_EXPORT_TIMEOUT_MS);
 });

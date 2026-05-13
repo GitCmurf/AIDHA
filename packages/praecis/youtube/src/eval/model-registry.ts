@@ -1,10 +1,12 @@
 export type ModelTier = "frontier" | "midtier" | "budget";
 export type ModelAvailability = "stable" | "experimental" | "free-tier";
 export type ModelProvider = "openai" | "google-aistudio" | "zai" | "xiaomi" | "openrouter";
+export type ModelClientRoute = "native" | "openai-compatible";
 
 export interface EvalModel {
   id: string;
   provider: ModelProvider;
+  clientRoute: ModelClientRoute;
   baseUrl?: string;
   modelName: string;
   apiModelId?: string;
@@ -33,6 +35,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gpt-5.4",
     provider: "openai",
+    clientRoute: "openai-compatible",
     modelName: "GPT-5.4",
     contextWindow: 128000,
     supportsJsonMode: true,
@@ -44,6 +47,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gpt-5-mini",
     provider: "openai",
+    clientRoute: "openai-compatible",
     modelName: "GPT-5-mini",
     contextWindow: 128000,
     supportsJsonMode: true,
@@ -55,6 +59,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gpt-4o-mini",
     provider: "openai",
+    clientRoute: "openai-compatible",
     modelName: "GPT-4o-mini",
     contextWindow: 128000,
     supportsJsonMode: true,
@@ -65,6 +70,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gpt-5-nano",
     provider: "openai",
+    clientRoute: "openai-compatible",
     modelName: "GPT-5-nano",
     contextWindow: 128000,
     supportsJsonMode: true,
@@ -75,11 +81,12 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   },
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Google AI Studio (direct API)
+  // Google AI Studio (native Gemini API client)
   // ─────────────────────────────────────────────────────────────────────────────
   {
     id: "gemini-3.1-pro-preview",
     provider: "google-aistudio",
+    clientRoute: "native",
     modelName: "Gemini 3.1 Pro Preview",
     contextWindow: 2000000,
     supportsJsonMode: true,
@@ -91,6 +98,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gemini-3-flash-preview",
     provider: "google-aistudio",
+    clientRoute: "native",
     modelName: "Gemini 3 Flash Preview",
     contextWindow: 1000000,
     supportsJsonMode: true,
@@ -102,6 +110,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gemini-3.1-flash-lite-preview",
     provider: "google-aistudio",
+    clientRoute: "native",
     modelName: "Gemini 3.1 Flash Lite Preview",
     contextWindow: 1000000,
     supportsJsonMode: true,
@@ -113,6 +122,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gemini-2.5-flash",
     provider: "google-aistudio",
+    clientRoute: "native",
     modelName: "Gemini 2.5 Flash",
     contextWindow: 1000000,
     supportsJsonMode: true,
@@ -124,6 +134,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "gemini-2.5-flash-lite",
     provider: "google-aistudio",
+    clientRoute: "native",
     modelName: "Gemini 2.5 Flash Lite",
     contextWindow: 1000000,
     supportsJsonMode: true,
@@ -139,6 +150,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "glm-4.7",
     provider: "zai",
+    clientRoute: "openai-compatible",
     modelName: "GLM-4.7",
     contextWindow: 128000,
     supportsJsonMode: true,
@@ -150,6 +162,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "glm-4.5-air",
     provider: "zai",
+    clientRoute: "openai-compatible",
     modelName: "GLM-4.5-Air",
     contextWindow: 128000,
     supportsJsonMode: true,
@@ -161,6 +174,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "glm-5-openrouter",
     provider: "openrouter",
+    clientRoute: "openai-compatible",
     modelName: "GLM-5 via OpenRouter",
     apiModelId: "z-ai/glm-5",
     contextWindow: 128000,
@@ -177,6 +191,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   {
     id: "mimo-v2-flash",
     provider: "xiaomi",
+    clientRoute: "openai-compatible",
     modelName: "MiMo-V2-Flash",
     contextWindow: 128000,
     supportsJsonMode: true,

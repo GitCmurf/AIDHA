@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runCli } from '../src/cli.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { writeSecureConfig } from './helpers/config-files.js';
 
 describe('CLI Config Commands (Phase 2A)', () => {
   let tempRoot: string;
@@ -27,7 +28,7 @@ describe('CLI Config Commands (Phase 2A)', () => {
     // But tests pass specific content.
     // Let's rely on tests passing valid config if possible.
     // Or update tests to pass valid config.
-    await writeFile(configPath, content, 'utf-8');
+    await writeSecureConfig(configPath, content);
   };
 
   it('AT-205: path rejects --source', async () => {
@@ -171,7 +172,7 @@ profiles:
   });
 
   it('validate handles broken YAML gracefully', async () => {
-    await writeFile(configPath, '\tinvalid yaml', 'utf-8');
+    await writeSecureConfig(configPath, '\tinvalid yaml');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Should return 0 (or 1 handled?) and print "Config is invalid" or specific error,
@@ -486,7 +487,7 @@ profiles:
   });
 
   it('validate reports correct file path on load failure (Round 3 Repro)', async () => {
-    await writeFile(configPath, '\tinvalid yaml', 'utf-8');
+    await writeSecureConfig(configPath, '\tinvalid yaml');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Run validate without --config (simulating auto-discovery via env vars or discovery logic testing)
@@ -505,7 +506,7 @@ profiles:
 
 
   it('validate reports AIDHA_CONFIG path on load failure (Round 5 Repro)', async () => {
-    await writeFile(configPath, '\tinvalid yaml', 'utf-8');
+    await writeSecureConfig(configPath, '\tinvalid yaml');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const originalEnv = process.env.AIDHA_CONFIG;
@@ -527,7 +528,7 @@ profiles:
     const projectLocalDir = join(tempRoot, '.aidha');
     await import('node:fs/promises').then(fs => fs.mkdir(projectLocalDir, { recursive: true }));
     const projectLocalPath = join(projectLocalDir, 'config.yaml');
-    await writeFile(projectLocalPath, '\tinvalid yaml', 'utf-8');
+    await writeSecureConfig(projectLocalPath, '\tinvalid yaml');
 
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -591,7 +592,7 @@ sources:
       await import('node:fs/promises').then(fs => fs.mkdir(projectLocalDir, { recursive: true }));
       const projectLocalPath = join(projectLocalDir, 'config.yaml');
       // invalid schema: llm.model must be string, here it is number
-      await writeFile(projectLocalPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local:\n    llm:\n      model: 123', 'utf-8');
+      await writeSecureConfig(projectLocalPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local:\n    llm:\n      model: 123');
 
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -612,7 +613,7 @@ sources:
     it('show prints friendly error on config load failure (Phase 2A Round 7)', async () => {
         // Create invalid YAML file
         const invalidPath = join(tempRoot, 'invalid.yaml');
-        await writeFile(invalidPath, 'invalid_yaml: [ unclosed', 'utf-8');
+        await writeSecureConfig(invalidPath, 'invalid_yaml: [ unclosed');
 
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -625,7 +626,7 @@ sources:
 
     it('get prints friendly error on config load failure (Phase 2A Round 7)', async () => {
         const invalidPath = join(tempRoot, 'invalid.yaml');
-        await writeFile(invalidPath, 'invalid_yaml: [ unclosed', 'utf-8');
+        await writeSecureConfig(invalidPath, 'invalid_yaml: [ unclosed');
 
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -637,7 +638,7 @@ sources:
 
     it('list-profiles fails fast on config error (Phase 2A Round 8)', async () => {
         const invalidPath = join(tempRoot, 'invalid.yaml');
-        await writeFile(invalidPath, 'invalid_yaml: [ unclosed', 'utf-8');
+        await writeSecureConfig(invalidPath, 'invalid_yaml: [ unclosed');
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
         const code = await runCli(['config', 'list-profiles', '--config', invalidPath]);

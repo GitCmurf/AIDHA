@@ -15,6 +15,9 @@ export const TranscriptSegment = z.object({
 
   /** Segment text */
   text: z.string(),
+
+  /** Optional speaker label parsed from high-confidence transcript cues */
+  speaker: z.string().min(1).optional(),
 });
 
 export type TranscriptSegment = z.infer<typeof TranscriptSegment>;

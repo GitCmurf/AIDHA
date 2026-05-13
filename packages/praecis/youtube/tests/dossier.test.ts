@@ -102,6 +102,7 @@ describe('DossierExporter', () => {
     expect(claimLines.length).toBeGreaterThan(0);
     const excerptLines = md.split('\n').filter(line => line.trim().startsWith('- Excerpt:'));
     expect(excerptLines.length).toBeGreaterThan(0);
+    expect(md).toContain('- Speaker: Host');
   });
 
   it('excludes rejected claims from the dossier', async () => {
@@ -113,7 +114,51 @@ describe('DossierExporter', () => {
     const claims = await graphStore.queryNodes({ type: 'Claim' });
     expect(claims.ok).toBe(true);
     if (!claims.ok) return;
-    const rejected = claims.value.items[0];
+    const excerpts = await graphStore.queryNodes({
+      type: 'Excerpt',
+      filters: { resourceId: 'youtube-test-video' },
+    });
+    expect(excerpts.ok).toBe(true);
+    if (!excerpts.ok) return;
+
+    const claimExcerptIdsByClaimId = new Map<string, Set<string>>();
+    for (const claim of claims.value.items) {
+      const claimEdges = await graphStore.getEdges({
+        predicate: 'claimDerivedFrom',
+        subject: claim.id,
+      });
+      expect(claimEdges.ok).toBe(true);
+      if (!claimEdges.ok) return;
+
+      claimExcerptIdsByClaimId.set(
+        claim.id,
+        new Set(claimEdges.value.items.map(edge => edge.object))
+      );
+    }
+
+    let rejected = undefined;
+    for (const claim of claims.value.items) {
+      const claimText = (claim.content ?? claim.label ?? '').trim();
+      if (!claimText) continue;
+
+      const otherExcerptIds = new Set<string>();
+      for (const [otherClaimId, excerptIds] of claimExcerptIdsByClaimId.entries()) {
+        if (otherClaimId === claim.id) continue;
+        for (const excerptId of excerptIds) {
+          otherExcerptIds.add(excerptId);
+        }
+      }
+
+      const appearsInAnotherClaimExcerpt = excerpts.value.items.some(excerpt => {
+        if (!otherExcerptIds.has(excerpt.id)) return false;
+        return (excerpt.content ?? '').includes(claimText);
+      });
+
+      if (!appearsInAnotherClaimExcerpt) {
+        rejected = claim;
+        break;
+      }
+    }
     expect(rejected).toBeTruthy();
     if (!rejected) return;
 
@@ -162,7 +207,7 @@ describe('DossierExporter', () => {
     const parsed = JSON.parse(transcript.value) as {
       videoId: string;
       resourceId: string;
-      segments: Array<{ id: string; start: number; end: number; duration: number; text: string }>;
+      segments: Array<{ id: string; start: number; end: number; duration: number; text: string; speaker?: string }>;
     };
     expect(parsed.videoId).toBe('test-video');
     expect(parsed.resourceId).toBe('youtube-test-video');
@@ -171,6 +216,7 @@ describe('DossierExporter', () => {
     expect(parsed.segments[0]?.start).toBeTypeOf('number');
     expect(parsed.segments[0]?.duration).toBeTypeOf('number');
     expect(parsed.segments[0]?.text.length).toBeGreaterThan(0);
+    expect(parsed.segments[0]?.speaker).toBe('Host');
 
     const second = await exporter.exportTranscriptJson('test-video');
     expect(second.ok).toBe(true);

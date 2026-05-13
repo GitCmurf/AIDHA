@@ -825,9 +825,9 @@ export function runEditorPassV2WithDiagnostics(
   );
 
   // Echo detection configuration
-  const echoMode = options.echoDetection?.mode ?? 'tag';
+  const echoMode = options.echoDetection?.mode ?? DEFAULT_ECHO_DETECTION.mode;
   const echoThreshold = clamp(
-    options.echoDetection?.overlapThreshold ?? DEFAULT_V2_ECHO_OVERLAP_THRESHOLD,
+    options.echoDetection?.overlapThreshold ?? DEFAULT_ECHO_DETECTION.overlapThreshold,
     0,
     1
   );

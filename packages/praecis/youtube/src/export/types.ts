@@ -7,6 +7,7 @@ export interface DossierClaim {
   timestampUrl: string;
   excerptText: string;
   excerptId?: string;
+  speaker?: string;
   referenceUrls: string[];
   type?: string;
   classification?: string;
@@ -52,6 +53,7 @@ export interface TranscriptSegmentExport {
   end: number;
   duration: number;
   text: string;
+  speaker?: string;
 }
 
 export interface TranscriptExport {

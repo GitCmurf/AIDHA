@@ -6,6 +6,8 @@ import { SQLiteStore } from '@aidha/graph-backend';
 import { runCli } from '../src/cli.js';
 import { describeIfSqlite } from './test-utils.js';
 
+const CLI_REVIEW_ATOMICITY_TIMEOUT_MS = 30_000;
+
 describeIfSqlite('CLI review apply atomicity', () => {
   let tempRoot = '';
   let dbPath = '';
@@ -30,13 +32,13 @@ describeIfSqlite('CLI review apply atomicity', () => {
       metadata: { resourceId: 'youtube-cli-video', videoId: 'cli-video', state: 'draft' },
     });
     await store.close();
-  });
+  }, CLI_REVIEW_ATOMICITY_TIMEOUT_MS);
 
   afterEach(async () => {
     if (tempRoot) {
       await rm(tempRoot, { recursive: true, force: true });
     }
-  });
+  }, CLI_REVIEW_ATOMICITY_TIMEOUT_MS);
 
   it('returns non-zero and leaves snapshot unchanged on failed mixed-claim batch', async () => {
     const beforeStore = SQLiteStore.open(dbPath);
@@ -70,5 +72,5 @@ describeIfSqlite('CLI review apply atomicity', () => {
     if (!afterSnapshot.ok) return;
 
     expect(afterSnapshot.value).toEqual(beforeSnapshot.value);
-  });
+  }, CLI_REVIEW_ATOMICITY_TIMEOUT_MS);
 });

@@ -8,6 +8,8 @@ import { MockYouTubeClient } from '../src/client/mock.js';
 import { IngestionPipeline } from '../src/pipeline/ingest.js';
 import { ClaimExtractionPipeline } from '../src/extract/claims.js';
 import { ReferenceExtractionPipeline } from '../src/extract/references.js';
+import type { ClaimCandidate } from '../src/extract/types.js';
+import { BufferedLogger } from '../src/utils/logger.js';
 
 class ConcurrentResourceMetadataStore extends InMemoryStore {
   private didUpdateResource = false;
@@ -200,6 +202,40 @@ describe('Extraction pipelines', () => {
     expect(transactionalStore.transactionalWriteVerified).toBe(true);
 
     await transactionalStore.close();
+  });
+
+  it('routes claim validation warnings through the configured logger', async () => {
+    await ingestion.ingestPlaylist('test-playlist');
+    const logger = new BufferedLogger();
+    const extractor = {
+      async extractClaims() {
+        return [
+          {
+            text: 'Invalid claim without excerpt provenance',
+            excerptIds: [],
+            confidence: 2,
+            method: 'heuristic' as const,
+          } as ClaimCandidate,
+        ];
+      },
+    };
+
+    const claimPipeline = new ClaimExtractionPipeline({ graphStore, extractor, logger });
+    const result = await claimPipeline.extractClaimsForVideo('test-video');
+
+    expect(result.ok).toBe(true);
+    expect(logger.entries).toEqual([
+      {
+        level: 'warn',
+        message: expect.stringContaining('Claim validation failed for:'),
+        args: [expect.objectContaining({ error: expect.any(String) })],
+      },
+      {
+        level: 'warn',
+        message: 'Dropped 1 invalid claims for youtube-test-video',
+        args: [],
+      },
+    ]);
   });
 
   it('rolls back claim writes when transactional extraction fails', async () => {

@@ -6,6 +6,7 @@ import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
 import { normalizeText } from "../extract/utils.js";
 import { hashText } from "../utils/ids.js";
 import { normalizeBaseUrl } from "../extract/llm-client.js";
+import { consoleLogger, type Logger } from "../utils/logger.js";
 
 export interface GeminiEmbeddingClientConfig {
   apiKey: string;
@@ -18,6 +19,7 @@ export interface GeminiEmbeddingClientConfig {
   maxRequestsPerMinute?: number;
   batchSize?: number;
   maxRetries?: number;
+  logger?: Logger;
 }
 
 interface CachedEmbedding {
@@ -94,6 +96,7 @@ export class GeminiEmbeddingClient {
   private readonly maxRequestsPerMinute: number;
   private readonly batchSize: number;
   private readonly maxRetries: number;
+  private readonly logger: Logger;
   private apiRequestCount = 0;
   private embeddingsComputed = 0;
   private cacheHitCount = 0;
@@ -113,6 +116,7 @@ export class GeminiEmbeddingClient {
       ? configuredBatchSize
       : DEFAULT_BATCH_SIZE;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.logger = config.logger ?? consoleLogger;
   }
 
   async similarity(textA: string, textB: string): Promise<Result<EmbeddingSimilarityScore>> {
@@ -283,7 +287,7 @@ export class GeminiEmbeddingClient {
           await this.writeCache(cachePath, text, v);
         } catch (cacheErr) {
           // Cache write failure should not discard the successfully retrieved embedding
-          console.warn(`[embedding-cache-write-failed] path=${cachePath} error=${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`);
+          this.logger.warn(`[embedding-cache-write-failed] path=${cachePath} error=${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`);
         }
         values.push(v);
       } else {
@@ -305,8 +309,7 @@ export class GeminiEmbeddingClient {
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       const waitMs = await requestRateLimiterRegistry.waitForSlot(this.model, this.maxRequestsPerMinute);
       if (waitMs > 0) {
-        // skipcq: JS-0002
-        console.log(`[rate-limit-wait] model=${this.model} waitMs=${waitMs}`);
+        this.logger.info(`[rate-limit-wait] model=${this.model} waitMs=${waitMs}`);
       }
 
       const timeoutSignal = AbortSignal.timeout(this.timeoutMs);

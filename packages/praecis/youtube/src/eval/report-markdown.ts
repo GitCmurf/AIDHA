@@ -109,6 +109,19 @@ const renderCostEstimate = (cost: MatrixReport["costEstimate"]): string => {
   return md;
 };
 
+const renderActualUsageSummary = (usage: MatrixReport["actualUsageSummary"]): string => {
+  if (!usage || usage.cellsWithActualUsage === 0) return "";
+
+  let md = "### Actual Usage Captured\n\n";
+  md += `- **Cells with actual usage:** ${usage.cellsWithActualUsage}\n`;
+  md += `- **Cells with estimates only:** ${usage.cellsWithEstimatedOnlyUsage}\n`;
+  md += `- **Input tokens:** ${usage.inputTokens}\n`;
+  md += `- **Output tokens:** ${usage.outputTokens}\n`;
+  md += `- **Total tokens:** ${usage.totalTokens}\n`;
+  md += `- **Actual cost:** $${usage.actualCostUsd.toFixed(4)}\n\n`;
+  return md;
+};
+
 const renderVariantCostBreakdown = (variantCosts: MatrixReport["variantCostSummary"]): string => {
   if (!variantCosts || Object.keys(variantCosts).length === 0) return "";
 
@@ -202,6 +215,7 @@ export const renderMatrixReport = (report: MatrixReport): string => {
   md += renderHighVarianceAlerts(report.recommendations?.caveats);
   md += renderRecommendations(report.recommendations);
   md += renderCostEstimate(report.costEstimate);
+  md += renderActualUsageSummary(report.actualUsageSummary);
   md += renderVariantCostBreakdown(report.variantCostSummary);
   md += renderQualityGates(report.qualityGates);
   md += renderNarrowJudgeSummary(report.narrowJudgeResults);

@@ -9,16 +9,6 @@ import type { IngestionJob, JobError, Transcript } from '../schema/index.js';
 import { hashId } from '../utils/ids.js';
 import { runAtomically } from '../utils/store.js';
 
-/**
- * Generate unique ID.
- */
-function generateId(): string {
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-/**
- * Get current ISO timestamp.
- */
 function now(): string {
   return new Date().toISOString();
 }
@@ -58,7 +48,7 @@ export class IngestionPipeline {
 
     // Initialize job
     const job: IngestionJob = {
-      id: generateId(),
+      id: hashId('job', [playlistId, String(Date.now())]),
       playlistId,
       status: 'running',
       progress: { total: totalVideos, completed: 0, failed: 0 },
@@ -96,11 +86,7 @@ export class IngestionPipeline {
     }
 
     // Finalize job
-    job.status = totalVideos === 0
-      ? 'completed'
-      : errors.length === totalVideos
-        ? 'failed'
-        : 'completed';
+    job.status = errors.length > 0 && errors.length === totalVideos ? 'failed' : 'completed';
     job.errors = errors;
     job.completedAt = now();
 
@@ -333,6 +319,7 @@ export class IngestionPipeline {
           end: segment.start + segment.duration,
           sequence: index,
           source: 'youtube',
+          ...(segment.speaker ? { speaker: segment.speaker } : {}),
         },
       };
       const upsert = await this.graphStore.upsertNode('Excerpt', excerptId, data, { detectNoop: true });

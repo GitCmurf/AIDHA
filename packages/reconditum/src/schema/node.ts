@@ -5,6 +5,7 @@
  * GraphNode schema - base entity for all nodes in the knowledge graph.
  */
 import { z } from 'zod';
+import { CURRENT_GRAPH_SCHEMA_VERSION } from './version.js';
 
 /**
  * Node types supported in the knowledge graph.
@@ -38,6 +39,9 @@ export type NodeMetadata = z.infer<typeof NodeMetadata>;
  * GraphNode schema - the fundamental vertex in our graph.
  */
 export const GraphNode = z.object({
+  /** Durable graph node contract version */
+  schemaVersion: z.literal(CURRENT_GRAPH_SCHEMA_VERSION).default(CURRENT_GRAPH_SCHEMA_VERSION),
+
   /** Unique identifier for the node */
   id: z.string().min(1),
 
@@ -66,6 +70,7 @@ export type GraphNode = z.infer<typeof GraphNode>;
  * Input schema for creating a new node (auto-generates timestamps).
  */
 export const CreateNodeInput = GraphNode.omit({
+  schemaVersion: true,
   createdAt: true,
   updatedAt: true,
 });

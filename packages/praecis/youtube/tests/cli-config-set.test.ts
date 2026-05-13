@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runCli } from '../src/cli.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, writeFile, rm, readFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, mkdir } from 'node:fs/promises';
+import { writeSecureConfig } from './helpers/config-files.js';
 
 describe('CLI Config Set (Phase 2B)', () => {
   let tempRoot: string;
@@ -32,7 +33,7 @@ profiles:
     llm:
       model: gpt-4o
     `;
-    await writeFile(configPath, yaml, 'utf-8');
+    await writeSecureConfig(configPath, yaml);
 
     const code = await runCli(['config', 'set', 'profiles.local.llm.model', 'o1-preview', '--config', configPath]);
     expect(code).toBe(0);
@@ -48,7 +49,7 @@ profiles:
     const localConfigPath = join(aidhaDir, 'config.yaml');
     await mkdir(aidhaDir);
 
-    await writeFile(localConfigPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}', 'utf-8');
+    await writeSecureConfig(localConfigPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}');
 
     // Run without --config, should find .aidha/config.yaml
     const code = await runCli(['config', 'set', 'default_profile', 'prod']);
@@ -59,7 +60,7 @@ profiles:
   });
 
   it('performs type conversion (string -> number)', async () => {
-    await writeFile(configPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}', 'utf-8');
+    await writeSecureConfig(configPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}');
 
     const code = await runCli(['config', 'set', 'profiles.local.llm.timeout_ms', '3000', '--config', configPath]);
     expect(code).toBe(0);
@@ -70,7 +71,7 @@ profiles:
 
   it('refuses to mutate in dry-run mode', async () => {
     const yaml = 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}';
-    await writeFile(configPath, yaml, 'utf-8');
+    await writeSecureConfig(configPath, yaml);
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
     const code = await runCli(['config', 'set', 'default_profile', 'prod', '--config', configPath, '--dry-run']);
@@ -82,7 +83,7 @@ profiles:
   });
 
   it('reports validation errors from schema', async () => {
-    await writeFile(configPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}', 'utf-8');
+    await writeSecureConfig(configPath, 'config_version: 1\ndefault_profile: local\nprofiles:\n  local: {}');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const code = await runCli(['config', 'set', 'config_version', '0', '--config', configPath]);

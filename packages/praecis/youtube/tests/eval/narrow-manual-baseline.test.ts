@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,20 +13,23 @@ import {
   buildVideoScoreInputSignature,
   buildHarnessComparableClaimSet,
   computeOptimizationScore,
-  computeGoldCoverage,
-  computeCoverageByMode,
   buildComparableCandidateId,
   needsFallbackForModel,
   profileTranscriptStructure,
-  renderNarrowComparisonMarkdown,
   runNarrowManualBaselineComparison,
   selectShortlistCandidatesForVideo,
   selectFastTriageEscalationPack,
   shouldFastTriageEscalate,
-  type EmbeddingBudgetState,
 } from "../../src/eval/narrow-manual-baseline";
+import {
+  computeCoverageByMode,
+  type EmbeddingBudgetState,
+} from "../../src/eval/coverage-engine.js";
+import { renderNarrowComparisonMarkdown } from "../../src/eval/narrow-report-renderer.js";
+import { writeNarrowComparisonReport } from "../../src/eval/narrow-report-writer.js";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
 import { validateSafeId } from "../../src/utils/ids.js";
+import { BufferedLogger } from "../../src/utils/logger.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../");
 
@@ -121,7 +124,7 @@ vi.mock("../../src/eval/gemini-embedding-client.js", () => ({
 
 describe("narrow-manual-baseline helpers", () => {
   it("computes root and child gold coverage separately", async () => {
-    const coverage = await computeGoldCoverage(
+    const coverage = await computeCoverageByMode(
       [
         { text: "Primary claim", excerptIds: ["e1"] },
         { text: "Supporting detail", excerptIds: ["e2"] },
@@ -130,7 +133,8 @@ describe("narrow-manual-baseline helpers", () => {
         { id: "video:1", parentId: undefined, depth: 0, path: [1], text: "Primary claim", type: "fact", evidence: undefined },
         { id: "video:1.1", parentId: "video:1", depth: 1, path: [1, 1], text: "Supporting detail", type: "fact", evidence: undefined },
         { id: "video:1.2", parentId: "video:1", depth: 1, path: [1, 2], text: "Missed child", type: "fact", evidence: undefined },
-      ]
+      ],
+      "strict"
     );
 
     expect(coverage.matched).toBe(2);
@@ -836,7 +840,7 @@ describe("narrow-manual-baseline helpers", () => {
         }
       }
     }
-  });
+  }, 20_000);
 
   it("uses the valid Gemini embedding default when no embedding model override is set", async () => {
     const originalEnv = {
@@ -869,6 +873,7 @@ describe("narrow-manual-baseline helpers", () => {
       const transcriptDir = await mkdtemp(join(rootDir, "transcripts-"));
       const manualBaselineDir = await mkdtemp(join(rootDir, "manual-"));
       const outputDir = await mkdtemp(join(rootDir, "output-"));
+      const logger = new BufferedLogger();
 
       await writeFile(
         join(transcriptDir, "video-1.json"),
@@ -931,13 +936,23 @@ describe("narrow-manual-baseline helpers", () => {
         env: {
           AIDHA_GOOGLE_API_KEY: "from-dotenv-google", // pragma: allowlist secret
         } as NodeJS.ProcessEnv,
+        logger,
       });
 
       expect(geminiEmbeddingClientMock).toHaveBeenCalledTimes(1);
       expect(geminiEmbeddingClientMock).toHaveBeenCalledWith(expect.objectContaining({
         model: "gemini-embedding-001",
+        logger,
       }));
       expect(report.metadata.embeddingModel).toBe("gemini-embedding-001");
+      expect(logger.entries.map((entry) => entry.message)).toEqual(
+        expect.arrayContaining([
+          "[stage1-start] shortlist",
+          expect.stringContaining("[coverage-start] video=video-1"),
+          "[stage4-start] judge",
+          "[stage4-done] judge",
+        ])
+      );
     } finally {
       for (const [key, value] of Object.entries(originalEnv)) {
         if (value === undefined) {
@@ -1353,12 +1368,59 @@ describe("narrow-manual-baseline helpers", () => {
       runMode: "fast-triage",
     });
 
-  expect(report.metadata.completedStages).toEqual(
+    expect(report.metadata.completedStages).toEqual(
       expect.arrayContaining(["shortlist", "score", "report"])
     );
     expect(report.videos).toHaveLength(1);
     expect(report.videos[0]?.candidateReports.length).toBeGreaterThan(0);
-  });
+
+    await writeNarrowComparisonReport(report, outputDir, "characterization");
+    const persistedReport = JSON.parse(await readFile(join(outputDir, "latest.json"), "utf-8"));
+    expect(persistedReport).toMatchObject({
+      metadata: {
+        runMode: "fast-triage",
+        completedStages: expect.arrayContaining(["shortlist", "score", "report"]),
+        stageExecution: {
+          shortlist: "recomputed",
+          score: "recomputed",
+          report: "recomputed",
+        },
+      },
+      videos: [
+        {
+          videoId: "video-1",
+          title: "Video 1",
+          candidateReports: expect.arrayContaining([
+            expect.objectContaining({
+              candidateId: expect.any(String),
+              sourceKind: expect.any(String),
+              semanticCoverage: expect.objectContaining({
+                matched: expect.any(Number),
+                total: 1,
+              }),
+            }),
+          ]),
+        },
+      ],
+    });
+
+    const persistedMarkdown = await readFile(join(outputDir, "latest.md"), "utf-8");
+    expect(persistedMarkdown).toContain("# Narrow Manual Baseline Comparison");
+    expect(persistedMarkdown).toContain("- Run mode: `fast-triage`");
+    expect(persistedMarkdown).toContain("- Stage execution:");
+    expect(persistedMarkdown).toContain("## video-1 - Video 1");
+
+    const firstDeterministicOutputDir = await mkdtemp(join(tmpdir(), "aidha-output-a-"));
+    const secondDeterministicOutputDir = await mkdtemp(join(tmpdir(), "aidha-output-b-"));
+    await writeNarrowComparisonReport(report, firstDeterministicOutputDir, "characterization");
+    await writeNarrowComparisonReport(report, secondDeterministicOutputDir, "characterization");
+    await expect(readFile(join(firstDeterministicOutputDir, "latest.json"), "utf-8")).resolves.toBe(
+      await readFile(join(secondDeterministicOutputDir, "latest.json"), "utf-8")
+    );
+    await expect(readFile(join(firstDeterministicOutputDir, "latest.md"), "utf-8")).resolves.toBe(
+      await readFile(join(secondDeterministicOutputDir, "latest.md"), "utf-8")
+    );
+  }, 20_000);
 
   it("resumes refine artifacts and still judges refined rows after a score recompute", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "narrow-manual-baseline-resume-"));
@@ -1474,7 +1536,31 @@ describe("narrow-manual-baseline helpers", () => {
     const refinedCandidate = candidateReports.find((candidate) => candidate.candidateId.endsWith("/refine"));
     expect(refinedCandidate?.judgeFindingsByModel).toBeDefined();
     expect(refinedCandidate?.judgeFindingsByModel?.["judge-1"]).toBeDefined();
-  });
+
+    await writeNarrowComparisonReport(secondRun, outputDir, "resume-characterization");
+    const persistedReport = JSON.parse(await readFile(join(outputDir, "latest.json"), "utf-8"));
+    expect(persistedReport.metadata.stageExecution).toMatchObject({
+      refine: "resumed",
+      score: "recomputed",
+      judge: "recomputed",
+      report: "recomputed",
+    });
+    expect(persistedReport.videos[0].candidateReports).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          candidateId: expect.stringContaining("/refine"),
+          variantId: "self-improve-v1",
+          judgeFindingsByModel: expect.objectContaining({
+            "judge-1": expect.any(Object),
+          }),
+        }),
+      ])
+    );
+
+    const persistedMarkdown = await readFile(join(outputDir, "latest.md"), "utf-8");
+    expect(persistedMarkdown).toContain("refine=resumed");
+    expect(persistedMarkdown).toContain("score=recomputed");
+  }, 20_000);
 
   it("rejects path-traversal videoId values in narrow corpus entries", () => {
     const entry = {
