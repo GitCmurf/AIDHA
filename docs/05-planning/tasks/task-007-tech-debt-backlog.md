@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-TASK-007
 owner: Ingestion Engineering Lead
-status: Draft
-version: "1.59"
-last_updated: 2026-05-12
+status: Approved
+version: "1.60"
+last_updated: 2026-05-13
 title: Engineering Tech Debt Backlog
 type: TASK
 docops_version: "2.0"
@@ -14,9 +14,9 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 <!-- MEMINIT_METADATA_BLOCK -->
 > **Document ID:** AIDHA-TASK-007
 > **Owner:** Ingestion Engineering Lead
-> **Status:** Draft
-> **Version:** 1.59
-> **Last Updated:** 2026-05-12
+> **Status:** Approved
+> **Version:** 1.60
+> **Last Updated:** 2026-05-13
 > **Type:** TASK
 
 <!-- markdownlint-disable MD013 -->
@@ -87,6 +87,7 @@ keywords: [tech-debt, backlog, refactoring, performance, eval]
 | 1.57    | 2026-05-12 | AI     | Add local gitleaks evidence and narrow false-positive allowlist for TD-014. | — | Draft | AIDHA-TASK-001 |
 | 1.58    | 2026-05-12 | AI     | Add closeout state summary distinguishing resolved work from maintainer-blocked gates. | — | Draft | AIDHA-TASK-008 |
 | 1.59    | 2026-05-12 | AI     | Supersede release-governance blockers into TASK-001 and close the tech-debt ledger. | — | Draft | AIDHA-TASK-001 |
+| 1.60    | 2026-05-13 | AI     | Mark the tech-debt backlog fully closed after TASK-001 public-release gates passed. | — | Approved | AIDHA-TASK-001 |
 
 ---
 
@@ -189,7 +190,7 @@ already triaged.
 
 ### Current Closeout State
 
-As of 2026-05-12, this tech-debt ledger is closed. TD-001 through TD-013 and TD-016 through TD-022
+As of 2026-05-13, this tech-debt ledger is closed. TD-001 through TD-013 and TD-016 through TD-022
 are `Resolved` with implementation evidence, focused validation commands, and DocOps updates
 recorded in the individual entries. TD-014 and TD-015 are `Superseded` into `AIDHA-TASK-001`
 because they are public-release governance gates rather than codebase technical debt:

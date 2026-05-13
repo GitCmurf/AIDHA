@@ -1,8 +1,8 @@
 ---
 document_id: AIDHA-TASK-001
 owner: GitCmurf
-status: Draft
-version: "1.19"
+status: Approved
+version: "1.20"
 last_updated: 2026-05-13
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -13,8 +13,8 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
-> **Status:** Draft
-> **Version:** 1.19
+> **Status:** Approved
+> **Version:** 1.20
 > **Last Updated:** 2026-05-13
 > **Type:** TASK
 
@@ -44,6 +44,7 @@ docops_version: "2.0"
 | 1.17    | 2026-05-12 | AI     | Clarify fixture policy for Creative Commons transcript smoke tests and synthetic extraction goldens. | — | Draft | AIDHA-GOV-005 |
 | 1.18    | 2026-05-13 | AI     | Correct fixture provenance scope for eval artifacts and acceptance-run report. | — | Draft | AIDHA-GOV-005 |
 | 1.19    | 2026-05-13 | AI     | Replace committed extraction-quality eval fixtures with synthetic data and close the redistribution gate. | — | Draft | AIDHA-GOV-005 |
+| 1.20    | 2026-05-13 | AI     | Close the public-release gate after remote Secret Scan and history-strategy verification. | — | Approved | AIDHA-TASK-007 |
 
 ## Project Status
 
@@ -71,17 +72,16 @@ Version History records document revisions only.
   `security_and_analysis.dependabot_security_updates.status: enabled`.
 - `gh api -i repos/:owner/:repo/vulnerability-alerts` returned `204 No Content`, confirming
   Dependabot vulnerability alerts are enabled.
-- `gh api repos/:owner/:repo/branches/main/protection` returned active branch protection, but
-  required status-check contexts are empty and `required_approving_review_count` is `0`; branch
-  protection is therefore not complete against the go/no-go criterion.
-- `gh run list --workflow secret-scan.yml --limit 5` showed recent scheduled `Secret Scan` runs
-  failing, with latest observed failure `25656999477` on 2026-05-11. The latest observed passing
-  `Secret Scan` run was the 2026-05-08 push run for Dependabot PR #9 (`25554272706`).
+- `gh api repos/:owner/:repo/branches/main/protection` now returns active branch protection with
+  required pull requests, one approving review, strict required checks, and admin enforcement.
+- `gh run list --workflow secret-scan.yml --limit 5` shows a passing `Secret Scan` run on `main`
+  after the branch merge (`25815363815` on 2026-05-13). The earlier failing runs were pre-fix
+  history and no longer block the public-release gate.
 - Local reproduction with gitleaks `8.28.0` showed the all-history failure was caused by known
   false positives in `.secrets.baseline` hash entries and the synthetic dotenv fixture in
   `packages/aidha-config/tests/loader-order.test.ts`. The fixture was renamed away from
   secret-shaped text and `.gitleaks.toml` now allowlists only those known historical false-positive
-  paths. A pushed GitHub run is still required before the gitleaks gate can be checked off.
+  paths. A pushed GitHub run later confirmed the gitleaks gate on `main`.
 - `AIDHA-TASK-007` now supersedes the remaining release-governance gates into this task rather than
   tracking them as ingestion/eval technical debt. This task remains the owner for branch protection,
   remote Secret Scan evidence, CLA/DCO posture, citation metadata, trademark guidance, and final
@@ -100,6 +100,8 @@ Version History records document revisions only.
 - Branch protection for `main` now requires pull requests, one approving review, strict required
   status checks, and admin enforcement. Required checks are `Docs Check / build`,
   `TypeScript Packages / verify`, and `Secret Scan / gitleaks`.
+- Git history strategy was executed as the clean-slate/public-root approach: `git rev-list
+  --max-parents=0 HEAD` returns the public root commit `c2db410d9fb535df004130475e6d9b49d7180601`.
 - Fixture policy clarified on 2026-05-12: keep minimal Creative Commons YouTube transcript fixtures
   for transcript-download smoke coverage; use committed synthetic data for extraction-quality
   golden tests; keep broader real-video evaluation sets in ignored local directories until their
@@ -109,10 +111,10 @@ Version History records document revisions only.
 
 - [x] `meminit check --root .` passes with 0 violations and 0 warnings
 - [x] `pre-commit run detect-secrets --all-files` passes (baseline reviewed)
-- [ ] GitHub Actions `Secret Scan` workflow passes (gitleaks; local history false positives fixed,
-      remote run still pending)
+- [x] GitHub Actions `Secret Scan` workflow passes (gitleaks; remote run on `main` succeeded after
+      the merge commit)
 - [x] `pnpm docs:build` passes (MkDocs site is the review artifact)
-- [ ] Git history strategy is executed (see §1.1): squash vs scrub
+- [x] Git history strategy is executed (see §1.1): squash vs scrub
 - [x] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
 - [x] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
 
@@ -144,7 +146,7 @@ were later deleted.
 
 ### 1.2 Secrets & Credentials Audit (Current State)
 
-> **Status:** Completed (verified Feb 2026, follow-up checks pending)
+> **Status:** Completed (verified Feb 2026, follow-up checks completed)
 
 - [x] `.gitignore` covers `.env`, `.env.*`, `secrets/`, `credentials/`, `*.key`, `*.secret`
 - [x] No hardcoded API keys, tokens, or passwords found in tracked source files
@@ -218,7 +220,7 @@ The current `LICENSE.md` now contains the full Apache 2.0 license text.
 
 - [x] Review `.github/workflows/docs-check.yml` — ensure it doesn't expose secrets in logs
 - [x] Add branch protection rules (require PR reviews, passing CI before merge)
-- [ ] Configure GitHub repository settings:
+- [x] Configure GitHub repository settings:
   - [x] Enable Dependabot for security alerts
   - [x] Enable secret scanning (GitHub Advanced Security)
   - [x] Set default branch to `main`
