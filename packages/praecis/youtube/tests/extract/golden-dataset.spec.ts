@@ -39,7 +39,7 @@ interface GoldenDataset {
 function loadGoldenDataset(): GoldenDataset {
   const fixturePath = resolve(
     import.meta.dirname || __dirname,
-    '../fixtures/extraction-golden/h_1zlead9ZU.samples.json'
+    '../fixtures/extraction-golden/synthetic-claim-extraction.samples.json'
   );
   const content = readFileSync(fixturePath, 'utf-8');
   return JSON.parse(content) as GoldenDataset;
@@ -126,7 +126,7 @@ describe('golden dataset integrity', () => {
   it('has valid video metadata', () => {
     const dataset = loadGoldenDataset();
 
-    expect(dataset.videoId).toBe('h_1zlead9ZU');
+    expect(dataset.videoId).toBe('synthetic-claim-extraction-1');
     expect(dataset.title).toBeTruthy();
     expect(dataset.channel).toBeTruthy();
     expect(dataset.description).toBeTruthy();

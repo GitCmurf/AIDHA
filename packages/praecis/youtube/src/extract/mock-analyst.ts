@@ -2,60 +2,60 @@ import type { ClaimCandidate } from './types.js';
 
 /**
  * Mock data representing the high-resolution "Senior Analyst" output
- * for video h_1zlead9ZU.
+ * for the synthetic benchmark fixture.
  */
 export const HIGH_RES_MOCK_CLAIMS: ClaimCandidate[] = [
   {
-    text: "Muscle protein synthesis (MPS) does not plateau at 25-30g; 100g of slow-digesting protein elicits significantly greater MPS than 25g.",
-    excerptIds: ["mock-excerpt-mps"],
-    startSeconds: 381,
+    text: "A benchmark can separate claim-worthy statements from boilerplate and fragmentary speech.",
+    excerptIds: ["mock-excerpt-filtering"],
+    startSeconds: 60,
     classification: "fact",
-    domain: "Protein Kinetics",
+    domain: "Methodology",
     confidence: 0.95,
     method: "llm"
   },
   {
-    text: "If total daily protein reaches ~1.6g/kg (0.7g/lb), precise timing relative to training is statistically irrelevant to hypertrophy.",
-    excerptIds: ["mock-excerpt-timing"],
-    startSeconds: 805,
+    text: "Synthetic panel data should preserve speaker turns when the transcript alternates quickly between panelists.",
+    excerptIds: ["mock-excerpt-panel-turns"],
+    startSeconds: 300,
     classification: "fact",
-    domain: "Protein Kinetics",
+    domain: "Methodology",
     confidence: 0.92,
     method: "llm"
   },
   {
-    text: "Cream is lipid-neutral due to the presence of Milk Fat Globule Membrane (MFGM), whereas butter raises LDL cholesterol due to its removal during churning.",
-    excerptIds: ["mock-excerpt-butter"],
-    startSeconds: 6968,
+    text: "Show-note citations should be extracted when they are explicitly stated in the transcript.",
+    excerptIds: ["mock-excerpt-citations"],
+    startSeconds: 900,
     classification: "fact",
-    domain: "Lipidology",
+    domain: "Methodology",
     confidence: 0.88,
     method: "llm"
   },
   {
-    text: "A single resistance bout elevates muscle protein synthesis for 24-72 hours, rendering the acute 30-60 minute post-exercise feeding window obsolete.",
-    excerptIds: ["mock-excerpt-window"],
-    startSeconds: 909,
+    text: "Concise claims should remain atomic rather than being merged into one summary sentence.",
+    excerptIds: ["mock-excerpt-atomicity"],
+    startSeconds: 1200,
     classification: "fact",
-    domain: "Protein Kinetics",
+    domain: "Methodology",
     confidence: 0.94,
     method: "llm"
   },
   {
-    text: "Ketogenic and high-carb diets yield identical fat loss when calories and protein are equated; keto's efficacy stems primarily from spontaneous caloric restriction.",
-    excerptIds: ["mock-excerpt-keto"],
-    startSeconds: 4027,
+    text: "Longer reasoning chains should still preserve the original claim order.",
+    excerptIds: ["mock-excerpt-order"],
+    startSeconds: 1500,
     classification: "fact",
-    domain: "Bioenergetics",
+    domain: "Methodology",
     confidence: 0.96,
     method: "llm"
   },
   {
-    text: "The average compositional shift across the menopausal transition is strictly ~1.6 kg fat gain and 0.2 kg lean mass loss, refuting claims of severe metabolic destruction.",
-    excerptIds: ["mock-excerpt-menopause"],
-    startSeconds: 7481,
+    text: "Sponsor copy should be rejected even when it is grammatically complete.",
+    excerptIds: ["mock-excerpt-sponsor"],
+    startSeconds: 1800,
     classification: "fact",
-    domain: "Endocrinology",
+    domain: "Methodology",
     confidence: 0.91,
     method: "llm"
   }

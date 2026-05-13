@@ -2,7 +2,7 @@
 document_id: AIDHA-GOV-005
 owner: Engineering
 status: Draft
-version: '0.6'
+version: '0.7'
 last_updated: 2026-05-13
 title: Third-Party Notices
 type: GOV
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Engineering
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.6
+> **Version:** 0.7
 > **Last Updated:** 2026-05-13
 > **Type:** GOV
 
@@ -30,6 +30,7 @@ docops_version: '2.0'
 | 0.4     | 2026-05-12 | AI     | Add public-readiness fixture inventory and provenance status. | — | Draft | AIDHA-TASK-001 |
 | 0.5     | 2026-05-12 | AI     | Clarify committed versus local real-video fixture policy. | — | Draft | AIDHA-TASK-001 |
 | 0.6     | 2026-05-13 | AI     | Correct eval and acceptance-run provenance classifications. | — | Draft | AIDHA-TASK-001 |
+| 0.7     | 2026-05-13 | AI     | Replace committed extraction-quality eval fixtures with synthetic data and reclassify the remaining provenance surface. | — | Draft | AIDHA-TASK-001 |
 
 ## Purpose
 
@@ -85,19 +86,16 @@ for engineering and test fixtures.
     important edge cases such as enumeration, sponsor read-outs, show-note citations, fragments,
     speaker attribution, and claim hierarchy.
 
-### Eval annotation fixtures requiring provenance closure
+### Synthetic extraction-quality eval fixtures
 
 - Locations:
-  - `packages/praecis/youtube/tests/fixtures/extraction-golden/h_1zlead9ZU.samples.json`
+  - `packages/praecis/youtube/tests/fixtures/extraction-golden/synthetic-claim-extraction.samples.json`
   - `packages/praecis/youtube/tests/fixtures/eval-matrix/golden-annotations.json`
 - Declared status:
-  - Needs follow-up before public-release checklist closure.
-  - `h_1zlead9ZU.samples.json` is the output of an extraction run on a transcript of a copyrighted
-    YouTube video.
-  - `golden-annotations.json` is an initial human/AI-authored golden extraction attempt derived
-    from transcripts of copyrighted YouTube videos.
-- Required closure:
-  - Replace committed extraction-quality fixtures with synthetic data where possible.
+  - Synthetic / internally authored test data.
+  - The committed extraction-golden fixture and the committed golden-annotations fixture are now
+    synthetic, not transcript-derived redistribution artifacts.
+- Operational note:
   - Keep broader real-video golden sets in ignored local directories unless a specific artifact has
     explicit redistribution permission and a registered minimal-excerpt rationale.
 
@@ -114,9 +112,9 @@ for engineering and test fixtures.
 
 ### Public-readiness fixture audit summary
 
-As of 2026-05-13, fixture redistribution is intentionally still open in `AIDHA-TASK-001`. The
-project should not close that public-release gate until the eval annotation fixtures above are
-either replaced with synthetic data or moved to ignored local data.
+As of 2026-05-13, the committed extraction-quality eval fixtures are synthetic and no longer part of
+the redistribution blocker. The remaining real-video work should stay local unless it is explicitly
+registered with source and permission metadata.
 
 Broader real-video evaluation sets may be useful for private development, but they should live in
 ignored local directories such as `testdata/youtube_local/` or `testdata/nonredistributable/` until

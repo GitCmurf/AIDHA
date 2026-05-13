@@ -1,174 +1,120 @@
 [
   {
-    "videoId": "RfEOrbbMwMU",
-    "title": "5 Essential Consulting PowerPoint Slide Layouts",
-    "speaker": "Paul Moss",
-    "speakerCredentials": "Coach",
+    "videoId": "synthetic-lecture-1",
+    "title": "Synthetic Lecture on Claim Extraction",
+    "speaker": "Avery Stone",
+    "speakerCredentials": "Instructor",
     "idealClaims": [
       {
-        "text": "Professional consulting presentations use five core slide layouts for approximately 90% of standard presentation requirements, based on a review of over 100 industry decks.",
+        "text": "A good extraction benchmark should separate claim-worthy statements from boilerplate, fragments, and sponsor copy.",
         "type": "research_finding",
         "children": [
           {
-            "text": "The five core consulting presentation slide layouts are single table, chart, subtitle, framework, and visual.",
-            "type": "research_finding",
-            "children": [
-              {
-                "text": "The table slide layout is optimal for presenting mixed qualitative and quantitative information that cannot be easily charted.",
-                "type": "recommendation",
-                "children": []
-              },
-              {
-                "text": "The chart slide layout is primarily used to convince an audience to make a specific, data-backed decision.",
-                "type": "recommendation",
-                "children": [
-                  {
-                    "text": "Chart types must logically match the data message: line charts for trends, bar charts for category comparisons, column charts for categories over time, and scatter plots for variable relationships.",
-                    "type": "recommendation",
-                    "children": []
-                  },
-                  {
-                    "text": "Pie charts should generally be avoided in professional presentations.",
-                    "type": "recommendation",
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "text": "The subtitle slide layout is optimal for demonstrating the logical structure of an argument.",
-                "type": "recommendation",
-                "children": []
-              },
-              {
-                "text": "The framework slide layout must be strictly edited to exclude details that do not directly impact the core message.",
-                "type": "recommendation",
-                "children": []
-              },
-              {
-                "text": "The visual slide layout uses a map, diagram, or photograph with specific call-out boxes to explain real-world operational details.",
-                "type": "recommendation",
-                "children": [
-                  {
-                    "text": "Visual slides prioritize functional explanation over aesthetic appeal and are more likely to appear in realistic client presentations or appendices than in marketing materials.",
-                    "type": "recommendation",
-                    "children": []
-                  }
-                ]
-              }
-            ]
+            "text": "Boilerplate intros, outros, and call-to-action lines should be rejected.",
+            "type": "recommendation",
+            "children": [],
+            "evidence": { "startMs": 0, "endMs": 42000 }
+          },
+          {
+            "text": "Fragments without a complete assertion should also be rejected.",
+            "type": "recommendation",
+            "children": [],
+            "evidence": { "startMs": 42000, "endMs": 78000 }
+          },
+          {
+            "text": "Sponsor copy should be treated as non-claim content.",
+            "type": "recommendation",
+            "children": [],
+            "evidence": { "startMs": 78000, "endMs": 120000 }
           }
-        ]
+        ],
+        "evidence": { "startMs": 0, "endMs": 120000 }
+      },
+      {
+        "text": "Synthetic nutrition and exercise claims can still be used to validate extraction hierarchy and evidence handling.",
+        "type": "assertion",
+        "children": [
+          {
+            "text": "A claim about daily protein distribution can be classified separately from a claim about training recovery.",
+            "type": "fact",
+            "children": [],
+            "evidence": { "startMs": 120000, "endMs": 180000 }
+          },
+          {
+            "text": "Short factual statements should remain atomic rather than being merged into one long summary sentence.",
+            "type": "recommendation",
+            "children": [],
+            "evidence": { "startMs": 180000, "endMs": 240000 }
+          }
+        ],
+        "evidence": { "startMs": 120000, "endMs": 240000 }
       }
     ],
-    "rejectedClaims": []
+    "rejectedClaims": [
+      {
+        "text": "Welcome to the session.",
+        "reason": "fragment"
+      },
+      {
+        "text": "Subscribe for more benchmark updates.",
+        "reason": "topic-drift"
+      }
+    ]
   },
   {
-    "videoId": "xZzkNJ0e5J0",
-    "title": "The clinical significance and management of elevated Lipoprotein(a) [Lp(a)].",
-    "speaker": "Dr. Robert Todd Hurst",
-    "speakerCredentials": "Board-Certified Preventive Cardiologist",
+    "videoId": "synthetic-panel-1",
+    "title": "Synthetic Panel on Evaluation Design",
+    "speaker": "Jordan Lee",
+    "speakerCredentials": "Facilitator",
     "idealClaims": [
       {
-        "text": "Lipoprotein(a), or Lp(a), is a specific type of cholesterol comprised of a standard cholesterol molecule with an attached specialized protein.",
-        "type": "fact",
-        "children": []
-      },
-      {
-        "text": "Elevated Lp(a) significantly impacts cardiovascular health and functions as a strong independent risk factor for multiple conditions.",
-        "type": "research_finding",
-        "children": []
-      },
-      {
-        "text": "Lp(a) is the most common genetic cholesterol abnormality driving heart disease risk and is observed in 20% to 30% of the general population.",
+        "text": "A representative panel benchmark should stress multi-speaker attribution and turn-taking.",
         "type": "research_finding",
         "children": [
           {
-            "text": "Lp(a) levels are approximately 90% determined by genetics.",
-            "type": "research_finding",
-            "children": []
+            "text": "Speaker changes should be preserved when the transcript alternates quickly between panelists.",
+            "type": "recommendation",
+            "children": [],
+            "evidence": { "startMs": 0, "endMs": 30000 }
           },
           {
-            "text": "Direct-to-consumer genetic testing platforms increasingly flag genetic predispositions for elevated Lp(a).",
+            "text": "Show-note citations should be extracted when they are stated as explicit references.",
             "type": "fact",
-            "children": []
-          },
-          {
-            "text": "While guidelines vary slightly, standard clinical thresholds for elevated Lp(a) are greater than 50 mg/dL or greater than 125 nmol/L.",
-            "type": "fact",
-            "children": []
-          },
-          {
-            "text": "Lifestyle interventions do not significantly alter the absolute Lp(a) laboratory value, but lifestyle optimization remains critical for reducing cumulative cardiovascular risk.",
-            "type": "research_finding",
-            "children": []
-          },
-          {
-            "text": "The development of emerging targeted treatments makes identifying elevated Lp(a) clinically actionable.",
-            "type": "assertion",
-            "children": []
+            "children": [],
+            "evidence": { "startMs": 30000, "endMs": 60000 }
           }
-        ]
+        ],
+        "evidence": { "startMs": 0, "endMs": 60000 }
       },
       {
-        "text": "Four principles guide management of elevated Lp(a): optimize overall heart health, lower LDL or ApoB aggressively, directly lower Lp(a) when possible, and manage thrombosis risk.",
-        "type": "recommendation",
+        "text": "A panel benchmark should include both concise claims and longer reasoning chains to test hierarchy handling.",
+        "type": "assertion",
         "children": [
           {
-            "text": "Optimizing overall heart health is the first principle because Lp(a) increases arterial disease risk and the main defense is to improve all other modifiable risk factors.",
+            "text": "Concise claims should remain standalone when they can be judged independently.",
             "type": "recommendation",
-            "children": [
-              {
-                "text": "The Healthspan 10 framework proposes 10 variables as the strongest predictors of cardiovascular, cancer, and dementia risk and claims optimizing them can materially reduce disease risk and add years of life.",
-                "type": "assertion",
-                "children": []
-              },
-              {
-                "text": "Healthspan 10 includes four outcome goals and six modifiable intervention tools spanning blood pressure, blood sugar, cholesterol, body composition, nutrition, physical activity, sleep, stress, toxin avoidance, and social connection.",
-                "type": "recommendation",
-                "children": []
-              }
-            ]
+            "children": [],
+            "evidence": { "startMs": 60000, "endMs": 90000 }
           },
           {
-            "text": "Aggressive lowering of LDL or ApoB is the second principle, with high-risk individuals typically targeting LDL below 70 mg/dL or lower based on individualized risk.",
+            "text": "Longer reasoning chains should still preserve the original claim order.",
             "type": "recommendation",
-            "children": []
-          },
-          {
-            "text": "Direct lowering of Lp(a) is the third principle, although mainstream accessible methods remain limited today.",
-            "type": "assertion",
-            "children": [
-              {
-                "text": "Niacin can lower Lp(a) but is not recommended because outcome trials showed no cardiovascular benefit and suggested adverse effects.",
-                "type": "research_finding",
-                "children": []
-              },
-              {
-                "text": "LDL apheresis is a rare dialysis-like filtration procedure for the highest-risk patients that can reduce Lp(a) by up to 70% and may improve outcomes.",
-                "type": "research_finding",
-                "children": []
-              },
-              {
-                "text": "Emerging small interfering RNA therapies have reported greater than 95% Lp(a) lowering and may become the first targeted therapies to test whether directly lowering Lp(a) reduces cardiovascular events.",
-                "type": "research_finding",
-                "children": []
-              }
-            ]
-          },
-          {
-            "text": "Managing thrombosis risk is the fourth principle because Lp(a) may increase clotting risk and recent evidence suggests aspirin may help some genetically predisposed individuals.",
-            "type": "research_finding",
-            "children": [
-              {
-                "text": "Aspirin carries bleeding risk, so prophylactic use for elevated Lp(a) requires an individualized physician-led risk-benefit analysis.",
-                "type": "research_finding",
-                "children": []
-              }
-            ]
+            "children": [],
+            "evidence": { "startMs": 90000, "endMs": 120000 }
           }
-        ]
+        ],
+        "evidence": { "startMs": 60000, "endMs": 120000 }
       }
     ],
-    "rejectedClaims": []
+    "rejectedClaims": [
+      {
+        "text": "Thanks everyone for joining.",
+        "reason": "hallucination"
+      },
+      {
+        "text": "We'll pause here and continue later.",
+        "reason": "redundant"
+      }
+    ]
   }
 ]

@@ -1,9 +1,9 @@
 ---
-document_id: AIDHA-EVAL-BASELINE
+document_id: AIDHA-EVAL-001
 owner: Ingestion Engineering Lead
-status: Published
-version: "0.4"
-last_updated: 2026-05-03
+status: Approved
+version: "0.5"
+last_updated: 2026-05-13
 title: Evaluation Matrix Baseline Workflow
 type: TESTING
 docops_version: "2.0"
@@ -11,11 +11,11 @@ docops_version: "2.0"
 
 <!-- MEMINIT_METADATA_BLOCK -->
 
-> **Document ID:** AIDHA-EVAL-BASELINE
+> **Document ID:** AIDHA-EVAL-001
 > **Owner:** Ingestion Engineering Lead
-> **Status:** Published
-> **Version:** 0.4
-> **Last Updated:** 2026-05-03
+> **Status:** Approved
+> **Version:** 0.5
+> **Last Updated:** 2026-05-13
 > **Type:** TESTING
 
 # Evaluation Matrix Baseline Workflow
@@ -28,6 +28,7 @@ docops_version: "2.0"
 | 0.2     | 2026-03-13 | AI-assisted | Replace non-doc quality-gate link with MkDocs-safe code reference | —         | Published | AIDHA-TASK-004        |
 | 0.3     | 2026-03-15 | AI-assisted | Document hierarchical JSON golden annotations                   | —         | Published | AIDHA-TASK-004        |
 | 0.4     | 2026-05-03 | AI-assisted | Document TypeScript package CI gate and self-improvement guardrails | —       | Published | AIDHA-TASK-006        |
+| 0.5     | 2026-05-13 | AI-assisted | Clarify that the checked-in baseline corpus is synthetic and keep real-video candidates local. | — | Approved | AIDHA-TASK-001 |
 
 The evaluation matrix (`eval matrix`) provides a quantitative assessment of the LLM extraction
 pipeline. To prevent regressions, we maintain a pinned baseline report.
@@ -138,6 +139,7 @@ baseline needs to be refreshed.
 
 ## Seed Corpus Management
 
-The seed corpus (`corpus.json`) should be kept small and deterministic. Do not add raw,
-non-reproducible videos without caching the transcripts in
-`tests/fixtures/eval-matrix/transcript-excerpts/`.
+The checked-in seed corpus (`corpus.json`) is synthetic and should stay small and deterministic.
+Do not add raw, non-reproducible videos without caching the transcripts in
+`tests/fixtures/eval-matrix/transcript-excerpts/`, and keep any real-video candidate sets in
+ignored local directories until their redistribution basis is registered.

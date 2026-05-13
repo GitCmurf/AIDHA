@@ -2,7 +2,7 @@
   "summary": {
     "bestModel": "gpt-4o",
     "worstModel": "gpt-4o-mini",
-    "hardestVideo": "h_1zlead9ZU"
+    "hardestVideo": "synthetic-panel-1"
   },
   "costEstimate": {
     "extractionUsd": 0.05,

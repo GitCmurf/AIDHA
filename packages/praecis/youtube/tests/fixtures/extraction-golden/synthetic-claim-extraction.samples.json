@@ -1,0 +1,216 @@
+{
+  "videoId": "synthetic-claim-extraction-1",
+  "title": "Synthetic Claim Extraction Benchmark",
+  "channel": "AIDHA Lab",
+  "description": "Internally authored benchmark data covering claim extraction filters, evidence-bearing claims, and recurring false positive patterns.",
+  "samples": [
+    {
+      "id": "sample-001",
+      "timestamp": 0,
+      "claimText": "Welcome back to the benchmark walkthrough.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Intro boilerplate - should be filtered"
+    },
+    {
+      "id": "sample-002",
+      "timestamp": 24,
+      "claimText": "I am your host for today's synthetic evaluation session.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Host introduction - should be filtered"
+    },
+    {
+      "id": "sample-003",
+      "timestamp": 43,
+      "claimText": "and then we move to the next topic about extraction scoring.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Dangling fragment with connector - should be filtered"
+    },
+    {
+      "id": "sample-004",
+      "timestamp": 120,
+      "claimText": "Consistent protein intake across the day can make meal planning easier for active adults.",
+      "domain": "Nutrition",
+      "classification": "Protocol",
+      "evidenceType": "RCT",
+      "isTruePositive": true,
+      "notes": "Core synthetic claim for benchmark coverage"
+    },
+    {
+      "id": "sample-005",
+      "timestamp": 180,
+      "claimText": "A higher-protein breakfast can improve satiety compared with a lower-protein breakfast in some settings.",
+      "domain": "Nutrition",
+      "classification": "Comparison",
+      "evidenceType": "RCT",
+      "isTruePositive": true,
+      "notes": "Synthetic comparative claim with specific effect direction"
+    },
+    {
+      "id": "sample-006",
+      "timestamp": 300,
+      "claimText": "Resistance training tends to increase the usefulness of higher protein targets during a calorie deficit.",
+      "domain": "Exercise Science",
+      "classification": "Interaction",
+      "evidenceType": "Physiological Consensus",
+      "isTruePositive": true,
+      "notes": "Synthetic interaction claim linking training and nutrition"
+    },
+    {
+      "id": "sample-007",
+      "timestamp": 420,
+      "claimText": "Short recovery windows are often needed when exercise sessions are close together.",
+      "domain": "Exercise Science",
+      "classification": "Recommendation",
+      "evidenceType": "Meta-analysis",
+      "isTruePositive": true,
+      "notes": "Synthetic protocol claim for exercise scheduling"
+    },
+    {
+      "id": "sample-008",
+      "timestamp": 580,
+      "claimText": "Older adults may benefit from a slightly higher per-meal protein target than younger adults.",
+      "domain": "Nutrition",
+      "classification": "Special Population",
+      "evidenceType": "Position Stand",
+      "isTruePositive": true,
+      "notes": "Synthetic population-specific claim"
+    },
+    {
+      "id": "sample-009",
+      "timestamp": 640,
+      "claimText": "Use code BENCHMARK for 20% off the premium toolkit.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Sponsor CTA - should be filtered"
+    },
+    {
+      "id": "sample-010",
+      "timestamp": 750,
+      "claimText": "Very low-calorie plans can increase drop-out risk when meal structure is poor.",
+      "domain": "Nutrition",
+      "classification": "Recommendation",
+      "evidenceType": "Cohort",
+      "isTruePositive": true,
+      "notes": "Synthetic recommendation claim for diet adherence"
+    },
+    {
+      "id": "sample-011",
+      "timestamp": 900,
+      "claimText": "A modest rise in total daily protein can improve training adherence if meals are predictable.",
+      "domain": "Nutrition",
+      "classification": "Mechanism",
+      "evidenceType": "Review",
+      "isTruePositive": true,
+      "notes": "Synthetic mechanism claim with practical focus"
+    },
+    {
+      "id": "sample-012",
+      "timestamp": 1050,
+      "claimText": "Creatine monohydrate is commonly used as a daily supplement independent of workout timing.",
+      "domain": "Supplements",
+      "classification": "Supplement Protocol",
+      "evidenceType": "Meta-analysis",
+      "isTruePositive": true,
+      "notes": "Synthetic supplement protocol claim"
+    },
+    {
+      "id": "sample-013",
+      "timestamp": 1140,
+      "claimText": "Caffeine sensitivity varies enough that late-day intake can affect sleep quality.",
+      "domain": "Supplements",
+      "classification": "Threshold",
+      "evidenceType": "RCT",
+      "isTruePositive": true,
+      "notes": "Synthetic threshold claim with time-of-day sensitivity"
+    },
+    {
+      "id": "sample-014",
+      "timestamp": 1260,
+      "claimText": "A combined strength-and-endurance program can shift the balance of adaptation if weekly volume is not managed.",
+      "domain": "Exercise Science",
+      "classification": "Interaction",
+      "evidenceType": "Meta-analysis",
+      "isTruePositive": true,
+      "notes": "Synthetic interaction claim for concurrent training"
+    },
+    {
+      "id": "sample-015",
+      "timestamp": 1380,
+      "claimText": "Protein source texture and flavor can influence adherence even when macros are matched.",
+      "domain": "Nutrition",
+      "classification": "Comparison",
+      "evidenceType": "Cohort",
+      "isTruePositive": true,
+      "notes": "Synthetic comparison claim focused on adherence"
+    },
+    {
+      "id": "sample-016",
+      "timestamp": 1500,
+      "claimText": "Thanks for staying to the end of the session.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Outro boilerplate - should be filtered"
+    },
+    {
+      "id": "sample-017",
+      "timestamp": 1620,
+      "claimText": "This is especially important for anyone trying to compare study designs.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Pronoun-led fragment - should be deprioritized"
+    },
+    {
+      "id": "sample-018",
+      "timestamp": 1740,
+      "claimText": "Beta-alanine is sometimes used for sustained high-intensity efforts lasting a few minutes.",
+      "domain": "Supplements",
+      "classification": "Supplement Effect",
+      "evidenceType": "Review",
+      "isTruePositive": true,
+      "notes": "Synthetic supplement effect claim"
+    },
+    {
+      "id": "sample-019",
+      "timestamp": 1860,
+      "claimText": "Those differences only matter when the weekly schedule is already overloaded.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Pronoun-led fragment without clear antecedent"
+    },
+    {
+      "id": "sample-020",
+      "timestamp": 1980,
+      "claimText": "Please subscribe for more benchmark updates and future fixture drops.",
+      "domain": null,
+      "classification": null,
+      "evidenceType": null,
+      "isTruePositive": false,
+      "notes": "Closing sponsor CTA - should be filtered"
+    }
+  ],
+  "metadata": {
+    "totalSamples": 20,
+    "truePositives": 12,
+    "falsePositives": 8,
+    "domains": ["Nutrition", "Exercise Science", "Supplements"],
+    "classifications": ["Protocol", "Comparison", "Interaction", "Recommendation", "Special Population", "Mechanism", "Supplement Protocol", "Threshold", "Supplement Effect"],
+    "evidenceTypes": ["RCT", "Physiological Consensus", "Meta-analysis", "Position Stand", "Cohort", "Review"]
+  }
+}

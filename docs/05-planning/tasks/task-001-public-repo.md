@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-001
 owner: GitCmurf
 status: Draft
-version: "1.18"
+version: "1.19"
 last_updated: 2026-05-13
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.18
+> **Version:** 1.19
 > **Last Updated:** 2026-05-13
 > **Type:** TASK
 
@@ -43,6 +43,7 @@ docops_version: "2.0"
 | 1.16    | 2026-05-12 | AI     | Record applied low-friction branch protection settings for `main`. | — | Draft | GitHub branch protection |
 | 1.17    | 2026-05-12 | AI     | Clarify fixture policy for Creative Commons transcript smoke tests and synthetic extraction goldens. | — | Draft | AIDHA-GOV-005 |
 | 1.18    | 2026-05-13 | AI     | Correct fixture provenance scope for eval artifacts and acceptance-run report. | — | Draft | AIDHA-GOV-005 |
+| 1.19    | 2026-05-13 | AI     | Replace committed extraction-quality eval fixtures with synthetic data and close the redistribution gate. | — | Draft | AIDHA-GOV-005 |
 
 ## Project Status
 
@@ -92,10 +93,10 @@ Version History records document revisions only.
   registration; defer GitHub Discussions until there is actual community demand; keep fixture
   redistribution open for a provenance audit and likely synthetic golden-test expansion.
 - `AIDHA-GOV-005` now records a public-readiness fixture inventory. Synthetic eval-matrix fixtures
-  are identified as internally authored. The extraction-golden and golden-annotation fixtures are
-  derived from copyrighted YouTube transcripts and should be replaced with synthetic committed
-  fixtures or moved to ignored local data. The acceptance-run report is AI-agent generated test
-  evidence, not known copyrighted transcript data.
+  are identified as internally authored. The committed extraction-golden fixture
+  `synthetic-claim-extraction.samples.json` and the committed `golden-annotations.json` fixture are
+  also synthetic, not transcript-derived redistribution artifacts. The acceptance-run report is
+  AI-agent generated test evidence, not known copyrighted transcript data.
 - Branch protection for `main` now requires pull requests, one approving review, strict required
   status checks, and admin enforcement. Required checks are `Docs Check / build`,
   `TypeScript Packages / verify`, and `Secret Scan / gitleaks`.
@@ -112,7 +113,7 @@ Version History records document revisions only.
       remote run still pending)
 - [x] `pnpm docs:build` passes (MkDocs site is the review artifact)
 - [ ] Git history strategy is executed (see §1.1): squash vs scrub
-- [ ] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
+- [x] Fixture redistribution is verified or removed (see AIDHA-GOV-005)
 - [x] GitHub settings are applied (see §1.7): branch protection, security reporting, etc.
 
 ---
@@ -234,6 +235,7 @@ the branch will trigger code-review bots.
 **Owner decision, 2026-05-12:** keep fixture redistribution open until a focused provenance audit
 confirms that committed sample and fixture files are safe to redistribute. Prefer synthetic fixtures
 for additional golden tests unless a real fixture has clear provenance and compatible licensing.
+That condition is now satisfied for the committed extraction-quality eval fixtures.
 
 Keep at least one, and ideally two, real Creative Commons-licensed YouTube videos for transcript
 download and parser smoke coverage. Those committed fixtures should be minimal normalized excerpts
@@ -248,12 +250,8 @@ Broader real-video candidate sets may remain valuable for private evaluation. Ke
 local directories such as `testdata/youtube_local/` or `testdata/nonredistributable/` until they are
 converted to synthetic fixtures or registered with explicit redistribution provenance.
 
-**Current inventory, 2026-05-12:** `AIDHA-GOV-005` classifies fixture surfaces as synthetic,
-declared Creative Commons transcript-derived, or needing provenance closure. Before this gate is
-checked off, replace or register:
-
-- `packages/praecis/youtube/tests/fixtures/extraction-golden/h_1zlead9ZU.samples.json`;
-- `packages/praecis/youtube/tests/fixtures/eval-matrix/golden-annotations.json`;
+**Current inventory, 2026-05-13:** `AIDHA-GOV-005` now classifies the committed extraction-quality
+eval fixtures as synthetic. The redistribution gate is checked off.
 
 The acceptance-run report at
 `docs/55-testing/acceptance-run-20260220/testing-002-acceptance-run-20260220.md` is classified as
