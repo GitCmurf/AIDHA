@@ -703,8 +703,8 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-004",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "0.7",
+      "status": "Approved",
+      "version": "0.8",
       "last_updated": "2026-05-13",
       "title": "Claim Extraction Evaluation Matrix",
       "type": "TASK",
