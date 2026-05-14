@@ -634,6 +634,20 @@
     }
   },
   {
+    "path": "55-testing/eval-matrix/editorial-ablation-v1.md",
+    "title": "Editorial Ablation v1 — raw vs editorial-pass-v1",
+    "front_matter": {
+      "document_id": "AIDHA-EVAL-ABLATION-001",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Draft",
+      "version": "1.0",
+      "last_updated": "2026-05-14",
+      "title": "Editorial Ablation v1 — raw vs editorial-pass-v1 Delta Comparison",
+      "type": "EVAL",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "55-testing/eval-matrix/task-004-completion-note.md",
     "title": "Task 004 Completion Engineering Note",
     "front_matter": {
