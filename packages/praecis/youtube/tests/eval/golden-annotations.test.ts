@@ -100,7 +100,7 @@ describe("Golden Annotations Validation", () => {
     const result = GoldenAnnotationSchema.safeParse(invalidData);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0]?.path).toContain("speakerCredentials");
+      expect(result.error.issues[0]?.path).toContain("speakerCredentials");
     }
   });
 });

@@ -46,12 +46,13 @@ const ENV_HEURISTIC_NLP_LIBRARY = 'AIDHA_HEURISTIC_NLP_LIBRARY';
 function validateClaim(claim: ClaimCandidate, logger: Logger): ClaimCandidate | null {
   const result = ClaimCandidateSchema.safeParse(claim);
   if (!result.success) {
+    const issues = result.error.issues;
     // Safely access text property, handling non-string values
     const textPreview = typeof claim.text === 'string'
       ? claim.text.slice(0, 50)
       : '[non-string text]';
     logger.warn(`Claim validation failed for: "${textPreview}..."`, {
-      error: result.error.errors.map(e => e.message).join(', '),
+      error: issues.map((issue) => issue.message).join(', '),
     });
     return null;
   }

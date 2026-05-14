@@ -33,19 +33,25 @@ import { BufferedLogger } from "../../src/utils/logger.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../");
 
-const { geminiEmbeddingClientMock } = vi.hoisted(() => ({
-  geminiEmbeddingClientMock: vi.fn().mockImplementation(() => ({
-    similarity: vi.fn().mockResolvedValue({ ok: true, value: { score: 0.99, ok: true } }),
-    prewarm: vi.fn(),
-    getApiRequestCount: vi.fn().mockReturnValue(1),
-    getStats: vi.fn().mockReturnValue({
+const { geminiEmbeddingClientMock } = vi.hoisted(() => {
+  class MockGeminiEmbeddingClient {
+    similarity = vi.fn().mockResolvedValue({ ok: true, value: { score: 0.99, ok: true } });
+    prewarm = vi.fn();
+    getApiRequestCount = vi.fn().mockReturnValue(1);
+    getStats = vi.fn().mockReturnValue({
       apiRequestCount: 1,
       embeddingsComputed: 1,
       cacheHitCount: 0,
       cacheMissCount: 0,
+    });
+  }
+
+  return {
+    geminiEmbeddingClientMock: vi.fn(function GeminiEmbeddingClientMock() {
+      return new MockGeminiEmbeddingClient();
     }),
-  })),
-}));
+  };
+});
 
 vi.mock("../../src/eval/matrix-runner.js", () => ({
   runEvaluationMatrix: vi.fn().mockImplementation(async (_corpus, _models, options) => {

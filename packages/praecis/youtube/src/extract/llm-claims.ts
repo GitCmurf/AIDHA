@@ -2138,7 +2138,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       // Validate with Zod to get actionable schema feedback
       const result = ResponseSchema.safeParse(parsed);
       if (!result.success) {
-        const errorMessages = result.error.errors.map(e => {
+        const errorMessages = result.error.issues.map((e) => {
           const path = e.path.length > 0 ? e.path.join('.') : 'root';
           return `${path}: ${e.message}`;
         }).join('; ');
