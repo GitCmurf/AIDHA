@@ -208,6 +208,28 @@ const renderQualityGates = (qualityGates: MatrixReport["qualityGates"]): string 
   return md;
 };
 
+const renderVariantDeltaSummary = (deltas: MatrixReport["variantDeltaSummary"]): string => {
+  if (!deltas || deltas.length === 0) return "";
+
+  let md = "## Variant Delta Summary\n\n";
+  md += "Score deltas: **compare − base** (positive = compare scores higher).\n\n";
+
+  for (const delta of deltas) {
+    md += `### ${escapeMdTableCell(delta.compareVariant)} vs ${escapeMdTableCell(delta.baseVariant)}\n\n`;
+    md += `Matched pairs: ${delta.matchedPairCount}\n\n`;
+    md += "| Dimension | Δ Mean |\n| --- | --- |\n";
+    for (const { key, title } of dimensions) {
+      const v = delta.meanDelta[key];
+      if (v === undefined) continue;
+      const sign = v > 0 ? "+" : "";
+      md += `| ${title} | ${sign}${v.toFixed(2)} |\n`;
+    }
+    md += `\n- **Missing claims Δ:** ${delta.meanMissingClaimsDelta >= 0 ? "+" : ""}${delta.meanMissingClaimsDelta.toFixed(2)} (positive = more missing)\n`;
+    md += `- **Hallucinations Δ:** ${delta.meanHallucinationsDelta >= 0 ? "+" : ""}${delta.meanHallucinationsDelta.toFixed(2)} (positive = more hallucinations)\n\n`;
+  }
+  return md;
+};
+
 export const renderMatrixReport = (report: MatrixReport): string => {
   let md = "# Claim Extraction Evaluation Matrix Report\n\n";
 
@@ -218,6 +240,7 @@ export const renderMatrixReport = (report: MatrixReport): string => {
   md += renderActualUsageSummary(report.actualUsageSummary);
   md += renderVariantCostBreakdown(report.variantCostSummary);
   md += renderQualityGates(report.qualityGates);
+  md += renderVariantDeltaSummary(report.variantDeltaSummary);
   md += renderNarrowJudgeSummary(report.narrowJudgeResults);
   md += renderLeaderboards(report);
   md += renderAllScorecards(report);

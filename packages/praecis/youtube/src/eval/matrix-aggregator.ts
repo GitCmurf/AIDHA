@@ -3,6 +3,7 @@ import { SCORE_DIMENSIONS, type ClaimSetScore } from "./scoring-rubric.js";
 import type { MatrixCell, ScoreDimension } from "./matrix-runner.js";
 import type { NarrowDerivedJudgeScores } from "./narrow-judge.js";
 import type { SelfImprovementGateResult } from "./quality-gate.js";
+import { computeVariantDelta, type VariantDeltaResult } from "./variant-delta.js";
 
 export type StatName = "mean" | "median" | "min" | "max" | "stddev";
 export type DimensionStats = Record<ScoreDimension, Record<StatName, number>>;
@@ -36,6 +37,7 @@ export interface MatrixReport {
   qualityGates?: {
     selfImprovement: SelfImprovementGateResult;
   };
+  variantDeltaSummary?: VariantDeltaResult[];
   narrowJudgeResults?: Record<string, Record<string, Record<string, NarrowDerivedJudgeScores>>>; // variantId -> modelId -> videoKey (videoId|promptConfigId|chunkMode) -> scores
   modelStats: Record<string, { dimensions: DimensionStats }>;
   variantStats: Record<string, { dimensions: DimensionStats }>;
@@ -332,6 +334,15 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
     }
   }
 
+  const variantPairs: Array<[string, string]> = [
+    ["raw", "editorial-pass-v1"],
+    ["raw", "editorial-pass-v2"],
+    ["raw", "self-improve-v1"],
+  ];
+  const variantDeltaSummary = variantPairs
+    .map(([base, compare]) => computeVariantDelta({ cells, baseVariant: base, compareVariant: compare }))
+    .filter(d => d.matchedPairCount > 0);
+
   return {
     summary,
     recommendations,
@@ -342,6 +353,7 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
     },
     actualUsageSummary,
     variantCostSummary: variantCosts,
+    variantDeltaSummary: variantDeltaSummary.length > 0 ? variantDeltaSummary : undefined,
     narrowJudgeResults: Object.keys(narrowJudgeResults).length > 0 ? narrowJudgeResults : undefined,
     modelStats,
     variantStats,
