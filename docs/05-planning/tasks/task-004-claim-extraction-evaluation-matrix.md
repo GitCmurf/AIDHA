@@ -207,9 +207,9 @@ All open items are now complete as of 2026-05-14. No remaining work.
 
 ## Acceptance Criteria
 
-1. The matrix harness, scoring pipeline, reporting, and CI gate behavior are already implemented and
-   covered by the Phase 4 tests listed below; the remaining open tasks are limited to residual
-   evidence artifacts and optional PR-comment hardening.
+1. The matrix harness, scoring pipeline, reporting, and CI gate behavior are fully implemented and
+   covered by the Phase 4 tests listed below. All open items were closed as of 2026-05-14; no
+   remaining work is outstanding.
 2. Document-level artifacts are defined and stable:
    - Cell-level extraction output
    - Cell-level scoring output / ClaimSetScore

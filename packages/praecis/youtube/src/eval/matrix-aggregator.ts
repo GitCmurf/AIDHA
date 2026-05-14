@@ -334,7 +334,7 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
     }
   }
 
-  const variantIds = [...new Set(cells.map(c => c.extractorVariantId))];
+  const variantIds = [...new Set(cells.map(c => c.extractorVariantId))].sort();
   const variantPairs: Array<[string, string]> = variantIds
     .filter(v => v !== "raw")
     .map(v => ["raw", v] as [string, string]);

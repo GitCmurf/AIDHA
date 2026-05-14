@@ -61,6 +61,9 @@ const avgAgreements = (results: CalibrationVideoResult[]): Record<ScoreDimension
 
 export async function runCalibration(opts: CalibrationRunOptions): Promise<CalibrationRecord> {
   const { goldenEntries, transcripts, judgeClient, judgeModelId, promptVersion, agreementThreshold, signal } = opts;
+  if (goldenEntries.length === 0) {
+    throw new Error("goldenEntries must not be empty");
+  }
   const skipped: string[] = [];
   const scoringErrors: string[] = [];
 

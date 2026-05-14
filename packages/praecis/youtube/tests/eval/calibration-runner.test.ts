@@ -191,4 +191,16 @@ describe("runCalibration", () => {
       throw new Error(JSON.stringify(parsed.error.format(), null, 2));
     }
   });
+
+  it("throws when goldenEntries is empty", async () => {
+    const opts: CalibrationRunOptions = {
+      goldenEntries: [],
+      transcripts,
+      judgeClient: makeLlmClient(),
+      judgeModelId: "mock-judge",
+      promptVersion: "v1",
+      agreementThreshold: 0.7,
+    };
+    await expect(runCalibration(opts)).rejects.toThrow("goldenEntries must not be empty");
+  });
 });
