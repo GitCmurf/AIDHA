@@ -15,6 +15,10 @@ export interface CalibrationRunOptions {
   signal?: AbortSignal;
 }
 
+const PERFECT_HUMAN_SCORE: Record<ScoreDimension, number> = Object.fromEntries(
+  SCORE_DIMENSIONS.map(d => [d, 10])
+) as Record<ScoreDimension, number>;
+
 function flattenIdealClaims(nodes: GoldenClaimNode[]): ClaimCandidate[] {
   const result: ClaimCandidate[] = [];
   const queue = [...nodes];
@@ -43,50 +47,45 @@ const buildDeltaRecord = (
 ): Record<ScoreDimension, number> =>
   Object.fromEntries(SCORE_DIMENSIONS.map(d => [d, judge[d] - human[d]])) as Record<ScoreDimension, number>;
 
-const avgDimensionRecord = (
-  results: CalibrationVideoResult[],
-  key: "agreements"
-): Record<ScoreDimension, number> => {
+const avgAgreements = (results: CalibrationVideoResult[]): Record<ScoreDimension, number> => {
   if (results.length === 0) return Object.fromEntries(SCORE_DIMENSIONS.map(d => [d, 0])) as Record<ScoreDimension, number>;
   return Object.fromEntries(
-    SCORE_DIMENSIONS.map(d => [d, results.reduce((s, r) => s + r[key][d], 0) / results.length])
+    SCORE_DIMENSIONS.map(d => [d, results.reduce((s, r) => s + r.agreements[d], 0) / results.length])
   ) as Record<ScoreDimension, number>;
 };
 
 export async function runCalibration(opts: CalibrationRunOptions): Promise<CalibrationRecord> {
   const { goldenEntries, transcripts, judgeClient, judgeModelId, promptVersion, agreementThreshold, signal } = opts;
   const skipped: string[] = [];
-  const perVideoResults: CalibrationVideoResult[] = [];
 
-  for (const entry of goldenEntries) {
-    const transcript = transcripts[entry.videoId];
-    if (!transcript) {
-      skipped.push(entry.videoId);
-      continue;
-    }
+  const settled = await Promise.all(
+    goldenEntries.map(async entry => {
+      const transcript = transcripts[entry.videoId];
+      if (!transcript) {
+        skipped.push(entry.videoId);
+        return null;
+      }
 
-    const claims = flattenIdealClaims(entry.idealClaims);
-    const videoContext = { videoId: entry.videoId, title: entry.title, channelName: "" };
+      const claims = flattenIdealClaims(entry.idealClaims);
+      const videoContext = { videoId: entry.videoId, title: entry.title, channelName: "" };
 
-    const scoreResult = await scoreClaimSet(judgeClient, judgeModelId, transcript, claims, videoContext, 4000, signal);
-    if (!scoreResult.ok) continue;
+      const scoreResult = await scoreClaimSet(judgeClient, judgeModelId, transcript, claims, videoContext, 4000, signal);
+      if (!scoreResult.ok) return null;
 
-    const judgeScore = Object.fromEntries(
-      SCORE_DIMENSIONS.map(d => [d, scoreResult.value.score[d]])
-    ) as Record<ScoreDimension, number>;
+      const judgeScore = Object.fromEntries(
+        SCORE_DIMENSIONS.map(d => [d, scoreResult.value.score[d]])
+      ) as Record<ScoreDimension, number>;
 
-    const humanScore = Object.fromEntries(
-      SCORE_DIMENSIONS.map(d => [d, 10])
-    ) as Record<ScoreDimension, number>;
+      const deltas = buildDeltaRecord(PERFECT_HUMAN_SCORE, judgeScore);
+      const agreements = buildAgreementRecord(PERFECT_HUMAN_SCORE, judgeScore);
+      const passed = SCORE_DIMENSIONS.every(d => agreements[d] >= agreementThreshold);
 
-    const deltas = buildDeltaRecord(humanScore, judgeScore);
-    const agreements = buildAgreementRecord(humanScore, judgeScore);
-    const passed = SCORE_DIMENSIONS.every(d => agreements[d] >= agreementThreshold);
+      return { videoId: entry.videoId, humanScore: PERFECT_HUMAN_SCORE, judgeScore, deltas, agreements, passed } satisfies CalibrationVideoResult;
+    })
+  );
 
-    perVideoResults.push({ videoId: entry.videoId, humanScore, judgeScore, deltas, agreements, passed });
-  }
-
-  const aggregateAgreement = avgDimensionRecord(perVideoResults, "agreements");
+  const perVideoResults = settled.filter((r): r is CalibrationVideoResult => r !== null);
+  const aggregateAgreement = avgAgreements(perVideoResults);
   const overallPassed =
     perVideoResults.length > 0 && SCORE_DIMENSIONS.every(d => aggregateAgreement[d] >= agreementThreshold);
 
