@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { CalibrationRecordSchema } from "../../src/eval/calibration-schema.js";
 import { GoldenAnnotationSchema } from "../../src/eval/golden-annotation-schema.js";
+import { SCORE_DIMENSIONS } from "../../src/eval/scoring-rubric.js";
+import type { ScoreDimension } from "../../src/eval/scoring-rubric.js";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,9 +30,19 @@ describe("calibration-record-v1.json fixture", () => {
     }
   });
 
-  it("has overallPassed consistent with perVideoResults", () => {
+  it("has overallPassed consistent with runner aggregate-agreement formula", () => {
     const data = CalibrationRecordSchema.parse(JSON.parse(readFileSync(CALIBRATION_PATH, "utf-8")));
-    const allPassed = data.perVideoResults.every(r => r.passed);
-    expect(data.overallPassed).toBe(allPassed);
+    const dimAvgs = Object.fromEntries(
+      SCORE_DIMENSIONS.map(d => [
+        d,
+        data.perVideoResults.length > 0
+          ? data.perVideoResults.reduce((s, r) => s + r.agreements[d], 0) / data.perVideoResults.length
+          : 0,
+      ])
+    ) as Record<ScoreDimension, number>;
+    const expected =
+      data.perVideoResults.length > 0 &&
+      SCORE_DIMENSIONS.every(d => dimAvgs[d] >= data.agreementThreshold);
+    expect(data.overallPassed).toBe(expected);
   });
 });

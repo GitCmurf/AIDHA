@@ -132,9 +132,8 @@ evaluation harness contract.
 ## Completion Roadmap
 
 > **Status as of 2026-05-13:** The core matrix harness, scoring pipeline, reporting, CLI, and CI
-> gates are already implemented. The remaining open items below are residual evidence artifacts and
-> one optional PR-visibility hardening step. See AIDHA-EVAL-004 for the engineering completion
-> note and current operational behavior.
+> gates are already implemented. The remaining open items below are residual evidence artifacts.
+> See AIDHA-EVAL-004 for the engineering completion note and current operational behavior.
 
 ### Remaining Open Items
 

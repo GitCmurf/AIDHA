@@ -94,6 +94,31 @@ To be completed after the live ablation run. Decision criteria:
 - If **Atomicity Δ > 0** and **Completeness Δ > −1.5**: Use `editorial-pass-v1` as the default variant. The precision gain outweighs the recall cost.
 - If **Completeness Δ < −2.0**: Consider `raw` as default and investigate which claim categories are being over-filtered. Cross-reference with `systematic-delta-analysis.md` to identify the filter rule responsible.
 
+## Acceptance Criteria (Protected by Tests)
+
+The following tests and fixtures verify the behavior described in this report. All must pass for the variant-delta pipeline to be considered correct.
+
+| Test / Fixture | What it checks |
+| --- | --- |
+| `tests/eval/variant-delta.test.ts` | `computeVariantDelta` matched-pair counting, delta sign (compare − base), zero-delta fallback when no pairs match, `meanMissingClaimsDelta`, `meanHallucinationsDelta`, and cells-without-scores exclusion. Uses `VariantDeltaResult` as the authoritative result symbol. |
+| `tests/eval/calibration-record-fixture.test.ts` | `calibration-record-v1.json` validates against `CalibrationRecordSchema`; `goldSetVideoIds` are a subset of `golden-annotations.json` entries; `overallPassed` is consistent with the runner's aggregate-dimension formula. |
+| `tests/fixtures/eval-matrix/` | Corpus and annotation fixtures that feed the `pnpm -C packages/praecis/youtube cli eval matrix` command. |
+| `MatrixReport.variantDeltaSummary` | Produced by `aggregateMatrixResults` in `src/eval/matrix-aggregator.ts`; variant pairs are derived dynamically from cell data so new extractor variants are picked up automatically. |
+
+**Integration command (produces authoritative JSON output):**
+
+```bash
+pnpm -C packages/praecis/youtube cli eval matrix \
+  --corpus tests/fixtures/eval-matrix/corpus.json \
+  --tier midtier \
+  --variants raw,editorial-pass-v1 \
+  --judge-models gpt-4o-mini \
+  --format both \
+  --output-dir out/eval-matrix/ablation-v1
+```
+
+The `variantDeltaSummary` block in the resulting JSON report is the single source of truth for the delta values in this document.
+
 ## Governance
 
 Any live transcript data used to generate the real delta values must not be committed to this repository. Use the synthetic corpus entries only. Record the run ID and output path in a local note for audit purposes. Any snapshot derived from third-party transcript text must be registered in AIDHA-GOV-005 before committing.

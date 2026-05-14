@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { runCalibration, type CalibrationRunOptions } from "../../src/eval/calibration-runner.js";
+import { CalibrationRecordSchema } from "../../src/eval/calibration-schema.js";
 import type { GoldenAnnotationEntry } from "../../src/eval/golden-annotation-schema.js";
 import type { LlmClient } from "../../src/extract/llm-client.js";
 import type { ClaimSetScore } from "../../src/eval/scoring-rubric.js";
@@ -155,5 +156,39 @@ describe("runCalibration", () => {
     };
     const result = await runCalibration(opts);
     expect(result.perVideoResults[0]?.deltas.completeness).toBeCloseTo(7.5 - 10);
+  });
+
+  it("records scoring failures in scoringErrors when judge returns non-ok", async () => {
+    const failingClient: LlmClient = {
+      generate: vi.fn().mockResolvedValue({ ok: false, error: "model overloaded" }),
+    };
+    const opts: CalibrationRunOptions = {
+      goldenEntries,
+      transcripts,
+      judgeClient: failingClient,
+      judgeModelId: "mock-judge",
+      promptVersion: "v1",
+      agreementThreshold: 0.7,
+    };
+    const result = await runCalibration(opts);
+    expect(result.perVideoResults).toHaveLength(0);
+    expect(result.scoringErrors).toEqual(["synthetic-lecture-1"]);
+  });
+
+  it("produces output that validates against CalibrationRecordSchema on empty run", async () => {
+    const opts: CalibrationRunOptions = {
+      goldenEntries,
+      transcripts: {},
+      judgeClient: makeLlmClient(),
+      judgeModelId: "mock-judge",
+      promptVersion: "v1",
+      agreementThreshold: 0.7,
+    };
+    const result = await runCalibration(opts);
+    const parsed = CalibrationRecordSchema.safeParse(result);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      throw new Error(JSON.stringify(parsed.error.format(), null, 2));
+    }
   });
 });

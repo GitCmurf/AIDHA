@@ -334,11 +334,10 @@ export const aggregateMatrixResults = (cells: MatrixCell[]): MatrixReport => {
     }
   }
 
-  const variantPairs: Array<[string, string]> = [
-    ["raw", "editorial-pass-v1"],
-    ["raw", "editorial-pass-v2"],
-    ["raw", "self-improve-v1"],
-  ];
+  const variantIds = [...new Set(cells.map(c => c.extractorVariantId))];
+  const variantPairs: Array<[string, string]> = variantIds
+    .filter(v => v !== "raw")
+    .map(v => ["raw", v] as [string, string]);
   const variantDeltaSummary = variantPairs
     .map(([base, compare]) => computeVariantDelta({ cells, baseVariant: base, compareVariant: compare }))
     .filter(d => d.matchedPairCount > 0);

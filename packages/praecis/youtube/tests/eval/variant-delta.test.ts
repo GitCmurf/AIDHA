@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { computeVariantDelta } from "../../src/eval/variant-delta.js";
 import type { MatrixCell } from "../../src/eval/matrix-runner.js";
 import type { ClaimSetScore } from "../../src/eval/scoring-rubric.js";
+import type { ExtractorVariantId } from "../../src/eval/extractor-variants.js";
 
 const score = (overrides: Partial<ClaimSetScore> = {}): ClaimSetScore => ({
   completeness: 8,
@@ -17,10 +18,10 @@ const score = (overrides: Partial<ClaimSetScore> = {}): ClaimSetScore => ({
   ...overrides,
 });
 
-const cell = (videoId: string, modelId: string, variant: string, scores: ClaimSetScore[]): MatrixCell => ({
+const cell = (videoId: string, modelId: string, variant: ExtractorVariantId, scores: ClaimSetScore[]): MatrixCell => ({
   videoId,
   modelId,
-  extractorVariantId: variant as never,
+  extractorVariantId: variant,
   claimSet: [],
   scores,
 });
@@ -83,5 +84,16 @@ describe("computeVariantDelta", () => {
     ];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.meanHallucinationsDelta).toBeCloseTo(-1);
+  });
+
+  it("distinguishes cells with different promptConfigId or chunkMode", () => {
+    const base1: MatrixCell = { ...cell("v1", "m1", "raw", [score({ completeness: 6 })]), promptConfigId: "cfg-a", chunkMode: "small" };
+    const base2: MatrixCell = { ...cell("v1", "m1", "raw", [score({ completeness: 8 })]), promptConfigId: "cfg-b", chunkMode: "large" };
+    const compare1: MatrixCell = { ...cell("v1", "m1", "editorial-pass-v1", [score({ completeness: 9 })]), promptConfigId: "cfg-a", chunkMode: "small" };
+    const compare2: MatrixCell = { ...cell("v1", "m1", "editorial-pass-v1", [score({ completeness: 7 })]), promptConfigId: "cfg-b", chunkMode: "large" };
+    const cells: MatrixCell[] = [base1, base2, compare1, compare2];
+    const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
+    expect(result.matchedPairCount).toBe(2);
+    expect(result.meanDelta.completeness).toBeCloseTo(1);
   });
 });

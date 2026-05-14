@@ -24,9 +24,10 @@ export const CalibrationRecordSchema = z.object({
   runDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
   agreementThreshold: z.number().min(0).max(1),
   goldSetVideoIds: z.array(z.string().min(1)).min(1),
-  perVideoResults: z.array(CalibrationVideoResultSchema).min(1),
+  perVideoResults: z.array(CalibrationVideoResultSchema).min(0),
   aggregateAgreement: dimensionRecord(z.number().min(0).max(1)),
   overallPassed: z.boolean(),
+  scoringErrors: z.array(z.string()).default([]),
   notes: z.string().optional(),
 });
 

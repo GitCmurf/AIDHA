@@ -679,4 +679,29 @@ describe("Matrix Runner Integration", () => {
     expect(result.cells.every((cell) => cell.scores?.length === 2)).toBe(true);
     expect(maxActiveProviderCalls).toBeLessThanOrEqual(2);
   });
+
+  it("should derive variant delta pairs dynamically from cells", () => {
+    const makeScore = (v: number) => ({
+      completeness: v,
+      accuracy: v,
+      topicCoverage: v,
+      atomicity: v,
+      overallScore: v,
+      reasoning: "test",
+      missingClaims: [],
+      hallucinations: [],
+      redundancies: [],
+      gapAreas: [],
+    });
+    const cells = [
+      { videoId: "v1", modelId: "m1", extractorVariantId: "raw" as const, claimSet: [], scores: [makeScore(7)] },
+      { videoId: "v1", modelId: "m1", extractorVariantId: "editorial-pass-v1" as const, claimSet: [], scores: [makeScore(8)] },
+      { videoId: "v1", modelId: "m1", extractorVariantId: "self-improve-v1" as const, claimSet: [], scores: [makeScore(9)] },
+    ];
+    const report = aggregateMatrixResults(cells);
+    expect(report.variantDeltaSummary).toBeDefined();
+    expect(report.variantDeltaSummary!.length).toBe(2);
+    const variants = report.variantDeltaSummary!.map(d => d.compareVariant).sort();
+    expect(variants).toEqual(["editorial-pass-v1", "self-improve-v1"]);
+  });
 });

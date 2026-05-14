@@ -15,6 +15,10 @@ export interface CalibrationRunOptions {
   signal?: AbortSignal;
 }
 
+export const CALIBRATION_JUDGE_MAX_TOKENS = 4000;
+
+const CALIBRATION_CHANNEL_PLACEHOLDER = "" as const;
+
 const PERFECT_HUMAN_SCORE: Record<ScoreDimension, number> = Object.fromEntries(
   SCORE_DIMENSIONS.map(d => [d, 10])
 ) as Record<ScoreDimension, number>;
@@ -22,8 +26,9 @@ const PERFECT_HUMAN_SCORE: Record<ScoreDimension, number> = Object.fromEntries(
 function flattenIdealClaims(nodes: GoldenClaimNode[]): ClaimCandidate[] {
   const result: ClaimCandidate[] = [];
   const queue = [...nodes];
-  while (queue.length > 0) {
-    const node = queue.shift()!;
+  let i = 0;
+  while (i < queue.length) {
+    const node = queue[i++]!;
     result.push({ text: node.text, excerptIds: [] });
     if (node.children.length > 0) queue.push(...node.children);
   }
@@ -57,6 +62,7 @@ const avgAgreements = (results: CalibrationVideoResult[]): Record<ScoreDimension
 export async function runCalibration(opts: CalibrationRunOptions): Promise<CalibrationRecord> {
   const { goldenEntries, transcripts, judgeClient, judgeModelId, promptVersion, agreementThreshold, signal } = opts;
   const skipped: string[] = [];
+  const scoringErrors: string[] = [];
 
   const settled = await Promise.all(
     goldenEntries.map(async entry => {
@@ -67,10 +73,13 @@ export async function runCalibration(opts: CalibrationRunOptions): Promise<Calib
       }
 
       const claims = flattenIdealClaims(entry.idealClaims);
-      const videoContext = { videoId: entry.videoId, title: entry.title, channelName: "" };
+      const videoContext = { videoId: entry.videoId, title: entry.title, channelName: CALIBRATION_CHANNEL_PLACEHOLDER };
 
-      const scoreResult = await scoreClaimSet(judgeClient, judgeModelId, transcript, claims, videoContext, 4000, signal);
-      if (!scoreResult.ok) return null;
+      const scoreResult = await scoreClaimSet(judgeClient, judgeModelId, transcript, claims, videoContext, CALIBRATION_JUDGE_MAX_TOKENS, signal);
+      if (!scoreResult.ok) {
+        scoringErrors.push(entry.videoId);
+        return null;
+      }
 
       const judgeScore = Object.fromEntries(
         SCORE_DIMENSIONS.map(d => [d, scoreResult.value.score[d]])
@@ -101,6 +110,7 @@ export async function runCalibration(opts: CalibrationRunOptions): Promise<Calib
     perVideoResults,
     aggregateAgreement,
     overallPassed,
+    scoringErrors,
     notes,
   };
 }

@@ -48,7 +48,7 @@ export function computeVariantDelta(input: VariantDeltaInput): VariantDeltaResul
 
   for (const cell of cells) {
     if (!cell.scores || cell.scores.length === 0) continue;
-    const key = `${cell.videoId}|${cell.modelId}`;
+    const key = `${cell.videoId}|${cell.modelId}|${cell.promptConfigId ?? ""}|${cell.chunkMode ?? ""}`;
     if (cell.extractorVariantId === baseVariant) baseCells.set(key, cell);
     else if (cell.extractorVariantId === compareVariant) compareCells.set(key, cell);
   }
