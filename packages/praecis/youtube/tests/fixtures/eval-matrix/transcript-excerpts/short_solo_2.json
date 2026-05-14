@@ -1,0 +1,12 @@
+{
+  "videoId": "short_solo_2",
+  "language": "en",
+  "segments": [
+    { "start": 0, "duration": 7, "text": "Today I want to cover three evidence-based principles for improving endurance performance." },
+    { "start": 7, "duration": 13, "text": "First, zone two training, which means keeping your heart rate at 60 to 70 percent of maximum, builds mitochondrial density in slow-twitch muscle fibers." },
+    { "start": 20, "duration": 12, "text": "Second, progressive overload: increasing weekly volume by no more than 10 percent prevents overuse injuries and allows adaptation." },
+    { "start": 32, "duration": 11, "text": "Third, carbohydrate availability during sessions longer than 90 minutes is critical. Consuming 60 grams of carbohydrate per hour sustains performance and delays glycogen depletion." },
+    { "start": 43, "duration": 8, "text": "Studies show athletes who follow all three principles improve VO2 max by 8 to 12 percent over a 12-week training block." }
+  ],
+  "fullText": "Today I want to cover three evidence-based principles for improving endurance performance. First, zone two training, which means keeping your heart rate at 60 to 70 percent of maximum, builds mitochondrial density in slow-twitch muscle fibers. Second, progressive overload: increasing weekly volume by no more than 10 percent prevents overuse injuries and allows adaptation. Third, carbohydrate availability during sessions longer than 90 minutes is critical. Consuming 60 grams of carbohydrate per hour sustains performance and delays glycogen depletion. Studies show athletes who follow all three principles improve VO2 max by 8 to 12 percent over a 12-week training block."
+}

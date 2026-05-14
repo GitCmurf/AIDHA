@@ -1,0 +1,12 @@
+{
+  "videoId": "short_panel_1",
+  "language": "en",
+  "segments": [
+    { "start": 0, "duration": 8, "text": "Host: Welcome to the panel. Today we are discussing recent findings in cognitive neuroscience." },
+    { "start": 8, "duration": 12, "text": "Guest A: Our lab found that sleep deprivation of more than 24 hours reduces working memory capacity by approximately 35 percent." },
+    { "start": 20, "duration": 10, "text": "Guest B: We replicated that result and also showed that slow-wave sleep specifically is the critical phase for declarative memory consolidation." },
+    { "start": 30, "duration": 11, "text": "Guest A: The hippocampus plays a central role here. Without sufficient slow-wave sleep, hippocampal-neocortical transfer is impaired." },
+    { "start": 41, "duration": 9, "text": "Guest B: Correct, and we showed that adenosine accumulation is the primary driver of this impairment, not cortisol as previously thought." }
+  ],
+  "fullText": "Host: Welcome to the panel. Today we are discussing recent findings in cognitive neuroscience. Guest A: Our lab found that sleep deprivation of more than 24 hours reduces working memory capacity by approximately 35 percent. Guest B: We replicated that result and also showed that slow-wave sleep specifically is the critical phase for declarative memory consolidation. Guest A: The hippocampus plays a central role here. Without sufficient slow-wave sleep, hippocampal-neocortical transfer is impaired. Guest B: Correct, and we showed that adenosine accumulation is the primary driver of this impairment, not cortisol as previously thought."
+}

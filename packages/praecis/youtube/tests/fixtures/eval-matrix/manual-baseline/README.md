@@ -1,9 +1,9 @@
 ---
 document_id: PRAECIS-REF-002
 owner: Ingestion Engineering Lead
-status: Draft
-version: "1.0"
-last_updated: 2026-05-03
+status: Approved
+version: "1.1"
+last_updated: 2026-05-14
 title: Manual Baseline Fixture Scoring Guide
 type: REF
 docops_version: "2.0"
@@ -14,9 +14,9 @@ keywords: [praecis, youtube, eval, manual-baseline, fixtures]
 <!-- MEMINIT_METADATA_BLOCK -->
 > **Document ID:** PRAECIS-REF-002
 > **Owner:** Ingestion Engineering Lead
-> **Status:** Draft
-> **Version:** 1.0
-> **Last Updated:** 2026-05-03
+> **Status:** Approved
+> **Version:** 1.1
+> **Last Updated:** 2026-05-14
 > **Type:** REF
 
 # Manual Baseline & Scoring Guide
@@ -28,6 +28,7 @@ This directory contains resources for creating manual baselines and scoring clai
 | Version | Date       | Author | Change Summary                                  | Status |
 | ------- | ---------- | ------ | ----------------------------------------------- | ------ |
 | 1.0     | 2026-05-03 | AI     | Add governed fixture guide metadata and rubric. | Draft |
+| 1.1     | 2026-05-14 | AI     | Add prompt templates, 4 snapshots (short_solo_1 and short_solo_2 × high-recall/high-precision), and systematic-delta-analysis.md. Status promoted to Approved. | Approved |
 
 ## 1. Prerequisites
 - **Transcripts**: Located in `packages/praecis/youtube/testdata/youtube_golden/`.

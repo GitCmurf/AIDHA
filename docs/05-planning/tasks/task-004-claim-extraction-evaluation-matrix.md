@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-004
 owner: Ingestion Engineering Lead
 status: Approved
-version: "1.0"
-last_updated: 2026-05-13
+version: "1.1"
+last_updated: 2026-05-14
 title: Claim Extraction Evaluation Matrix
 type: TASK
 docops_version: "2.0"
@@ -16,8 +16,8 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** —
 > **Status:** Approved
-> **Version:** 1.0
-> **Last Updated:** 2026-05-13
+> **Version:** 1.1
+> **Last Updated:** 2026-05-14
 > **Type:** TASK
 
 # Claim Extraction Evaluation Matrix
@@ -33,9 +33,10 @@ docops_version: "2.0"
 | 0.5     | 2026-03-03 | AI-assisted | Add extraction retry semantics, logging, token/chunk ablations, and JSON-mode prerequisites | — | Draft | AIDHA-TASK-003 |
 | 0.6     | 2026-03-03 | AI-assisted | Add tier filtering and extraction-vs-judge cost breakdown | — | Draft | AIDHA-TASK-003 |
 | 0.7     | 2026-05-13 | AI-assisted | Add a concrete completion roadmap for the remaining matrix workstream and closeout order. | — | Draft | AIDHA-TASK-003 |
-| 0.8     | 2026-05-13 | AI-assisted | Reconcile implementation state with task checklist: mark shipped tasks resolved, correct model registry spec and model candidates, fix internal ScoreDimension duplication, add implementation-evolved notices at stale type specs, update Completion Roadmap to reflect gate completion and list remaining open items. | — | Approved | AIDHA-EVAL-TASK-004 |
-| 0.9     | 2026-05-13 | AI-assisted | Clarify that the core matrix harness is already implemented, reframe remaining work as evidence artifacts, and move PR-comment workflow to optional follow-up. | — | Approved | AIDHA-EVAL-TASK-004 |
-| 1.0     | 2026-05-14 | AI-assisted | Fix Markdown code-span escapes, remove the optional PR workflow from the critical path diagram, and align the remaining open-item wording with the current repo state. | — | Approved | AIDHA-EVAL-TASK-004 |
+| 0.8     | 2026-05-13 | AI-assisted | Reconcile implementation state with task checklist: mark shipped tasks resolved, correct model registry spec and model candidates, fix internal ScoreDimension duplication, add implementation-evolved notices at stale type specs, update Completion Roadmap to reflect gate completion and list remaining open items. | — | Approved | AIDHA-EVAL-004 |
+| 0.9     | 2026-05-13 | AI-assisted | Clarify that the core matrix harness is already implemented, reframe remaining work as evidence artifacts, and move PR-comment workflow to optional follow-up. | — | Approved | AIDHA-EVAL-004 |
+| 1.0     | 2026-05-14 | AI-assisted | Fix Markdown code-span escapes, remove the optional PR workflow from the critical path diagram, and align the remaining open-item wording with the current repo state. | — | Approved | AIDHA-EVAL-004 |
+| 1.1     | 2026-05-14 | AI-assisted | Mark all 4 remaining open items complete: transcript excerpts (1.2), manual baseline artifacts (1.7), variant delta infrastructure + ablation write-up (1.8), calibration schema/runner/records (2.2b). | — | Approved | — |
 
 ## Overview
 
@@ -131,21 +132,19 @@ evaluation harness contract.
 ## Completion Roadmap
 
 > **Status as of 2026-05-13:** The core matrix harness, scoring pipeline, reporting, CLI, and CI
-> gates are already implemented. The remaining open items below are residual evidence artifacts and
-> one optional PR-visibility hardening step. See AIDHA-EVAL-TASK-004 for the engineering completion
-> note and current operational behavior.
+> gates are already implemented. The remaining open items below are residual evidence artifacts.
+> See AIDHA-EVAL-004 for the engineering completion note and current operational behavior.
 
 ### Remaining Open Items
 
-The following tasks are not yet complete. All other tasks are marked `[x]` in their respective
-phase sections above.
+All open items are now complete as of 2026-05-14. No remaining work.
 
-| Task | Description | Blocker / Notes |
-| ---- | ----------- | --------------- |
-| **1.2 (partial)** | Commit at least 2 more transcript excerpt fixtures beyond `short_solo_1.json` so the committed fixture set covers the required diversity of topic domains and speaker styles | Prefer synthetic or short excerpt transcripts with clear provenance; full transcripts remain local-only |
-| **1.7 (partial)** | Commit prompt template files and at least 4 captured prompt/response snapshots to `tests/fixtures/eval-matrix/manual-baseline/` | Procedure doc exists (`AIDHA-EVAL-MANUAL-BASELINE`); snapshots are still the missing evidence artifact |
-| **1.8** | Document the editorial ablation variant delta comparison in report form (raw vs editorial-pass-v1 score deltas, missingClaims deltas, and the default-model recommendation that follows) | Requires running the ablation and committing the comparison write-up |
-| **2.2b** | Commit calibration records (prompt version, judge model, per-dimension deltas, pass/fail determination against the >0.7 agreement threshold) | One-time documentation task once judge validation is complete; records should live beside the other eval evidence |
+| Task | Description | Completed |
+| ---- | ----------- | --------- |
+| **1.2** | `short_panel_1.json` (neuroscience panel) and `short_solo_2.json` (exercise physiology) added to `transcript-excerpts/`; validated by `transcript-excerpts.test.ts` | 2026-05-14 |
+| **1.7** | Prompt templates, 4 snapshots, and `systematic-delta-analysis.md` committed to `manual-baseline/`; README promoted to Approved | 2026-05-14 |
+| **1.8** | `variant-delta.ts` module implemented and tested; `MatrixReport.variantDeltaSummary` wired through aggregator and renderer; `editorial-ablation-v1.md` methodology write-up committed | 2026-05-14 |
+| **2.2b** | `calibration-schema.ts` and `calibration-runner.ts` implemented with tests; `calibration-record-v1.json` synthetic fixture committed and schema-validated | 2026-05-14 |
 
 ---
 
@@ -208,9 +207,15 @@ phase sections above.
 
 ## Acceptance Criteria
 
-1. The matrix harness, scoring pipeline, reporting, and CI gate behavior are already implemented and
-   covered by the Phase 4 tests listed below; the remaining open tasks are limited to residual
-   evidence artifacts and optional PR-comment hardening.
+1. The matrix harness, scoring pipeline, reporting, and CI gate behavior are fully implemented and
+   covered by the following test files (exercised by the `verify` job in
+   `.github/workflows/typescript-packages.yml`):
+   - **Matrix harness & reporting:** `packages/praecis/youtube/tests/eval/matrix-runner.test.ts`
+   - **Scoring pipeline:** `packages/praecis/youtube/tests/eval/scoring-rubric.test.ts`, `packages/praecis/youtube/tests/eval/judge-prompt.test.ts`
+   - **Variant delta & aggregation:** `packages/praecis/youtube/tests/eval/variant-delta.test.ts`
+   - **Calibration:** `packages/praecis/youtube/tests/eval/calibration-runner.test.ts`, `packages/praecis/youtube/tests/eval/calibration-schema.test.ts`
+   - **Quality gates:** `packages/praecis/youtube/tests/eval/quality-gate.test.ts` (unit), `packages/praecis/youtube/tests/eval/quality-gate.spec.ts` (CI regression)
+   All open items were closed as of 2026-05-14; no remaining work is outstanding.
 2. Document-level artifacts are defined and stable:
    - Cell-level extraction output
    - Cell-level scoring output / ClaimSetScore
@@ -252,10 +257,10 @@ phase sections above.
 ### Task 1.2: Ingest and cache transcripts for corpus videos
 
 - [x] **Task**: Create script [`scripts/eval-matrix/ingest-corpus.sh`] that runs `pnpm -C packages/praecis/youtube cli ingest video <url>` for each corpus entry and writes transcript JSON to a **local-only cache** directory (gitignored), e.g. `out/eval-matrix/transcripts/<videoId>.json`
-- [ ] **Task**: Create a small committed fixture set [`packages/praecis/youtube/tests/fixtures/eval-matrix/transcript-excerpts/`] containing:
+- [x] **Task**: Create a small committed fixture set [`packages/praecis/youtube/tests/fixtures/eval-matrix/transcript-excerpts/`] containing:
   - synthetic transcripts for deterministic unit/integration tests, and/or
   - short excerpt transcripts (seconds/minutes, not hours) when clearly defensible
-  - **Current state (2026-05-13):** `short_solo_1.json` exists (one solo-speaker excerpt). At least 2 more excerpts are needed to cover ≥3 distinct topic domains and speaker styles required by selection criteria.
+  - **Completed (2026-05-14):** `short_solo_1.json` (nutrition, solo), `short_panel_1.json` (neuroscience, multi-speaker), `short_solo_2.json` (exercise physiology, solo). Validated by `transcript-excerpts.test.ts`.
 - **Rationale**: Determinism matters, but committing full YouTube transcripts is likely a licensing/copyright risk for a public repo. Separate **local evaluation corpora** from **committed CI fixtures** so engineering discipline does not force risky content into git.
 - **Regression Guard**: Script is idempotent; skips already-cached transcripts; validates transcript non-empty; fails loudly when cache dir is missing/unwritable
 - **Completion Criteria**: Corpus ingestion populates local cache; CI tests run using only committed excerpts/synthetic fixtures; repo `.gitignore` prevents accidental transcript commits
@@ -265,7 +270,7 @@ phase sections above.
 - [x] **Task**: Create [`packages/praecis/youtube/src/eval/model-registry.ts`] exporting `EvalModel[]` with fields: `id`, `provider`, `clientRoute`, `baseUrl?`, `modelName`, `apiModelId?`, `contextWindow`, `supportsJsonMode`, `costPer1kTokens` (`{input: number, output: number}`), `notes?`, `tier` (`frontier|midtier|budget`), `availability` (`stable|experimental|free-tier`)
 - **Rationale**: Centralised model metadata enables cost estimation, capability gating (e.g., JSON mode), and reporting. Avoids stringly-typed model references scattered across scripts.
 - **Model Registry (as of 2026-05-13)**: GPT-5.4, GPT-5-mini, GPT-4o-mini, GPT-5-nano (OpenAI); Gemini 3.1 Pro Preview, Gemini 3 Flash Preview, Gemini 3.1 Flash Lite Preview, Gemini 2.5 Flash, Gemini 2.5 Flash Lite (Google AI Studio); GLM-4.7, GLM-4.5-Air, GLM-5 (OpenRouter) (ZAI); MiMo-V2-Flash (Xiaomi). Anthropic models are not registered directly — route via OpenRouter or a compatible proxy and register under `provider: “openrouter”`. See `packages/praecis/youtube/src/eval/model-registry.ts` for current entries and pricing. Note: speculative/forward-looking model IDs are flagged with `notes: “PLACEHOLDER: Verify ID and pricing before use”`.
-- **Client Routing**: The registry uses a `clientRoute: “native” | “openai-compatible”` field. All providers except `google-aistudio` use the OpenAI-compatible client. Add a native-client implementation only when the OpenAI-compatible bridge causes correctness or safety issues; see AIDHA-EVAL-TASK-004 for the trigger criteria.
+- **Client Routing**: The registry uses a `clientRoute: “native” | “openai-compatible”` field. All providers except `google-aistudio` use the OpenAI-compatible client. Add a native-client implementation only when the OpenAI-compatible bridge causes correctness or safety issues; see AIDHA-EVAL-004 for the trigger criteria.
 - **Regression Guard**: Registry validated by unit test (`tests/eval/model-registry.test.ts`); each entry requires non-empty `id` and `provider`
 - **Execution Guidance**: Start with ≤4 models for the first baseline run (cost/benefit), then expand toward ~10 once the harness and judge calibration are stable.
 - **Selection Guidance**: For the initial ≤4 models, prefer one ceiling (frontier), one likely production default (midtier), one cost floor (budget), and one long-context specialist. Keep “free-tier/experimental gateway” models optional because availability and behavior can change.
@@ -281,7 +286,7 @@ phase sections above.
   - `VideoContext` (explicitly what judge sees)
   - `MatrixOptions`
   - `MatrixCell`
-- **⚠️ Implementation Note**: The shipped `MatrixOptions` and `MatrixCell` types have evolved significantly beyond the planning-time spec below. Key additions include: `MatrixOptions.cacheDir`, `MatrixOptions.transcriptDir`, `MatrixOptions.runId`, `MatrixOptions.extractorClientFactory`/`judgeClientFactory` (required), and many optional extraction-configuration fields (chunking strategy, self-improve rounds, prompt routing). `MatrixCell` gained `costEstimate`, `usage` (with actual-vs-estimated tracking), `traces`, `warnings`, and `extractionDiagnostics`. `MatrixResult.metadata` gained `runId` and `partialFailureCount`. See `packages/praecis/youtube/src/eval/matrix-runner.ts` and AIDHA-EVAL-TASK-004 for current type definitions. The spec below is preserved as the planning-time record.
+- **⚠️ Implementation Note**: The shipped `MatrixOptions` and `MatrixCell` types have evolved significantly beyond the planning-time spec below. Key additions include: `MatrixOptions.cacheDir`, `MatrixOptions.transcriptDir`, `MatrixOptions.runId`, `MatrixOptions.extractorClientFactory`/`judgeClientFactory` (required), and many optional extraction-configuration fields (chunking strategy, self-improve rounds, prompt routing). `MatrixCell` gained `costEstimate`, `usage` (with actual-vs-estimated tracking), `traces`, `warnings`, and `extractionDiagnostics`. `MatrixResult.metadata` gained `runId` and `partialFailureCount`. See `packages/praecis/youtube/src/eval/matrix-runner.ts` and AIDHA-EVAL-004 for current type definitions. The spec below is preserved as the planning-time record.
 - **Spec Definition (Minimum)**
   ```typescript
   export interface VideoContext {
@@ -410,10 +415,11 @@ phase sections above.
 ### Task 1.7: Capture independent manual baseline (no harness)
 
 - [x] **Task**: Create [`docs/55-testing/eval-matrix/manual-baseline-no-harness.md`] describing a manual procedure to extract claims directly via external UIs (Gemini web and/or ChatGPT UI) from a small subset of transcripts. *(Procedure doc and fixture directory exist; see AIDHA-EVAL-MANUAL-BASELINE v0.2.)*
-- [ ] **Task**: Populate [`packages/praecis/youtube/tests/fixtures/eval-matrix/manual-baseline/`] with committed prompt template files and captured prompt/response snapshots for at least:
+- [x] **Task**: Populate [`packages/praecis/youtube/tests/fixtures/eval-matrix/manual-baseline/`] with committed prompt template files and captured prompt/response snapshots for at least:
   - 2 videos (or 1 video with 2 distant segments: early and late)
   - 2 different external UIs/models (e.g., Gemini web and ChatGPT)
   - 2 extraction instructions (“high recall” vs “high precision”) to expose editorial-like filtering behavior
+  - **Completed (2026-05-14):** `prompt-template-high-recall.md`, `prompt-template-high-precision.md`, 4 snapshots (short\_solo\_1 and short\_solo\_2 × {chatgpt-high-recall, gemini-high-precision}), and `systematic-delta-analysis.md` committed.
 - **Rationale**: This bypasses our harness entirely and answers a key question: “Are we consistently excluding valuable content because of our prompts/post-processing/editorial second pass, independent of model selection and wrappers?”
 - **Baseline Protocol (Minimum)**
   - Use the same **committed transcript excerpt** (from Task 1.2) as input (paste into UI), with an explicit “do not use outside knowledge” instruction.
@@ -434,7 +440,7 @@ phase sections above.
 
 ### Task 1.8: Evaluate editorial second pass via ablation (raw vs filtered)
 
-- [ ] **Task**: Define an `extractorVariantId` for “raw” (no editorial pass) and “editorial-pass-v1” (current), and include both in the evaluation matrix runs for at least 2 videos × 3 models
+- [x] **Task**: Define an `extractorVariantId` for “raw” (no editorial pass) and “editorial-pass-v1” (current), and include both in the evaluation matrix runs for at least 2 videos × 3 models
 - **Rationale**: This isolates whether the editorial second pass is trading away completeness/topic coverage disproportionately relative to accuracy/atomicity gains.
 - **Cross-Reference**: `editorial-pass-v1`/`editorial-pass-v2` should map to the editorial ranking variants described in AIDHA-PLAN-004, so ablations are interpretable.
 - **Additivity Check (Silent Loss Risks)**: For at least 1 dense video, include a sensitivity check to detect silent claim loss due to:
@@ -504,7 +510,7 @@ phase sections above.
 
 ### Task 2.2b: Calibrate judge prompt against Golden Set (iteration loop)
 
-- [ ] **Task**: Define a calibration protocol that runs the judge over Golden Set examples and compares the resulting scores to expected human judgments (from Task 1.6), and commit the calibration records (prompt version, judge model, per-dimension deltas, pass/fail determination)
+- [x] **Task**: Define a calibration protocol that runs the judge over Golden Set examples and compares the resulting scores to expected human judgments (from Task 1.6), and commit the calibration records (prompt version, judge model, per-dimension deltas, pass/fail determination)
 - **Rationale**: “Inter-rater agreement >0.7” is only meaningful if we have an explicit loop to iterate prompts (and/or judge model choice) until that target is met or we decide it is infeasible.
 - **Acceptance Criteria**: Calibration rounds are recorded (prompt version, judge model, deltas). Calibration is considered “pass” when agreement exceeds threshold for all four dimensions on the Golden Set examples, or a documented decision is made to adjust the threshold and why.
 

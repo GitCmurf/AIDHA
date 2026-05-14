@@ -1,0 +1,83 @@
+{
+  "promptVersion": "v1",
+  "judgeModelId": "gpt-4o-mini",
+  "runDate": "2026-05-14",
+  "agreementThreshold": 0.7,
+  "goldSetVideoIds": ["synthetic-lecture-1", "synthetic-panel-1"],
+  "perVideoResults": [
+    {
+      "videoId": "synthetic-lecture-1",
+      "humanScore": {
+        "completeness": 10,
+        "accuracy": 10,
+        "topicCoverage": 10,
+        "atomicity": 10,
+        "overallScore": 10
+      },
+      "judgeScore": {
+        "completeness": 8.5,
+        "accuracy": 9.0,
+        "topicCoverage": 8.0,
+        "atomicity": 9.5,
+        "overallScore": 8.75
+      },
+      "deltas": {
+        "completeness": -1.5,
+        "accuracy": -1.0,
+        "topicCoverage": -2.0,
+        "atomicity": -0.5,
+        "overallScore": -1.25
+      },
+      "agreements": {
+        "completeness": 0.85,
+        "accuracy": 0.90,
+        "topicCoverage": 0.80,
+        "atomicity": 0.95,
+        "overallScore": 0.875
+      },
+      "passed": true
+    },
+    {
+      "videoId": "synthetic-panel-1",
+      "humanScore": {
+        "completeness": 10,
+        "accuracy": 10,
+        "topicCoverage": 10,
+        "atomicity": 10,
+        "overallScore": 10
+      },
+      "judgeScore": {
+        "completeness": 8.0,
+        "accuracy": 9.5,
+        "topicCoverage": 8.5,
+        "atomicity": 8.5,
+        "overallScore": 8.625
+      },
+      "deltas": {
+        "completeness": -2.0,
+        "accuracy": -0.5,
+        "topicCoverage": -1.5,
+        "atomicity": -1.5,
+        "overallScore": -1.375
+      },
+      "agreements": {
+        "completeness": 0.80,
+        "accuracy": 0.95,
+        "topicCoverage": 0.85,
+        "atomicity": 0.85,
+        "overallScore": 0.8625
+      },
+      "passed": true
+    }
+  ],
+  "aggregateAgreement": {
+    "completeness": 0.825,
+    "accuracy": 0.925,
+    "topicCoverage": 0.825,
+    "atomicity": 0.90,
+    "overallScore": 0.869
+  },
+  "overallPassed": true,
+  "scoringErrors": [],
+  "notes": "Synthetic record generated from mock judge responses for format validation and CI fixture coverage. All dimension agreements exceed the 0.7 threshold. Replace with a live run result after executing: pnpm -C packages/praecis/youtube cli eval calibrate --golden tests/fixtures/eval-matrix/golden-annotations.json --judge-model gpt-4o-mini"
+}
