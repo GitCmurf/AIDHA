@@ -214,7 +214,7 @@ All open items are now complete as of 2026-05-14. No remaining work.
    - **Scoring pipeline:** `packages/praecis/youtube/tests/eval/scoring-rubric.test.ts`, `packages/praecis/youtube/tests/eval/judge-prompt.test.ts`
    - **Variant delta & aggregation:** `packages/praecis/youtube/tests/eval/variant-delta.test.ts`
    - **Calibration:** `packages/praecis/youtube/tests/eval/calibration-runner.test.ts`, `packages/praecis/youtube/tests/eval/calibration-schema.test.ts`
-   - **Quality gates:** `packages/praecis/youtube/tests/eval/quality-gate.test.ts`
+   - **Quality gates:** `packages/praecis/youtube/tests/eval/quality-gate.test.ts` (unit), `packages/praecis/youtube/tests/eval/quality-gate.spec.ts` (CI regression)
    All open items were closed as of 2026-05-14; no remaining work is outstanding.
 2. Document-level artifacts are defined and stable:
    - Cell-level extraction output
