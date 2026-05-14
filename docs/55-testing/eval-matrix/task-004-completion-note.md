@@ -1,9 +1,9 @@
 ---
-document_id: AIDHA-EVAL-TASK-004
+document_id: AIDHA-EVAL-004
 owner: Ingestion Engineering Lead
 status: Approved
-version: "0.3"
-last_updated: 2026-05-09
+version: "0.4"
+last_updated: 2026-05-14
 title: Task 004 Completion Engineering Note
 type: TESTING
 docops_version: "2.0"
@@ -11,11 +11,11 @@ docops_version: "2.0"
 
 <!-- MEMINIT_METADATA_BLOCK -->
 
-> **Document ID:** AIDHA-EVAL-TASK-004
+> **Document ID:** AIDHA-EVAL-004
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Approved
-> **Version:** 0.3
-> **Last Updated:** 2026-05-09
+> **Version:** 0.4
+> **Last Updated:** 2026-05-14
 > **Type:** TESTING
 
 # Task 004 Completion Engineering Note
@@ -27,6 +27,7 @@ docops_version: "2.0"
 | 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Approved | AIDHA-TASK-004        |
 | 0.2     | 2026-05-09 | AI-assisted | Clarified provider-client routing strategy and native-client triggers | —         | Approved | AIDHA-TASK-008 / TD-020 |
 | 0.3     | 2026-05-09 | AI-assisted | Added actual usage capture semantics for eval reports           | —         | Approved | AIDHA-TASK-008 / TD-019 |
+| 0.4     | 2026-05-14 | AI-assisted | Rename document_id to AIDHA-EVAL-004 (valid ID format); add 2026-05-14 closeout section for the 4 residual evidence artifacts completed on that date | — | Approved | AIDHA-TASK-004 |
 
 ## What Was Fixed
 
@@ -130,6 +131,20 @@ By aggregating scores across 5 core dimensions (completeness, accuracy, topicCov
 overallScore) and automatically identifying the best budget and overall models, engineering
 leadership can immediately choose baseline defaults from the automated markdown output without
 manually parsing the heatmap.
+
+## 2026-05-14 Closeout: Residual Evidence Artifacts
+
+The four remaining open items from the AIDHA-TASK-004 completion roadmap were finished on 2026-05-14:
+
+| Task | Artifact | Location |
+| ---- | -------- | -------- |
+| **1.2** | Transcript excerpt fixtures: `short_panel_1.json` (neuroscience panel) and `short_solo_2.json` (exercise physiology) | `packages/praecis/youtube/tests/fixtures/eval-matrix/transcript-excerpts/` |
+| **1.7** | High-recall and high-precision prompt templates, 4 manual baseline snapshots (short_solo_1 and short_solo_2 × ChatGPT and Gemini), and `systematic-delta-analysis.md` | `packages/praecis/youtube/tests/fixtures/eval-matrix/manual-baseline/` |
+| **1.8** | `variant-delta.ts` pure-functional module computing score deltas between extractor variants; `MatrixReport.variantDeltaSummary` wired into aggregator and markdown renderer; `editorial-ablation-v1.md` methodology write-up | `src/eval/variant-delta.ts`, `src/eval/matrix-aggregator.ts`, `docs/55-testing/eval-matrix/editorial-ablation-v1.md` |
+| **2.2b** | `calibration-schema.ts` Zod schemas, `calibration-runner.ts` runner with concurrent judge calls, and `calibration-record-v1.json` synthetic fixture | `src/eval/calibration-schema.ts`, `src/eval/calibration-runner.ts`, `tests/fixtures/eval-matrix/calibration/` |
+
+All four items are validated by passing tests. `pnpm -C packages/praecis/youtube test` runs green with
+216 tests across 34 test files.
 
 ## Acceptance Criteria (Protected by Tests)
 
