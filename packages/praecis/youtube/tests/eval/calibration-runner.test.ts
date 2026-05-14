@@ -140,9 +140,11 @@ describe("runCalibration", () => {
       agreementThreshold: 0.7,
     };
     await runCalibration(opts);
-    // The judge client should have been called once; the claim set passed to scoreClaimSet
-    // should include parent + 2 children = 3 claims total (verified indirectly via call count)
     expect(client.generate).toHaveBeenCalledOnce();
+    const userArg = (client.generate as ReturnType<typeof vi.fn>).mock.calls[0]![0].user;
+    expect(userArg).toContain("Parent claim.");
+    expect(userArg).toContain("Child claim A.");
+    expect(userArg).toContain("Child claim B.");
   });
 
   it("computes deltas as judgeScore − humanScore", async () => {

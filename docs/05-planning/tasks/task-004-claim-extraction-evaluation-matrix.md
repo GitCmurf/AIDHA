@@ -208,8 +208,14 @@ All open items are now complete as of 2026-05-14. No remaining work.
 ## Acceptance Criteria
 
 1. The matrix harness, scoring pipeline, reporting, and CI gate behavior are fully implemented and
-   covered by the Phase 4 tests listed below. All open items were closed as of 2026-05-14; no
-   remaining work is outstanding.
+   covered by the following test files (exercised by the `verify` job in
+   `.github/workflows/typescript-packages.yml`):
+   - **Matrix harness & reporting:** `tests/eval/matrix-runner.test.ts`
+   - **Scoring pipeline:** `tests/eval/scoring-rubric.test.ts`, `tests/eval/judge-prompt.test.ts`
+   - **Variant delta & aggregation:** `tests/eval/variant-delta.test.ts`
+   - **Calibration:** `tests/eval/calibration-runner.test.ts`, `tests/eval/calibration-schema.test.ts`
+   - **Quality gates:** `tests/eval/quality-gate.test.ts`
+   All open items were closed as of 2026-05-14; no remaining work is outstanding.
 2. Document-level artifacts are defined and stable:
    - Cell-level extraction output
    - Cell-level scoring output / ClaimSetScore
