@@ -49,21 +49,24 @@ const makeMockClaim = () => ({
 });
 
 vi.mock("../../src/extract/llm-claims", () => ({
-  LlmClaimExtractor: vi.fn().mockImplementation(() => ({
-    extractClaims: vi.fn().mockImplementation(async (input: { resource: { id?: string }; excerpts?: Array<{ metadata?: { speaker?: string } }> }) =>
-      trackActiveProviderCall(async () => {
-        mockExtractorInputs.push(input);
-        const resourceId = input.resource.id ?? "";
-        const videoId = resourceId.startsWith("youtube-") ? resourceId.slice("youtube-".length) : resourceId;
-        const delayMs = mockExtractionDelaysByVideoId.get(videoId) ?? 0;
-        if (delayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
-        return [makeMockClaim()];
-      })
-    ),
-    getLastTraces: vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }]),
-    getLastRunStats: vi.fn().mockReturnValue({
+  LlmClaimExtractor: class MockLlmClaimExtractor {
+    extractClaims = vi.fn().mockImplementation(
+      async (input: { resource: { id?: string }; excerpts?: Array<{ metadata?: { speaker?: string } }> }) =>
+        trackActiveProviderCall(async () => {
+          mockExtractorInputs.push(input);
+          const resourceId = input.resource.id ?? "";
+          const videoId = resourceId.startsWith("youtube-") ? resourceId.slice("youtube-".length) : resourceId;
+          const delayMs = mockExtractionDelaysByVideoId.get(videoId) ?? 0;
+          if (delayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+          return [makeMockClaim()];
+        })
+    );
+
+    getLastTraces = vi.fn().mockReturnValue([{ prompt: { system: "s", user: "u" }, response: "r" }]);
+
+    getLastRunStats = vi.fn().mockReturnValue({
       transportRetryCount: 0,
       fallbackChunkCount: 0,
       transientFailureCount: 0,
@@ -74,8 +77,8 @@ vi.mock("../../src/extract/llm-claims", () => ({
       promptPackId: "generic-hierarchy",
       routeSource: "fallback-default",
       retryTriggered: false,
-    })
-  }))
+    });
+  },
 }));
 
 vi.mock("../../src/eval/matrix-cache", async () => {

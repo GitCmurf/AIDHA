@@ -275,7 +275,7 @@ export class IngestionPipeline {
       // Check if tag name or aliases appear in content
       const matches =
         contentLower.includes(tag.name.toLowerCase()) ||
-        tag.aliases.some(alias => contentLower.includes(alias.toLowerCase()));
+        tag.aliases.some((alias: string) => contentLower.includes(alias.toLowerCase()));
 
       if (matches) {
         const assignmentResult = await this.taxonomyRegistry.assignTag({
