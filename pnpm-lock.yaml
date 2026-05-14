@@ -21,29 +21,29 @@ importers:
         version: 2.9.0
     devDependencies:
       '@types/node':
-        specifier: ^22.19.7
+        specifier: ^25.7.0
         version: 25.7.0
       typescript:
-        specifier: ^5.9.3
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
-        specifier: ^2.1.9
+        specifier: ^4.1.6
         version: 4.1.6(@types/node@25.7.0)(vite@8.0.12(@types/node@25.7.0)(yaml@2.9.0))
 
   packages/phyla:
     dependencies:
       zod:
-        specifier: ^3.23.8
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@types/node':
-        specifier: ^22.10.0
+        specifier: ^25.7.0
         version: 25.7.0
       typescript:
-        specifier: ^5.7.0
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
-        specifier: ^2.1.9
+        specifier: ^4.1.6
         version: 4.1.6(@types/node@25.7.0)(vite@8.0.12(@types/node@25.7.0)(yaml@2.9.0))
 
   packages/praecis/youtube:
@@ -58,23 +58,23 @@ importers:
         specifier: workspace:*
         version: link:../../phyla
       compromise:
-        specifier: ^14.14.4
+        specifier: ^14.15.0
         version: 14.15.0
       js-yaml:
         specifier: ^4.1.1
         version: 4.1.1
       zod:
-        specifier: ^3.24.2
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
       '@types/node':
-        specifier: ^22.19.7
+        specifier: ^25.7.0
         version: 25.7.0
       typescript:
-        specifier: ^5.9.3
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.6
@@ -83,26 +83,26 @@ importers:
   packages/reconditum:
     dependencies:
       classic-level:
-        specifier: ^1.4.1
+        specifier: ^3.0.0
         version: 3.0.0
       levelgraph:
-        specifier: ^3.0.0
+        specifier: ^4.0.0
         version: 4.0.0(abstract-level@3.1.1)
       memory-level:
         specifier: ^3.1.0
         version: 3.1.0
       zod:
-        specifier: ^3.23.8
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@types/node':
-        specifier: ^22.10.0
+        specifier: ^25.7.0
         version: 25.7.0
       typescript:
-        specifier: ^5.7.0
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
-        specifier: ^2.1.9
+        specifier: ^4.1.6
         version: 4.1.6(@types/node@25.7.0)(vite@8.0.12(@types/node@25.7.0)(yaml@2.9.0))
 
 packages:
