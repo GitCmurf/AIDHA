@@ -53,8 +53,25 @@ export function computeVariantDelta(input: VariantDeltaInput): VariantDeltaResul
     else if (cell.extractorVariantId === compareVariant) compareCells.set(key, cell);
   }
 
-  const matchedKeys = [...baseCells.keys()].filter(k => compareCells.has(k));
-  const n = matchedKeys.length;
+  const deltaAcc = zeroDimensionRecord();
+  let missingDeltaAcc = 0;
+  let hallucinationDeltaAcc = 0;
+  let n = 0;
+
+  for (const [key, base] of baseCells) {
+    const compare = compareCells.get(key);
+    if (!compare) continue;
+    n++;
+    const baseScores = avgDimensions(base.scores!);
+    const compareScores = avgDimensions(compare.scores!);
+    for (const dim of SCORE_DIMENSIONS) deltaAcc[dim] += compareScores[dim] - baseScores[dim];
+    const baseMissing = avgListLength(base.scores!, "missingClaims");
+    const compareMissing = avgListLength(compare.scores!, "missingClaims");
+    const baseHalluc = avgListLength(base.scores!, "hallucinations");
+    const compareHalluc = avgListLength(compare.scores!, "hallucinations");
+    missingDeltaAcc += compareMissing - baseMissing;
+    hallucinationDeltaAcc += compareHalluc - baseHalluc;
+  }
 
   if (n === 0) {
     return {
@@ -65,22 +82,6 @@ export function computeVariantDelta(input: VariantDeltaInput): VariantDeltaResul
       meanMissingClaimsDelta: 0,
       meanHallucinationsDelta: 0,
     };
-  }
-
-  const deltaAcc = zeroDimensionRecord();
-  let missingDeltaAcc = 0;
-  let hallucinationDeltaAcc = 0;
-
-  for (const key of matchedKeys) {
-    const base = baseCells.get(key)!;
-    const compare = compareCells.get(key)!;
-    const baseScores = avgDimensions(base.scores!);
-    const compareScores = avgDimensions(compare.scores!);
-    for (const dim of SCORE_DIMENSIONS) deltaAcc[dim] += compareScores[dim] - baseScores[dim];
-    missingDeltaAcc +=
-      avgListLength(compare.scores!, "missingClaims") - avgListLength(base.scores!, "missingClaims");
-    hallucinationDeltaAcc +=
-      avgListLength(compare.scores!, "hallucinations") - avgListLength(base.scores!, "hallucinations");
   }
 
   const meanDelta = zeroDimensionRecord();

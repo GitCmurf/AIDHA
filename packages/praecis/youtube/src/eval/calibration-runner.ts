@@ -17,8 +17,6 @@ export interface CalibrationRunOptions {
 
 export const CALIBRATION_JUDGE_MAX_TOKENS = 4000;
 
-const CALIBRATION_CHANNEL_PLACEHOLDER = "" as const;
-
 const PERFECT_HUMAN_SCORE: Record<ScoreDimension, number> = Object.fromEntries(
   SCORE_DIMENSIONS.map(d => [d, 10])
 ) as Record<ScoreDimension, number>;
@@ -76,7 +74,8 @@ export async function runCalibration(opts: CalibrationRunOptions): Promise<Calib
       }
 
       const claims = flattenIdealClaims(entry.idealClaims);
-      const videoContext = { videoId: entry.videoId, title: entry.title, channelName: CALIBRATION_CHANNEL_PLACEHOLDER };
+      // channelName is not available in golden annotations; scoring prompt tolerates empty
+      const videoContext = { videoId: entry.videoId, title: entry.title, channelName: "" };
 
       const scoreResult = await scoreClaimSet(judgeClient, judgeModelId, transcript, claims, videoContext, CALIBRATION_JUDGE_MAX_TOKENS, signal);
       if (!scoreResult.ok) {
