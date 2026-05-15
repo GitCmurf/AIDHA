@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-005
 owner: Repo Maintainers
 status: In Review
-version: "1.3"
+version: "1.6"
 last_updated: 2026-05-15
 title: User Configuration Profiles
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** Pending maintainer approval
 > **Status:** In Review
-> **Version:** 1.3
+> **Version:** 1.6
 > **Last Updated:** 2026-05-15
 > **Type:** PLAN
 
@@ -38,6 +38,9 @@ docops_version: "2.0"
 | 1.1     | 2026-05-15 | AI     | Decouple core resolved config from source-specific schemas; tighten extension, writer, dotenv, and explain UX contracts. | — | In Review | — |
 | 1.2     | 2026-05-15 | AI     | Promote implementation drift into Phase 5 remediation; add error, schema-change, logging, and decision contracts. | GLM | In Review | — |
 | 1.3     | 2026-05-15 | AI     | Resolve source-boundary contract gaps; split Phase 5 into executable work packages with owned tests. | Self-review | In Review | — |
+| 1.4     | 2026-05-15 | AI     | Correct source-owned precedence so source defaults outrank default-profile source overrides. | Self-review | In Review | — |
+| 1.5     | 2026-05-15 | AI     | Clarify core-vs-source-private source merges and fix profile-prefixed migration paths. | Self-review | In Review | — |
+| 1.6     | 2026-05-15 | AI     | Clarify YAML-safe interpolation escaping and source-private merge precedence wording. | Self-review | In Review | — |
 
 ## Objective
 
@@ -493,17 +496,22 @@ profiles:
           timeout_ms: 90000
 ```
 
-Resolution for an active source builds `activeSourceConfig` from:
+Resolution for an active source builds two coordinated payloads:
 
 1. Source package built-in defaults.
-2. User `sources.<source-id>` defaults.
-3. User `profiles.default.source_overrides.<source-id>`.
+2. User `profiles.default.source_overrides.<source-id>`.
+3. User `sources.<source-id>` defaults.
 4. User active named profile `source_overrides.<source-id>`.
 5. Source-specific CLI overrides, if any.
 
-Those five source-local layers are merged inside Tier 3/Tier 2 semantics and
-then validated by the active source registration. Inactive source override maps
-are structurally checked as objects but not semantically validated.
+Core-known sections inside those source-local layers are merged into the core
+`ResolvedConfig` runtime shape. Source-private sections inside the same layers
+are merged into `activeSourceConfig`. Those five source-local layers are merged
+weakest-to-strongest so Tier 3 `sources.<source-id>` defaults outrank Tier 4
+default-profile source overrides, while Tier 2 named-profile source overrides
+and Tier 1 source CLI overrides can still win when present. Inactive source
+override maps are structurally checked as objects but not semantically
+validated.
 
 ### Interpolation Semantics (Must Be Explicit)
 
@@ -512,8 +520,10 @@ are structurally checked as objects but not semantically validated.
   and report which config path referenced it.
 - `${VAR:-fallback}` substitutes `fallback` when `VAR` is unset (including empty
   fallback via `${VAR:-}`).
-- `\${VAR}` is the only escape form for a literal `${VAR}`. A literal backslash
-  before a non-token remains unchanged.
+- `\${VAR}` is the literal escape form for `${VAR}`. In YAML double-quoted
+  scalars, write `\\${VAR}` so the YAML parser emits the backslash before
+  interpolation; in plain or single-quoted scalars, `\${VAR}` is sufficient.
+  A literal backslash before a non-token remains unchanged.
 - Interpolation runs before final schema validation and may feed schema-aware
   scalar coercion. Example: `timeout_ms: ${TIMEOUT}` with `TIMEOUT=60000`
   resolves to the number `60000` for a numeric `timeout_ms` field; invalid
@@ -583,10 +593,14 @@ This distinction is part of the public contract.
    `ResolvedConfig` boundary (`api_key` → `apiKey`, `timeout_ms` → `timeoutMs`).
 4. Preserve extension data only under `ResolvedConfig.extensions.{global,source,profile}`.
    Do not hoist unknown extension keys into top-level runtime sections.
-5. If a source is selected, place the merged source-specific payload into
-   `activeSourceConfig` without core-level type assumptions. The source payload
-   is built from source built-in defaults, user `sources.<id>`, default-profile
-   source overrides, named-profile source overrides, and source CLI overrides.
+5. If a source is selected, merge any core-known sections from the source
+   layers into the core `ResolvedConfig` and place only source-private fields
+   into `activeSourceConfig` without core-level type assumptions. The source-
+   private payload is built from source built-in defaults, user
+   `profiles.default.source_overrides.<source-id>`, user `sources.<source-id>`
+   defaults, named-profile source overrides, and source CLI overrides, with
+   Tier 3 `sources.<source-id>` defaults outranking Tier 4 default-profile
+   source overrides.
 6. If no source is selected, source-only sections from `sources.<id>` and
    `profiles.<name>.source_overrides.<id>` are not merged into
    `activeSourceConfig`.
@@ -616,6 +630,8 @@ profiles:
           timeout_ms: 90000
 sources:
   youtube:
+    extraction:
+      max_chunks: 12
     ytdlp:
       timeout_ms: 120000
       keep_files: false
@@ -628,14 +644,21 @@ Projects to:
 ```typescript
 {
   llm: { model: "gpt-4o", timeoutMs: 30000, ... },
+  extraction: { maxChunks: 12, ... },
   activeSourceId: "youtube",
   activeSourceConfig: {
-    ytdlp: { timeout_ms: 90000, keep_files: true },
+    ytdlp: { timeout_ms: 90000, keep_files: false },
     youtube: { cookie: "" }
   }
 }
 ```
 
+Here, `sources.youtube.extraction.max_chunks` flows into the core
+`ResolvedConfig.extraction` object, while the source-private `ytdlp` and
+`youtube` sections remain in `activeSourceConfig`. `keep_files` stays `false`
+from `sources.youtube` because Tier 3 source defaults outrank
+`profiles.default.source_overrides.youtube`, while `timeout_ms` still resolves
+to `90000` from the active named profile override.
 Then `praecis/youtube` validates and camel-cases that opaque payload into its
 own local runtime type.
 
@@ -1371,8 +1394,8 @@ All tests run via: `pnpm -C packages/aidha-config test`
 | `defaults.test.ts`          | Default object matches schema; all keys present; types correct.                                                                                                         |
 | `loader.test.ts`            | File discovery priority; YAML parse; missing file returns null; malformed YAML throws; dotenv load when configured; arbitrary `--config` base_dir behavior; dotenv symlink/ownership/boundary guardrails. |
 | `loader-order.test.ts`      | End-to-end loader order: base_dir_prelim → dotenv → structural validation → lazy active-tier interpolation → semantic validation/coercion → base_dir override → path resolution. |
-| `interpolation.test.ts`     | `${VAR}` expansion; `${VAR:-fallback}` defaults; `\${VAR}` escape; typed scalar coercion such as `timeout_ms: ${TIMEOUT}`; inactive profile laziness; loop detection; max depth limits. |
-| `resolver.test.ts`          | Five-tier merge: CLI overrides profile; profile overrides source; source overrides default; default overrides hardcoded. Partial profiles. Source skipping. Deep merge. Core projection to `ResolvedConfig` plus opaque `activeSourceConfig`. |
+| `interpolation.test.ts`     | `${VAR}` expansion; `${VAR:-fallback}` defaults; `\${VAR}` escape in plain/single-quoted YAML; `\\${VAR}` escape in double-quoted YAML; typed scalar coercion such as `timeout_ms: ${TIMEOUT}`; inactive profile laziness; loop detection; max depth limits. |
+| `resolver.test.ts`          | Five-tier merge: CLI overrides active profile; active profile overrides source defaults; source defaults outrank default-profile source_overrides; default profile overrides hardcoded. Partial profiles. Source skipping. Deep merge. Core projection to `ResolvedConfig` plus opaque `activeSourceConfig`. |
 | `paths.test.ts`             | `base_dir` computation; relative path resolution; absolute paths passthrough.                                                                                           |
 | `redact.test.ts`            | Schema-aware redaction and safe printing behavior; `--show-secrets` bypass.                                                                                             |
 | `explain.test.ts`           | `config explain` provenance: tier selection and origin tracking.                                                                                                        |
@@ -1624,15 +1647,18 @@ own slice rather than hidden inside historical phase estimates.
 ## Appendix A: Environment Variable Migration Map
 
 This table maps every current `process.env` reference to the normalized config
-path. Core paths project directly into `ResolvedConfig`; source-owned paths
-project into `ResolvedConfig.activeSourceConfig` and are then validated/narrowed
-by the consuming source package. The value may come from any tier
-(CLI/profile/source/default/hardcoded), and secrets should typically be provided
-via interpolation rather than stored directly in YAML.
+path. Core paths project directly into `ResolvedConfig`; source-owned core
+sections project into `ResolvedConfig`, while source-private paths project into
+`ResolvedConfig.activeSourceConfig` and are then validated/narrowed by the
+consuming source package. The value may come from any tier
+(CLI/profile/source/default/hardcoded), and secrets should typically be
+provided via interpolation rather than stored directly in YAML.
 
-Note: on-disk defaults for YouTube live under `sources.youtube.*`. At runtime,
-the core resolver exposes those values as an opaque active-source payload, and
-`praecis/youtube` owns any typed `ytdlp.*` or `youtube.*` convenience shape.
+Note: on-disk defaults for YouTube live under `sources.youtube.*`. Core-known
+sections from that branch are promoted into `ResolvedConfig`, while
+source-private sections remain in the opaque active-source payload that
+`praecis/youtube` validates and narrows as typed `ytdlp.*` or `youtube.*`
+convenience shapes.
 
 | Current Env Var                                                     | Config Path                                                    | Notes                                    |
 | ------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------- |
@@ -1643,14 +1669,14 @@ the core resolver exposes those values as an opaque active-source payload, and
 | `AIDHA_LLM_CACHE_DIR`                                               | `llm.cache_dir`                                                | Core config                              |
 | `AIDHA_EDITOR_VERSION`                                              | `editor.version`                                               | Core config                              |
 | `AIDHA_CLAIMS_PROMPT_VERSION`                                       | `extraction.prompt_version`                                    | Core config                              |
-| `AIDHA_YTDLP_BIN` / `YTDLP_BIN`                                     | `source_overrides.youtube.ytdlp.bin` or `sources.youtube.ytdlp.bin` | Source-owned; consolidate dual env vars |
-| `AIDHA_YTDLP_COOKIES_FILE` / `YTDLP_COOKIES_FILE` / `YTDLP_COOKIES` | `source_overrides.youtube.ytdlp.cookies_file` or `sources.youtube.ytdlp.cookies_file` | Source-owned; consolidate triple env vars |
-| `AIDHA_YTDLP_TIMEOUT_MS`                                            | `source_overrides.youtube.ytdlp.timeout_ms` or `sources.youtube.ytdlp.timeout_ms` | Source-owned                             |
-| `AIDHA_YTDLP_JS_RUNTIMES` / `YTDLP_JS_RUNTIMES`                     | `source_overrides.youtube.ytdlp.js_runtimes` or `sources.youtube.ytdlp.js_runtimes` | Source-owned; consolidate dual env vars |
-| `AIDHA_YTDLP_KEEP_FILES`                                            | `source_overrides.youtube.ytdlp.keep_files` or `sources.youtube.ytdlp.keep_files` | Source-owned                             |
-| `YOUTUBE_COOKIE` / `YOUTUBE_COOKIES` / `AIDHA_YOUTUBE_COOKIE`       | `source_overrides.youtube.youtube.cookie` or `sources.youtube.youtube.cookie` | Source-owned; consolidate triple env vars |
-| `YOUTUBE_INNERTUBE_API_KEY`                                         | `source_overrides.youtube.youtube.innertube_api_key` or `sources.youtube.youtube.innertube_api_key` | Source-owned                             |
-| `AIDHA_DEBUG_TRANSCRIPT`                                            | `source_overrides.youtube.youtube.debug_transcript` or `sources.youtube.youtube.debug_transcript` | Source-owned                             |
+| `AIDHA_YTDLP_BIN` / `YTDLP_BIN`                                     | `profiles.default.source_overrides.youtube.ytdlp.bin`, `profiles.<name>.source_overrides.youtube.ytdlp.bin`, or `sources.youtube.ytdlp.bin` | Source-owned; consolidate dual env vars |
+| `AIDHA_YTDLP_COOKIES_FILE` / `YTDLP_COOKIES_FILE` / `YTDLP_COOKIES` | `profiles.default.source_overrides.youtube.ytdlp.cookies_file`, `profiles.<name>.source_overrides.youtube.ytdlp.cookies_file`, or `sources.youtube.ytdlp.cookies_file` | Source-owned; consolidate triple env vars |
+| `AIDHA_YTDLP_TIMEOUT_MS`                                            | `profiles.default.source_overrides.youtube.ytdlp.timeout_ms`, `profiles.<name>.source_overrides.youtube.ytdlp.timeout_ms`, or `sources.youtube.ytdlp.timeout_ms` | Source-owned                             |
+| `AIDHA_YTDLP_JS_RUNTIMES` / `YTDLP_JS_RUNTIMES`                     | `profiles.default.source_overrides.youtube.ytdlp.js_runtimes`, `profiles.<name>.source_overrides.youtube.ytdlp.js_runtimes`, or `sources.youtube.ytdlp.js_runtimes` | Source-owned; consolidate dual env vars |
+| `AIDHA_YTDLP_KEEP_FILES`                                            | `profiles.default.source_overrides.youtube.ytdlp.keep_files`, `profiles.<name>.source_overrides.youtube.ytdlp.keep_files`, or `sources.youtube.ytdlp.keep_files` | Source-owned                             |
+| `YOUTUBE_COOKIE` / `YOUTUBE_COOKIES` / `AIDHA_YOUTUBE_COOKIE`       | `profiles.default.source_overrides.youtube.youtube.cookie`, `profiles.<name>.source_overrides.youtube.youtube.cookie`, or `sources.youtube.youtube.cookie` | Source-owned; consolidate triple env vars |
+| `YOUTUBE_INNERTUBE_API_KEY`                                         | `profiles.default.source_overrides.youtube.youtube.innertube_api_key`, `profiles.<name>.source_overrides.youtube.youtube.innertube_api_key`, or `sources.youtube.youtube.innertube_api_key` | Source-owned                             |
+| `AIDHA_DEBUG_TRANSCRIPT`                                            | `profiles.default.source_overrides.youtube.youtube.debug_transcript`, `profiles.<name>.source_overrides.youtube.youtube.debug_transcript`, or `sources.youtube.youtube.debug_transcript` | Source-owned                             |
 
 ## Appendix B: Example Annotated Config File
 
