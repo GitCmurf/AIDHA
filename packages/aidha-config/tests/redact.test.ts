@@ -107,6 +107,24 @@ describe('redactSecrets', () => {
     expect(() => isSecretKey(longKey)).toThrow(/Key length .* exceeds maximum/);
   });
 
+  it('should redact overlong keys during config display without throwing', () => {
+    const longKey = 'x'.repeat(257);
+    const input = {
+      extensions: {
+        global: {
+          [longKey]: 'safe-metadata-value',
+          keep: 'visible-value',
+        },
+      },
+    };
+
+    expect(() => redactSecrets(input)).not.toThrow();
+
+    const result = redactSecrets(input);
+    expect(result.extensions?.global?.[longKey]).toBe(REDACTED);
+    expect(result.extensions?.global?.keep).toBe('visible-value');
+  });
+
   it('should handle keys at the maximum length boundary', () => {
     // Keys exactly at the limit should work fine
     const maxLengthKey = 'a'.repeat(256);

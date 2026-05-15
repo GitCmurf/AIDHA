@@ -141,6 +141,22 @@ export function isSecretKey(key: string): boolean {
   return secretNames.has(key) || secretNames.has(snakeCase) || isHeuristicSecret(key);
 }
 
+function shouldRedactKey(key: string): boolean {
+  try {
+    return isSecretKey(key);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('length') &&
+      error.message.includes('exceeds maximum')
+    ) {
+      return true;
+    }
+
+    throw error;
+  }
+}
+
 function toSnakeCase(key: string): string {
   validateLength(key, MAX_KEY_LENGTH, 'Key');
   const output: string[] = [];
@@ -201,7 +217,7 @@ export function redactSecrets<T>(obj: T): T {
 
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-    if (isSecretKey(key)) {
+    if (shouldRedactKey(key)) {
       result[key] = REDACTED;
     } else if (typeof value === 'object' && value !== null) {
       result[key] = redactSecrets(value);
