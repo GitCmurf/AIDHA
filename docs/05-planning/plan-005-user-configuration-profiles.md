@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-005
 owner: Repo Maintainers
 status: In Review
-version: "1.1"
+version: "1.2"
 last_updated: 2026-05-15
 title: User Configuration Profiles
 type: PLAN
@@ -13,9 +13,9 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-PLAN-005
 > **Owner:** Repo Maintainers
-> **Approvers:** —
+> **Approvers:** Pending maintainer approval
 > **Status:** In Review
-> **Version:** 1.1
+> **Version:** 1.2
 > **Last Updated:** 2026-05-15
 > **Type:** PLAN
 
@@ -36,6 +36,7 @@ docops_version: "2.0"
 | 0.9     | 2026-02-19 | AI     | Close remaining Phase 1 runtime env fallback gaps in praecis runtime paths. | — | Draft | — |
 | 1.0     | 2026-05-15 | AI     | Harden projection, interpolation, extensibility, safety, and verification contracts after pre-implementation review. | — | In Review | — |
 | 1.1     | 2026-05-15 | AI     | Decouple core resolved config from source-specific schemas; tighten extension, writer, dotenv, and explain UX contracts. | — | In Review | — |
+| 1.2     | 2026-05-15 | AI     | Promote implementation drift into Phase 5 remediation; add error, schema-change, logging, and decision contracts. | GLM | In Review | — |
 
 ## Objective
 
@@ -62,6 +63,16 @@ churn.
 > The checked Phase 0–3 items below record implementation status at the time this
 > plan was updated. The document status is **In Review** because the plan remains
 > the review contract for follow-up hardening and implementation drift checks.
+
+### Reader Map
+
+- Sections 1–7 define the target architecture and user-facing behavior.
+- Sections 8 and 13 define execution status, known implementation drift, and
+  effort accounting.
+- Sections 9–11 define security, verification, troubleshooting, and operational
+  support contracts.
+- Section 12 records resolved decisions that were formerly open questions.
+- Appendices provide migration and example-config reference material.
 
 ### Non-Goals (Explicit Scope Exclusions)
 
@@ -709,6 +720,26 @@ User-authored `sources.<id>` entries are allowed for future or private sources,
 but they only affect typed runtime behavior once a command selects that source
 and the source package validates the opaque payload.
 
+The shared package should expose a small compile-time contract for adapters,
+without importing source packages:
+
+```ts
+export interface SourceRegistration<TSourceConfig = unknown> {
+  sourceId: string;
+  defaults?: Record<string, unknown>;
+  schema?: unknown;
+  validateActiveSourceConfig(value: unknown): TSourceConfig;
+  cliBindings?: readonly {
+    command: string;
+    selectsSourceByDefault: boolean;
+  }[];
+}
+```
+
+The exact schema type may be AJV JSON Schema, Zod, TypeBox, or another validator
+owned by the source package. The core contract requires a narrowing function; it
+does not mandate one validation library.
+
 ### Environment Variables
 
 Env vars are **not** a separate tier. Env vars referenced inside participating
@@ -982,7 +1013,12 @@ This follows the same pattern as `git config` (CLI) backed by `libgit2` (API).
 
 ---
 
-## 8. Migration Strategy
+## 8. Execution Plan and Implementation Status
+
+The completed checkboxes below describe implementation slices that existed
+before the v1.1/v1.2 contract hardening reviews. They do not by themselves make
+the current branch compliant with this plan. Phase 5 is the required remediation
+phase that aligns the implementation with the target architecture.
 
 ### Phase 0: Shared Config Package (No CLI Changes)
 
@@ -1047,52 +1083,6 @@ shared config resolver.
 
 **Status (2026-02-15):** Complete.
 
-### Post-Review Hardening Delta
-
-The Phase 0–3 checkboxes above describe the implementation state before the
-2026-05-15 review hardening passes. Before this plan is closed as Approved, the
-implementation must be re-audited against the v1.1 contract and any drift must
-be remediated or explicitly moved to a governed follow-up plan.
-
-- [ ] Confirm lazy interpolation for inactive profiles/sources, including typed
-      scalar coercion after interpolation.
-- [ ] Confirm on-disk to `ResolvedConfig` projection rules and generated runtime
-      types cover every schema-known section.
-- [ ] Remove source-private fields such as YouTube or yt-dlp from the core
-      `ResolvedConfig`; source packages must validate `activeSourceConfig`
-      locally.
-- [ ] Split loader responsibilities or document why current cohesion is still
-      acceptable after tests cover discovery, parsing, dotenv, interpolation,
-      and validation independently.
-- [ ] Add generated schema metadata for path-like fields, secrets, and coercion
-      instead of hand-maintained runtime lists.
-- [ ] Add property, fuzz, round-trip, performance, and CLI snapshot tests from
-      Section 10.
-- [ ] Re-check writer durability claims against same-directory temp files,
-      parent-directory fsync, symlink guard, and concurrency limitations.
-- [ ] Constrain `config set` to localized scalar edits or implement an explicit
-      rewrite mode with backup, warning, and tests.
-- [ ] Confirm source registration constants and extension validation boundaries
-      are documented in code and tests.
-- [ ] Add dotenv read-side safety checks for symlinks, ownership, external paths,
-      and secret-safe error messages.
-- [ ] Confirm docs and devex guides include troubleshooting, observability, and
-      dotenv permission guidance.
-
-### Observability Contract
-
-At command startup, debug-level logging should emit a redacted config-load
-summary:
-
-- Active config path or `zero-config`.
-- Selected profile and source ID.
-- Whether dotenv files were loaded, plus count and redacted provenance.
-- Number of resolved top-level sections and warnings.
-- Redacted list of keys overridden by CLI flags.
-
-This summary must never include secret values and should be visible through the
-same logging mechanism used by praecis diagnostics.
-
 ### Phase 3: Documentation and Devex
 
 - [x] Add `docs/60-devex/config-guide.md` — user-facing guide with examples.
@@ -1118,6 +1108,52 @@ same logging mechanism used by praecis diagnostics.
 
 **Status (2026-02-15):** Partially complete. RSS defaults and scaffolding exist.
 Additional sources and auto-registration for new commands remain future work.
+
+### Phase 5: Contract Drift Remediation (Required Before Approval)
+
+This phase is not optional polish. It resolves plan-implementation drift found
+after Phases 0–3 were marked complete.
+
+- [ ] Replace source-private fields in core `ResolvedConfig` with
+      `activeSourceId?: string` and `activeSourceConfig?: unknown`.
+- [ ] Move YouTube, yt-dlp, and RSS runtime narrowing into their owning packages
+      through source-local schemas and adapter functions.
+- [ ] Define and export a `SourceRegistration` type with `sourceId`, source-local
+      schema, defaults provider, projection/narrowing adapter, and CLI binding
+      metadata.
+- [ ] Update `resolver.ts` so source-owned sections are copied into the opaque
+      active-source payload rather than manually projected into core fields.
+- [ ] Add `types.generated.ts`, `schema.generated.ts`,
+      `scripts/generate-types.mjs`, and a `pnpm --dir packages/aidha-config
+      gen:types` script; fail CI when generated files are stale.
+- [ ] Extract `discovery.ts`, `parser.ts`, and `dotenv.ts` from `loader.ts`.
+      `loader.ts` should become orchestration only.
+- [ ] Implement YAML parser safety bounds for aliases/anchors and document the
+      accepted limits.
+- [ ] Implement dotenv read-side guardrails: symlink refusal, ownership checks
+      where available, `base_dir_prelim` boundary checks, explicit external-file
+      opt-in, and secret-safe errors.
+- [ ] Confirm lazy interpolation for inactive profiles/sources, including typed
+      scalar coercion after interpolation.
+- [ ] Constrain `config set` to localized scalar edits or implement an explicit
+      rewrite mode with backup, warning, and tests.
+- [ ] Add the missing architectural test files from Section 10: property-based
+      deep-merge, round-trip writer, YAML fuzz/safety, performance budget,
+      generated-type freshness, source-schema isolation, extension-schema
+      behavior, and CLI snapshots.
+- [ ] Update `docs/60-devex/config-guide.md` and relevant runbooks with the error
+      catalog, schema-change policy, troubleshooting, dotenv safety, and
+      observability examples.
+
+**Acceptance:** The branch cannot be considered Approved or PR-ready for the
+v1.2 contract until Phase 5 is checked off, `pnpm -C packages/aidha-config test`,
+`pnpm -C packages/praecis/youtube test`, scoped DocOps checks, and
+`pnpm docs:build` all pass.
+
+**Status (2026-05-15):** Open. Current implementation still embeds
+source-private fields in the core config package and lacks generated
+schema/type metadata, extracted dotenv/parser modules, and several required test
+categories.
 
 ---
 
@@ -1198,6 +1234,9 @@ All tests run via: `pnpm -C packages/aidha-config test`
 | `yaml-fuzz.test.ts`         | Parser rejects or bounds pathological YAML inputs, including alias/anchor expansion intended to exhaust memory.                                                          |
 | `performance.test.ts`       | Typical cold loader + resolver path completes under 50 ms on CI-class hardware, with a documented threshold adjustment process if CI variance requires it.                |
 | `generated-types.test.ts`   | Generated TypeScript types and schema metadata are up to date with `config.schema.json`.                                                                                 |
+| `logging.test.ts`           | Structured config log events contain expected fields and are redacted before leaving `@aidha/config`.                                                                    |
+| `error-catalog.test.ts`     | Exported error classes are represented in the documented error catalog.                                                                                                  |
+| `schema-changes.test.ts`    | Schema edits are accompanied by generated-file updates and, after v1, a `SCHEMA-CHANGES.md` entry.                                                                       |
 
 **Run command:**
 
@@ -1258,9 +1297,88 @@ The user-facing guide should include these first-line diagnostics:
 | Sharing profiles across machines fails | Machine-specific paths or secrets were hardcoded. | Use `${VAR}` for secrets and set `base_dir` or absolute paths for machine-specific paths. |
 | YAML anchors cause surprising output | Anchors are materialized before validation and may not round-trip through edits. | Avoid anchors in sections edited by `aidha config set`. |
 
+### Error Catalog
+
+Every exported error class must be documented in `docs/60-devex/config-guide.md`
+or a dedicated config reference page. The implementation should keep this table
+in sync with exported error types:
+
+| Error | Trigger | User Remediation |
+| ----- | ------- | ---------------- |
+| `ConfigNotFoundError` | Explicit `--config` or `$AIDHA_CONFIG` path does not exist. | Fix the path, create the file with `aidha config init`, or unset the override. |
+| `ConfigParseError` | YAML is malformed, empty, not an object, or rejected by parser safety bounds. | Fix the YAML at the reported line/path; remove pathological anchors or aliases. |
+| `ConfigValidationError` | Parsed config fails JSON Schema or registered extension/source schema validation. | Correct the reported key, type, or unknown property. |
+| `ConfigVersionError` | `config_version` is unsupported by the running binary. | Upgrade the binary or run an explicit future migration command. |
+| `ConfigReadOnlyError` | Write attempted while `AIDHA_CONFIG_READONLY=1`. | Disable read-only mode or edit outside CI/container read-only context. |
+| `ConfigConflictError` | Optimistic concurrency guard detects the file changed since read. | Re-run the command, inspect the diff, or use explicit force after review. |
+| `ConfigWriteValidationError` | Proposed write would produce invalid config. | Fix the requested value/path before retrying. |
+| `ConfigUnsafeDotenvError` | Dotenv path violates symlink, ownership, or project-boundary safety rules. | Move the file under the config base directory, fix ownership, or use explicit external-file opt-in when available. |
+| `UnsetVariableError` | Active config references `${VAR}` without a value or fallback. | Export the env var, add a dotenv file, or use `${VAR:-fallback}`. |
+| `InterpolationCycleError` | Env interpolation references form a cycle. | Break the cycle or replace one reference with a literal value. |
+| `InterpolationDepthError` | Recursive interpolation exceeds the maximum depth. | Simplify nested env references. |
+
+### Schema Change Policy
+
+`config_version` is the compatibility gate for behavior, but schema evolution
+also needs human-readable release notes:
+
+- Add `packages/aidha-config/schema/SCHEMA-CHANGES.md` before the first
+  post-v1 schema change.
+- Record every added, removed, renamed, or behavior-changing config key with
+  version, date, rationale, migration guidance, and whether the change is
+  breaking.
+- Generated files (`types.generated.ts`, `schema.generated.ts`) must be updated
+  in the same commit as `config.schema.json`.
+- User-facing docs and examples must change in the same atomic unit as the
+  schema change.
+- A future migration command must link each migration step to the corresponding
+  schema-change entry.
+
+### Observability Contract
+
+`@aidha/config` should stay dependency-free with respect to logging frameworks.
+It emits structured events through an optional callback supplied by the caller:
+
+```ts
+type ConfigLogEvent =
+  | {
+      type: "config.load.summary";
+      configPath: string | null;
+      profile: string;
+      sourceId?: string;
+      dotenvFileCount: number;
+      warningCount: number;
+      cliOverrideKeys: string[];
+    }
+  | {
+      type: "config.load.warning";
+      code: string;
+      message: string;
+      configPath?: string;
+    };
+
+type ConfigLogSink = (event: ConfigLogEvent) => void;
+```
+
+Praecis or future CLIs may bridge this callback into their chosen logger. At
+command startup, debug-level logging should emit a redacted config-load summary:
+
+- Active config path or `zero-config`.
+- Selected profile and source ID.
+- Whether dotenv files were loaded, plus count and redacted provenance.
+- Number of resolved top-level sections and warnings.
+- Redacted list of keys overridden by CLI flags.
+
+This summary must never include secret values and should be visible through the
+same logging mechanism used by praecis diagnostics.
+
+Tests must assert the structured event payloads are redacted before they leave
+`@aidha/config`; downstream logger formatting is not trusted as a redaction
+boundary.
+
 ---
 
-## 12. Open Questions and Risks
+## 12. Resolved Design Decisions and Risks
 
 | #   | Question                                                                          | Recommendation                                                                                                     |
 | --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -1306,19 +1424,21 @@ The user-facing guide should include these first-line diagnostics:
 
 ---
 
-## 13. Effort Estimate
+## 13. Effort Accounting
 
-| Phase | Description               | Estimated Effort |
-| ----- | ------------------------- | ---------------- |
-| 0     | Shared config package     | 3–4 days         |
-| 1     | Wire into praecis CLI     | 2 days           |
-| 2     | Config management CLI     | 2 days           |
-| 3     | Documentation and devex   | 1–2 days         |
-| 4     | Additional source vectors | Future sprint    |
+| Phase | Description                         | Original Estimate | Status | Remaining Estimate |
+| ----- | ----------------------------------- | ----------------- | ------ | ------------------ |
+| 0     | Shared config package               | 3–4 days          | Complete against earlier contract; drift exists against v1.2 | Superseded by Phase 5 |
+| 1     | Wire into praecis CLI               | 2 days            | Complete against earlier contract; drift exists against v1.2 | Superseded by Phase 5 |
+| 2     | Config management CLI               | 2 days            | Complete against earlier contract; drift exists against v1.2 | Superseded by Phase 5 |
+| 3     | Documentation and devex             | 1–2 days          | Complete against earlier contract; requires guide/runbook updates | 0.5–1 day inside Phase 5 |
+| 4     | Additional source vectors           | Future sprint     | Partially complete; remaining work future-scoped | Future sprint |
+| 5     | Contract drift remediation          | Not estimated in original plan | Open and required before approval | 3–5 days |
 
-**Total for Phases 0–3: ~8–10 days of focused implementation.** This reflects
-comment-preserving writes, generated types/metadata, fuzz/property tests,
-snapshot tests, and review-driven hardening.
+The earlier `~8–10 days` estimate is no longer a reliable handover estimate
+because Phases 0–3 were implemented against an older contract. Phase 5 is the
+current approval gate and should be estimated, implemented, and verified as its
+own slice rather than hidden inside historical phase estimates.
 
 ---
 
