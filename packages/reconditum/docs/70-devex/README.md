@@ -2,8 +2,8 @@
 document_id: RECON-REF-001
 owner: Reconditum Maintainers
 status: Draft
-version: '0.2'
-last_updated: 2026-02-22
+version: '0.3'
+last_updated: 2026-05-15
 title: Reconditum Package Docs (Pointers)
 type: REF
 docops_version: '2.0'
@@ -13,8 +13,8 @@ docops_version: '2.0'
 > **Owner:** Reconditum Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-02-22
+> **Version:** 0.3
+> **Last Updated:** 2026-05-15
 > **Type:** REF
 
 # Reconditum Package Docs (Pointers)
@@ -29,6 +29,7 @@ Canonical repository docs live under `docs/` and are governed by Meminit DocOps 
 | ------- | ---------- | ------ | ------------------------------- | --------- | ------ | --------- |
 | 0.1     | 2025-12-30 | CMF    | Create package doc stub         | —         | Draft  | —         |
 | 0.2     | 2026-02-22 | AI     | Add SQLite schema views pointer | —         | Draft  | —         |
+| 0.3     | 2026-05-15 | AI     | Add LevelGraph stream shim and smoke coverage | — | Draft | —         |
 
 ## Canonical Docs
 

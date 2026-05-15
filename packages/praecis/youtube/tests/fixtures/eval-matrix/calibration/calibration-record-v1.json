@@ -79,5 +79,5 @@
   },
   "overallPassed": true,
   "scoringErrors": [],
-  "notes": "Synthetic record generated from mock judge responses for format validation and CI fixture coverage. All dimension agreements exceed the 0.7 threshold. Replace with a live run result after executing: pnpm -C packages/praecis/youtube cli eval calibrate --golden tests/fixtures/eval-matrix/golden-annotations.json --judge-model gpt-4o-mini"
+  "notes": "Synthetic record generated from mock judge responses for format validation and CI fixture coverage. All dimension agreements exceed the 0.7 threshold. Replace with a live run result after re-running: pnpm -C packages/praecis/youtube exec vitest run tests/eval/calibration-runner.test.ts --reporter=dot"
 }

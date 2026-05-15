@@ -98,7 +98,10 @@ export async function runCalibration(opts: CalibrationRunOptions): Promise<Calib
   const perVideoResults = settled.filter((r): r is CalibrationVideoResult => r !== null);
   const aggregateAgreement = avgAgreements(perVideoResults);
   const overallPassed =
-    perVideoResults.length > 0 && SCORE_DIMENSIONS.every(d => aggregateAgreement[d] >= agreementThreshold);
+    perVideoResults.length === goldenEntries.length &&
+    perVideoResults.length > 0 &&
+    perVideoResults.every(r => r.passed) &&
+    SCORE_DIMENSIONS.every(d => aggregateAgreement[d] >= agreementThreshold);
 
   const notes =
     skipped.length > 0 ? `Skipped (no transcript): ${skipped.join(", ")}` : undefined;

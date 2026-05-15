@@ -4,7 +4,22 @@ import type { MatrixCell } from "../../src/eval/matrix-runner.js";
 import type { ClaimSetScore } from "../../src/eval/scoring-rubric.js";
 import type { ExtractorVariantId } from "../../src/eval/extractor-variants.js";
 
-const score = (overrides: Partial<ClaimSetScore> = {}): ClaimSetScore => ({
+const score = (judgeModelId = "judge-a", overrides: Partial<ClaimSetScore> = {}): ClaimSetScore => ({
+  completeness: 8,
+  accuracy: 9,
+  topicCoverage: 7,
+  atomicity: 8,
+  overallScore: 8,
+  reasoning: "Acceptable extraction.",
+  missingClaims: [],
+  hallucinations: [],
+  redundancies: [],
+  gapAreas: [],
+  judgeMeta: { judgeModelId, judgePromptVersion: "v1" },
+  ...overrides,
+});
+
+const legacyScore = (overrides: Partial<ClaimSetScore> = {}): ClaimSetScore => ({
   completeness: 8,
   accuracy: 9,
   topicCoverage: 7,
@@ -29,8 +44,8 @@ const cell = (videoId: string, modelId: string, variant: ExtractorVariantId, sco
 describe("computeVariantDelta", () => {
   it("computes positive delta when compare variant scores higher than base", () => {
     const cells: MatrixCell[] = [
-      cell("v1", "m1", "raw", [score({ completeness: 7, overallScore: 7.75 })]),
-      cell("v1", "m1", "editorial-pass-v1", [score({ completeness: 9, overallScore: 8.25 })]),
+      cell("v1", "m1", "raw", [score("judge-a", { completeness: 7, overallScore: 7.75 })]),
+      cell("v1", "m1", "editorial-pass-v1", [score("judge-a", { completeness: 9, overallScore: 8.25 })]),
     ];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.matchedPairCount).toBe(1);
@@ -40,10 +55,10 @@ describe("computeVariantDelta", () => {
 
   it("averages deltas over multiple matched pairs", () => {
     const cells: MatrixCell[] = [
-      cell("v1", "m1", "raw", [score({ completeness: 6, overallScore: 7.5 })]),
-      cell("v1", "m1", "editorial-pass-v1", [score({ completeness: 8, overallScore: 8.5 })]),
-      cell("v2", "m1", "raw", [score({ completeness: 8, overallScore: 8 })]),
-      cell("v2", "m1", "editorial-pass-v1", [score({ completeness: 10, overallScore: 9 })]),
+      cell("v1", "m1", "raw", [score("judge-a", { completeness: 6, overallScore: 7.5 })]),
+      cell("v1", "m1", "editorial-pass-v1", [score("judge-a", { completeness: 8, overallScore: 8.5 })]),
+      cell("v2", "m1", "raw", [score("judge-a", { completeness: 8, overallScore: 8 })]),
+      cell("v2", "m1", "editorial-pass-v1", [score("judge-a", { completeness: 10, overallScore: 9 })]),
     ];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.matchedPairCount).toBe(2);
@@ -52,8 +67,8 @@ describe("computeVariantDelta", () => {
 
   it("reports missingClaimsDelta (positive = compare has more missing claims)", () => {
     const cells: MatrixCell[] = [
-      cell("v1", "m1", "raw", [score({ missingClaims: [{ text: "A" }] })]),
-      cell("v1", "m1", "editorial-pass-v1", [score({ missingClaims: [{ text: "A" }, { text: "B" }] })]),
+      cell("v1", "m1", "raw", [score("judge-a", { missingClaims: [{ text: "A" }] })]),
+      cell("v1", "m1", "editorial-pass-v1", [score("judge-a", { missingClaims: [{ text: "A" }, { text: "B" }] })]),
     ];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.meanMissingClaimsDelta).toBeCloseTo(1);
@@ -61,7 +76,7 @@ describe("computeVariantDelta", () => {
 
   it("returns matchedPairCount 0 and zero deltas when no pairs match", () => {
     const cells: MatrixCell[] = [
-      cell("v1", "m1", "raw", [score()]),
+      cell("v1", "m1", "raw", [score("judge-a")]),
     ];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.matchedPairCount).toBe(0);
@@ -70,8 +85,8 @@ describe("computeVariantDelta", () => {
 
   it("ignores cells with no scores", () => {
     const cells: MatrixCell[] = [
-      { ...cell("v1", "m1", "raw", [score()]), scores: undefined },
-      cell("v1", "m1", "editorial-pass-v1", [score()]),
+      { ...cell("v1", "m1", "raw", [score("judge-a")]), scores: undefined },
+      cell("v1", "m1", "editorial-pass-v1", [score("judge-a")]),
     ];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.matchedPairCount).toBe(0);
@@ -79,21 +94,52 @@ describe("computeVariantDelta", () => {
 
   it("computes hallucinationsDelta correctly", () => {
     const cells: MatrixCell[] = [
-      cell("v1", "m1", "raw", [score({ hallucinations: [{ text: "X" }, { text: "Y" }] })]),
-      cell("v1", "m1", "editorial-pass-v1", [score({ hallucinations: [{ text: "X" }] })]),
+      cell("v1", "m1", "raw", [score("judge-a", { hallucinations: [{ text: "X" }, { text: "Y" }] })]),
+      cell("v1", "m1", "editorial-pass-v1", [score("judge-a", { hallucinations: [{ text: "X" }] })]),
     ];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.meanHallucinationsDelta).toBeCloseTo(-1);
   });
 
   it("distinguishes cells with different promptConfigId or chunkMode", () => {
-    const base1: MatrixCell = { ...cell("v1", "m1", "raw", [score({ completeness: 6 })]), promptConfigId: "cfg-a", chunkMode: "small" };
-    const base2: MatrixCell = { ...cell("v1", "m1", "raw", [score({ completeness: 8 })]), promptConfigId: "cfg-b", chunkMode: "large" };
-    const compare1: MatrixCell = { ...cell("v1", "m1", "editorial-pass-v1", [score({ completeness: 9 })]), promptConfigId: "cfg-a", chunkMode: "small" };
-    const compare2: MatrixCell = { ...cell("v1", "m1", "editorial-pass-v1", [score({ completeness: 7 })]), promptConfigId: "cfg-b", chunkMode: "large" };
+    const base1: MatrixCell = { ...cell("v1", "m1", "raw", [score("judge-a", { completeness: 6 })]), promptConfigId: "cfg-a", chunkMode: "small" };
+    const base2: MatrixCell = { ...cell("v1", "m1", "raw", [score("judge-a", { completeness: 8 })]), promptConfigId: "cfg-b", chunkMode: "large" };
+    const compare1: MatrixCell = { ...cell("v1", "m1", "editorial-pass-v1", [score("judge-a", { completeness: 9 })]), promptConfigId: "cfg-a", chunkMode: "small" };
+    const compare2: MatrixCell = { ...cell("v1", "m1", "editorial-pass-v1", [score("judge-a", { completeness: 7 })]), promptConfigId: "cfg-b", chunkMode: "large" };
     const cells: MatrixCell[] = [base1, base2, compare1, compare2];
     const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
     expect(result.matchedPairCount).toBe(2);
     expect(result.meanDelta.completeness).toBeCloseTo(1);
+  });
+
+  it("matches deltas by judge identity when one variant has a partial scoring failure", () => {
+    const cells: MatrixCell[] = [
+      cell("v1", "m1", "raw", [
+        score("judge-a", { completeness: 6, overallScore: 6.5 }),
+        score("judge-b", { completeness: 2, overallScore: 2.5 }),
+      ]),
+      cell("v1", "m1", "editorial-pass-v1", [
+        score("judge-a", { completeness: 9, overallScore: 8.5 }),
+      ]),
+    ];
+
+    const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
+
+    expect(result.matchedPairCount).toBe(1);
+    expect(result.meanDelta.completeness).toBeCloseTo(3);
+    expect(result.meanDelta.overallScore).toBeCloseTo(2);
+  });
+
+  it("includes scores without judge metadata in legacy/cache-compatible cells", () => {
+    const cells: MatrixCell[] = [
+      cell("v1", "m1", "raw", [legacyScore({ completeness: 6, overallScore: 7.5 })]),
+      cell("v1", "m1", "editorial-pass-v1", [legacyScore({ completeness: 9, overallScore: 8.5 })]),
+    ];
+
+    const result = computeVariantDelta({ cells, baseVariant: "raw", compareVariant: "editorial-pass-v1" });
+
+    expect(result.matchedPairCount).toBe(1);
+    expect(result.meanDelta.completeness).toBeCloseTo(3);
+    expect(result.meanDelta.overallScore).toBeCloseTo(1);
   });
 });

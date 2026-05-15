@@ -98,6 +98,126 @@ describe("runCalibration", () => {
     expect(result.overallPassed).toBe(false);
   });
 
+  it("marks overallPassed false when any gold-set entry is skipped", async () => {
+    const opts: CalibrationRunOptions = {
+      goldenEntries: [
+        ...goldenEntries,
+        {
+          videoId: "synthetic-lecture-2",
+          title: "Synthetic Lecture 2",
+          idealClaims: [{ text: "Additional claim.", type: "fact", children: [] }],
+          rejectedClaims: [],
+        },
+      ],
+      transcripts,
+      judgeClient: makeLlmClient(),
+      judgeModelId: "mock-judge",
+      promptVersion: "v1",
+      agreementThreshold: 0.7,
+    };
+    const result = await runCalibration(opts);
+    expect(result.perVideoResults).toHaveLength(1);
+    expect(result.overallPassed).toBe(false);
+  });
+
+  it("marks overallPassed false when any gold-set entry fails scoring", async () => {
+    const mixedClient: LlmClient = {
+      generate: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          value: JSON.stringify(makeScore()),
+          usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+        })
+        .mockResolvedValueOnce({ ok: false, error: "model overloaded" }),
+    };
+    const opts: CalibrationRunOptions = {
+      goldenEntries: [
+        ...goldenEntries,
+        {
+          videoId: "synthetic-lecture-2",
+          title: "Synthetic Lecture 2",
+          idealClaims: [{ text: "Additional claim.", type: "fact", children: [] }],
+          rejectedClaims: [],
+        },
+      ],
+      transcripts: {
+        ...transcripts,
+        "synthetic-lecture-2": "Additional claim.",
+      },
+      judgeClient: mixedClient,
+      judgeModelId: "mock-judge",
+      promptVersion: "v1",
+      agreementThreshold: 0.7,
+    };
+    const result = await runCalibration(opts);
+    expect(result.perVideoResults).toHaveLength(1);
+    expect(result.perVideoResults[0]?.videoId).toBe("synthetic-lecture-1");
+    expect(result.scoringErrors).toEqual(["synthetic-lecture-2"]);
+    expect(result.overallPassed).toBe(false);
+  });
+
+  it("marks overallPassed false when any per-video result fails even if aggregate agreement passes", async () => {
+    const passingScore = makeScore({
+      completeness: 10,
+      accuracy: 10,
+      topicCoverage: 10,
+      atomicity: 10,
+      overallScore: 10,
+    });
+    const failingScore = makeScore({
+      completeness: 4,
+      accuracy: 10,
+      topicCoverage: 10,
+      atomicity: 10,
+      overallScore: 8.5,
+    });
+    const mixedClient: LlmClient = {
+      generate: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          value: JSON.stringify(failingScore),
+          usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          value: JSON.stringify(passingScore),
+          usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+        }),
+    };
+    const opts: CalibrationRunOptions = {
+      goldenEntries: [
+        {
+          videoId: "synthetic-lecture-1",
+          title: "Synthetic Lecture 1",
+          idealClaims: [{ text: "Claim one.", type: "fact", children: [] }],
+          rejectedClaims: [],
+        },
+        {
+          videoId: "synthetic-lecture-2",
+          title: "Synthetic Lecture 2",
+          idealClaims: [{ text: "Claim two.", type: "fact", children: [] }],
+          rejectedClaims: [],
+        },
+      ],
+      transcripts: {
+        "synthetic-lecture-1": "Claim one.",
+        "synthetic-lecture-2": "Claim two.",
+      },
+      judgeClient: mixedClient,
+      judgeModelId: "mock-judge",
+      promptVersion: "v1",
+      agreementThreshold: 0.7,
+    };
+    const result = await runCalibration(opts);
+    expect(result.perVideoResults).toHaveLength(2);
+    expect(result.perVideoResults[0]?.passed).toBe(false);
+    expect(result.perVideoResults[1]?.passed).toBe(true);
+    expect(result.aggregateAgreement.completeness).toBeCloseTo(0.7);
+    expect(result.overallPassed).toBe(false);
+  });
+
   it("skips entries without a matching transcript and records a note", async () => {
     const opts: CalibrationRunOptions = {
       goldenEntries,
