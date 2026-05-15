@@ -1,14 +1,25 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 
 function readPlanDoc(): string {
-  const repoRoot = resolve(process.cwd(), '..', '..');
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
   const planPath = resolve(
-    repoRoot,
+    moduleDir,
+    '..',
+    '..',
+    '..',
     'docs/05-planning/plan-005-user-configuration-profiles.md',
   );
-  return readFileSync(planPath, 'utf-8');
+
+  try {
+    return readFileSync(planPath, 'utf-8');
+  } catch (error) {
+    throw new Error(
+      `Failed to read plan doc at ${planPath} from ${import.meta.url}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 describe('plan-005 contract text', () => {
