@@ -95,6 +95,15 @@ describe('YouTube source adapter', () => {
     expect(resolved?.ytdlp.bin).toBe('yt-dlp');
   });
 
+  it('should preserve an explicitly empty yt-dlp binary path', () => {
+    const config: ResolvedYoutubeConfig = {
+      ytdlp: { bin: '', cookiesFile: '', remoteComponents: '', timeoutMs: 120000, jsRuntimes: '', keepFiles: false },
+      youtube: { cookie: '', innertubeApiKey: '', debugTranscript: false },
+    };
+    const resolved = YouTubeSourceRegistration.resolveSourcePaths?.(config, '/project');
+    expect(resolved?.ytdlp.bin).toBe('');
+  });
+
   it('should have metadata for path fields, secrets, and explain labels', () => {
     expect(YouTubeSourceRegistration.metadata?.pathFields).toContain('ytdlp.cookies_file');
     expect(YouTubeSourceRegistration.metadata?.secretFields).toContain('youtube.cookie');

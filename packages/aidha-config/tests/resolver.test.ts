@@ -317,13 +317,17 @@ describe('resolveConfig — source boundary', () => {
   it('should use source registration defaults when no user config', () => {
     const registration = {
       sourceId: 'test-source',
-      defaults: { widget: { name: 'default-widget', timeout_ms: 5000 } },
+      defaults: {
+        extraction: { max_claims: 77 },
+        widget: { name: 'default-widget', timeout_ms: 5000 },
+      },
       validateActiveSourceConfig: (v: unknown) => v,
     };
     const resolved = resolveConfig({
       sourceId: 'test-source',
       sourceRegistrations: [registration],
     });
+    expect(resolved.extraction.maxClaims).toBe(77);
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
     const widget = sourceConfig.widget as Record<string, unknown>;
     expect(widget.name).toBe('default-widget');

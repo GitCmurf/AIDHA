@@ -16,6 +16,7 @@
 
 import type { SourceRegistration } from '@aidha/config';
 import { resolve } from 'node:path';
+import { resolvePathValue } from '@aidha/config';
 
 // ── Source ID ────────────────────────────────────────────────────────────────
 
@@ -165,14 +166,11 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
   },
 
   resolveSourcePaths(value: ResolvedYoutubeConfig, baseDir: string): ResolvedYoutubeConfig {
-    const isBareCommand = (v: string): boolean =>
-      v !== '' && !v.includes('/') && !v.includes('\\');
-
     return {
       ...value,
       ytdlp: {
         ...value.ytdlp,
-        bin: isBareCommand(value.ytdlp.bin) ? value.ytdlp.bin : resolve(baseDir, value.ytdlp.bin),
+        bin: resolvePathValue(value.ytdlp.bin, baseDir),
         cookiesFile: value.ytdlp.cookiesFile === '' ? '' : resolve(baseDir, value.ytdlp.cookiesFile),
       },
     };

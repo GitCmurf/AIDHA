@@ -216,10 +216,15 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
     // Layer 1: Registration defaults (weakest)
     if (registration?.defaults) {
+      const { core: registrationCore, sourcePrivate: registrationPrivate } =
+        partitionSourcePayload(registration.defaults);
       activeSourceConfig = deepMerge(
         activeSourceConfig ?? {},
-        registration.defaults as Record<string, unknown>,
+        registrationPrivate,
       );
+      if (Object.keys(registrationCore).length > 0) {
+        merged = deepMerge(merged, registrationCore);
+      }
     }
 
     // Layer 2: Default profile source_overrides
