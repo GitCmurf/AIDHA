@@ -97,7 +97,10 @@ describe('resolveConfig — five-tier merge', () => {
         },
       },
     });
-    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+    });
     expect(resolved.extraction.maxClaims).toBe(99);
     expect(resolved.activeSourceId).toBe('youtube');
   });
@@ -119,7 +122,10 @@ describe('resolveConfig — five-tier merge', () => {
         },
       },
     });
-    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+    });
     expect(resolved.extraction.maxClaims).toBe(10);
   });
 
@@ -131,7 +137,10 @@ describe('resolveConfig — five-tier merge', () => {
         },
       },
     });
-    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+    });
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
     expect(ytdlp.bin).toBe('custom-ytdlp');
@@ -242,6 +251,15 @@ describe('resolveConfig — five-tier merge', () => {
 // ── Source boundary ──────────────────────────────────────────────────────────
 
 describe('resolveConfig — source boundary', () => {
+  const YOUTUBE_REGISTRATION = {
+    sourceId: 'youtube',
+    defaults: {
+      ytdlp: { timeout_ms: 120000 },
+      youtube: { debug_transcript: false },
+    },
+    validateActiveSourceConfig: (value: unknown) => value,
+  };
+
   it('should not include source-private fields on ResolvedConfig', () => {
     const resolved = resolveConfig({ sourceId: 'youtube' });
     expect('ytdlp' in resolved).toBe(false);
@@ -264,11 +282,88 @@ describe('resolveConfig — source boundary', () => {
         },
       },
     });
-    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+      sourceRegistrations: [YOUTUBE_REGISTRATION],
+    });
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
     expect(ytdlp.bin).toBe('yt-dlp');
     expect(ytdlp.timeout_ms).toBe(120000);
+  });
+
+  it('should keep core source-default sections out of activeSourceConfig', () => {
+    const config = minimalConfig({
+      sources: {
+        youtube: {
+          extraction: { max_claims: 10 },
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+      sourceRegistrations: [YOUTUBE_REGISTRATION],
+    });
+    expect(resolved.extraction.maxClaims).toBe(10);
+
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    expect(sourceConfig.extraction).toBeUndefined();
+    expect((sourceConfig.ytdlp as Record<string, unknown>).bin).toBe('yt-dlp');
+  });
+
+  it('should merge legacy source-private keys from the default profile', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          ytdlp: { timeout_ms: 120000 },
+          youtube: { debug_transcript: false },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+      sourceRegistrations: [YOUTUBE_REGISTRATION],
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    const youtube = sourceConfig.youtube as Record<string, unknown>;
+    expect(ytdlp.timeout_ms).toBe(120000);
+    expect(youtube.debug_transcript).toBe(false);
+  });
+
+  it('should merge legacy source-private profile keys into activeSourceConfig', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          ytdlp: { timeout_ms: 120000 },
+          youtube: { debug_transcript: false },
+        },
+        production: {
+          ytdlp: { timeout_ms: 90000, keep_files: true },
+          youtube: { debug_transcript: true },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({
+      rawConfig: config,
+      profileName: 'production',
+      sourceId: 'youtube',
+      sourceRegistrations: [YOUTUBE_REGISTRATION],
+    });
+
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    const youtube = sourceConfig.youtube as Record<string, unknown>;
+    expect(ytdlp.timeout_ms).toBe(90000);
+    expect(ytdlp.keep_files).toBe(true);
+    expect(youtube.debug_transcript).toBe(true);
   });
 
   it('should merge profile source_overrides into activeSourceConfig', () => {
