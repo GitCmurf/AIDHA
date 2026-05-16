@@ -54,6 +54,15 @@ describe('YouTube source adapter', () => {
     expect(validated.youtube.debugTranscript).toBe(false);
   });
 
+  it('should reject malformed known source sections instead of defaulting them', () => {
+    expect(() =>
+      YouTubeSourceRegistration.validateActiveSourceConfig({
+        ytdlp: [],
+        youtube: 'bad',
+      }),
+    ).toThrowError(ConfigValidationError);
+  });
+
   it('should coerce string scalar overrides declared in metadata', () => {
     const raw = {
       ytdlp: {

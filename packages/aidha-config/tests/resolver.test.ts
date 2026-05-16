@@ -483,6 +483,38 @@ describe('resolveConfig — source boundary', () => {
     expect(ytdlp.bin).toBe('yt-dlp');
   });
 
+  it('should read default-profile source_overrides from the configured default profile', () => {
+    const config = minimalConfig({
+      default_profile: 'production',
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { cookies_file: './inactive-default-profile-cookies.txt' },
+            },
+          },
+        },
+        production: {},
+      },
+      sources: {
+        youtube: {
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+        },
+      },
+    });
+
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+      sourceRegistrations: [TEST_YOUTUBE_REGISTRATION],
+    });
+
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.cookies_file).toBeUndefined();
+    expect(ytdlp.bin).toBe('yt-dlp');
+  });
+
   it('should reject invalid core sections inside source_overrides', () => {
     const config = minimalConfig({
       default_profile: 'production',

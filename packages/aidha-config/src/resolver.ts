@@ -267,6 +267,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   const registration = sourceId
     ? sourceRegistrations.find(r => r.sourceId === sourceId)
     : undefined;
+  const configDefaultName = rawConfig?.default_profile ?? 'default';
 
   // ── Tier 5: Hardcoded defaults ──────────────────────────────────────
   const defaultProfile = DEFAULTS.profiles?.['default'];
@@ -287,7 +288,6 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   // ── Tier 4: System-wide default profile from config file ────────────
   if (rawConfig) {
-    const configDefaultName = rawConfig.default_profile ?? 'default';
     const configDefault = rawConfig.profiles?.[configDefaultName];
     if (configDefault) {
       merged = deepMerge(merged, profileToCoreFlat(configDefault));
@@ -328,9 +328,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     }
 
     // Layer 2: Default-profile source_overrides (weaker than source defaults)
-    if (rawConfig?.profiles?.['default']) {
+    if (rawConfig?.profiles?.[configDefaultName]) {
       const defaultProfileSourceOverrides = getSourceOverrides(
-        rawConfig.profiles['default'],
+        rawConfig.profiles[configDefaultName],
         sourceId,
       );
       if (defaultProfileSourceOverrides) {
@@ -339,7 +339,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
           sourcePrivate: defaultProfileSourcePrivate,
         } = partitionValidatedSourcePayload(
           defaultProfileSourceOverrides,
-          `profiles.default.source_overrides.${sourceId}`,
+          `profiles.${configDefaultName}.source_overrides.${sourceId}`,
         );
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},

@@ -93,6 +93,10 @@ function toBoolean(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function validateNonNegativeInteger(
   value: unknown,
   path: string,
@@ -314,13 +318,33 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
       };
     }
     const obj = applyScalarCoercions(value as Record<string, unknown>);
+    const issues: Array<{ path: string; message: string }> = [];
+
     const ytdlp = obj['ytdlp'];
-    if (ytdlp !== undefined && ytdlp !== null && typeof ytdlp === 'object') {
+    if (ytdlp !== undefined && ytdlp !== null && !isPlainObject(ytdlp)) {
+      issues.push({
+        path: 'ytdlp',
+        message: `Expected an object, got ${Array.isArray(ytdlp) ? 'array' : typeof ytdlp}`,
+      });
+    } else if (isPlainObject(ytdlp)) {
       validateNonNegativeInteger((ytdlp as Record<string, unknown>)['timeout_ms'], 'ytdlp.timeout_ms');
     }
+
+    const youtube = obj['youtube'];
+    if (youtube !== undefined && youtube !== null && !isPlainObject(youtube)) {
+      issues.push({
+        path: 'youtube',
+        message: `Expected an object, got ${Array.isArray(youtube) ? 'array' : typeof youtube}`,
+      });
+    }
+
+    if (issues.length > 0) {
+      throw new ConfigValidationError('source_overrides.youtube', issues);
+    }
+
     return {
       ytdlp: narrowYtdlp(obj['ytdlp']),
-      youtube: narrowYoutube(obj['youtube']),
+      youtube: narrowYoutube(youtube),
     };
   },
 
