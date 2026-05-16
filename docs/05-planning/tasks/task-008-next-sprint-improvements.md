@@ -820,9 +820,9 @@ because they depend on repository administration or policy decisions.
 
 **Evidence to record:**
 
-- [x] `gh api repos/:owner/:repo/branches/main/protection` returns active protection.
-- [x] `gh run list --workflow secret-scan.yml --limit 5` shows a passing run.
-- [x] AIDHA-TASK-001 no longer has unchecked GitHub settings without evidence or supersession.
+- [ ] `gh api repos/:owner/:repo/branches/main/protection` returns active protection.
+- [ ] `gh run list --workflow secret-scan.yml --limit 5` shows a passing run.
+- [ ] AIDHA-TASK-001 no longer has unchecked GitHub settings without evidence or supersession.
 
 **Current evidence, 2026-05-12:**
 Read-only GitHub checks show this remains blocked rather than complete. Branch protection exists,

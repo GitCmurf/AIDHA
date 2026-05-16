@@ -185,6 +185,26 @@ profiles:
     expect(result.config!.profiles['default']?.llm?.api_key).toBe('sk-test-key');
   });
 
+  it('should interpolate literal escapes from double-quoted YAML scalars', async () => {
+    writeConfig(
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        '    llm:',
+        '      api_key: "\\\\${TEST_API_KEY}"',
+      ].join('\n'),
+    );
+
+    const result = await loadConfig({
+      cwd: tmpDir,
+      env: { TEST_API_KEY: 'sk-test-key' },
+    });
+
+    expect(result.config!.profiles['default']?.llm?.api_key).toBe('${TEST_API_KEY}');
+  });
+
   it('should respect caller env for XDG discovery in loadConfig', async () => {
     const processXdgHome = join(tmpDir, 'xdg-process');
     const callerXdgHome = join(tmpDir, 'xdg-caller');

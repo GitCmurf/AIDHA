@@ -356,9 +356,9 @@
     "front_matter": {
       "document_id": "AIDHA-PLAN-005",
       "owner": "Repo Maintainers",
-      "status": "Draft",
-      "version": "0.9",
-      "last_updated": "2026-02-19",
+      "status": "In Review",
+      "version": "1.6",
+      "last_updated": "2026-05-15",
       "title": "User Configuration Profiles",
       "type": "PLAN",
       "docops_version": "2.0"
@@ -640,8 +640,8 @@
       "document_id": "AIDHA-EVAL-ABLATION-001",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "1.0",
-      "last_updated": "2026-05-14",
+      "version": "1.1",
+      "last_updated": "2026-05-15",
       "title": "Editorial Ablation v1 — raw vs editorial-pass-v1 Delta Comparison",
       "type": "EVAL",
       "docops_version": "2.0"

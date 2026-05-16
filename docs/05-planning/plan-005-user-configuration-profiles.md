@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-PLAN-005
 owner: Repo Maintainers
-status: Draft
-version: "0.9"
-last_updated: 2026-02-19
+status: In Review
+version: "1.6"
+last_updated: 2026-05-15
 title: User Configuration Profiles
 type: PLAN
 docops_version: "2.0"
@@ -13,10 +13,10 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-PLAN-005
 > **Owner:** Repo Maintainers
-> **Approvers:** —
-> **Status:** Draft
-> **Version:** 0.9
-> **Last Updated:** 2026-02-19
+> **Approvers:** GLM, Self-review
+> **Status:** In Review
+> **Version:** 1.6
+> **Last Updated:** 2026-05-15
 > **Type:** PLAN
 
 # User Configuration Profiles
@@ -34,6 +34,13 @@ docops_version: "2.0"
 | 0.7     | 2026-02-15 | AI     | Complete Phase 3 documentation items.                             | —         | Draft  | —         |
 | 0.8     | 2026-02-15 | AI     | Add scoped meminit check helper.                                 | —         | Draft  | —         |
 | 0.9     | 2026-02-19 | AI     | Close remaining Phase 1 runtime env fallback gaps in praecis runtime paths. | — | Draft | — |
+| 1.0     | 2026-05-15 | AI     | Harden projection, interpolation, extensibility, safety, and verification contracts after pre-implementation review. | — | In Review | — |
+| 1.1     | 2026-05-15 | AI     | Decouple core resolved config from source-specific schemas; tighten extension, writer, dotenv, and explain UX contracts. | — | In Review | — |
+| 1.2     | 2026-05-15 | AI     | Promote implementation drift into Phase 5 remediation; add error, schema-change, logging, and decision contracts. | GLM | In Review | — |
+| 1.3     | 2026-05-15 | AI     | Resolve source-boundary contract gaps; split Phase 5 into executable work packages with owned tests. | Self-review | In Review | — |
+| 1.4     | 2026-05-15 | AI     | Correct source-owned precedence so source defaults outrank default-profile source overrides. | Self-review | In Review | — |
+| 1.5     | 2026-05-15 | AI     | Clarify core-vs-source-private source merges and fix profile-prefixed migration paths. | Self-review | In Review | — |
+| 1.6     | 2026-05-15 | AI     | Clarify YAML-safe interpolation escaping and source-private merge precedence wording. | Self-review | In Review | — |
 
 ## Objective
 
@@ -43,9 +50,35 @@ support **named profiles**, **ingestion-source defaults**, a well-defined
 **five-tier precedence chain**, and **safe, auditable editing** — while remaining
 human-readable and machine-parseable.
 
+## Executive Summary
+
+AIDHA is moving from implicit, scattered `process.env` reads to a strict,
+schema-validated configuration pipeline with deterministic five-tier resolution.
+The shared `@aidha/config` package owns mechanics only: discovery, parsing,
+interpolation, validation, merging, redaction, provenance, and safe writes.
+Source packages such as `praecis/youtube` own their source-specific schemas and
+typed narrowing so new ingestion vectors can be added without central package
+churn.
+
 > [!NOTE]
 > AIDHA is pre-alpha with no deployments. Backward compatibility with existing
 > env-var patterns is **not** a design constraint — we can make clean breaks.
+>
+The checked Phase 0–3 items below record implementation status at the time this
+plan was updated. The document status is **In Review** because the plan itself
+remains the review contract for follow-up hardening and implementation drift
+checks. This status refers to the specification and architectural design review,
+not the readiness of individual implementation PRs.
+
+### Reader Map
+
+- Sections 1–7 define the target architecture and user-facing behavior.
+- Sections 8 and 13 define execution status, known implementation drift, and
+  effort accounting.
+- Sections 9–11 define security, verification, troubleshooting, and operational
+  support contracts.
+- Section 12 records resolved decisions that were formerly open questions.
+- Appendices provide migration and example-config reference material.
 
 ### Non-Goals (Explicit Scope Exclusions)
 
@@ -181,8 +214,8 @@ Resolution priority for **file discovery** (first found wins):
 3. `./.aidha/config.yaml` (project-local).
 4. `$XDG_CONFIG_HOME/aidha/config.yaml` (user-global).
    If `$XDG_CONFIG_HOME` is unset, it defaults to `$HOME/.config`.
-   On macOS, it respects `~/Library/Application Support/aidha/config.yaml`
-   if preferred, but standardizes on XDG for simplicity across \*nix.
+   v1 deliberately standardizes on XDG-style paths on macOS as well; it does
+   not probe `~/Library/Application Support/aidha/config.yaml`.
 
 If no config file is found, the system operates entirely on hardcoded defaults
 (zero-config).
@@ -197,6 +230,10 @@ config values such as `db`, cache directories, cookies files, and output dirs.
   directory of `./.aidha/` (the project root).
 - Otherwise, `base_dir` is the directory containing the config file.
 - Optional top-level `base_dir` can override the computed value.
+- For arbitrary `--config` or `$AIDHA_CONFIG` paths, this means a file such as
+  `/tmp/aidha.yaml` resolves `db: ./out/aidha.sqlite` relative to `/tmp` unless
+  `base_dir` is set. Users should prefer absolute paths or explicit `base_dir`
+  for portable ad-hoc configs.
 
 Rule: any path-like config value is resolved relative to `base_dir` unless it is
 already absolute.
@@ -205,19 +242,24 @@ already absolute.
 
 Instead of maintaining a hardcoded list in `paths.ts`, mark path-typed keys in
 `config.schema.json` using an explicit annotation so the rules stay
-self-documenting and consistent across code and docs. Options:
+self-documenting and consistent across code and docs.
 
 - Use a custom keyword such as `x-aidha-path: true` on string fields that should
-  be treated as filesystem paths (e.g., `db`, `llm.cache_dir`, `ytdlp.cookies_file`,
+  be treated as filesystem paths (e.g., `db`, `llm.cache_dir`,
   `export.out_dir`, cache directories, fixture dirs).
-- `paths.ts` reads the compiled schema (or a generated metadata map) to determine
-  which keys are path-like.
+- Generate and check in a compact metadata map from the schema for runtime use
+  (for example `schema.generated.ts`). `paths.ts` must consume the generated map,
+  not a hand-maintained list, so path semantics cannot drift from the schema.
+- Source registrations contribute their own path-like, secret, and scalar
+  coercion metadata for fields inside `activeSourceConfig` (for example
+  `youtube.ytdlp.cookies_file`). The core metadata map must not enumerate
+  source-private fields.
 
 Special cases to define and test:
 
-- `ytdlp.bin`: if the value contains a path separator (`/`), treat it as a path
-  (resolve relative to `base_dir`). If it is a bare command (e.g., `yt-dlp`),
-  do not rewrite; allow PATH resolution.
+- Source-owned binary paths such as `youtube.ytdlp.bin`: if the value contains a
+  path separator (`/`), treat it as a path (resolve relative to `base_dir`). If
+  it is a bare command (e.g., `yt-dlp`), do not rewrite; allow PATH resolution.
 
 ### Load Order (Dotenv, Interpolation, Paths)
 
@@ -230,18 +272,42 @@ To avoid circular ambiguity (for example `base_dir` or paths containing
 3. Parse YAML into a raw object.
 4. If `env.dotenv_files` is present, load those `.env` files in-order.
    Dotenv paths are resolved relative to `base_dir_prelim`.
-5. Apply `${VAR}` interpolation to string values using the now-loaded env vars.
-6. Validate the interpolated raw config against the JSON schema.
-7. If the config contains a `base_dir` override, resolve it (relative to
+5. Validate the whole raw document structurally without interpolation. This pass
+   checks document shape, allowed top-level keys, profile/source map shapes, and
+   obvious type errors that do not require env substitution. It must not expand
+   inactive-profile env vars or reject package-local source payload internals.
+6. Apply `${VAR}` interpolation lazily only to the selected profile/source/default
+   tiers that participate in the current resolution, plus top-level fields
+   required for loading (`base_dir`, `default_profile`, and `env`). Do not fail
+   the active run because an inactive profile references an unset env var.
+7. Validate the interpolated active config semantically, including source-local
+   validators for the active source and coercion for schema-marked scalar fields
+   where interpolation produced a string.
+8. If the config contains a `base_dir` override, resolve it (relative to
    `base_dir_prelim` unless absolute) and set the final `base_dir`.
-8. Resolve path-like config values relative to the final `base_dir`.
+9. Resolve path-like config values relative to the final `base_dir`.
 
 This ensures `base_dir` may reference env vars defined in `.env` files, while
 dotenv file paths remain stable and predictable.
 
-Note: schema validation runs before path resolution. This is intentional: the
-schema validates user-authored values (often relative paths), while path
-resolution is a post-validation transform.
+Note: validation runs before path resolution. This is intentional: validators
+check user-authored values (often relative paths), while path resolution is a
+post-validation transform.
+
+### Validation Model
+
+The system uses two validation passes so strictness and lazy interpolation do not
+conflict:
+
+| Pass | Scope | Interpolation | Validator | Purpose |
+| ---- | ----- | ------------- | --------- | ------- |
+| Structural | Entire document | No | Core JSON Schema | Reject malformed config shape, unknown core keys, invalid profile/source map forms, and invalid `env`/`base_dir` stanzas without touching inactive secrets. |
+| Semantic | Active resolution only | Yes | Core schema + active source/extension schemas | Validate typed values after env interpolation and scalar coercion for the selected profile/source/default stack. |
+
+Inactive profile/source payloads are structurally checked but not semantically
+validated until selected. This preserves typo detection for core keys while
+allowing stale inactive profiles to reference env vars that are not available in
+the current run.
 
 ---
 
@@ -295,6 +361,13 @@ profiles:
       source_prefix: youtube
       out_dir: ./out
 
+    # Source-owned profile overrides live under source_overrides so the core
+    # profile schema can stay strict without knowing source-private fields.
+    source_overrides:
+      youtube:
+        ytdlp:
+          keep_files: true
+
   # Example named profiles — users add their own.
   fast-local:
     llm:
@@ -313,6 +386,10 @@ profiles:
     editor:
       version: v2
       editor_llm: true
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 90000
 
 # ── Ingestion-source defaults ─────────────────────────────────
 # Each source provides defaults that sit between the system-wide
@@ -351,11 +428,16 @@ sources:
   or a future `aidha config migrate` command.
 - If a config file is older, continue to load it if it still validates; avoid
   silent behavior changes by making migrations explicit and testable.
+- v1 has no implicit migration framework. Any future migration must be an
+  explicit, tested command or library function; older files load only when they
+  already validate against the current accepted schema.
 
 ### Key Design Decisions
 
 1. **Flat-ish grouping** — config keys are grouped by concern (`llm`, `editor`,
-   `ytdlp`, etc.) to mirror the CLI help text and allow partial profile overrides.
+   `extraction`, etc.) to mirror the CLI help text and allow partial profile
+   overrides. Source-private profile overrides live under
+   `profiles.<name>.source_overrides.<source-id>`.
 2. **Environment variable interpolation** — `${VAR_NAME}` syntax inside string
    values is expanded at load time. This lets secrets stay in env vars while
    non-secret config lives in the file.
@@ -391,8 +473,47 @@ sources:
    ```yaml
    extensions:
      my_team:
-       some_future_key: 123
-   ```
+        some_future_key: 123
+    ```
+
+7. **Default profile selection** — if `default_profile` is omitted by a future
+   relaxed schema or generated starter file, the resolver behaves as if
+   `default_profile: default` were set. The checked-in v1 schema should still
+   prefer making it explicit in generated examples.
+
+### Source-Owned Profile Overrides
+
+Core profile fields are strict. Source-private profile keys must not be added as
+siblings of core fields because that would force `@aidha/config` to understand
+every source schema. Use this shape instead:
+
+```yaml
+profiles:
+  production:
+    llm:
+      model: gpt-4o
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 90000
+```
+
+Resolution for an active source builds two coordinated payloads:
+
+1. Source package built-in defaults.
+2. User `profiles.default.source_overrides.<source-id>`.
+3. User `sources.<source-id>` defaults.
+4. User active named profile `source_overrides.<source-id>`.
+5. Source-specific CLI overrides, if any.
+
+Core-known sections inside those source-local layers are merged into the core
+`ResolvedConfig` runtime shape. Source-private sections inside the same layers
+are merged into `activeSourceConfig`. Those five source-local layers are merged
+weakest-to-strongest so Tier 3 `sources.<source-id>` defaults outrank Tier 4
+default-profile source overrides, while Tier 2 named-profile source overrides
+and Tier 1 source CLI overrides can still win when present. Inactive source
+override maps are structurally checked as objects but not semantically
+validated.
 
 ### Interpolation Semantics (Must Be Explicit)
 
@@ -401,8 +522,17 @@ sources:
   and report which config path referenced it.
 - `${VAR:-fallback}` substitutes `fallback` when `VAR` is unset (including empty
   fallback via `${VAR:-}`).
-- Provide an escape mechanism to include literal `${...}` in strings (e.g., `$$`
-  or `\\${...}`), defined and tested.
+- `\${VAR}` is the literal escape form for `${VAR}`. In YAML double-quoted
+  scalars, write `\\${VAR}` so the YAML parser emits the backslash before
+  interpolation; in plain or single-quoted scalars, `\${VAR}` is sufficient.
+  A literal backslash before a non-token remains unchanged.
+- Interpolation runs before final schema validation and may feed schema-aware
+  scalar coercion. Example: `timeout_ms: ${TIMEOUT}` with `TIMEOUT=60000`
+  resolves to the number `60000` for a numeric `timeout_ms` field; invalid
+  numeric strings fail validation with the config path in the error.
+- Interpolation is lazy for inactive profiles and inactive sources. A stale
+  profile containing `${OPTIONAL_THING}` must not break `aidha extract ...`
+  unless that profile/source participates in the selected resolution.
 - Enforce a maximum expansion depth and detect cycles (A -> B -> A).
 - Note: because dotenv files (if configured) load before interpolation, `${VAR}`
   may reference variables sourced from `env.dotenv_files`.
@@ -410,8 +540,10 @@ sources:
 ### Resolved Runtime Shape (What Code Consumes)
 
 The on-disk config is organized around `profiles` and `sources`. The runtime API
-should return a normalized `ResolvedConfig` shape that application code reads
-without needing to know which tier a value came from:
+should return a normalized core `ResolvedConfig` shape that application code
+reads without needing to know which tier a value came from. The shared
+`@aidha/config` package must not hardcode every source package's private runtime
+shape.
 
 ```ts
 type ResolvedConfig = {
@@ -421,8 +553,8 @@ type ResolvedConfig = {
   editor: { version: string; windowMinutes: number; maxPerWindow: number; minWindows: number; minWords: number; minChars: number; editorLlm: boolean };
   extraction: { maxClaims: number; chunkMinutes: number; maxChunks: number; promptVersion: string };
   export: { outDir: string; sourcePrefix: string };
-  ytdlp: { bin: string; cookiesFile: string; timeoutMs: number; jsRuntimes: string; keepFiles: boolean };
-  youtube: { cookie: string; innertubeApiKey: string; debugTranscript: boolean };
+  activeSourceId?: string;
+  activeSourceConfig?: unknown;
   extensions?: {
     global?: Record<string, unknown>;
     source?: Record<string, unknown>;
@@ -431,6 +563,18 @@ type ResolvedConfig = {
 };
 ```
 
+The consuming source package narrows `activeSourceConfig` at its own boundary:
+
+```ts
+// packages/praecis/youtube/src/config.ts
+const youtubeConfig = YoutubeConfigSchema.parse(resolved.activeSourceConfig);
+```
+
+Source-specific convenience types may exist in source packages, not in the
+core resolver package. For example, `praecis/youtube` may expose a
+`ResolvedYoutubeConfig` that includes `ytdlp` and `youtube` sections after local
+validation.
+
 For `aidha config explain` and for robust debugging, the resolver should also be
 able to provide a companion provenance map (config path, tier, and raw origin)
 without changing the `ResolvedConfig` interface consumed by the rest of the app.
@@ -438,6 +582,87 @@ without changing the `ResolvedConfig` interface consumed by the rest of the app.
 Stretch: `config explain` should optionally report interpolation provenance (for
 example `${AIDHA_LLM_API_KEY}`, whether it came from an `.env` file, and which
 dotenv file provided it) without printing the secret value.
+
+### On-Disk to ResolvedConfig Projection
+
+The resolver performs two separate steps: tier merge, then runtime projection.
+This distinction is part of the public contract.
+
+1. Build a merged snake_case config object by deep-merging the participating
+   tiers in precedence order (Tier 5 through Tier 1).
+2. Project only core schema-known runtime sections into `ResolvedConfig`.
+3. Convert core field names from on-disk snake_case to runtime camelCase at the
+   `ResolvedConfig` boundary (`api_key` → `apiKey`, `timeout_ms` → `timeoutMs`).
+4. Preserve extension data only under `ResolvedConfig.extensions.{global,source,profile}`.
+   Do not hoist unknown extension keys into top-level runtime sections.
+5. If a source is selected, merge any core-known sections from the source
+   layers into the core `ResolvedConfig` and place only source-private fields
+   into `activeSourceConfig` without core-level type assumptions. The source-
+   private payload is built from source built-in defaults, user
+   `profiles.default.source_overrides.<source-id>`, user `sources.<source-id>`
+   defaults, named-profile source overrides, and source CLI overrides, with
+   Tier 3 `sources.<source-id>` defaults outranking Tier 4 default-profile
+   source overrides.
+6. If no source is selected, source-only sections from `sources.<id>` and
+   `profiles.<name>.source_overrides.<id>` are not merged into
+   `activeSourceConfig`.
+7. Future source sections must become runtime-readable only after the source
+   package registers or applies its own schema. Free-form source keys stay in
+   `extensions` or inside source-owned opaque payloads; they are not promoted
+   into the core `ResolvedConfig`.
+
+Example for `--profile production --source youtube`:
+
+```yaml
+profiles:
+  default:
+    llm:
+      model: gpt-4o-mini
+      timeout_ms: 30000
+    source_overrides:
+      youtube:
+        ytdlp:
+          keep_files: true
+  production:
+    llm:
+      model: gpt-4o
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 90000
+sources:
+  youtube:
+    extraction:
+      max_chunks: 12
+    ytdlp:
+      timeout_ms: 120000
+      keep_files: false
+    youtube:
+      cookie: ${YOUTUBE_COOKIE:-}
+```
+
+Projects to:
+
+```typescript
+{
+  llm: { model: "gpt-4o", timeoutMs: 30000, ... },
+  extraction: { maxChunks: 12, ... },
+  activeSourceId: "youtube",
+  activeSourceConfig: {
+    ytdlp: { timeout_ms: 90000, keep_files: false },
+    youtube: { cookie: "" }
+  }
+}
+```
+
+Here, `sources.youtube.extraction.max_chunks` flows into the core
+`ResolvedConfig.extraction` object, while the source-private `ytdlp` and
+`youtube` sections remain in `activeSourceConfig`. `keep_files` stays `false`
+from `sources.youtube` because Tier 3 source defaults outrank
+`profiles.default.source_overrides.youtube`, while `timeout_ms` still resolves
+to `90000` from the active named profile override.
+Then `praecis/youtube` validates and camel-cases that opaque payload into its
+own local runtime type.
 
 ### JSON Schema for Validation
 
@@ -460,9 +685,13 @@ The schema must be strict by default:
 
 - Top-level: `additionalProperties: false` except for explicit extension points.
 - `profiles`: a map of profile names to `Profile` objects. Unknown profile names
-  are allowed, but each `Profile` object is validated strictly.
-- `sources`: a map of source IDs to `SourceDefaults` objects. Unknown source IDs
-  are allowed, but each `SourceDefaults` object is validated strictly.
+  are allowed. Core fields in each `Profile` object are validated strictly;
+  source-private overrides are only allowed under
+  `source_overrides.<source-id>`.
+- `sources`: a map of source IDs to source-default payload objects. Unknown
+  source IDs are allowed. The core schema validates that each source payload is
+  an object; the active source registration performs semantic validation for
+  that source's private fields.
 - `extensions`: maps are allowed at the top-level, per-profile, and per-source
   as an explicit escape hatch. Keys inside `extensions` are not interpreted by
   AIDHA and are not validated beyond being JSON/YAML objects.
@@ -474,6 +703,29 @@ expected type for those keys.
 Runtime shaping: `ResolvedConfig.extensions` keeps these three scopes separate
 (`global`, `source`, `profile`) rather than merging them into a single map. This
 avoids collisions and makes provenance easier to explain.
+
+### Extension Registration Contract
+
+`extensions` is not a dumping ground for untyped business logic. v1 supports a
+deliberately small registration contract:
+
+- A package that needs private config owns a namespace under `extensions`
+  (for example `extensions.praecis_eval`).
+- The consuming package exports a validator for that namespace using Zod, AJV,
+  or an equivalent schema validator.
+- The shared config package does not interpret extension payloads, but it must
+  preserve them with provenance and make them available as `unknown` values.
+- Consumers must validate and narrow extension payloads at their package
+  boundary before use; direct casts from `unknown` to concrete types are not
+  acceptable outside small adapter functions.
+- v1 core validation treats extension payloads as "use at your own risk" opaque
+  objects. `aidha config explain` can report their origin and owning namespace,
+  but it must not claim field-level validation inside an unregistered extension.
+- Optional v1.1+ enhancement: expose a `registerExtensionSchema(namespace,
+  schema)` API that source packages or CLIs can call before validation. Registered
+  schemas participate in validation, redaction metadata, and `config explain`.
+- If an extension becomes cross-package or user-facing, promote it into the
+  core JSON Schema, generated TypeScript types, docs, and `config explain`.
 
 ---
 
@@ -513,6 +765,25 @@ PDF ingestion). Source defaults let each vector ship sensible built-in config
 The resolver applies: `CLI flags → named profile → source defaults → system
 default → hardcoded fallbacks`.
 
+Tier 5 is a seed object rather than user-authored configuration. It is still
+listed as a tier because provenance and `config explain` must distinguish
+"came from code defaults" from "came from a config file."
+
+Profile values intentionally outrank source defaults. A selected profile is the
+operator's explicit environment choice (`production`, `fast-local`, etc.), while
+source defaults are reusable baseline suggestions for an ingestion vector. v1
+does not support source-locked/non-overridable keys: any invariant that must not
+be user-overridden belongs in code validation, command preflight, or a narrower
+runtime safety check, not in the merge algorithm.
+
+Worked merge example:
+
+| Key                 | Hardcoded | `profiles.default` | `sources.youtube` | `profiles.production` | CLI flag        | Resolved value |
+| ------------------- | --------- | ------------------ | ----------------- | --------------------- | --------------- | -------------- |
+| `llm.model`         | `gpt-4o-mini` | `gpt-4o-mini`   | —                 | `gpt-4o`              | —               | `gpt-4o`       |
+| `extraction.max_claims` | `15`  | `15`               | `10`              | `20`                  | `--max-claims 5` | `5`            |
+| `ytdlp.keep_files`  | `false`   | —                  | `false`           | `true`                | —               | `true`         |
+
 ### Merge Semantics (Must Be Explicit)
 
 - Objects/maps: deep-merged recursively.
@@ -534,11 +805,68 @@ default → hardcoded fallbacks`.
 - If the selected source ID is unknown, fail fast with a clear error that lists
   available source IDs (from config file plus built-in defaults).
 
+### Source Registration Contract
+
+Source IDs are code-level constants owned by the package that implements the
+source. For example, the YouTube package should export `SOURCE_ID = "youtube"`
+from one module and CLI plumbing must import that constant rather than repeat
+the string in multiple files.
+
+Each registered source must define:
+
+- Stable `sourceId` string using lowercase dashed naming.
+- Source-local schema section(s) used to validate and narrow
+  `ResolvedConfig.activeSourceConfig`.
+- Built-in source defaults, if any, owned by the source package and supplied to
+  the resolver through a registration/adapter boundary.
+- Source-local metadata for path-like fields, secret fields, scalar coercion,
+  and explain labels inside the opaque source payload.
+- CLI command bindings that auto-select the source.
+- Tests proving command auto-selection and `--source` override behavior.
+
+User-authored `sources.<id>` entries are allowed for future or private sources,
+but they only affect typed runtime behavior once a command selects that source
+and the source package validates the opaque payload.
+
+The shared package should expose a small compile-time contract for adapters,
+without importing source packages:
+
+```ts
+export interface SourceRegistration<TSourceConfig = unknown> {
+  sourceId: string;
+  defaults?: Record<string, unknown>;
+  schema?: unknown;
+  metadata?: {
+    pathFields?: readonly string[];
+    secretFields?: readonly string[];
+    scalarCoercions?: Readonly<Record<string, "number" | "boolean" | "string">>;
+    explainLabels?: Readonly<Record<string, string>>;
+  };
+  validateActiveSourceConfig(value: unknown): TSourceConfig;
+  redactActiveSourceConfig?(value: TSourceConfig): unknown;
+  resolveSourcePaths?(value: TSourceConfig, baseDir: string): TSourceConfig;
+  cliBindings?: readonly {
+    command: string;
+    selectsSourceByDefault: boolean;
+  }[];
+}
+```
+
+The exact schema type may be AJV JSON Schema, Zod, TypeBox, or another validator
+owned by the source package. The core contract requires a narrowing function; it
+does not mandate one validation library.
+
+`aidha config explain` must only claim package-local validation when a
+registration for that source is loaded. If no registration is available, explain
+output must say `Source: source-owned payload; not validated by core` and must
+not infer field-level types or secret status beyond source metadata that is
+registered.
+
 ### Environment Variables
 
-Env vars are **not** a separate tier. Env vars referenced inside the config
-file via `${VAR}` interpolation are resolved at file-load time (as part of
-Tiers 2–4). If `env.dotenv_files` is configured, those files are loaded before
+Env vars are **not** a separate tier. Env vars referenced inside participating
+config tiers via `${VAR}` interpolation are resolved during the load/resolve
+pipeline. If `env.dotenv_files` is configured, those files are loaded before
 interpolation (without overriding existing env vars unless explicitly enabled).
 Direct `process.env` reads in source code will be replaced with config lookups.
 
@@ -567,12 +895,19 @@ packages/aidha-config/
 ├── vitest.config.ts
 ├── schema/
 │   └── config.schema.json          # JSON Schema for the YAML config
+├── scripts/
+│   └── generate-types.mjs          # Generate schema metadata + TS types
 ├── src/
 │   ├── index.ts                    # Public API barrel export
-│   ├── types.ts                    # TypeScript types (AidhaConfig, Profile, SourceDefaults, etc.)
+│   ├── types.generated.ts          # Generated TypeScript types from JSON Schema
+│   ├── types.ts                    # Hand-written public helpers/re-exports only
 │   ├── schema.ts                   # Compiled schema + validation (ajv)
-│   ├── defaults.ts                 # Tier 5 hardcoded defaults as a typed object
-│   ├── loader.ts                   # File discovery, YAML parse, env-var interpolation
+│   ├── schema.generated.ts         # Generated schema metadata (path/secret/coercion maps)
+│   ├── defaults.ts                 # Tier 5 core hardcoded defaults as a typed object
+│   ├── discovery.ts                # File discovery and search-order rules
+│   ├── parser.ts                   # YAML parse and safe document handling
+│   ├── dotenv.ts                   # Explicit .env loading
+│   ├── loader.ts                   # Thin orchestration of discovery/parse/dotenv/interpolation
 │   ├── resolver.ts                 # Five-tier merge logic (pure function)
 │   ├── explain.ts                  # Produce per-key provenance (tier/path) for `config explain`
 │   ├── paths.ts                    # Compute base_dir + resolve path-like values consistently
@@ -596,16 +931,44 @@ packages/aidha-config/
 
 | Module             | Responsibility                                                                                                        | Side-effects     |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `types.ts`         | TypeScript interfaces: `AidhaConfig`, `Profile`, `SourceDefaults`, `ResolvedConfig`                                   | None             |
-| `defaults.ts`      | `DEFAULTS: DeepReadonly<AidhaConfig>` constant (Tier 5)                                                               | None             |
+| `types.generated.ts` | Generated TypeScript interfaces: `CoreAidhaConfig`, `CoreProfile`, `CoreSourcePayload`, `CoreResolvedConfig`       | None             |
+| `types.ts`         | Hand-written helper types and stable public re-exports that should not be generated                                   | None             |
+| `defaults.ts`      | `DEFAULTS: DeepReadonly<CoreAidhaConfig>` constant for core Tier 5 defaults only                                      | None             |
 | `schema.ts`        | Compile JSON Schema once; export `validate(obj)`                                                                      | None (pure)      |
-| `loader.ts`        | `loadConfigFile(options?): Promise<RawConfig \| null>` — file discovery, YAML parse, optional dotenv load, interpolation | fs:read          |
+| `schema.generated.ts` | Generated metadata maps for path-like fields, secret fields, and interpolation coercion                             | None             |
+| `discovery.ts`     | Resolve `--config`, `$AIDHA_CONFIG`, project-local, and user-global config paths                                      | fs:read metadata |
+| `parser.ts`        | Safe YAML parsing, AST construction, and alias/anchor limits                                                          | None/pure        |
+| `dotenv.ts`        | Explicit dotenv loading, precedence, permissions checks, and provenance                                               | fs:read          |
+| `loader.ts`        | `loadConfigFile(options?): Promise<RawConfig \| null>` — thin orchestration only                                      | fs:read          |
 | `resolver.ts`      | `resolveConfig(cliOverrides, profileName, sourceId, rawConfig, defaults): ResolvedConfig` — pure five-tier deep merge | None             |
 | `explain.ts`       | Build an explanation map for resolved values (tier + config origin)                                                   | None (pure)      |
 | `paths.ts`         | Compute `base_dir` and resolve path-like values deterministically                                                     | None (pure)      |
 | `redact.ts`        | Redact secrets for safe printing/logging (schema-aware allowlist)                                                     | None (pure)      |
 | `writer.ts`        | `writeConfig(path, config, options?): Promise<void>` — atomic write with `.bak` rotation + concurrency guard          | fs:write         |
 | `interpolation.ts` | `interpolateEnvVars(value): string` — `${VAR}` expansion with loop detection                                          | None (reads env) |
+
+### Generated Types and Metadata
+
+The JSON Schema is the source of truth for config shape. The package must expose
+a reproducible generation step, for example:
+
+```bash
+pnpm --dir packages/aidha-config gen:types
+```
+
+The generation step should:
+
+- Emit `src/types.generated.ts` from `schema/config.schema.json`, using core
+  names such as `CoreAidhaConfig`, `CoreProfile`, `CoreSourcePayload`, and
+  `CoreResolvedConfig`. Do not generate source-private runtime types in
+  `@aidha/config`.
+- Emit `src/schema.generated.ts` with core path-like, secret, and scalar-coercion
+  metadata derived from schema annotations.
+- Be run in CI and fail if generated files are stale.
+- Keep generated files checked in so downstream TypeScript builds do not depend
+  on code generation at install time.
+- Require source packages to generate or hand-maintain their own source-private
+  types and metadata at the source-package boundary.
 
 ### Dependency Policy
 
@@ -615,6 +978,17 @@ packages/aidha-config/
 - **No new CLI framework** — the existing `parseArgs` in `cli/parse.ts` is
   sufficient; we add `--config` and `--profile` flags through the same mechanism.
 - `aidha-config` has **zero dependency on `praecis`** — it is a leaf package.
+
+### In-Process Concurrency Model
+
+`ResolvedConfig` is an immutable snapshot. The resolver returns a deeply frozen
+object in production code and tests should assert that accidental mutation fails
+or is prevented by readonly typing. Long-running commands must pass this snapshot
+explicitly to workers rather than letting workers re-read config opportunistically.
+
+v1 has no live reload and no shared mutable config singleton. If a command needs
+to observe config changes during a long run, that is a future feature with a
+separate invalidation and provenance contract.
 
 ---
 
@@ -640,7 +1014,7 @@ interface WriteConfigOptions {
 
 async function writeConfig(
   filePath: string,
-  config: AidhaConfig,
+  config: CoreAidhaConfig,
   options?: WriteConfigOptions,
 ): Promise<WriteResult>;
 
@@ -659,7 +1033,10 @@ interface WriteResult {
 1. **Backup before write** — before any mutation, the current file is copied to
    `<path>.bak.<ISO-timestamp>`. Old backups beyond `maxBackups` are pruned.
 2. **Atomic write** — write to a temp file in the same directory, then
-   `rename()` over the target (atomic on POSIX).
+   `rename()` over the target. Atomicity is only claimed within the same
+   filesystem, which is why the temp file must be created alongside the target.
+   After rename, best-effort fsync the parent directory on platforms that support
+   it so the directory entry is durable after a crash.
 3. **Validation before write** — the new config is validated against the JSON
    Schema before any I/O. Invalid config is rejected with a clear error.
 4. **Dry-run mode** — callers can preview what would change.
@@ -669,17 +1046,37 @@ interface WriteResult {
    - Default: optimistic concurrency by comparing the file mtime/hash read at
      load time with the file state at write time; if changed, abort with a clear
      error and suggest re-running.
+   - Accept the remaining local TOCTOU window as a v1 limitation for single-user
+     CLI usage, or add an advisory lock via a battle-tested library such as
+     `proper-lockfile` before claiming multi-process production durability.
    - Optional: `--force` on CLI (and `WriteConfigOptions.force?: boolean`) to
      allow overwriting after user acknowledgement.
 7. **Symlink guard** — refuse to write through symlinks by default (prevents
    accidental writes to unexpected targets). Allow an explicit override flag if
    needed.
+8. **Header replacement** — `WriteConfigOptions.header` replaces the managed
+   header block if present; it must not append duplicate headers on repeated
+   writes.
 
 ### Comment and Formatting Preservation
 
 `aidha config set` should not destroy user comments or reformat the entire file.
 Writer implementation should use the YAML AST (`yaml.parseDocument`) and apply
 targeted modifications, preserving comments and key ordering where possible.
+
+v1 write scope is intentionally constrained:
+
+- `config set` supports updating existing scalar values and adding simple scalar
+  keys to existing maps for core config and registered source payloads.
+- `config set` should not attempt complex structural scaffolding such as
+  creating an entire new nested source/profile tree with comments.
+- `config init` and documented example snippets are the supported path for
+  scaffolding new profiles or source blocks.
+- If a requested edit requires structural creation that cannot be performed
+  safely with localized AST mutation, the CLI must refuse with a clear message
+  unless an explicit future `--rewrite` mode is implemented.
+- Writes to source-owned paths require an active source registration so the value
+  can be coerced, validated, redacted in diffs, and explained consistently.
 
 If a particular edit cannot be applied without rewriting, the CLI must:
 
@@ -703,7 +1100,36 @@ aidha config get <key>                  # Get the resolved value of a key
 aidha config validate [<path>]          # Validate a config file against the schema
 aidha config init                       # Create a starter config file interactively
 aidha config list-profiles              # List available profile names
+aidha config list-profiles --json       # Machine-readable profile list
+aidha config diff <profile-a> <profile-b>  # Compare two resolved profiles
 aidha config path                       # Print the active config file path
+```
+
+Example `config explain` output:
+
+```text
+$ aidha config explain llm.model --profile production
+Key:      llm.model
+Value:    gpt-4o
+Tier:     Tier 2 (Named Profile)
+Origin:   profiles.production.llm.model
+File:     ~/.config/aidha/config.yaml
+Source:   config file
+Secret:   no
+```
+
+For extension or source-owned payloads, `config explain` reports the namespace
+and origin even when core validation cannot explain package-local fields:
+
+```text
+$ aidha config explain activeSourceConfig.ytdlp.timeout_ms --source youtube
+Key:      activeSourceConfig.ytdlp.timeout_ms
+Value:    120000
+Tier:     Tier 3 (Ingestion Source Defaults)
+Origin:   sources.youtube.ytdlp.timeout_ms
+File:     ~/.config/aidha/config.yaml
+Source:   source-owned payload; validated by praecis/youtube
+Secret:   no
 ```
 
 ### Why API + CLI, Not Just One?
@@ -716,15 +1142,20 @@ This follows the same pattern as `git config` (CLI) backed by `libgit2` (API).
 
 ---
 
-## 8. Migration Strategy
+## 8. Execution Plan and Implementation Status
+
+The completed checkboxes below describe implementation slices that existed
+before the v1.1-v1.3 contract hardening reviews. They do not by themselves make
+the current branch compliant with this plan. Phase 5 is the required remediation
+phase that aligns the implementation with the target architecture.
 
 ### Phase 0: Shared Config Package (No CLI Changes)
 
 Build and test `packages/aidha-config/` in isolation.
 
-- [x] `types.ts` — full TypeScript types matching the schema (`Profile`,
-      `SourceDefaults`, `AidhaConfig`, `ResolvedConfig`).
-- [x] `defaults.ts` — all current hardcoded defaults extracted and documented.
+- [x] `types.ts` — TypeScript types matching the earlier schema contract
+      (`Profile`, `SourceDefaults`, `AidhaConfig`, `ResolvedConfig`).
+- [x] `defaults.ts` — all current core hardcoded defaults extracted and documented.
 - [x] `schema/config.schema.json` — JSON Schema with descriptions for every key,
       including the `sources` section.
 - [x] `schema.ts` — compiled validator.
@@ -762,6 +1193,12 @@ No changes to praecis or any other package yet.
 `ResolvedConfig` (including diagnose/editor cache and yt-dlp runtime usage).
 Environment helpers may remain for explicit library callers but are no longer
 the default runtime path.
+
+**Migration position:** because AIDHA is pre-alpha, v1 should hard-break runtime
+fallbacks from scattered `process.env` reads. Legacy env var names remain
+supported only when explicitly referenced in config interpolation or documented
+library helpers; command execution paths must not silently read them outside the
+shared config resolver.
 
 ### Phase 2: Config Management CLI
 
@@ -801,6 +1238,105 @@ the default runtime path.
 **Status (2026-02-15):** Partially complete. RSS defaults and scaffolding exist.
 Additional sources and auto-registration for new commands remain future work.
 
+### Phase 5: Contract Drift Remediation (Required Before Approval)
+
+This phase is not optional polish. It resolves plan-implementation drift found
+after Phases 0–3 were marked complete. It is split into atomic work packages so
+engineering can implement and review the work incrementally.
+
+#### Phase 5A: Core and Source Boundary
+
+- [ ] Replace source-private fields in core `ResolvedConfig` with
+      `activeSourceId?: string` and `activeSourceConfig?: unknown`.
+- [ ] Add `source_overrides.<source-id>` to profiles and remove source-private
+      siblings from the core `Profile` type.
+- [ ] Define and export `SourceRegistration` with source schema, defaults,
+      metadata, narrowing, redaction, path-resolution, and CLI-binding hooks.
+- [ ] Move YouTube, yt-dlp, and RSS runtime narrowing into their owning packages
+      through source-local schemas and adapter functions.
+- [ ] Update `resolver.ts` so source-owned sections are copied into the opaque
+      active-source payload rather than manually projected into core fields.
+
+Acceptance tests: `source-schema.test.ts`, `resolver.test.ts`,
+`cli-config-source.test.ts`, and package-local YouTube config adapter tests.
+
+#### Phase 5B: Validation, Generation, and Metadata
+
+- [ ] Implement the two-pass validation model: whole-document structural
+      validation without interpolation, then active semantic validation with
+      interpolation and scalar coercion.
+- [ ] Add `types.generated.ts`, `schema.generated.ts`,
+      `scripts/generate-types.mjs`, and a `pnpm --dir packages/aidha-config
+      gen:types` script; fail CI when generated files are stale.
+- [ ] Generate only core config types/metadata in `@aidha/config`; source
+      packages own source-private types and metadata.
+- [ ] Add source registration metadata for path-like fields, secrets, scalar
+      coercion, and explain labels.
+
+Acceptance tests: `generated-types.test.ts`, `schema-validation.test.ts`,
+`loader-order.test.ts`, `paths.test.ts`, `redact.test.ts`, and
+`extension-schema.test.ts`.
+
+#### Phase 5C: Loader Decomposition and Input Safety
+
+- [ ] Extract `discovery.ts`, `parser.ts`, and `dotenv.ts` from `loader.ts`.
+      `loader.ts` should become orchestration only.
+- [ ] Implement YAML parser safety bounds for aliases/anchors and document the
+      accepted limits.
+- [ ] Implement dotenv read-side guardrails: symlink refusal, ownership checks
+      where available, `base_dir_prelim` boundary checks, explicit external-file
+      opt-in, and secret-safe errors.
+- [ ] Confirm lazy interpolation for inactive profiles/sources, including typed
+      scalar coercion after interpolation.
+
+Acceptance tests: `loader.test.ts`, `loader-order.test.ts`,
+`yaml-fuzz.test.ts`, `interpolation.test.ts`, and dotenv safety cases.
+
+#### Phase 5D: Writer, Explain, and CLI UX
+
+- [ ] Constrain `config set` to localized scalar edits for core and registered
+      source paths, or implement an explicit `--rewrite` mode with backup,
+      warning, and tests.
+- [ ] Ensure source-owned writes require source registration for coercion,
+      validation, redaction, and explain output.
+- [ ] Update `config explain` so it distinguishes core-validated fields,
+      registered source fields, and unregistered opaque source payloads.
+- [ ] Add stable snapshots for `config show`, `config explain`,
+      `list-profiles --json`, and `config diff`.
+
+Acceptance tests: `writer.test.ts`, `roundtrip.test.ts`, `explain.test.ts`,
+`cli-config-snapshot.test.ts`, and `cli-config-explain.test.ts`.
+
+#### Phase 5E: Docs, Observability, and Release Gates
+
+- [ ] Update `docs/60-devex/config-guide.md` and relevant runbooks with the error
+      catalog, schema-change policy, troubleshooting, dotenv safety, and
+      observability examples.
+- [ ] Add structured config log events and redaction tests.
+- [ ] Add `packages/aidha-config/schema/SCHEMA-CHANGES.md` before the first
+      post-v1 schema change.
+- [ ] Add property-based deep-merge and performance-budget tests.
+
+Acceptance tests: `logging.test.ts`, `error-catalog.test.ts`,
+`schema-changes.test.ts`, `deep-merge.property.test.ts`, `performance.test.ts`,
+scoped DocOps checks, and `pnpm docs:build`.
+
+> [!NOTE]
+> Phase 5A–5E are gates applied to implementation PRs and do not imply the
+> plan itself is unapproved or in a draft state. These checks ensure that any
+> PR claiming to fulfill the v1.3 contract is complete and PR-ready before
+> maintainer approval of the code.
+
+**Acceptance:** The branch cannot be considered Approved or PR-ready for the
+v1.3 contract until Phase 5A–5E are checked off, `pnpm -C packages/aidha-config
+test`, `pnpm -C packages/praecis/youtube test`, scoped DocOps checks, and
+`pnpm docs:build` all pass.
+
+**Status (2026-05-15):** Open. Current implementation still embeds
+source-private fields in the core config package and lacks generated
+schema/type metadata, extracted dotenv/parser modules, and several required test
+categories.
+
 ---
 
 ## 9. Security Considerations
@@ -810,16 +1346,22 @@ Additional sources and auto-registration for new commands remain future work.
    The config guide must prominently warn against hardcoding secrets.
 2. **File permissions** — `config init` should create the file with `0600`
    permissions (user-readable only).
+   Dotenv files loaded through `env.dotenv_files` must receive the same
+   group/world-readable warning because they are more likely to contain raw
+   secrets than `config.yaml`.
 3. **`.gitignore` by default** — `.aidha/config.yaml` must be gitignored to
    prevent accidental secret commits. The example file at
    `examples/config.example.yaml` is safe to commit.
 4. **Backup files** — `.bak` files inherit the same permissions as the original.
 5. **Schema validation** — prevents malformed config from causing runtime errors.
 6. **Redaction in logs/output** — The `aidha config show` command and any debug
-   logging must redact sensitive values by default. Redaction should be driven
-   by a schema-aware allowlist (preferred) with a heuristic fallback for unknown
-   fields (e.g., keys containing `api_key`, `token`, `password`, `secret`).
-   The CLI must require explicit opt-in to print secrets.
+   logging must redact sensitive values by default. Redaction is a render-time
+   operation: `ResolvedConfig` may contain real values for runtime use, but all
+   logging, errors, explain output, and object dumps pass through `redact.ts`.
+   Redaction must be driven by schema annotations such as `x-aidha-secret: true`
+   with a heuristic fallback for unknown fields matching
+   `/api[_-]?key|token|password|secret|cookie|credential/i`. The CLI must require
+   explicit opt-in to print secrets.
 7. **Circular Reference Protection** — `interpolation.ts` must detect and
    error on recursive environment variable definitions (e.g., `A=${B}`, `B=${A}`)
    to prevent infinite loops / change stack overflows.
@@ -828,6 +1370,24 @@ Additional sources and auto-registration for new commands remain future work.
 9. **Schema-marked secrets** — where possible, mark sensitive fields in the
    schema (or a parallel metadata map) so redaction uses an allowlist rather
    than heuristic key matching alone.
+10. **Debug logging boundary** — `DEBUG=true` may log config path, selected
+    profile/source, key counts, warning counts, and redacted provenance. It must
+    not log raw config objects, raw env maps, stack traces containing resolved
+    secret values, or subprocess command environments.
+11. **Process environment leakage** — loading `${AIDHA_LLM_API_KEY}` does not
+    scrub `process.env`; v1 accepts that the parent process environment may still
+    contain the secret. Subprocess launchers must pass an explicit allowlist
+    environment for tools such as `yt-dlp` instead of inheriting all of
+    `process.env` by default.
+12. **Dotenv read safety** — dotenv files are read-side secret inputs and need
+    their own guardrails:
+    - Refuse to follow dotenv symlinks by default.
+    - Warn or fail when a dotenv file is not owned by the current user or root
+      on platforms where ownership can be checked.
+    - Refuse dotenv paths outside `base_dir_prelim` unless explicitly allowed by
+      a future `env.allow_external_dotenv_files: true` option.
+    - Never include dotenv file contents in parse errors, debug logs, or
+      interpolation errors.
 
 ---
 
@@ -840,21 +1400,46 @@ All tests run via: `pnpm -C packages/aidha-config test`
 | Test File                   | What It Covers                                                                                                                                                          |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `defaults.test.ts`          | Default object matches schema; all keys present; types correct.                                                                                                         |
-| `loader.test.ts`            | File discovery priority; YAML parse; missing file returns null; malformed YAML throws; dotenv load when configured.                                                     |
-| `loader-order.test.ts`      | End-to-end loader order: base_dir_prelim → dotenv → interpolation → schema validate → base_dir override → path resolution.                                               |
-| `interpolation.test.ts`     | `${VAR}` expansion; `${VAR:-fallback}` defaults; loop detection (A->B->A errors); max depth limits.                                                                     |
-| `resolver.test.ts`          | Five-tier merge: CLI overrides profile; profile overrides source; source overrides default; default overrides hardcoded. Partial profiles. Source skipping. Deep merge. |
+| `loader.test.ts`            | File discovery priority; YAML parse; missing file returns null; malformed YAML throws; dotenv load when configured; arbitrary `--config` base_dir behavior; dotenv symlink/ownership/boundary guardrails. |
+| `loader-order.test.ts`      | End-to-end loader order: base_dir_prelim → dotenv → structural validation → lazy active-tier interpolation → semantic validation/coercion → base_dir override → path resolution. |
+| `interpolation.test.ts`     | `${VAR}` expansion; `${VAR:-fallback}` defaults; `\${VAR}` escape in plain/single-quoted YAML; `\\${VAR}` escape in double-quoted YAML; typed scalar coercion such as `timeout_ms: ${TIMEOUT}`; inactive profile laziness; loop detection; max depth limits. |
+| `resolver.test.ts`          | Five-tier merge: CLI overrides active profile; active profile overrides source defaults; source defaults outrank default-profile source_overrides; default profile overrides hardcoded. Partial profiles. Source skipping. Deep merge. Core projection to `ResolvedConfig` plus opaque `activeSourceConfig`. |
 | `paths.test.ts`             | `base_dir` computation; relative path resolution; absolute paths passthrough.                                                                                           |
 | `redact.test.ts`            | Schema-aware redaction and safe printing behavior; `--show-secrets` bypass.                                                                                             |
 | `explain.test.ts`           | `config explain` provenance: tier selection and origin tracking.                                                                                                        |
-| `writer.test.ts`            | Atomic write; backup creation; read-only mode throws; dry-run returns diff; concurrency guard prevents lost updates.                                                     |
-| `schema-validation.test.ts` | Valid config passes; **unknown keys fail** (strict); type mismatches fail. `sources` section validates correctly.                                                       |
+| `writer.test.ts`            | Atomic write; backup creation; same-directory temp file; parent-dir fsync where supported; read-only mode throws; dry-run returns diff; concurrency guard prevents lost updates; symlink guard and `--force` behavior. |
+| `schema-validation.test.ts` | Valid config passes; **unknown keys fail** (strict); type mismatches fail. `sources` section validates correctly. Older sample configs load only when still valid.       |
+| `source-schema.test.ts`     | Source packages validate and narrow `activeSourceConfig` locally without adding source-private fields to the core config package.                                         |
+| `extension-schema.test.ts`  | Unregistered extensions remain opaque with origin-only explain output; registered extension schemas validate payloads if the optional API is implemented.                 |
+| `deep-merge.property.test.ts` | Property-based tests for object merge associativity where applicable, unsafe-key rejection, `additionalProperties: true` subtrees, and array replacement semantics.     |
+| `roundtrip.test.ts`         | `load → config set → reload` preserves structural equality and does not unexpectedly drop comments or reorder untouched keys.                                            |
+| `yaml-fuzz.test.ts`         | Parser rejects or bounds pathological YAML inputs, including alias/anchor expansion intended to exhaust memory.                                                          |
+| `performance.test.ts`       | Typical cold loader + resolver path completes under 50 ms on CI-class hardware, with a documented threshold adjustment process if CI variance requires it.                |
+| `generated-types.test.ts`   | Generated TypeScript types and schema metadata are up to date with `config.schema.json`.                                                                                 |
+| `logging.test.ts`           | Structured config log events contain expected fields and are redacted before leaving `@aidha/config`.                                                                    |
+| `error-catalog.test.ts`     | Exported error classes are represented in the documented error catalog.                                                                                                  |
+| `schema-changes.test.ts`    | Schema edits are accompanied by generated-file updates and, after v1, a `SCHEMA-CHANGES.md` entry.                                                                       |
 
 **Run command:**
 
 ```bash
 pnpm -C packages/aidha-config test
 ```
+
+### Test Ownership and Tooling
+
+| Test Area | Owning Package | Required Tooling | Phase Gate |
+| --------- | -------------- | ---------------- | ---------- |
+| Core resolver, validation, paths, redaction, generated metadata | `packages/aidha-config` | Vitest, TypeScript, JSON Schema/AJV | Phase 5A/5B |
+| Source-local narrowing and YouTube payload validation | `packages/praecis/youtube` | Vitest plus the source package's chosen schema validator | Phase 5A |
+| Property-based merge invariants | `packages/aidha-config` | `fast-check` or equivalent property-test library | Phase 5E |
+| YAML parser safety/fuzz cases | `packages/aidha-config` | Vitest table/fuzz fixtures; add a dedicated fuzz dependency only if deterministic fixtures are insufficient | Phase 5C |
+| CLI snapshots and explain output | `packages/praecis/youtube` | Vitest snapshots or explicit golden-output assertions | Phase 5D |
+| Error catalog, schema change, docs gates | repo root + `packages/aidha-config` | DocOps scripts, generated-file freshness checks, Vitest | Phase 5E |
+
+New test dependencies must be added in the same PR as the first test that uses
+them, with the invocation documented in this plan and the relevant package
+README/config guide.
 
 ### Integration Tests (Praecis CLI)
 
@@ -869,6 +1454,8 @@ Additional integration tests:
 | `cli-config-precedence.test.ts` | CLI flag → profile → source default → system default → hardcoded. All five tiers exercised. |
 | `cli-config-source.test.ts`     | Auto-selection of `youtube` source for YouTube commands; `--source` override.               |
 | `cli-config-explain.test.ts`    | `aidha config explain <key>` reports tier + origin and does not leak secrets by default.    |
+| `cli-config-snapshot.test.ts`   | Stable redacted snapshots for `config show`, `config show --json`, `config explain`, `list-profiles --json`, and `config diff`. |
+| `cli-config-cross-platform.test.ts` | Path handling for POSIX and Windows-style separators, drive letters, and case sensitivity assumptions without requiring a Windows CI runner for every assertion. |
 
 **Run command:**
 
@@ -890,7 +1477,105 @@ pnpm -C packages/praecis/youtube test
 
 ---
 
-## 11. Open Questions and Risks
+## 11. Troubleshooting and User Support
+
+The user-facing guide should include these first-line diagnostics:
+
+| Symptom | Likely Cause | First Action |
+| ------- | ------------ | ------------ |
+| Env var is not being picked up | The active profile does not reference it, `.env` is not listed in `env.dotenv_files`, or shell env lost precedence to `override_existing` rules. | Run `aidha config explain <key>` and inspect dotenv warnings. |
+| Profile appears ignored | `--profile`, `$AIDHA_PROFILE`, or `default_profile` selected a different profile than expected. | Run `aidha config show --json` and `aidha config explain llm.model`. |
+| Inactive profile with missing env var fails | This is a bug against the lazy interpolation contract. | Add a regression test for the inactive profile and fix loader/resolver ordering. |
+| Relative paths point at `/tmp` or another unexpected directory | The config was loaded through `--config` or `$AIDHA_CONFIG` from that directory. | Set `base_dir` explicitly or use absolute paths. |
+| `config set` changed formatting | YAML AST could not preserve a specific edit without rewrite. | Re-run with `--dry-run`, inspect the backup, and report the lost formatting case. |
+| Secret appears in output | Redaction metadata or heuristic missed a key. | Treat as a security bug; add `x-aidha-secret: true` and a redaction regression test. |
+| Source defaults not applied | Command did not auto-select the expected source or `--source` overrode it. | Run `aidha config explain <source-key>` and verify the source registration constant. |
+| Config validates locally but fails in CI | Different env vars, dotenv files, or file permissions. | Prefer explicit `${VAR:-}` fallbacks for optional values and document required CI env. |
+| Sharing profiles across machines fails | Machine-specific paths or secrets were hardcoded. | Use `${VAR}` for secrets and set `base_dir` or absolute paths for machine-specific paths. |
+| YAML anchors cause surprising output | Anchors are materialized before validation and may not round-trip through edits. | Avoid anchors in sections edited by `aidha config set`. |
+
+### Error Catalog
+
+Every exported error class must be documented in `docs/60-devex/config-guide.md`
+or a dedicated config reference page. The implementation should keep this table
+in sync with exported error types:
+
+| Error | Trigger | User Remediation |
+| ----- | ------- | ---------------- |
+| `ConfigNotFoundError` | Explicit `--config` or `$AIDHA_CONFIG` path does not exist. | Fix the path, create the file with `aidha config init`, or unset the override. |
+| `ConfigParseError` | YAML is malformed, empty, not an object, or rejected by parser safety bounds. | Fix the YAML at the reported line/path; remove pathological anchors or aliases. |
+| `ConfigValidationError` | Parsed config fails JSON Schema or registered extension/source schema validation. | Correct the reported key, type, or unknown property. |
+| `ConfigVersionError` | `config_version` is unsupported by the running binary. | Upgrade the binary or run an explicit future migration command. |
+| `ConfigReadOnlyError` | Write attempted while `AIDHA_CONFIG_READONLY=1`. | Disable read-only mode or edit outside CI/container read-only context. |
+| `ConfigConflictError` | Optimistic concurrency guard detects the file changed since read. | Re-run the command, inspect the diff, or use explicit force after review. |
+| `ConfigWriteValidationError` | Proposed write would produce invalid config. | Fix the requested value/path before retrying. |
+| `ConfigUnsafeDotenvError` | Dotenv path violates symlink, ownership, or project-boundary safety rules. | Move the file under the config base directory, fix ownership, or use explicit external-file opt-in when available. |
+| `UnsetVariableError` | Active config references `${VAR}` without a value or fallback. | Export the env var, add a dotenv file, or use `${VAR:-fallback}`. |
+| `InterpolationCycleError` | Env interpolation references form a cycle. | Break the cycle or replace one reference with a literal value. |
+| `InterpolationDepthError` | Recursive interpolation exceeds the maximum depth. | Simplify nested env references. |
+
+### Schema Change Policy
+
+`config_version` is the compatibility gate for behavior, but schema evolution
+also needs human-readable release notes:
+
+- Add `packages/aidha-config/schema/SCHEMA-CHANGES.md` before the first
+  post-v1 schema change.
+- Record every added, removed, renamed, or behavior-changing config key with
+  version, date, rationale, migration guidance, and whether the change is
+  breaking.
+- Generated files (`types.generated.ts`, `schema.generated.ts`) must be updated
+  in the same commit as `config.schema.json`.
+- User-facing docs and examples must change in the same atomic unit as the
+  schema change.
+- A future migration command must link each migration step to the corresponding
+  schema-change entry.
+
+### Observability Contract
+
+`@aidha/config` should stay dependency-free with respect to logging frameworks.
+It emits structured events through an optional callback supplied by the caller:
+
+```ts
+type ConfigLogEvent =
+  | {
+      type: "config.load.summary";
+      configPath: string | null;
+      profile: string;
+      sourceId?: string;
+      dotenvFileCount: number;
+      warningCount: number;
+      cliOverrideKeys: string[];
+    }
+  | {
+      type: "config.load.warning";
+      code: string;
+      message: string;
+      configPath?: string;
+    };
+
+type ConfigLogSink = (event: ConfigLogEvent) => void;
+```
+
+Praecis or future CLIs may bridge this callback into their chosen logger. At
+command startup, debug-level logging should emit a redacted config-load summary:
+
+- Active config path or `zero-config`.
+- Selected profile and source ID.
+- Whether dotenv files were loaded, plus count and redacted provenance.
+- Number of resolved top-level sections and warnings.
+- Redacted list of keys overridden by CLI flags.
+
+This summary must never include secret values and should be visible through the
+same logging mechanism used by praecis diagnostics.
+
+Tests must assert the structured event payloads are redacted before they leave
+`@aidha/config`; downstream logger formatting is not trusted as a redaction
+boundary.
+
+---
+
+## 12. Resolved Design Decisions and Risks
 
 | #   | Question                                                                          | Recommendation                                                                                                     |
 | --- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -901,11 +1586,11 @@ pnpm -C packages/praecis/youtube test
 | 5   | Should `aidha config init` be fully interactive or template-based?                | **Template-first** — generate a well-annotated starter file; optional non-interactive flags; prompts later.        |
 | 6   | How should monorepo sub-packages (reconditum, phyla) consume config?              | Via the shared `@aidha/config` package. Each sub-package reads only its relevant config section.                   |
 | 7   | Should the config system support watching for file changes (live reload)?         | **No** for v1 — CLI tools are short-lived processes. Revisit for long-running servers.                             |
-| 8   | How are new source IDs registered?                                                | Source IDs are declared in `sources:` in the config file. Commands auto-select their source by convention.         |
-| 9   | Should source defaults be shipped in-code or only in the config file?             | **Both**: `defaults.ts` ships built-in source defaults; user config can override or add new sources.               |
-| 10  | Should user-global and project-local config layer together?                       | **Not in v1** (single active file, per Section 3 search order). Revisit if users need layering; `aidha config path` keeps this explicit. |
-| 11  | How do we prevent strict validation from blocking custom keys?                    | Provide an `extensions` map in schema; everything else remains strict.                                             |
-| 12  | Will config writes destroy comments/formatting?                                   | Preserve with YAML AST edits; if rewrite is unavoidable, require `--dry-run` preview + backup + warning.           |
+| 8   | How are new source IDs registered?                                                | Source packages export stable source constants, schema/runtime sections, defaults, CLI bindings, and tests.        |
+| 9   | Should source defaults be shipped in-code or only in the config file?             | **Both**, but source packages own built-in source defaults and pass them through registration/adapters; user config can override or add new sources. |
+| 10  | Should user-global and project-local config layer together?                       | **Not in v1** (single active file, per Section 3 search order). Project-local wins over user-global; `aidha config path` keeps this explicit. |
+| 11  | How do we prevent strict validation from blocking custom keys?                    | Provide opaque `extensions` maps; optionally support registered extension schemas before promoting stable keys into core schema. |
+| 12  | Will config writes destroy comments/formatting?                                   | v1 supports localized scalar AST edits only; structural scaffolding uses `config init` or future explicit rewrite mode with backup/warning. |
 | 13  | How do users understand why a value is what it is?                                | `aidha config explain <key>` prints tier + origin; `aidha config show` can emit a redacted JSON payload for scripts. |
 
 ### Consequences If We Choose Differently
@@ -929,28 +1614,32 @@ pnpm -C packages/praecis/youtube test
    and `config explain` becomes more important.
 11. Disable strict validation: reduces friction for custom keys, but reintroduces
    typo-driven silent failures.
-12. Rewrite YAML from plain objects: easiest to implement, but destroys comments
-   and makes `config set` hostile.
+12. Rewrite YAML from plain objects: easier for structural edits, but destroys
+   comments and makes `config set` hostile unless it is an explicit opt-in mode.
 13. No `config explain`: users resort to guesswork and reading source code;
    support burden rises quickly.
 
 ---
 
-## 12. Effort Estimate
+## 13. Effort Accounting
 
-| Phase | Description               | Estimated Effort |
-| ----- | ------------------------- | ---------------- |
-| 0     | Shared config package     | 2–3 days         |
-| 1     | Wire into praecis CLI     | 1–2 days         |
-| 2     | Config management CLI     | 1 day            |
-| 3     | Documentation and devex   | 0.5 day          |
-| 4     | Additional source vectors | Future sprint    |
+| Phase | Description                         | Original Estimate | Status | Remaining Estimate |
+| ----- | ----------------------------------- | ----------------- | ------ | ------------------ |
+| 0     | Shared config package               | 3–4 days          | Complete against earlier contract; drift exists against v1.3 | Superseded by Phase 5 |
+| 1     | Wire into praecis CLI               | 2 days            | Complete against earlier contract; drift exists against v1.3 | Superseded by Phase 5 |
+| 2     | Config management CLI               | 2 days            | Complete against earlier contract; drift exists against v1.3 | Superseded by Phase 5 |
+| 3     | Documentation and devex             | 1–2 days          | Complete against earlier contract; requires guide/runbook updates | 0.5–1 day inside Phase 5 |
+| 4     | Additional source vectors           | Future sprint     | Partially complete; remaining work future-scoped | Future sprint |
+| 5     | Contract drift remediation          | Not estimated in original plan | Open and required before approval | 3–5 days |
 
-**Total for Phases 0–3: ~5–6 days of focused implementation.**
+The earlier `~8–10 days` estimate is no longer a reliable handover estimate
+because Phases 0–3 were implemented against an older contract. Phase 5 is the
+current approval gate and should be estimated, implemented, and verified as its
+own slice rather than hidden inside historical phase estimates.
 
 ---
 
-## 13. References
+## 14. References
 
 - `packages/praecis/youtube/src/cli.ts` — current CLI entry point (1 281 lines).
 - `packages/praecis/youtube/src/cli/help.ts` — CLI help text.
@@ -965,32 +1654,37 @@ pnpm -C packages/praecis/youtube test
 
 ## Appendix A: Environment Variable Migration Map
 
-This table maps every current `process.env` reference to the normalized runtime
-`ResolvedConfig` path (as consumed by app code). The value may come from any tier
-(CLI/profile/source/default/hardcoded), and secrets should typically be provided
-via interpolation rather than stored directly in YAML.
+This table maps every current `process.env` reference to the normalized config
+path. Core paths project directly into `ResolvedConfig`; source-owned core
+sections project into `ResolvedConfig`, while source-private paths project into
+`ResolvedConfig.activeSourceConfig` and are then validated/narrowed by the
+consuming source package. The value may come from any tier
+(CLI/profile/source/default/hardcoded), and secrets should typically be
+provided via interpolation rather than stored directly in YAML.
 
-Note: on-disk defaults for YouTube live under `sources.youtube.*`, but the runtime
-`ResolvedConfig` projects those into top-level fields like `ytdlp.*` and
-`youtube.*` after resolution.
+Note: on-disk defaults for YouTube live under `sources.youtube.*`. Core-known
+sections from that branch are promoted into `ResolvedConfig`, while
+source-private sections remain in the opaque active-source payload that
+`praecis/youtube` validates and narrows as typed `ytdlp.*` or `youtube.*`
+convenience shapes.
 
-| Current Env Var                                                     | Config Path                 | Notes                                    |
-| ------------------------------------------------------------------- | --------------------------- | ---------------------------------------- |
-| `AIDHA_LLM_MODEL`                                                   | `llm.model`                 |                                          |
-| `AIDHA_LLM_API_KEY`                                                 | `llm.api_key`               | Use `${AIDHA_LLM_API_KEY}` interpolation |
-| `AIDHA_LLM_BASE_URL`                                                | `llm.base_url`              |                                          |
-| `AIDHA_LLM_TIMEOUT_MS`                                              | `llm.timeout_ms`            |                                          |
-| `AIDHA_LLM_CACHE_DIR`                                               | `llm.cache_dir`             |                                          |
-| `AIDHA_EDITOR_VERSION`                                              | `editor.version`            |                                          |
-| `AIDHA_CLAIMS_PROMPT_VERSION`                                       | `extraction.prompt_version` |                                          |
-| `AIDHA_YTDLP_BIN` / `YTDLP_BIN`                                     | `ytdlp.bin`                 | Consolidate dual env vars                |
-| `AIDHA_YTDLP_COOKIES_FILE` / `YTDLP_COOKIES_FILE` / `YTDLP_COOKIES` | `ytdlp.cookies_file`        | Consolidate triple env vars              |
-| `AIDHA_YTDLP_TIMEOUT_MS`                                            | `ytdlp.timeout_ms`          |                                          |
-| `AIDHA_YTDLP_JS_RUNTIMES` / `YTDLP_JS_RUNTIMES`                     | `ytdlp.js_runtimes`         | Consolidate dual env vars                |
-| `AIDHA_YTDLP_KEEP_FILES`                                            | `ytdlp.keep_files`          |                                          |
-| `YOUTUBE_COOKIE` / `YOUTUBE_COOKIES` / `AIDHA_YOUTUBE_COOKIE`       | `youtube.cookie`            | Consolidate triple env vars              |
-| `YOUTUBE_INNERTUBE_API_KEY`                                         | `youtube.innertube_api_key` |                                          |
-| `AIDHA_DEBUG_TRANSCRIPT`                                            | `youtube.debug_transcript`  |                                          |
+| Current Env Var                                                     | Config Path                                                    | Notes                                    |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------- |
+| `AIDHA_LLM_MODEL`                                                   | `llm.model`                                                    | Core config                              |
+| `AIDHA_LLM_API_KEY`                                                 | `llm.api_key`                                                  | Core config; use `${AIDHA_LLM_API_KEY}` interpolation |
+| `AIDHA_LLM_BASE_URL`                                                | `llm.base_url`                                                 | Core config                              |
+| `AIDHA_LLM_TIMEOUT_MS`                                              | `llm.timeout_ms`                                               | Core config                              |
+| `AIDHA_LLM_CACHE_DIR`                                               | `llm.cache_dir`                                                | Core config                              |
+| `AIDHA_EDITOR_VERSION`                                              | `editor.version`                                               | Core config                              |
+| `AIDHA_CLAIMS_PROMPT_VERSION`                                       | `extraction.prompt_version`                                    | Core config                              |
+| `AIDHA_YTDLP_BIN` / `YTDLP_BIN`                                     | `profiles.default.source_overrides.youtube.ytdlp.bin`, `profiles.<name>.source_overrides.youtube.ytdlp.bin`, or `sources.youtube.ytdlp.bin` | Source-owned; consolidate dual env vars |
+| `AIDHA_YTDLP_COOKIES_FILE` / `YTDLP_COOKIES_FILE` / `YTDLP_COOKIES` | `profiles.default.source_overrides.youtube.ytdlp.cookies_file`, `profiles.<name>.source_overrides.youtube.ytdlp.cookies_file`, or `sources.youtube.ytdlp.cookies_file` | Source-owned; consolidate triple env vars |
+| `AIDHA_YTDLP_TIMEOUT_MS`                                            | `profiles.default.source_overrides.youtube.ytdlp.timeout_ms`, `profiles.<name>.source_overrides.youtube.ytdlp.timeout_ms`, or `sources.youtube.ytdlp.timeout_ms` | Source-owned                             |
+| `AIDHA_YTDLP_JS_RUNTIMES` / `YTDLP_JS_RUNTIMES`                     | `profiles.default.source_overrides.youtube.ytdlp.js_runtimes`, `profiles.<name>.source_overrides.youtube.ytdlp.js_runtimes`, or `sources.youtube.ytdlp.js_runtimes` | Source-owned; consolidate dual env vars |
+| `AIDHA_YTDLP_KEEP_FILES`                                            | `profiles.default.source_overrides.youtube.ytdlp.keep_files`, `profiles.<name>.source_overrides.youtube.ytdlp.keep_files`, or `sources.youtube.ytdlp.keep_files` | Source-owned                             |
+| `YOUTUBE_COOKIE` / `YOUTUBE_COOKIES` / `AIDHA_YOUTUBE_COOKIE`       | `profiles.default.source_overrides.youtube.youtube.cookie`, `profiles.<name>.source_overrides.youtube.youtube.cookie`, or `sources.youtube.youtube.cookie` | Source-owned; consolidate triple env vars |
+| `YOUTUBE_INNERTUBE_API_KEY`                                         | `profiles.default.source_overrides.youtube.youtube.innertube_api_key`, `profiles.<name>.source_overrides.youtube.youtube.innertube_api_key`, or `sources.youtube.youtube.innertube_api_key` | Source-owned                             |
+| `AIDHA_DEBUG_TRANSCRIPT`                                            | `profiles.default.source_overrides.youtube.youtube.debug_transcript`, `profiles.<name>.source_overrides.youtube.youtube.debug_transcript`, or `sources.youtube.youtube.debug_transcript` | Source-owned                             |
 
 ## Appendix B: Example Annotated Config File
 
@@ -1051,6 +1745,11 @@ profiles:
       source_prefix: youtube
       out_dir: ./out
 
+    source_overrides:
+      youtube:
+        ytdlp:
+          keep_files: false
+
   # ── Named profiles (override source + system defaults) ──────
   fast-local:
     llm:
@@ -1062,6 +1761,10 @@ profiles:
       version: v1
     extraction:
       max_claims: 5
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 60000
 
   production:
     llm:
@@ -1070,6 +1773,10 @@ profiles:
     editor:
       version: v2
       editor_llm: true
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 90000
 
 # ── Ingestion-source defaults ─────────────────────────────────
 # Source-specific config that sits between named profiles and

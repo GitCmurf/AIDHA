@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createProvenance, formatProvenance, resolveKeyProvenance } from '../src/explain.js';
 import type { ConfigTier } from '../src/explain.js';
 import { resolveConfig } from '../src/resolver.js';
+import type { SourceRegistration } from '../src/types.js';
 
 describe('createProvenance', () => {
   it('should create CLI tier provenance', () => {
@@ -170,37 +171,317 @@ describe('resolveKeyProvenance', () => {
     expect(result.value).toBe('https://example.local/v1');
   });
 
-  it('reports hardcoded source-default origin when only built-in source value exists', () => {
+  it('reports hardcoded origin for core config values', () => {
+    const resolvedConfig = resolveConfig({
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      resolvedConfig,
+    });
+
+    expect(result.provenance.tier).toBe('hardcoded');
+    expect(result.value).toBe(15);
+  });
+
+  it('reports source tier when source defaults provide a core value', () => {
     const rawConfig = {
       config_version: 1,
-      default_profile: 'local',
-      profiles: {
-        local: {},
+      default_profile: 'default',
+      profiles: { default: {} },
+      sources: {
+        youtube: { extraction: { max_claims: 10 } },
       },
     };
 
     const resolvedConfig = resolveConfig({
       rawConfig,
-      profileName: 'local',
       sourceId: 'youtube',
       baseDir: process.cwd(),
     });
 
     const result = resolveKeyProvenance({
-      key: 'youtube.cookie',
+      key: 'extraction.maxClaims',
       rawConfig,
       resolvedConfig,
-      profileName: 'local',
       sourceId: 'youtube',
     });
 
-    expect(result.provenance.tier).toBe('hardcoded');
-    expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(10);
   });
 
-  it('reports built-in source defaults before built-in profile defaults', () => {
+  it('reports profile provenance for activeSourceConfig values from source_overrides', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: {
+        default: {},
+        production: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 45000 },
+            },
+          },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      profileName: 'production',
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'activeSourceConfig.ytdlp.timeout_ms',
+      rawConfig,
+      resolvedConfig,
+      profileName: 'production',
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('profile');
+    expect(result.provenance.origin).toBe('profiles.production');
+    expect(result.value).toBe(45000);
+  });
+
+  it('reports source provenance for activeSourceConfig values from source defaults', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: { default: {} },
+      sources: {
+        youtube: {
+          ytdlp: { timeout_ms: 60000 },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'activeSourceConfig.ytdlp.timeout_ms',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(60000);
+  });
+
+  it('reports source provenance before a non-default configured default profile when the source also defines the key', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'local',
+      profiles: {
+        local: {
+          extraction: { max_claims: 30 },
+        },
+      },
+      sources: {
+        youtube: {
+          extraction: { max_claims: 10 },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(10);
+  });
+
+  it('reports source provenance before default-profile source_overrides for activeSourceConfig source_overrides', async () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 45000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          ytdlp: { timeout_ms: 60000 },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'activeSourceConfig.ytdlp.timeout_ms',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(60000);
+  }, 10_000);
+
+  it('reports profile provenance for the configured default profile when it is not profiles.default', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'production',
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 45000 },
+            },
+          },
+        },
+        production: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 90000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          ytdlp: { timeout_ms: 60000 },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'activeSourceConfig.ytdlp.timeout_ms',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(60000);
+  });
+
+  it('reports profile provenance for core values supplied by source_overrides', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: {
+        default: {},
+        production: {
+          source_overrides: {
+            youtube: {
+              extraction: { max_claims: 7 },
+            },
+          },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      profileName: 'production',
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      rawConfig,
+      resolvedConfig,
+      profileName: 'production',
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('profile');
+    expect(result.provenance.origin).toBe('profiles.production');
+    expect(result.value).toBe(7);
+  });
+
+  it('reports default profile provenance before built-in source defaults', () => {
+    const sourceRegistration: SourceRegistration = {
+      sourceId: 'youtube',
+      defaults: {
+        extraction: { max_claims: 15 },
+      },
+      validateActiveSourceConfig: value => value,
+    };
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: {
+        default: {
+          extraction: { max_claims: 30 },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
+    });
+
+    expect(result.provenance.tier).toBe('default');
+    expect(result.provenance.origin).toBe('profiles.default');
+    expect(result.value).toBe(30);
+  });
+
+  it('reports built-in source registration defaults as hardcoded provenance', () => {
+    const sourceRegistration: SourceRegistration = {
+      sourceId: 'youtube',
+      defaults: {
+        extraction: { max_claims: 10 },
+      },
+      validateActiveSourceConfig: value => value,
+    };
+
     const resolvedConfig = resolveConfig({
       sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
       baseDir: process.cwd(),
     });
 
@@ -208,11 +489,12 @@ describe('resolveKeyProvenance', () => {
       key: 'extraction.maxClaims',
       resolvedConfig,
       sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
     });
 
     expect(result.provenance.tier).toBe('hardcoded');
-    expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
-    expect(result.value).toBe(15);
+    expect(result.provenance.origin).toContain('source registration');
+    expect(result.value).toBe(10);
   });
 
   it('marks secret keys as secret for explain redaction', () => {

@@ -1,12 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import { resolveConfig } from '../src/resolver.js';
-import type { AidhaConfig } from '../src/types.js';
+import type { AidhaConfig, SourceRegistration } from '../src/types.js';
+
+const RSS_REGISTRATION: SourceRegistration<{ rss: { poll_interval_minutes: number } }> = {
+  sourceId: 'rss',
+  defaults: {
+    rss: { poll_interval_minutes: 60 },
+  },
+  validateActiveSourceConfig(value: unknown) {
+    const obj = value as Record<string, unknown>;
+    const rss = obj.rss as Record<string, unknown>;
+    return {
+      rss: {
+        poll_interval_minutes: (rss?.poll_interval_minutes as number) ?? 60,
+      },
+    };
+  },
+};
 
 describe('resolveConfig — RSS Tiers', () => {
   const minimalConfig = (overrides: Partial<AidhaConfig> = {}): AidhaConfig => ({
     config_version: 1,
     default_profile: 'default',
-    profiles: { default: { llm: { model: 'test' } } },
+    profiles: { default: {} },
     ...overrides,
   });
 
@@ -16,33 +32,48 @@ describe('resolveConfig — RSS Tiers', () => {
         rss: { rss: { poll_interval_minutes: 120 } },
       },
     });
-    const resolved = resolveConfig({ rawConfig: config, sourceId: 'rss' });
-    expect(resolved.rss?.pollIntervalMinutes).toBe(120);
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'rss',
+      sourceRegistrations: [RSS_REGISTRATION],
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const rss = sourceConfig.rss as Record<string, unknown>;
+    expect(rss.poll_interval_minutes).toBe(120);
   });
 
-  it('Tier 2: Named profile overrides source defaults', () => {
+  it('Tier 2: Named profile source_overrides override source defaults', () => {
     const config = minimalConfig({
       profiles: {
         default: {},
-        'custom-rss': { rss: { poll_interval_minutes: 15 } },
+        'custom-rss': {
+          source_overrides: {
+            rss: { rss: { poll_interval_minutes: 15 } },
+          },
+        },
       },
       sources: {
         rss: { rss: { poll_interval_minutes: 120 } },
       },
     });
     const resolved = resolveConfig({
-        rawConfig: config,
-        profileName: 'custom-rss',
-        sourceId: 'rss'
+      rawConfig: config,
+      profileName: 'custom-rss',
+      sourceId: 'rss',
+      sourceRegistrations: [RSS_REGISTRATION],
     });
-    // Tier 2 (15) > Tier 3 (120)
-    expect(resolved.rss?.pollIntervalMinutes).toBe(15);
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const rss = sourceConfig.rss as Record<string, unknown>;
+    expect(rss.poll_interval_minutes).toBe(15);
   });
 
-  it('Tier 4/5: Absence resolves to defaults (60 min)', () => {
-    const config = minimalConfig();
-    const resolved = resolveConfig({ rawConfig: config, sourceId: 'rss' });
-    // Defaults from DEFAULTS.sources.rss is 60
-    expect(resolved.rss?.pollIntervalMinutes).toBe(60);
+  it('Tier 5: Registration defaults apply when no user config', () => {
+    const resolved = resolveConfig({
+      sourceId: 'rss',
+      sourceRegistrations: [RSS_REGISTRATION],
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const rss = sourceConfig.rss as Record<string, unknown>;
+    expect(rss.poll_interval_minutes).toBe(60);
   });
 });

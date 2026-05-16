@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateConfig } from '../src/schema.js';
+import type { SourceRegistration } from '../src/types.js';
 
 /** Helper: creates a minimal valid config for testing. */
 function validConfig(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -14,6 +15,43 @@ function validConfig(overrides: Record<string, unknown> = {}): Record<string, un
     ...overrides,
   };
 }
+
+const MOCK_YOUTUBE_REGISTRATION: SourceRegistration = {
+  sourceId: 'youtube',
+  validateActiveSourceConfig(value: unknown) {
+    if (value === null || typeof value !== 'object') {
+      throw new Error('activeSourceConfig must be an object');
+    }
+
+    const obj = value as Record<string, unknown>;
+    const ytdlp = obj.ytdlp as Record<string, unknown> | undefined;
+    const issues: Array<{ path: string; message: string }> = [];
+
+    if (ytdlp) {
+      const timeout = ytdlp.timeout_ms;
+      if (typeof timeout !== 'number' || !Number.isInteger(timeout) || timeout < 0) {
+        issues.push({
+          path: 'ytdlp.timeout_ms',
+          message: 'Expected a non-negative integer',
+        });
+      }
+
+      const keepFiles = ytdlp.keep_files;
+      if (typeof keepFiles !== 'boolean') {
+        issues.push({
+          path: 'ytdlp.keep_files',
+          message: 'Expected a boolean',
+        });
+      }
+    }
+
+    if (issues.length > 0) {
+      throw { errors: issues };
+    }
+
+    return value;
+  },
+};
 
 describe('validateConfig — strict schema validation', () => {
   it('should accept a minimal valid config', () => {
@@ -37,11 +75,89 @@ describe('validateConfig — strict schema validation', () => {
             youtube: { cookie: '', innertube_api_key: '', debug_transcript: false },
           },
         },
+        profiles: {
+          default: {
+            db: './test.sqlite',
+            source_overrides: {
+              youtube: {
+                ytdlp: { timeout_ms: 90000 },
+                youtube: { debug_transcript: true },
+              },
+            },
+          },
+        },
         extensions: { custom_key: 'custom_value' },
       }),
     );
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
+  });
+
+  it('should accept source_overrides inside a profile', () => {
+    const result = validateConfig(
+      validConfig({
+        profiles: {
+          default: {
+            db: './test.sqlite',
+            source_overrides: {
+              youtube: {
+                ytdlp: { timeout_ms: 90000 },
+                youtube: { debug_transcript: true },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('should reject invalid core sections inside source_overrides', () => {
+    const result = validateConfig(
+      validConfig({
+        profiles: {
+          default: {
+            db: './test.sqlite',
+            source_overrides: {
+              youtube: {
+                extraction: { max_claims: 'many' as unknown as number },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'type')).toBe(true);
+    expect(result.errors.some((e) => e.path.includes('/profiles/default/source_overrides/youtube/extraction/max_claims'))).toBe(true);
+  });
+
+  it('should validate known source-private overrides through source registrations', () => {
+    const result = validateConfig(
+      validConfig({
+        profiles: {
+          default: {
+            db: './test.sqlite',
+            source_overrides: {
+              youtube: {
+                ytdlp: {
+                  timeout_ms: -1,
+                  keep_files: 'maybe',
+                },
+              },
+            },
+          },
+        },
+      }),
+      [MOCK_YOUTUBE_REGISTRATION],
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === '/profiles/default/source_overrides/youtube/ytdlp/timeout_ms')).toBe(true);
+    expect(result.errors.some((e) => e.path === '/profiles/default/source_overrides/youtube/ytdlp/keep_files')).toBe(true);
   });
 
   // ── Strict validation: unknown keys rejected ──────────────────────────
@@ -74,12 +190,17 @@ describe('validateConfig — strict schema validation', () => {
     expect(result.errors.some((e) => e.keyword === 'additionalProperties')).toBe(true);
   });
 
-  it('should reject unknown keys inside source defaults', () => {
+  it('should allow arbitrary source-private keys inside source defaults', () => {
     const config = validConfig({
-      sources: { youtube: { bad_section: true } },
+      sources: {
+        youtube: {
+          widget: { timeout_ms: 5000 },
+        },
+      },
     });
     const result = validateConfig(config);
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 
   it('should reject unknown keys inside env config', () => {

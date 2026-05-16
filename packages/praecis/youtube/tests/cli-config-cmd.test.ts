@@ -98,6 +98,51 @@ describe('CLI Config Commands (Phase 2A)', () => {
     expect(code).toBe(1);
   });
 
+  it('validate rejects invalid core config inside source_overrides', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    db: ./test.sqlite
+    source_overrides:
+      youtube:
+        extraction:
+          max_claims: many
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('/profiles/local/source_overrides/youtube');
+    expect(errorOutput).toContain('max_claims');
+  });
+
+  it('validate rejects invalid youtube-specific source_overrides', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    db: ./test.sqlite
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: -1
+          keep_files: maybe
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('/profiles/local/source_overrides/youtube');
+    expect(errorOutput).toContain('/profiles/local/source_overrides/youtube/ytdlp/keep_files');
+  });
+
   it('list-profiles lists profiles', async () => {
     await createConfig(`
 config_version: 1
@@ -486,6 +531,39 @@ profiles:
     expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('profiles.prod'));
   });
 
+  it('explain prefers source defaults over default-profile source_overrides for activeSourceConfig', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: default
+profiles:
+  default:
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 45000
+sources:
+  youtube:
+    ytdlp:
+      timeout_ms: 60000
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli([
+      'config',
+      'explain',
+      'activeSourceConfig.ytdlp.timeout_ms',
+      '--config',
+      configPath,
+      '--source',
+      'youtube',
+    ]);
+
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('sources.youtube'));
+    expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('profiles.default'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('60000'));
+  });
+
   it('validate reports correct file path on load failure (Round 3 Repro)', async () => {
     await writeSecureConfig(configPath, '\tinvalid yaml');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -659,8 +737,24 @@ sources:
       // But we want it to NOT fail with "No config loaded".
       // llm.model is in defaults? Yes: DEFAULTS.profiles.default.llm.model = 'gpt-5-mini'
 
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('gpt-5-mini'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Hardcoded'));
+  });
+
+    it('explain resolves source-owned core defaults when --source is provided', async () => {
+      await createConfig([
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default: {}',
+      ].join('\n'));
+      const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const code = await runCli(['config', 'explain', 'extraction.maxClaims', '--config', configPath, '--source', 'youtube']);
+
       expect(code).toBe(0);
-      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('gpt-5-mini'));
+      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('15'));
       expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Hardcoded'));
     });
 
@@ -675,14 +769,13 @@ sources:
     });
   });
 
-  it('config get resolves RSS defaults (Active Source)', async () => {
-    // Prove RSS config is "live" via --source defaults
+  it('config get resolves activeSourceId in zero-config mode', async () => {
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const code = await runCli(['config', 'get', 'rss.pollIntervalMinutes', '--source', 'rss']);
+
+    const code = await runCli(['config', 'get', 'activeSourceId', '--source', 'youtube']);
 
     expect(code).toBe(0);
-    // Should resolve to 60 from DEFAULTS.sources.rss (Tier 5)
-    expect(consoleLog).toHaveBeenCalledWith('60');
+    expect(consoleLog).toHaveBeenCalledWith('youtube');
   });
 
 });

@@ -4,42 +4,24 @@
 /**
  * @aidha/config — Tier 5 hardcoded fallback defaults.
  *
- * These values represent the "no config file" baseline. Every key that
+ * These values represent the "no config file" baseline. Every core key that
  * appears in `ResolvedConfig` must have a corresponding hardcoded default
  * here so the system works out of the box (zero-config).
+ *
+ * Source-specific defaults are NOT stored here. Source packages own their
+ * built-in defaults and supply them through `SourceRegistration.defaults`.
  *
  * @module
  */
 
-import type { AidhaConfig, DeepReadonly, SourceDefaults } from './types.js';
+import type { AidhaConfig, DeepReadonly } from './types.js';
 import { SUPPORTED_CONFIG_VERSION } from './types.js';
-
-/** Built-in source defaults for the YouTube ingestion vector. */
-const YOUTUBE_SOURCE_DEFAULTS: DeepReadonly<SourceDefaults> = {
-  ytdlp: {
-    bin: 'yt-dlp',
-    cookies_file: '',
-    remote_components: '',
-    timeout_ms: 120_000,
-    js_runtimes: '',
-    keep_files: false,
-  },
-  youtube: {
-    cookie: '',
-    innertube_api_key: '',
-    debug_transcript: false,
-  },
-  extraction: {
-    chunk_minutes: 5,
-    max_claims: 15,
-  },
-} as const;
 
 /**
  * Complete hardcoded defaults (Tier 5).
  *
  * The `profiles.default` section contains the system-wide defaults.
- * The `sources` section contains per-source defaults.
+ * Source defaults live in source-package registrations.
  *
  * This object MUST validate against `config.schema.json`.
  */
@@ -79,14 +61,6 @@ export const DEFAULTS: DeepReadonly<AidhaConfig> = {
       export: {
         source_prefix: 'youtube',
         out_dir: './out',
-      },
-    },
-  },
-  sources: {
-    youtube: YOUTUBE_SOURCE_DEFAULTS,
-    rss: {
-      rss: {
-        poll_interval_minutes: 60,
       },
     },
   },

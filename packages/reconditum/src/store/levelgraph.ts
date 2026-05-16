@@ -8,6 +8,7 @@
  * Nodes are stored as special triples with _node predicate.
  */
 import levelgraph from 'levelgraph';
+import { Readable } from 'node:stream';
 import { MemoryLevel } from 'memory-level';
 import { ClassicLevel } from 'classic-level';
 
@@ -59,9 +60,105 @@ import {
 // LevelGraph type declarations (library lacks proper TS types)
 interface LevelGraphDB {
   put(triple: LevelGraphTriple | LevelGraphTriple[], callback: (err?: Error) => void): void;
-  get(pattern: Partial<LevelGraphTriple>, callback: (err: Error | null, list: LevelGraphTriple[]) => void): void;
+  get(pattern: Partial<LevelGraphTriple>, callback: (err: Error | null, list: unknown[]) => void): void;
   del(triple: LevelGraphTriple, callback: (err?: Error) => void): void;
   close(callback: (err?: Error) => void): void;
+}
+
+interface LevelGraphCompatibleLevel {
+  open(): Promise<void>;
+  values(options?: Record<string, unknown>): AsyncIterable<unknown>;
+  batch(...args: unknown[]): Promise<void> | void;
+  close(...args: unknown[]): Promise<void> | void;
+  createValueStream?(options?: Record<string, unknown>): NodeJS.ReadableStream;
+}
+
+function withLevelGraphStreamSupport<T extends LevelGraphCompatibleLevel>(level: T): T {
+  if (typeof level.createValueStream !== 'function') {
+    level.createValueStream = (options = {}) =>
+      Readable.from(level.values(options), { objectMode: true });
+  }
+
+  const originalBatch = level.batch.bind(level);
+  level.batch = ((operations, options, callback) => {
+    let normalizedOptions = options;
+    let normalizedCallback = callback;
+
+    if (typeof normalizedOptions === 'function') {
+      normalizedCallback = normalizedOptions;
+      normalizedOptions = {};
+    }
+
+    const batchPromise = Promise.resolve().then(() =>
+      normalizedOptions ? originalBatch(operations, normalizedOptions) : originalBatch(operations)
+    );
+    if (typeof normalizedCallback === 'function') {
+      void batchPromise.then(
+        () => normalizedCallback(),
+        (error) => normalizedCallback(error instanceof Error ? error : new Error(String(error)))
+      );
+      return;
+    }
+
+    return batchPromise;
+  }) as T['batch'];
+
+  const originalClose = level.close.bind(level);
+  level.close = ((callback?: (err?: Error) => void) => {
+    const closePromise = Promise.resolve().then(() => originalClose());
+    if (typeof callback === 'function') {
+      void closePromise.then(
+        () => callback(),
+        (error) => callback(error instanceof Error ? error : new Error(String(error)))
+      );
+      return;
+    }
+
+    return closePromise;
+  }) as T['close'];
+
+  return level;
+}
+
+function coerceLevelGraphTriple(value: unknown): LevelGraphTriple | null {
+  let parsedValue: unknown = value;
+  if (typeof value === 'string') {
+    try {
+      parsedValue = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof parsedValue !== 'object' || parsedValue === null) {
+    return null;
+  }
+
+  const triple = parsedValue as { subject?: unknown; predicate?: unknown; object?: unknown };
+  if (
+    typeof triple['subject'] !== 'string' ||
+    typeof triple['predicate'] !== 'string' ||
+    typeof triple['object'] !== 'string'
+  ) {
+    return null;
+  }
+
+  return triple as LevelGraphTriple;
+}
+
+function coerceLevelGraphTriples(values: unknown[]): LevelGraphTriple[] {
+  const triples: LevelGraphTriple[] = [];
+  for (const value of values) {
+    try {
+      const triple = coerceLevelGraphTriple(value);
+      if (triple) {
+        triples.push(triple);
+      }
+    } catch {
+      // Ignore malformed triples from the adapter boundary.
+    }
+  }
+  return triples;
 }
 
 /** Internal predicate for storing node data as triples */
@@ -119,9 +216,11 @@ function promisifyVoid(
  */
 export class LevelGraphStore implements GraphStore {
   private db: LevelGraphDB;
+  private readonly ready: Promise<void>;
 
-  constructor(db: LevelGraphDB) {
+  constructor(db: LevelGraphDB, ready: Promise<void> = Promise.resolve()) {
     this.db = db;
+    this.ready = ready;
   }
 
   /**
@@ -130,8 +229,9 @@ export class LevelGraphStore implements GraphStore {
    * @param path - File path for persistent storage
    */
   static async create(path: string): Promise<LevelGraphStore> {
-    const level = new ClassicLevel(path, { valueEncoding: 'json' });
+    const level = withLevelGraphStreamSupport(new ClassicLevel(path, { valueEncoding: 'json' }));
     const db = levelgraph(level) as unknown as LevelGraphDB;
+    await level.open();
     return new LevelGraphStore(db);
   }
 
@@ -139,13 +239,14 @@ export class LevelGraphStore implements GraphStore {
    * Create a new in-memory LevelGraph store (for testing).
    */
   static createInMemory(): LevelGraphStore {
-    const level = new MemoryLevel({ valueEncoding: 'json' });
+    const level = withLevelGraphStreamSupport(new MemoryLevel({ valueEncoding: 'json' }));
     const db = levelgraph(level) as unknown as LevelGraphDB;
-    return new LevelGraphStore(db);
+    return new LevelGraphStore(db, level.open().then(() => undefined));
   }
 
 
   private async deleteNodeTriple(id: string): Promise<void> {
+    await this.ready;
     const triple: LevelGraphTriple = {
       subject: id,
       predicate: NODE_PREDICATE,
@@ -161,6 +262,7 @@ export class LevelGraphStore implements GraphStore {
     options?: UpsertNodeOptions
   ): Promise<Result<UpsertNodeResult>> {
     try {
+      await this.ready;
       const existingResult = await this.getNode(id);
       if (!existingResult.ok) {
         return existingResult;
@@ -229,15 +331,17 @@ export class LevelGraphStore implements GraphStore {
 
   async getNode(id: string): Promise<Result<GraphNode | null>> {
     try {
-      const triples = await promisify<LevelGraphTriple[]>((cb) =>
+      await this.ready;
+      const triples = await promisify<unknown[]>((cb) =>
         this.db.get({ subject: id, predicate: NODE_PREDICATE }, cb)
       );
+      const normalizedTriples = coerceLevelGraphTriples(triples);
 
-      if (triples.length === 0) {
+      if (normalizedTriples.length === 0) {
         return { ok: true, value: null };
       }
 
-      const triple = triples[0];
+      const triple = normalizedTriples[0];
       if (!triple) {
         return { ok: true, value: null };
       }
@@ -261,15 +365,17 @@ export class LevelGraphStore implements GraphStore {
 
   async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
     try {
+      await this.ready;
       await this.deleteNodeTriple(id);
       if (options?.cascade) {
-        const subjectTriples = await promisify<LevelGraphTriple[]>((cb) =>
+        const subjectTriples = await promisify<unknown[]>((cb) =>
           this.db.get({ subject: id }, cb)
         );
-        const objectTriples = await promisify<LevelGraphTriple[]>((cb) =>
+        const objectTriples = await promisify<unknown[]>((cb) =>
           this.db.get({ object: id }, cb)
         );
-        const triples = [...subjectTriples, ...objectTriples].filter(triple => triple.predicate !== NODE_PREDICATE);
+        const triples = [...coerceLevelGraphTriples(subjectTriples), ...coerceLevelGraphTriples(objectTriples)]
+          .filter(triple => triple.predicate !== NODE_PREDICATE);
         for (const triple of triples) {
           await promisifyVoid((cb) => this.db.del(triple, cb));
         }
@@ -282,13 +388,15 @@ export class LevelGraphStore implements GraphStore {
 
   async queryNodes(options: QueryNodesOptions = {}): Promise<Result<QueryResult<GraphNode>>> {
     try {
-      const triples = await promisify<LevelGraphTriple[]>((cb) =>
+      await this.ready;
+      const triples = await promisify<unknown[]>((cb) =>
         this.db.get({ predicate: NODE_PREDICATE }, cb)
       );
+      const normalizedTriples = coerceLevelGraphTriples(triples);
 
       const nodes: GraphNode[] = [];
 
-      for (const triple of triples) {
+      for (const triple of normalizedTriples) {
         try {
           const node = GraphNodeSchema.parse({
             id: triple['id'],
@@ -329,11 +437,12 @@ export class LevelGraphStore implements GraphStore {
     options?: UpsertEdgeOptions
   ): Promise<Result<UpsertEdgeResult>> {
     try {
+      await this.ready;
       const pattern: Partial<LevelGraphTriple> = { subject, predicate, object };
-      const existingTriples = await promisify<LevelGraphTriple[]>((cb) =>
+      const existingTriples = await promisify<unknown[]>((cb) =>
         this.db.get(pattern, cb)
       );
-      const existingEdge = existingTriples.map(tripleToEdge).find(edge => edge !== null) ?? null;
+      const existingEdge = coerceLevelGraphTriples(existingTriples).map(tripleToEdge).find(edge => edge !== null) ?? null;
       const metadata = data.metadata ?? {};
 
       if (!existingEdge) {
@@ -391,17 +500,19 @@ export class LevelGraphStore implements GraphStore {
 
   async getEdges(options: QueryEdgesOptions = {}): Promise<Result<QueryResult<GraphEdge>>> {
     try {
+      await this.ready;
       const pattern: Partial<LevelGraphTriple> = {};
       if (options.subject) pattern.subject = options.subject;
       if (options.predicate) pattern.predicate = options.predicate;
       if (options.object) pattern.object = options.object;
 
-      const triples = await promisify<LevelGraphTriple[]>((cb) =>
+      const triples = await promisify<unknown[]>((cb) =>
         this.db.get(pattern, cb)
       );
+      const normalizedTriples = coerceLevelGraphTriples(triples);
 
       const edges: GraphEdge[] = [];
-      for (const triple of triples) {
+      for (const triple of normalizedTriples) {
         const edge = tripleToEdge(triple);
         if (edge) {
           edges.push(edge);
@@ -419,6 +530,7 @@ export class LevelGraphStore implements GraphStore {
 
   async exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
     try {
+      await this.ready;
       const nodesResult = await this.queryNodes({});
       if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
       let nodes = nodesResult.value.items;
@@ -439,6 +551,7 @@ export class LevelGraphStore implements GraphStore {
 
   async exportGephi(options: ExportGephiOptions = {}): Promise<Result<GephiExport>> {
     try {
+      await this.ready;
       const edgesResult = await this.getEdges({});
       if (!edgesResult.ok) return { ok: false, error: edgesResult.error };
       let edges = edgesResult.value.items;
@@ -491,6 +604,7 @@ export class LevelGraphStore implements GraphStore {
 
   async getGraphStats(options: GetGraphStatsOptions = {}): Promise<Result<GraphStats>> {
     try {
+      await this.ready;
       const topN = options.topN ?? 10;
       const nodesResult = await this.queryNodes({});
       if (!nodesResult.ok) return { ok: false, error: nodesResult.error };
@@ -552,6 +666,7 @@ export class LevelGraphStore implements GraphStore {
   }
 
   async close(): Promise<void> {
+    await this.ready;
     await promisifyVoid((cb) => this.db.close(cb));
   }
 }

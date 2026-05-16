@@ -21,6 +21,12 @@ describe("calibration-record-v1.json fixture", () => {
     expect(result.success).toBe(true);
   });
 
+  it("uses an existing refresh command in the notes field", () => {
+    const data = JSON.parse(readFileSync(CALIBRATION_PATH, "utf-8")) as { notes?: string };
+    expect(data.notes).toContain("vitest run tests/eval/calibration-runner.test.ts");
+    expect(data.notes).not.toContain("eval calibrate");
+  });
+
   it("references only videoIds present in golden-annotations.json", () => {
     const calibration = JSON.parse(readFileSync(CALIBRATION_PATH, "utf-8"));
     const golden = GoldenAnnotationSchema.parse(JSON.parse(readFileSync(GOLDEN_PATH, "utf-8")));

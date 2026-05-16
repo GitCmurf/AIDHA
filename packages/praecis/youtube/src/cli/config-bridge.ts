@@ -5,7 +5,8 @@
  * (file discovery → YAML parse → dotenv → interpolation → schema validation →
  * path resolution) and then applies the five-tier resolver.
  *
- * The result is a typed `ResolvedConfig` ready for use by command handlers.
+ * The result is a typed `ResolvedConfig` plus a typed `ResolvedYoutubeConfig`
+ * narrowed from `activeSourceConfig` via the YouTube source adapter.
  *
  * @module
  */
@@ -24,6 +25,12 @@ import {
   ConfigVersionError,
   ConfigNotFoundError,
 } from '@aidha/config';
+import {
+  YouTubeSourceRegistration,
+  SOURCE_ID as YOUTUBE_SOURCE_ID,
+  resolveRawYoutubeActiveSourceConfigPaths,
+} from '../config/index.js';
+import type { ResolvedYoutubeConfig } from '../config/index.js';
 
 // ── Public Types ─────────────────────────────────────────────────────────────
 
@@ -41,8 +48,10 @@ export interface ConfigBridgeOptions {
 export type ConfigBridgeResult =
   | {
       ok: true;
-      /** The fully-resolved config. */
+      /** The fully-resolved core config. */
       config: ResolvedConfig;
+      /** Typed YouTube config, narrowed from activeSourceConfig. Null if youtube source not selected. */
+      youtubeConfig: ResolvedYoutubeConfig | null;
       /** Loader result — includes warnings and the config file path used. */
       loadResult: LoadResult;
     }
@@ -55,6 +64,10 @@ export type ConfigBridgeResult =
       loadResult: LoadResult;
     };
 
+// ── Source Registrations ─────────────────────────────────────────────────────
+
+const ALL_SOURCE_REGISTRATIONS = [YouTubeSourceRegistration];
+
 // ── Bridge ───────────────────────────────────────────────────────────────────
 
 /**
@@ -62,7 +75,8 @@ export type ConfigBridgeResult =
  *
  * 1. Discover and parse the config file (or use defaults if none found).
  * 2. Resolve through all five tiers: CLI → profile → source → default → DEFAULTS.
- * 3. Return a Result object.
+ * 3. Narrow activeSourceConfig via source registrations.
+ * 4. Return a Result object.
  *
  * Catches known config-domain errors (Parse, Validation, Version, NotFound) and
  * returns them as a failure result. RETHROWS unexpected errors (bugs).
@@ -96,14 +110,26 @@ export async function resolveCliConfig(
       profileName: opts.profile || undefined,
       sourceId: opts.source || undefined,
       cliOverrides: opts.cliOverrides,
+      sourceRegistrations: ALL_SOURCE_REGISTRATIONS,
     });
 
-    return { ok: true, config, loadResult };
+    let youtubeConfig: ResolvedYoutubeConfig | null = null;
+    const resolvedConfig = { ...config };
+
+    if (resolvedConfig.activeSourceId === YOUTUBE_SOURCE_ID && resolvedConfig.activeSourceConfig !== undefined) {
+      resolvedConfig.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+        resolvedConfig.activeSourceConfig,
+        resolvedConfig.baseDir,
+      );
+      youtubeConfig = YouTubeSourceRegistration.validateActiveSourceConfig(
+        resolvedConfig.activeSourceConfig,
+      );
+    }
+
+    return { ok: true, config: resolvedConfig, youtubeConfig, loadResult };
   } catch (error: unknown) {
     const err = error as Error;
 
-    // Phase 2A Round 7: Narrow exception handling.
-    // Only catch known config-domain errors. Rethrow unexpected errors (bugs).
     const isConfigError =
       err instanceof ConfigParseError ||
       err instanceof ConfigValidationError ||
@@ -114,10 +140,8 @@ export async function resolveCliConfig(
       throw err;
     }
 
-    // Robust path reporting: try to extract path from error if not provided in opts
     let configPath = opts.configPath || process.env['AIDHA_CONFIG'] || null;
 
-    // Check for specific error types that contain filePath
     if (!configPath) {
       if (
         err instanceof ConfigParseError ||
@@ -132,7 +156,7 @@ export async function resolveCliConfig(
     const loadResult: LoadResult = {
       config: null,
       configPath,
-      baseDir: process.cwd(), // Fallback
+      baseDir: process.cwd(),
       warnings: [],
       dotenvEnv: {},
     };
@@ -177,8 +201,29 @@ function optBool(options: CliOptions, key: string): boolean | undefined {
 }
 
 /**
+ * Helper to set a nested value inside `source_overrides.youtube`.
+ */
+function setYoutubeSourceOverride(
+  overrides: Partial<Profile>,
+  key: string,
+  value: unknown,
+): void {
+  const ytOverrides = {
+    ...(overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined ?? {}),
+    [key]: value,
+  };
+  overrides.source_overrides = {
+    ...overrides.source_overrides,
+    [YOUTUBE_SOURCE_ID]: ytOverrides,
+  };
+}
+
+/**
  * Build a `Partial<Profile>` from CLI flags that override config values.
  * Only keys that are explicitly set on the command line are included.
+ *
+ * YouTube-specific flags (ytdlp, youtube) are routed into
+ * `source_overrides.youtube` so they participate in the source-local merge.
  */
 export function buildCliOverrides(options: CliOptions): Partial<Profile> {
   const overrides: Partial<Profile> = {};
@@ -247,30 +292,36 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
     overrides.export = { ...(overrides.export ?? {}), source_prefix: sourcePrefix.trim().toLowerCase() };
   }
 
-  // ── ytdlp ──
+  // ── ytdlp (routed to source_overrides.youtube) ──
   const ytdlpBin = optStr(options, 'ytdlp-bin');
   if (ytdlpBin !== undefined && ytdlpBin.length > 0) {
-    overrides.ytdlp = { ...(overrides.ytdlp ?? {}), bin: ytdlpBin };
+    const existing = (overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined)?.['ytdlp'];
+    setYoutubeSourceOverride(overrides, 'ytdlp', { ...(typeof existing === 'object' && existing !== null ? existing : {}), bin: ytdlpBin });
   }
   const ytdlpCookies = optStr(options, 'ytdlp-cookies');
   if (ytdlpCookies !== undefined && ytdlpCookies.length > 0) {
-    overrides.ytdlp = { ...(overrides.ytdlp ?? {}), cookies_file: ytdlpCookies };
+    const existing = (overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined)?.['ytdlp'];
+    setYoutubeSourceOverride(overrides, 'ytdlp', { ...(typeof existing === 'object' && existing !== null ? existing : {}), cookies_file: ytdlpCookies });
   }
   const ytdlpRemoteComponents = optStr(options, 'ytdlp-remote-components');
   if (ytdlpRemoteComponents !== undefined && ytdlpRemoteComponents.length > 0) {
-    overrides.ytdlp = { ...(overrides.ytdlp ?? {}), remote_components: ytdlpRemoteComponents };
+    const existing = (overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined)?.['ytdlp'];
+    setYoutubeSourceOverride(overrides, 'ytdlp', { ...(typeof existing === 'object' && existing !== null ? existing : {}), remote_components: ytdlpRemoteComponents });
   }
   const ytdlpTimeout = optNum(options, 'ytdlp-timeout');
   if (ytdlpTimeout !== undefined) {
-    overrides.ytdlp = { ...(overrides.ytdlp ?? {}), timeout_ms: ytdlpTimeout };
+    const existing = (overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined)?.['ytdlp'];
+    setYoutubeSourceOverride(overrides, 'ytdlp', { ...(typeof existing === 'object' && existing !== null ? existing : {}), timeout_ms: ytdlpTimeout });
   }
   const ytdlpJsRuntimes = optStr(options, 'ytdlp-js-runtimes');
   if (ytdlpJsRuntimes !== undefined && ytdlpJsRuntimes.length > 0) {
-    overrides.ytdlp = { ...(overrides.ytdlp ?? {}), js_runtimes: ytdlpJsRuntimes };
+    const existing = (overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined)?.['ytdlp'];
+    setYoutubeSourceOverride(overrides, 'ytdlp', { ...(typeof existing === 'object' && existing !== null ? existing : {}), js_runtimes: ytdlpJsRuntimes });
   }
   const ytdlpKeep = optBool(options, 'ytdlp-keep');
   if (ytdlpKeep !== undefined) {
-    overrides.ytdlp = { ...(overrides.ytdlp ?? {}), keep_files: ytdlpKeep };
+    const existing = (overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined)?.['ytdlp'];
+    setYoutubeSourceOverride(overrides, 'ytdlp', { ...(typeof existing === 'object' && existing !== null ? existing : {}), keep_files: ytdlpKeep });
   }
 
   // ── cache-dir (maps to llm.cache_dir) ──

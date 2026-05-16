@@ -196,6 +196,13 @@
         "editor": { "$ref": "#/$defs/EditorConfig" },
         "extraction": { "$ref": "#/$defs/ExtractionConfig" },
         "export": { "$ref": "#/$defs/ExportConfig" },
+        "source_overrides": {
+          "type": "object",
+          "description": "Source-owned profile overrides keyed by source ID.",
+          "additionalProperties": {
+            "$ref": "#/$defs/SourceOverride"
+          }
+        },
         "ytdlp": { "$ref": "#/$defs/YtdlpConfig" },
         "youtube": { "$ref": "#/$defs/YoutubeConfig" },
         "extensions": {
@@ -208,8 +215,8 @@
     },
     "SourceDefaults": {
       "type": "object",
-      "description": "Ingestion-source defaults. Same shape as Profile.",
-      "additionalProperties": false,
+      "description": "Ingestion-source defaults. Core profile sections are validated; source-private sections are allowed for source registrations.",
+      "additionalProperties": true,
       "properties": {
         "db": {
           "type": "string",
@@ -223,6 +230,27 @@
         "ytdlp": { "$ref": "#/$defs/YtdlpConfig" },
         "youtube": { "$ref": "#/$defs/YoutubeConfig" },
         "rss": { "$ref": "#/$defs/RssConfig" },
+        "extensions": {
+          "type": "object",
+          "description": "Per-source extension point.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "SourceOverride": {
+      "type": "object",
+      "description": "Source-specific profile overrides. Core profile sections are validated; source-private sections remain opaque.",
+      "additionalProperties": true,
+      "properties": {
+        "db": {
+          "type": "string",
+          "description": "Path to the SQLite database.",
+          "x-aidha-path": true
+        },
+        "llm": { "$ref": "#/$defs/LlmConfig" },
+        "editor": { "$ref": "#/$defs/EditorConfig" },
+        "extraction": { "$ref": "#/$defs/ExtractionConfig" },
+        "export": { "$ref": "#/$defs/ExportConfig" },
         "extensions": {
           "type": "object",
           "description": "Per-source extension point.",

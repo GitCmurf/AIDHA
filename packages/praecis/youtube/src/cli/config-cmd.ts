@@ -17,6 +17,7 @@ import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { dump as dumpYaml } from 'js-yaml'; // Restore dumpYaml
 import { buildCliOverrides } from './config-bridge.js'; // Restore buildCliOverrides
+import { YouTubeSourceRegistration } from '../config/index.js';
 
 // Function to get a value from an object (deep)
 function deepGet(obj: unknown, path: string): unknown {
@@ -128,6 +129,7 @@ async function runConfigExplain(
     cliOverrides: buildCliOverrides(options),
     profileName: explicitProfile,
     sourceId,
+    sourceRegistrations: [YouTubeSourceRegistration],
   });
 
   // Format provenance for the specific key
@@ -172,7 +174,7 @@ function runConfigValidate(options: CliOptions, loadResult: LoadResult, error?: 
     return 0;
   }
 
-  const result = validateConfig(loadResult.config);
+  const result = validateConfig(loadResult.config, [YouTubeSourceRegistration]);
   if (result.valid) {
     console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
     return 0;

@@ -8,6 +8,10 @@
  * individual profiles (`Profile`), source defaults (`SourceDefaults`),
  * and the flattened runtime shape (`ResolvedConfig`) consumed by app code.
  *
+ * Source-private fields are NOT modelled here. Source packages own their
+ * own config types and narrow `ResolvedConfig.activeSourceConfig` at their
+ * package boundary via `SourceRegistration`.
+ *
  * @module
  */
 
@@ -57,32 +61,13 @@ export interface ExportConfig {
   out_dir: string;
 }
 
-/** yt-dlp configuration. */
-export interface YtdlpConfig {
-  bin: string;
-  cookies_file: string;
-  remote_components?: string;
-  timeout_ms: number;
-  js_runtimes: string;
-  keep_files: boolean;
-}
-
-/** RSS configuration. */
-export interface RssConfig {
-  poll_interval_minutes: number;
-}
-
-/** YouTube client configuration. */
-export interface YoutubeConfig {
-  cookie: string;
-  innertube_api_key: string;
-  debug_transcript: boolean;
-}
-
 /**
  * A profile is a partial set of config overrides.
  * The `default` profile should be complete; named profiles only
  * need to specify the keys they want to override.
+ *
+ * Source-private overrides live under `source_overrides.<source-id>`
+ * so the core profile schema stays strict without knowing source-private fields.
  */
 export interface Profile {
   db?: string;
@@ -90,9 +75,7 @@ export interface Profile {
   editor?: Partial<EditorConfig>;
   extraction?: Partial<ExtractionConfig>;
   export?: Partial<ExportConfig>;
-  ytdlp?: Partial<YtdlpConfig>;
-  youtube?: Partial<YoutubeConfig>;
-  rss?: Partial<RssConfig>;
+  source_overrides?: Record<string, Record<string, unknown>>;
   extensions?: Record<string, unknown>;
 }
 
@@ -101,7 +84,7 @@ export interface Profile {
  * that sits between the system-wide default profile and named profiles.
  * Only keys relevant to that source need to appear.
  */
-export type SourceDefaults = Profile;
+export type SourceDefaults = Record<string, unknown>;
 
 /** Optional dotenv loading configuration. */
 export interface EnvConfig {
@@ -124,12 +107,46 @@ export interface AidhaConfig {
   extensions?: Record<string, unknown>;
 }
 
+// ── Source Registration ──────────────────────────────────────────────────────
+
+/**
+ * Compile-time contract for source package adapters.
+ *
+ * Each ingestion source (YouTube, RSS, etc.) exports a concrete
+ * `SourceRegistration` that the resolver uses to build, validate,
+ * and redact the opaque `activeSourceConfig` payload.
+ *
+ * The core `@aidha/config` package never imports source packages;
+ * it receives registrations at resolver time from the CLI bridge.
+ */
+export interface SourceRegistration<TSourceConfig = unknown> {
+  sourceId: string;
+  defaults?: Record<string, unknown>;
+  schema?: unknown;
+  metadata?: {
+    pathFields?: readonly string[];
+    secretFields?: readonly string[];
+    scalarCoercions?: Readonly<Record<string, 'number' | 'boolean' | 'string'>>;
+    explainLabels?: Readonly<Record<string, string>>;
+  };
+  validateActiveSourceConfig(value: unknown): TSourceConfig;
+  redactActiveSourceConfig?(value: TSourceConfig): unknown;
+  resolveSourcePaths?(value: TSourceConfig, baseDir: string): TSourceConfig;
+  cliBindings?: readonly {
+    command: string;
+    selectsSourceByDefault: boolean;
+  }[];
+}
+
 // ── Runtime Resolved Shape ───────────────────────────────────────────────────
 
 /**
- * The flattened, fully-resolved config consumed by application code.
+ * The flattened, fully-resolved core config consumed by application code.
  * All tiers have been merged; all paths resolved; all env vars interpolated.
  * App code reads this without needing to know which tier a value came from.
+ *
+ * Source-private fields are NOT on this type. Source packages narrow
+ * `activeSourceConfig` at their own boundary via `SourceRegistration`.
  */
 export interface ResolvedConfig {
   baseDir: string;
@@ -165,22 +182,8 @@ export interface ResolvedConfig {
     outDir: string;
     sourcePrefix: string;
   };
-  ytdlp: {
-    bin: string;
-    cookiesFile: string;
-    remoteComponents: string;
-    timeoutMs: number;
-    jsRuntimes: string;
-    keepFiles: boolean;
-  };
-  youtube: {
-    cookie: string;
-    innertubeApiKey: string;
-    debugTranscript: boolean;
-  };
-  rss?: {
-    pollIntervalMinutes: number;
-  };
+  activeSourceId?: string;
+  activeSourceConfig?: unknown;
   extensions?: {
     global?: Record<string, unknown>;
     source?: Record<string, unknown>;

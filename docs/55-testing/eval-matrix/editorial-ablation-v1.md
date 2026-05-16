@@ -2,8 +2,8 @@
 document_id: AIDHA-EVAL-ABLATION-001
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.0"
-last_updated: 2026-05-14
+version: "1.1"
+last_updated: 2026-05-15
 title: Editorial Ablation v1 — raw vs editorial-pass-v1 Delta Comparison
 type: EVAL
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-EVAL-ABLATION-001
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.0
-> **Last Updated:** 2026-05-14
+> **Version:** 1.1
+> **Last Updated:** 2026-05-15
 > **Type:** EVAL
 
 # Editorial Ablation v1 — raw vs editorial-pass-v1
@@ -25,6 +25,7 @@ docops_version: "2.0"
 | Version | Date | Author | Change Summary | Status |
 | ------- | ---- | ------ | -------------- | ------ |
 | 1.0 | 2026-05-14 | AI-assisted | Initial write-up with methodology and expected delta patterns. | Draft |
+| 1.1 | 2026-05-15 | Codex | Aligned variant-delta comparisons to shared `judgeModelId` values so partial judge failures do not skew the metric. | Draft |
 
 ## Purpose
 
@@ -38,7 +39,7 @@ The write-up uses the systematic delta patterns identified in the manual baselin
 - **Models:** All models registered in `model-registry.ts` with `tier: "midtier" | "budget"`
 - **Variants compared:** `raw` (base) vs `editorial-pass-v1` (compare)
 - **Scoring:** LLM-as-judge via `scoring-executor.ts`; judge model: `gpt-4o-mini`
-- **Delta metric:** `compare − base` per dimension (positive = editorial improves the dimension)
+- **Delta metric:** `compare − base` per dimension, aligned by shared `judgeModelId` values before averaging (positive = editorial improves the dimension)
 - **Infrastructure:** `VariantDeltaResult` from `src/eval/variant-delta.ts`; surfaced in `MatrixReport.variantDeltaSummary`
 
 **Run command:**

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveCliConfig, buildCliOverrides } from '../src/cli/config-bridge.js';
 import { copySecureConfigSync, writeInsecureConfig, writeSecureConfigSync } from './helpers/config-files.js';
+import { ConfigValidationError } from '@aidha/config';
 
 describe('CLI Configuration Bridge', () => {
   const sourceFixturePath = resolve(__dirname, 'fixtures/config/aidha.yaml');
@@ -22,9 +23,9 @@ describe('CLI Configuration Bridge', () => {
 
   it('resolves defaults when no options provided', async () => {
     // This looks for aidha.yaml in CWD, likely won't find it, so returns defaults
-    const { config } = await resolveCliConfig({});
+    const { config, youtubeConfig } = await resolveCliConfig({});
     expect(config.db).toBe(resolve(process.env['INIT_CWD'] || process.cwd(), './out/aidha.sqlite'));
-    expect(config.youtube.debugTranscript).toBe(false);
+    expect(youtubeConfig).toBeNull();
   });
 
   it('loads configuration from explicit file', async () => {
@@ -70,10 +71,163 @@ describe('CLI Configuration Bridge', () => {
     // We don't have source defaults in fixture, but we can check if source is respected in resolution logic
     // The default defaults.ts in aidha-config provides defaults.
     // Let's just check that it doesn't crash.
-    const { config } = await resolveCliConfig({
+    const { config, youtubeConfig } = await resolveCliConfig({
       source: 'youtube', // Should trigger youtube defaults if any
     });
     expect(config).toBeDefined();
+    expect(youtubeConfig).not.toBeNull();
+    expect(youtubeConfig?.youtube.debugTranscript).toBe(false);
+  });
+
+  it('coerces quoted source override scalars for youtube config', async () => {
+    const configPath = join(fixtureRoot, 'coerced-source-overrides.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: default',
+      'profiles:',
+      '  default:',
+      '    source_overrides:',
+      '      youtube:',
+      '        ytdlp:',
+      '          timeout_ms: "${YTDLP_TIMEOUT}"',
+      '          keep_files: "true"',
+      '        youtube:',
+      '          cookie: ""',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const originalTimeout = process.env['YTDLP_TIMEOUT'];
+    process.env['YTDLP_TIMEOUT'] = '45000';
+
+    try {
+      const result = await resolveCliConfig({
+        configPath,
+        source: 'youtube',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.youtubeConfig?.ytdlp.timeoutMs).toBe(45_000);
+      expect(result.youtubeConfig?.ytdlp.keepFiles).toBe(true);
+    } finally {
+      if (originalTimeout === undefined) {
+        delete process.env['YTDLP_TIMEOUT'];
+      } else {
+        process.env['YTDLP_TIMEOUT'] = originalTimeout;
+      }
+    }
+  });
+
+  it('applies profile source_overrides to the selected youtube source', async () => {
+    const configPath = join(fixtureRoot, 'source-overrides.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: default',
+      'profiles:',
+      '  default:',
+      '    db: ./default.sqlite',
+      '  custom:',
+      '    source_overrides:',
+      '      youtube:',
+      '        youtube:',
+      '          debug_transcript: true',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const result = await resolveCliConfig({
+      configPath,
+      source: 'youtube',
+      profile: 'custom',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.youtubeConfig).not.toBeNull();
+    expect(result.youtubeConfig?.youtube.debugTranscript).toBe(true);
+  });
+
+  it('returns a config-validation failure for invalid core source_overrides', async () => {
+    const configPath = join(fixtureRoot, 'invalid-source-overrides.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: production',
+      'profiles:',
+      '  production:',
+      '    source_overrides:',
+      '      youtube:',
+      '        extraction:',
+      '          max_claims: many',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const result = await resolveCliConfig({
+      configPath,
+      source: 'youtube',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeInstanceOf(ConfigValidationError);
+    expect(result.error.message).toContain('/profiles/production/source_overrides/youtube/extraction/max_claims');
+    expect(result.error).toEqual(expect.objectContaining({
+      errors: expect.arrayContaining([
+        expect.objectContaining({
+          path: expect.stringContaining('/profiles/production/source_overrides/youtube/extraction/max_claims'),
+        }),
+      ]),
+    }));
+  });
+
+  it('resolves activeSourceConfig paths before inspection commands read them', async () => {
+    const configPath = join(fixtureRoot, 'source-paths.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: default',
+      'profiles:',
+      '  default:',
+      '    source_overrides:',
+      '      youtube:',
+      '        ytdlp:',
+      '          cookies_file: ./cookies.txt',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const result = await resolveCliConfig({
+      configPath,
+      source: 'youtube',
+    });
+
+    expect(result.ok).toBe(true);
+    const expectedCookiesPath = resolve(fixtureRoot, './cookies.txt');
+    const activeSourceConfig = result.config.activeSourceConfig as { ytdlp?: { cookies_file?: string } };
+
+    expect(activeSourceConfig?.ytdlp?.cookies_file).toBe(expectedCookiesPath);
+    expect(result.youtubeConfig?.ytdlp.cookiesFile).toBe(expectedCookiesPath);
   });
 
   it('does not warn for secure explicit config permissions', async () => {

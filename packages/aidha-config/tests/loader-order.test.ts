@@ -148,7 +148,8 @@ sources:
 `);
 
     const result = await loadConfig({ cwd: tmpDir, env: {} });
-    const ytdlp = result.config!.sources?.['youtube']?.ytdlp;
+    const youtubeSource = result.config!.sources?.['youtube'] as Record<string, unknown> | undefined;
+    const ytdlp = youtubeSource?.ytdlp as Record<string, unknown> | undefined;
     expect(ytdlp?.bin).toBe('yt-dlp'); // bare command — not resolved
     expect(ytdlp?.cookies_file).toBe(resolve(tmpDir, './cookies.txt'));
   });

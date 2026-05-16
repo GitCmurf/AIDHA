@@ -12,7 +12,7 @@
 
 import { DEFAULTS } from './defaults.js';
 import { isSecretKey, redactSecrets } from './redact.js';
-import type { AidhaConfig, Profile, ResolvedConfig } from './types.js';
+import type { AidhaConfig, Profile, ResolvedConfig, SourceRegistration } from './types.js';
 
 /** The five configuration tiers, from highest to lowest priority. */
 export type ConfigTier =
@@ -58,6 +58,7 @@ export interface ResolveKeyProvenanceOptions {
   cliOverrides?: Partial<Profile>;
   profileName?: string;
   sourceId?: string;
+  sourceRegistrations?: ReadonlyArray<SourceRegistration>;
 }
 
 export interface KeyProvenanceResult {
@@ -97,7 +98,7 @@ export function createProvenance(
       break;
     case 'hardcoded':
       if (options.sourceId) {
-        origin = `built-in source defaults (defaults.ts#sources.${options.sourceId})`;
+        origin = `built-in source defaults (source registration: ${options.sourceId})`;
       } else if (options.profileName) {
         origin = `built-in defaults (defaults.ts#profiles.${options.profileName})`;
       } else {
@@ -147,6 +148,38 @@ function toSnakeCasePath(path: string): string {
     .join('.');
 }
 
+function toKeyCandidates(path: string): string[] {
+  const snakeCasePath = toSnakeCasePath(path);
+  return snakeCasePath === path ? [path] : [path, snakeCasePath];
+}
+
+function hasAnyPath(obj: unknown, paths: ReadonlyArray<string>): boolean {
+  return paths.some(path => deepHas(obj, path));
+}
+
+function sourceOverridePaths(sourceId: string, paths: ReadonlyArray<string>): string[] {
+  return paths.map(path => `source_overrides.${sourceId}.${path}`);
+}
+
+function profileSourceOverridesHasKey(
+  profile: Profile | undefined,
+  sourceId: string,
+  paths: ReadonlyArray<string>,
+): boolean {
+  return hasAnyPath(profile?.source_overrides?.[sourceId], paths);
+}
+
+function registrationDefaultsHasKey(
+  sourceId: string,
+  paths: ReadonlyArray<string>,
+  sourceRegistrations?: ReadonlyArray<SourceRegistration>,
+): boolean {
+  return sourceRegistrations?.some(registration =>
+    registration.sourceId === sourceId &&
+    hasAnyPath(registration.defaults, paths),
+  ) ?? false;
+}
+
 /**
  * Resolve provenance for a single resolved config key.
  *
@@ -156,13 +189,29 @@ function toSnakeCasePath(path: string): string {
 export function resolveKeyProvenance(
   options: ResolveKeyProvenanceOptions,
 ): KeyProvenanceResult {
-  const { key, rawConfig, resolvedConfig, cliOverrides, profileName, sourceId } = options;
-  const altKey = toSnakeCasePath(key);
+  const {
+    key,
+    rawConfig,
+    resolvedConfig,
+    cliOverrides,
+    profileName,
+    sourceId,
+    sourceRegistrations,
+  } = options;
+  const sourceKey = key.startsWith('activeSourceConfig.')
+    ? key.slice('activeSourceConfig.'.length)
+    : key;
+  const keyCandidates = toKeyCandidates(sourceKey);
+  const sourceSpecificCandidates = sourceId
+    ? sourceOverridePaths(sourceId, keyCandidates)
+    : [];
   const keyLeaf = key.split('.').at(-1) ?? key;
-  const altKeyLeaf = altKey.split('.').at(-1) ?? altKey;
-  const has = (obj: unknown): boolean => deepHas(obj, key) || deepHas(obj, altKey);
+  const sourceKeyLeaf = sourceKey.split('.').at(-1) ?? sourceKey;
+  const has = (obj: unknown): boolean => hasAnyPath(obj, keyCandidates) || hasAnyPath(obj, sourceSpecificCandidates);
 
   const defaultProfileName = rawConfig?.default_profile ?? 'default';
+  const activeProfileName = profileName ?? defaultProfileName;
+  const activeProfile = rawConfig?.profiles?.[activeProfileName];
   let tier: ConfigTier;
   let hardcodedFromSource = false;
 
@@ -172,9 +221,11 @@ export function resolveKeyProvenance(
     tier = 'profile';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
+  } else if (has(activeProfile)) {
+    tier = 'default';
   } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
     tier = 'default';
-  } else if (sourceId && has(DEFAULTS.sources?.[sourceId])) {
+  } else if (sourceId && registrationDefaultsHasKey(sourceId, keyCandidates, sourceRegistrations)) {
     tier = 'hardcoded';
     hardcodedFromSource = true;
   } else if (has(DEFAULTS.profiles?.['default'])) {
@@ -185,12 +236,12 @@ export function resolveKeyProvenance(
 
   const provenanceProfileName =
     tier === 'profile'
-      ? profileName
+      ? (profileName ?? activeProfileName)
       : tier === 'default'
         ? defaultProfileName
       : tier === 'hardcoded' && !hardcodedFromSource
-        ? defaultProfileName
-      : undefined;
+        ? 'default'
+        : undefined;
   const provenanceSourceId =
     tier === 'source' || (tier === 'hardcoded' && hardcodedFromSource)
       ? sourceId
@@ -199,7 +250,7 @@ export function resolveKeyProvenance(
   const provenance = createProvenance(key, tier, {
     profileName: provenanceProfileName,
     sourceId: provenanceSourceId,
-  }, isSecretKey(key) || isSecretKey(altKey) || isSecretKey(keyLeaf) || isSecretKey(altKeyLeaf));
+  }, isSecretKey(key) || isSecretKey(sourceKey) || isSecretKey(keyLeaf) || isSecretKey(sourceKeyLeaf));
 
   const value = deepGet(resolvedConfig, key);
   return { value, provenance };
