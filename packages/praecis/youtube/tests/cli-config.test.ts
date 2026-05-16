@@ -22,9 +22,9 @@ describe('CLI Configuration Bridge', () => {
 
   it('resolves defaults when no options provided', async () => {
     // This looks for aidha.yaml in CWD, likely won't find it, so returns defaults
-    const { config } = await resolveCliConfig({});
+    const { config, youtubeConfig } = await resolveCliConfig({});
     expect(config.db).toBe(resolve(process.env['INIT_CWD'] || process.cwd(), './out/aidha.sqlite'));
-    expect(config.youtube.debugTranscript).toBe(false);
+    expect(youtubeConfig).toBeNull();
   });
 
   it('loads configuration from explicit file', async () => {
@@ -70,10 +70,46 @@ describe('CLI Configuration Bridge', () => {
     // We don't have source defaults in fixture, but we can check if source is respected in resolution logic
     // The default defaults.ts in aidha-config provides defaults.
     // Let's just check that it doesn't crash.
-    const { config } = await resolveCliConfig({
+    const { config, youtubeConfig } = await resolveCliConfig({
       source: 'youtube', // Should trigger youtube defaults if any
     });
     expect(config).toBeDefined();
+    expect(youtubeConfig).not.toBeNull();
+    expect(youtubeConfig?.youtube.debugTranscript).toBe(false);
+  });
+
+  it('applies profile source_overrides to the selected youtube source', async () => {
+    const configPath = join(fixtureRoot, 'source-overrides.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: default',
+      'profiles:',
+      '  default:',
+      '    db: ./default.sqlite',
+      '  custom:',
+      '    source_overrides:',
+      '      youtube:',
+      '        youtube:',
+      '          debug_transcript: true',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const result = await resolveCliConfig({
+      configPath,
+      source: 'youtube',
+      profile: 'custom',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.youtubeConfig).not.toBeNull();
+    expect(result.youtubeConfig?.youtube.debugTranscript).toBe(true);
   });
 
   it('does not warn for secure explicit config permissions', async () => {

@@ -196,6 +196,14 @@
         "editor": { "$ref": "#/$defs/EditorConfig" },
         "extraction": { "$ref": "#/$defs/ExtractionConfig" },
         "export": { "$ref": "#/$defs/ExportConfig" },
+        "source_overrides": {
+          "type": "object",
+          "description": "Source-owned profile overrides keyed by source ID.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
         "ytdlp": { "$ref": "#/$defs/YtdlpConfig" },
         "youtube": { "$ref": "#/$defs/YoutubeConfig" },
         "extensions": {

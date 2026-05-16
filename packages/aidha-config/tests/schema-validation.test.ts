@@ -37,9 +37,41 @@ describe('validateConfig — strict schema validation', () => {
             youtube: { cookie: '', innertube_api_key: '', debug_transcript: false },
           },
         },
+        profiles: {
+          default: {
+            db: './test.sqlite',
+            source_overrides: {
+              youtube: {
+                ytdlp: { timeout_ms: 90000 },
+                youtube: { debug_transcript: true },
+              },
+            },
+          },
+        },
         extensions: { custom_key: 'custom_value' },
       }),
     );
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('should accept source_overrides inside a profile', () => {
+    const result = validateConfig(
+      validConfig({
+        profiles: {
+          default: {
+            db: './test.sqlite',
+            source_overrides: {
+              youtube: {
+                ytdlp: { timeout_ms: 90000 },
+                youtube: { debug_transcript: true },
+              },
+            },
+          },
+        },
+      }),
+    );
+
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
