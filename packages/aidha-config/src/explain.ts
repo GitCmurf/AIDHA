@@ -12,7 +12,7 @@
 
 import { DEFAULTS } from './defaults.js';
 import { isSecretKey, redactSecrets } from './redact.js';
-import type { AidhaConfig, Profile, ResolvedConfig } from './types.js';
+import type { AidhaConfig, Profile, ResolvedConfig, SourceRegistration } from './types.js';
 
 /** The five configuration tiers, from highest to lowest priority. */
 export type ConfigTier =
@@ -58,6 +58,7 @@ export interface ResolveKeyProvenanceOptions {
   cliOverrides?: Partial<Profile>;
   profileName?: string;
   sourceId?: string;
+  sourceRegistrations?: ReadonlyArray<SourceRegistration>;
 }
 
 export interface KeyProvenanceResult {
@@ -97,7 +98,7 @@ export function createProvenance(
       break;
     case 'hardcoded':
       if (options.sourceId) {
-        origin = `built-in source defaults (defaults.ts#sources.${options.sourceId})`;
+        origin = `built-in source defaults (source registration: ${options.sourceId})`;
       } else if (options.profileName) {
         origin = `built-in defaults (defaults.ts#profiles.${options.profileName})`;
       } else {
@@ -147,8 +148,19 @@ function toSnakeCasePath(path: string): string {
     .join('.');
 }
 
-function registrationDefaultsHasKey(sourceId: string): boolean {
-  return sourceId in (DEFAULTS.sources ?? {});
+function registrationDefaultsHasKey(
+  sourceId: string,
+  key: string,
+  altKey: string,
+  sourceRegistrations?: ReadonlyArray<SourceRegistration>,
+): boolean {
+  return sourceRegistrations?.some(registration =>
+    registration.sourceId === sourceId &&
+    (
+      deepHas(registration.defaults, key) ||
+      deepHas(registration.defaults, altKey)
+    ),
+  ) ?? false;
 }
 
 /**
@@ -160,7 +172,15 @@ function registrationDefaultsHasKey(sourceId: string): boolean {
 export function resolveKeyProvenance(
   options: ResolveKeyProvenanceOptions,
 ): KeyProvenanceResult {
-  const { key, rawConfig, resolvedConfig, cliOverrides, profileName, sourceId } = options;
+  const {
+    key,
+    rawConfig,
+    resolvedConfig,
+    cliOverrides,
+    profileName,
+    sourceId,
+    sourceRegistrations,
+  } = options;
   const altKey = toSnakeCasePath(key);
   const keyLeaf = key.split('.').at(-1) ?? key;
   const altKeyLeaf = altKey.split('.').at(-1) ?? altKey;
@@ -176,11 +196,11 @@ export function resolveKeyProvenance(
     tier = 'profile';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
-  } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
-    tier = 'default';
-  } else if (sourceId && registrationDefaultsHasKey(sourceId)) {
+  } else if (sourceId && registrationDefaultsHasKey(sourceId, key, altKey, sourceRegistrations)) {
     tier = 'hardcoded';
     hardcodedFromSource = true;
+  } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
+    tier = 'default';
   } else if (has(DEFAULTS.profiles?.['default'])) {
     tier = 'hardcoded';
   } else {

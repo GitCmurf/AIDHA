@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createProvenance, formatProvenance, resolveKeyProvenance } from '../src/explain.js';
 import type { ConfigTier } from '../src/explain.js';
 import { resolveConfig } from '../src/resolver.js';
+import type { SourceRegistration } from '../src/types.js';
 
 describe('createProvenance', () => {
   it('should create CLI tier provenance', () => {
@@ -209,6 +210,33 @@ describe('resolveKeyProvenance', () => {
 
     expect(result.provenance.tier).toBe('source');
     expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(10);
+  });
+
+  it('reports built-in source registration defaults as hardcoded provenance', () => {
+    const sourceRegistration: SourceRegistration = {
+      sourceId: 'youtube',
+      defaults: {
+        extraction: { max_claims: 10 },
+      },
+      validateActiveSourceConfig: value => value,
+    };
+
+    const resolvedConfig = resolveConfig({
+      sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      resolvedConfig,
+      sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
+    });
+
+    expect(result.provenance.tier).toBe('hardcoded');
+    expect(result.provenance.origin).toContain('source registration');
     expect(result.value).toBe(10);
   });
 

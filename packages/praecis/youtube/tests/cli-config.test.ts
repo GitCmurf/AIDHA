@@ -78,6 +78,51 @@ describe('CLI Configuration Bridge', () => {
     expect(youtubeConfig?.youtube.debugTranscript).toBe(false);
   });
 
+  it('coerces quoted source override scalars for youtube config', async () => {
+    const configPath = join(fixtureRoot, 'coerced-source-overrides.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: default',
+      'profiles:',
+      '  default:',
+      '    source_overrides:',
+      '      youtube:',
+      '        ytdlp:',
+      '          timeout_ms: "${YTDLP_TIMEOUT}"',
+      '          keep_files: "true"',
+      '        youtube:',
+      '          cookie: ""',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const originalTimeout = process.env['YTDLP_TIMEOUT'];
+    process.env['YTDLP_TIMEOUT'] = '45000';
+
+    try {
+      const result = await resolveCliConfig({
+        configPath,
+        source: 'youtube',
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.youtubeConfig?.ytdlp.timeoutMs).toBe(45_000);
+      expect(result.youtubeConfig?.ytdlp.keepFiles).toBe(true);
+    } finally {
+      if (originalTimeout === undefined) {
+        delete process.env['YTDLP_TIMEOUT'];
+      } else {
+        process.env['YTDLP_TIMEOUT'] = originalTimeout;
+      }
+    }
+  });
+
   it('applies profile source_overrides to the selected youtube source', async () => {
     const configPath = join(fixtureRoot, 'source-overrides.yaml');
     writeSecureConfigSync(configPath, [

@@ -4,6 +4,7 @@ import {
   YouTubeSourceRegistration,
 } from '../src/config/youtube-source-adapter.js';
 import type { ResolvedYoutubeConfig } from '../src/config/youtube-source-adapter.js';
+import { ConfigValidationError } from '@aidha/config';
 
 describe('YouTube source adapter', () => {
   it('should export a stable SOURCE_ID', () => {
@@ -51,6 +52,31 @@ describe('YouTube source adapter', () => {
     expect(validated.ytdlp.bin).toBe('my-bin');
     expect(validated.ytdlp.timeoutMs).toBe(120_000);
     expect(validated.youtube.debugTranscript).toBe(false);
+  });
+
+  it('should coerce string scalar overrides declared in metadata', () => {
+    const raw = {
+      ytdlp: {
+        timeout_ms: '45000',
+        keep_files: 'true',
+      },
+      youtube: {
+        debug_transcript: 'false',
+      },
+    };
+
+    const validated = YouTubeSourceRegistration.validateActiveSourceConfig(raw);
+    expect(validated.ytdlp.timeoutMs).toBe(45_000);
+    expect(validated.ytdlp.keepFiles).toBe(true);
+    expect(validated.youtube.debugTranscript).toBe(false);
+  });
+
+  it('should reject uncoercible string scalar overrides', () => {
+    expect(() =>
+      YouTubeSourceRegistration.validateActiveSourceConfig({
+        ytdlp: { timeout_ms: 'soon' },
+      }),
+    ).toThrow(ConfigValidationError);
   });
 
   it('should redact secrets', () => {

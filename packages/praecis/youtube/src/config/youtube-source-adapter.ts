@@ -15,6 +15,7 @@
  */
 
 import type { SourceRegistration } from '@aidha/config';
+import { ConfigValidationError } from '@aidha/config';
 import { resolve } from 'node:path';
 import { resolvePathValue } from '@aidha/config';
 
@@ -66,6 +67,12 @@ const YOUTUBE_SOURCE_DEFAULTS: Record<string, unknown> = {
   },
 };
 
+const YOUTUBE_SOURCE_SCALAR_COERCIONS: Readonly<Record<string, 'number' | 'boolean' | 'string'>> = {
+  'ytdlp.timeout_ms': 'number',
+  'ytdlp.keep_files': 'boolean',
+  'youtube.debug_transcript': 'boolean',
+};
+
 // ── Validation / Narrowing ───────────────────────────────────────────────────
 
 function toString(value: unknown, fallback = ''): string {
@@ -78,6 +85,137 @@ function toNumber(value: unknown, fallback = 0): number {
 
 function toBoolean(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function clonePlainObject<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(item => clonePlainObject(item)) as T;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = clonePlainObject(entry);
+    }
+    return result as T;
+  }
+
+  return value;
+}
+
+function getNestedValue(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((acc, part) => {
+    if (acc !== null && typeof acc === 'object') {
+      return (acc as Record<string, unknown>)[part];
+    }
+    return undefined;
+  }, value);
+}
+
+function setNestedValue(target: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let current: Record<string, unknown> = target;
+
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const part = parts[index];
+    const next = current[part];
+    if (next === null || typeof next !== 'object' || Array.isArray(next)) {
+      const replacement: Record<string, unknown> = {};
+      current[part] = replacement;
+      current = replacement;
+      continue;
+    }
+
+    const nested = next as Record<string, unknown>;
+    current = nested;
+  }
+
+  current[parts.at(-1) ?? path] = value;
+}
+
+function parseBooleanScalar(value: string): boolean | null {
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return null;
+}
+
+function coerceScalarValue(
+  value: unknown,
+  kind: 'number' | 'boolean' | 'string',
+  path: string,
+): { value?: unknown; issue?: { path: string; message: string } } {
+  if (kind === 'string') {
+    if (typeof value === 'string') {
+      return { value };
+    }
+    return {
+      issue: {
+        path,
+        message: `Expected a string, got ${value === null ? 'null' : typeof value}`,
+      },
+    };
+  }
+
+  if (kind === 'number') {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return { value };
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value.trim());
+      if (value.trim().length > 0 && Number.isFinite(parsed)) {
+        return { value: parsed };
+      }
+    }
+    return {
+      issue: {
+        path,
+        message: `Expected a number or numeric string, got ${JSON.stringify(value)}`,
+      },
+    };
+  }
+
+  if (typeof value === 'boolean') {
+    return { value };
+  }
+
+  if (typeof value === 'string') {
+    const parsed = parseBooleanScalar(value);
+    if (parsed !== null) {
+      return { value: parsed };
+    }
+  }
+
+  return {
+    issue: {
+      path,
+      message: `Expected a boolean or boolean string, got ${JSON.stringify(value)}`,
+    },
+  };
+}
+
+function applyScalarCoercions(raw: Record<string, unknown>): Record<string, unknown> {
+  const coerced = clonePlainObject(raw);
+  const issues: Array<{ path: string; message: string }> = [];
+
+  for (const [path, kind] of Object.entries(YOUTUBE_SOURCE_SCALAR_COERCIONS)) {
+    const current = getNestedValue(coerced, path);
+    if (current === undefined) continue;
+
+    const result = coerceScalarValue(current, kind, path);
+    if (result.issue) {
+      issues.push(result.issue);
+      continue;
+    }
+
+    setNestedValue(coerced, path, result.value);
+  }
+
+  if (issues.length > 0) {
+    throw new ConfigValidationError('source_overrides.youtube', issues);
+  }
+
+  return coerced;
 }
 
 function narrowYtdlp(raw: unknown): YtdlpConfig {
@@ -147,7 +285,7 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
         youtube: narrowYoutube(null),
       };
     }
-    const obj = value as Record<string, unknown>;
+    const obj = applyScalarCoercions(value as Record<string, unknown>);
     return {
       ytdlp: narrowYtdlp(obj['ytdlp']),
       youtube: narrowYoutube(obj['youtube']),

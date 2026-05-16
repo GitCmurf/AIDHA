@@ -659,8 +659,24 @@ sources:
       // But we want it to NOT fail with "No config loaded".
       // llm.model is in defaults? Yes: DEFAULTS.profiles.default.llm.model = 'gpt-5-mini'
 
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('gpt-5-mini'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Hardcoded'));
+  });
+
+    it('explain resolves source-owned core defaults when --source is provided', async () => {
+      await createConfig([
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default: {}',
+      ].join('\n'));
+      const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const code = await runCli(['config', 'explain', 'extraction.maxClaims', '--config', configPath, '--source', 'youtube']);
+
       expect(code).toBe(0);
-      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('gpt-5-mini'));
+      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('15'));
       expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Hardcoded'));
     });
 
