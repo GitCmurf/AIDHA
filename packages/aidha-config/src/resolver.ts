@@ -5,12 +5,17 @@
  * @aidha/config — Five-tier configuration resolver.
  *
  * Merges configuration from five tiers (CLI → profile → source → default → hardcoded)
- * into a single `ResolvedConfig` consumed by application code.
+ * into a core `ResolvedConfig` plus an opaque `activeSourceConfig` for source-private
+ * fields.
  *
  * Merge semantics:
  *   - Scalars: higher tier wins.
  *   - Objects: deep-merge (recursive).
  *   - Arrays: higher tier replaces entirely (no concatenation).
+ *
+ * Source-private fields are collected into `activeSourceConfig` and validated
+ * by the owning source package via `SourceRegistration`. The core resolver
+ * does not interpret source-private payloads.
  *
  * @module
  */
@@ -19,6 +24,7 @@ import type {
   AidhaConfig,
   Profile,
   ResolvedConfig,
+  SourceRegistration,
 } from './types.js';
 import { DEFAULTS } from './defaults.js';
 import { resolvePathValue } from './paths.js';
@@ -56,13 +62,11 @@ export function deepMerge<T extends Record<string, unknown>>(
       typeof tgtVal === 'object' &&
       !Array.isArray(tgtVal)
     ) {
-      // Recursive merge for plain objects
       result[key] = deepMerge(
         tgtVal as Record<string, unknown>,
         srcVal as Record<string, unknown>,
       );
     } else {
-      // Scalars and arrays: source wins
       result[key] = srcVal;
     }
   }
@@ -70,24 +74,52 @@ export function deepMerge<T extends Record<string, unknown>>(
   return result as T;
 }
 
-// ── Profile to flat config mapping ───────────────────────────────────────────
+// ── Core profile fields ──────────────────────────────────────────────────────
+
+const CORE_PROFILE_KEYS = new Set([
+  'db', 'llm', 'editor', 'extraction', 'export',
+  'source_overrides', 'extensions',
+]);
 
 /**
- * Convert a `Profile` (with optional sections) into a flat record
- * suitable for merging. Missing sections are omitted.
+ * Extract only core-known fields from a profile-like object.
+ * Source-private keys are excluded so they flow into activeSourceConfig.
  */
-function profileToFlat(profile: Profile): Record<string, unknown> {
+function extractCoreFields(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (CORE_PROFILE_KEYS.has(key)) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Convert a `Profile` into a flat record of core fields for merging.
+ */
+function profileToCoreFlat(profile: Profile): Record<string, unknown> {
   const flat: Record<string, unknown> = {};
   if (profile.db !== undefined) flat['db'] = profile.db;
   if (profile.llm) flat['llm'] = { ...profile.llm };
   if (profile.editor) flat['editor'] = { ...profile.editor };
   if (profile.extraction) flat['extraction'] = { ...profile.extraction };
   if (profile.export) flat['export'] = { ...profile.export };
-  if (profile.ytdlp) flat['ytdlp'] = { ...profile.ytdlp };
-  if (profile.youtube) flat['youtube'] = { ...profile.youtube };
-  if (profile.rss) flat['rss'] = { ...profile.rss };
-  if (profile.extensions) flat['extensions'] = { ...profile.extensions };
   return flat;
+}
+
+/**
+ * Extract source_overrides for a specific source ID from a profile.
+ * Returns ALL keys (core + source-private) because source_overrides
+ * is the explicit channel for source-private profile overrides.
+ */
+function getSourceOverrides(
+  profile: Profile | undefined,
+  sourceId: string,
+): Record<string, unknown> | undefined {
+  if (!profile?.source_overrides) return undefined;
+  const overrides = profile.source_overrides[sourceId];
+  return overrides && typeof overrides === 'object' ? overrides as Record<string, unknown> : undefined;
 }
 
 // ── Main resolver ────────────────────────────────────────────────────────────
@@ -104,6 +136,29 @@ export interface ResolveOptions {
   rawConfig?: AidhaConfig | null;
   /** The base directory for the resolved config. */
   baseDir?: string;
+  /** Source registrations providing defaults, validation, and metadata. */
+  sourceRegistrations?: SourceRegistration[];
+}
+
+/** Core-known section names that may appear in source defaults. */
+const CORE_SECTION_NAMES = new Set(['llm', 'editor', 'extraction', 'export', 'db']);
+
+/**
+ * Separate a source payload into core-known sections and source-private sections.
+ */
+function partitionSourcePayload(
+  payload: Record<string, unknown>,
+): { core: Record<string, unknown>; sourcePrivate: Record<string, unknown> } {
+  const core: Record<string, unknown> = {};
+  const sourcePrivate: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (CORE_SECTION_NAMES.has(key)) {
+      core[key] = value;
+    } else {
+      sourcePrivate[key] = value;
+    }
+  }
+  return { core, sourcePrivate };
 }
 
 /**
@@ -115,6 +170,9 @@ export interface ResolveOptions {
  *   4. System-wide default profile
  *   5. Hardcoded fallback defaults (DEFAULTS)
  *
+ * Source-private fields are collected into `activeSourceConfig`.
+ * Core-known fields from source layers merge into the core `ResolvedConfig`.
+ *
  * @returns A fully-resolved `ResolvedConfig`.
  */
 export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
@@ -124,35 +182,95 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     sourceId,
     rawConfig,
     baseDir = process.cwd(),
+    sourceRegistrations = [],
   } = options;
+
+  const activeProfileName = profileName ?? rawConfig?.default_profile ?? 'default';
+  const registration = sourceId
+    ? sourceRegistrations.find(r => r.sourceId === sourceId)
+    : undefined;
 
   // ── Tier 5: Hardcoded defaults ──────────────────────────────────────
   const defaultProfile = DEFAULTS.profiles?.['default'];
   if (!defaultProfile) {
     throw new Error('Hardcoded DEFAULTS is missing required profiles.default');
   }
-  const defaultSourceDefaults = sourceId ? DEFAULTS.sources?.[sourceId] : undefined;
-  let merged = profileToFlat(defaultProfile as Profile);
-
-  // Merge hardcoded source defaults under the system default
-  if (defaultSourceDefaults) {
-    merged = deepMerge(merged, profileToFlat(defaultSourceDefaults as Profile));
-  }
+  let merged = profileToCoreFlat(defaultProfile as Profile);
 
   // ── Tier 4: System-wide default profile from config file ────────────
   if (rawConfig) {
     const configDefaultName = rawConfig.default_profile ?? 'default';
     const configDefault = rawConfig.profiles?.[configDefaultName];
     if (configDefault) {
-      merged = deepMerge(merged, profileToFlat(configDefault));
+      merged = deepMerge(merged, profileToCoreFlat(configDefault));
     }
   }
 
-  // ── Tier 3: Ingestion-source defaults from config file ──────────────
-  if (rawConfig && sourceId) {
-    const sourceDefaults = rawConfig.sources?.[sourceId];
-    if (sourceDefaults) {
-      merged = deepMerge(merged, profileToFlat(sourceDefaults));
+  // ── Build activeSourceConfig from source layers ─────────────────────
+  let activeSourceConfig: Record<string, unknown> | undefined;
+
+  if (sourceId) {
+    activeSourceConfig = {};
+
+    // Layer 1: Registration defaults (weakest)
+    if (registration?.defaults) {
+      activeSourceConfig = deepMerge(
+        activeSourceConfig ?? {},
+        registration.defaults as Record<string, unknown>,
+      );
+    }
+
+    // Layer 2: Default profile source_overrides
+    if (rawConfig) {
+      const configDefaultName = rawConfig.default_profile ?? 'default';
+      const defaultProfileOverrides = getSourceOverrides(
+        rawConfig.profiles?.[configDefaultName],
+        sourceId,
+      );
+      if (defaultProfileOverrides) {
+        activeSourceConfig = deepMerge(
+          activeSourceConfig ?? {},
+          defaultProfileOverrides,
+        );
+      }
+    }
+
+    // Layer 3: sources.<sourceId> defaults (Tier 3)
+    if (rawConfig?.sources?.[sourceId]) {
+      const sourceDefaults = rawConfig.sources[sourceId] as Record<string, unknown>;
+      activeSourceConfig = deepMerge(
+        activeSourceConfig ?? {},
+        sourceDefaults,
+      );
+
+      // Also merge core-known sections from source defaults into core config
+      const { core: sourceCore } = partitionSourcePayload(sourceDefaults);
+      if (Object.keys(sourceCore).length > 0) {
+        merged = deepMerge(merged, sourceCore);
+      }
+    }
+
+    // Layer 4: Named profile source_overrides
+    if (rawConfig && profileName) {
+      const namedProfileOverrides = getSourceOverrides(
+        rawConfig.profiles?.[profileName],
+        sourceId,
+      );
+      if (namedProfileOverrides) {
+        activeSourceConfig = deepMerge(
+          activeSourceConfig ?? {},
+          namedProfileOverrides,
+        );
+      }
+    }
+
+    // Layer 5: CLI source overrides (strongest for source payload)
+    if (cliOverrides?.source_overrides?.[sourceId]) {
+      const cliSourceOverrides = cliOverrides.source_overrides[sourceId] as Record<string, unknown>;
+      activeSourceConfig = deepMerge(
+        activeSourceConfig ?? {},
+        cliSourceOverrides,
+      );
     }
   }
 
@@ -160,13 +278,13 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   if (rawConfig && profileName) {
     const namedProfile = rawConfig.profiles?.[profileName];
     if (namedProfile) {
-      merged = deepMerge(merged, profileToFlat(namedProfile));
+      merged = deepMerge(merged, profileToCoreFlat(namedProfile));
     }
   }
 
   // ── Tier 1: CLI flag overrides ──────────────────────────────────────
   if (cliOverrides) {
-    merged = deepMerge(merged, profileToFlat(cliOverrides));
+    merged = deepMerge(merged, profileToCoreFlat(cliOverrides));
   }
 
   // ── Construct ResolvedConfig ────────────────────────────────────────
@@ -175,10 +293,6 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   const editor = (m['editor'] ?? {}) as Record<string, unknown>;
   const extraction = (m['extraction'] ?? {}) as Record<string, unknown>;
   const exp = (m['export'] ?? {}) as Record<string, unknown>;
-  const ytdlp = (m['ytdlp'] ?? {}) as Record<string, unknown>;
-  const youtube = (m['youtube'] ?? {}) as Record<string, unknown>;
-  const rss = (m['rss'] ?? {}) as Record<string, unknown>;
-  const activeProfileName = profileName ?? rawConfig?.default_profile;
 
   // Build extensions with three scopes
   const extensions: ResolvedConfig['extensions'] = {};
@@ -187,9 +301,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     extensions.global = { ...topExt };
   }
   if (rawConfig && sourceId) {
-    const srcExt = rawConfig.sources?.[sourceId]?.extensions;
-    if (srcExt && Object.keys(srcExt).length > 0) {
-      extensions.source = { ...srcExt };
+    const srcExt = (rawConfig.sources?.[sourceId] as Record<string, unknown> | undefined)?.['extensions'];
+    if (srcExt && typeof srcExt === 'object' && Object.keys(srcExt as Record<string, unknown>).length > 0) {
+      extensions.source = { ...(srcExt as Record<string, unknown>) };
     }
   }
   if (rawConfig && activeProfileName) {
@@ -245,28 +359,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       outDir: resolvePathValue((exp['out_dir'] as string) ?? '', baseDir),
       sourcePrefix: (exp['source_prefix'] as string) ?? '',
     },
-    ytdlp: {
-      bin: resolvePathValue((ytdlp['bin'] as string) ?? '', baseDir),
-      cookiesFile: resolvePathValue((ytdlp['cookies_file'] as string) ?? '', baseDir),
-      remoteComponents: (ytdlp['remote_components'] as string) ?? '',
-      timeoutMs: (ytdlp['timeout_ms'] as number) ?? 0,
-      jsRuntimes: (ytdlp['js_runtimes'] as string) ?? '',
-      keepFiles: (ytdlp['keep_files'] as boolean) ?? false,
-    },
-    youtube: {
-      cookie: (youtube['cookie'] as string) ?? '',
-      innertubeApiKey: (youtube['innertube_api_key'] as string) ?? '',
-      debugTranscript: (youtube['debug_transcript'] as boolean) ?? false,
-    },
-    // RSS config availability is source-dependent (Tier 3)
-    // Currently used for future-proofing and testing extensibility.
-    ...(rss['poll_interval_minutes'] !== undefined
-      ? {
-          rss: {
-            pollIntervalMinutes: rss['poll_interval_minutes'] as number,
-          },
-        }
-      : {}),
+    ...(sourceId ? { activeSourceId: sourceId } : {}),
+    ...(activeSourceConfig !== undefined ? { activeSourceConfig } : {}),
     ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
   };
 }

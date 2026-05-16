@@ -70,7 +70,6 @@ describe('deepMerge', () => {
 describe('resolveConfig — five-tier merge', () => {
   it('should return hardcoded defaults when no config file or overrides', () => {
     const resolved = resolveConfig();
-    // These come from hardcoded DEFAULTS (Tier 5)
     expect(resolved.llm.model).toBe('gpt-5-mini');
     expect(resolved.editor.version).toBe('v2');
     expect(resolved.extraction.maxClaims).toBe(15);
@@ -87,22 +86,35 @@ describe('resolveConfig — five-tier merge', () => {
     });
     const resolved = resolveConfig({ rawConfig: config });
     expect(resolved.llm.model).toBe('from-config-default');
-    // Hardcoded editor defaults still apply
     expect(resolved.editor.version).toBe('v2');
   });
 
-  it('Tier 3: source defaults override system default', () => {
+  it('Tier 3: source defaults merge core sections into ResolvedConfig', () => {
     const config = minimalConfig({
       sources: {
         youtube: {
           extraction: { max_claims: 99 },
-          ytdlp: { bin: 'custom-ytdlp', timeout_ms: 5000 },
         },
       },
     });
     const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
     expect(resolved.extraction.maxClaims).toBe(99);
-    expect(resolved.ytdlp.bin).toBe('custom-ytdlp');
+    expect(resolved.activeSourceId).toBe('youtube');
+  });
+
+  it('Tier 3: source-private fields go into activeSourceConfig', () => {
+    const config = minimalConfig({
+      sources: {
+        youtube: {
+          ytdlp: { bin: 'custom-ytdlp', timeout_ms: 5000 },
+        },
+      },
+    });
+    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.bin).toBe('custom-ytdlp');
+    expect(ytdlp.timeout_ms).toBe(5000);
   });
 
   it('Tier 2: named profile overrides source defaults', () => {
@@ -122,7 +134,7 @@ describe('resolveConfig — five-tier merge', () => {
     });
     expect(resolved.llm.model).toBe('ollama/llama3');
     expect(resolved.llm.timeoutMs).toBe(60000);
-    expect(resolved.extraction.maxClaims).toBe(50); // from source
+    expect(resolved.extraction.maxClaims).toBe(50);
   });
 
   it('Tier 1: CLI overrides trump everything', () => {
@@ -146,16 +158,16 @@ describe('resolveConfig — five-tier merge', () => {
       default_profile: 'default',
       profiles: {
         default: {
-          db: './tier4.sqlite',                           // Tier 4
+          db: './tier4.sqlite',
           llm: { model: 'tier4-model', timeout_ms: 4000 },
         },
         myprofile: {
-          editor: { version: 'v1' },                     // Tier 2
+          editor: { version: 'v1' },
         },
       },
       sources: {
         youtube: {
-          extraction: { prompt_version: 'tier3-prompt' }, // Tier 3
+          extraction: { prompt_version: 'tier3-prompt' },
         },
       },
     };
@@ -163,14 +175,129 @@ describe('resolveConfig — five-tier merge', () => {
       rawConfig: config,
       profileName: 'myprofile',
       sourceId: 'youtube',
-      cliOverrides: { llm: { model: 'tier1-model' } },  // Tier 1
+      cliOverrides: { llm: { model: 'tier1-model' } },
     });
 
-    expect(resolved.llm.model).toBe('tier1-model');            // Tier 1
-    expect(resolved.editor.version).toBe('v1');                // Tier 2
-    expect(resolved.extraction.promptVersion).toBe('tier3-prompt'); // Tier 3
-    expect(resolved.db).toBe(resolve(process.cwd(), './tier4.sqlite')); // Tier 4
-    expect(resolved.editor.minChars).toBe(50);                 // Tier 5
+    expect(resolved.llm.model).toBe('tier1-model');
+    expect(resolved.editor.version).toBe('v1');
+    expect(resolved.extraction.promptVersion).toBe('tier3-prompt');
+    expect(resolved.db).toBe(resolve(process.cwd(), './tier4.sqlite'));
+    expect(resolved.editor.minChars).toBe(50);
+  });
+});
+
+// ── Source boundary ──────────────────────────────────────────────────────────
+
+describe('resolveConfig — source boundary', () => {
+  it('should not include source-private fields on ResolvedConfig', () => {
+    const resolved = resolveConfig({ sourceId: 'youtube' });
+    expect('ytdlp' in resolved).toBe(false);
+    expect('youtube' in resolved).toBe(false);
+    expect('rss' in resolved).toBe(false);
+  });
+
+  it('should leave activeSourceConfig undefined when no source is selected', () => {
+    const resolved = resolveConfig();
+    expect(resolved.activeSourceId).toBeUndefined();
+    expect(resolved.activeSourceConfig).toBeUndefined();
+  });
+
+  it('should build activeSourceConfig from source defaults', () => {
+    const config = minimalConfig({
+      sources: {
+        youtube: {
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+          youtube: { cookie: '' },
+        },
+      },
+    });
+    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.bin).toBe('yt-dlp');
+    expect(ytdlp.timeout_ms).toBe(120000);
+  });
+
+  it('should merge profile source_overrides into activeSourceConfig', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {},
+        production: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 90000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+        },
+      },
+    });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      profileName: 'production',
+      sourceId: 'youtube',
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.timeout_ms).toBe(90000);
+    expect(ytdlp.bin).toBe('yt-dlp');
+  });
+
+  it('should merge core-known sections from source defaults into ResolvedConfig', () => {
+    const config = minimalConfig({
+      sources: {
+        youtube: {
+          extraction: { max_claims: 10, chunk_minutes: 3 },
+          ytdlp: { bin: 'yt-dlp' },
+        },
+      },
+    });
+    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    expect(resolved.extraction.maxClaims).toBe(10);
+    expect(resolved.extraction.chunkMinutes).toBe(3);
+  });
+
+  it('should use source registration defaults when no user config', () => {
+    const registration = {
+      sourceId: 'test-source',
+      defaults: { widget: { name: 'default-widget', timeout_ms: 5000 } },
+      validateActiveSourceConfig: (v: unknown) => v,
+    };
+    const resolved = resolveConfig({
+      sourceId: 'test-source',
+      sourceRegistrations: [registration],
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const widget = sourceConfig.widget as Record<string, unknown>;
+    expect(widget.name).toBe('default-widget');
+  });
+
+  it('should let user source defaults override registration defaults', () => {
+    const registration = {
+      sourceId: 'test-source',
+      defaults: { widget: { name: 'default-widget', timeout_ms: 5000 } },
+      validateActiveSourceConfig: (v: unknown) => v,
+    };
+    const config = minimalConfig({
+      sources: {
+        'test-source': {
+          widget: { name: 'user-widget' },
+        },
+      },
+    });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'test-source',
+      sourceRegistrations: [registration],
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const widget = sourceConfig.widget as Record<string, unknown>;
+    expect(widget.name).toBe('user-widget');
+    expect(widget.timeout_ms).toBe(5000);
   });
 });
 
@@ -179,7 +306,7 @@ describe('resolveConfig — five-tier merge', () => {
 describe('resolveConfig — edge cases', () => {
   it('should handle null rawConfig gracefully', () => {
     const resolved = resolveConfig({ rawConfig: null });
-    expect(resolved.llm.model).toBe('gpt-5-mini'); // updated default
+    expect(resolved.llm.model).toBe('gpt-5-mini');
   });
 
   it('should handle missing profile name gracefully', () => {
@@ -188,7 +315,6 @@ describe('resolveConfig — edge cases', () => {
       rawConfig: config,
       profileName: 'nonexistent',
     });
-    // Should still get default profile values
     expect(resolved.llm.model).toBe('config-default-model');
   });
 

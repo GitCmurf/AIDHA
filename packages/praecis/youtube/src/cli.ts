@@ -48,6 +48,7 @@ import {
   type ConfigBridgeResult,
 } from './cli/config-bridge.js';
 import type { ResolvedConfig } from '@aidha/config';
+import type { ResolvedYoutubeConfig } from './config/index.js';
 import { createLlmClientFromConfig } from './extract/llm-client.js';
 
 export type CliOptions = Record<string, string | boolean>;
@@ -218,7 +219,7 @@ async function openStore(options: CliOptions, config: ResolvedConfig): Promise<S
   return SQLiteStore.open(dbPath);
 }
 
-async function runIngest(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
+async function runIngest(positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig): Promise<number> {
   const mode = positionals[1];
   const target = positionals[2];
   if (!mode || !target) {
@@ -226,20 +227,17 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
     return 1;
   }
 
-  // Note: config.ytdlp has already incorporated CLI overrides via buildCliOverrides()
-
   const store = await openStore(options, config);
   const taxonomyRegistry = new InMemoryRegistry();
 
-  // Resolve full YtDlpRuntimeConfig
   const ytDlpConfig = {
-    ...config.ytdlp,
-    debugTranscript: config.youtube.debugTranscript,
+    ...youtubeConfig.ytdlp,
+    debugTranscript: youtubeConfig.youtube.debugTranscript,
   };
 
   const client = optionBool(options, 'mock')
     ? new MockYouTubeClient()
-    : new RealYouTubeClient(config.youtube, ytDlpConfig);
+    : new RealYouTubeClient(youtubeConfig.youtube, ytDlpConfig);
 
   const pipeline = new IngestionPipeline({
     graphStore: store,
@@ -306,7 +304,7 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
   return 0;
 }
 
-async function runExtract(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
+async function runExtract(positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig): Promise<number> {
   const mode = positionals[1];
   const videoArg = positionals[2];
   if (!mode || !videoArg) {
@@ -438,7 +436,7 @@ async function runClaims(positionals: string[], options: CliOptions, config: Res
   return 0;
 }
 
-async function runExport(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
+async function runExport(positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig): Promise<number> {
   const kind = positionals[1];
   if (!kind) {
     console.error('Usage: export <dossier|transcript|gephi> ...');
@@ -516,9 +514,9 @@ async function runExport(positionals: string[], options: CliOptions, config: Res
     } else {
       const client = optionBool(options, 'mock')
         ? new MockYouTubeClient()
-        : new RealYouTubeClient(config.youtube, {
-            ...config.ytdlp,
-            debugTranscript: config.youtube.debugTranscript,
+        : new RealYouTubeClient(youtubeConfig.youtube, {
+            ...youtubeConfig.ytdlp,
+            debugTranscript: youtubeConfig.youtube.debugTranscript,
           });
       const playlistResult = await client.fetchPlaylist(playlistId);
       if (!playlistResult.ok) return playlistResult;
@@ -825,7 +823,7 @@ async function runReview(positionals: string[], options: CliOptions, config: Res
   return 0;
 }
 
-async function runDiagnose(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
+async function runDiagnose(positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig): Promise<number> {
   const mode = positionals[1];
   if (!mode) {
     console.error('Usage: diagnose <transcript|extract|editor|stats> ...');
@@ -881,9 +879,9 @@ async function runDiagnose(positionals: string[], options: CliOptions, config: R
     const useMock = optionBool(options, 'mock');
     const client = useMock
       ? new MockYouTubeClient()
-      : new RealYouTubeClient(config.youtube, {
-          ...config.ytdlp,
-          debugTranscript: config.youtube.debugTranscript,
+      : new RealYouTubeClient(youtubeConfig.youtube, {
+          ...youtubeConfig.ytdlp,
+          debugTranscript: youtubeConfig.youtube.debugTranscript,
         });
     const result = await diagnoseTranscript(client, videoId, {
       checkTooling: !useMock,
@@ -1126,7 +1124,7 @@ async function runProject(positionals: string[], options: CliOptions, config: Re
   return 0;
 }
 
-async function runPreflight(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
+async function runPreflight(positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig): Promise<number> {
   const mode = positionals[1];
   if (mode !== 'youtube') {
     console.error('Usage: preflight youtube [--json] [--probe-url <url>]');
@@ -1136,7 +1134,7 @@ async function runPreflight(positionals: string[], options: CliOptions, config: 
   const probeUrl = optionString(options, 'probe-url', '');
   const result = await runYtDlpPreflight(
     { probeUrl: probeUrl || undefined },
-    { ...config.ytdlp, debugTranscript: config.youtube.debugTranscript }
+    { ...youtubeConfig.ytdlp, debugTranscript: youtubeConfig.youtube.debugTranscript }
   );
   if (!result.ok) {
     console.error(result.error.message);
@@ -1271,17 +1269,35 @@ const resolveConfigForCommand = async (command: string, positionals: string[], o
   return handleResolutionFailure(command, resolution);
 };
 
-const runIngestCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runIngestCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig | null): Promise<number | null> => {
   switch (command) {
-    case 'ingest': return runIngest(positionals, options, config);
-    case 'extract': return runExtract(positionals, options, config);
+    case 'ingest': {
+      if (!youtubeConfig) {
+        console.error('YouTube source not configured. Use --source youtube or configure the youtube source.');
+        return Promise.resolve(1);
+      }
+      return runIngest(positionals, options, config, youtubeConfig);
+    }
+    case 'extract': {
+      if (!youtubeConfig) {
+        console.error('YouTube source not configured. Use --source youtube or configure the youtube source.');
+        return Promise.resolve(1);
+      }
+      return runExtract(positionals, options, config, youtubeConfig);
+    }
     case 'claims': return runClaims(positionals, options, config);
-    case 'export': return runExport(positionals, options, config);
+    case 'export': {
+      if (!youtubeConfig) {
+        console.error('YouTube source not configured. Use --source youtube or configure the youtube source.');
+        return Promise.resolve(1);
+      }
+      return runExport(positionals, options, config, youtubeConfig);
+    }
     default: return Promise.resolve(null);
   }
 };
 
-const runAnalysisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runAnalysisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig, _youtubeConfig: ResolvedYoutubeConfig | null): Promise<number | null> => {
   switch (command) {
     case 'query': return runQuery(positionals, options, config);
     case 'related': return runRelated(positionals, options, config);
@@ -1291,7 +1307,7 @@ const runAnalysisCommand = (command: string, positionals: string[], options: Cli
   }
 };
 
-const runProjectCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runProjectCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig, _youtubeConfig: ResolvedYoutubeConfig | null): Promise<number | null> => {
   switch (command) {
     case 'area': return runArea(positionals, options, config);
     case 'goal': return runGoal(positionals, options, config);
@@ -1300,15 +1316,27 @@ const runProjectCommand = (command: string, positionals: string[], options: CliO
   }
 };
 
-const runDiagnosisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runDiagnosisCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig | null): Promise<number | null> => {
   switch (command) {
-    case 'diagnose': return runDiagnose(positionals, options, config);
-    case 'preflight': return runPreflight(positionals, options, config);
+    case 'diagnose': {
+      if (!youtubeConfig) {
+        console.error('YouTube source not configured. Use --source youtube or configure the youtube source.');
+        return Promise.resolve(1);
+      }
+      return runDiagnose(positionals, options, config, youtubeConfig);
+    }
+    case 'preflight': {
+      if (!youtubeConfig) {
+        console.error('YouTube source not configured. Use --source youtube or configure the youtube source.');
+        return Promise.resolve(1);
+      }
+      return runPreflight(positionals, options, config, youtubeConfig);
+    }
     default: return Promise.resolve(null);
   }
 };
 
-const runSystemCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runSystemCommand = (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig, _youtubeConfig: ResolvedYoutubeConfig | null): Promise<number | null> => {
   switch (command) {
     case 'fixtures': return runFixtures(positionals, options, config);
     case 'eval': return runEvalMatrix(positionals, options, config);
@@ -1324,9 +1352,9 @@ const COMMAND_RUNNERS = [
   runSystemCommand,
 ];
 
-const runMatchingRunner = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number | null> => {
+const runMatchingRunner = async (command: string, positionals: string[], options: CliOptions, config: ResolvedConfig, youtubeConfig: ResolvedYoutubeConfig | null): Promise<number | null> => {
   for (const runner of COMMAND_RUNNERS) {
-    const result = await runner(command, positionals, options, config);
+    const result = await runner(command, positionals, options, config, youtubeConfig);
     if (result !== null) return result;
   }
   return null;
@@ -1339,6 +1367,7 @@ const handleConfigCommand = (positionals: string[], options: CliOptions, resolut
 
 const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
   const config = resolution.ok ? resolution.config : undefined;
+  const youtubeConfig = resolution.ok ? resolution.youtubeConfig : null;
 
   if (config) {
     const dotenvEnv = resolution.loadResult?.dotenvEnv ?? {};
@@ -1350,7 +1379,7 @@ const executeCommand = async (command: string, positionals: string[], options: C
       }
     }
     try {
-      const result = await runMatchingRunner(command, positionals, options, config);
+      const result = await runMatchingRunner(command, positionals, options, config, youtubeConfig);
       if (result !== null) return result;
     } finally {
       for (const key of Object.keys(savedOriginals)) {

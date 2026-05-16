@@ -28,26 +28,18 @@ describe('DEFAULTS', () => {
     expect(defaultProfile?.export).toBeDefined();
   });
 
-  it('should have YouTube source defaults', () => {
-    const youtubeSrc = DEFAULTS.sources?.['youtube'];
-    expect(youtubeSrc).toBeDefined();
-    expect(youtubeSrc?.ytdlp).toBeDefined();
-    expect(youtubeSrc?.youtube).toBeDefined();
-    expect(youtubeSrc?.extraction).toBeDefined();
+  it('should not contain source-specific defaults (owned by source packages)', () => {
+    expect(DEFAULTS.sources).toBeUndefined();
   });
 
   it('should have sensible numeric defaults', () => {
     const llm = DEFAULTS.profiles['default']?.llm;
     expect(llm?.timeout_ms).toBeGreaterThan(0);
-    const ytdlp = DEFAULTS.sources?.['youtube']?.ytdlp;
-    expect(ytdlp?.timeout_ms).toBeGreaterThan(0);
   });
 
   it('should have empty strings for secret fields (not hardcoded values)', () => {
     const llm = DEFAULTS.profiles['default']?.llm;
     expect(llm?.api_key).toBe('');
-    const youtube = DEFAULTS.sources?.['youtube']?.youtube;
-    expect(youtube?.cookie).toBe('');
   });
 
   it('should have reasoning_effort and verbosity with valid defaults', () => {

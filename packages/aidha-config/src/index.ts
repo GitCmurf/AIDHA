@@ -25,10 +25,9 @@ export type {
   EditorConfig,
   ExtractionConfig,
   ExportConfig,
-  YtdlpConfig,
-  YoutubeConfig,
   EnvConfig,
   ResolvedConfig,
+  SourceRegistration,
   DeepReadonly,
 } from './types.js';
 

@@ -170,49 +170,46 @@ describe('resolveKeyProvenance', () => {
     expect(result.value).toBe('https://example.local/v1');
   });
 
-  it('reports hardcoded source-default origin when only built-in source value exists', () => {
-    const rawConfig = {
-      config_version: 1,
-      default_profile: 'local',
-      profiles: {
-        local: {},
-      },
-    };
-
+  it('reports hardcoded origin for core config values', () => {
     const resolvedConfig = resolveConfig({
-      rawConfig,
-      profileName: 'local',
-      sourceId: 'youtube',
-      baseDir: process.cwd(),
-    });
-
-    const result = resolveKeyProvenance({
-      key: 'youtube.cookie',
-      rawConfig,
-      resolvedConfig,
-      profileName: 'local',
-      sourceId: 'youtube',
-    });
-
-    expect(result.provenance.tier).toBe('hardcoded');
-    expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
-  });
-
-  it('reports built-in source defaults before built-in profile defaults', () => {
-    const resolvedConfig = resolveConfig({
-      sourceId: 'youtube',
       baseDir: process.cwd(),
     });
 
     const result = resolveKeyProvenance({
       key: 'extraction.maxClaims',
       resolvedConfig,
-      sourceId: 'youtube',
     });
 
     expect(result.provenance.tier).toBe('hardcoded');
-    expect(result.provenance.origin).toContain('defaults.ts#sources.youtube');
     expect(result.value).toBe(15);
+  });
+
+  it('reports source tier when source defaults provide a core value', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: { default: {} },
+      sources: {
+        youtube: { extraction: { max_claims: 10 } },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(10);
   });
 
   it('marks secret keys as secret for explain redaction', () => {

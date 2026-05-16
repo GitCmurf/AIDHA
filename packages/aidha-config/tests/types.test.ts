@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import type { AidhaConfig, LlmConfig, ResolvedConfig } from '../src/types.js';
+import type { AidhaConfig, LlmConfig, ResolvedConfig, SourceRegistration } from '../src/types.js';
 
 describe('config public types', () => {
   it('should expose embedding fields on on-disk LLM config', () => {
@@ -31,7 +31,17 @@ describe('config public types', () => {
     expectTypeOf<ResolvedConfig['llm']>().toHaveProperty('embeddingOutputDimensionality').toEqualTypeOf<number>();
   });
 
-  it('should allow source-specific RSS defaults in on-disk config', () => {
-    expectTypeOf<NonNullable<AidhaConfig['sources']>['rss']>().toHaveProperty('rss');
+  it('should expose source boundary fields on ResolvedConfig', () => {
+    expectTypeOf<ResolvedConfig>().toHaveProperty('activeSourceId').toEqualTypeOf<string | undefined>();
+    expectTypeOf<ResolvedConfig>().toHaveProperty('activeSourceConfig').toEqualTypeOf<unknown>();
+  });
+
+  it('should expose SourceRegistration with required contract methods', () => {
+    expectTypeOf<SourceRegistration>().toHaveProperty('sourceId').toEqualTypeOf<string>();
+    expectTypeOf<SourceRegistration>().toHaveProperty('validateActiveSourceConfig').toBeFunction();
+  });
+
+  it('should allow source_overrides in profiles', () => {
+    expectTypeOf<AidhaConfig['profiles']['default']>().toHaveProperty('source_overrides');
   });
 });

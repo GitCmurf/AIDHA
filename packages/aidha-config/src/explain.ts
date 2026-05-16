@@ -147,6 +147,10 @@ function toSnakeCasePath(path: string): string {
     .join('.');
 }
 
+function registrationDefaultsHasKey(sourceId: string): boolean {
+  return sourceId in (DEFAULTS.sources ?? {});
+}
+
 /**
  * Resolve provenance for a single resolved config key.
  *
@@ -174,7 +178,7 @@ export function resolveKeyProvenance(
     tier = 'source';
   } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
     tier = 'default';
-  } else if (sourceId && has(DEFAULTS.sources?.[sourceId])) {
+  } else if (sourceId && registrationDefaultsHasKey(sourceId)) {
     tier = 'hardcoded';
     hardcodedFromSource = true;
   } else if (has(DEFAULTS.profiles?.['default'])) {

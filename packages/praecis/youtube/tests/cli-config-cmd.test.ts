@@ -675,14 +675,13 @@ sources:
     });
   });
 
-  it('config get resolves RSS defaults (Active Source)', async () => {
-    // Prove RSS config is "live" via --source defaults
+  it('config get resolves activeSourceId in zero-config mode', async () => {
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const code = await runCli(['config', 'get', 'rss.pollIntervalMinutes', '--source', 'rss']);
+
+    const code = await runCli(['config', 'get', 'activeSourceId', '--source', 'youtube']);
 
     expect(code).toBe(0);
-    // Should resolve to 60 from DEFAULTS.sources.rss (Tier 5)
-    expect(consoleLog).toHaveBeenCalledWith('60');
+    expect(consoleLog).toHaveBeenCalledWith('youtube');
   });
 
 });
