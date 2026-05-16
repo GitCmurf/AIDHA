@@ -68,8 +68,14 @@ const YOUTUBE_SOURCE_DEFAULTS: Record<string, unknown> = {
 };
 
 const YOUTUBE_SOURCE_SCALAR_COERCIONS: Readonly<Record<string, 'number' | 'boolean' | 'string'>> = {
+  'ytdlp.bin': 'string',
+  'ytdlp.cookies_file': 'string',
+  'ytdlp.remote_components': 'string',
   'ytdlp.timeout_ms': 'number',
+  'ytdlp.js_runtimes': 'string',
   'ytdlp.keep_files': 'boolean',
+  'youtube.cookie': 'string',
+  'youtube.innertube_api_key': 'string', // pragma: allowlist secret
   'youtube.debug_transcript': 'boolean',
 };
 

@@ -20,6 +20,16 @@ function minimalConfig(overrides: Partial<AidhaConfig> = {}): AidhaConfig {
   };
 }
 
+const TEST_YOUTUBE_REGISTRATION = {
+  sourceId: 'youtube',
+  defaults: {
+    ytdlp: { timeout_ms: 120000 },
+    youtube: { debug_transcript: false },
+    extraction: { max_claims: 15 },
+  },
+  validateActiveSourceConfig: (value: unknown) => value,
+};
+
 // ── deepMerge ────────────────────────────────────────────────────────────────
 
 describe('deepMerge', () => {
@@ -87,6 +97,22 @@ describe('resolveConfig — five-tier merge', () => {
     const resolved = resolveConfig({ rawConfig: config });
     expect(resolved.llm.model).toBe('from-config-default');
     expect(resolved.editor.version).toBe('v2');
+  });
+
+  it('Tier 4: system default profile overrides source registration defaults', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          extraction: { max_claims: 30 },
+        },
+      },
+    });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+      sourceRegistrations: [TEST_YOUTUBE_REGISTRATION],
+    });
+    expect(resolved.extraction.maxClaims).toBe(30);
   });
 
   it('Tier 3: source defaults merge core sections into ResolvedConfig', () => {
@@ -251,14 +277,6 @@ describe('resolveConfig — five-tier merge', () => {
 // ── Source boundary ──────────────────────────────────────────────────────────
 
 describe('resolveConfig — source boundary', () => {
-  const YOUTUBE_REGISTRATION = {
-    sourceId: 'youtube',
-    defaults: {
-      ytdlp: { timeout_ms: 120000 },
-      youtube: { debug_transcript: false },
-    },
-    validateActiveSourceConfig: (value: unknown) => value,
-  };
 
   it('should not include source-private fields on ResolvedConfig', () => {
     const resolved = resolveConfig({ sourceId: 'youtube' });
@@ -285,7 +303,7 @@ describe('resolveConfig — source boundary', () => {
     const resolved = resolveConfig({
       rawConfig: config,
       sourceId: 'youtube',
-      sourceRegistrations: [YOUTUBE_REGISTRATION],
+      sourceRegistrations: [TEST_YOUTUBE_REGISTRATION],
     });
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
@@ -306,7 +324,7 @@ describe('resolveConfig — source boundary', () => {
     const resolved = resolveConfig({
       rawConfig: config,
       sourceId: 'youtube',
-      sourceRegistrations: [YOUTUBE_REGISTRATION],
+      sourceRegistrations: [TEST_YOUTUBE_REGISTRATION],
     });
     expect(resolved.extraction.maxClaims).toBe(10);
 
@@ -328,7 +346,7 @@ describe('resolveConfig — source boundary', () => {
     const resolved = resolveConfig({
       rawConfig: config,
       sourceId: 'youtube',
-      sourceRegistrations: [YOUTUBE_REGISTRATION],
+      sourceRegistrations: [TEST_YOUTUBE_REGISTRATION],
     });
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
@@ -355,7 +373,7 @@ describe('resolveConfig — source boundary', () => {
       rawConfig: config,
       profileName: 'production',
       sourceId: 'youtube',
-      sourceRegistrations: [YOUTUBE_REGISTRATION],
+      sourceRegistrations: [TEST_YOUTUBE_REGISTRATION],
     });
 
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;

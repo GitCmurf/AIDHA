@@ -71,6 +71,17 @@ describe('YouTube source adapter', () => {
     expect(validated.youtube.debugTranscript).toBe(false);
   });
 
+  it.each([
+    ['ytdlp.bin', { ytdlp: { bin: 123 } }],
+    ['ytdlp.cookies_file', { ytdlp: { cookies_file: 123 } }],
+    ['ytdlp.remote_components', { ytdlp: { remote_components: 123 } }],
+    ['ytdlp.js_runtimes', { ytdlp: { js_runtimes: 123 } }],
+    ['youtube.cookie', { youtube: { cookie: 123 } }],
+    ['youtube.innertube_api_key', { youtube: { innertube_api_key: 123 } }],
+  ])('should reject non-string overrides for %s', (_field, raw) => {
+    expect(() => YouTubeSourceRegistration.validateActiveSourceConfig(raw)).toThrow(ConfigValidationError);
+  });
+
   it('should reject uncoercible string scalar overrides', () => {
     expect(() =>
       YouTubeSourceRegistration.validateActiveSourceConfig({

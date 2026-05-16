@@ -233,6 +233,16 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   }
   let merged = profileToCoreFlat(defaultProfile as Profile);
 
+  // Source registration defaults are the weakest source-specific layer.
+  // Apply their core-known sections before the configured default profile so
+  // profiles.default can still override them.
+  if (sourceId && registration?.defaults) {
+    const { core: registrationCore } = partitionSourcePayload(registration.defaults);
+    if (Object.keys(registrationCore).length > 0) {
+      merged = deepMerge(merged, registrationCore);
+    }
+  }
+
   // ── Tier 4: System-wide default profile from config file ────────────
   if (rawConfig) {
     const configDefaultName = rawConfig.default_profile ?? 'default';
@@ -267,15 +277,11 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
     // Layer 1: Registration defaults (weakest)
     if (registration?.defaults) {
-      const { core: registrationCore, sourcePrivate: registrationPrivate } =
-        partitionSourcePayload(registration.defaults);
+      const { sourcePrivate: registrationPrivate } = partitionSourcePayload(registration.defaults);
       activeSourceConfig = deepMerge(
         activeSourceConfig ?? {},
         registrationPrivate,
       );
-      if (Object.keys(registrationCore).length > 0) {
-        merged = deepMerge(merged, registrationCore);
-      }
     }
 
     // Layer 2: Default profile source_overrides
