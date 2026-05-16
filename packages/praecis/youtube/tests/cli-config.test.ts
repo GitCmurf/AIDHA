@@ -157,6 +157,40 @@ describe('CLI Configuration Bridge', () => {
     expect(result.youtubeConfig?.youtube.debugTranscript).toBe(true);
   });
 
+  it('resolves activeSourceConfig paths before inspection commands read them', async () => {
+    const configPath = join(fixtureRoot, 'source-paths.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: default',
+      'profiles:',
+      '  default:',
+      '    source_overrides:',
+      '      youtube:',
+      '        ytdlp:',
+      '          cookies_file: ./cookies.txt',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const result = await resolveCliConfig({
+      configPath,
+      source: 'youtube',
+    });
+
+    expect(result.ok).toBe(true);
+    const expectedCookiesPath = resolve(fixtureRoot, './cookies.txt');
+    const activeSourceConfig = result.config.activeSourceConfig as { ytdlp?: { cookies_file?: string } };
+
+    expect(activeSourceConfig?.ytdlp?.cookies_file).toBe(expectedCookiesPath);
+    expect(result.youtubeConfig?.ytdlp.cookiesFile).toBe(expectedCookiesPath);
+  });
+
   it('does not warn for secure explicit config permissions', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 

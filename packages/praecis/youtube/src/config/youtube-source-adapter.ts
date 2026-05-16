@@ -354,3 +354,31 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
     { command: 'diagnose editor', selectsSourceByDefault: true },
   ],
 };
+
+export function resolveRawYoutubeActiveSourceConfigPaths(
+  value: unknown,
+  baseDir: string,
+): unknown {
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+
+  const resolved = clonePlainObject(value as Record<string, unknown>);
+  const ytdlp = resolved['ytdlp'];
+  if (ytdlp !== null && typeof ytdlp === 'object' && !Array.isArray(ytdlp)) {
+    const ytdlpConfig = clonePlainObject(ytdlp as Record<string, unknown>);
+    const bin = ytdlpConfig['bin'];
+    if (typeof bin === 'string') {
+      ytdlpConfig['bin'] = resolvePathValue(bin, baseDir);
+    }
+
+    const cookiesFile = ytdlpConfig['cookies_file'];
+    if (typeof cookiesFile === 'string' && cookiesFile !== '') {
+      ytdlpConfig['cookies_file'] = resolve(baseDir, cookiesFile);
+    }
+
+    resolved['ytdlp'] = ytdlpConfig;
+  }
+
+  return resolved;
+}

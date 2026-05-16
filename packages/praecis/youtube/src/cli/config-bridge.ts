@@ -28,6 +28,7 @@ import {
 import {
   YouTubeSourceRegistration,
   SOURCE_ID as YOUTUBE_SOURCE_ID,
+  resolveRawYoutubeActiveSourceConfigPaths,
 } from '../config/index.js';
 import type { ResolvedYoutubeConfig } from '../config/index.js';
 
@@ -114,6 +115,10 @@ export async function resolveCliConfig(
 
     let youtubeConfig: ResolvedYoutubeConfig | null = null;
     if (config.activeSourceId === YOUTUBE_SOURCE_ID && config.activeSourceConfig !== undefined) {
+      config.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+        config.activeSourceConfig,
+        config.baseDir,
+      );
       youtubeConfig = YouTubeSourceRegistration.validateActiveSourceConfig(
         config.activeSourceConfig,
       );

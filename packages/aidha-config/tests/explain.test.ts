@@ -279,6 +279,40 @@ describe('resolveKeyProvenance', () => {
     expect(result.value).toBe(60000);
   });
 
+  it('reports source provenance before a non-default configured default profile when the source also defines the key', () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'local',
+      profiles: {
+        local: {
+          extraction: { max_claims: 30 },
+        },
+      },
+      sources: {
+        youtube: {
+          extraction: { max_claims: 10 },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'extraction.maxClaims',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(10);
+  });
+
   it('reports source provenance before default-profile source_overrides for activeSourceConfig source_overrides', async () => {
     const rawConfig = {
       config_version: 1,

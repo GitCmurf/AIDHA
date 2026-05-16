@@ -212,9 +212,8 @@ export function resolveKeyProvenance(
   const defaultProfileName = rawConfig?.default_profile ?? 'default';
   const activeProfileName = profileName ?? defaultProfileName;
   const activeProfile = rawConfig?.profiles?.[activeProfileName];
-  const defaultProfile = rawConfig?.profiles?.['default'];
-  const defaultProfileSourceOverrideHasKey = sourceId
-    ? profileSourceOverridesHasKey(defaultProfile, sourceId, keyCandidates)
+  const activeProfileSourceOverrideHasKey = sourceId
+    ? profileSourceOverridesHasKey(activeProfile, sourceId, keyCandidates)
     : false;
   let tier: ConfigTier;
   let hardcodedFromSource = false;
@@ -223,11 +222,13 @@ export function resolveKeyProvenance(
     tier = 'cli';
   } else if (profileName && has(rawConfig?.profiles?.[profileName])) {
     tier = 'profile';
-  } else if (!profileName && defaultProfileName !== 'default' && has(activeProfile)) {
+  } else if (!profileName && defaultProfileName !== 'default' && activeProfileSourceOverrideHasKey) {
     tier = 'profile';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
-  } else if (!profileName && defaultProfileName === 'default' && defaultProfileSourceOverrideHasKey) {
+  } else if (!profileName && defaultProfileName === 'default' && activeProfileSourceOverrideHasKey) {
+    tier = 'default';
+  } else if (!profileName && has(activeProfile)) {
     tier = 'default';
   } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
     tier = 'default';

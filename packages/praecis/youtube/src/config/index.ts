@@ -10,6 +10,7 @@
 export {
   SOURCE_ID,
   YouTubeSourceRegistration,
+  resolveRawYoutubeActiveSourceConfigPaths,
 } from './youtube-source-adapter.js';
 
 export type {
