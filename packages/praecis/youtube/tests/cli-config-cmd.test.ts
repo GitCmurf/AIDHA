@@ -120,6 +120,29 @@ profiles:
     expect(errorOutput).toContain('max_claims');
   });
 
+  it('validate rejects invalid youtube-specific source_overrides', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    db: ./test.sqlite
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: -1
+          keep_files: maybe
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('/profiles/local/source_overrides/youtube');
+    expect(errorOutput).toContain('/profiles/local/source_overrides/youtube/ytdlp/keep_files');
+  });
+
   it('list-profiles lists profiles', async () => {
     await createConfig(`
 config_version: 1
@@ -508,7 +531,7 @@ profiles:
     expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('profiles.prod'));
   });
 
-  it('explain prefers default profile source_overrides over source defaults', async () => {
+  it('explain prefers source defaults over default-profile source_overrides for activeSourceConfig', async () => {
     await createConfig(`
 config_version: 1
 default_profile: default
@@ -536,9 +559,9 @@ sources:
     ]);
 
     expect(code).toBe(0);
-    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('profiles.default'));
-    expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('sources.youtube'));
-    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('45000'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('sources.youtube'));
+    expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('profiles.default'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('60000'));
   });
 
   it('validate reports correct file path on load failure (Round 3 Repro)', async () => {

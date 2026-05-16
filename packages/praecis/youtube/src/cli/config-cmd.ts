@@ -174,7 +174,7 @@ function runConfigValidate(options: CliOptions, loadResult: LoadResult, error?: 
     return 0;
   }
 
-  const result = validateConfig(loadResult.config);
+  const result = validateConfig(loadResult.config, [YouTubeSourceRegistration]);
   if (result.valid) {
     console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
     return 0;

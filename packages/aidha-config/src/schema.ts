@@ -15,6 +15,7 @@ import type { ValidateFunction, ErrorObject } from 'ajv';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { SourceRegistration } from './types.js';
 
 // Under NodeNext, `import X from 'ajv'` yields the namespace object.
 // The constructor lives at `.default`.
@@ -62,28 +63,156 @@ export interface ValidationError {
   keyword: string;
 }
 
+type ValidationIssueLike = {
+  path: string;
+  message: string;
+};
+
+type StructuredValidationError = {
+  errors?: ValidationIssueLike[];
+  message?: string;
+};
+
+function normalizeValidationPath(path: string): string {
+  const normalized = path.replace(/^\/+/, '').replace(/\./g, '/');
+  return normalized.length > 0 ? `/${normalized}` : '/';
+}
+
+function combineValidationPath(context: string, issuePath: string): string {
+  const normalizedContext = context.replace(/^\/+/, '').replace(/\/+$/, '');
+  const normalizedIssue = issuePath.replace(/^\/+/, '').replace(/\./g, '/');
+
+  if (!normalizedContext) {
+    return normalizeValidationPath(normalizedIssue);
+  }
+
+  if (!normalizedIssue) {
+    return normalizeValidationPath(normalizedContext);
+  }
+
+  return normalizeValidationPath(`${normalizedContext}/${normalizedIssue}`);
+}
+
+function toValidationErrors(
+  error: unknown,
+  context: string,
+): ValidationError[] {
+  const structured = error as StructuredValidationError | null;
+  if (structured?.errors && Array.isArray(structured.errors) && structured.errors.length > 0) {
+    return structured.errors.map((issue) => ({
+      path: combineValidationPath(context, issue.path),
+      message: issue.message,
+      keyword: 'sourceValidation',
+    }));
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return [{
+    path: normalizeValidationPath(context),
+    message,
+    keyword: 'sourceValidation',
+  }];
+}
+
+function validateRegisteredSourcePayload(
+  sourceId: string,
+  payload: unknown,
+  context: string,
+  sourceRegistrations: ReadonlyArray<SourceRegistration>,
+): ValidationError[] {
+  const registration = sourceRegistrations.find((entry) => entry.sourceId === sourceId);
+  if (!registration || payload === undefined) {
+    return [];
+  }
+
+  try {
+    registration.validateActiveSourceConfig(payload);
+    return [];
+  } catch (error) {
+    return toValidationErrors(error, context);
+  }
+}
+
+function validateKnownSourceBlocks(
+  config: unknown,
+  sourceRegistrations: ReadonlyArray<SourceRegistration>,
+): ValidationError[] {
+  if (!config || typeof config !== 'object' || sourceRegistrations.length === 0) {
+    return [];
+  }
+
+  const errors: ValidationError[] = [];
+  const rawConfig = config as Record<string, unknown>;
+  const sourceIds = new Set(sourceRegistrations.map((entry) => entry.sourceId));
+
+  const sources = rawConfig['sources'];
+  if (sources && typeof sources === 'object') {
+    for (const [sourceId, payload] of Object.entries(sources as Record<string, unknown>)) {
+      if (!sourceIds.has(sourceId)) continue;
+      errors.push(...validateRegisteredSourcePayload(
+        sourceId,
+        payload,
+        `sources.${sourceId}`,
+        sourceRegistrations,
+      ));
+    }
+  }
+
+  const profiles = rawConfig['profiles'];
+  if (profiles && typeof profiles === 'object') {
+    for (const [profileName, profileValue] of Object.entries(profiles as Record<string, unknown>)) {
+      if (!profileValue || typeof profileValue !== 'object') continue;
+
+      const sourceOverrides = (profileValue as Record<string, unknown>)['source_overrides'];
+      if (!sourceOverrides || typeof sourceOverrides !== 'object') continue;
+
+      for (const [sourceId, payload] of Object.entries(sourceOverrides as Record<string, unknown>)) {
+        if (!sourceIds.has(sourceId)) continue;
+        errors.push(...validateRegisteredSourcePayload(
+          sourceId,
+          payload,
+          `profiles.${profileName}.source_overrides.${sourceId}`,
+          sourceRegistrations,
+        ));
+      }
+    }
+  }
+
+  return errors;
+}
+
 /**
  * Validate a parsed config object against the AIDHA config JSON schema.
  *
  * @param config - The raw parsed config object (e.g., from YAML.parse).
+ * @param sourceRegistrations - Optional source registrations used to validate
+ *   source-private payloads for known sources.
  * @returns A `ValidationResult` with `valid: true` if the config is valid,
  *   or `valid: false` with an array of structured errors.
  */
-export function validateConfig(config: unknown): ValidationResult {
+export function validateConfig(
+  config: unknown,
+  sourceRegistrations: ReadonlyArray<SourceRegistration> = [],
+): ValidationResult {
   const validate = getValidator();
   const valid = validate(config);
+  const errors: ValidationError[] = [];
 
-  if (valid) {
-    return { valid: true, errors: [] };
+  if (!valid) {
+    errors.push(...(validate.errors ?? []).map(
+      (err: ErrorObject) => ({
+        path: err.instancePath || '/',
+        message: err.message ?? 'Unknown validation error',
+        keyword: err.keyword,
+      }),
+    ));
   }
 
-  const errors: ValidationError[] = (validate.errors ?? []).map(
-    (err: ErrorObject) => ({
-      path: err.instancePath || '/',
-      message: err.message ?? 'Unknown validation error',
-      keyword: err.keyword,
-    }),
-  );
+  errors.push(...validateKnownSourceBlocks(config, sourceRegistrations));
+
+  if (errors.length === 0) {
+    return { valid: true, errors: [] };
+  }
 
   return { valid: false, errors };
 }
