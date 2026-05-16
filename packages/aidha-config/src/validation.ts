@@ -10,7 +10,7 @@
  */
 
 export class ValidationError extends Error {
-  constructor(public message: string, public code?: string) {
+  constructor(message: string, public code?: string) {
     super(message);
     this.name = 'ValidationError';
   }

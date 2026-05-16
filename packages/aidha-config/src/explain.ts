@@ -240,7 +240,7 @@ export function resolveKeyProvenance(
       : tier === 'default'
         ? defaultProfileName
       : tier === 'hardcoded' && !hardcodedFromSource
-        ? defaultProfileName
+        ? 'default'
         : undefined;
   const provenanceSourceId =
     tier === 'source' || (tier === 'hardcoded' && hardcodedFromSource)
