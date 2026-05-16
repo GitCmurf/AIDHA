@@ -296,6 +296,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   // ── Build activeSourceConfig from source layers ─────────────────────
   let activeSourceConfig: Record<string, unknown> | undefined;
+  let defaultProfileSourceCore: Record<string, unknown> | undefined;
   let activeProfileSourceCore: Record<string, unknown> | undefined;
   let cliSourceCore: Record<string, unknown> | undefined;
   const legacySourceKeys = new Set<string>();
@@ -326,6 +327,37 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       );
     }
 
+    // Layer 2: Default-profile source_overrides (weaker than source defaults)
+    if (rawConfig?.profiles?.['default']) {
+      const defaultProfileSourceOverrides = getSourceOverrides(
+        rawConfig.profiles['default'],
+        sourceId,
+      );
+      if (defaultProfileSourceOverrides) {
+        const {
+          core: defaultProfileSourceCorePayload,
+          sourcePrivate: defaultProfileSourcePrivate,
+        } = partitionValidatedSourcePayload(
+          defaultProfileSourceOverrides,
+          `profiles.default.source_overrides.${sourceId}`,
+        );
+        activeSourceConfig = deepMerge(
+          activeSourceConfig ?? {},
+          defaultProfileSourcePrivate,
+        );
+        if (Object.keys(defaultProfileSourceCorePayload).length > 0) {
+          defaultProfileSourceCore = deepMerge(
+            defaultProfileSourceCore ?? {},
+            defaultProfileSourceCorePayload,
+          );
+        }
+      }
+    }
+
+    if (defaultProfileSourceCore) {
+      merged = deepMerge(merged, defaultProfileSourceCore);
+    }
+
     // Layer 3: sources.<sourceId> defaults (Tier 3)
     if (sourceDefaults) {
       // Also merge core-known sections from source defaults into core config
@@ -340,9 +372,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       }
     }
 
-    // Layer 4: Active profile source-specific config
+    // Layer 4: Active profile source-private fields, plus explicit named-profile overrides.
     if (rawConfig) {
-      const sourceProfileName = profileName ?? rawConfig.default_profile;
+      const sourceProfileName = activeProfileName;
       const sourceProfile = rawConfig.profiles?.[sourceProfileName];
       const sourceProfileLegacySourceFields = extractLegacyProfileSourceFields(
         sourceProfile,
@@ -355,7 +387,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
         );
       }
 
-      const sourceProfileOverrides = sourceProfile
+      const applyActiveProfileSourceOverrides = profileName !== undefined || sourceProfileName !== 'default';
+      const sourceProfileOverrides = applyActiveProfileSourceOverrides && sourceProfile
         ? getSourceOverrides(sourceProfile, sourceId)
         : undefined;
       if (sourceProfileOverrides) {

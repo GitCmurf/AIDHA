@@ -131,7 +131,7 @@ describe('resolveConfig — five-tier merge', () => {
     expect(resolved.activeSourceId).toBe('youtube');
   });
 
-  it('Tier 3: default-profile source_overrides override source defaults when no profileName is supplied', () => {
+  it('Tier 3: source defaults outrank default-profile source_overrides when no profileName is supplied', () => {
     const config = minimalConfig({
       profiles: {
         default: {
@@ -152,14 +152,20 @@ describe('resolveConfig — five-tier merge', () => {
       rawConfig: config,
       sourceId: 'youtube',
     });
-    expect(resolved.extraction.maxClaims).toBe(5);
+    expect(resolved.extraction.maxClaims).toBe(10);
   });
 
-  it('Tier 3: default-profile source_overrides act as active profile when no profileName is supplied', () => {
+  it('Tier 3: the configured default profile still applies source_overrides when it is not profiles.default', () => {
     const config = minimalConfig({
       default_profile: 'production',
       profiles: {
-        default: {},
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 45000 },
+            },
+          },
+        },
         production: {
           source_overrides: {
             youtube: {
@@ -176,6 +182,41 @@ describe('resolveConfig — five-tier merge', () => {
     });
     const resolved = resolveConfig({
       rawConfig: config,
+      sourceId: 'youtube',
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.timeout_ms).toBe(90000);
+    expect(ytdlp.bin).toBe('yt-dlp');
+  });
+
+  it('Tier 2: named profile source_overrides outrank source defaults and default-profile source_overrides', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 45000 },
+            },
+          },
+        },
+        production: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 90000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+        },
+      },
+    });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      profileName: 'production',
       sourceId: 'youtube',
     });
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;

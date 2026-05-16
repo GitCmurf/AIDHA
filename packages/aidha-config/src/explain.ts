@@ -210,6 +210,12 @@ export function resolveKeyProvenance(
   const has = (obj: unknown): boolean => hasAnyPath(obj, keyCandidates) || hasAnyPath(obj, sourceSpecificCandidates);
 
   const defaultProfileName = rawConfig?.default_profile ?? 'default';
+  const activeProfileName = profileName ?? defaultProfileName;
+  const activeProfile = rawConfig?.profiles?.[activeProfileName];
+  const defaultProfile = rawConfig?.profiles?.['default'];
+  const defaultProfileSourceOverrideHasKey = sourceId
+    ? profileSourceOverridesHasKey(defaultProfile, sourceId, keyCandidates)
+    : false;
   let tier: ConfigTier;
   let hardcodedFromSource = false;
 
@@ -217,14 +223,12 @@ export function resolveKeyProvenance(
     tier = 'cli';
   } else if (profileName && has(rawConfig?.profiles?.[profileName])) {
     tier = 'profile';
-  } else if (
-    !profileName &&
-    sourceId &&
-    profileSourceOverridesHasKey(rawConfig?.profiles?.[defaultProfileName], sourceId, keyCandidates)
-  ) {
-    tier = 'default';
+  } else if (!profileName && defaultProfileName !== 'default' && has(activeProfile)) {
+    tier = 'profile';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
+  } else if (!profileName && defaultProfileName === 'default' && defaultProfileSourceOverrideHasKey) {
+    tier = 'default';
   } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
     tier = 'default';
   } else if (sourceId && registrationDefaultsHasKey(sourceId, keyCandidates, sourceRegistrations)) {
@@ -238,12 +242,12 @@ export function resolveKeyProvenance(
 
   const provenanceProfileName =
     tier === 'profile'
-      ? profileName
+      ? (profileName ?? activeProfileName)
       : tier === 'default'
         ? defaultProfileName
       : tier === 'hardcoded' && !hardcodedFromSource
         ? defaultProfileName
-      : undefined;
+        : undefined;
   const provenanceSourceId =
     tier === 'source' || (tier === 'hardcoded' && hardcodedFromSource)
       ? sourceId
