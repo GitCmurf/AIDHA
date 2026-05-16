@@ -208,6 +208,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   // ── Build activeSourceConfig from source layers ─────────────────────
   let activeSourceConfig: Record<string, unknown> | undefined;
+  let namedProfileSourceCore: Record<string, unknown> | undefined;
+  let cliSourceCore: Record<string, unknown> | undefined;
 
   if (sourceId) {
     activeSourceConfig = {};
@@ -228,10 +230,15 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
         sourceId,
       );
       if (defaultProfileOverrides) {
+        const { core: defaultProfileCore, sourcePrivate: defaultProfilePrivate } =
+          partitionSourcePayload(defaultProfileOverrides);
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
-          defaultProfileOverrides,
+          defaultProfilePrivate,
         );
+        if (Object.keys(defaultProfileCore).length > 0) {
+          merged = deepMerge(merged, defaultProfileCore);
+        }
       }
     }
 
@@ -257,20 +264,33 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
         sourceId,
       );
       if (namedProfileOverrides) {
+        const { core: namedProfileCore, sourcePrivate: namedProfilePrivate } =
+          partitionSourcePayload(namedProfileOverrides);
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
-          namedProfileOverrides,
+          namedProfilePrivate,
         );
+        if (Object.keys(namedProfileCore).length > 0) {
+          namedProfileSourceCore = deepMerge(
+            namedProfileSourceCore ?? {},
+            namedProfileCore,
+          );
+        }
       }
     }
 
     // Layer 5: CLI source overrides (strongest for source payload)
     if (cliOverrides?.source_overrides?.[sourceId]) {
       const cliSourceOverrides = cliOverrides.source_overrides[sourceId] as Record<string, unknown>;
+      const { core: cliCore, sourcePrivate: cliSourcePrivate } =
+        partitionSourcePayload(cliSourceOverrides);
       activeSourceConfig = deepMerge(
         activeSourceConfig ?? {},
-        cliSourceOverrides,
+        cliSourcePrivate,
       );
+      if (Object.keys(cliCore).length > 0) {
+        cliSourceCore = deepMerge(cliSourceCore ?? {}, cliCore);
+      }
     }
   }
 
@@ -282,9 +302,17 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     }
   }
 
+  if (namedProfileSourceCore) {
+    merged = deepMerge(merged, namedProfileSourceCore);
+  }
+
   // ── Tier 1: CLI flag overrides ──────────────────────────────────────
   if (cliOverrides) {
     merged = deepMerge(merged, profileToCoreFlat(cliOverrides));
+  }
+
+  if (cliSourceCore) {
+    merged = deepMerge(merged, cliSourceCore);
   }
 
   // ── Construct ResolvedConfig ────────────────────────────────────────

@@ -102,6 +102,27 @@ describe('resolveConfig — five-tier merge', () => {
     expect(resolved.activeSourceId).toBe('youtube');
   });
 
+  it('Tier 4: default-profile source_overrides merge core sections below source defaults', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              extraction: { max_claims: 5 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          extraction: { max_claims: 10 },
+        },
+      },
+    });
+    const resolved = resolveConfig({ rawConfig: config, sourceId: 'youtube' });
+    expect(resolved.extraction.maxClaims).toBe(10);
+  });
+
   it('Tier 3: source-private fields go into activeSourceConfig', () => {
     const config = minimalConfig({
       sources: {
@@ -115,6 +136,38 @@ describe('resolveConfig — five-tier merge', () => {
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
     expect(ytdlp.bin).toBe('custom-ytdlp');
     expect(ytdlp.timeout_ms).toBe(5000);
+  });
+
+  it('Tier 2: named profile source_overrides merge core sections into ResolvedConfig', () => {
+    const config = minimalConfig({
+      profiles: {
+        default: {},
+        production: {
+          source_overrides: {
+            youtube: {
+              extraction: { max_claims: 5 },
+              ytdlp: { timeout_ms: 90000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          extraction: { max_claims: 10 },
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+        },
+      },
+    });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      profileName: 'production',
+      sourceId: 'youtube',
+    });
+    expect(resolved.extraction.maxClaims).toBe(5);
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.timeout_ms).toBe(90000);
+    expect(ytdlp.bin).toBe('yt-dlp');
   });
 
   it('Tier 2: named profile overrides source defaults', () => {
