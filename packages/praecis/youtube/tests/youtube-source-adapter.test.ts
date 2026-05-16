@@ -90,6 +90,13 @@ describe('YouTube source adapter', () => {
     ).toThrow(ConfigValidationError);
   });
 
+  it.each([
+    ['negative timeout', { ytdlp: { timeout_ms: -1 } }],
+    ['fractional timeout', { ytdlp: { timeout_ms: 12.5 } }],
+  ])('should reject %s overrides for yt-dlp timeout', (_label, raw) => {
+    expect(() => YouTubeSourceRegistration.validateActiveSourceConfig(raw)).toThrow(ConfigValidationError);
+  });
+
   it('should redact secrets', () => {
     const config: ResolvedYoutubeConfig = {
       ytdlp: { bin: 'yt-dlp', cookiesFile: '', remoteComponents: '', timeoutMs: 120000, jsRuntimes: '', keepFiles: false },

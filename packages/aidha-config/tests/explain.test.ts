@@ -279,6 +279,44 @@ describe('resolveKeyProvenance', () => {
     expect(result.value).toBe(60000);
   });
 
+  it('reports default profile provenance before source defaults for activeSourceConfig source_overrides', async () => {
+    const rawConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 45000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          ytdlp: { timeout_ms: 60000 },
+        },
+      },
+    };
+
+    const resolvedConfig = resolveConfig({
+      rawConfig,
+      sourceId: 'youtube',
+      baseDir: process.cwd(),
+    });
+
+    const result = resolveKeyProvenance({
+      key: 'activeSourceConfig.ytdlp.timeout_ms',
+      rawConfig,
+      resolvedConfig,
+      sourceId: 'youtube',
+    });
+
+    expect(result.provenance.tier).toBe('default');
+    expect(result.provenance.origin).toBe('profiles.default');
+    expect(result.value).toBe(45000);
+  }, 10_000);
+
   it('reports profile provenance for core values supplied by source_overrides', () => {
     const rawConfig = {
       config_version: 1,

@@ -486,6 +486,39 @@ profiles:
     expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('profiles.prod'));
   });
 
+  it('explain prefers default profile source_overrides over source defaults', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: default
+profiles:
+  default:
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 45000
+sources:
+  youtube:
+    ytdlp:
+      timeout_ms: 60000
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli([
+      'config',
+      'explain',
+      'activeSourceConfig.ytdlp.timeout_ms',
+      '--config',
+      configPath,
+      '--source',
+      'youtube',
+    ]);
+
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('profiles.default'));
+    expect(consoleLog).not.toHaveBeenCalledWith(expect.stringContaining('sources.youtube'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('45000'));
+  });
+
   it('validate reports correct file path on load failure (Round 3 Repro)', async () => {
     await writeSecureConfig(configPath, '\tinvalid yaml');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});

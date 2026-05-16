@@ -93,6 +93,24 @@ function toBoolean(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+function validateNonNegativeInteger(
+  value: unknown,
+  path: string,
+): void {
+  if (value === undefined || value === null) {
+    return;
+  }
+
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return;
+  }
+
+  throw new ConfigValidationError('source_overrides.youtube', [{
+    path,
+    message: `Expected a non-negative integer, got ${JSON.stringify(value)}`,
+  }]);
+}
+
 function clonePlainObject<T>(value: T): T {
   if (Array.isArray(value)) {
     return value.map(item => clonePlainObject(item)) as T;
@@ -296,6 +314,10 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
       };
     }
     const obj = applyScalarCoercions(value as Record<string, unknown>);
+    const ytdlp = obj['ytdlp'];
+    if (ytdlp !== undefined && ytdlp !== null && typeof ytdlp === 'object') {
+      validateNonNegativeInteger((ytdlp as Record<string, unknown>)['timeout_ms'], 'ytdlp.timeout_ms');
+    }
     return {
       ytdlp: narrowYtdlp(obj['ytdlp']),
       youtube: narrowYoutube(obj['youtube']),

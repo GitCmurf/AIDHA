@@ -161,6 +161,14 @@ function sourceOverridePaths(sourceId: string, paths: ReadonlyArray<string>): st
   return paths.map(path => `source_overrides.${sourceId}.${path}`);
 }
 
+function profileSourceOverridesHasKey(
+  profile: Profile | undefined,
+  sourceId: string,
+  paths: ReadonlyArray<string>,
+): boolean {
+  return hasAnyPath(profile?.source_overrides?.[sourceId], paths);
+}
+
 function registrationDefaultsHasKey(
   sourceId: string,
   paths: ReadonlyArray<string>,
@@ -209,6 +217,12 @@ export function resolveKeyProvenance(
     tier = 'cli';
   } else if (profileName && has(rawConfig?.profiles?.[profileName])) {
     tier = 'profile';
+  } else if (
+    !profileName &&
+    sourceId &&
+    profileSourceOverridesHasKey(rawConfig?.profiles?.[defaultProfileName], sourceId, keyCandidates)
+  ) {
+    tier = 'default';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
   } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
