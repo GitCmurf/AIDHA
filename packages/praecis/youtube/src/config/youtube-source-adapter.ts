@@ -116,8 +116,7 @@ function setNestedValue(target: Record<string, unknown>, path: string, value: un
   const parts = path.split('.');
   let current: Record<string, unknown> = target;
 
-  for (let index = 0; index < parts.length - 1; index += 1) {
-    const part = parts[index];
+  for (const part of parts.slice(0, -1)) {
     const next = current[part];
     if (next === null || typeof next !== 'object' || Array.isArray(next)) {
       const replacement: Record<string, unknown> = {};
@@ -130,7 +129,12 @@ function setNestedValue(target: Record<string, unknown>, path: string, value: un
     current = nested;
   }
 
-  current[parts.at(-1) ?? path] = value;
+  const leaf = parts.at(-1);
+  if (leaf === undefined) {
+    return;
+  }
+
+  current[leaf] = value;
 }
 
 function parseBooleanScalar(value: string): boolean | null {
