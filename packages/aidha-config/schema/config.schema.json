@@ -216,8 +216,8 @@
     },
     "SourceDefaults": {
       "type": "object",
-      "description": "Ingestion-source defaults. Same shape as Profile.",
-      "additionalProperties": false,
+      "description": "Ingestion-source defaults. Core profile sections are validated; source-private sections are allowed for source registrations.",
+      "additionalProperties": true,
       "properties": {
         "db": {
           "type": "string",

@@ -26,8 +26,10 @@ import type {
   ResolvedConfig,
   SourceRegistration,
 } from './types.js';
+import { SUPPORTED_CONFIG_VERSION } from './types.js';
 import { DEFAULTS } from './defaults.js';
 import { resolvePathValue } from './paths.js';
+import { validateConfig } from './schema.js';
 
 // ── Deep merge helper ────────────────────────────────────────────────────────
 
@@ -198,6 +200,46 @@ function partitionSourcePayload(
 }
 
 /**
+ * Validate source-overrides core sections against the core config schema.
+ *
+ * Source-private payloads remain opaque, but core sections routed through
+ * source_overrides must still satisfy the same type constraints as top-level
+ * profile/source defaults before they are merged into ResolvedConfig.
+ */
+function partitionValidatedSourcePayload(
+  payload: Record<string, unknown>,
+  context: string,
+): { core: Record<string, unknown>; sourcePrivate: Record<string, unknown> } {
+  const partitioned = partitionSourcePayload(payload);
+  if (Object.keys(partitioned.core).length === 0) {
+    return partitioned;
+  }
+
+  const validation = validateConfig({
+    config_version: SUPPORTED_CONFIG_VERSION,
+    default_profile: 'default',
+    profiles: {
+      default: partitioned.core,
+    },
+  });
+
+  if (!validation.valid) {
+    const details = validation.errors
+      .map((error) => {
+        const normalizedPath = error.path
+          .replace(/^\/profiles\/default\/?/, '')
+          .replace(/^\//, '')
+          .replace(/\//g, '.');
+        return normalizedPath ? `${normalizedPath}: ${error.message}` : error.message;
+      })
+      .join('; ');
+    throw new Error(`Invalid core config inside ${context}: ${details}`);
+  }
+
+  return partitioned;
+}
+
+/**
  * Resolve configuration by merging five tiers:
  *
  *   1. Explicit CLI flags/options
@@ -254,7 +296,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   // ── Build activeSourceConfig from source layers ─────────────────────
   let activeSourceConfig: Record<string, unknown> | undefined;
-  let namedProfileSourceCore: Record<string, unknown> | undefined;
+  let activeProfileSourceCore: Record<string, unknown> | undefined;
   let cliSourceCore: Record<string, unknown> | undefined;
   const legacySourceKeys = new Set<string>();
   const sourceDefaults = sourceId && rawConfig?.sources?.[sourceId]
@@ -284,35 +326,6 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       );
     }
 
-    // Layer 2: Default profile source_overrides
-    if (rawConfig) {
-      const configDefaultName = rawConfig.default_profile ?? 'default';
-      const defaultProfile = rawConfig.profiles?.[configDefaultName];
-      const defaultProfileLegacySourceFields = extractLegacyProfileSourceFields(
-        defaultProfile,
-        legacySourceKeys,
-      );
-      if (Object.keys(defaultProfileLegacySourceFields).length > 0) {
-        activeSourceConfig = deepMerge(
-          activeSourceConfig ?? {},
-          defaultProfileLegacySourceFields,
-        );
-      }
-
-      const defaultProfileOverrides = getSourceOverrides(defaultProfile, sourceId);
-      if (defaultProfileOverrides) {
-        const { core: defaultProfileCore, sourcePrivate: defaultProfilePrivate } =
-          partitionSourcePayload(defaultProfileOverrides);
-        activeSourceConfig = deepMerge(
-          activeSourceConfig ?? {},
-          defaultProfilePrivate,
-        );
-        if (Object.keys(defaultProfileCore).length > 0) {
-          merged = deepMerge(merged, defaultProfileCore);
-        }
-      }
-    }
-
     // Layer 3: sources.<sourceId> defaults (Tier 3)
     if (sourceDefaults) {
       // Also merge core-known sections from source defaults into core config
@@ -327,32 +340,40 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       }
     }
 
-    // Layer 4: Named profile source_overrides
-    if (rawConfig && profileName) {
-      const namedProfile = rawConfig.profiles?.[profileName];
-      const namedProfileLegacySourceFields = extractLegacyProfileSourceFields(
-        namedProfile,
+    // Layer 4: Active profile source-specific config
+    if (rawConfig) {
+      const sourceProfileName = profileName ?? rawConfig.default_profile;
+      const sourceProfile = rawConfig.profiles?.[sourceProfileName];
+      const sourceProfileLegacySourceFields = extractLegacyProfileSourceFields(
+        sourceProfile,
         legacySourceKeys,
       );
-      if (Object.keys(namedProfileLegacySourceFields).length > 0) {
+      if (Object.keys(sourceProfileLegacySourceFields).length > 0) {
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
-          namedProfileLegacySourceFields,
+          sourceProfileLegacySourceFields,
         );
       }
 
-      const namedProfileOverrides = getSourceOverrides(namedProfile, sourceId);
-      if (namedProfileOverrides) {
-        const { core: namedProfileCore, sourcePrivate: namedProfilePrivate } =
-          partitionSourcePayload(namedProfileOverrides);
+      const sourceProfileOverrides = sourceProfile
+        ? getSourceOverrides(sourceProfile, sourceId)
+        : undefined;
+      if (sourceProfileOverrides) {
+        const {
+          core: sourceProfileCore,
+          sourcePrivate: sourceProfilePrivate,
+        } = partitionValidatedSourcePayload(
+          sourceProfileOverrides,
+          `profiles.${sourceProfileName}.source_overrides.${sourceId}`,
+        );
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
-          namedProfilePrivate,
+          sourceProfilePrivate,
         );
-        if (Object.keys(namedProfileCore).length > 0) {
-          namedProfileSourceCore = deepMerge(
-            namedProfileSourceCore ?? {},
-            namedProfileCore,
+        if (Object.keys(sourceProfileCore).length > 0) {
+          activeProfileSourceCore = deepMerge(
+            activeProfileSourceCore ?? {},
+            sourceProfileCore,
           );
         }
       }
@@ -361,8 +382,13 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     // Layer 5: CLI source overrides (strongest for source payload)
     if (cliOverrides?.source_overrides?.[sourceId]) {
       const cliSourceOverrides = cliOverrides.source_overrides[sourceId] as Record<string, unknown>;
-      const { core: cliCore, sourcePrivate: cliSourcePrivate } =
-        partitionSourcePayload(cliSourceOverrides);
+      const {
+        core: cliCore,
+        sourcePrivate: cliSourcePrivate,
+      } = partitionValidatedSourcePayload(
+        cliSourceOverrides,
+        `cliOverrides.source_overrides.${sourceId}`,
+      );
       activeSourceConfig = deepMerge(
         activeSourceConfig ?? {},
         cliSourcePrivate,
@@ -381,8 +407,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     }
   }
 
-  if (namedProfileSourceCore) {
-    merged = deepMerge(merged, namedProfileSourceCore);
+  if (activeProfileSourceCore) {
+    merged = deepMerge(merged, activeProfileSourceCore);
   }
 
   // ── Tier 1: CLI flag overrides ──────────────────────────────────────

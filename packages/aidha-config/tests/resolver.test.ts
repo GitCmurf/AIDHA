@@ -131,7 +131,7 @@ describe('resolveConfig — five-tier merge', () => {
     expect(resolved.activeSourceId).toBe('youtube');
   });
 
-  it('Tier 4: default-profile source_overrides merge core sections below source defaults', () => {
+  it('Tier 3: default-profile source_overrides override source defaults when no profileName is supplied', () => {
     const config = minimalConfig({
       profiles: {
         default: {
@@ -152,7 +152,36 @@ describe('resolveConfig — five-tier merge', () => {
       rawConfig: config,
       sourceId: 'youtube',
     });
-    expect(resolved.extraction.maxClaims).toBe(10);
+    expect(resolved.extraction.maxClaims).toBe(5);
+  });
+
+  it('Tier 3: default-profile source_overrides act as active profile when no profileName is supplied', () => {
+    const config = minimalConfig({
+      default_profile: 'production',
+      profiles: {
+        default: {},
+        production: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 90000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+        },
+      },
+    });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.timeout_ms).toBe(90000);
+    expect(ytdlp.bin).toBe('yt-dlp');
   });
 
   it('Tier 3: source-private fields go into activeSourceConfig', () => {
@@ -411,6 +440,27 @@ describe('resolveConfig — source boundary', () => {
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
     expect(ytdlp.timeout_ms).toBe(90000);
     expect(ytdlp.bin).toBe('yt-dlp');
+  });
+
+  it('should reject invalid core sections inside source_overrides', () => {
+    const config = minimalConfig({
+      default_profile: 'production',
+      profiles: {
+        default: {},
+        production: {
+          source_overrides: {
+            youtube: {
+              extraction: { max_claims: 'many' as unknown as number },
+            },
+          },
+        },
+      },
+    });
+
+    expect(() => resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+    })).toThrow(/Invalid core config inside profiles\.production\.source_overrides\.youtube/i);
   });
 
   it('should merge core-known sections from source defaults into ResolvedConfig', () => {

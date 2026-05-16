@@ -106,12 +106,17 @@ describe('validateConfig — strict schema validation', () => {
     expect(result.errors.some((e) => e.keyword === 'additionalProperties')).toBe(true);
   });
 
-  it('should reject unknown keys inside source defaults', () => {
+  it('should allow arbitrary source-private keys inside source defaults', () => {
     const config = validConfig({
-      sources: { youtube: { bad_section: true } },
+      sources: {
+        youtube: {
+          widget: { timeout_ms: 5000 },
+        },
+      },
     });
     const result = validateConfig(config);
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 
   it('should reject unknown keys inside env config', () => {
