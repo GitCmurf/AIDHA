@@ -114,23 +114,19 @@ export async function resolveCliConfig(
     });
 
     let youtubeConfig: ResolvedYoutubeConfig | null = null;
-    if (config.activeSourceId === YOUTUBE_SOURCE_ID && config.activeSourceConfig !== undefined) {
-      config.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
-        config.activeSourceConfig,
-        config.baseDir,
+    const resolvedConfig = { ...config };
+
+    if (resolvedConfig.activeSourceId === YOUTUBE_SOURCE_ID && resolvedConfig.activeSourceConfig !== undefined) {
+      resolvedConfig.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+        resolvedConfig.activeSourceConfig,
+        resolvedConfig.baseDir,
       );
       youtubeConfig = YouTubeSourceRegistration.validateActiveSourceConfig(
-        config.activeSourceConfig,
+        resolvedConfig.activeSourceConfig,
       );
-      if (YouTubeSourceRegistration.resolveSourcePaths) {
-        youtubeConfig = YouTubeSourceRegistration.resolveSourcePaths(
-          youtubeConfig,
-          config.baseDir,
-        );
-      }
     }
 
-    return { ok: true, config, youtubeConfig, loadResult };
+    return { ok: true, config: resolvedConfig, youtubeConfig, loadResult };
   } catch (error: unknown) {
     const err = error as Error;
 
@@ -299,7 +295,8 @@ export function buildCliOverrides(options: CliOptions): Partial<Profile> {
   // ── ytdlp (routed to source_overrides.youtube) ──
   const ytdlpBin = optStr(options, 'ytdlp-bin');
   if (ytdlpBin !== undefined && ytdlpBin.length > 0) {
-    setYoutubeSourceOverride(overrides, 'ytdlp', { bin: ytdlpBin });
+    const existing = (overrides.source_overrides?.[YOUTUBE_SOURCE_ID] as Record<string, unknown> | undefined)?.['ytdlp'];
+    setYoutubeSourceOverride(overrides, 'ytdlp', { ...(typeof existing === 'object' && existing !== null ? existing : {}), bin: ytdlpBin });
   }
   const ytdlpCookies = optStr(options, 'ytdlp-cookies');
   if (ytdlpCookies !== undefined && ytdlpCookies.length > 0) {

@@ -222,13 +222,9 @@ export function resolveKeyProvenance(
     tier = 'cli';
   } else if (profileName && has(rawConfig?.profiles?.[profileName])) {
     tier = 'profile';
-  } else if (!profileName && defaultProfileName !== 'default' && activeProfileSourceOverrideHasKey) {
-    tier = 'profile';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
-  } else if (!profileName && defaultProfileName === 'default' && activeProfileSourceOverrideHasKey) {
-    tier = 'default';
-  } else if (!profileName && has(activeProfile)) {
+  } else if (has(activeProfile)) {
     tier = 'default';
   } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
     tier = 'default';

@@ -43,6 +43,12 @@ describe("Model-Aware Runtime Wiring", () => {
     delete process.env.AIDHA_GOOGLE_API_KEY;
     delete process.env.OPENAI_API_KEY;
     delete process.env.AIDHA_OPENAI_API_KEY;
+    delete process.env.ZAI_API_KEY;
+    delete process.env.AIDHA_ZAI_API_KEY;
+    delete process.env.XIAOMI_API_KEY;
+    delete process.env.AIDHA_XIAOMI_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.AIDHA_OPENROUTER_API_KEY;
 
     vi.spyOn(llmClient, "createLlmClientFromConfig").mockImplementation((config) => {
       return {

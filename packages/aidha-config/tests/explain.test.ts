@@ -391,9 +391,9 @@ describe('resolveKeyProvenance', () => {
       sourceId: 'youtube',
     });
 
-    expect(result.provenance.tier).toBe('profile');
-    expect(result.provenance.origin).toBe('profiles.production');
-    expect(result.value).toBe(90000);
+    expect(result.provenance.tier).toBe('source');
+    expect(result.provenance.origin).toBe('sources.youtube');
+    expect(result.value).toBe(60000);
   });
 
   it('reports profile provenance for core values supplied by source_overrides', () => {

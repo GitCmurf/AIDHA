@@ -353,7 +353,7 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
       ...value,
       youtube: {
         ...value.youtube,
-        cookie: '********',
+        cookie: value.youtube.cookie ? '********' : '',
         innertubeApiKey: value.youtube.innertubeApiKey ? '********' : '',
       },
     };
@@ -396,9 +396,9 @@ export function resolveRawYoutubeActiveSourceConfigPaths(
       ytdlpConfig['bin'] = resolvePathValue(bin, baseDir);
     }
 
-    const cookiesFile = ytdlpConfig['cookies_file'];
-    if (typeof cookiesFile === 'string' && cookiesFile !== '') {
-      ytdlpConfig['cookies_file'] = resolve(baseDir, cookiesFile);
+    const cookies_file = ytdlpConfig['cookies_file'];
+    if (typeof cookies_file === 'string' && cookies_file !== '') {
+      ytdlpConfig['cookies_file'] = resolve(baseDir, cookies_file);
     }
 
     resolved['ytdlp'] = ytdlpConfig;

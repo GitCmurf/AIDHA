@@ -224,40 +224,48 @@ export function validateConfig(
  * @param value - The string value from CLI.
  * @returns The converted value (e.g., number, boolean, or string).
  */
-export function convertValue(keyPath: string, value: string): any {
+export function convertValue(keyPath: string, value: string): unknown {
   const schema = loadSchema();
   const parts = keyPath.split('.');
 
-  let current: any = schema;
+  let current: unknown = schema;
 
   for (const part of parts) {
-    if (!current) break;
+    if (!current || typeof current !== 'object') break;
 
-    if (current.$ref) {
-      const refPath = current.$ref.replace('#/', '').split('/');
-      let ref: any = schema;
+    const currentObj = current as Record<string, unknown>;
+
+    if (currentObj['$ref']) {
+      const refPath = (currentObj['$ref'] as string).replace('#/', '').split('/');
+      let ref: unknown = schema;
       for (const refPart of refPath) {
-        if (refPart === '$defs') ref = ref.$defs;
-        else ref = ref[refPart];
+        if (!ref || typeof ref !== 'object') break;
+        const refObj = ref as Record<string, unknown>;
+        if (refPart === '$defs') ref = refObj['$defs'];
+        else ref = refObj[refPart];
       }
       current = ref;
     }
 
-    if (current.oneOf || current.anyOf) {
+    if (!current || typeof current !== 'object') break;
+    const node = current as Record<string, unknown>;
+
+    if (node['oneOf'] || node['anyOf']) {
         // Union type encountered; unpredictable structure. Treat as unknown.
         current = undefined;
         break;
     }
 
 
-    if (current.type === 'object') {
-      if (current.properties && current.properties[part]) {
-        current = current.properties[part];
-      } else if (current.additionalProperties) {
+    if (node['type'] === 'object') {
+      const properties = node['properties'] as Record<string, unknown> | undefined;
+      if (properties && properties[part]) {
+        current = properties[part];
+      } else if (node['additionalProperties']) {
         // If current.additionalProperties === true, the type is unknown/any.
         // We should skip conversion (treat as string).
-        if (typeof current.additionalProperties === 'object') {
-           current = current.additionalProperties;
+        if (typeof node['additionalProperties'] === 'object') {
+           current = node['additionalProperties'];
         } else {
            // boolean true -> any type.
            current = undefined;
@@ -271,21 +279,28 @@ export function convertValue(keyPath: string, value: string): any {
   }
 
   // Resolve final ref if any
-  if (current && current.$ref) {
-    const refPath = current.$ref.replace('#/', '').split('/');
-    let ref: any = schema;
+  if (current && typeof current === 'object' && (current as Record<string, unknown>)['$ref']) {
+    const refPath = ((current as Record<string, unknown>)['$ref'] as string).replace('#/', '').split('/');
+    let ref: unknown = schema;
     for (const refPart of refPath) {
-      if (refPart === '$defs') ref = ref.$defs;
-      else ref = ref[refPart];
+      if (!ref || typeof ref !== 'object') break;
+      const refObj = ref as Record<string, unknown>;
+      if (refPart === '$defs') ref = refObj['$defs'];
+      else ref = refObj[refPart];
     }
     current = ref;
   }
 
-  if (current && (current.oneOf || current.anyOf)) {
-      return value;
+  if (current && typeof current === 'object') {
+    const node = current as Record<string, unknown>;
+    if (node['oneOf'] || node['anyOf']) {
+        return value;
+    }
   }
 
-  const expectedType = current?.type;
+  const expectedType = current && typeof current === 'object'
+    ? (current as Record<string, unknown>)['type']
+    : undefined;
 
   if (expectedType === 'integer' || expectedType === 'number') {
     if (!value || value.trim().length === 0) {

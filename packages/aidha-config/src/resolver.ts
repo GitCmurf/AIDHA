@@ -329,8 +329,20 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
     // Layer 2: Default-profile source_overrides (weaker than source defaults)
     if (rawConfig?.profiles?.[configDefaultName]) {
+      const configDefaultProfile = rawConfig.profiles[configDefaultName];
+      const defaultProfileLegacySourceFields = extractLegacyProfileSourceFields(
+        configDefaultProfile,
+        legacySourceKeys,
+      );
+      if (Object.keys(defaultProfileLegacySourceFields).length > 0) {
+        activeSourceConfig = deepMerge(
+          activeSourceConfig ?? {},
+          defaultProfileLegacySourceFields,
+        );
+      }
+
       const defaultProfileSourceOverrides = getSourceOverrides(
-        rawConfig.profiles[configDefaultName],
+        configDefaultProfile,
         sourceId,
       );
       if (defaultProfileSourceOverrides) {
@@ -372,10 +384,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       }
     }
 
-    // Layer 4: Active profile source-private fields, plus explicit named-profile overrides.
-    if (rawConfig) {
-      const sourceProfileName = activeProfileName;
-      const sourceProfile = rawConfig.profiles?.[sourceProfileName];
+    // Layer 4: Active named profile source-private fields (Tier 2)
+    if (rawConfig && profileName !== undefined && profileName !== configDefaultName) {
+      const sourceProfile = rawConfig.profiles?.[profileName];
       const sourceProfileLegacySourceFields = extractLegacyProfileSourceFields(
         sourceProfile,
         legacySourceKeys,
@@ -387,8 +398,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
         );
       }
 
-      const applyActiveProfileSourceOverrides = profileName !== undefined || sourceProfileName !== 'default';
-      const sourceProfileOverrides = applyActiveProfileSourceOverrides && sourceProfile
+      const sourceProfileOverrides = sourceProfile
         ? getSourceOverrides(sourceProfile, sourceId)
         : undefined;
       if (sourceProfileOverrides) {
@@ -397,7 +407,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
           sourcePrivate: sourceProfilePrivate,
         } = partitionValidatedSourcePayload(
           sourceProfileOverrides,
-          `profiles.${sourceProfileName}.source_overrides.${sourceId}`,
+          `profiles.${profileName}.source_overrides.${sourceId}`,
         );
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},

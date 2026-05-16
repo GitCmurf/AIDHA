@@ -90,7 +90,7 @@ function withLevelGraphStreamSupport<T extends LevelGraphCompatibleLevel>(level:
     }
 
     const batchPromise = Promise.resolve().then(() =>
-      originalBatch(operations, normalizedOptions ?? {})
+      normalizedOptions ? originalBatch(operations, normalizedOptions) : originalBatch(operations)
     );
     if (typeof normalizedCallback === 'function') {
       void batchPromise.then(

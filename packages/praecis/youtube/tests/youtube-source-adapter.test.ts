@@ -125,7 +125,7 @@ describe('YouTube source adapter', () => {
     };
     const redacted = YouTubeSourceRegistration.redactActiveSourceConfig?.(config) as Record<string, unknown>;
     const youtube = redacted.youtube as Record<string, unknown>;
-    expect(youtube.cookie).toBe('********');
+    expect(youtube.cookie).toBe('');
     expect(youtube.innertubeApiKey).toBe('');
   });
 

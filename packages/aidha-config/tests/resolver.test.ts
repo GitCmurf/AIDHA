@@ -186,7 +186,7 @@ describe('resolveConfig — five-tier merge', () => {
     });
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
-    expect(ytdlp.timeout_ms).toBe(90000);
+    expect(ytdlp.timeout_ms).toBe(120000);
     expect(ytdlp.bin).toBe('yt-dlp');
   });
 
