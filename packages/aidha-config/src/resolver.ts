@@ -133,7 +133,7 @@ function collectSourcePrivateKeys(payload: Record<string, unknown> | undefined):
   if (!payload) return keys;
 
   for (const key of Object.keys(payload)) {
-    if (!CORE_SECTION_NAMES.has(key)) {
+    if (!CORE_SECTION_NAMES.has(key) && key !== 'extensions') {
       keys.add(key);
     }
   }
@@ -193,7 +193,7 @@ function partitionSourcePayload(
   for (const [key, value] of Object.entries(payload)) {
     if (CORE_SECTION_NAMES.has(key)) {
       core[key] = value;
-    } else {
+    } else if (key !== 'extensions') {
       sourcePrivate[key] = value;
     }
   }
@@ -228,12 +228,13 @@ function partitionValidatedSourcePayload(
   });
 
   if (!validation.valid) {
-    const normalizedContext = context.replace(/\./g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+    const normalizedContext = context.replace(/\./g, '/').split('/').filter(Boolean).join('/');
     const errors = validation.errors.map((error) => {
       const normalizedIssuePath = error.path
-        .replace(/^\/+/, '')
-        .replace(/^profiles\/default\/?/, '')
-        .replace(/\/+$/, '');
+        .split('/')
+        .filter(Boolean)
+        .join('/')
+        .replace(/^profiles\/default\/?/, '');
 
       return {
         path: normalizedIssuePath
@@ -384,7 +385,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     if (sourceDefaults) {
       // Also merge core-known sections from source defaults into core config
       const { core: sourceCore, sourcePrivate: sourcePrivateDefaults } =
-        partitionSourcePayload(sourceDefaults);
+        partitionValidatedSourcePayload(sourceDefaults, `sources.${sourceId}`);
       activeSourceConfig = deepMerge(
         activeSourceConfig ?? {},
         sourcePrivateDefaults,
