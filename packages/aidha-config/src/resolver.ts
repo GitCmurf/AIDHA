@@ -30,6 +30,7 @@ import { SUPPORTED_CONFIG_VERSION } from './types.js';
 import { DEFAULTS } from './defaults.js';
 import { resolvePathValue } from './paths.js';
 import { validateConfig } from './schema.js';
+import { ConfigValidationError } from './loader.js';
 
 // ── Deep merge helper ────────────────────────────────────────────────────────
 
@@ -205,6 +206,9 @@ function partitionSourcePayload(
  * Source-private payloads remain opaque, but core sections routed through
  * source_overrides must still satisfy the same type constraints as top-level
  * profile/source defaults before they are merged into ResolvedConfig.
+ *
+ * Throws `ConfigValidationError` so config bridges keep malformed
+ * `source_overrides` on the user-config failure path.
  */
 function partitionValidatedSourcePayload(
   payload: Record<string, unknown>,
@@ -224,16 +228,22 @@ function partitionValidatedSourcePayload(
   });
 
   if (!validation.valid) {
-    const details = validation.errors
-      .map((error) => {
-        const normalizedPath = error.path
-          .replace(/^\/profiles\/default\/?/, '')
-          .replace(/^\//, '')
-          .replace(/\//g, '.');
-        return normalizedPath ? `${normalizedPath}: ${error.message}` : error.message;
-      })
-      .join('; ');
-    throw new Error(`Invalid core config inside ${context}: ${details}`);
+    const normalizedContext = context.replace(/\./g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+    const errors = validation.errors.map((error) => {
+      const normalizedIssuePath = error.path
+        .replace(/^\/+/, '')
+        .replace(/^profiles\/default\/?/, '')
+        .replace(/\/+$/, '');
+
+      return {
+        path: normalizedIssuePath
+          ? `/${normalizedContext}/${normalizedIssuePath}`.replace(/\/+/g, '/')
+          : `/${normalizedContext}`,
+        message: error.message,
+      };
+    });
+
+    throw new ConfigValidationError(context, errors);
   }
 
   return partitioned;

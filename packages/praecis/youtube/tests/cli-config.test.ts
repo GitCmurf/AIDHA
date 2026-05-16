@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveCliConfig, buildCliOverrides } from '../src/cli/config-bridge.js';
 import { copySecureConfigSync, writeInsecureConfig, writeSecureConfigSync } from './helpers/config-files.js';
+import { ConfigValidationError } from '@aidha/config';
 
 describe('CLI Configuration Bridge', () => {
   const sourceFixturePath = resolve(__dirname, 'fixtures/config/aidha.yaml');
@@ -155,6 +156,44 @@ describe('CLI Configuration Bridge', () => {
     expect(result.ok).toBe(true);
     expect(result.youtubeConfig).not.toBeNull();
     expect(result.youtubeConfig?.youtube.debugTranscript).toBe(true);
+  });
+
+  it('returns a config-validation failure for invalid core source_overrides', async () => {
+    const configPath = join(fixtureRoot, 'invalid-source-overrides.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: production',
+      'profiles:',
+      '  production:',
+      '    source_overrides:',
+      '      youtube:',
+      '        extraction:',
+      '          max_claims: many',
+      'sources:',
+      '  youtube:',
+      '    ytdlp:',
+      '      bin: yt-dlp',
+      '    youtube:',
+      '      cookie: ""',
+      '      innertube_api_key: ""',
+      '      debug_transcript: false',
+    ].join('\n'));
+
+    const result = await resolveCliConfig({
+      configPath,
+      source: 'youtube',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeInstanceOf(ConfigValidationError);
+    expect(result.error.message).toContain('/profiles/production/source_overrides/youtube/extraction/max_claims');
+    expect(result.error).toEqual(expect.objectContaining({
+      errors: expect.arrayContaining([
+        expect.objectContaining({
+          path: expect.stringContaining('/profiles/production/source_overrides/youtube/extraction/max_claims'),
+        }),
+      ]),
+    }));
   });
 
   it('resolves activeSourceConfig paths before inspection commands read them', async () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveConfig, deepMerge } from '../src/resolver.js';
+import { ConfigValidationError } from '../src/loader.js';
 import type { AidhaConfig } from '../src/types.js';
 import { resolve } from 'node:path';
 
@@ -533,7 +534,11 @@ describe('resolveConfig — source boundary', () => {
     expect(() => resolveConfig({
       rawConfig: config,
       sourceId: 'youtube',
-    })).toThrow(/Invalid core config inside profiles\.production\.source_overrides\.youtube/i);
+    })).toThrowError(ConfigValidationError);
+    expect(() => resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+    })).toThrow(/profiles\.production\.source_overrides\.youtube/i);
   });
 
   it('should merge core-known sections from source defaults into ResolvedConfig', () => {
