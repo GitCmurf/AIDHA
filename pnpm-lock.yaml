@@ -83,10 +83,10 @@ importers:
   packages/reconditum:
     dependencies:
       classic-level:
-        specifier: ^1.4.1
+        specifier: 1.4.1
         version: 1.4.1
       levelgraph:
-        specifier: ^3.0.0
+        specifier: 3.0.0
         version: 3.0.0
       memory-level:
         specifier: ^3.1.0

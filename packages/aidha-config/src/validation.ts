@@ -9,6 +9,13 @@
  * @module
  */
 
+export class ValidationError extends Error {
+  constructor(public message: string, public code?: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 /**
  * Validates input length to prevent potential ReDoS attacks on regex operations.
  * Throws an error if the input exceeds the maximum allowed length.
@@ -16,7 +23,8 @@
  * @param value - The value to validate
  * @param maxLength - Maximum allowed length (must be a non-negative integer)
  * @param context - Description of what is being validated (used in error message)
- * @throws {Error} If input exceeds maximum length or maxLength is not a finite, non-negative integer
+ * @throws {ValidationError} If input exceeds maximum length
+ * @throws {Error} If maxLength is not a finite, non-negative integer
  *
  * @example
  * ```ts
@@ -31,6 +39,9 @@ export function validateLength(value: string, maxLength: number, context: string
     );
   }
   if (value.length > maxLength) {
-    throw new Error(`${context} length (${value.length}) exceeds maximum of ${maxLength}.`);
+    throw new ValidationError(
+      `${context} length (${value.length}) exceeds maximum of ${maxLength}.`,
+      'LENGTH_EXCEEDED',
+    );
   }
 }

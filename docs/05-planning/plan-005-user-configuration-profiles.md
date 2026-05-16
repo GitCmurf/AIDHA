@@ -13,7 +13,7 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-PLAN-005
 > **Owner:** Repo Maintainers
-> **Approvers:** Pending maintainer approval
+> **Approvers:** GLM, Self-review
 > **Status:** In Review
 > **Version:** 1.6
 > **Last Updated:** 2026-05-15
@@ -64,9 +64,11 @@ churn.
 > AIDHA is pre-alpha with no deployments. Backward compatibility with existing
 > env-var patterns is **not** a design constraint — we can make clean breaks.
 >
-> The checked Phase 0–3 items below record implementation status at the time this
-> plan was updated. The document status is **In Review** because the plan remains
-> the review contract for follow-up hardening and implementation drift checks.
+The checked Phase 0–3 items below record implementation status at the time this
+plan was updated. The document status is **In Review** because the plan itself
+remains the review contract for follow-up hardening and implementation drift
+checks. This status refers to the specification and architectural design review,
+not the readiness of individual implementation PRs.
 
 ### Reader Map
 
@@ -1318,6 +1320,12 @@ Acceptance tests: `writer.test.ts`, `roundtrip.test.ts`, `explain.test.ts`,
 Acceptance tests: `logging.test.ts`, `error-catalog.test.ts`,
 `schema-changes.test.ts`, `deep-merge.property.test.ts`, `performance.test.ts`,
 scoped DocOps checks, and `pnpm docs:build`.
+
+> [!NOTE]
+> Phase 5A–5E are gates applied to implementation PRs and do not imply the
+> plan itself is unapproved or in a draft state. These checks ensure that any
+> PR claiming to fulfill the v1.3 contract is complete and PR-ready before
+> maintainer approval of the code.
 
 **Acceptance:** The branch cannot be considered Approved or PR-ready for the
 v1.3 contract until Phase 5A–5E are checked off, `pnpm -C packages/aidha-config

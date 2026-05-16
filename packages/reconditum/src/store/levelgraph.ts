@@ -121,7 +121,15 @@ function withLevelGraphStreamSupport<T extends LevelGraphCompatibleLevel>(level:
 }
 
 function coerceLevelGraphTriple(value: unknown): LevelGraphTriple | null {
-  const parsedValue = typeof value === 'string' ? JSON.parse(value) as unknown : value;
+  let parsedValue: unknown = value;
+  if (typeof value === 'string') {
+    try {
+      parsedValue = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
   if (typeof parsedValue !== 'object' || parsedValue === null) {
     return null;
   }

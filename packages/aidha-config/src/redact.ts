@@ -15,7 +15,7 @@
  */
 
 import { loadSchema } from './schema.js';
-import { validateLength } from './validation.js';
+import { validateLength, ValidationError } from './validation.js';
 
 const REDACTED = '********';
 
@@ -145,11 +145,7 @@ function shouldRedactKey(key: string): boolean {
   try {
     return isSecretKey(key);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('length') &&
-      error.message.includes('exceeds maximum')
-    ) {
+    if (error instanceof ValidationError && error.code === 'LENGTH_EXCEEDED') {
       return true;
     }
 

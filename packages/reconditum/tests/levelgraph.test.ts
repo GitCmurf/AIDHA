@@ -54,7 +54,7 @@ describe('LevelGraphStore', () => {
   it('supports a first write against the file-backed adapter', async () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'aidha-reconditum-levelgraph-'));
     const storePath = join(tempDir, 'db');
-    const store = await LevelGraphStore.create(storePath);
+    let store = await LevelGraphStore.create(storePath);
 
     try {
       const createResult = await withTimeout(
@@ -67,10 +67,16 @@ describe('LevelGraphStore', () => {
       if (!createResult.ok) return;
       expect(createResult.value.created).toBe(true);
 
+      // Close the store to force persistence
+      await store.close();
+
+      // Reopen a new instance from the same path
+      store = await LevelGraphStore.create(storePath);
+
       const getResult = await withTimeout(
         store.getNode('levelgraph-node-2'),
         1000,
-        'LevelGraphStore.create().getNode'
+        'LevelGraphStore.create().getNode (reopened)'
       );
 
       expect(getResult.ok).toBe(true);

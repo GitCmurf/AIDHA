@@ -212,9 +212,6 @@ export function resolveKeyProvenance(
   const defaultProfileName = rawConfig?.default_profile ?? 'default';
   const activeProfileName = profileName ?? defaultProfileName;
   const activeProfile = rawConfig?.profiles?.[activeProfileName];
-  const activeProfileSourceOverrideHasKey = sourceId
-    ? profileSourceOverridesHasKey(activeProfile, sourceId, keyCandidates)
-    : false;
   let tier: ConfigTier;
   let hardcodedFromSource = false;
 
