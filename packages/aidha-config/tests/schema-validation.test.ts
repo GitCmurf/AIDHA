@@ -76,6 +76,27 @@ describe('validateConfig — strict schema validation', () => {
     expect(result.errors).toEqual([]);
   });
 
+  it('should reject invalid core sections inside source_overrides', () => {
+    const result = validateConfig(
+      validConfig({
+        profiles: {
+          default: {
+            db: './test.sqlite',
+            source_overrides: {
+              youtube: {
+                extraction: { max_claims: 'many' as unknown as number },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'type')).toBe(true);
+    expect(result.errors.some((e) => e.path.includes('/profiles/default/source_overrides/youtube/extraction/max_claims'))).toBe(true);
+  });
+
   // ── Strict validation: unknown keys rejected ──────────────────────────
 
   it('should reject unknown top-level keys', () => {

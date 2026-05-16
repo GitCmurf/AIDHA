@@ -98,6 +98,28 @@ describe('CLI Config Commands (Phase 2A)', () => {
     expect(code).toBe(1);
   });
 
+  it('validate rejects invalid core config inside source_overrides', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    db: ./test.sqlite
+    source_overrides:
+      youtube:
+        extraction:
+          max_claims: many
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('/profiles/local/source_overrides/youtube');
+    expect(errorOutput).toContain('max_claims');
+  });
+
   it('list-profiles lists profiles', async () => {
     await createConfig(`
 config_version: 1
