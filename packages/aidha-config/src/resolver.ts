@@ -529,6 +529,11 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     throw new ConfigValidationError(configPath ?? 'resolved-config', validation.errors);
   }
 
+  const resolvedActiveSourceConfig =
+    registration?.resolveSourcePaths && activeSourceConfig !== undefined
+      ? registration.resolveSourcePaths(activeSourceConfig as never, baseDir)
+      : activeSourceConfig;
+
   // ── Emit summary event ──────────────────────────────────────────────
   if (logSink) {
     const cliOverrideKeys: string[] = [];
@@ -626,7 +631,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       sourcePrefix: (exp['source_prefix'] as string) ?? '',
     },
     ...(sourceId ? { activeSourceId: sourceId } : {}),
-    ...(activeSourceConfig !== undefined ? { activeSourceConfig } : {}),
+    ...(resolvedActiveSourceConfig !== undefined ? { activeSourceConfig: resolvedActiveSourceConfig } : {}),
     ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
   };
 

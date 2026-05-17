@@ -157,6 +157,10 @@ function toKeyCandidates(path: string): string[] {
   return snakeCasePath === path ? [path] : [path, snakeCasePath];
 }
 
+function keyHasAnyCandidate(keyCandidates: ReadonlyArray<string>, candidatePaths?: ReadonlyArray<string>): boolean {
+  return candidatePaths?.some((candidatePath) => keyCandidates.includes(candidatePath)) ?? false;
+}
+
 function hasAnyPath(obj: unknown, paths: ReadonlyArray<string>): boolean {
   return paths.some(path => deepHas(obj, path));
 }
@@ -184,27 +188,27 @@ function registrationDefaultsHasKey(
   ) ?? false;
 }
 
-function isCoreValidated(key: string): boolean {
+function isCoreValidated(keyCandidates: ReadonlyArray<string>): boolean {
   // Simple check for core sections
   const coreSections = ['llm', 'editor', 'extraction', 'export', 'db', 'base_dir', 'env', 'default_profile', 'config_version'];
-  const firstPart = key.split('.')[0];
-  return coreSections.includes(firstPart!);
+  return keyCandidates.some((key) => coreSections.includes(key.split('.')[0]!));
 }
 
-function isSourceValidated(key: string, sourceId?: string, registrations?: ReadonlyArray<SourceRegistration>): boolean {
+function isSourceValidated(
+  keyCandidates: ReadonlyArray<string>,
+  sourceId?: string,
+  registrations?: ReadonlyArray<SourceRegistration>,
+): boolean {
   if (!sourceId || !registrations) return false;
-  const sourceKey = key.startsWith('activeSourceConfig.')
-    ? key.slice('activeSourceConfig.'.length)
-    : key;
 
   const registration = registrations.find(r => r.sourceId === sourceId);
   if (!registration) return false;
 
   // If it has scalar coercion or explicit label, it's considered validated/known by source
-  if (registration.metadata?.scalarCoercions?.[sourceKey]) return true;
-  if (registration.metadata?.explainLabels?.[sourceKey]) return true;
-  if (registration.metadata?.pathFields?.includes(sourceKey)) return true;
-  if (registration.metadata?.secretFields?.includes(sourceKey)) return true;
+  if (keyHasAnyCandidate(keyCandidates, Object.keys(registration.metadata?.scalarCoercions ?? {}))) return true;
+  if (keyHasAnyCandidate(keyCandidates, Object.keys(registration.metadata?.explainLabels ?? {}))) return true;
+  if (keyHasAnyCandidate(keyCandidates, registration.metadata?.pathFields)) return true;
+  if (keyHasAnyCandidate(keyCandidates, registration.metadata?.secretFields)) return true;
 
   return false;
 }
@@ -277,9 +281,9 @@ export function resolveKeyProvenance(
       : undefined;
 
   let validationStatus: 'core' | 'source' | 'unvalidated' = 'unvalidated';
-  if (isCoreValidated(sourceKey)) {
+  if (isCoreValidated(keyCandidates)) {
     validationStatus = 'core';
-  } else if (isSourceValidated(sourceKey, sourceId, sourceRegistrations)) {
+  } else if (isSourceValidated(keyCandidates, sourceId, sourceRegistrations)) {
     validationStatus = 'source';
   }
 
@@ -343,9 +347,12 @@ function resolveSourceLabel(
   const sourceKey = key.startsWith('activeSourceConfig.')
     ? key.slice('activeSourceConfig.'.length)
     : key;
+  const keyCandidates = toKeyCandidates(sourceKey);
   for (const reg of registrations) {
-    const label = reg.metadata?.explainLabels?.[sourceKey];
-    if (label) return label;
+    for (const candidate of keyCandidates) {
+      const label = reg.metadata?.explainLabels?.[candidate];
+      if (label) return label;
+    }
   }
   return null;
 }

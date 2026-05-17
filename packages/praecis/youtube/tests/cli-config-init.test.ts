@@ -50,9 +50,14 @@ describe('CLI Config Init (Phase 2A)', () => {
 
     // Check content
     const content = await readFile(configPath, 'utf-8');
-    expect(content).toContain('config_version: 1');
-    expect(content).not.toContain('temperature'); // Removed invalid key
-    expect(content).toContain('cookie: ${YOUTUBE_COOKIE}'); // Renamed key
+    const { load } = await import('js-yaml');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed = load(content) as any;
+    expect(parsed.config_version).toBe(1);
+    expect(parsed.profiles.local.llm.model).toBe('gpt-4o');
+    expect(parsed.profiles.local.source_overrides).toBeUndefined();
+    expect(content).toContain('source_overrides:');
+    expect(content).toContain('cookie: ${YOUTUBE_COOKIE}');
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Initialized config'));
   });
 
@@ -107,8 +112,8 @@ describe('CLI Config Init (Phase 2A)', () => {
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('non-interactive environment'));
   });
 
-  it('init --source rss scaffolds source-specific config', async () => {
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+  it('init --source rss no longer emits the deprecated source scaffold', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const code = await runCli(['config', 'init', '--source', 'rss', '--project-local']);
     expect(code).toBe(0);
@@ -121,12 +126,9 @@ describe('CLI Config Init (Phase 2A)', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = load(content) as any;
 
-    expect(parsed.sources).toBeDefined();
-    expect(parsed.sources.rss).toBeDefined();
-    expect(parsed.sources.rss.rss.poll_interval_minutes).toBe(60);
-
-    // Profile 'local' should not have 'rss'
-    expect(parsed.profiles.local.rss).toBeUndefined();
+    expect(parsed.sources).toBeUndefined();
+    expect(parsed.profiles.local.source_overrides).toBeUndefined();
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining("No scaffold defined for source 'rss'"));
   });
 
   it('init --source youtube scaffolds source-specific config', async () => {
@@ -142,14 +144,17 @@ describe('CLI Config Init (Phase 2A)', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = load(content) as any;
 
-    // Verify it scaffolded into sources.youtube.youtube
-    expect(parsed.sources).toBeDefined();
-    expect(parsed.sources.youtube).toBeDefined();
-    expect(parsed.sources.youtube.youtube).toBeDefined();
-    expect(parsed.sources.youtube.youtube.cookie).toContain('${YOUTUBE_COOKIE}');
+    // Verify it scaffolded into profiles.local.source_overrides.youtube.youtube
+    expect(parsed.sources).toBeUndefined();
+    expect(parsed.profiles).toBeDefined();
+    expect(parsed.profiles.local.source_overrides.youtube).toBeDefined();
+    expect(parsed.profiles.local.source_overrides.youtube.youtube).toBeDefined();
+    expect(parsed.profiles.local.source_overrides.youtube.youtube.cookie).toContain('${YOUTUBE_COOKIE}');
 
-    // Ensure it didn't pollute profiles
-    expect(parsed.profiles?.local?.youtube).toBeUndefined();
+    const validateLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const validateCode = await runCli(['config', 'validate', '--config', configPath]);
+    expect(validateCode).toBe(0);
+    expect(validateLog).toHaveBeenCalledWith(expect.stringContaining('Config is valid'));
   });
 
   it('init --user-global respects XDG_CONFIG_HOME', async () => {

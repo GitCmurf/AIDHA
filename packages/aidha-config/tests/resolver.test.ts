@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { SourceRegistration } from '../src/types.js';
 import { resolveConfig, deepMerge } from '../src/resolver.js';
 import { ConfigValidationError } from '../src/loader.js';
 import type { AidhaConfig } from '../src/types.js';
@@ -380,6 +381,44 @@ describe('resolveConfig — source boundary', () => {
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
     expect(ytdlp.bin).toBe('yt-dlp');
     expect(ytdlp.timeout_ms).toBe(120000);
+  });
+
+  it('should normalize source-private runtime paths before returning activeSourceConfig', () => {
+    const sourceRegistration: SourceRegistration = {
+      sourceId: 'youtube',
+      validateActiveSourceConfig: (value: unknown) => value,
+      resolveSourcePaths: (value: unknown, baseDir: string) => {
+        const sourceConfig = value as { ytdlp?: { cookies_file?: string } };
+        return {
+          ...sourceConfig,
+          ytdlp: sourceConfig.ytdlp?.cookies_file
+            ? { ...sourceConfig.ytdlp, cookies_file: resolve(baseDir, sourceConfig.ytdlp.cookies_file) }
+            : sourceConfig.ytdlp,
+        };
+      },
+    };
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { cookies_file: './cookies.txt' },
+            },
+          },
+        },
+      },
+    });
+    const baseDir = '/tmp/aidha-resolver-paths';
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+      baseDir,
+      sourceRegistrations: [sourceRegistration],
+    });
+
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.cookies_file).toBe(resolve(baseDir, './cookies.txt'));
   });
 
   it('should keep core source-default sections out of activeSourceConfig', () => {

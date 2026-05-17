@@ -38,13 +38,24 @@ function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
+function redactResolvedConfigForDisplay(value: ResolvedConfig): ResolvedConfig {
+  const { activeSourceConfig, ...coreConfig } = value as unknown as Record<string, unknown>;
+  const redacted = redactSecrets(coreConfig) as unknown as Record<string, unknown>;
 
-export function ensureNoSource(options: CliOptions, commandName: string): boolean {
-  if (optionString(options, 'source')) {
-    console.error(`--source is not applicable to 'config ${commandName}'.`);
-    return false;
+  if (activeSourceConfig === undefined || activeSourceConfig === null) {
+    return redacted as unknown as ResolvedConfig;
   }
-  return true;
+
+  const sourceIdValue = redacted['activeSourceId'];
+  const sourceId = typeof sourceIdValue === 'string' ? sourceIdValue : undefined;
+  if (sourceId === YouTubeSourceRegistration.sourceId) {
+    const narrowed = YouTubeSourceRegistration.validateActiveSourceConfig(activeSourceConfig);
+    redacted['activeSourceConfig'] = YouTubeSourceRegistration.redactActiveSourceConfig!(narrowed);
+    return redacted as unknown as ResolvedConfig;
+  }
+
+  redacted['activeSourceConfig'] = redactSecrets(activeSourceConfig);
+  return redacted as unknown as ResolvedConfig;
 }
 
 type ValidationIssue = {
@@ -52,8 +63,10 @@ type ValidationIssue = {
   message: string;
 };
 
-function collectInterpolationIssues(loadResult: LoadResult): ValidationIssue[] {
-  if (!loadResult.config) return [];
+function prepareConfigForValidation(loadResult: LoadResult): { config: Record<string, unknown> | null; issues: ValidationIssue[] } {
+  if (!loadResult.config) {
+    return { config: null, issues: [] };
+  }
 
   const env = buildResolvedEnv(loadResult);
   const issues: ValidationIssue[] = [];
@@ -67,13 +80,13 @@ function collectInterpolationIssues(loadResult: LoadResult): ValidationIssue[] {
     issues.push({ path, message });
   };
 
-  const config = loadResult.config as unknown as Record<string, unknown>;
+  const config = structuredClone(loadResult.config) as unknown as Record<string, unknown>;
 
   if (config['sources'] && typeof config['sources'] === 'object') {
     for (const [sourceId, sourceConfig] of Object.entries(config['sources'] as Record<string, unknown>)) {
       if (!sourceConfig || typeof sourceConfig !== 'object' || Array.isArray(sourceConfig)) continue;
       try {
-        interpolateDeep(sourceConfig, env, { rootPath: 'sources.*' });
+        (config['sources'] as Record<string, unknown>)[sourceId] = interpolateDeep(sourceConfig, env, { rootPath: 'sources.*' });
       } catch (error) {
         pushIssue(`/sources/${sourceId}`, error);
       }
@@ -84,10 +97,15 @@ function collectInterpolationIssues(loadResult: LoadResult): ValidationIssue[] {
     for (const [profileName, profileValue] of Object.entries(config['profiles'] as Record<string, unknown>)) {
       if (!profileValue || typeof profileValue !== 'object' || Array.isArray(profileValue)) continue;
 
-      const { source_overrides: sourceOverrides, ...coreProfile } = profileValue as Record<string, unknown>;
+      const profileClone = structuredClone(profileValue) as Record<string, unknown>;
+      const { source_overrides: sourceOverrides, ...coreProfile } = profileClone;
 
       try {
-        interpolateDeep(coreProfile, env, { rootPath: 'profiles.*' });
+        const interpolatedProfile = interpolateDeep(coreProfile, env, { rootPath: 'profiles.*' }) as Record<string, unknown>;
+        if (sourceOverrides !== undefined) {
+          interpolatedProfile['source_overrides'] = sourceOverrides;
+        }
+        (config['profiles'] as Record<string, unknown>)[profileName] = interpolatedProfile;
       } catch (error) {
         pushIssue(`/profiles/${profileName}`, error);
       }
@@ -97,7 +115,11 @@ function collectInterpolationIssues(loadResult: LoadResult): ValidationIssue[] {
       for (const [sourceId, sourceOverride] of Object.entries(sourceOverrides as Record<string, unknown>)) {
         if (!sourceOverride || typeof sourceOverride !== 'object' || Array.isArray(sourceOverride)) continue;
         try {
-          interpolateDeep(sourceOverride, env, { rootPath: 'source_overrides.*' });
+          (sourceOverrides as Record<string, unknown>)[sourceId] = interpolateDeep(
+            sourceOverride,
+            env,
+            { rootPath: 'profiles.*.source_overrides.*' },
+          );
         } catch (error) {
           pushIssue(`/profiles/${profileName}/source_overrides/${sourceId}`, error);
         }
@@ -105,7 +127,16 @@ function collectInterpolationIssues(loadResult: LoadResult): ValidationIssue[] {
     }
   }
 
-  return issues;
+  return { config, issues };
+}
+
+
+export function ensureNoSource(options: CliOptions, commandName: string): boolean {
+  if (optionString(options, 'source')) {
+    console.error(`--source is not applicable to 'config ${commandName}'.`);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -244,12 +275,12 @@ function runConfigValidate(
     return 0;
   }
 
-  const result = validateConfig(loadResult.config, [YouTubeSourceRegistration]);
-  const interpolationIssues = collectInterpolationIssues(loadResult);
+  const prepared = prepareConfigForValidation(loadResult);
+  const result = validateConfig(prepared.config ?? loadResult.config, [YouTubeSourceRegistration]);
   const issues = [...result.errors.map((validationError) => ({
     path: validationError.path,
     message: validationError.message,
-  })), ...interpolationIssues];
+  })), ...prepared.issues];
 
   if (issues.length > 0) {
     const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
@@ -258,11 +289,6 @@ function runConfigValidate(
       console.error(`- ${validationError.path}: ${validationError.message}`);
     }
     return 1;
-  }
-
-  if (_resolvedConfig) {
-    console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
-    return 0;
   }
 
   console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
@@ -366,7 +392,9 @@ async function runConfigShow(
     }
   }
 
-  const configToPrint = showSecrets ? defaultResolved : redactSecrets(defaultResolved);
+  const configToPrint = showSecrets
+    ? defaultResolved
+    : redactResolvedConfigForDisplay(defaultResolved);
 
   if (optionBool(options, 'json')) {
     console.log(JSON.stringify(configToPrint, null, 2));
@@ -460,19 +488,20 @@ profiles:
     # Local development profile
     llm:
       model: gpt-4o
+
+    # Add source-specific overrides here.
+    # source_overrides:
+    #   youtube:
+    #     youtube:
+    #       cookie: \${YOUTUBE_COOKIE}
 `;
 
 const SOURCE_SCAFFOLDS: Record<string, string> = {
-  youtube: `sources:
-  youtube:
-    youtube:
-      cookie: \${YOUTUBE_COOKIE}
+  youtube: `    source_overrides:
+      youtube:
+        youtube:
+          cookie: \${YOUTUBE_COOKIE}
 `,
-  rss: `sources:
-  rss:
-    rss:
-      poll_interval_minutes: 60
-`
 };
 
 
@@ -650,7 +679,7 @@ async function runConfigDiff(
   const cliOverrides = buildCliOverrides(options);
   const knownProfiles = loadResult.config?.profiles ?? {};
   const requestedProfiles = [profileA, profileB];
-  const missingProfiles = [...new Set(requestedProfiles.filter((name) => !(name in knownProfiles)))];
+  const missingProfiles = [...new Set(requestedProfiles.filter((name) => !Object.hasOwn(knownProfiles, name)))];
 
   if (missingProfiles.length > 0) {
     console.error(`Error: Unknown profile name(s): ${missingProfiles.join(', ')}.`);
@@ -701,8 +730,12 @@ async function runConfigDiff(
       }
     }
 
-    const redactedA = showSecrets ? configA : redactSecrets(configA);
-    const redactedB = showSecrets ? configB : redactSecrets(configB);
+    const redactedA = showSecrets
+      ? configA
+      : redactResolvedConfigForDisplay(configA);
+    const redactedB = showSecrets
+      ? configB
+      : redactResolvedConfigForDisplay(configB);
 
     const diff = computeDiff(redactedA, redactedB);
 

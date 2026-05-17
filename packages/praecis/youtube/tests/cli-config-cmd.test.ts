@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runCli } from '../src/cli.js';
+import { runConfig } from '../src/cli/config-cmd.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import type { ResolvedConfig, LoadResult } from '@aidha/config';
 import { writeSecureConfig } from './helpers/config-files.js';
 
 describe('CLI Config Commands (Phase 2A)', () => {
@@ -143,6 +145,52 @@ profiles:
     expect(errorOutput).toContain('/profiles/local/source_overrides/youtube/ytdlp/keep_files');
   });
 
+  it('validate accepts interpolated numeric and boolean fields inside source_overrides', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: \${YTDLP_TIMEOUT}
+          keep_files: \${KEEP_FILES}
+        youtube:
+          debug_transcript: \${DEBUG_TRANSCRIPT}
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const originalTimeout = process.env.YTDLP_TIMEOUT;
+    const originalKeepFiles = process.env.KEEP_FILES;
+    const originalDebugTranscript = process.env.DEBUG_TRANSCRIPT;
+    process.env.YTDLP_TIMEOUT = '45000';
+    process.env.KEEP_FILES = 'true';
+    process.env.DEBUG_TRANSCRIPT = 'false';
+
+    try {
+      const code = await runCli(['config', 'validate', '--config', configPath]);
+
+      expect(code).toBe(0);
+      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Config is valid'));
+    } finally {
+      if (originalTimeout === undefined) {
+        delete process.env.YTDLP_TIMEOUT;
+      } else {
+        process.env.YTDLP_TIMEOUT = originalTimeout;
+      }
+      if (originalKeepFiles === undefined) {
+        delete process.env.KEEP_FILES;
+      } else {
+        process.env.KEEP_FILES = originalKeepFiles;
+      }
+      if (originalDebugTranscript === undefined) {
+        delete process.env.DEBUG_TRANSCRIPT;
+      } else {
+        process.env.DEBUG_TRANSCRIPT = originalDebugTranscript;
+      }
+    }
+  });
+
   it('validate accepts dotenv-backed interpolation after config resolution', async () => {
     await createConfig(`
 config_version: 1
@@ -163,6 +211,34 @@ profiles:
 
     expect(code).toBe(0);
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Config is valid'));
+  });
+
+  it('validate accepts interpolated numeric fields after config resolution', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-5-mini
+      timeout_ms: \${TIMEOUT}
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const originalTimeout = process.env.TIMEOUT;
+    process.env.TIMEOUT = '45000';
+
+    try {
+      const code = await runCli(['config', 'validate', '--config', configPath]);
+
+      expect(code).toBe(0);
+      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Config is valid'));
+    } finally {
+      if (originalTimeout === undefined) {
+        delete process.env.TIMEOUT;
+      } else {
+        process.env.TIMEOUT = originalTimeout;
+      }
+    }
   });
 
   it('validate rejects profile-specific unresolved interpolation after resolution', async () => {
@@ -365,6 +441,73 @@ profiles:
     const code = await runCli(['config', 'show', '--config', configPath, '--json']);
     expect(code).toBe(0);
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('"model": "gpt-4o"'));
+  });
+
+  it('show keeps registration-aware source path fields visible', async () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const resolvedConfig = {
+      baseDir: tempRoot,
+      db: join(tempRoot, 'aidha.sqlite'),
+      llm: {
+        model: 'gpt-5-mini',
+        apiKey: '',
+        baseUrl: 'https://api.openai.com/v1',
+        timeoutMs: 30_000,
+        cacheDir: join(tempRoot, '.cache'),
+        embeddingBatchSize: 20,
+        embeddingTaskType: 'SEMANTIC_SIMILARITY',
+        embeddingOutputDimensionality: 768,
+      },
+      editor: {
+        version: 'v2',
+        windowMinutes: 5,
+        maxPerWindow: 3,
+        minWindows: 4,
+        minWords: 8,
+        minChars: 50,
+        editorLlm: false,
+      },
+      extraction: {
+        maxClaims: 15,
+        chunkMinutes: 5,
+        maxChunks: 0,
+        promptVersion: 'v1',
+      },
+      export: {
+        outDir: join(tempRoot, 'out'),
+        sourcePrefix: 'youtube',
+      },
+      activeSourceId: 'youtube',
+      activeSourceConfig: {
+        ytdlp: {
+          bin: 'yt-dlp',
+          cookies_file: join(tempRoot, 'cookies.txt'),
+          timeout_ms: 60000,
+        },
+        youtube: {
+          cookie: 'secret-cookie',
+          innertube_api_key: 'secret-key', // pragma: allowlist secret
+          debug_transcript: false,
+        },
+      },
+    } satisfies ResolvedConfig;
+    const loadResult = {
+      config: null,
+      configPath: configPath,
+      baseDir: tempRoot,
+      warnings: [],
+      dotenvEnv: {},
+    } satisfies LoadResult;
+
+    const code = await runConfig(['show'], { json: true } as any, loadResult, resolvedConfig as ResolvedConfig);
+    const output = String(consoleLog.mock.calls.at(-1)?.[0] ?? '');
+
+    expect(code).toBe(0);
+    expect(output).toContain('"cookiesFile":');
+    expect(output).toContain(join(tempRoot, 'cookies.txt'));
+    expect(output).toContain('"cookie": "********"');
+    expect(output).toContain('"innertubeApiKey": "********"');
+    expect(output).not.toContain('secret-cookie');
   });
 
   it('get retrieves value', async () => {
@@ -626,6 +769,27 @@ profiles:
     expect(code).toBe(1);
     expect(errorOutput).toContain('Unknown profile name');
     expect(errorOutput).toContain('typo');
+    expect(consoleLog).not.toHaveBeenCalled();
+  });
+
+  it('diff rejects prototype property names that are not actual profiles', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: local-model
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'diff', 'local', 'toString', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('Unknown profile name');
+    expect(errorOutput).toContain('toString');
     expect(consoleLog).not.toHaveBeenCalled();
   });
 

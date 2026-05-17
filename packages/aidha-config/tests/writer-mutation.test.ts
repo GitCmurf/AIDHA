@@ -124,6 +124,44 @@ profiles:
     })).toThrow(/cannot be empty; expected number/i);
   });
 
+  it('rejects empty strings for numeric source overrides', async () => {
+    const original = `
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    source_overrides:
+      youtube:
+        ytdlp:
+          timeout_ms: 120000
+    `;
+    await writeFile(configPath, original, 'utf-8');
+
+    const sourceRegistrations = [{
+      sourceId: 'youtube',
+      metadata: {
+        scalarCoercions: {
+          'ytdlp.timeout_ms': 'number',
+        },
+      },
+      validateActiveSourceConfig: (value: unknown) => value,
+    }];
+
+    expect(() => mutateConfig({
+      filePath: configPath,
+      keyPath: 'profiles.local.source_overrides.youtube.ytdlp.timeout_ms',
+      value: '',
+      sourceRegistrations,
+    })).toThrow(/cannot be empty; expected number/i);
+
+    expect(() => mutateConfig({
+      filePath: configPath,
+      keyPath: 'profiles.local.source_overrides.youtube.ytdlp.timeout_ms',
+      value: '   ',
+      sourceRegistrations,
+    })).toThrow(/cannot be empty; expected number/i);
+  });
+
   it('preserves YAML anchors (where possible) and updates aliased values via copy-on-write', async () => {
     const original = `
 config_version: 1

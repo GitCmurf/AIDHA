@@ -313,6 +313,9 @@ function convertSourceOverrideValue(
   keyPath: string,
 ): unknown {
   if (coercionType === 'number') {
+    if (value.trim().length === 0) {
+      throw new Error(`Value for ${keyPath} cannot be empty; expected number.`);
+    }
     const n = Number(value);
     if (Number.isNaN(n)) {
       throw new Error(`Invalid numeric value for ${keyPath}: "${value}"`);
@@ -515,7 +518,7 @@ export function mutateConfig(options: MutateOptions): WriteResult {
   // ── Validation after mutation ───────────────────────────────────────
   const validationErrors: Array<{ path: string; message: string }> = [];
   if (!skipValidation) {
-    const result = validateConfig(mutatedConfig);
+    const result = validateConfig(mutatedConfig, sourceRegistrations);
     if (!result.valid) {
       if (dryRun) {
         return { written: false, backupPath: null, validationErrors: result.errors };
