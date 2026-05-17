@@ -9,6 +9,7 @@ import {
   ConfigWriteValidationError,
   mutateConfig,
   resolveConfig,
+  interpolateDeep,
   DEFAULTS,
 } from '@aidha/config';
 import type { LoadResult, ResolvedConfig, Profile } from '@aidha/config';
@@ -18,8 +19,8 @@ import { readFile, writeFile, mkdir, chmod, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { dump as dumpYaml } from 'js-yaml'; // Restore dumpYaml
-import { buildCliOverrides } from './config-bridge.js'; // Restore buildCliOverrides
-import { YouTubeSourceRegistration } from '../config/index.js';
+import { buildCliOverrides, buildResolvedEnv } from './config-bridge.js'; // Restore buildCliOverrides
+import { YouTubeSourceRegistration, resolveRawYoutubeActiveSourceConfigPaths } from '../config/index.js';
 
 // Function to get a value from an object (deep)
 function deepGet(obj: unknown, path: string): unknown {
@@ -61,7 +62,7 @@ export async function runConfig(
     case 'path':
       return runConfigPath(options, loadResult);
     case 'validate':
-      return runConfigValidate(options, loadResult, error);
+      return runConfigValidate(options, loadResult, resolvedConfig, error);
     case 'list-profiles':
       return runConfigListProfiles(options, loadResult, error);
     case 'show':
@@ -159,9 +160,13 @@ function runConfigPath(options: CliOptions, loadResult: LoadResult): number {
   return 0;
 }
 
-function runConfigValidate(options: CliOptions, loadResult: LoadResult, error?: Error): number {
+function runConfigValidate(
+  options: CliOptions,
+  loadResult: LoadResult,
+  _resolvedConfig?: ResolvedConfig,
+  error?: Error,
+): number {
   if (!ensureNoSource(options, 'validate')) return 2;
-
 
   if (error) {
     // Use centralized error printer
@@ -177,18 +182,20 @@ function runConfigValidate(options: CliOptions, loadResult: LoadResult, error?: 
     return 0;
   }
 
-  const result = validateConfig(loadResult.config, [YouTubeSourceRegistration]);
+  const interpolatedConfig = interpolateDeep(loadResult.config, buildResolvedEnv(loadResult));
+  const result = validateConfig(interpolatedConfig, [YouTubeSourceRegistration]);
+
   if (result.valid) {
     console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
     return 0;
-  } else {
-    const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
-    console.error(`Config is invalid: ${pathStr}`);
-    for (const error of result.errors) {
-      console.error(`- ${error.path}: ${error.message}`);
-    }
-    return 1;
   }
+
+  const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
+  console.error(`Config is invalid: ${pathStr}`);
+  for (const error of result.errors) {
+    console.error(`- ${error.path}: ${error.message}`);
+  }
+  return 1;
 }
 
 function runConfigListProfiles(options: CliOptions, loadResult: LoadResult, error?: Error): number {
@@ -579,11 +586,25 @@ async function runConfigDiff(
     baseDir: loadResult.baseDir,
     cliOverrides,
     sourceRegistrations: [YouTubeSourceRegistration],
+    env: buildResolvedEnv(loadResult),
   });
 
   try {
     const configA = resolveProfile(profileA);
     const configB = resolveProfile(profileB);
+
+    if (sourceId && configA.activeSourceConfig !== undefined) {
+      configA.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+        configA.activeSourceConfig,
+        configA.baseDir,
+      );
+    }
+    if (sourceId && configB.activeSourceConfig !== undefined) {
+      configB.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+        configB.activeSourceConfig,
+        configB.baseDir,
+      );
+    }
 
     const showSecrets = optionBool(options, 'show-secrets');
     const redactedA = showSecrets ? configA : redactSecrets(configA);

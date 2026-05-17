@@ -1362,7 +1362,13 @@ const runMatchingRunner = async (command: string, positionals: string[], options
 
 const handleConfigCommand = (positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
   const error = !resolution.ok ? resolution.error : undefined;
-  return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.ok ? resolution.config : undefined, error);
+  return runConfig(
+    positionals.slice(1),
+    options,
+    resolution.loadResult,
+    resolution.ok ? resolution.config : undefined,
+    error,
+  );
 };
 
 const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {

@@ -68,6 +68,13 @@ export type ConfigBridgeResult =
 
 const ALL_SOURCE_REGISTRATIONS = [YouTubeSourceRegistration];
 
+export function buildResolvedEnv(loadResult: LoadResult): Record<string, string | undefined> {
+  return {
+    ...process.env,
+    ...loadResult.dotenvEnv,
+  };
+}
+
 // ── Bridge ───────────────────────────────────────────────────────────────────
 
 /**
@@ -117,6 +124,7 @@ export async function resolveCliConfig(
       sourceId: opts.source || undefined,
       cliOverrides: opts.cliOverrides,
       sourceRegistrations: ALL_SOURCE_REGISTRATIONS,
+      env: buildResolvedEnv(loadResult),
       configPath: loadResult.configPath,
       dotenvFileCount: Object.keys(loadResult.dotenvEnv).length,
       warningCount: loadResult.warnings.length,

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { runCli } from '../src/cli.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { writeSecureConfig } from './helpers/config-files.js';
 
 describe('CLI Config Commands (Phase 2A)', () => {
@@ -141,6 +141,28 @@ profiles:
     expect(code).toBe(1);
     expect(errorOutput).toContain('/profiles/local/source_overrides/youtube');
     expect(errorOutput).toContain('/profiles/local/source_overrides/youtube/ytdlp/keep_files');
+  });
+
+  it('validate accepts dotenv-backed interpolation after config resolution', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+env:
+  dotenv_files:
+    - .env
+profiles:
+  local:
+    llm:
+      model: gpt-5-mini
+      api_key: \${AIDHA_OPENAI_API_KEY}
+`);
+    await writeFile(join(tempRoot, '.env'), 'AIDHA_OPENAI_API_KEY=from-dotenv\n');
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath]);
+
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Config is valid'));
   });
 
   it('list-profiles lists profiles', async () => {

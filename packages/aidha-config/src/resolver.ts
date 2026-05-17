@@ -183,6 +183,8 @@ export interface ResolveOptions {
   baseDir?: string;
   /** Source registrations providing defaults, validation, and metadata. */
   sourceRegistrations?: SourceRegistration[];
+  /** Environment map used for interpolation; defaults to process.env. */
+  env?: Record<string, string | undefined>;
   /** Callback for structured configuration events. */
   logSink?: ConfigLogSink;
   /** Telemetry: path to the config file (for logging). */
@@ -287,13 +289,14 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     defaults = DEFAULTS,
     baseDir = process.cwd(),
     sourceRegistrations = [],
+    env: envOverride,
     logSink,
     configPath = null,
     dotenvFileCount = 0,
     warningCount = 0,
   } = options;
 
-  const env = { ...process.env } as Record<string, string | undefined>;
+  const env = { ...process.env, ...(envOverride ?? {}) } as Record<string, string | undefined>;
   const activeProfileName = profileName ?? rawConfig?.default_profile ?? 'default';
   const registration = sourceId
     ? sourceRegistrations.find((r) => r.sourceId === sourceId)
