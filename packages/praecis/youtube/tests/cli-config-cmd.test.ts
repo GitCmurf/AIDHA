@@ -608,6 +608,27 @@ profiles:
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('requires --yes'));
   });
 
+  it('diff rejects unknown profile names before comparing', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: local-model
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'diff', 'local', 'typo', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('Unknown profile name');
+    expect(errorOutput).toContain('typo');
+    expect(consoleLog).not.toHaveBeenCalled();
+  });
+
   it('diff ignores equal array-valued fields', async () => {
     await createConfig(`
 config_version: 1

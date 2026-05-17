@@ -56,7 +56,6 @@ export {
   resolvePathValue,
   resolvePathValues,
   isBareCommand,
-  getPathAnnotatedKeys,
 } from './paths.js';
 
 // ── Five-tier resolver ───────────────────────────────────────────────────────

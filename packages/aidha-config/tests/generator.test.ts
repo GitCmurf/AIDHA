@@ -13,10 +13,10 @@ describe('Metadata Generation Script', () => {
 
     // api_key is from a $ref'd definition
     expect(content).toContain('"api_key"');
-
-    // Verify other known secret patterns or explicit x-aidha-secret fields
-    // Based on the current schema, only api_key and cookie are marked secret.
-    expect(content).toContain('"cookie"');
+    // The generated registry should stay aligned with the JSON Schema source.
+    // Source-private YouTube secrets are handled by source registration metadata
+    // and heuristic redaction, not by this core schema registry.
+    expect(content).not.toContain('"cookie"');
   });
 
   it('verifies the traversal logic covers all key keywords (manual review of output)', () => {
