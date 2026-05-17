@@ -15,13 +15,11 @@
  * @module
  */
 
-import { readFileSync, writeFileSync, renameSync, existsSync, statSync, unlinkSync, chmodSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, statSync, unlinkSync, chmodSync, copyFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { stringify as stringifyYAML, parseDocument, isAlias, isMap, isSeq, isPair, YAMLMap, visit } from 'yaml';
 import { validateConfig, convertValue } from './schema.js';
 import type { SourceRegistration } from './types.js';
-
-// ... (existing helper methods if any)
 
 /** Helper to find a node by its anchor name. */
 function findNodeByAnchor(doc: any, anchorName: string): any {
@@ -131,10 +129,9 @@ function rotateBackups(filePath: string): string | null {
   // Move current file to .bak
   const backupPath = join(dir, `${baseName}.bak`);
   try {
-    // Copy content to preserve the original file during atomic write
     const mode = statSync(filePath).mode & 0o777;
-    const content = readFileSync(filePath, 'utf-8');
-    writeFileSync(backupPath, content, { encoding: 'utf-8', mode });
+    copyFileSync(filePath, backupPath);
+    try { chmodSync(backupPath, mode); } catch { /* ignore on restrictive filesystems */ }
     return backupPath;
   } catch (err) {
     // Backup failure should not necessarily block config writes in dev.
@@ -145,6 +142,70 @@ function rotateBackups(filePath: string): string | null {
       // ignore
     }
     return null;
+  }
+}
+
+// ── Atomic write helper ───────────────────────────────────────────────────────
+
+function atomicWriteYaml(
+  tmpPath: string,
+  filePath: string,
+  yaml: string,
+  expectedMtime?: number,
+  mtimeToleranceMs = 2000,
+): void {
+  try {
+    writeFileSync(tmpPath, yaml, { encoding: 'utf-8', mode: 0o600 });
+    try {
+      chmodSync(tmpPath, 0o600);
+    } catch {
+      // chmod may fail on certain filesystems; continue
+    }
+    if (expectedMtime !== undefined) {
+      try {
+        const currentMtime = statSync(filePath).mtimeMs;
+        if (Math.abs(currentMtime - expectedMtime) > mtimeToleranceMs) {
+          throw new ConfigConflictError(expectedMtime, currentMtime);
+        }
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT') throw err;
+      }
+    }
+    try {
+      renameSync(tmpPath, filePath);
+    } catch (err) {
+      // Windows can fail to rename over an existing file; since we already
+      // wrote a backup, it's safe to unlink and retry as a best-effort fallback.
+      const code = (err as { code?: string } | null)?.code;
+      if (code === 'EEXIST' || code === 'EPERM') {
+        try {
+          unlinkSync(filePath);
+        } catch {
+          // ignore
+        }
+        renameSync(tmpPath, filePath);
+      } else if (code === 'EXDEV') {
+        // Cross-device rename — same-dir temp path strategy should prevent this,
+        // but handle defensively.
+        writeFileSync(filePath, yaml, { encoding: 'utf-8', mode: 0o600 });
+        try {
+          chmodSync(filePath, 0o600);
+        } catch {
+          // ignore
+        }
+        unlinkSync(tmpPath);
+      } else {
+        throw err;
+      }
+    }
+  } catch (err) {
+    try {
+      unlinkSync(tmpPath);
+    } catch {
+      // Best-effort cleanup
+    }
+    throw err;
   }
 }
 
@@ -220,60 +281,7 @@ export function writeConfig(options: WriteOptions): WriteResult {
     defaultStringType: 'PLAIN',
   });
 
-  try {
-    writeFileSync(tmpPath, yaml, { encoding: 'utf-8', mode: 0o600 });
-    try {
-      chmodSync(tmpPath, 0o600);
-    } catch {
-      // chmod may fail on certain filesystems; continue
-    }
-    if (expectedMtime !== undefined) {
-      try {
-        const currentMtime = statSync(filePath).mtimeMs;
-        if (Math.abs(currentMtime - expectedMtime) > mtimeToleranceMs) {
-          throw new ConfigConflictError(expectedMtime, currentMtime);
-        }
-      } catch (err) {
-        const code = (err as NodeJS.ErrnoException).code;
-        if (code !== 'ENOENT') throw err;
-      }
-    }
-    try {
-      renameSync(tmpPath, filePath);
-    } catch (err) {
-      // Windows can fail to rename over an existing file; since we already
-      // wrote a backup, it's safe to unlink and retry as a best-effort fallback.
-      const code = (err as { code?: string } | null)?.code;
-      if (code === 'EEXIST' || code === 'EPERM') {
-        try {
-          unlinkSync(filePath);
-        } catch {
-          // ignore
-        }
-        renameSync(tmpPath, filePath);
-      } else if (code === 'EXDEV') {
-        // Cross-device rename. This should not occur with our temp path strategy
-        // (same directory as destination), but handle defensively.
-        writeFileSync(filePath, yaml, { encoding: 'utf-8', mode: 0o600 });
-        try {
-          chmodSync(filePath, 0o600);
-        } catch {
-          // ignore
-        }
-        unlinkSync(tmpPath);
-      } else {
-        throw err;
-      }
-    }
-  } catch (err) {
-    // Clean up orphaned tmp file on any failure (permissions, cross-device, etc.)
-    try {
-      unlinkSync(tmpPath);
-    } catch {
-      // Best-effort cleanup
-    }
-    throw err;
-  }
+  atomicWriteYaml(tmpPath, filePath, yaml, expectedMtime, mtimeToleranceMs);
 
   return { written: true, backupPath, validationErrors };
 }
@@ -520,56 +528,9 @@ export function mutateConfig(options: MutateOptions): WriteResult {
     return { written: false, backupPath: null, validationErrors };
   }
 
-  // ── Write mutated YAML ──────────────────────────────────────────────
-  // We reuse the atomic write logic by calling writeConfig with the mutated doc
-  // but we want to use doc.toString() instead of stringifyYAML(config) to preserve style.
-  // So we'll manually perform the write/backup here to avoid re-serializing style-free.
-
-  // ── Backup rotation ─────────────────────────────────────────────────
   const backupPath = rotateBackups(filePath);
-
-  // ── Atomic write (temp → rename) ────────────────────────────────────
   const tmpPath = `${filePath}.tmp.${process.pid}`;
-  const yaml = doc.toString();
-
-  try {
-    writeFileSync(tmpPath, yaml, { encoding: 'utf-8', mode: 0o600 });
-    try {
-      chmodSync(tmpPath, 0o600);
-    } catch {
-      // ignore
-    }
-    try {
-      renameSync(tmpPath, filePath);
-    } catch (err) {
-      const code = (err as { code?: string } | null)?.code;
-      if (code === 'EEXIST' || code === 'EPERM') {
-        try {
-          unlinkSync(filePath);
-        } catch {
-          // ignore
-        }
-        renameSync(tmpPath, filePath);
-      } else if (code === 'EXDEV') {
-        writeFileSync(filePath, yaml, { encoding: 'utf-8', mode: 0o600 });
-        try {
-          chmodSync(filePath, 0o600);
-        } catch {
-          // ignore
-        }
-        unlinkSync(tmpPath);
-      } else {
-        throw err;
-      }
-    }
-  } catch (err) {
-    try {
-      unlinkSync(tmpPath);
-    } catch {
-      // ignore
-    }
-    throw err;
-  }
+  atomicWriteYaml(tmpPath, filePath, doc.toString());
 
   return { written: true, backupPath, validationErrors };
 }

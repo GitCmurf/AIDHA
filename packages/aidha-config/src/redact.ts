@@ -18,6 +18,8 @@ import { SECRET_LEAF_NAMES } from './schema.generated.js';
 import { validateLength, ValidationError } from './validation.js';
 import type { SourceRegistration } from './types.js';
 
+const SECRET_LEAF_NAMES_SET = new Set(SECRET_LEAF_NAMES);
+
 const REDACTED = '********';
 
 /** Maximum key length to prevent potential ReDoS attacks. */
@@ -59,11 +61,12 @@ function isHeuristicSecret(key: string): boolean {
  */
 export function isSecretKey(key: string, extraSecretNames?: Set<string>): boolean {
   const snakeCase = toSnakeCase(key);
-  const secretNames = new Set(SECRET_LEAF_NAMES);
   if (extraSecretNames) {
-    for (const name of extraSecretNames) secretNames.add(name);
+    const merged = new Set(SECRET_LEAF_NAMES_SET);
+    for (const name of extraSecretNames) merged.add(name);
+    return merged.has(key) || merged.has(snakeCase) || isHeuristicSecret(key);
   }
-  return secretNames.has(key) || secretNames.has(snakeCase) || isHeuristicSecret(key);
+  return SECRET_LEAF_NAMES_SET.has(key) || SECRET_LEAF_NAMES_SET.has(snakeCase) || isHeuristicSecret(key);
 }
 
 
@@ -159,10 +162,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /** The redaction placeholder string. Exported for test assertions. */
 export { REDACTED };
-
-export function clearSecretCache(): void {
-  _secretLeafNames = undefined;
-}
 
 export function redactWithRegistrations<T>(
   obj: T,

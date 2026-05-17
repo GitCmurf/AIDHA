@@ -14,7 +14,7 @@ import {
 import type { LoadResult, ResolvedConfig, Profile } from '@aidha/config';
 import { resolve, dirname, join, isAbsolute } from 'node:path';
 import type { CliOptions } from '../cli.js'; // Import CliOptions
-import { readFile, writeFile, mkdir, constants, access, chmod } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, chmod, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { dump as dumpYaml } from 'js-yaml'; // Restore dumpYaml
@@ -170,10 +170,8 @@ function runConfigValidate(options: CliOptions, loadResult: LoadResult, error?: 
 
   if (!loadResult.config) {
     if (loadResult.configPath) {
-        // Should have been caught above if it was an error?
-        // Maybe config is null but no error attached? (e.g. file empty?)
-        console.error(`Config file exists but loaded as null: ${loadResult.configPath}`);
-        return 1;
+      console.error(`Config file exists but loaded as null: ${loadResult.configPath}`);
+      return 1;
     }
     console.log('No config file loaded (using internal defaults).');
     return 0;
@@ -184,9 +182,6 @@ function runConfigValidate(options: CliOptions, loadResult: LoadResult, error?: 
     console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
     return 0;
   } else {
-    // Should be unreachable if loader throws on invalid?
-    // But maybe loader validates interpolated config?
-    // If loader throws, we handled it above.
     const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
     console.error(`Config is invalid: ${pathStr}`);
     for (const error of result.errors) {
@@ -435,30 +430,16 @@ async function runConfigInit(options: CliOptions): Promise<number> {
 
 
   const sourceOpt = optionString(options, 'source');
-  // Default to youtube if no source specified (backward compat/current state) or if strictness desired?
-  // User guide implies init with nothing gives basic.
-  // But previously we hardcoded youtube. Let's strictly require it or default to none?
-  // Current hardcoded had youtube. Let's default to 'youtube' for now to match specific requirement,
-  // or better: default to empty unless requested?
-  // "Implement `aidha config init --source <id>` scaffolding."
-
   let scaffold = BASE_SCAFFOLD;
 
   if (sourceOpt) {
-      if (SOURCE_SCAFFOLDS[sourceOpt]) {
-          scaffold += '\n' + SOURCE_SCAFFOLDS[sourceOpt];
-      } else {
-          console.warn(`⚠️  Warning: No scaffold defined for source '${sourceOpt}'.`);
-      }
+    if (SOURCE_SCAFFOLDS[sourceOpt]) {
+      scaffold += '\n' + SOURCE_SCAFFOLDS[sourceOpt];
+    } else {
+      console.warn(`⚠️  Warning: No scaffold defined for source '${sourceOpt}'.`);
+    }
   } else {
-      // For backward compatibility with the hardcoded version in previous steps,
-      // we could include youtube by default, but cleaner to require flags for new sources.
-      // However, to keep "local: ... youtube: ..." structure from before if user doesn't specify,
-      // I'll add youtube by default if NO source is specified, OR leave it bare.
-      // Let's leave it bare to prove extensibility, but maybe that breaks expectations?
-      // "Implement `aidha config init --source <id>` scaffolding" suggests specific opt-in.
-      // I'll add a comment in the file to prompt adding sources.
-      scaffold += `
+    scaffold += `
 # Add source configs here
 # sources:
 #   youtube:
@@ -476,32 +457,28 @@ async function runConfigInit(options: CliOptions): Promise<number> {
     return 0;
   }
 
+  let alreadyExists = false;
+  try { await stat(targetPath); alreadyExists = true; } catch { /* not present */ }
+
   try {
-    await access(targetPath, constants.F_OK);
-    if (!force) {
+    await mkdir(dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, content, { mode: 0o600, encoding: 'utf-8', flag: force ? 'w' : 'wx' });
+    try {
+      await chmod(targetPath, 0o600);
+    } catch {
+      // chmod may fail on some filesystems; continue
+    }
+    if (alreadyExists && force) {
+      console.log(`Overwriting existing config at ${targetPath}`);
+    }
+    console.log(`Initialized config at ${targetPath}`);
+    return 0;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
       console.error(`Error: Config file already exists at ${targetPath}`);
       console.error('       Use --force to overwrite.');
       return 1;
     }
-    console.log(`Overwriting existing config at ${targetPath}`);
-  } catch {
-    // Does not exist, proceed
-  }
-
-  try {
-    await mkdir(dirname(targetPath), { recursive: true });
-    await writeFile(targetPath, content, { mode: 0o600, encoding: 'utf-8' });
-
-    try {
-      await chmod(targetPath, 0o600);
-    } catch (chmodErr) {
-       // Ignore chmod error on Windows? Or warn?
-       // Just proceed.
-    }
-
-    console.log(`Initialized config at ${targetPath}`);
-    return 0;
-  } catch (err) {
     console.error(`Failed to write config: ${err instanceof Error ? err.message : String(err)}`);
     return 1;
   }

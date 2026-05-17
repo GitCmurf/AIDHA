@@ -214,32 +214,6 @@ export type ConfigLogEvent =
 /** Callback for processing structured config events. */
 export type ConfigLogSink = (event: ConfigLogEvent) => void;
 
-// ── Writer Types ─────────────────────────────────────────────────────────────
-
-/** Options for writing a config file safely. */
-export interface WriteConfigOptions {
-  /** How many .bak files to retain (default: 3). */
-  maxBackups?: number;
-  /** If true, perform a dry-run and return the diff without writing. */
-  dryRun?: boolean;
-  /** Optional comment header to prepend to the file. */
-  header?: string;
-  /** If true, allow overwriting even if the file changed since it was read. */
-  force?: boolean;
-  /** If true, allow writing to a symlink target (not recommended). */
-  allowSymlink?: boolean;
-}
-
-/** Result of a config write operation. */
-export interface WriteResult {
-  /** Path to the backup file created (if any). */
-  backupPath?: string;
-  /** Whether the file was actually modified. */
-  modified: boolean;
-  /** Human-readable diff (if dryRun). */
-  diff?: string;
-}
-
 // ── Utility Types ────────────────────────────────────────────────────────────
 
 /** Recursively makes all properties readonly. */

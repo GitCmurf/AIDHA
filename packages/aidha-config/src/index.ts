@@ -64,7 +64,7 @@ export { resolveConfig, deepMerge } from './resolver.js';
 export type { ResolveOptions } from './resolver.js';
 
 // ── Secret redaction ─────────────────────────────────────────────────────────
-export { redactSecrets, isSecretKey, REDACTED, clearSecretCache, redactWithRegistrations } from './redact.js';
+export { redactSecrets, isSecretKey, REDACTED, redactWithRegistrations } from './redact.js';
 
 // ── Validation ─────────────────────────────────────────────────────────────────
 export { validateLength } from './validation.js';

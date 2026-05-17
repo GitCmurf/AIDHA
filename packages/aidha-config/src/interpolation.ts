@@ -256,10 +256,7 @@ export function interpolateDeep<T>(
 
           // Normalize schema path for dynamic keys
           const parts = nextSchemaPath.split('.');
-          if (parts[0] === 'profiles' && parts.length > 1) {
-            parts[1] = '*';
-            nextSchemaPath = parts.join('.');
-          } else if (parts[0] === 'sources' && parts.length > 1) {
+          if ((parts[0] === 'profiles' || parts[0] === 'sources') && parts.length > 1) {
             parts[1] = '*';
             nextSchemaPath = parts.join('.');
           }

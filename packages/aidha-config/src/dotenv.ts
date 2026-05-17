@@ -7,7 +7,7 @@
  * @module
  */
 
-import { readFileSync, lstatSync, existsSync } from 'node:fs';
+import { readFileSync, lstatSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export interface DotenvLoadOptions {
@@ -66,24 +66,27 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
       continue;
     }
 
-    if (!existsSync(dotenvPath)) {
-      const msg = `Dotenv file not found: ${dotenvPath}`;
-      if (required) {
-        throw new Error(msg);
+    let dotenvStat;
+    try {
+      dotenvStat = lstatSync(dotenvPath);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        const msg = `Dotenv file not found: ${dotenvPath}`;
+        if (required) throw new Error(msg);
+        onWarning(msg);
+      } else {
+        onWarning(`Failed to stat dotenv file: ${dotenvPath}`);
       }
-      onWarning(msg);
       continue;
     }
 
-    if (isSymlink(dotenvPath)) {
+    if (dotenvStat.isSymbolicLink()) {
       onWarning(`Dotenv file '${dotenvPath}' is a symlink; skipping for security.`);
       continue;
     }
 
-    if (!isSafeOwnership(dotenvPath)) {
-      onWarning(
-        `Dotenv file '${dotenvPath}' is not owned by the current user or root; skipping for security.`,
-      );
+    if (!isSafeOwnershipStat(dotenvStat, dotenvPath, onWarning)) {
       continue;
     }
 
@@ -122,24 +125,15 @@ function isWithinBaseDir(filePath: string, baseDir: string): boolean {
   return resolved.startsWith(resolvedBase + '/') || resolved === resolvedBase;
 }
 
-function isSymlink(filePath: string): boolean {
-  try {
-    const stat = lstatSync(filePath);
-    return stat.isSymbolicLink();
-  } catch {
-    return false;
-  }
-}
-
-function isSafeOwnership(filePath: string): boolean {
+function isSafeOwnershipStat(
+  stat: ReturnType<typeof lstatSync>,
+  dotenvPath: string,
+  onWarning: (msg: string) => void,
+): boolean {
   if (process.platform === 'win32') return true;
-  try {
-    const stat = lstatSync(filePath);
-    const uid = process.getuid?.();
-    // Safety check for uid being defined (should be on POSIX)
-    if (uid === undefined) return true;
-    return stat.uid === uid || stat.uid === 0; // Current user or root
-  } catch {
-    return false;
-  }
+  const uid = process.getuid?.();
+  if (uid === undefined) return true;
+  if (stat.uid === uid || stat.uid === 0) return true;
+  onWarning(`Dotenv file '${dotenvPath}' is not owned by the current user or root; skipping for security.`);
+  return false;
 }
