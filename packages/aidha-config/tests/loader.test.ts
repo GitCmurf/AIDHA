@@ -2,7 +2,7 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, chmodSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, chmodSync, symlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -339,6 +339,29 @@ profiles:
     vi.unstubAllEnvs();
   });
 
+  it('should throw ConfigValidationError for malformed dotenv_files entries', async () => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+env:
+  dotenv_files:
+    - .env.test
+    - 123
+profiles:
+  default: {}
+`);
+
+    await expect(loadConfig({ cwd: tmpDir, env: {} })).rejects.toMatchObject({
+      name: 'ConfigValidationError',
+      errors: [
+        {
+          path: '/env/dotenv_files/1',
+          message: 'must be a string',
+        },
+      ],
+    });
+  });
+
   it('should return empty dotenvEnv when no dotenv files configured', async () => {
     writeConfig(`
 config_version: 1
@@ -363,6 +386,40 @@ profiles:
     const result = await loadConfig({ cwd: tmpDir, env: {} });
     expect(result.warnings.length).toBeGreaterThan(0);
     expect(result.warnings.some((w) => w.includes('nonexistent.env'))).toBe(true);
+  });
+
+  it('should skip dotenv files reached through a symlinked directory', async () => {
+    const externalRoot = mkdtempSync(join(tmpdir(), 'aidha-dotenv-external-'));
+    const externalDir = join(externalRoot, 'outside');
+    const linkedDir = join(tmpDir, 'linked');
+
+    try {
+      mkdirSync(externalDir, { recursive: true });
+      writeFileSync(join(externalDir, 'secret.env'), 'TRAVERSAL=value\n', 'utf-8');
+
+      try {
+        symlinkSync(externalDir, linkedDir, 'dir');
+      } catch {
+        return;
+      }
+
+      writeConfig(`
+config_version: 1
+default_profile: default
+env:
+  dotenv_files:
+    - linked/secret.env
+profiles:
+  default: {}
+`);
+
+      const result = await loadConfig({ cwd: tmpDir, env: {} });
+
+      expect(result.dotenvEnv['TRAVERSAL']).toBeUndefined();
+      expect(result.warnings.some((w) => w.includes('resolves outside the config base directory'))).toBe(true);
+    } finally {
+      rmSync(externalRoot, { recursive: true, force: true });
+    }
   });
 
   it('should error on missing dotenv file when dotenv_required is true', async () => {

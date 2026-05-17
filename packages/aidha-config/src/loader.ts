@@ -154,11 +154,24 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
       : undefined;
   const dotenvFilesRaw = envConfig?.['dotenv_files'];
   if (Array.isArray(dotenvFilesRaw)) {
-    const files = dotenvFilesRaw.filter((f): f is string => typeof f === 'string');
-    const skipped = dotenvFilesRaw.length - files.length;
-    if (skipped > 0) {
-      warn(`Ignoring ${skipped} non-string dotenv_files entries.`, 'DOTENV_FORMAT');
+    const dotenvErrors: Array<{ path: string; message: string }> = [];
+    const files: string[] = [];
+    for (let index = 0; index < dotenvFilesRaw.length; index += 1) {
+      const entry = dotenvFilesRaw[index];
+      if (typeof entry !== 'string') {
+        dotenvErrors.push({
+          path: `/env/dotenv_files/${index}`,
+          message: 'must be a string',
+        });
+        continue;
+      }
+      files.push(entry);
     }
+
+    if (dotenvErrors.length > 0) {
+      throw new ConfigValidationError(configPath, dotenvErrors);
+    }
+
     const dotenvResult = loadDotenvFiles({
       files,
       baseDir: baseDirPrelim,

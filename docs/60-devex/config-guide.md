@@ -151,6 +151,8 @@ profiles:
 
 You can set these variables in your shell
 or use a `.env` file if you configure `env.dotenv_files` in your config.
+Each entry must be a string path; malformed entries fail validation, and
+dotenv paths stay confined to `base_dir_prelim`.
 
 ## Verification
 

@@ -13,6 +13,7 @@ import {
 } from '@aidha/config';
 import type { LoadResult, ResolvedConfig, Profile } from '@aidha/config';
 import { resolve, dirname, join, isAbsolute } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import type { CliOptions } from '../cli.js'; // Import CliOptions
 import { readFile, writeFile, mkdir, chmod, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -654,7 +655,7 @@ function computeDiff(a: any, b: any, path = ''): Record<string, any> {
     const valA = a?.[key];
     const valB = b?.[key];
 
-    if (valA === valB) continue;
+    if (isDeepStrictEqual(valA, valB)) continue;
 
     if (typeof valA === 'object' && typeof valB === 'object' && valA !== null && valB !== null && !Array.isArray(valA) && !Array.isArray(valB)) {
       const nestedDiff = computeDiff(valA, valB, path ? `${path}.${key}` : key);

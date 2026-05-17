@@ -7,7 +7,7 @@
  * @module
  */
 
-import { readFileSync, lstatSync } from 'node:fs';
+import { readFileSync, lstatSync, realpathSync, type Stats } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 export interface DotenvLoadOptions {
@@ -51,6 +51,8 @@ export function parseDotenvContent(content: string): Record<string, string> {
 export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
   const { files, baseDir, env, overrideExisting, required, syncProcessEnv, onWarning } = options;
   const dotenvEnv: Record<string, string> = {};
+  const resolvedBaseDir = resolve(baseDir);
+  const realBaseDir = resolveRealBaseDir(resolvedBaseDir);
 
   const originalEnvKeys = new Set(
     Object.entries(env)
@@ -59,14 +61,20 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
   );
 
   for (const file of files) {
-    const dotenvPath = resolve(baseDir, file);
+    const dotenvPath = resolve(resolvedBaseDir, file);
 
-    if (!isWithinBaseDir(dotenvPath, baseDir)) {
+    if (!isWithinBaseDir(dotenvPath, resolvedBaseDir)) {
       onWarning(`Dotenv file '${file}' is outside the config base directory; skipping.`);
       continue;
     }
 
-    let dotenvStat: ReturnType<typeof lstatSync> | undefined;
+    const resolvedDotenvPath = resolveRealDotenvPath(dotenvPath);
+    if (resolvedDotenvPath && !isWithinBaseDir(resolvedDotenvPath, realBaseDir)) {
+      onWarning(`Dotenv file '${dotenvPath}' resolves outside the config base directory; skipping for security.`);
+      continue;
+    }
+
+    let dotenvStat: ReturnType<typeof lstatSync>;
     try {
       dotenvStat = lstatSync(dotenvPath);
     } catch (err) {
@@ -78,10 +86,6 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
       } else {
         onWarning(`Failed to stat dotenv file: ${dotenvPath}`);
       }
-      continue;
-    }
-
-    if (!dotenvStat) {
       continue;
     }
 
@@ -129,8 +133,29 @@ function isWithinBaseDir(filePath: string, baseDir: string): boolean {
   return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
+function resolveRealBaseDir(baseDir: string): string {
+  try {
+    return realpathSync(baseDir);
+  } catch {
+    return baseDir;
+  }
+}
+
+function resolveRealDotenvPath(dotenvPath: string): string | undefined {
+  try {
+    return realpathSync(dotenvPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') {
+      return undefined;
+    }
+
+    return undefined;
+  }
+}
+
 function isSafeOwnershipStat(
-  stat: ReturnType<typeof lstatSync>,
+  stat: Stats,
   dotenvPath: string,
   onWarning: (msg: string) => void,
 ): boolean {

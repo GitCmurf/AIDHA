@@ -558,6 +558,34 @@ profiles:
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('requires --yes'));
   });
 
+  it('diff ignores equal array-valued fields', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    db: ./local.sqlite
+    extensions:
+      feature_flags:
+        - alpha
+        - beta
+  prod:
+    db: ./prod.sqlite
+    extensions:
+      feature_flags:
+        - alpha
+        - beta
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'diff', 'local', 'prod', '--config', configPath]);
+    const output = consoleLog.mock.calls.flat().join('\n');
+
+    expect(code).toBe(0);
+    expect(output).toContain('db:');
+    expect(output).not.toContain('feature_flags');
+  });
+
   it('explain without --source does NOT use source defaults (Round 3 Repro)', async () => {
     await createConfig(`
 config_version: 1
