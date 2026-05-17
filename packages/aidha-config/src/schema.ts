@@ -193,6 +193,11 @@ function validateKnownSourceBlocks(
  */
 const STRUCTURAL_KEYWORDS = new Set(['required', 'additionalProperties']);
 
+function isTopLevelInstancePath(instancePath: string): boolean {
+  const normalized = instancePath.replace(/^\/+/, '');
+  return normalized.length > 0 && !normalized.includes('/');
+}
+
 export function validateStructure(config: unknown): ValidationResult {
   const validate = getValidator();
   const valid = validate(config);
@@ -200,7 +205,10 @@ export function validateStructure(config: unknown): ValidationResult {
 
   if (!valid) {
     for (const err of validate.errors ?? []) {
-      if (STRUCTURAL_KEYWORDS.has(err.keyword)) {
+      if (
+        STRUCTURAL_KEYWORDS.has(err.keyword)
+        || (err.keyword === 'type' && isTopLevelInstancePath(err.instancePath))
+      ) {
         errors.push({
           path: err.instancePath || '/',
           message: err.message ?? 'Unknown validation error',

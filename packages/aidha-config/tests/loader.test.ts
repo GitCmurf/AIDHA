@@ -179,6 +179,20 @@ profiles:
     }
   });
 
+  it.each([
+    ['base_dir', 'base_dir: 42'],
+    ['env', 'env: []'],
+    ['profiles', 'profiles: 1'],
+  ])('should throw ConfigValidationError for malformed top-level %s types', async (_label, snippet) => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+${snippet}
+`);
+
+    await expect(loadConfig({ cwd: tmpDir, env: {} })).rejects.toThrow(ConfigValidationError);
+  });
+
   it('should throw ConfigVersionError for unsupported version', async () => {
     writeConfig(`
 config_version: 999

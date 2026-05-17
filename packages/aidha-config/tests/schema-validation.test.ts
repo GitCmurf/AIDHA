@@ -355,15 +355,7 @@ describe('validateStructure — pass 1 (structural, pre-interpolation)', () => {
     expect(result.errors.some((e) => e.keyword === 'additionalProperties')).toBe(true);
   });
 
-  it('should NOT report type errors (deferred to pass 2)', () => {
-    const result = validateStructure(validConfig({
-      config_version: 'not-a-number' as unknown as number,
-    }));
-    expect(result.valid).toBe(true);
-    expect(result.errors).toEqual([]);
-  });
-
-  it('should NOT report minimum/maximum errors (deferred to pass 2)', () => {
+  it('should NOT report nested type errors (deferred to pass 2)', () => {
     const result = validateStructure(validConfig({
       profiles: {
         default: { llm: { timeout_ms: -999 } },
@@ -401,6 +393,16 @@ describe('validateStructure — pass 1 (structural, pre-interpolation)', () => {
     }));
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.keyword === 'additionalProperties')).toBe(true);
+  });
+
+  it.each([
+    ['base_dir', { base_dir: 42 }],
+    ['env', { env: [] }],
+    ['profiles', { profiles: 1 }],
+  ])('should reject malformed top-level %s types', (_label, override) => {
+    const result = validateStructure(validConfig(override));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'type')).toBe(true);
   });
 
   it('should accept source_overrides as a known profile property', () => {

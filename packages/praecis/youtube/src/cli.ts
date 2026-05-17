@@ -1258,6 +1258,28 @@ const handleResolutionFailure = (command: string, resolution: ConfigBridgeResult
 };
 
 const resolveConfigForCommand = async (command: string, positionals: string[], options: CliOptions): Promise<ConfigBridgeResult | null> => {
+  if (command === 'config' && positionals[1] === 'validate') {
+    const resolution = await resolveCliConfig({
+      configPath: typeof options['config'] === 'string' ? options['config'] : undefined,
+      profile: typeof options['profile'] === 'string' ? options['profile'] : undefined,
+      cliOverrides: buildCliOverrides(options),
+    });
+    if (!resolution.ok) {
+      return {
+        ok: false,
+        error: resolution.error,
+        loadResult: resolution.loadResult,
+      };
+    }
+
+    return {
+      ok: true,
+      config: resolution.config,
+      youtubeConfig: resolution.youtubeConfig,
+      loadResult: resolution.loadResult,
+    };
+  }
+
   const cliOverrides = buildCliOverrides(options);
   const resolution = await resolveCliConfig({
     configPath: typeof options['config'] === 'string' ? options['config'] : undefined,

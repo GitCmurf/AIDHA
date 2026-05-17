@@ -9,7 +9,6 @@ import {
   ConfigWriteValidationError,
   mutateConfig,
   resolveConfig,
-  interpolateDeep,
   DEFAULTS,
 } from '@aidha/config';
 import type { LoadResult, ResolvedConfig, Profile } from '@aidha/config';
@@ -182,20 +181,24 @@ function runConfigValidate(
     return 0;
   }
 
-  const interpolatedConfig = interpolateDeep(loadResult.config, buildResolvedEnv(loadResult));
-  const result = validateConfig(interpolatedConfig, [YouTubeSourceRegistration]);
+  const result = validateConfig(loadResult.config, [YouTubeSourceRegistration]);
 
-  if (result.valid) {
+  if (!result.valid) {
+    const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
+    console.error(`Config is invalid: ${pathStr}`);
+    for (const validationError of result.errors) {
+      console.error(`- ${validationError.path}: ${validationError.message}`);
+    }
+    return 1;
+  }
+
+  if (_resolvedConfig) {
     console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
     return 0;
   }
 
-  const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
-  console.error(`Config is invalid: ${pathStr}`);
-  for (const error of result.errors) {
-    console.error(`- ${error.path}: ${error.message}`);
-  }
-  return 1;
+  console.log(`Config is valid: ${resolve(loadResult.configPath ?? '')}`);
+  return 0;
 }
 
 function runConfigListProfiles(options: CliOptions, loadResult: LoadResult, error?: Error): number {
@@ -607,6 +610,21 @@ async function runConfigDiff(
     }
 
     const showSecrets = optionBool(options, 'show-secrets');
+    const force = optionBool(options, 'yes');
+
+    if (showSecrets) {
+      if (process.stdout.isTTY) {
+        const confirmed = await confirmAction('⚠️  Warning: --show-secrets will expose sensitive data. Continue?', force);
+        if (!confirmed) {
+          console.error('Aborted.');
+          return 1;
+        }
+      } else if (!force) {
+        console.error('Error: --show-secrets in non-TTY requires --yes to confirm security risk.');
+        return 1;
+      }
+    }
+
     const redactedA = showSecrets ? configA : redactSecrets(configA);
     const redactedB = showSecrets ? configB : redactSecrets(configB);
 

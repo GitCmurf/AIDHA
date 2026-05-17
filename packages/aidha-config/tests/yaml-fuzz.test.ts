@@ -109,4 +109,25 @@ describe('Dotenv safety guardrails', () => {
     });
     expect(warnings.some((w) => w.includes('outside'))).toBe(true);
   });
+
+  it('should allow dotenv files when the base directory is the filesystem root', async () => {
+    const dotenvPath = join(tmpDir, 'root.env');
+    writeFileSync(dotenvPath, 'ROOT_OK=value\n', 'utf-8');
+
+    const warnings: string[] = [];
+    const { loadDotenvFiles } = await import('../src/dotenv.js');
+    const env: Record<string, string | undefined> = {};
+    loadDotenvFiles({
+      files: [dotenvPath],
+      baseDir: '/',
+      env,
+      overrideExisting: true,
+      required: false,
+      syncProcessEnv: false,
+      onWarning: (msg) => warnings.push(msg),
+    });
+
+    expect(env['ROOT_OK']).toBe('value');
+    expect(warnings.some((w) => w.includes('outside'))).toBe(false);
+  });
 });

@@ -24,6 +24,7 @@ import {
   ConfigValidationError,
   ConfigVersionError,
   ConfigNotFoundError,
+  UnsetVariableError,
 } from '@aidha/config';
 import {
   YouTubeSourceRegistration,
@@ -75,6 +76,72 @@ export function buildResolvedEnv(loadResult: LoadResult): Record<string, string 
   };
 }
 
+function getDiscoveryCwd(configPath?: string): string {
+  const processCwd = process.cwd();
+  const initCwd = process.env['INIT_CWD'];
+  const hasLocalProjectConfig = existsSync(join(processCwd, '.aidha', 'config.yaml'));
+  return !configPath && initCwd && initCwd !== processCwd && !hasLocalProjectConfig
+    ? initCwd
+    : processCwd;
+}
+
+export async function loadCliConfig(
+  opts: Pick<ConfigBridgeOptions, 'configPath'> = {},
+): Promise<LoadResult> {
+  return loadConfig({
+    configPath: opts.configPath || undefined,
+    cwd: getDiscoveryCwd(opts.configPath),
+    syncProcessEnv: false,
+    onWarning: (msg) => {
+      // eslint-disable-next-line no-console
+      console.warn(`[config] ${msg}`);
+    },
+    logSink: (event) => {
+      if (event.type === 'config.load.summary') {
+        // eslint-disable-next-line no-console
+        // console.debug(`[config] Loaded ${event.configPath ?? 'no config'}`);
+      }
+    },
+  });
+}
+
+export async function loadCliConfigForValidation(
+  opts: Pick<ConfigBridgeOptions, 'configPath'> = {},
+): Promise<{ loadResult: LoadResult; error?: Error }> {
+  try {
+    const loadResult = await loadCliConfig(opts);
+    return { loadResult };
+  } catch (error: unknown) {
+    const err = error as Error;
+
+    const isConfigError =
+      err instanceof ConfigParseError ||
+      err instanceof ConfigValidationError ||
+      err instanceof ConfigVersionError ||
+      err instanceof ConfigNotFoundError ||
+      err instanceof UnsetVariableError;
+
+    if (!isConfigError) {
+      throw err;
+    }
+
+    let configPath = opts.configPath || process.env['AIDHA_CONFIG'] || null;
+    if (!configPath) {
+      configPath = (err as ConfigParseError | ConfigValidationError | ConfigVersionError | ConfigNotFoundError).filePath;
+    }
+
+    const loadResult: LoadResult = {
+      config: null,
+      configPath,
+      baseDir: process.cwd(),
+      warnings: [],
+      dotenvEnv: {},
+    };
+
+    return { loadResult, error: err };
+  }
+}
+
 // ── Bridge ───────────────────────────────────────────────────────────────────
 
 /**
@@ -94,28 +161,7 @@ export async function resolveCliConfig(
   opts: ConfigBridgeOptions = {},
 ): Promise<ConfigBridgeResult> {
   try {
-    const processCwd = process.cwd();
-    const initCwd = process.env['INIT_CWD'];
-    const hasLocalProjectConfig = existsSync(join(processCwd, '.aidha', 'config.yaml'));
-    const discoveryCwd =
-      !opts.configPath && initCwd && initCwd !== processCwd && !hasLocalProjectConfig
-        ? initCwd
-        : processCwd;
-    const loadResult = await loadConfig({
-      configPath: opts.configPath || undefined,
-      cwd: discoveryCwd,
-      syncProcessEnv: false,
-      onWarning: (msg) => {
-        // eslint-disable-next-line no-console
-        console.warn(`[config] ${msg}`);
-      },
-      logSink: (event) => {
-        if (event.type === 'config.load.summary') {
-          // eslint-disable-next-line no-console
-          // console.debug(`[config] Resolved ${event.profile} profile for source ${event.sourceId ?? 'none'}`);
-        }
-      },
-    });
+    const loadResult = await loadCliConfig({ configPath: opts.configPath });
 
     const config = resolveConfig({
       rawConfig: loadResult.config,
@@ -157,7 +203,8 @@ export async function resolveCliConfig(
       err instanceof ConfigParseError ||
       err instanceof ConfigValidationError ||
       err instanceof ConfigVersionError ||
-      err instanceof ConfigNotFoundError;
+      err instanceof ConfigNotFoundError ||
+      err instanceof UnsetVariableError;
 
     if (!isConfigError) {
       throw err;

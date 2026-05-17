@@ -165,6 +165,29 @@ profiles:
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Config is valid'));
   });
 
+  it('validate rejects profile-specific unresolved interpolation after resolution', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-5-mini
+  staging:
+    llm:
+      model: gpt-5-mini
+      api_key: \${MISSING_VAR}
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath, '--profile', 'staging']);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('Error: Failed to load configuration.');
+    expect(errorOutput).toContain('MISSING_VAR');
+  });
+
   it('list-profiles lists profiles', async () => {
     await createConfig(`
 config_version: 1
@@ -502,6 +525,37 @@ profiles:
     const code = await runCli(['config', 'show', '--raw', '--yes', '--config', configPath]);
     expect(code).toBe(0);
     expect(consoleLog).toHaveBeenCalledWith(rawContent);
+  });
+
+  it('diff --show-secrets requires --yes in non-TTY', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      api_key: sk-local-123
+      model: local-model
+  prod:
+    llm:
+      api_key: sk-prod-456
+      model: prod-model
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+
+    const code = await runCli([
+      'config',
+      'diff',
+      'local',
+      'prod',
+      '--config',
+      configPath,
+      '--show-secrets',
+    ]);
+
+    expect(code).toBe(1);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('requires --yes'));
   });
 
   it('explain without --source does NOT use source defaults (Round 3 Repro)', async () => {

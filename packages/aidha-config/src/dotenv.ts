@@ -8,7 +8,7 @@
  */
 
 import { readFileSync, lstatSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 export interface DotenvLoadOptions {
   files: string[];
@@ -66,7 +66,7 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
       continue;
     }
 
-    let dotenvStat;
+    let dotenvStat: ReturnType<typeof lstatSync> | undefined;
     try {
       dotenvStat = lstatSync(dotenvPath);
     } catch (err) {
@@ -81,6 +81,10 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
       continue;
     }
 
+    if (!dotenvStat) {
+      continue;
+    }
+
     if (dotenvStat.isSymbolicLink()) {
       onWarning(`Dotenv file '${dotenvPath}' is a symlink; skipping for security.`);
       continue;
@@ -89,7 +93,6 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
     if (!isSafeOwnershipStat(dotenvStat, dotenvPath, onWarning)) {
       continue;
     }
-
 
     let content: string;
     try {
@@ -122,7 +125,8 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
 function isWithinBaseDir(filePath: string, baseDir: string): boolean {
   const resolved = resolve(filePath);
   const resolvedBase = resolve(baseDir);
-  return resolved.startsWith(resolvedBase + '/') || resolved === resolvedBase;
+  const relativePath = relative(resolvedBase, resolved);
+  return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
 function isSafeOwnershipStat(
