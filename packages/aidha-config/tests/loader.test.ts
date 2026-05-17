@@ -433,9 +433,18 @@ env:
 profiles:
   default: {}
 `);
-    await expect(loadConfig({ cwd: tmpDir, env: {} })).rejects.toThrow(
-      /not found/,
-    );
+    try {
+      await loadConfig({ cwd: tmpDir, env: {} });
+      throw new Error('Expected loadConfig to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigValidationError);
+      expect((error as ConfigValidationError).filePath).toBe(join(tmpDir, '.aidha', 'config.yaml'));
+      expect((error as ConfigValidationError).errors).toHaveLength(1);
+      expect((error as ConfigValidationError).errors[0]).toMatchObject({
+        path: '/env/dotenv_files',
+      });
+      expect((error as ConfigValidationError).errors[0].message).toContain('Dotenv file not found:');
+    }
   });
 
   it('should not override existing env vars by default in resolveConfig', async () => {

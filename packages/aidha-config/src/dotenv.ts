@@ -25,6 +25,13 @@ export interface DotenvLoadResult {
   env: Record<string, string | undefined>;
 }
 
+export class DotenvRequiredError extends Error {
+  constructor(public readonly filePath: string) {
+    super(`Dotenv file not found: ${filePath}`);
+    this.name = 'DotenvRequiredError';
+  }
+}
+
 const DOTENV_MAX_FILE_SIZE = 65_536;
 
 export function parseDotenvContent(content: string): Record<string, string> {
@@ -81,7 +88,7 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === 'ENOENT') {
         const msg = `Dotenv file not found: ${dotenvPath}`;
-        if (required) throw new Error(msg);
+        if (required) throw new DotenvRequiredError(dotenvPath);
         onWarning(msg);
       } else {
         onWarning(`Failed to stat dotenv file: ${dotenvPath}`);

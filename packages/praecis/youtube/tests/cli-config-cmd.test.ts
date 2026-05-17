@@ -821,6 +821,38 @@ profiles:
     expect(output).not.toContain('feature_flags');
   });
 
+  it('diff includes source_overrides when no --source is supplied', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: local-model
+    source_overrides:
+      youtube:
+        ytdlp:
+          keep_files: true
+  prod:
+    llm:
+      model: local-model
+    source_overrides:
+      youtube:
+        ytdlp:
+          keep_files: false
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'diff', 'local', 'prod', '--config', configPath]);
+    const output = consoleLog.mock.calls.flat().join('\n');
+
+    expect(code).toBe(0);
+    expect(output).toContain('activeSourceConfig');
+    expect(output).toContain('keep_files');
+    expect(output).toContain('true');
+    expect(output).toContain('false');
+  });
+
   it('diff --json prints machine-readable output for identical profiles', async () => {
     await createConfig(`
 config_version: 1

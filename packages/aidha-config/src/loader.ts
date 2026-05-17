@@ -30,7 +30,7 @@ import { discoverConfigPath, checkFilePermissions, ConfigNotFoundError } from '.
 export { ConfigNotFoundError } from './discovery.js';
 export { ConfigParseError } from './parser.js';
 import { parseConfigYaml } from './parser.js';
-import { loadDotenvFiles } from './dotenv.js';
+import { loadDotenvFiles, DotenvRequiredError } from './dotenv.js';
 
 // ── Error classes (loader-specific) ──────────────────────────────────────────
 
@@ -172,16 +172,28 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
       throw new ConfigValidationError(configPath, dotenvErrors);
     }
 
-    const dotenvResult = loadDotenvFiles({
-      files,
-      baseDir: baseDirPrelim,
-      env,
-      overrideExisting: envConfig!['override_existing'] === true,
-      required: envConfig!['dotenv_required'] === true,
-      syncProcessEnv,
-      onWarning: (m) => warn(m, 'DOTENV_LOAD'),
-    });
-    dotenvEnv = dotenvResult.dotenvEnv;
+    try {
+      const dotenvResult = loadDotenvFiles({
+        files,
+        baseDir: baseDirPrelim,
+        env,
+        overrideExisting: envConfig!['override_existing'] === true,
+        required: envConfig!['dotenv_required'] === true,
+        syncProcessEnv,
+        onWarning: (m) => warn(m, 'DOTENV_LOAD'),
+      });
+      dotenvEnv = dotenvResult.dotenvEnv;
+    } catch (error) {
+      if (error instanceof DotenvRequiredError) {
+        throw new ConfigValidationError(configPath, [
+          {
+            path: '/env/dotenv_files',
+            message: error.message,
+          },
+        ]);
+      }
+      throw error;
+    }
   }
 
   // ── Step 5: Interpolate top-level fields needed for resolution ──────

@@ -5,6 +5,11 @@ exports[`CLI Config Snapshots > config diff snapshot 1`] = `
   model:
     from: gpt-4o-mini
     to: gpt-4o
+activeSourceConfig:
+  from:
+    youtube:
+      ytdlp:
+        keep_files: true
 "
 `;
 

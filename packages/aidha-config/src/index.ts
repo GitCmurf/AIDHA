@@ -89,6 +89,7 @@ export {
   ConfigVersionError,
 } from './loader.js';
 export type { LoadOptions, LoadResult } from './loader.js';
+export { DotenvRequiredError } from './dotenv.js';
 
 // ── Config writer ────────────────────────────────────────────────────────────
 export {

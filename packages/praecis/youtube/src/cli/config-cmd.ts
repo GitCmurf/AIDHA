@@ -130,6 +130,35 @@ function prepareConfigForValidation(loadResult: LoadResult): { config: Record<st
   return { config, issues };
 }
 
+function materializeProfileSourceOverridesForDiff(
+  loadResult: LoadResult,
+  profileName: string,
+): Record<string, unknown> | undefined {
+  const rawProfile = loadResult.config?.profiles?.[profileName];
+  const rawSourceOverrides = rawProfile?.source_overrides;
+
+  if (!rawSourceOverrides || typeof rawSourceOverrides !== 'object' || Array.isArray(rawSourceOverrides)) {
+    return undefined;
+  }
+
+  const env = buildResolvedEnv(loadResult);
+  const normalizedSourceOverrides = structuredClone(rawSourceOverrides) as Record<string, unknown>;
+
+  for (const [sourceId, sourceOverride] of Object.entries(normalizedSourceOverrides)) {
+    if (!sourceOverride || typeof sourceOverride !== 'object' || Array.isArray(sourceOverride)) {
+      continue;
+    }
+
+    normalizedSourceOverrides[sourceId] = interpolateDeep(
+      sourceOverride,
+      env,
+      { rootPath: 'profiles.*.source_overrides.*' },
+    );
+  }
+
+  return normalizedSourceOverrides;
+}
+
 
 export function ensureNoSource(options: CliOptions, commandName: string): boolean {
   if (optionString(options, 'source')) {
@@ -712,6 +741,13 @@ async function runConfigDiff(
         configB.activeSourceConfig,
         configB.baseDir,
       );
+    }
+
+    if (!sourceId && configA.activeSourceConfig === undefined) {
+      configA.activeSourceConfig = materializeProfileSourceOverridesForDiff(loadResult, profileA);
+    }
+    if (!sourceId && configB.activeSourceConfig === undefined) {
+      configB.activeSourceConfig = materializeProfileSourceOverridesForDiff(loadResult, profileB);
     }
 
     const showSecrets = optionBool(options, 'show-secrets');
