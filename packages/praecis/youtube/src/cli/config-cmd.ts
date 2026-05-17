@@ -1,5 +1,6 @@
 import {
   validateConfig,
+  interpolateDeep,
   formatProvenance,
   resolveKeyProvenance,
   redactSecrets,
@@ -44,6 +45,67 @@ export function ensureNoSource(options: CliOptions, commandName: string): boolea
     return false;
   }
   return true;
+}
+
+type ValidationIssue = {
+  path: string;
+  message: string;
+};
+
+function collectInterpolationIssues(loadResult: LoadResult): ValidationIssue[] {
+  if (!loadResult.config) return [];
+
+  const env = buildResolvedEnv(loadResult);
+  const issues: ValidationIssue[] = [];
+  const seen = new Set<string>();
+
+  const pushIssue = (path: string, error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    const fingerprint = `${path}\u0000${message}`;
+    if (seen.has(fingerprint)) return;
+    seen.add(fingerprint);
+    issues.push({ path, message });
+  };
+
+  const config = loadResult.config as unknown as Record<string, unknown>;
+
+  if (config['sources'] && typeof config['sources'] === 'object') {
+    for (const [sourceId, sourceConfig] of Object.entries(config['sources'] as Record<string, unknown>)) {
+      if (!sourceConfig || typeof sourceConfig !== 'object' || Array.isArray(sourceConfig)) continue;
+      try {
+        interpolateDeep(sourceConfig, env, { rootPath: 'sources.*' });
+      } catch (error) {
+        pushIssue(`/sources/${sourceId}`, error);
+      }
+    }
+  }
+
+  if (config['profiles'] && typeof config['profiles'] === 'object') {
+    for (const [profileName, profileValue] of Object.entries(config['profiles'] as Record<string, unknown>)) {
+      if (!profileValue || typeof profileValue !== 'object' || Array.isArray(profileValue)) continue;
+
+      const { source_overrides: sourceOverrides, ...coreProfile } = profileValue as Record<string, unknown>;
+
+      try {
+        interpolateDeep(coreProfile, env, { rootPath: 'profiles.*' });
+      } catch (error) {
+        pushIssue(`/profiles/${profileName}`, error);
+      }
+
+      if (!sourceOverrides || typeof sourceOverrides !== 'object' || Array.isArray(sourceOverrides)) continue;
+
+      for (const [sourceId, sourceOverride] of Object.entries(sourceOverrides as Record<string, unknown>)) {
+        if (!sourceOverride || typeof sourceOverride !== 'object' || Array.isArray(sourceOverride)) continue;
+        try {
+          interpolateDeep(sourceOverride, env, { rootPath: 'source_overrides.*' });
+        } catch (error) {
+          pushIssue(`/profiles/${profileName}/source_overrides/${sourceId}`, error);
+        }
+      }
+    }
+  }
+
+  return issues;
 }
 
 /**
@@ -183,11 +245,16 @@ function runConfigValidate(
   }
 
   const result = validateConfig(loadResult.config, [YouTubeSourceRegistration]);
+  const interpolationIssues = collectInterpolationIssues(loadResult);
+  const issues = [...result.errors.map((validationError) => ({
+    path: validationError.path,
+    message: validationError.message,
+  })), ...interpolationIssues];
 
-  if (!result.valid) {
+  if (issues.length > 0) {
     const pathStr = loadResult.configPath ? resolve(loadResult.configPath) : '(unknown file)';
     console.error(`Config is invalid: ${pathStr}`);
-    for (const validationError of result.errors) {
+    for (const validationError of issues) {
       console.error(`- ${validationError.path}: ${validationError.message}`);
     }
     return 1;
@@ -631,14 +698,12 @@ async function runConfigDiff(
 
     const diff = computeDiff(redactedA, redactedB);
 
-    if (Object.keys(diff).length === 0) {
+    if (optionBool(options, 'json')) {
+      console.log(JSON.stringify(diff, null, 2));
+    } else if (Object.keys(diff).length === 0) {
       console.log(`Profiles '${profileA}' and '${profileB}' are identical.`);
     } else {
-      if (optionBool(options, 'json')) {
-        console.log(JSON.stringify(diff, null, 2));
-      } else {
-        console.log(dumpYaml(diff));
-      }
+      console.log(dumpYaml(diff));
     }
     return 0;
   } catch (err) {

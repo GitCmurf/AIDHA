@@ -188,6 +188,56 @@ profiles:
     expect(errorOutput).toContain('MISSING_VAR');
   });
 
+  it('validate rejects unresolved interpolation in an inactive profile', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-5-mini
+  staging:
+    llm:
+      model: \${MISSING_STAGING_VAR}
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('Config is invalid');
+    expect(errorOutput).toContain('/profiles/staging');
+    expect(errorOutput).toContain('MISSING_STAGING_VAR');
+  });
+
+  it('validate rejects unresolved interpolation in an inactive profile source_overrides block', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-5-mini
+  staging:
+    llm:
+      model: gpt-5-mini
+    source_overrides:
+      youtube:
+        ytdlp:
+          cookies_file: \${MISSING_SOURCE_OVERRIDE_VAR}
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'validate', '--config', configPath]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(1);
+    expect(errorOutput).toContain('Config is invalid');
+    expect(errorOutput).toContain('/profiles/staging/source_overrides/youtube');
+    expect(errorOutput).toContain('MISSING_SOURCE_OVERRIDE_VAR');
+  });
+
   it('list-profiles lists profiles', async () => {
     await createConfig(`
 config_version: 1
@@ -584,6 +634,27 @@ profiles:
     expect(code).toBe(0);
     expect(output).toContain('db:');
     expect(output).not.toContain('feature_flags');
+  });
+
+  it('diff --json prints machine-readable output for identical profiles', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-4o-mini
+  prod:
+    llm:
+      model: gpt-4o-mini
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'diff', 'local', 'prod', '--config', configPath, '--json']);
+    const output = String(consoleLog.mock.calls.at(-1)?.[0] ?? '');
+
+    expect(code).toBe(0);
+    expect(output).toBe('{}');
   });
 
   it('explain without --source does NOT use source defaults (Round 3 Repro)', async () => {
