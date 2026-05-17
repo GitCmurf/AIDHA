@@ -657,10 +657,9 @@ describe('resolveConfig — edge cases', () => {
       },
     });
 
-    const resolved = resolveConfig({ rawConfig: config });
-    expect(resolved.llm.reasoningEffort).toBeUndefined();
-    expect(resolved.llm.verbosity).toBeUndefined();
+    expect(() => resolveConfig({ rawConfig: config })).toThrow(/validation/i);
   });
+
 
   it('should resolve embedding fields from config and CLI overrides', () => {
     const config = minimalConfig({
@@ -704,9 +703,9 @@ describe('resolveConfig — edge cases', () => {
       },
     });
 
-    const resolved = resolveConfig({ rawConfig: config });
-    expect(resolved.llm.embeddingTaskType).toBe('SEMANTIC_SIMILARITY');
+    expect(() => resolveConfig({ rawConfig: config })).toThrow(/validation/i);
   });
+
 });
 
 // ── Extensions ───────────────────────────────────────────────────────────────

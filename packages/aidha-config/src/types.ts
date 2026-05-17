@@ -191,6 +191,29 @@ export interface ResolvedConfig {
   };
 }
 
+// ── Logging ─────────────────────────────────────────────────────────────────
+
+/** Structured configuration log event. */
+export type ConfigLogEvent =
+  | {
+      type: 'config.load.summary';
+      configPath: string | null;
+      profile: string;
+      sourceId?: string;
+      dotenvFileCount: number;
+      warningCount: number;
+      cliOverrideKeys: string[];
+    }
+  | {
+      type: 'config.load.warning';
+      code: string;
+      message: string;
+      configPath?: string;
+    };
+
+/** Callback for processing structured config events. */
+export type ConfigLogSink = (event: ConfigLogEvent) => void;
+
 // ── Writer Types ─────────────────────────────────────────────────────────────
 
 /** Options for writing a config file safely. */

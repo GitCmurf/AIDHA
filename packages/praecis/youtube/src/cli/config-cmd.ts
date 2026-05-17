@@ -8,8 +8,10 @@ import {
   ConfigValidationError,
   ConfigWriteValidationError,
   mutateConfig,
+  resolveConfig,
+  DEFAULTS,
 } from '@aidha/config';
-import type { LoadResult, ResolvedConfig } from '@aidha/config';
+import type { LoadResult, ResolvedConfig, Profile } from '@aidha/config';
 import { resolve, dirname, join, isAbsolute } from 'node:path';
 import type { CliOptions } from '../cli.js'; // Import CliOptions
 import { readFile, writeFile, mkdir, constants, access, chmod } from 'node:fs/promises';
@@ -76,9 +78,12 @@ export async function runConfig(
     case 'set':
       if (!ensureNoSource(options, 'set')) return 2;
       return runConfigSet(positionals, options, loadResult);
+    case 'diff':
+      if (!ensureNoSource(options, 'diff')) return 2;
+      return runConfigDiff(positionals, options, loadResult);
     default:
       console.error(`Unknown config subcommand: ${subcommand}`);
-      console.error('Available: path, validate, list-profiles, show, get, explain, init, set');
+      console.error('Available: path, validate, list-profiles, show, get, explain, init, set, diff');
       return 1;
   }
 }
@@ -133,7 +138,7 @@ async function runConfigExplain(
   });
 
   // Format provenance for the specific key
-  const output = formatProvenance(provenance, value);
+  const output = formatProvenance(provenance, value, [YouTubeSourceRegistration]);
   console.log(output);
   return 0;
 }
@@ -207,6 +212,11 @@ function runConfigListProfiles(options: CliOptions, loadResult: LoadResult, erro
   }
 
   const sorted = Array.from(profiles).sort();
+  if (optionBool(options, 'json')) {
+    console.log(JSON.stringify(sorted, null, 2));
+    return 0;
+  }
+
   if (sorted.length === 0) {
     console.log('(no profiles defined)');
   } else {
@@ -527,6 +537,7 @@ async function runConfigSet(
       keyPath: key,
       value,
       dryRun,
+      sourceRegistrations: [YouTubeSourceRegistration],
     });
 
     if (result.written) {
@@ -565,4 +576,82 @@ async function runConfigSet(
     console.error(`Error: Failed to update configuration: ${err instanceof Error ? err.message : String(err)}`);
     return 1;
   }
+}
+
+async function runConfigDiff(
+  positionals: string[],
+  options: CliOptions,
+  loadResult: LoadResult
+): Promise<number> {
+  const profileA = positionals[1];
+  const profileB = positionals[2];
+
+  if (!profileA || !profileB) {
+    console.error('Usage: config diff <profileA> <profileB>');
+    return 1;
+  }
+
+  const sourceId = optionString(options, 'source');
+  const cliOverrides = buildCliOverrides(options);
+
+  const resolveProfile = (name: string) => resolveConfig({
+    profileName: name,
+    sourceId,
+    rawConfig: loadResult.config,
+    defaults: DEFAULTS,
+    baseDir: loadResult.baseDir,
+    cliOverrides,
+    sourceRegistrations: [YouTubeSourceRegistration],
+  });
+
+  try {
+    const configA = resolveProfile(profileA);
+    const configB = resolveProfile(profileB);
+
+    const showSecrets = optionBool(options, 'show-secrets');
+    const redactedA = showSecrets ? configA : redactSecrets(configA);
+    const redactedB = showSecrets ? configB : redactSecrets(configB);
+
+    const diff = computeDiff(redactedA, redactedB);
+
+    if (Object.keys(diff).length === 0) {
+      console.log(`Profiles '${profileA}' and '${profileB}' are identical.`);
+    } else {
+      if (optionBool(options, 'json')) {
+        console.log(JSON.stringify(diff, null, 2));
+      } else {
+        console.log(dumpYaml(diff));
+      }
+    }
+    return 0;
+  } catch (err) {
+    console.error(`Error calculating diff: ${err instanceof Error ? err.message : String(err)}`);
+    return 1;
+  }
+}
+
+function computeDiff(a: any, b: any, path = ''): Record<string, any> {
+  const diff: Record<string, any> = {};
+  const allKeys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+
+  for (const key of allKeys) {
+    const valA = a?.[key];
+    const valB = b?.[key];
+
+    if (valA === valB) continue;
+
+    if (typeof valA === 'object' && typeof valB === 'object' && valA !== null && valB !== null && !Array.isArray(valA) && !Array.isArray(valB)) {
+      const nestedDiff = computeDiff(valA, valB, path ? `${path}.${key}` : key);
+      if (Object.keys(nestedDiff).length > 0) {
+        diff[key] = nestedDiff;
+      }
+    } else {
+      diff[key] = {
+        from: valA,
+        to: valB
+      };
+    }
+  }
+
+  return diff;
 }

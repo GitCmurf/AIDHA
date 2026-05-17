@@ -11,6 +11,7 @@
  */
 
 import { validateLength } from './validation.js';
+import { COERCION_MAP } from './schema.generated.js';
 
 /** Maximum recursive expansion depth to prevent runaway loops. */
 const MAX_DEPTH = 10;
@@ -203,17 +204,32 @@ export function interpolateString(
  *
  * @param obj - The object/array/value to interpolate.
  * @param env - The environment map.
+ * @param options - Options for interpolation (root path for coercion).
  * @returns A new object with all string values interpolated.
  */
 export function interpolateDeep<T>(
   obj: T,
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+  options: { rootPath?: string } = {},
 ): T {
   const stack = new WeakSet<object>();
+  const { rootPath = '' } = options;
 
-  function walk(value: unknown, path: string): unknown {
+  function walk(value: unknown, path: string, schemaPath: string): unknown {
     if (typeof value === 'string') {
-      return interpolateString(value, env);
+      const interpolated = interpolateString(value, env);
+
+      const type = COERCION_MAP[schemaPath];
+      if (type === 'integer' || type === 'number') {
+        const n = Number(interpolated);
+        if (interpolated.trim() !== '' && !Number.isNaN(n)) return n;
+      } else if (type === 'boolean') {
+        const lower = interpolated.toLowerCase().trim();
+        if (['true', '1', 'yes', 'on'].includes(lower)) return true;
+        if (['false', '0', 'no', 'off'].includes(lower)) return false;
+      }
+
+      return interpolated;
     }
     if (Array.isArray(value)) {
       // Arrays can be self-referential; include them in cycle detection.
@@ -222,7 +238,7 @@ export function interpolateDeep<T>(
       }
       stack.add(value);
       try {
-        return value.map((item, idx) => walk(item, `${path}[${idx}]`));
+        return value.map((item, idx) => walk(item, `${path}[${idx}]`, `${schemaPath}.*`));
       } finally {
         stack.delete(value);
       }
@@ -236,7 +252,23 @@ export function interpolateDeep<T>(
       try {
         const result: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-          result[k] = walk(v, `${path}.${k}`);
+          let nextSchemaPath = schemaPath ? `${schemaPath}.${k}` : k;
+
+          // Normalize schema path for dynamic keys
+          const parts = nextSchemaPath.split('.');
+          if (parts[0] === 'profiles' && parts.length > 1) {
+            parts[1] = '*';
+            nextSchemaPath = parts.join('.');
+          } else if (parts[0] === 'sources' && parts.length > 1) {
+            parts[1] = '*';
+            nextSchemaPath = parts.join('.');
+          }
+          if (parts[2] === 'source_overrides' && parts.length > 3) {
+            parts[3] = '*';
+            nextSchemaPath = parts.join('.');
+          }
+
+          result[k] = walk(v, `${path}.${k}`, nextSchemaPath);
         }
         return result;
       } finally {
@@ -246,5 +278,5 @@ export function interpolateDeep<T>(
     return value;
   }
 
-  return walk(obj, '$') as T;
+  return walk(obj, '$', rootPath) as T;
 }

@@ -19,6 +19,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync, statSync, unlinkSy
 import { basename, dirname, join } from 'node:path';
 import { stringify as stringifyYAML, parseDocument, isAlias, isMap, isSeq, isPair, YAMLMap, visit } from 'yaml';
 import { validateConfig, convertValue } from './schema.js';
+import type { SourceRegistration } from './types.js';
 
 // ... (existing helper methods if any)
 
@@ -277,6 +278,48 @@ export function writeConfig(options: WriteOptions): WriteResult {
   return { written: true, backupPath, validationErrors };
 }
 
+function resolveSourceOverride(
+  keyPath: string,
+  registrations: ReadonlyArray<SourceRegistration>,
+): { sourceId: string; coercionType: 'number' | 'boolean' | 'string' } | null {
+  const parts = keyPath.split('.');
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i] === 'source_overrides' && i + 1 < parts.length) {
+      const sourceId = parts[i + 1]!;
+      const registration = registrations.find((r) => r.sourceId === sourceId);
+      if (!registration?.metadata?.scalarCoercions) return null;
+      const sourceKey = parts.slice(i + 2).join('.');
+      const coercionType = registration.metadata.scalarCoercions[sourceKey] as 'number' | 'boolean' | 'string' | undefined;
+      if (coercionType) {
+        return { sourceId, coercionType };
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+function convertSourceOverrideValue(
+  value: string,
+  coercionType: 'number' | 'boolean' | 'string',
+  keyPath: string,
+): unknown {
+  if (coercionType === 'number') {
+    const n = Number(value);
+    if (Number.isNaN(n)) {
+      throw new Error(`Invalid numeric value for ${keyPath}: "${value}"`);
+    }
+    return n;
+  }
+  if (coercionType === 'boolean') {
+    const v = value.toLowerCase().trim();
+    if (v === 'true' || v === '1' || v === 'yes' || v === 'on') return true;
+    if (v === 'false' || v === '0' || v === 'no' || v === 'off') return false;
+    throw new Error(`Invalid boolean value for ${keyPath}: "${value}". Expected one of: true, false, 1, 0, yes, no, on, off.`);
+  }
+  return value;
+}
+
 /** Options for mutating a config file. */
 export interface MutateOptions {
   /** Target file path. */
@@ -291,6 +334,8 @@ export interface MutateOptions {
   skipValidation?: boolean;
   /** Environment map (to check AIDHA_CONFIG_READONLY). */
   env?: Record<string, string | undefined>;
+  /** Source registrations for source-private field coercion and validation. */
+  sourceRegistrations?: ReadonlyArray<SourceRegistration>;
 }
 
 /**
@@ -305,14 +350,13 @@ export function mutateConfig(options: MutateOptions): WriteResult {
     dryRun = false,
     skipValidation = false,
     env = process.env as Record<string, string | undefined>,
+    sourceRegistrations = [],
   } = options;
 
-  // ── Read-only check ─────────────────────────────────────────────────
   if (env['AIDHA_CONFIG_READONLY'] === '1') {
     throw new ConfigReadOnlyError();
   }
 
-  // ── Load and Mutate ─────────────────────────────────────────────────
   let content = '';
   if (existsSync(filePath)) {
     content = readFileSync(filePath, 'utf-8');
@@ -320,9 +364,25 @@ export function mutateConfig(options: MutateOptions): WriteResult {
 
   const doc = parseDocument(content);
 
+  const sourceOverride = resolveSourceOverride(keyPath, sourceRegistrations);
+
   let convertedValue: any;
   try {
-    convertedValue = convertValue(keyPath, value);
+    if (sourceOverride) {
+      convertedValue = convertSourceOverrideValue(value, sourceOverride.coercionType, keyPath);
+    } else {
+      convertedValue = convertValue(keyPath, value);
+    }
+
+    // Enforce that the resulting value is a scalar (string, number, boolean)
+    if (
+      convertedValue !== null &&
+      typeof convertedValue !== 'string' &&
+      typeof convertedValue !== 'number' &&
+      typeof convertedValue !== 'boolean'
+    ) {
+      throw new Error(`Cannot set key '${keyPath}': value must be a scalar (string, number, or boolean).`);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Treat conversion errors as validation errors

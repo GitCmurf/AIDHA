@@ -43,12 +43,15 @@ export interface Provenance {
   origin: string;
   /** Whether the value is a secret (should be redacted in output). */
   isSecret: boolean;
+  /** Validation status of the key. */
+  validationStatus: 'core' | 'source' | 'unvalidated';
 }
 
 /** Options for building provenance. */
 export interface ProvenanceOptions {
   profileName?: string;
   sourceId?: string;
+  validationStatus?: 'core' | 'source' | 'unvalidated';
 }
 
 export interface ResolveKeyProvenanceOptions {
@@ -113,6 +116,7 @@ export function createProvenance(
     tierLabel: TIER_LABELS[tier],
     origin,
     isSecret,
+    validationStatus: options.validationStatus ?? 'unvalidated',
   };
 }
 
@@ -178,6 +182,31 @@ function registrationDefaultsHasKey(
     registration.sourceId === sourceId &&
     hasAnyPath(registration.defaults, paths),
   ) ?? false;
+}
+
+function isCoreValidated(key: string): boolean {
+  // Simple check for core sections
+  const coreSections = ['llm', 'editor', 'extraction', 'export', 'db', 'base_dir', 'env', 'default_profile', 'config_version'];
+  const firstPart = key.split('.')[0];
+  return coreSections.includes(firstPart!);
+}
+
+function isSourceValidated(key: string, sourceId?: string, registrations?: ReadonlyArray<SourceRegistration>): boolean {
+  if (!sourceId || !registrations) return false;
+  const sourceKey = key.startsWith('activeSourceConfig.')
+    ? key.slice('activeSourceConfig.'.length)
+    : key;
+
+  const registration = registrations.find(r => r.sourceId === sourceId);
+  if (!registration) return false;
+
+  // If it has scalar coercion or explicit label, it's considered validated/known by source
+  if (registration.metadata?.scalarCoercions?.[sourceKey]) return true;
+  if (registration.metadata?.explainLabels?.[sourceKey]) return true;
+  if (registration.metadata?.pathFields?.includes(sourceKey)) return true;
+  if (registration.metadata?.secretFields?.includes(sourceKey)) return true;
+
+  return false;
 }
 
 /**
@@ -247,9 +276,17 @@ export function resolveKeyProvenance(
       ? sourceId
       : undefined;
 
+  let validationStatus: 'core' | 'source' | 'unvalidated' = 'unvalidated';
+  if (isCoreValidated(sourceKey)) {
+    validationStatus = 'core';
+  } else if (isSourceValidated(sourceKey, sourceId, sourceRegistrations)) {
+    validationStatus = 'source';
+  }
+
   const provenance = createProvenance(key, tier, {
     profileName: provenanceProfileName,
     sourceId: provenanceSourceId,
+    validationStatus,
   }, isSecretKey(key) || isSecretKey(sourceKey) || isSecretKey(keyLeaf) || isSecretKey(sourceKeyLeaf));
 
   const value = deepGet(resolvedConfig, key);
@@ -263,9 +300,11 @@ export function resolveKeyProvenance(
  * @param value - The actual value (will be redacted if secret).
  * @returns A formatted explanation string.
  */
-export function formatProvenance(prov: Provenance, value: unknown): string {
-  // Redact ALL secret values regardless of type — numbers, objects,
-  // arrays, and even empty strings should never leak in explain output.
+export function formatProvenance(
+  prov: Provenance,
+  value: unknown,
+  sourceRegistrations?: ReadonlyArray<SourceRegistration>,
+): string {
   let displayValue: string;
   if (prov.isSecret) {
     displayValue = '********';
@@ -285,5 +324,28 @@ export function formatProvenance(prov: Provenance, value: unknown): string {
     }
   }
 
-  return `${prov.key} = ${displayValue}\n  ↳ ${prov.tierLabel} (from ${prov.origin})`;
+  const sourceLabel = resolveSourceLabel(prov.key, sourceRegistrations);
+  const labelSuffix = sourceLabel ? ` — ${sourceLabel}` : '';
+  const validationLabel = prov.validationStatus === 'core'
+    ? ' [core validated]'
+    : prov.validationStatus === 'source'
+      ? ' [source validated]'
+      : ' [unvalidated]';
+
+  return `${prov.key} = ${displayValue}${validationLabel}\n  ↳ ${prov.tierLabel} (from ${prov.origin})${labelSuffix}`;
+}
+
+function resolveSourceLabel(
+  key: string,
+  registrations?: ReadonlyArray<SourceRegistration>,
+): string | null {
+  if (!registrations) return null;
+  const sourceKey = key.startsWith('activeSourceConfig.')
+    ? key.slice('activeSourceConfig.'.length)
+    : key;
+  for (const reg of registrations) {
+    const label = reg.metadata?.explainLabels?.[sourceKey];
+    if (label) return label;
+  }
+  return null;
 }

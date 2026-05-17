@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-005
 owner: Repo Maintainers
 status: In Review
-version: "1.6"
-last_updated: 2026-05-15
+version: "1.7"
+last_updated: 2026-05-17
 title: User Configuration Profiles
 type: PLAN
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** GLM, Self-review
 > **Status:** In Review
-> **Version:** 1.6
-> **Last Updated:** 2026-05-15
+> **Version:** 1.7
+> **Last Updated:** 2026-05-17
 > **Type:** PLAN
 
 # User Configuration Profiles
@@ -41,6 +41,7 @@ docops_version: "2.0"
 | 1.4     | 2026-05-15 | AI     | Correct source-owned precedence so source defaults outrank default-profile source overrides. | Self-review | In Review | — |
 | 1.5     | 2026-05-15 | AI     | Clarify core-vs-source-private source merges and fix profile-prefixed migration paths. | Self-review | In Review | — |
 | 1.6     | 2026-05-15 | AI     | Clarify YAML-safe interpolation escaping and source-private merge precedence wording. | Self-review | In Review | — |
+| 1.7     | 2026-05-17 | AI     | Complete Phase 5; address peer review omissions (dotenv ownership, secret traversal tests). | Self-review | In Review | — |
 
 ## Objective
 
@@ -1246,15 +1247,15 @@ engineering can implement and review the work incrementally.
 
 #### Phase 5A: Core and Source Boundary
 
-- [ ] Replace source-private fields in core `ResolvedConfig` with
+- [x] Replace source-private fields in core `ResolvedConfig` with
       `activeSourceId?: string` and `activeSourceConfig?: unknown`.
-- [ ] Add `source_overrides.<source-id>` to profiles and remove source-private
+- [x] Add `source_overrides.<source-id>` to profiles and remove source-private
       siblings from the core `Profile` type.
-- [ ] Define and export `SourceRegistration` with source schema, defaults,
+- [x] Define and export `SourceRegistration` with source schema, defaults,
       metadata, narrowing, redaction, path-resolution, and CLI-binding hooks.
-- [ ] Move YouTube, yt-dlp, and RSS runtime narrowing into their owning packages
+- [x] Move YouTube, yt-dlp, and RSS runtime narrowing into their owning packages
       through source-local schemas and adapter functions.
-- [ ] Update `resolver.ts` so source-owned sections are copied into the opaque
+- [x] Update `resolver.ts` so source-owned sections are copied into the opaque
       active-source payload rather than manually projected into core fields.
 
 Acceptance tests: `source-schema.test.ts`, `resolver.test.ts`,
@@ -1262,15 +1263,15 @@ Acceptance tests: `source-schema.test.ts`, `resolver.test.ts`,
 
 #### Phase 5B: Validation, Generation, and Metadata
 
-- [ ] Implement the two-pass validation model: whole-document structural
+- [x] Implement the two-pass validation model: whole-document structural
       validation without interpolation, then active semantic validation with
       interpolation and scalar coercion.
-- [ ] Add `types.generated.ts`, `schema.generated.ts`,
+- [x] Add `types.generated.ts`, `schema.generated.ts`,
       `scripts/generate-types.mjs`, and a `pnpm --dir packages/aidha-config
       gen:types` script; fail CI when generated files are stale.
-- [ ] Generate only core config types/metadata in `@aidha/config`; source
+- [x] Generate only core config types/metadata in `@aidha/config`; source
       packages own source-private types and metadata.
-- [ ] Add source registration metadata for path-like fields, secrets, scalar
+- [x] Add source registration metadata for path-like fields, secrets, scalar
       coercion, and explain labels.
 
 Acceptance tests: `generated-types.test.ts`, `schema-validation.test.ts`,
@@ -1279,14 +1280,14 @@ Acceptance tests: `generated-types.test.ts`, `schema-validation.test.ts`,
 
 #### Phase 5C: Loader Decomposition and Input Safety
 
-- [ ] Extract `discovery.ts`, `parser.ts`, and `dotenv.ts` from `loader.ts`.
+- [x] Extract `discovery.ts`, `parser.ts`, and `dotenv.ts` from `loader.ts`.
       `loader.ts` should become orchestration only.
-- [ ] Implement YAML parser safety bounds for aliases/anchors and document the
+- [x] Implement YAML parser safety bounds for aliases/anchors and document the
       accepted limits.
-- [ ] Implement dotenv read-side guardrails: symlink refusal, ownership checks
+- [x] Implement dotenv read-side guardrails: symlink refusal, ownership checks
       where available, `base_dir_prelim` boundary checks, explicit external-file
       opt-in, and secret-safe errors.
-- [ ] Confirm lazy interpolation for inactive profiles/sources, including typed
+- [x] Confirm lazy interpolation for inactive profiles/sources, including typed
       scalar coercion after interpolation.
 
 Acceptance tests: `loader.test.ts`, `loader-order.test.ts`,
@@ -1294,14 +1295,14 @@ Acceptance tests: `loader.test.ts`, `loader-order.test.ts`,
 
 #### Phase 5D: Writer, Explain, and CLI UX
 
-- [ ] Constrain `config set` to localized scalar edits for core and registered
+- [x] Constrain `config set` to localized scalar edits for core and registered
       source paths, or implement an explicit `--rewrite` mode with backup,
       warning, and tests.
-- [ ] Ensure source-owned writes require source registration for coercion,
+- [x] Ensure source-owned writes require source registration for coercion,
       validation, redaction, and explain output.
-- [ ] Update `config explain` so it distinguishes core-validated fields,
+- [x] Update `config explain` so it distinguishes core-validated fields,
       registered source fields, and unregistered opaque source payloads.
-- [ ] Add stable snapshots for `config show`, `config explain`,
+- [x] Add stable snapshots for `config show`, `config explain`,
       `list-profiles --json`, and `config diff`.
 
 Acceptance tests: `writer.test.ts`, `roundtrip.test.ts`, `explain.test.ts`,
@@ -1309,13 +1310,13 @@ Acceptance tests: `writer.test.ts`, `roundtrip.test.ts`, `explain.test.ts`,
 
 #### Phase 5E: Docs, Observability, and Release Gates
 
-- [ ] Update `docs/60-devex/config-guide.md` and relevant runbooks with the error
+- [x] Update `docs/60-devex/config-guide.md` and relevant runbooks with the error
       catalog, schema-change policy, troubleshooting, dotenv safety, and
       observability examples.
-- [ ] Add structured config log events and redaction tests.
-- [ ] Add `packages/aidha-config/schema/SCHEMA-CHANGES.md` before the first
+- [x] Add structured config log events and redaction tests.
+- [x] Add `packages/aidha-config/schema/SCHEMA-CHANGES.md` before the first
       post-v1 schema change.
-- [ ] Add property-based deep-merge and performance-budget tests.
+- [x] Add property-based deep-merge and performance-budget tests.
 
 Acceptance tests: `logging.test.ts`, `error-catalog.test.ts`,
 `schema-changes.test.ts`, `deep-merge.property.test.ts`, `performance.test.ts`,
@@ -1332,10 +1333,8 @@ v1.3 contract until Phase 5A–5E are checked off, `pnpm -C packages/aidha-confi
 test`, `pnpm -C packages/praecis/youtube test`, scoped DocOps checks, and
 `pnpm docs:build` all pass.
 
-**Status (2026-05-15):** Open. Current implementation still embeds
-source-private fields in the core config package and lacks generated
-schema/type metadata, extracted dotenv/parser modules, and several required test
-categories.
+**Status (2026-05-17):** Complete. Phase 5 remediation is finished, including all architectural
+reinforcements, safety guardrails, and peer-review corrections.
 
 ---
 

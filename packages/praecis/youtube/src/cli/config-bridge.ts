@@ -102,6 +102,12 @@ export async function resolveCliConfig(
         // eslint-disable-next-line no-console
         console.warn(`[config] ${msg}`);
       },
+      logSink: (event) => {
+        if (event.type === 'config.load.summary') {
+          // eslint-disable-next-line no-console
+          // console.debug(`[config] Resolved ${event.profile} profile for source ${event.sourceId ?? 'none'}`);
+        }
+      },
     });
 
     const config = resolveConfig({
@@ -111,6 +117,15 @@ export async function resolveCliConfig(
       sourceId: opts.source || undefined,
       cliOverrides: opts.cliOverrides,
       sourceRegistrations: ALL_SOURCE_REGISTRATIONS,
+      configPath: loadResult.configPath,
+      dotenvFileCount: Object.keys(loadResult.dotenvEnv).length,
+      warningCount: loadResult.warnings.length,
+      logSink: (event) => {
+        if (event.type === 'config.load.summary') {
+          // eslint-disable-next-line no-console
+          // console.debug(`[config] Summary: ${JSON.stringify(event)}`);
+        }
+      },
     });
 
     let youtubeConfig: ResolvedYoutubeConfig | null = null;

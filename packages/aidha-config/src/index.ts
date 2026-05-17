@@ -37,7 +37,7 @@ export { SUPPORTED_CONFIG_VERSION } from './types.js';
 export { DEFAULTS } from './defaults.js';
 
 // ── Schema validation ────────────────────────────────────────────────────────
-export { validateConfig, loadSchema, convertValue } from './schema.js';
+export { validateConfig, validateStructure, loadSchema, convertValue } from './schema.js';
 
 // ── Environment variable interpolation ───────────────────────────────────────
 export {
@@ -64,7 +64,7 @@ export { resolveConfig, deepMerge } from './resolver.js';
 export type { ResolveOptions } from './resolver.js';
 
 // ── Secret redaction ─────────────────────────────────────────────────────────
-export { redactSecrets, isSecretKey, REDACTED } from './redact.js';
+export { redactSecrets, isSecretKey, REDACTED, clearSecretCache, redactWithRegistrations } from './redact.js';
 
 // ── Validation ─────────────────────────────────────────────────────────────────
 export { validateLength } from './validation.js';

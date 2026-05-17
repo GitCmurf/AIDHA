@@ -72,6 +72,7 @@ specs/**/TASKS.auto.md
 # Local tooling state
 .qodo/cache/
 .qodo/sessions/
+.meminit/cache/
 
 # Temporary files and directories
 temp-*

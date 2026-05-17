@@ -13,8 +13,8 @@ config_version: 1
 default_profile: default
 profiles:
   default:
-    ytdlp:
-      keep_files: true
+    editor:
+      editor_llm: true
 `;
         writeFileSync(tmpFile, yaml, 'utf-8');
     };
@@ -42,7 +42,7 @@ profiles:
         try {
              mutateConfig({
                 filePath: tmpFile,
-                keyPath: 'profiles.default.ytdlp.keep_files',
+                keyPath: 'profiles.default.editor.editor_llm',
                 value: 'maybe'
              });
              throw new Error('Should have thrown');

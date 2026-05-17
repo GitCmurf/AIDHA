@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CLI Config Snapshots > config diff snapshot 1`] = `
+"llm:
+  model:
+    from: gpt-4o-mini
+    to: gpt-4o
+"
+`;
+
+exports[`CLI Config Snapshots > config explain snapshot 1`] = `
+"llm.model = "gpt-4o-mini" [core validated]
+  ↳ Default profile (Tier 4) (from profiles.local)"
+`;
+
+exports[`CLI Config Snapshots > config explain source snapshot 1`] = `
+"activeSourceConfig.ytdlp.timeout_ms = 60000 [source validated]
+  ↳ Source defaults (Tier 3) (from sources.youtube) — yt-dlp process timeout in milliseconds"
+`;
+
+exports[`CLI Config Snapshots > config list-profiles --json snapshot 1`] = `
+"[
+  "local",
+  "prod"
+]"
+`;
+
+exports[`CLI Config Snapshots > config show --json snapshot 1`] = `
+"{
+  "baseDir": "/tmp/aidha-test",
+  "db": "/tmp/aidha-test/out/aidha.sqlite",
+  "llm": {
+    "model": "gpt-4o-mini",
+    "apiKey": "********",
+    "baseUrl": "https://api.openai.com/v1",
+    "timeoutMs": 30000,
+    "cacheDir": "/tmp/aidha-test/out/cache/claims",
+    "reasoningEffort": "medium",
+    "verbosity": "medium",
+    "embeddingBatchSize": 20,
+    "embeddingTaskType": "SEMANTIC_SIMILARITY",
+    "embeddingOutputDimensionality": 768
+  },
+  "editor": {
+    "version": "v2",
+    "windowMinutes": 5,
+    "maxPerWindow": 3,
+    "minWindows": 4,
+    "minWords": 8,
+    "minChars": 50,
+    "editorLlm": false
+  },
+  "extraction": {
+    "maxClaims": 15,
+    "chunkMinutes": 5,
+    "maxChunks": 0,
+    "promptVersion": "v1"
+  },
+  "export": {
+    "outDir": "/tmp/aidha-test/out",
+    "sourcePrefix": "youtube"
+  }
+}"
+`;
+
+exports[`CLI Config Snapshots > config show snapshot 1`] = `
+"baseDir: /tmp/aidha-test
+db: /tmp/aidha-test/out/aidha.sqlite
+llm:
+  model: gpt-4o-mini
+  apiKey: '********'
+  baseUrl: https://api.openai.com/v1
+  timeoutMs: 30000
+  cacheDir: /tmp/aidha-test/out/cache/claims
+  reasoningEffort: medium
+  verbosity: medium
+  embeddingBatchSize: 20
+  embeddingTaskType: SEMANTIC_SIMILARITY
+  embeddingOutputDimensionality: 768
+editor:
+  version: v2
+  windowMinutes: 5
+  maxPerWindow: 3
+  minWindows: 4
+  minWords: 8
+  minChars: 50
+  editorLlm: false
+extraction:
+  maxClaims: 15
+  chunkMinutes: 5
+  maxChunks: 0
+  promptVersion: v1
+export:
+  outDir: /tmp/aidha-test/out
+  sourcePrefix: youtube
+"
+`;

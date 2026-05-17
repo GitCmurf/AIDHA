@@ -14,6 +14,7 @@
   },
   "scripts": {
     "lint": "pnpm -r lint",
+    "gen:types": "pnpm --filter @aidha/config gen:types",
     "test": "pnpm -r --if-present test:ci",
     "test:full": "pnpm -r --if-present test:full",
     "build": "pnpm -r build",

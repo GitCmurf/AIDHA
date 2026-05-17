@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
-last_updated: 2026-02-15
-version: "1.4"
+last_updated: 2026-05-17
+version: "1.5"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.4
-> **Last Updated:** 2026-02-15
+> **Version:** 1.5
+> **Last Updated:** 2026-05-17
 > **Type:** GUIDE
 
 ## Version History
@@ -28,6 +28,7 @@ docops_version: "2.0"
 | 1.2     | 2026-02-14 | CMF    | Update SourceDefaults structure to match schema nesting | —         | Draft  | —         |
 | 1.3     | 2026-02-15 | AI     | Restore guide identity and clarify nested sources keys  | —         | Draft  | —         |
 | 1.4     | 2026-02-15 | AI     | Assign unique document ID and simplify overview text    | —         | Draft  | —         |
+| 1.5     | 2026-05-17 | AI     | Add Error Catalog, Troubleshooting, and Observability   | —         | Draft  | —         |
 
 # AIDHA Configuration Guide
 
@@ -70,10 +71,11 @@ profiles:
     llm:
       model: gpt-4o-mini
     # Optional: Profile-specific source overrides
-    youtube:
-      # The outer "youtube" is the source name. The inner "youtube" is the settings for that source.
+    source_overrides:
       youtube:
-        debug_transcript: true
+        # The outer "youtube" is the source name. The inner "youtube" is the settings for that source.
+        youtube:
+          debug_transcript: true
 
   production:
     llm:
@@ -141,8 +143,10 @@ profiles:
   default:
     llm:
       api_key: ${AIDHA_LLM_API_KEY}
-    youtube:
-      cookie: ${YOUTUBE_COOKIE}
+    source_overrides:
+      youtube:
+        youtube:
+          cookie: ${YOUTUBE_COOKIE}
 ```
 
 You can set these variables in your shell
@@ -161,3 +165,37 @@ To explain where a value is coming from:
 ```bash
 aidha config explain llm.model
 ```
+
+To compare two profiles:
+
+```bash
+aidha config diff local production
+```
+
+## Error Catalog
+
+| Error | Trigger | User Remediation |
+| ----- | ------- | ---------------- |
+| `ConfigNotFoundError` | Explicit `--config` path does not exist. | Fix the path or create the file with `aidha config init`. |
+| `ConfigParseError` | YAML is malformed. | Fix the YAML at the reported line/path. |
+| `ConfigValidationError` | Config fails schema validation. | Correct the reported key, type, or unknown property. |
+| `ConfigVersionError` | `config_version` is unsupported. | Upgrade the binary or generate a new config. |
+| `ConfigReadOnlyError` | Write attempted while `AIDHA_CONFIG_READONLY=1`. | Disable read-only mode to allow writes. |
+| `ConfigConflictError` | File changed since it was last read. | Re-run the command or use `--force`. |
+
+## Troubleshooting
+
+| Symptom | Likely Cause | First Action |
+| ------- | ------------ | ------------ |
+| Env var not picked up | Active profile doesn't reference it. | Run `aidha config explain <key>`. |
+| Profile ignored | `--profile` or `default_profile` incorrect. | Run `aidha config show --json`. |
+| Secrets in output | Redaction metadata missed a key. | Report as security bug; use `isSecretKey`. |
+
+## Observability
+
+AIDHA emits structured log events during configuration loading. These events are redacted and safe
+for debugging.
+
+- `config.load.summary`: Emitted after successful resolution. Includes profile, source, and count of
+  overrides.
+- `config.load.warning`: Emitted for non-fatal issues like file permissions or missing `.env` files.

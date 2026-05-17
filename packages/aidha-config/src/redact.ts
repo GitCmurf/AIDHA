@@ -14,8 +14,9 @@
  * @module
  */
 
-import { loadSchema } from './schema.js';
+import { SECRET_LEAF_NAMES } from './schema.generated.js';
 import { validateLength, ValidationError } from './validation.js';
+import type { SourceRegistration } from './types.js';
 
 const REDACTED = '********';
 
@@ -39,88 +40,6 @@ const SECRET_PATTERNS = [
   'privatekey',
 ];
 
-// ── Schema-driven secret key discovery ───────────────────────────────────────
-
-let _secretLeafNames: Set<string> | undefined;
-
-/**
- * Extract leaf property names annotated with `x-aidha-secret: true`
- * from the JSON Schema.
- */
-function getSecretLeafNames(): Set<string> {
-  if (_secretLeafNames) return _secretLeafNames;
-
-  const schema = loadSchema();
-  const names = new Set<string>();
-  const visited = new WeakSet<object>();
-
-  function walk(obj: unknown): void {
-    if (obj === null || typeof obj !== 'object') return;
-    const record = obj as Record<string, unknown>;
-    if (visited.has(record as object)) return;
-    visited.add(record as object);
-
-    if (typeof record['properties'] === 'object' && record['properties'] !== null) {
-      for (const [key, val] of Object.entries(
-        record['properties'] as Record<string, unknown>,
-      )) {
-        if (
-          val !== null &&
-          typeof val === 'object' &&
-          (val as Record<string, unknown>)['x-aidha-secret'] === true
-        ) {
-          names.add(key);
-        }
-        walk(val);
-      }
-    }
-
-    if (typeof record['$defs'] === 'object' && record['$defs'] !== null) {
-      for (const [, val] of Object.entries(
-        record['$defs'] as Record<string, unknown>,
-      )) {
-        walk(val);
-      }
-    }
-
-    // Traverse additional schema constructs where secret fields may live.
-    const additionalProps = record['additionalProperties'];
-    if (additionalProps !== null && typeof additionalProps === 'object') {
-      walk(additionalProps);
-    }
-
-    const items = record['items'];
-    if (items !== null && typeof items === 'object') {
-      walk(items);
-    }
-
-    const patternProps = record['patternProperties'];
-    if (patternProps !== null && typeof patternProps === 'object') {
-      for (const [, val] of Object.entries(patternProps as Record<string, unknown>)) {
-        walk(val);
-      }
-    }
-
-    for (const keyword of ['allOf', 'anyOf', 'oneOf'] as const) {
-      const arr = record[keyword];
-      if (Array.isArray(arr)) {
-        for (const item of arr) walk(item);
-      }
-    }
-
-    for (const keyword of ['if', 'then', 'else'] as const) {
-      const branch = record[keyword];
-      if (branch !== null && typeof branch === 'object') {
-        walk(branch);
-      }
-    }
-  }
-
-  walk(schema);
-  _secretLeafNames = names;
-  return names;
-}
-
 /**
  * Check if a key name matches a heuristic secret pattern.
  */
@@ -132,14 +51,22 @@ function isHeuristicSecret(key: string): boolean {
 /**
  * Check if a key should be treated as a secret.
  *
+ * Consumes SECRET_LEAF_NAMES from schema.generated.ts for schema-aware redaction.
+ *
  * @param key - The property name (leaf name, e.g., "apiKey" or "api_key").
+ * @param extraSecretNames - Optional additional secret names (for testing).
  * @returns `true` if the key is annotated or matches a heuristic pattern.
  */
-export function isSecretKey(key: string): boolean {
+export function isSecretKey(key: string, extraSecretNames?: Set<string>): boolean {
   const snakeCase = toSnakeCase(key);
-  const secretNames = getSecretLeafNames();
+  const secretNames = new Set(SECRET_LEAF_NAMES);
+  if (extraSecretNames) {
+    for (const name of extraSecretNames) secretNames.add(name);
+  }
   return secretNames.has(key) || secretNames.has(snakeCase) || isHeuristicSecret(key);
 }
+
+
 
 function shouldRedactKey(key: string): boolean {
   try {
@@ -232,3 +159,28 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /** The redaction placeholder string. Exported for test assertions. */
 export { REDACTED };
+
+export function clearSecretCache(): void {
+  _secretLeafNames = undefined;
+}
+
+export function redactWithRegistrations<T>(
+  obj: T,
+  registrations: ReadonlyArray<SourceRegistration>,
+): T {
+  const coreRedacted = redactSecrets(obj);
+  if (typeof coreRedacted !== 'object' || coreRedacted === null) return coreRedacted;
+
+  const record = coreRedacted as Record<string, unknown>;
+  if (record['activeSourceConfig'] !== undefined && record['activeSourceConfig'] !== null) {
+    const sourceId = record['activeSourceId'] as string | undefined;
+    if (sourceId) {
+      const registration = registrations.find((r) => r.sourceId === sourceId);
+      if (registration?.redactActiveSourceConfig) {
+        record['activeSourceConfig'] = registration.redactActiveSourceConfig(record['activeSourceConfig']);
+      }
+    }
+  }
+
+  return coreRedacted;
+}
