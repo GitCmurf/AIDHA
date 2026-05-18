@@ -18,7 +18,8 @@
 import { readFileSync, writeFileSync, renameSync, existsSync, statSync, unlinkSync, chmodSync, copyFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { stringify as stringifyYAML, parseDocument, isAlias, isMap, isSeq, isPair, YAMLMap, visit } from 'yaml';
-import { validateConfig, convertValue } from './schema.js';
+import { validateConfig, validateStructure, convertValue } from './schema.js';
+import { interpolateDeep } from './interpolation.js';
 import type { SourceRegistration } from './types.js';
 
 /** Helper to find a node by its anchor name. */
@@ -331,6 +332,33 @@ function convertSourceOverrideValue(
   return value;
 }
 
+function validateMutatedConfig(
+  config: unknown,
+  sourceRegistrations: ReadonlyArray<SourceRegistration>,
+  env: Record<string, string | undefined>,
+): { valid: boolean; errors: Array<{ path: string; message: string; keyword: string }> } {
+  const structural = validateStructure(config);
+  if (!structural.valid) {
+    return structural;
+  }
+
+  let interpolated: unknown;
+  try {
+    interpolated = interpolateDeep(structuredClone(config), env);
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [{
+        path: '/',
+        message: error instanceof Error ? error.message : String(error),
+        keyword: 'interpolation',
+      }],
+    };
+  }
+
+  return validateConfig(interpolated, sourceRegistrations);
+}
+
 /** Options for mutating a config file. */
 export interface MutateOptions {
   /** Target file path. */
@@ -518,7 +546,7 @@ export function mutateConfig(options: MutateOptions): WriteResult {
   // ── Validation after mutation ───────────────────────────────────────
   const validationErrors: Array<{ path: string; message: string }> = [];
   if (!skipValidation) {
-    const result = validateConfig(mutatedConfig, sourceRegistrations);
+    const result = validateMutatedConfig(mutatedConfig, sourceRegistrations, env);
     if (!result.valid) {
       if (dryRun) {
         return { written: false, backupPath: null, validationErrors: result.errors };

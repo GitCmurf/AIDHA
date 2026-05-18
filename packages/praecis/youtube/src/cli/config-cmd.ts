@@ -804,6 +804,7 @@ async function runConfigSet(
       value,
       dryRun,
       sourceRegistrations: [YouTubeSourceRegistration],
+      env: buildResolvedEnv(loadResult),
     });
 
     if (result.written) {

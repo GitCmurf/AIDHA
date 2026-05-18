@@ -43,6 +43,32 @@ profiles:
     expect(updated).toContain('model: gpt-4o');
   });
 
+  it('validates mutations after lazy interpolation/coercion of existing placeholders', async () => {
+    const original = `
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-4o
+      timeout_ms: \${AIDHA_TIMEOUT}
+    `;
+    await writeFile(configPath, original, 'utf-8');
+
+    const result = mutateConfig({
+      filePath: configPath,
+      keyPath: 'profiles.local.llm.model',
+      value: 'gpt-5-mini',
+      env: { AIDHA_TIMEOUT: '45000' },
+    });
+
+    expect(result.written).toBe(true);
+
+    const updated = await readFile(configPath, 'utf-8');
+    expect(updated).toContain('model: gpt-5-mini');
+    expect(updated).toContain('timeout_ms: ${AIDHA_TIMEOUT}');
+  });
+
   it('sets a new value and creates parent maps', async () => {
     const original = `
 config_version: 1

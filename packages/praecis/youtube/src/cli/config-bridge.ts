@@ -169,8 +169,10 @@ export async function loadCliConfigForValidation(
 export async function resolveCliConfig(
   opts: ConfigBridgeOptions = {},
 ): Promise<ConfigBridgeResult> {
+  let loadResult: LoadResult | undefined;
+
   try {
-    const loadResult = await loadCliConfig({ configPath: opts.configPath });
+    loadResult = await loadCliConfig({ configPath: opts.configPath });
 
     const config = resolveConfig({
       rawConfig: loadResult.config,
@@ -225,7 +227,7 @@ export async function resolveCliConfig(
       }
     }
 
-    const loadResult: LoadResult = {
+    const fallbackLoadResult: LoadResult = {
       config: null,
       configPath,
       baseDir: process.cwd(),
@@ -236,7 +238,7 @@ export async function resolveCliConfig(
     return {
       ok: false,
       error: err,
-      loadResult,
+      loadResult: loadResult ?? fallbackLoadResult,
     };
   }
 }

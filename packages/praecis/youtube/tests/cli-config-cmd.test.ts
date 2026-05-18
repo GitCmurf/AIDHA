@@ -3,7 +3,7 @@ import { runCli } from '../src/cli.js';
 import { runConfig } from '../src/cli/config-cmd.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import type { ResolvedConfig, LoadResult } from '@aidha/config';
 import { writeSecureConfig } from './helpers/config-files.js';
 
@@ -70,6 +70,26 @@ describe('CLI Config Commands (Phase 2A)', () => {
     const code = await runCli(['config', 'path', '--config', configPath]);
     expect(code).toBe(0);
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining(configPath));
+  });
+
+  it('path preserves auto-discovered config path after resolver interpolation errors', async () => {
+    const discoveredConfigPath = join(tempRoot, '.aidha', 'config.yaml');
+    await mkdir(join(tempRoot, '.aidha'), { recursive: true });
+    await writeSecureConfig(discoveredConfigPath, `
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-5-mini
+      api_key: \${MISSING_CONFIG_PATH_VAR}
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'path']);
+
+    expect(code).toBe(0);
+    expect(consoleLog).toHaveBeenCalledWith(discoveredConfigPath);
   });
 
   it('path --base-dir prints resolved base dir', async () => {

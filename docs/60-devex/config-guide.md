@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
 last_updated: 2026-05-18
-version: "1.7"
+version: "1.8"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.7
+> **Version:** 1.8
 > **Last Updated:** 2026-05-18
 > **Type:** GUIDE
 
@@ -31,6 +31,7 @@ docops_version: "2.0"
 | 1.5     | 2026-05-17 | AI     | Add Error Catalog, Troubleshooting, and Observability   | —         | Draft  | —         |
 | 1.6     | 2026-05-18 | AI     | Update starter config to profile-local source overrides | —         | Draft  | —         |
 | 1.7     | 2026-05-18 | AI     | Reject source-scoped CLI overrides in config diff       | —         | Draft  | —         |
+| 1.8     | 2026-05-18 | AI     | Clarify interpolation-aware config mutation validation  | —         | Draft  | —         |
 
 # AIDHA Configuration Guide
 
@@ -127,6 +128,10 @@ You can set these variables in your shell
 or use a `.env` file if you configure `env.dotenv_files` in your config.
 Each entry must be a string path; malformed entries fail validation, and
 dotenv paths stay confined to `base_dir_prelim`.
+
+Config validation and `aidha config set` both resolve interpolation before
+semantic checks, including numeric and boolean fields backed by environment
+variables or configured dotenv files.
 
 ## Verification
 
