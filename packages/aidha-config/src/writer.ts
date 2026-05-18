@@ -18,7 +18,7 @@
 import { readFileSync, writeFileSync, renameSync, existsSync, statSync, unlinkSync, chmodSync, copyFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { stringify as stringifyYAML, parseDocument, isAlias, isMap, isSeq, isPair, YAMLMap, visit } from 'yaml';
-import { validateConfig, validateStructure, convertValue } from './schema.js';
+import { validateConfig, validateStructure, convertValue, type ValidationResult } from './schema.js';
 import { interpolateDeep } from './interpolation.js';
 import type { SourceRegistration } from './types.js';
 
@@ -332,8 +332,175 @@ function convertSourceOverrideValue(
   return value;
 }
 
+const CORE_PROFILE_KEYS = ['db', 'llm', 'editor', 'extraction', 'export'] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneValue<T>(value: T): T {
+  return structuredClone(value);
+}
+
+function pickCoreProfileFields(profile: Record<string, unknown>): Record<string, unknown> {
+  const core: Record<string, unknown> = {};
+  for (const key of CORE_PROFILE_KEYS) {
+    if (profile[key] !== undefined) {
+      core[key] = cloneValue(profile[key]);
+    }
+  }
+  return core;
+}
+
+function getPathValue(root: unknown, pathParts: readonly string[]): unknown {
+  let current = root;
+  for (const part of pathParts) {
+    if (!isRecord(current)) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+function nestedRecord(pathParts: readonly string[], value: unknown): Record<string, unknown> {
+  if (pathParts.length === 0) {
+    return isRecord(value) ? cloneValue(value) : {};
+  }
+
+  const [head, ...tail] = pathParts;
+  return {
+    [head!]: tail.length === 0 ? cloneValue(value) : nestedRecord(tail, value),
+  };
+}
+
+function validationResultFromError(error: unknown, path: string): ValidationResult {
+  return {
+    valid: false,
+    errors: [{
+      path,
+      message: error instanceof Error ? error.message : String(error),
+      keyword: 'interpolation',
+    }],
+  };
+}
+
+function mergeValidationResults(results: readonly ValidationResult[]): ValidationResult {
+  const errors = results.flatMap((result) => result.errors);
+  if (errors.length === 0) {
+    return { valid: true, errors: [] };
+  }
+  return { valid: false, errors };
+}
+
+function validateActiveProfileCore(
+  config: unknown,
+  sourceRegistrations: ReadonlyArray<SourceRegistration>,
+  env: Record<string, string | undefined>,
+): ValidationResult {
+  if (!isRecord(config)) return { valid: true, errors: [] };
+
+  const defaultProfile = typeof config['default_profile'] === 'string'
+    ? config['default_profile']
+    : 'default';
+  const profiles = config['profiles'];
+  const profile = isRecord(profiles) && isRecord(profiles[defaultProfile])
+    ? profiles[defaultProfile]
+    : undefined;
+
+  if (!profile) return { valid: true, errors: [] };
+
+  let interpolatedProfile: Record<string, unknown>;
+  try {
+    interpolatedProfile = interpolateDeep(
+      pickCoreProfileFields(profile),
+      env,
+      { rootPath: 'profiles.*' },
+    ) as Record<string, unknown>;
+  } catch (error) {
+    return validationResultFromError(error, `/profiles/${defaultProfile}`);
+  }
+
+  return validateConfig({
+    config_version: config['config_version'],
+    default_profile: defaultProfile,
+    profiles: {
+      [defaultProfile]: interpolatedProfile,
+    },
+  }, sourceRegistrations);
+}
+
+function validateEditedPath(
+  config: unknown,
+  keyPath: string,
+  sourceRegistrations: ReadonlyArray<SourceRegistration>,
+): ValidationResult {
+  const pathParts = keyPath.split('.');
+  const value = getPathValue(config, pathParts);
+  let validationConfig: Record<string, unknown>;
+
+  if (pathParts[0] === 'profiles' && pathParts.length >= 3) {
+    const profileName = pathParts[1]!;
+    const profilePath = pathParts.slice(2);
+
+    if (profilePath[0] === 'source_overrides' && profilePath.length >= 3) {
+      const sourceId = profilePath[1]!;
+      validationConfig = {
+        config_version: 1,
+        default_profile: profileName,
+        profiles: {
+          [profileName]: {
+            source_overrides: {
+              [sourceId]: nestedRecord(profilePath.slice(2), value),
+            },
+          },
+        },
+      };
+    } else {
+      validationConfig = {
+        config_version: 1,
+        default_profile: profileName,
+        profiles: {
+          [profileName]: nestedRecord(profilePath, value),
+        },
+      };
+    }
+  } else if (pathParts[0] === 'sources' && pathParts.length >= 3) {
+    const sourceId = pathParts[1]!;
+    validationConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: {
+        default: {},
+      },
+      sources: {
+        [sourceId]: nestedRecord(pathParts.slice(2), value),
+      },
+    };
+  } else {
+    validationConfig = {
+      config_version: 1,
+      default_profile: 'default',
+      profiles: {
+        default: {},
+      },
+    };
+    let current: Record<string, unknown> = validationConfig;
+    pathParts.forEach((part, index) => {
+      if (index === pathParts.length - 1) {
+        current[part] = cloneValue(value);
+        return;
+      }
+      const next: Record<string, unknown> = {};
+      current[part] = next;
+      current = next;
+    });
+  }
+
+  return validateConfig(validationConfig, sourceRegistrations);
+}
+
 function validateMutatedConfig(
   config: unknown,
+  keyPath: string,
   sourceRegistrations: ReadonlyArray<SourceRegistration>,
   env: Record<string, string | undefined>,
 ): { valid: boolean; errors: Array<{ path: string; message: string; keyword: string }> } {
@@ -342,21 +509,10 @@ function validateMutatedConfig(
     return structural;
   }
 
-  let interpolated: unknown;
-  try {
-    interpolated = interpolateDeep(structuredClone(config), env);
-  } catch (error) {
-    return {
-      valid: false,
-      errors: [{
-        path: '/',
-        message: error instanceof Error ? error.message : String(error),
-        keyword: 'interpolation',
-      }],
-    };
-  }
-
-  return validateConfig(interpolated, sourceRegistrations);
+  return mergeValidationResults([
+    validateActiveProfileCore(config, sourceRegistrations, env),
+    validateEditedPath(config, keyPath, sourceRegistrations),
+  ]);
 }
 
 /** Options for mutating a config file. */
@@ -546,7 +702,7 @@ export function mutateConfig(options: MutateOptions): WriteResult {
   // ── Validation after mutation ───────────────────────────────────────
   const validationErrors: Array<{ path: string; message: string }> = [];
   if (!skipValidation) {
-    const result = validateMutatedConfig(mutatedConfig, sourceRegistrations, env);
+    const result = validateMutatedConfig(mutatedConfig, keyPath, sourceRegistrations, env);
     if (!result.valid) {
       if (dryRun) {
         return { written: false, backupPath: null, validationErrors: result.errors };

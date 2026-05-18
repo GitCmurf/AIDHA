@@ -69,6 +69,61 @@ profiles:
     expect(updated).toContain('timeout_ms: ${AIDHA_TIMEOUT}');
   });
 
+  it('preserves lazy interpolation for inactive profiles and source overrides during mutation', async () => {
+    const original = `
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-4o
+    source_overrides:
+      youtube:
+        youtube:
+          cookie: \${YOUTUBE_COOKIE}
+  staging:
+    llm:
+      api_key: \${STAGING_KEY}
+      timeout_ms: \${STAGING_TIMEOUT:-30000}
+    `;
+    await writeFile(configPath, original, 'utf-8');
+
+    const result = mutateConfig({
+      filePath: configPath,
+      keyPath: 'profiles.local.llm.model',
+      value: 'gpt-5-mini',
+      env: {},
+    });
+
+    expect(result.written).toBe(true);
+
+    const updated = await readFile(configPath, 'utf-8');
+    expect(updated).toContain('model: gpt-5-mini');
+    expect(updated).toContain('cookie: ${YOUTUBE_COOKIE}');
+    expect(updated).toContain('api_key: ${STAGING_KEY}');
+    expect(updated).toContain('timeout_ms: ${STAGING_TIMEOUT:-30000}');
+  });
+
+  it('still rejects unresolved interpolation in the active core profile during mutation', async () => {
+    const original = `
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: gpt-4o
+      api_key: \${LOCAL_KEY}
+    `;
+    await writeFile(configPath, original, 'utf-8');
+
+    expect(() => mutateConfig({
+      filePath: configPath,
+      keyPath: 'profiles.local.llm.model',
+      value: 'gpt-5-mini',
+      env: {},
+    })).toThrow(/LOCAL_KEY/);
+  });
+
   it('sets a new value and creates parent maps', async () => {
     const original = `
 config_version: 1
