@@ -211,6 +211,10 @@ export function ensureNoSource(options: CliOptions, commandName: string): boolea
   return true;
 }
 
+function hasSourceScopedCliOverrides(cliOverrides: Partial<Profile>): boolean {
+  return Object.keys(cliOverrides.source_overrides ?? {}).length > 0;
+}
+
 /**
  * Dispatcher for `aidha-youtube config <subcommand>`
  */
@@ -756,6 +760,11 @@ async function runConfigDiff(
   if (missingProfiles.length > 0) {
     console.error(`Error: Unknown profile name(s): ${missingProfiles.join(', ')}.`);
     return 1;
+  }
+
+  if (hasSourceScopedCliOverrides(cliOverrides)) {
+    console.error('config diff does not support source-scoped CLI overrides. Remove any --ytdlp-* flags.');
+    return 2;
   }
 
   const resolveProfile = (name: string) => resolveConfig({

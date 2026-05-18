@@ -429,7 +429,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     }
 
     // Layer 4: Active named profile source-private fields (Tier 2)
-    if (rawConfig && profileName !== undefined && profileName !== configDefaultName) {
+    // Explicitly selected profiles always get the active-profile source merge,
+    // even when they match `default_profile`.
+    if (rawConfig && profileName !== undefined) {
       const sourceProfileRaw = rawConfig.profiles?.[profileName];
       const sourceProfile = sourceProfileRaw
         ? interpolateDeep(sourceProfileRaw, env, { rootPath: 'profiles.*' })

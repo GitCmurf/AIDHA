@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
 last_updated: 2026-05-18
-version: "1.6"
+version: "1.7"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.6
+> **Version:** 1.7
 > **Last Updated:** 2026-05-18
 > **Type:** GUIDE
 
@@ -30,6 +30,7 @@ docops_version: "2.0"
 | 1.4     | 2026-02-15 | AI     | Assign unique document ID and simplify overview text    | —         | Draft  | —         |
 | 1.5     | 2026-05-17 | AI     | Add Error Catalog, Troubleshooting, and Observability   | —         | Draft  | —         |
 | 1.6     | 2026-05-18 | AI     | Update starter config to profile-local source overrides | —         | Draft  | —         |
+| 1.7     | 2026-05-18 | AI     | Reject source-scoped CLI overrides in config diff       | —         | Draft  | —         |
 
 # AIDHA Configuration Guide
 
@@ -146,6 +147,9 @@ To compare two profiles:
 ```bash
 aidha config diff local production
 ```
+
+`config diff` compares resolved profile state only. Source-scoped CLI flags such
+as `--ytdlp-timeout` are rejected instead of being ignored.
 
 ## Error Catalog
 

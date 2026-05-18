@@ -793,6 +793,39 @@ profiles:
     expect(consoleLog).not.toHaveBeenCalled();
   });
 
+  it('diff rejects source-scoped CLI overrides instead of dropping them', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      model: local-model
+  prod:
+    llm:
+      model: prod-model
+`);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli([
+      'config',
+      'diff',
+      'local',
+      'prod',
+      '--config',
+      configPath,
+      '--ytdlp-timeout',
+      '45000',
+    ]);
+    const errorOutput = consoleError.mock.calls.flat().join('\n');
+
+    expect(code).toBe(2);
+    expect(errorOutput).toContain('source-scoped CLI overrides');
+    expect(errorOutput).toContain('--ytdlp-*');
+    expect(consoleLog).not.toHaveBeenCalled();
+  });
+
   it('diff ignores equal array-valued fields', async () => {
     await createConfig(`
 config_version: 1
