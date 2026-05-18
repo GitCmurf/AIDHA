@@ -368,7 +368,6 @@ function printConfigLoadError(error?: Error): number {
   if (error) {
     console.error(`Error: Failed to load configuration.`);
     console.error(`Reason: ${error.message}`);
-    // Check for nested errors (e.g. schema validation)
     if (error instanceof ConfigValidationError) {
       for (const e of error.errors) {
         console.error(`- ${e.path}: ${e.message}`);
@@ -747,7 +746,12 @@ async function runConfigInit(options: CliOptions): Promise<number> {
   }
 
   let alreadyExists = false;
-  try { await stat(targetPath); alreadyExists = true; } catch { /* not present */ }
+  try {
+    await stat(targetPath);
+    alreadyExists = true;
+  } catch {
+    // file not present
+  }
 
   try {
     await mkdir(dirname(targetPath), { recursive: true });
@@ -949,8 +953,8 @@ async function runConfigDiff(
   }
 }
 
-function computeDiff(a: any, b: any, path = ''): Record<string, any> {
-  const diff: Record<string, any> = {};
+function computeDiff(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined, path = ''): Record<string, unknown> {
+  const diff: Record<string, unknown> = {};
   const allKeys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
 
   for (const key of allKeys) {
@@ -960,7 +964,7 @@ function computeDiff(a: any, b: any, path = ''): Record<string, any> {
     if (isDeepStrictEqual(valA, valB)) continue;
 
     if (typeof valA === 'object' && typeof valB === 'object' && valA !== null && valB !== null && !Array.isArray(valA) && !Array.isArray(valB)) {
-      const nestedDiff = computeDiff(valA, valB, path ? `${path}.${key}` : key);
+      const nestedDiff = computeDiff(valA as Record<string, unknown>, valB as Record<string, unknown>, path ? `${path}.${key}` : key);
       if (Object.keys(nestedDiff).length > 0) {
         diff[key] = nestedDiff;
       }

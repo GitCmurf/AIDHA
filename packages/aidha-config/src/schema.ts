@@ -266,6 +266,12 @@ function shouldDeferTypeError(config: unknown, instancePath: string): boolean {
   return typeof current === 'string';
 }
 
+function shouldIncludeAjvError(err: ErrorObject, config: unknown): boolean {
+  if (STRUCTURAL_KEYWORDS.has(err.keyword)) return true;
+  if (err.keyword !== 'type') return false;
+  return isTopLevelInstancePath(err.instancePath) || !shouldDeferTypeError(config, err.instancePath);
+}
+
 export function validateStructure(config: unknown): ValidationResult {
   const validate = getValidator();
   const valid = validate(config);
@@ -273,13 +279,7 @@ export function validateStructure(config: unknown): ValidationResult {
 
   if (!valid) {
     for (const err of validate.errors ?? []) {
-      if (
-        STRUCTURAL_KEYWORDS.has(err.keyword)
-        || (err.keyword === 'type' && (
-          isTopLevelInstancePath(err.instancePath)
-          || !shouldDeferTypeError(config, err.instancePath)
-        ))
-      ) {
+      if (shouldIncludeAjvError(err, config)) {
         errors.push({
           path: err.instancePath || '/',
           message: err.message ?? 'Unknown validation error',

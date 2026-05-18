@@ -62,11 +62,9 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
   const resolvedBaseDir = resolve(baseDir);
   const realBaseDir = resolveRealBaseDir(resolvedBaseDir);
 
-  const originalEnvKeys = new Set(
-    Object.entries(env)
-      .filter(([, v]) => v !== undefined)
-      .map(([k]) => k),
-  );
+  const originalEnvKeys = overrideExisting
+    ? null
+    : new Set(Object.entries(env).filter(([, v]) => v !== undefined).map(([k]) => k));
 
   for (const file of files) {
     const dotenvPath = resolve(resolvedBaseDir, file);
@@ -126,7 +124,7 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
 
     const parsed = parseDotenvContent(content);
     for (const [key, value] of Object.entries(parsed)) {
-      if (overrideExisting || !originalEnvKeys.has(key)) {
+      if (overrideExisting || !originalEnvKeys!.has(key)) {
         env[key] = value;
         dotenvEnv[key] = value;
         if (syncProcessEnv) {
@@ -140,9 +138,7 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
 }
 
 function isWithinBaseDir(filePath: string, baseDir: string): boolean {
-  const resolved = resolve(filePath);
-  const resolvedBase = resolve(baseDir);
-  const relativePath = relative(resolvedBase, resolved);
+  const relativePath = relative(baseDir, filePath);
   return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
 }
 
@@ -157,12 +153,7 @@ function resolveRealBaseDir(baseDir: string): string {
 function resolveRealDotenvPath(dotenvPath: string): string | undefined {
   try {
     return realpathSync(dotenvPath);
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') {
-      return undefined;
-    }
-
+  } catch {
     return undefined;
   }
 }

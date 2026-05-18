@@ -61,15 +61,11 @@ function isHeuristicSecret(key: string): boolean {
  */
 export function isSecretKey(key: string, extraSecretNames?: Set<string>): boolean {
   const snakeCase = toSnakeCase(key);
-  if (extraSecretNames) {
-    const merged = new Set(SECRET_LEAF_NAMES_SET);
-    for (const name of extraSecretNames) merged.add(name);
-    return merged.has(key) || merged.has(snakeCase) || isHeuristicSecret(key);
+  if (extraSecretNames && (extraSecretNames.has(key) || extraSecretNames.has(snakeCase))) {
+    return true;
   }
   return SECRET_LEAF_NAMES_SET.has(key) || SECRET_LEAF_NAMES_SET.has(snakeCase) || isHeuristicSecret(key);
 }
-
-
 
 function shouldRedactKey(key: string): boolean {
   try {

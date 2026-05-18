@@ -321,9 +321,13 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   let merged = interpolateCoreProfile(defaultProfileRaw as Profile, env);
 
   // Source registration defaults are the weakest source-specific layer.
-  if (sourceId && registration?.defaults) {
-    const registrationDefaults = interpolateDeep(registration.defaults, env, { rootPath: 'sources.*' });
-    const { core: registrationCore } = partitionSourcePayload(registrationDefaults);
+  // Interpolated once here; the same result is reused for source payload below.
+  const interpolatedRegistrationDefaults = sourceId && registration?.defaults
+    ? interpolateDeep(registration.defaults, env, { rootPath: 'sources.*' })
+    : undefined;
+
+  if (interpolatedRegistrationDefaults) {
+    const { core: registrationCore } = partitionSourcePayload(interpolatedRegistrationDefaults);
     if (Object.keys(registrationCore).length > 0) {
       merged = deepMerge(merged, registrationCore);
     }
@@ -367,9 +371,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     activeSourceConfig = {};
 
     // Layer 1: Registration defaults (weakest)
-    if (registration?.defaults) {
-      const registrationDefaults = interpolateDeep(registration.defaults, env, { rootPath: 'sources.*' });
-      const { sourcePrivate: registrationPrivate } = partitionSourcePayload(registrationDefaults);
+    if (interpolatedRegistrationDefaults) {
+      const { sourcePrivate: registrationPrivate } = partitionSourcePayload(interpolatedRegistrationDefaults);
       activeSourceConfig = deepMerge(
         activeSourceConfig ?? {},
         registrationPrivate,
