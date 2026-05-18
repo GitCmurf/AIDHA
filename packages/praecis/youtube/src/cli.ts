@@ -138,12 +138,17 @@ export const optionString = (options: CliOptions, key: string, fallback: string)
 
 export const optionNumber = (options: CliOptions, key: string, fallback: number): number => {
   const value = options[key];
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? fallback : parsed;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    if (/^-?\d+(\.\d+)?$/.test(value)) {
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    // skipcq: JS-0002
+    console.error(`Warning: Invalid numeric value for --${key}: "${value}". Using default: ${fallback}`);
   }
   return fallback;
 };
+
 
 export const optionBool = (options: CliOptions, key: string): boolean => {
   return options[key] === true;
@@ -223,9 +228,10 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
   const mode = positionals[1];
   const target = positionals[2];
   if (!mode || !target) {
-    console.error('Usage: ingest <playlist|video> <idOrUrl>');
+    console.error('Usage: ingest <playlist|video|status> <idOrUrl>');
     return 1;
   }
+
 
   const store = await openStore(options, config);
   const taxonomyRegistry = new InMemoryRegistry();

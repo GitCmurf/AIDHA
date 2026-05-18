@@ -564,13 +564,20 @@ interface EvalRunOptions {
 const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
   const dryRun = optionBool(cleanOptions, "dry-run");
   const runId = optionString(cleanOptions, "run-id", "");
-  const corpusPath = optionString(cleanOptions, "corpus", "");
-  const transcriptDir = optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts");
+  const corpusPath = assertSafeWorkspacePath(
+    resolveRepoRelativePath(optionString(cleanOptions, "corpus", "")),
+    "--corpus"
+  );
+  const transcriptDir = assertSafeWorkspacePath(
+    resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")),
+    "--transcript-dir"
+  );
   const modelsStr = optionString(cleanOptions, "models", "");
   const tier = optionString(cleanOptions, "tier", "");
   const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o-mini");
   const variantsStr = optionString(cleanOptions, "variants", "raw,editorial-pass-v1");
-  const outputDir = optionString(cleanOptions, "output-dir", "");
+  const outputDirRaw = optionString(cleanOptions, "output-dir", "");
+  const outputDir = outputDirRaw ? assertSafeWorkspacePath(resolveRepoRelativePath(outputDirRaw), "--output-dir") : "";
   const format = optionString(cleanOptions, "format", "both");
   const resume = optionBool(cleanOptions, "resume");
   const maxConcurrency = optionNumber(cleanOptions, "max-concurrency", 1);
@@ -587,6 +594,7 @@ const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
     extractionMaxChunks, judgeMaxTokens, timeoutMs
   };
 };
+
 
 const handleClearAll = (cleanOptions: CliOptions, cacheDir: string): number => {
   if (optionBool(cleanOptions, "yes")) {
@@ -1131,10 +1139,12 @@ const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
   }
 
   const runCacheDir = resolveCacheDir(validatedRunId);
-  const finalOutputDir = parsedOpts.outputDir || (validatedRunId ? join("out/eval-matrix/runs", validatedRunId) : "out/eval-matrix/reports");
+  const finalOutputDirRaw = parsedOpts.outputDir || (validatedRunId ? join("out/eval-matrix/runs", validatedRunId) : "out/eval-matrix/reports");
+  const finalOutputDir = assertSafeWorkspacePath(finalOutputDirRaw, "final evaluation output");
 
   return { runCacheDir, finalOutputDir, error: 0 };
 };
+
 
 const loadExecutionData = (parsedOpts: EvalRunOptions) => {
   const corpusResult = loadCorpusData(parsedOpts.corpusPath);

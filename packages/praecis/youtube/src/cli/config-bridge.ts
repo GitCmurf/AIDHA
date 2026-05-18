@@ -258,14 +258,24 @@ function optStr(options: CliOptions, key: string): string | undefined {
 
 /**
  * Helper to read a numeric CLI option.
- * Returns `undefined` if the option is absent or not a valid integer.
+ * Returns `undefined` if the option is absent or not a valid number.
  */
 function optNum(options: CliOptions, key: string): number | undefined {
   const v = options[key];
-  if (typeof v !== 'string') return undefined;
-  const n = Number.parseInt(v, 10);
-  return Number.isNaN(n) ? undefined : n;
+  if (typeof v !== 'string' || v.trim().length === 0) return undefined;
+
+  // Strict check: only digits, optional minus sign, and optional decimal point.
+  // Note: Most of our config numbers are integers, but let's be flexible if valid.
+  if (/^-?\d+(\.\d+)?$/.test(v)) {
+    const n = Number(v);
+    if (!Number.isNaN(n)) return n;
+  }
+
+  // skipcq: JS-0002
+  console.error(`Warning: Invalid numeric override for --${key}: "${v}". Ignoring.`);
+  return undefined;
 }
+
 
 /**
  * Helper to read a boolean CLI option.
