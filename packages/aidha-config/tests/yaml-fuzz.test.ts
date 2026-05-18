@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parseConfigYaml, ConfigParseError } from '../src/parser.js';
@@ -129,5 +129,27 @@ describe('Dotenv safety guardrails', () => {
 
     expect(env['ROOT_OK']).toBe('value');
     expect(warnings.some((w) => w.includes('outside'))).toBe(false);
+  });
+
+  it('should warn on permissive dotenv files without skipping them', async () => {
+    const dotenvPath = join(tmpDir, 'permissive.env');
+    writeFileSync(dotenvPath, 'PERMISSIVE=value\n', 'utf-8');
+    chmodSync(dotenvPath, 0o644);
+
+    const warnings: string[] = [];
+    const { loadDotenvFiles } = await import('../src/dotenv.js');
+    const env: Record<string, string | undefined> = {};
+    loadDotenvFiles({
+      files: ['permissive.env'],
+      baseDir: tmpDir,
+      env,
+      overrideExisting: true,
+      required: false,
+      syncProcessEnv: false,
+      onWarning: (msg) => warnings.push(msg),
+    });
+
+    expect(warnings.some((w) => w.includes('permissions'))).toBe(true);
+    expect(env['PERMISSIVE']).toBe('value');
   });
 });

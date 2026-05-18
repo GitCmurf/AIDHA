@@ -202,6 +202,112 @@ function materializeProfileSourceOverridesForDiff(
   return normalizedSourceOverrides;
 }
 
+function deepSet(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let current = obj;
+
+  for (const part of parts.slice(0, -1)) {
+    const next = current[part];
+    if (!next || typeof next !== 'object' || Array.isArray(next)) {
+      const replacement: Record<string, unknown> = {};
+      current[part] = replacement;
+      current = replacement;
+      continue;
+    }
+
+    current = next as Record<string, unknown>;
+  }
+
+  const leaf = parts.at(-1);
+  if (leaf !== undefined) {
+    current[leaf] = value;
+  }
+}
+
+function parseBooleanScalar(value: string): boolean | null {
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return null;
+}
+
+function coerceScalarValueForDiff(
+  value: unknown,
+  kind: 'number' | 'boolean' | 'string',
+): unknown | undefined {
+  if (kind === 'string') {
+    return undefined;
+  }
+
+  if (kind === 'number') {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        const parsed = Number(trimmed);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return parseBooleanScalar(value) ?? undefined;
+  }
+
+  return undefined;
+}
+
+function normalizeYoutubeActiveSourceConfigForDiff(
+  value: unknown,
+  baseDir: string,
+): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const normalized = structuredClone(value) as Record<string, unknown>;
+  const scalarCoercions = YouTubeSourceRegistration.metadata?.scalarCoercions ?? {};
+  for (const [path, kind] of Object.entries(scalarCoercions)) {
+    const coerced = coerceScalarValueForDiff(deepGet(normalized, path), kind);
+    if (coerced !== undefined) {
+      deepSet(normalized, path, coerced);
+    }
+  }
+
+  return resolveRawYoutubeActiveSourceConfigPaths(normalized, baseDir);
+}
+
+function normalizeYoutubeSourceOverridesForDiff(
+  value: unknown,
+  baseDir: string,
+): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const normalized = structuredClone(value) as Record<string, unknown>;
+  const sourceOverride = normalized[YouTubeSourceRegistration.sourceId];
+  if (sourceOverride !== undefined) {
+    normalized[YouTubeSourceRegistration.sourceId] = normalizeYoutubeActiveSourceConfigForDiff(
+      sourceOverride,
+      baseDir,
+    );
+  }
+
+  return normalized;
+}
+
 
 export function ensureNoSource(options: CliOptions, commandName: string): boolean {
   if (optionString(options, 'source')) {
@@ -783,23 +889,29 @@ async function runConfigDiff(
     const configB = resolveProfile(profileB);
 
     if (sourceId && configA.activeSourceConfig !== undefined) {
-      configA.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+      configA.activeSourceConfig = normalizeYoutubeActiveSourceConfigForDiff(
         configA.activeSourceConfig,
         configA.baseDir,
       );
     }
     if (sourceId && configB.activeSourceConfig !== undefined) {
-      configB.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+      configB.activeSourceConfig = normalizeYoutubeActiveSourceConfigForDiff(
         configB.activeSourceConfig,
         configB.baseDir,
       );
     }
 
     if (!sourceId && configA.activeSourceConfig === undefined) {
-      configA.activeSourceConfig = materializeProfileSourceOverridesForDiff(loadResult, profileA);
+      const sourceOverrides = materializeProfileSourceOverridesForDiff(loadResult, profileA);
+      if (sourceOverrides !== undefined) {
+        configA.activeSourceConfig = normalizeYoutubeSourceOverridesForDiff(sourceOverrides, configA.baseDir);
+      }
     }
     if (!sourceId && configB.activeSourceConfig === undefined) {
-      configB.activeSourceConfig = materializeProfileSourceOverridesForDiff(loadResult, profileB);
+      const sourceOverrides = materializeProfileSourceOverridesForDiff(loadResult, profileB);
+      if (sourceOverrides !== undefined) {
+        configB.activeSourceConfig = normalizeYoutubeSourceOverridesForDiff(sourceOverrides, configB.baseDir);
+      }
     }
 
     const showSecrets = optionBool(options, 'show-secrets');

@@ -913,6 +913,45 @@ profiles:
     expect(output).toContain('false');
   });
 
+  it('diff normalizes interpolated source_overrides before comparing', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    source_overrides:
+      youtube:
+        ytdlp:
+          keep_files: \${KEEP_TRUE}
+          cookies_file: ./cookies.txt
+  prod:
+    source_overrides:
+      youtube:
+        ytdlp:
+          keep_files: true
+          cookies_file: cookies.txt
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const originalKeepTrue = process.env.KEEP_TRUE;
+    process.env.KEEP_TRUE = 'true';
+
+    try {
+      const code = await runCli(['config', 'diff', 'local', 'prod', '--config', configPath]);
+      const output = consoleLog.mock.calls.flat().join('\n');
+
+      expect(code).toBe(0);
+      expect(output).toContain("Profiles 'local' and 'prod' are identical.");
+      expect(output).not.toContain('keep_files');
+      expect(output).not.toContain('cookies_file');
+    } finally {
+      if (originalKeepTrue === undefined) {
+        delete process.env.KEEP_TRUE;
+      } else {
+        process.env.KEEP_TRUE = originalKeepTrue;
+      }
+    }
+  });
+
   it('diff --json prints machine-readable output for identical profiles', async () => {
     await createConfig(`
 config_version: 1

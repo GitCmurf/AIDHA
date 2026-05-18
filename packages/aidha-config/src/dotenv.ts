@@ -9,6 +9,7 @@
 
 import { readFileSync, lstatSync, realpathSync, type Stats } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
+import { checkFilePermissions } from './discovery.js';
 
 export interface DotenvLoadOptions {
   files: string[];
@@ -103,6 +104,11 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
 
     if (!isSafeOwnershipStat(dotenvStat, dotenvPath, onWarning)) {
       continue;
+    }
+
+    const permWarning = checkFilePermissions(dotenvPath);
+    if (permWarning) {
+      onWarning(permWarning);
     }
 
     let content: string;
