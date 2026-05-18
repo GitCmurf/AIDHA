@@ -84,4 +84,33 @@ describe('Lazy Interpolation and Type Coercion', () => {
 
      vi.unstubAllEnvs();
   });
+
+  it('should not interpolate inactive source_overrides while resolving core fields', () => {
+    const configWithSourceOverrides: AidhaConfig = {
+      config_version: 1,
+      default_profile: 'local',
+      profiles: {
+        local: {
+          llm: {
+            model: 'gpt-local',
+          },
+          source_overrides: {
+            youtube: {
+              youtube: {
+                cookie: '${YOUTUBE_COOKIE}' as any,
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const resolved = resolveConfig({
+      rawConfig: configWithSourceOverrides,
+      profileName: 'local',
+    });
+
+    expect(resolved.llm.model).toBe('gpt-local');
+    expect(resolved.activeSourceConfig).toBeUndefined();
+  });
 });

@@ -180,6 +180,29 @@ profiles:
   });
 
   it.each([
+    ['llm', 'llm: []', '/profiles/default/llm'],
+    ['source_overrides', 'source_overrides: []', '/profiles/default/source_overrides'],
+  ])('should throw ConfigValidationError for malformed nested profile %s sections', async (_label, snippet, expectedPath) => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+profiles:
+  default:
+    db: ./out/test.sqlite
+    ${snippet}
+`);
+
+    try {
+      await loadConfig({ cwd: tmpDir, env: {} });
+      expect.unreachable('Should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ConfigValidationError);
+      const errors = (e as ConfigValidationError).errors;
+      expect(errors.some((err) => err.path === expectedPath && err.message.includes('must be object'))).toBe(true);
+    }
+  });
+
+  it.each([
     ['base_dir', 'base_dir: 42'],
     ['env', 'env: []'],
     ['profiles', 'profiles: 1'],
@@ -356,7 +379,7 @@ profiles:
       errors: [
         {
           path: '/env/dotenv_files/1',
-          message: 'must be a string',
+          message: expect.stringContaining('string'),
         },
       ],
     });

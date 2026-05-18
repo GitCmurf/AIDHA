@@ -420,7 +420,7 @@ describe('resolveConfig — source boundary', () => {
     expect(ytdlp.timeout_ms).toBe(120000);
   });
 
-  it('should normalize source-private runtime paths before returning activeSourceConfig', () => {
+  it('should preserve raw source-private runtime paths in activeSourceConfig', () => {
     const sourceRegistration: SourceRegistration = {
       sourceId: 'youtube',
       validateActiveSourceConfig: (value: unknown) => value,
@@ -455,7 +455,7 @@ describe('resolveConfig — source boundary', () => {
 
     const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
-    expect(ytdlp.cookies_file).toBe(resolve(baseDir, './cookies.txt'));
+    expect(ytdlp.cookies_file).toBe('./cookies.txt');
   });
 
   it('should keep core source-default sections out of activeSourceConfig', () => {

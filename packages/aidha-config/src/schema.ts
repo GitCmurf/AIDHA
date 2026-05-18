@@ -198,6 +198,74 @@ function isTopLevelInstancePath(instancePath: string): boolean {
   return normalized.length > 0 && !normalized.includes('/');
 }
 
+function decodeJsonPointerSegment(segment: string): string {
+  return segment.replace(/~1/g, '/').replace(/~0/g, '~');
+}
+
+function instancePathToSchemaPath(instancePath: string): string[] {
+  return instancePath
+    .replace(/^\/+/, '')
+    .split('/')
+    .filter(Boolean)
+    .map(decodeJsonPointerSegment);
+}
+
+function wildcardSchemaPath(instancePath: string): string {
+  const segments = instancePathToSchemaPath(instancePath);
+  if (segments.length === 0) return '';
+
+  const wildcarded = [...segments];
+  if (wildcarded[0] === 'profiles' || wildcarded[0] === 'sources') {
+    if (wildcarded.length > 1) {
+      wildcarded[1] = '*';
+    }
+  }
+
+  const sourceOverridesIndex = wildcarded.indexOf('source_overrides');
+  if (sourceOverridesIndex !== -1 && wildcarded.length > sourceOverridesIndex + 1) {
+    wildcarded[sourceOverridesIndex + 1] = '*';
+  }
+
+  return wildcarded.join('.');
+}
+
+function shouldDeferTypeError(config: unknown, instancePath: string): boolean {
+  const pathSegments = instancePathToSchemaPath(instancePath);
+  if (
+    pathSegments.length < 2
+    || (pathSegments[0] !== 'profiles' && pathSegments[0] !== 'sources')
+  ) {
+    return false;
+  }
+
+  // Profile/source leaf scalars can still be accepted here when they are
+  // string placeholders that `interpolateDeep()` will coerce later.
+  const schemaPath = wildcardSchemaPath(instancePath);
+  if (!(schemaPath in COERCION_MAP)) {
+    return false;
+  }
+
+  let current: unknown = config;
+  for (const segment of pathSegments) {
+    if (current === null || typeof current !== 'object') {
+      return false;
+    }
+
+    if (Array.isArray(current)) {
+      const index = Number(segment);
+      if (!Number.isInteger(index) || index < 0 || index >= current.length) {
+        return false;
+      }
+      current = current[index];
+      continue;
+    }
+
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return typeof current === 'string';
+}
+
 export function validateStructure(config: unknown): ValidationResult {
   const validate = getValidator();
   const valid = validate(config);
@@ -207,7 +275,10 @@ export function validateStructure(config: unknown): ValidationResult {
     for (const err of validate.errors ?? []) {
       if (
         STRUCTURAL_KEYWORDS.has(err.keyword)
-        || (err.keyword === 'type' && isTopLevelInstancePath(err.instancePath))
+        || (err.keyword === 'type' && (
+          isTopLevelInstancePath(err.instancePath)
+          || !shouldDeferTypeError(config, err.instancePath)
+        ))
       ) {
         errors.push({
           path: err.instancePath || '/',

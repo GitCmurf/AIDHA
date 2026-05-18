@@ -211,6 +211,23 @@ describe('validateConfig — strict schema validation', () => {
     expect(result.valid).toBe(false);
   });
 
+  it.each([
+    ['llm', { llm: [] }, '/profiles/default/llm'],
+    ['source_overrides', { source_overrides: [] }, '/profiles/default/source_overrides'],
+  ])('should reject malformed profile %s sections', (_label, override, expectedPath) => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: {
+          db: './test.sqlite',
+          ...override,
+        },
+      },
+    }));
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'type' && e.path === expectedPath)).toBe(true);
+  });
+
   // ── Extensions pass-through ───────────────────────────────────────────
 
   it('should allow arbitrary keys inside top-level extensions', () => {
