@@ -24,6 +24,9 @@ import {
   ConfigValidationError,
   ConfigVersionError,
   ConfigNotFoundError,
+  InterpolationCycleError,
+  InterpolationDepthError,
+  InterpolationObjectCycleError,
   UnsetVariableError,
 } from '@aidha/config';
 import {
@@ -68,6 +71,19 @@ export type ConfigBridgeResult =
 // ── Source Registrations ─────────────────────────────────────────────────────
 
 const ALL_SOURCE_REGISTRATIONS = [YouTubeSourceRegistration];
+
+function isConfigDomainError(error: unknown): error is Error {
+  return (
+    error instanceof ConfigParseError ||
+    error instanceof ConfigValidationError ||
+    error instanceof ConfigVersionError ||
+    error instanceof ConfigNotFoundError ||
+    error instanceof InterpolationCycleError ||
+    error instanceof InterpolationDepthError ||
+    error instanceof InterpolationObjectCycleError ||
+    error instanceof UnsetVariableError
+  );
+}
 
 export function buildResolvedEnv(loadResult: LoadResult): Record<string, string | undefined> {
   return {
@@ -114,14 +130,7 @@ export async function loadCliConfigForValidation(
   } catch (error: unknown) {
     const err = error as Error;
 
-    const isConfigError =
-      err instanceof ConfigParseError ||
-      err instanceof ConfigValidationError ||
-      err instanceof ConfigVersionError ||
-      err instanceof ConfigNotFoundError ||
-      err instanceof UnsetVariableError;
-
-    if (!isConfigError) {
+    if (!isConfigDomainError(err)) {
       throw err;
     }
 
@@ -199,14 +208,7 @@ export async function resolveCliConfig(
   } catch (error: unknown) {
     const err = error as Error;
 
-    const isConfigError =
-      err instanceof ConfigParseError ||
-      err instanceof ConfigValidationError ||
-      err instanceof ConfigVersionError ||
-      err instanceof ConfigNotFoundError ||
-      err instanceof UnsetVariableError;
-
-    if (!isConfigError) {
+    if (!isConfigDomainError(err)) {
       throw err;
     }
 

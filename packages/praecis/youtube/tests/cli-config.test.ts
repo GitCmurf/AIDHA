@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveCliConfig, buildCliOverrides } from '../src/cli/config-bridge.js';
 import { copySecureConfigSync, writeInsecureConfig, writeSecureConfigSync } from './helpers/config-files.js';
-import { ConfigValidationError } from '@aidha/config';
+import { ConfigValidationError, InterpolationCycleError } from '@aidha/config';
 
 describe('CLI Configuration Bridge', () => {
   const sourceFixturePath = resolve(__dirname, 'fixtures/config/aidha.yaml');
@@ -194,6 +194,46 @@ describe('CLI Configuration Bridge', () => {
         }),
       ]),
     }));
+  });
+
+  it('returns a config-domain failure for interpolation cycles', async () => {
+    const configPath = join(fixtureRoot, 'interpolation-cycle.yaml');
+    writeSecureConfigSync(configPath, [
+      'config_version: 1',
+      'default_profile: local',
+      'profiles:',
+      '  local:',
+      '    llm:',
+      '      model: gpt-5-mini',
+      '      api_key: ${A}',
+    ].join('\n'));
+
+    const originalA = process.env['A'];
+    const originalB = process.env['B'];
+    process.env['A'] = '${B}';
+    process.env['B'] = '${A}';
+
+    try {
+      const result = await resolveCliConfig({
+        configPath,
+        profile: 'local',
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error).toBeInstanceOf(InterpolationCycleError);
+      expect(result.error.message).toContain('Circular env-var reference detected');
+    } finally {
+      if (originalA === undefined) {
+        delete process.env['A'];
+      } else {
+        process.env['A'] = originalA;
+      }
+      if (originalB === undefined) {
+        delete process.env['B'];
+      } else {
+        process.env['B'] = originalB;
+      }
+    }
   });
 
   it('resolves activeSourceConfig paths before inspection commands read them', async () => {

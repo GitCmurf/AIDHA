@@ -58,6 +58,49 @@ function redactResolvedConfigForDisplay(value: ResolvedConfig): ResolvedConfig {
   return redacted as unknown as ResolvedConfig;
 }
 
+function isDiffLeaf(value: unknown): value is { from: unknown; to: unknown } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.hasOwn(value, 'from') &&
+    Object.hasOwn(value, 'to') &&
+    Object.keys(value).length === 2
+  );
+}
+
+function isSecretDiffPath(path: string): boolean {
+  const leafKey = path.split('.').pop();
+  return leafKey ? isSecretKey(leafKey) : false;
+}
+
+function redactDiffForDisplay(value: unknown, path = ''): unknown {
+  if (isDiffLeaf(value)) {
+    if (isSecretDiffPath(path)) {
+      return { from: REDACTED, to: REDACTED };
+    }
+
+    return {
+      from: typeof value.from === 'object' && value.from !== null ? redactSecrets(value.from) : value.from,
+      to: typeof value.to === 'object' && value.to !== null ? redactSecrets(value.to) : value.to,
+    };
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item, index) => redactDiffForDisplay(item, `${path}[${index}]`));
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+
+  const redacted: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    redacted[key] = redactDiffForDisplay(nested, path ? `${path}.${key}` : key);
+  }
+  return redacted;
+}
+
 type ValidationIssue = {
   path: string;
   message: string;
@@ -766,21 +809,16 @@ async function runConfigDiff(
       }
     }
 
-    const redactedA = showSecrets
-      ? configA
-      : redactResolvedConfigForDisplay(configA);
-    const redactedB = showSecrets
-      ? configB
-      : redactResolvedConfigForDisplay(configB);
-
-    const diff = computeDiff(redactedA, redactedB);
+    // Compare the resolved configs first so secret-only changes remain visible.
+    const diff = computeDiff(configA, configB);
+    const displayDiff = showSecrets ? diff : redactDiffForDisplay(diff);
 
     if (optionBool(options, 'json')) {
-      console.log(JSON.stringify(diff, null, 2));
+      console.log(JSON.stringify(displayDiff, null, 2));
     } else if (Object.keys(diff).length === 0) {
       console.log(`Profiles '${profileA}' and '${profileB}' are identical.`);
     } else {
-      console.log(dumpYaml(diff));
+      console.log(dumpYaml(displayDiff));
     }
     return 0;
   } catch (err) {

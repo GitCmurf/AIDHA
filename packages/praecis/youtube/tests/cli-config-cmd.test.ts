@@ -821,6 +821,33 @@ profiles:
     expect(output).not.toContain('feature_flags');
   });
 
+  it('diff reports secret-only changes before redaction', async () => {
+    await createConfig(`
+config_version: 1
+default_profile: local
+profiles:
+  local:
+    llm:
+      api_key: sk-local-123
+      model: shared-model
+  prod:
+    llm:
+      api_key: sk-prod-456
+      model: shared-model
+`);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const code = await runCli(['config', 'diff', 'local', 'prod', '--config', configPath]);
+    const output = consoleLog.mock.calls.flat().join('\n');
+
+    expect(code).toBe(0);
+    expect(output).not.toContain('Profiles \'local\' and \'prod\' are identical.');
+    expect(output).toContain('apiKey');
+    expect(output).toContain('********');
+    expect(output).not.toContain('sk-local-123');
+    expect(output).not.toContain('sk-prod-456');
+  });
+
   it('diff includes source_overrides when no --source is supplied', async () => {
     await createConfig(`
 config_version: 1
