@@ -953,18 +953,20 @@ async function runConfigDiff(
   }
 }
 
-function computeDiff(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined, path = ''): Record<string, unknown> {
+function computeDiff(a: object | undefined, b: object | undefined, path = ''): Record<string, unknown> {
   const diff: Record<string, unknown> = {};
-  const allKeys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  const recordA = a as Record<string, unknown> | undefined;
+  const recordB = b as Record<string, unknown> | undefined;
+  const allKeys = new Set([...Object.keys(recordA || {}), ...Object.keys(recordB || {})]);
 
   for (const key of allKeys) {
-    const valA = a?.[key];
-    const valB = b?.[key];
+    const valA = recordA?.[key];
+    const valB = recordB?.[key];
 
     if (isDeepStrictEqual(valA, valB)) continue;
 
     if (typeof valA === 'object' && typeof valB === 'object' && valA !== null && valB !== null && !Array.isArray(valA) && !Array.isArray(valB)) {
-      const nestedDiff = computeDiff(valA as Record<string, unknown>, valB as Record<string, unknown>, path ? `${path}.${key}` : key);
+      const nestedDiff = computeDiff(valA, valB, path ? `${path}.${key}` : key);
       if (Object.keys(nestedDiff).length > 0) {
         diff[key] = nestedDiff;
       }
