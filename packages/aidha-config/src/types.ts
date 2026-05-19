@@ -116,6 +116,7 @@ export type UnresolvedAidhaConfig = Record<string, unknown> & {
   config_version: number;
   default_profile: string;
   profiles: Record<string, unknown>;
+  base_dir?: string;
 };
 
 // ── Source Registration ──────────────────────────────────────────────────────
