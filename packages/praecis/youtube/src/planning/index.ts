@@ -111,11 +111,21 @@ export async function createGoal(
   const name = input.name.trim();
   if (!name) return { ok: false, error: new Error('Goal name is required.') };
 
+  // Validate area if provided before creating the goal
+  const areaId = input.areaId?.trim();
+  if (areaId) {
+    const areaNode = await store.getNode(areaId);
+    if (!areaNode.ok) return areaNode;
+    if (!areaNode.value || areaNode.value.type !== 'Area') {
+      return { ok: false, error: new Error(`Area not found: ${areaId}`) };
+    }
+  }
+
   const goalId = normalizeGoalId(input.id, name);
   const metadata: Record<string, unknown> = {};
   if (input.description?.trim()) metadata['description'] = input.description.trim();
   metadata['slug'] = deriveSlugFromId('goal', goalId, name);
-  if (input.areaId?.trim()) metadata['areaId'] = input.areaId.trim();
+  if (areaId) metadata['areaId'] = areaId;
 
   const data: NodeDataInput = {
     label: name,
@@ -127,13 +137,7 @@ export async function createGoal(
   if (!upsert.ok) return upsert;
 
   let linkedArea = false;
-  if (input.areaId?.trim()) {
-    const areaId = input.areaId.trim();
-    const areaNode = await store.getNode(areaId);
-    if (!areaNode.ok) return areaNode;
-    if (!areaNode.value || areaNode.value.type !== 'Area') {
-      return { ok: false, error: new Error(`Area not found: ${areaId}`) };
-    }
+  if (areaId) {
     const edge = await store.upsertEdge(areaId, 'relatedTo', goalId, { metadata: {} }, { detectNoop: true });
     if (!edge.ok) return edge;
     linkedArea = true;
@@ -156,12 +160,31 @@ export async function createProject(
   const name = input.name.trim();
   if (!name) return { ok: false, error: new Error('Project name is required.') };
 
+  // Validate area and goal if provided before creating the project
+  const areaId = input.areaId?.trim();
+  if (areaId) {
+    const areaNode = await store.getNode(areaId);
+    if (!areaNode.ok) return areaNode;
+    if (!areaNode.value || areaNode.value.type !== 'Area') {
+      return { ok: false, error: new Error(`Area not found: ${areaId}`) };
+    }
+  }
+
+  const goalId = input.goalId?.trim();
+  if (goalId) {
+    const goalNode = await store.getNode(goalId);
+    if (!goalNode.ok) return goalNode;
+    if (!goalNode.value || goalNode.value.type !== 'Goal') {
+      return { ok: false, error: new Error(`Goal not found: ${goalId}`) };
+    }
+  }
+
   const projectId = normalizeProjectId(input.id, name);
   const metadata: Record<string, unknown> = {};
   if (input.description?.trim()) metadata['description'] = input.description.trim();
   metadata['slug'] = deriveSlugFromId('project', projectId, name);
-  if (input.areaId?.trim()) metadata['areaId'] = input.areaId.trim();
-  if (input.goalId?.trim()) metadata['goalId'] = input.goalId.trim();
+  if (areaId) metadata['areaId'] = areaId;
+  if (goalId) metadata['goalId'] = goalId;
 
   const data: NodeDataInput = {
     label: name,
@@ -173,13 +196,7 @@ export async function createProject(
   if (!upsert.ok) return upsert;
 
   let linkedArea = false;
-  if (input.areaId?.trim()) {
-    const areaId = input.areaId.trim();
-    const areaNode = await store.getNode(areaId);
-    if (!areaNode.ok) return areaNode;
-    if (!areaNode.value || areaNode.value.type !== 'Area') {
-      return { ok: false, error: new Error(`Area not found: ${areaId}`) };
-    }
+  if (areaId) {
     const areaEdge = await store.upsertEdge(
       projectId,
       'projectInArea',
@@ -192,13 +209,7 @@ export async function createProject(
   }
 
   let linkedGoal = false;
-  if (input.goalId?.trim()) {
-    const goalId = input.goalId.trim();
-    const goalNode = await store.getNode(goalId);
-    if (!goalNode.ok) return goalNode;
-    if (!goalNode.value || goalNode.value.type !== 'Goal') {
-      return { ok: false, error: new Error(`Goal not found: ${goalId}`) };
-    }
+  if (goalId) {
     const goalEdge = await store.upsertEdge(
       projectId,
       'projectServesGoal',

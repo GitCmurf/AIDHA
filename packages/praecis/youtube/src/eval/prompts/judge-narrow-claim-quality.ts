@@ -1,29 +1,9 @@
 import type { ClaimCandidate } from "../../extract/types.js";
 import type { FlattenedGoldenClaimNode } from "../golden-annotation-utils.js";
 import type { VideoContext } from "../matrix-runner.js";
+import { nk, sanitizePromptInput, truncateTranscript, MAX_TRANSCRIPT_PROMPT_CHARS } from "./judge-utils.js";
 
-export const NARROW_JUDGE_PROMPT_VERSION = "v1";
-const MAX_TRANSCRIPT_PROMPT_CHARS = 50000;
-
-function sanitizePromptInput(text: string): string {
-  return text
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
-    .replace(/<TRANSCRIPT>/gi, "< TRANSCRIPT>")
-    .replace(/<\/TRANSCRIPT>/gi, "< /TRANSCRIPT>")
-    .replace(/<VIDEO_METADATA>/gi, "< VIDEO_METADATA>")
-    .replace(/<\/VIDEO_METADATA>/gi, "< /VIDEO_METADATA>")
-    .replace(/<CANDIDATE_CLAIMS>/gi, "< CANDIDATE_CLAIMS>")
-    .replace(/<\/CANDIDATE_CLAIMS>/gi, "< /CANDIDATE_CLAIMS>")
-    .replace(/<GOLD_CLAIMS>/gi, "< GOLD_CLAIMS>")
-    .replace(/<\/GOLD_CLAIMS>/gi, "< /GOLD_CLAIMS>")
-    .replace(/<TEACHER_CLAIMS>/gi, "< TEACHER_CLAIMS>")
-    .replace(/<\/TEACHER_CLAIMS>/gi, "< /TEACHER_CLAIMS>");
-}
-
-function truncatePromptInput(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}\n[TRUNCATED ${text.length - maxChars} chars from transcript for judge context budget]`;
-}
+export const NARROW_JUDGE_PROMPT_VERSION = "v2";
 
 export function buildNarrowJudgePrompt(
   transcript: string,
@@ -36,8 +16,6 @@ export function buildNarrowJudgePrompt(
 You must compare candidate claims against the transcript and the gold claims.
 Teacher claims are supplemental hints only. Gold claims are the primary target.
 Return ONLY valid JSON matching the exact schema requested.`;
-
-  const nk = (s: string): string => s.normalize("NFKC");
 
   const metadataJson = JSON.stringify({
     title: nk(videoContext.title ?? ""),
@@ -73,7 +51,7 @@ Return ONLY valid JSON matching the exact schema requested.`;
     2
   );
 
-  const normalizedTranscript = truncatePromptInput(nk(transcript), MAX_TRANSCRIPT_PROMPT_CHARS);
+  const normalizedTranscript = truncateTranscript(nk(transcript), MAX_TRANSCRIPT_PROMPT_CHARS);
 
   const user = `Here is the transcript context:
 <VIDEO_METADATA>
@@ -101,6 +79,7 @@ ${sanitizePromptInput(teacherJson)}
 
 Instructions:
 - Treat gold claims as the primary reference.
+- CRITICAL: When matching a gold claim, you MUST copy the candidate text EXACTLY as it appears in <CANDIDATE_CLAIMS> into the candidateText field. Do not paraphrase or abbreviate.
 - Each matched gold claim should name the specific candidate claim that covers it.
 - Put unsupported or distorted candidate claims into unsupportedCandidateClaims.
 - Put duplicate or compound candidate claims into redundantCandidateClaims when appropriate.

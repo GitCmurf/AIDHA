@@ -5,6 +5,7 @@ import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { EvalModel } from "./model-registry.js";
 import type { Logger } from "../utils/logger.js";
 import type { NarrowRunMode } from "./narrow-report-types.js";
+import type { RequestRateLimiterRegistry } from "./request-rate-limiter.js";
 
 export const DEFAULT_EMBEDDING_BUDGET_PER_RUN = 250;
 export const DEFAULT_REFINED_SELF_IMPROVE_BUDGET_PER_RUN = 4;
@@ -20,6 +21,7 @@ export interface RunNarrowManualBaselineOptions {
   fallbackModelId: string;
   config: ResolvedConfig;
   clientFactory: (modelId: string) => LlmClient;
+  rateLimiterRegistry?: RequestRateLimiterRegistry;
   maxConcurrency?: number;
   timeoutMs?: number;
   judgeMaxTokens?: number;

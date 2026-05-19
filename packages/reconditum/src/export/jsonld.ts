@@ -72,10 +72,33 @@ export interface JsonLdDocument {
 }
 
 /**
+ * Reserved keys that cannot be used in metadata during JSON-LD export.
+ * These include JSON-LD structural keys, graph-owned node fields,
+ * and all predicate names used for edges.
+ */
+const RESERVED_JSONLD_KEYS = new Set([
+  '@id',
+  '@type',
+  'schemaVersion',
+  'label',
+  'content',
+  'createdAt',
+  'updatedAt',
+  ...Predicate.options,
+]);
+
+/**
  * Convert a GraphNode to JSON-LD format.
  */
 export function nodeToJsonLd(node: GraphNode): JsonLdNode {
-  const { schemaVersion: _ignoredSchemaVersion, ...metadata } = node.metadata;
+  // Filter out reserved keys from metadata
+  const metadata: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node.metadata)) {
+    if (!RESERVED_JSONLD_KEYS.has(key)) {
+      metadata[key] = value;
+    }
+  }
+
   return {
     '@id': `urn:aidha:node:${node.id}`,
     '@type': node.type,

@@ -15,7 +15,7 @@
   "scripts": {
     "lint": "pnpm -r lint",
     "gen:types": "pnpm --filter @aidha/config gen:types",
-    "test": "pnpm -r --if-present test:ci",
+    "test": "node scripts/check-test-scripts.mjs && pnpm -r test:ci",
     "test:full": "pnpm -r --if-present test:full",
     "build": "pnpm -r build",
     "build:deps": "pnpm --filter @aidha/config --filter @aidha/graph-backend --filter @aidha/taxonomy build",

@@ -25,8 +25,8 @@ export function normalizeTranscriptDocument(payload) {
     const rawSegments = Array.isArray(payload.segments) ? payload.segments : [];
     const segments = rawSegments
         .map((segment) => {
-            const start = Number(segment.start ?? 0);
-            const duration = Number(segment.duration ?? Math.max(0, Number(segment.end ?? start) - start));
+            const start = Math.max(0, Number(segment.start ?? 0));
+            const duration = Math.max(0, Number(segment.duration ?? Math.max(0, Number(segment.end ?? start) - start)));
             return {
                 start,
                 duration,
@@ -59,7 +59,9 @@ export function validateNormalizedTranscript(payload) {
         payload.fullText.length > 0 &&
         payload.segments.every(segment =>
             Number.isFinite(segment.start) &&
+            segment.start >= 0 &&
             Number.isFinite(segment.duration) &&
+            segment.duration >= 0 &&
             typeof segment.text === "string" &&
             segment.text.length > 0
         )

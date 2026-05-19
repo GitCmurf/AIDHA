@@ -63,6 +63,7 @@ export function createNarrowRefineStage(context: NarrowRefineStageContext): {
     const inputSignature = buildRefineStageInputSignature({
       extractionStageInputSignature: input.extractionStageInputSignature,
       refinedTargets,
+      shortlistTargets: input.shortlistTargets,
       teacherAwareHints: input.teacherAwareHints,
     });
     const cachedRefine = await readNarrowStageArtifact<NarrowRefineStageArtifact>(context.outputDir, "refine");

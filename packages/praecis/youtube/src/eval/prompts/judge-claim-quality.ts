@@ -1,17 +1,8 @@
 import type { ClaimCandidate } from "../../extract/types.js";
 import type { VideoContext } from "../matrix-runner.js";
+import { nk, sanitizePromptInput, truncateTranscript } from "./judge-utils.js";
 
-export const JUDGE_PROMPT_VERSION = "v1";
-
-function sanitizePromptInput(text: string): string {
-  return text
-    .replace(/<TRANSCRIPT>/gi, "< TRANSCRIPT>")
-    .replace(/<\/TRANSCRIPT>/gi, "< /TRANSCRIPT>")
-    .replace(/<VIDEO_METADATA>/gi, "< VIDEO_METADATA>")
-    .replace(/<\/VIDEO_METADATA>/gi, "< /VIDEO_METADATA>")
-    .replace(/<CANDIDATE_CLAIMS>/gi, "< CANDIDATE_CLAIMS>")
-    .replace(/<\/CANDIDATE_CLAIMS>/gi, "< /CANDIDATE_CLAIMS>");
-}
+export const JUDGE_PROMPT_VERSION = "v2";
 
 export function buildJudgePrompt(
   transcript: string,
@@ -24,16 +15,18 @@ You must output ONLY valid JSON matching the exact schema requested.
 Do not assume ordering of claims implies importance.`;
 
   const metadataJson = JSON.stringify({
-    title: videoContext.title,
-    channel: videoContext.channelName,
-    domain: videoContext.topicDomain || "Unknown",
-    description: videoContext.description || "N/A"
+    title: nk(videoContext.title || ""),
+    channel: nk(videoContext.channelName || ""),
+    domain: nk(videoContext.topicDomain || "Unknown"),
+    description: nk(videoContext.description || "N/A")
   }, null, 2);
 
   const claimsJson = JSON.stringify(
-    claims.map(c => ({ text: c.text, excerptIds: c.excerptIds, confidence: c.confidence, type: c.type })),
+    claims.map(c => ({ text: nk(c.text), excerptIds: c.excerptIds, confidence: c.confidence, type: c.type })),
     null, 2
   );
+
+  const normalizedTranscript = truncateTranscript(nk(transcript));
 
   const user = `Here is the transcript context:
 <VIDEO_METADATA>
@@ -41,7 +34,7 @@ ${sanitizePromptInput(metadataJson)}
 </VIDEO_METADATA>
 
 <TRANSCRIPT>
-${sanitizePromptInput(transcript)}
+${sanitizePromptInput(normalizedTranscript)}
 </TRANSCRIPT>
 
 Here is the set of extracted claims to evaluate:

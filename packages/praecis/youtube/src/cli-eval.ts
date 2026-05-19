@@ -20,16 +20,17 @@ import {
   type ModelCapabilities,
   type LlmCompletionRequest
 } from "./extract/llm-client.js";
-import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
+import { optionString, optionBool, optionNumber, sanitizeErrorMessage, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 import {
   NarrowCorpusSchema,
   runNarrowManualBaselineComparison,
   writeNarrowComparisonReport,
-  type NarrowRunMode,
-} from "./eval/narrow-manual-baseline.js";
-import { wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
-import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
+  NarrowRunMode,
+  } from "./eval/narrow-manual-baseline.js";
+  import { RequestRateLimiterRegistry, wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
+  import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
+
 import { validateSafeId } from "./utils/ids.js";
 import { sanitizeFilename } from "./utils/ids.js";
 
@@ -238,10 +239,15 @@ function validateNonEmptyList(items: string[], optionName: string): number {
  * @returns EXIT_SUCCESS if valid, EXIT_INVALID_OPTIONS if invalid
  */
 function validatePositiveNumber(value: number | undefined, optionName: string): number {
-  if (value !== undefined && value < 1) {
-    // skipcq: JS-0002
-    console.error(`Error: ${optionName} must be a positive number.`);
-    return EXIT_INVALID_OPTIONS;
+  if (value !== undefined) {
+    if (Number.isNaN(value)) {
+      console.error(`Error: Invalid numeric value for ${optionName}.`);
+      return EXIT_INVALID_OPTIONS;
+    }
+    if (value < 1) {
+      console.error(`Error: ${optionName} must be a positive number.`);
+      return EXIT_INVALID_OPTIONS;
+    }
   }
   return EXIT_SUCCESS;
 }
@@ -304,7 +310,10 @@ function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"
 export const createProviderAwareClient = (
   modelId: string,
   baseConfig: ResolvedConfig["llm"],
-  overrides?: Partial<Pick<ResolvedConfig["llm"], "timeoutMs" | "apiKey" | "baseUrl">> & { maxRequestsPerMinute?: number }
+  overrides?: Partial<Pick<ResolvedConfig["llm"], "timeoutMs" | "apiKey" | "baseUrl">> & {
+    maxRequestsPerMinute?: number;
+    rateLimiterRegistry?: RequestRateLimiterRegistry;
+  }
 ) => {
   const model = getModel(modelId);
   if (!model) {
@@ -357,7 +366,7 @@ export const createProviderAwareClient = (
   };
 
   return overrides?.maxRequestsPerMinute
-    ? wrapClientWithRateLimit(remappedClient, modelId, overrides.maxRequestsPerMinute)
+    ? wrapClientWithRateLimit(remappedClient, modelId, overrides.maxRequestsPerMinute, consoleLogger, overrides.rateLimiterRegistry)
     : remappedClient;
 };
 
@@ -902,10 +911,10 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
   return {
     dryRun: optionBool(cleanOptions, "dry-run"),
     mode: mode as NarrowEvalOptions["mode"],
-    corpusPath: resolveRepoRelativePath(optionString(cleanOptions, "corpus", "out/eval-matrix/corpus.narrow-manual-baseline.json")),
-    transcriptDir: resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")),
-    manualBaselineDir: resolveRepoRelativePath(optionString(cleanOptions, "manual-baseline-dir", "out/eval-matrix/manual-baseline")),
-    outputDir: resolveRepoRelativePath(optionString(cleanOptions, "output-dir", "out/eval-matrix/reports/narrow-manual-baseline")),
+    corpusPath: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "corpus", "out/eval-matrix/corpus.narrow-manual-baseline.json")), "--corpus"),
+    transcriptDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")), "--transcript-dir"),
+    manualBaselineDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "manual-baseline-dir", "out/eval-matrix/manual-baseline")), "--manual-baseline-dir"),
+    outputDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "output-dir", "out/eval-matrix/reports/narrow-manual-baseline")), "--output-dir"),
     modelsStr: optionString(cleanOptions, "models", "gemini-3.1-flash-lite-preview"),
     variantsStr: optionString(cleanOptions, "variants", "raw,editorial-pass-v1,self-improve-v1"),
     judgeModelIds: judgeEnabled ? parseCsvList(judgeModelsStr) : [],
@@ -1090,6 +1099,7 @@ const runNarrowManualBaseline = async (
 
   invalidateNarrowStages(parsedOpts.outputDir, parsedOpts.refreshStage);
 
+  const registry = new RequestRateLimiterRegistry();
   const report = await runNarrowManualBaselineComparison({
     corpus: corpusResult.data,
     transcriptDir: parsedOpts.transcriptDir,
@@ -1100,6 +1110,7 @@ const runNarrowManualBaseline = async (
     judgeModelIds: parsedOpts.judgeModelIds,
     fallbackModelId: parsedOpts.fallbackModelId,
     config,
+    rateLimiterRegistry: registry,
     clientFactory: (modelId: string) => createProviderAwareClient(
       modelId,
       config.llm,
@@ -1110,6 +1121,7 @@ const runNarrowManualBaseline = async (
           : modelId === "gemini-3.1-flash-lite-preview"
             ? parsedOpts.maxRpmGeminiFlashLite
             : undefined,
+        rateLimiterRegistry: registry,
       }
     ),
     maxConcurrency: parsedOpts.maxConcurrency,
@@ -1223,8 +1235,9 @@ export const runEvalMatrix = async (
   } catch (error) {
     // Log sanitized message only - full error may contain secrets
     const message = error instanceof Error ? error.message : String(error);
+    const sanitized = sanitizeErrorMessage(message);
     // skipcq: JS-0002
-    console.error("Evaluation failed:", message);
+    console.error("Evaluation failed:", sanitized);
     return 1;
   }
 };

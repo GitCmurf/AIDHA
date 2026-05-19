@@ -137,6 +137,8 @@ export async function diagnoseTranscript(
       if (tooling.ffmpeg.status !== 'ok') {
         issues.push(tooling.ffmpeg.message ?? 'ffmpeg not found.');
       }
+    } else {
+      issues.push(`Tooling probe failed: ${toolingResult.error.message}`);
     }
   }
 
@@ -261,15 +263,22 @@ export async function diagnoseExtraction(
       ?? (resource.value.metadata?.['lastClaimRunPromptVersion'] as string | undefined)
       ?? promptFromClaims
       ?? 'v1';
+    const packFromVersion = parsePromptPackId(promptVersion);
     const promptPackId = options.promptPackId
+      ?? packFromVersion
       ?? parsePromptPackId(resource.value.metadata?.['lastClaimRunPromptVersion'] as string | undefined)
       ?? parsePromptPackId(promptFromClaims)
       ?? 'generic-hierarchy';
     const effectivePromptVersion = promptVersion.includes(':pack:')
       ? promptVersion
       : getEffectivePromptVersion(promptVersion, promptPackId);
-    const editorVersion = options.editorVersion
-      ?? ((resource.value.metadata?.['lastClaimRunEditorVersion'] as 'v1' | 'v2' | undefined) ?? 'v1');
+
+    const rawEditorVersion = options.editorVersion
+      ?? (resource.value.metadata?.['lastClaimRunEditorVersion'] as string | undefined);
+    const editorVersion: 'v1' | 'v2' = (rawEditorVersion === 'v2') ? 'v2' : 'v1';
+    if (rawEditorVersion && rawEditorVersion !== 'v1' && rawEditorVersion !== 'v2') {
+      issues.push(`Invalid lastClaimRunEditorVersion "${rawEditorVersion}" in metadata; falling back to v1.`);
+    }
 
     if (!model) {
       editorial = {
