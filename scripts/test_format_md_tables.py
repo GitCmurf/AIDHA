@@ -2,9 +2,7 @@ import unittest
 import sys
 from pathlib import Path
 
-# Add scripts directory to path
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-from format_md_tables import format_table, Table
+from scripts.format_md_tables import format_table, Table
 
 class TestFormatMdTables(unittest.TestCase):
     def test_short_centered_column(self):

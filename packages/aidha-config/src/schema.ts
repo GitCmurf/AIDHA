@@ -115,7 +115,7 @@ function toValidationErrors(
   }];
 }
 
-function validateRegisteredSourcePayload(
+export function validateRegisteredSourcePayload(
   sourceId: string,
   payload: unknown,
   context: string,

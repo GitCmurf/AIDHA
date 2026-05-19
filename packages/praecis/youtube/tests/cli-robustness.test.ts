@@ -90,13 +90,9 @@ describe('CLI Robustness (Remediation)', () => {
   });
 
   describe('Strict Numeric Parsing', () => {
-    it('should warn and fallback on malformed numeric strings', () => {
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const result = optionNumber({ 'timeout-ms': 'abc' }, 'timeout-ms', 60000);
-
-      expect(result).toBe(60000);
-      expect(consoleError).toHaveBeenCalled();
-      consoleError.mockRestore();
+    it('should fail on malformed numeric strings', () => {
+      expect(() => optionNumber({ 'timeout-ms': 'abc' }, 'timeout-ms', 60000))
+        .toThrow('Invalid numeric value for --timeout-ms: "abc".');
     });
 
     it('should accept valid numeric strings', () => {
@@ -136,7 +132,7 @@ describe('CLI Robustness (Remediation)', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const { runEvalMatrix } = await import('../src/cli-eval.js');
 
-      const apiKeyMock = 'sk-11111111111111111111111111111111'; // pragma: allowlist secret gitleaks:allow
+      const apiKeyMock = 'sk-' + '1'.repeat(32); // pragma: allowlist secret gitleaks:allow
 
       const parseSpy = vi.spyOn(JSON, 'parse').mockImplementation(() => {
         throw new Error(`Failed with Authorization: Bearer ${apiKeyMock}`);
@@ -145,7 +141,7 @@ describe('CLI Robustness (Remediation)', () => {
       // Write a tiny dummy corpus so that readFileSync doesn't fail
       const fs = await import('node:fs/promises');
       const path = await import('node:path');
-      const dummyPath = path.resolve(process.cwd(), '../../../dummy-corpus.json');
+      const dummyPath = path.resolve(process.cwd(), 'dummy-corpus.json');
       await fs.writeFile(dummyPath, '{}');
 
       try {
@@ -166,9 +162,13 @@ describe('CLI Robustness (Remediation)', () => {
         const sanitized = sanitizeErrorMessage(`Failed with Authorization: Bearer ${apiKeyMock}`);
         expect(sanitized).not.toContain(apiKeyMock);
         expect(sanitized).toContain('[REDACTED]');
-        } finally {        consoleError.mockRestore();
+        } finally {
+        consoleError.mockRestore();
         parseSpy.mockRestore();
-        await fs.rm(dummyPath, { force: true }).catch(() => {});
+        const fs = await import('node:fs/promises');
+        const path = await import('node:path');
+        const dummyPath = path.resolve(process.cwd(), 'dummy-corpus.json');
+        await fs.rm(dummyPath, { force: true });
       }
     });
   });

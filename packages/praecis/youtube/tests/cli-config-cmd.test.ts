@@ -11,18 +11,25 @@ describe('CLI Config Commands (Phase 2A)', () => {
   let tempRoot: string;
   let configPath: string;
   let originalCwd: string;
+  let originalIsTTY: PropertyDescriptor | undefined;
 
   beforeEach(async () => {
     originalCwd = process.cwd();
     tempRoot = await mkdtemp(join(tmpdir(), 'aidha-cli-config-cmd-'));
     configPath = join(tempRoot, 'config.yaml');
     process.chdir(tempRoot);
+    originalIsTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
   });
 
   afterEach(async () => {
     process.chdir(originalCwd);
     await rm(tempRoot, { recursive: true, force: true });
     vi.restoreAllMocks();
+    if (originalIsTTY) {
+      Object.defineProperty(process.stdout, 'isTTY', originalIsTTY);
+    } else {
+      Object.defineProperty(process.stdout, 'isTTY', { value: undefined, configurable: true });
+    }
   });
 
   const createConfig = async (content: string) => {

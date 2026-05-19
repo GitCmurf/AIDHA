@@ -68,12 +68,12 @@ describe('Dotenv safety guardrails', () => {
   });
 
   it('should skip symlink dotenv files', async () => {
-    const { symlink, writeFileSync: ws } = await import('node:fs');
+    const { symlinkSync, writeFileSync: ws } = await import('node:fs');
     const dotenvPath = join(tmpDir, 'real.env');
     const linkPath = join(tmpDir, 'link.env');
     ws(dotenvPath, 'KEY=value\n', 'utf-8');
     try {
-      symlink(dotenvPath, linkPath);
+      symlinkSync(dotenvPath, linkPath);
     } catch {
       return;
     }

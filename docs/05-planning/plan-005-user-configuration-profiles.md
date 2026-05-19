@@ -1629,7 +1629,7 @@ boundary.
 | 2     | Config management CLI               | 2 days            | Complete against earlier contract; drift exists against v1.3 | Superseded by Phase 5 |
 | 3     | Documentation and devex             | 1–2 days          | Complete against earlier contract; requires guide/runbook updates | 0.5–1 day inside Phase 5 |
 | 4     | Additional source vectors           | Future sprint     | Partially complete; remaining work future-scoped | Future sprint |
-| 5     | Contract drift remediation          | Not estimated in original plan | Open and required before approval | 3–5 days |
+| 5     | Contract drift remediation          | Not estimated in original plan | Complete (2026-05-17) | — |
 
 The earlier `~8–10 days` estimate is no longer a reliable handover estimate
 because Phases 0–3 were implemented against an older contract. Phase 5 is the

@@ -259,11 +259,14 @@ profiles:
     llm:
       api_key: \${TEST_API_KEY}
 `);
-    vi.stubEnv('TEST_API_KEY', 'sk-test-key');
-    const loadResult = await loadConfig({ cwd: tmpDir });
-    const resolved = resolveConfig({ rawConfig: loadResult.config });
-    expect(resolved.llm.apiKey).toBe('sk-test-key');
-    vi.unstubAllEnvs();
+    try {
+      vi.stubEnv('TEST_API_KEY', 'sk-test-key');
+      const loadResult = await loadConfig({ cwd: tmpDir });
+      const resolved = resolveConfig({ rawConfig: loadResult.config });
+      expect(resolved.llm.apiKey).toBe('sk-test-key');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should interpolate literal escapes from double-quoted YAML scalars in resolveConfig', async () => {
@@ -356,10 +359,13 @@ profiles:
     expect(result.dotenvEnv['FROM_DOTENV']).toBe('dotenv-value');
 
     // We must stub the env for resolveConfig since it uses process.env
-    vi.stubEnv('FROM_DOTENV', 'dotenv-value');
-    const resolved = resolveConfig({ rawConfig: result.config });
-    expect(resolved.llm.apiKey).toBe('dotenv-value');
-    vi.unstubAllEnvs();
+    try {
+      vi.stubEnv('FROM_DOTENV', 'dotenv-value');
+      const resolved = resolveConfig({ rawConfig: result.config });
+      expect(resolved.llm.apiKey).toBe('dotenv-value');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should throw ConfigValidationError for malformed dotenv_files entries', async () => {
@@ -422,8 +428,10 @@ profiles:
 
       try {
         symlinkSync(externalDir, linkedDir, 'dir');
-      } catch {
-        return;
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException)?.code;
+        if (['EPERM', 'EACCES', 'ENOSYS', 'EINVAL'].includes(code || '')) return;
+        throw err;
       }
 
       writeConfig(`
@@ -484,11 +492,14 @@ profiles:
 `);
     writeFileSync(join(tmpDir, '.env.test'), 'EXISTING_VAR=from-dotenv\n');
 
-    vi.stubEnv('EXISTING_VAR', 'from-shell');
-    const result = await loadConfig({ cwd: tmpDir });
-    const resolved = resolveConfig({ rawConfig: result.config });
-    expect(resolved.llm.apiKey).toBe('from-shell');
-    vi.unstubAllEnvs();
+    try {
+      vi.stubEnv('EXISTING_VAR', 'from-shell');
+      const result = await loadConfig({ cwd: tmpDir });
+      const resolved = resolveConfig({ rawConfig: result.config });
+      expect(resolved.llm.apiKey).toBe('from-shell');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should override existing env vars when override_existing is true in resolveConfig', async () => {
@@ -506,12 +517,15 @@ profiles:
 `);
     writeFileSync(join(tmpDir, '.env.test'), 'OVERRIDE_VAR=from-dotenv\n');
 
-    vi.stubEnv('OVERRIDE_VAR', 'from-shell');
-    // loadConfig with syncProcessEnv: true will update process.env
-    const result = await loadConfig({ cwd: tmpDir, syncProcessEnv: true });
-    const resolved = resolveConfig({ rawConfig: result.config });
-    expect(resolved.llm.apiKey).toBe('from-dotenv');
-    vi.unstubAllEnvs();
+    try {
+      vi.stubEnv('OVERRIDE_VAR', 'from-shell');
+      // loadConfig with syncProcessEnv: true will update process.env
+      const result = await loadConfig({ cwd: tmpDir, syncProcessEnv: true });
+      const resolved = resolveConfig({ rawConfig: result.config });
+      expect(resolved.llm.apiKey).toBe('from-dotenv');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should sync dotenv values into process.env when syncProcessEnv is true', async () => {

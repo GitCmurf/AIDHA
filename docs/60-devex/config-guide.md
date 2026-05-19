@@ -158,6 +158,10 @@ aidha config diff local production
 `config diff` compares resolved profile state only. Source-scoped CLI flags such
 as `--ytdlp-timeout` are rejected instead of being ignored.
 
+- **Acceptance Criteria**: Compares resolved core profiles; rejects `--source` and source flags
+  with exit code 2.
+- **Test Reference**: `packages/praecis/youtube/tests/cli-config-cmd.test.ts`
+
 ## Error Catalog
 
 | Error | Trigger | User Remediation |
@@ -169,6 +173,9 @@ as `--ytdlp-timeout` are rejected instead of being ignored.
 | `ConfigReadOnlyError` | Write attempted while `AIDHA_CONFIG_READONLY=1`. | Disable read-only mode to allow writes. |
 | `ConfigConflictError` | File changed since it was last read. | Re-run the command or use `--force`. |
 
+- **Acceptance Criteria**: Errors are surfaced with semantic classes and include path/line diagnostics.
+- **Test Reference**: `packages/aidha-config/tests/loader.test.ts`, `packages/aidha-config/tests/schema-validation.test.ts`
+
 ## Troubleshooting
 
 | Symptom | Likely Cause | First Action |
@@ -176,6 +183,10 @@ as `--ytdlp-timeout` are rejected instead of being ignored.
 | Env var not picked up | Active profile doesn't reference it. | Run `aidha config explain <key>`. |
 | Profile ignored | `--profile` or `default_profile` incorrect. | Run `aidha config show --json`. |
 | Secrets in output | Redaction metadata missed a key. | Report as security bug; use `isSecretKey`. |
+
+- **Acceptance Criteria**: Provenance explains every value source; `show` reports effective merged
+  state.
+- **Test Reference**: `packages/praecis/youtube/tests/cli-config-cmd.test.ts`
 
 ## Observability
 
@@ -185,3 +196,7 @@ for debugging.
 - `config.load.summary`: Emitted after successful resolution. Includes profile, source, and count of
   overrides.
 - `config.load.warning`: Emitted for non-fatal issues like file permissions or missing `.env` files.
+
+- **Acceptance Criteria**: Redacted events are emitted via `logSink` on every load; warnings
+  capture IO non-fatals.
+- **Test Reference**: `packages/praecis/youtube/tests/cli-config-cmd.test.ts` (Observability block)

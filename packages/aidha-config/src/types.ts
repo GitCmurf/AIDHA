@@ -107,6 +107,17 @@ export interface AidhaConfig {
   extensions?: Record<string, unknown>;
 }
 
+/**
+ * A looser version of AidhaConfig used before semantic resolution.
+ * This represents the raw object after structural validation but
+ * before type coercion and tier merging.
+ */
+export type UnresolvedAidhaConfig = Record<string, unknown> & {
+  config_version: number;
+  default_profile: string;
+  profiles: Record<string, unknown>;
+};
+
 // ── Source Registration ──────────────────────────────────────────────────────
 
 /**

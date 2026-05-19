@@ -46,43 +46,46 @@ describe('Lazy Interpolation and Type Coercion', () => {
   });
 
   it('should coerce interpolated variables to correct types', () => {
-    const env = { LLM_TIMEOUT: '60000' };
-    vi.stubEnv('LLM_TIMEOUT', '60000');
+    try {
+      vi.stubEnv('LLM_TIMEOUT', '60000');
 
-    const resolved = resolveConfig({
-      rawConfig,
-      profileName: 'local',
-    });
+      const resolved = resolveConfig({
+        rawConfig,
+        profileName: 'local',
+      });
 
-    expect(resolved.llm.timeoutMs).toBe(60000);
-    expect(typeof resolved.llm.timeoutMs).toBe('number');
-
-    vi.unstubAllEnvs();
+      expect(resolved.llm.timeoutMs).toBe(60000);
+      expect(typeof resolved.llm.timeoutMs).toBe('number');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should handle boolean coercion from environment variables', () => {
-     const configWithBool: AidhaConfig = {
-        config_version: 1,
-        default_profile: 'local',
-        profiles: {
-           local: {
-              editor: {
-                 editor_llm: '${USE_LLM:-false}' as any
-              }
-           }
+    const configWithBool: AidhaConfig = {
+      config_version: 1,
+      default_profile: 'local',
+      profiles: {
+        local: {
+          editor: {
+            editor_llm: '${USE_LLM:-false}' as any
+          }
         }
-     };
+      }
+    };
 
-     vi.stubEnv('USE_LLM', 'true');
-     const resolved = resolveConfig({ rawConfig: configWithBool, profileName: 'local' });
-     expect(resolved.editor.editorLlm).toBe(true);
-     expect(typeof resolved.editor.editorLlm).toBe('boolean');
+    try {
+      vi.stubEnv('USE_LLM', 'true');
+      const resolved = resolveConfig({ rawConfig: configWithBool, profileName: 'local' });
+      expect(resolved.editor.editorLlm).toBe(true);
+      expect(typeof resolved.editor.editorLlm).toBe('boolean');
 
-     vi.stubEnv('USE_LLM', '0');
-     const resolved2 = resolveConfig({ rawConfig: configWithBool, profileName: 'local' });
-     expect(resolved2.editor.editorLlm).toBe(false);
-
-     vi.unstubAllEnvs();
+      vi.stubEnv('USE_LLM', '0');
+      const resolved2 = resolveConfig({ rawConfig: configWithBool, profileName: 'local' });
+      expect(resolved2.editor.editorLlm).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should not interpolate inactive source_overrides while resolving core fields', () => {

@@ -1152,7 +1152,7 @@ const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
   }
 
   const runCacheDir = resolveCacheDir(validatedRunId);
-  const finalOutputDirRaw = parsedOpts.outputDir || (validatedRunId ? join("out/eval-matrix/runs", validatedRunId) : "out/eval-matrix/reports");
+  const finalOutputDirRaw = parsedOpts.outputDir || (validatedRunId ? join(REPO_ROOT, "out/eval-matrix/runs", validatedRunId) : join(REPO_ROOT, "out/eval-matrix/reports"));
   const finalOutputDir = assertSafeWorkspacePath(finalOutputDirRaw, "final evaluation output");
 
   return { runCacheDir, finalOutputDir, error: 0 };

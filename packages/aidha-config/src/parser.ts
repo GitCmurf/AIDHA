@@ -7,7 +7,7 @@
  * @module
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { parse as parseYAML } from 'yaml';
 
 const MAX_DOCUMENT_SIZE = 1_048_576;
@@ -22,18 +22,24 @@ export class ConfigParseError extends Error {
 }
 
 export function parseConfigYaml(filePath: string): Record<string, unknown> {
+  try {
+    const stats = statSync(filePath);
+    if (stats.size > MAX_DOCUMENT_SIZE) {
+      throw new ConfigParseError(
+        filePath,
+        `Config file exceeds maximum size of ${MAX_DOCUMENT_SIZE} bytes`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof ConfigParseError) throw err;
+    throw new ConfigParseError(filePath, `Failed to read config file: ${filePath}`, { cause: err });
+  }
+
   let content: string;
   try {
     content = readFileSync(filePath, 'utf-8');
   } catch (err) {
     throw new ConfigParseError(filePath, `Failed to read config file: ${filePath}`, { cause: err });
-  }
-
-  if (Buffer.byteLength(content, 'utf-8') > MAX_DOCUMENT_SIZE) {
-    throw new ConfigParseError(
-      filePath,
-      `Config file exceeds maximum size of ${MAX_DOCUMENT_SIZE} bytes`,
-    );
   }
 
   let raw: unknown;
@@ -43,8 +49,8 @@ export function parseConfigYaml(filePath: string): Record<string, unknown> {
     throw new ConfigParseError(filePath, `Failed to parse config file: ${filePath}`, { cause: err });
   }
 
-  if (raw === null || typeof raw !== 'object') {
-    throw new ConfigParseError(filePath, 'Config file is empty or not an object');
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new ConfigParseError(filePath, 'Config file is empty, not an object, or is an array');
   }
 
   return raw as Record<string, unknown>;

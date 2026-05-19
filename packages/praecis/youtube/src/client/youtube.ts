@@ -14,7 +14,7 @@ import {
   parseTranscriptVtt,
   parseTranscriptXml,
 } from './transcript.js';
-import { fetchTranscriptWithYtDlp } from './yt-dlp.js';
+import { fetchTranscriptWithYtDlp, fetchPlaylistWithYtDlp } from './yt-dlp.js';
 import type { YtDlpRuntimeConfig } from './yt-dlp.js';
 import { consoleLogger, resolveLogger, type Logger } from '../utils/logger.js';
 
@@ -921,15 +921,18 @@ export class RealYouTubeClient implements YouTubeClient {
   }
 
   /**
-   * Fetch playlist - not supported without Data API key.
+   * Fetch playlist using yt-dlp.
    */
   async fetchPlaylist(playlistId: string): Promise<Result<Playlist>> {
+    const result = await fetchPlaylistWithYtDlp(playlistId, this.ytDlpCfg);
+    if (!result.ok) return result;
+
     return {
-      ok: false,
-      error: new Error(
-        `Playlist fetching requires YouTube Data API key. ` +
-        `Consider providing video IDs directly instead.`
-      ),
+      ok: true,
+      value: {
+        id: playlistId,
+        videoIds: result.value.videoIds,
+      },
     };
   }
 

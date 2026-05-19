@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { CalibrationRecordSchema } from "../../src/eval/calibration-schema.js";
 
 const validRecord = {
-  promptVersion: "v1",
+  promptVersion: "v2",
   judgeModelId: "gpt-4o-mini",
   runDate: "2026-05-14",
   agreementThreshold: 0.7,

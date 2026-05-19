@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runEvalMatrix } from "../../src/cli-eval";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import * as fs from "node:fs";
+import path from "node:path";
+
+const endsWithNormalized = (suffix: string) => {
+  const normalized = path.normalize(suffix);
+  const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return expect.stringMatching(new RegExp(escaped + "$"));
+};
 
 // Mock internal functions to prevent actual test execution
 vi.mock("../../src/eval/matrix-runner", () => ({
@@ -93,8 +100,8 @@ describe("CLI Export Path Resolution", () => {
     await runEvalMatrix(["node", "matrix"], { format: "both", corpus: "test.json" }, mockConfig);
 
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, expect.stringContaining("out/eval-matrix/reports"), { recursive: true });
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, expect.stringContaining("out/eval-matrix/reports/cells"), { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, endsWithNormalized("out/eval-matrix/reports"), { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, endsWithNormalized("out/eval-matrix/reports/cells"), { recursive: true });
   });
 
   it("should use run-scoped output directory if --run-id is provided", async () => {
@@ -103,8 +110,8 @@ describe("CLI Export Path Resolution", () => {
     await runEvalMatrix(["node", "matrix"], { "run-id": "test-run", format: "both", corpus: "test.json" }, mockConfig);
 
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, expect.stringContaining("out/eval-matrix/runs/test-run"), { recursive: true });
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, expect.stringContaining("out/eval-matrix/runs/test-run/cells"), { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, endsWithNormalized("out/eval-matrix/runs/test-run"), { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, endsWithNormalized("out/eval-matrix/runs/test-run/cells"), { recursive: true });
   });
 
   it("should prioritize explicit --output-dir over --run-id", async () => {
@@ -117,8 +124,8 @@ describe("CLI Export Path Resolution", () => {
     );
 
     expect(mkdirSyncMock).toHaveBeenCalledTimes(2);
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, expect.stringContaining("tmp/eval-matrix-output"), { recursive: true });
-    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, expect.stringContaining("tmp/eval-matrix-output/cells"), { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(1, endsWithNormalized("tmp/eval-matrix-output"), { recursive: true });
+    expect(mkdirSyncMock).toHaveBeenNthCalledWith(2, endsWithNormalized("tmp/eval-matrix-output/cells"), { recursive: true });
   });
 
   it("returns failure when the self-improvement quality gate fails", async () => {

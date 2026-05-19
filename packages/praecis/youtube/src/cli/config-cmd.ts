@@ -129,7 +129,7 @@ function prepareConfigForValidation(loadResult: LoadResult): { config: Record<st
     for (const [sourceId, sourceConfig] of Object.entries(config['sources'] as Record<string, unknown>)) {
       if (!sourceConfig || typeof sourceConfig !== 'object' || Array.isArray(sourceConfig)) continue;
       try {
-        (config['sources'] as Record<string, unknown>)[sourceId] = interpolateDeep(sourceConfig, env, { rootPath: 'sources.*', tolerant: true });
+        (config['sources'] as Record<string, unknown>)[sourceId] = interpolateDeep(sourceConfig, env, { rootPath: 'sources.*', tolerant: false });
       } catch (error) {
         pushIssue(`/sources/${sourceId}`, error);
       }
@@ -143,15 +143,18 @@ function prepareConfigForValidation(loadResult: LoadResult): { config: Record<st
       const profileClone = structuredClone(profileValue) as Record<string, unknown>;
       const { source_overrides: sourceOverrides, ...coreProfile } = profileClone;
 
+      let interpolatedProfile: Record<string, unknown>;
       try {
-        const interpolatedProfile = interpolateDeep(coreProfile, env, { rootPath: 'profiles.*', tolerant: true }) as Record<string, unknown>;
-        if (sourceOverrides !== undefined) {
-          interpolatedProfile['source_overrides'] = sourceOverrides;
-        }
-        (config['profiles'] as Record<string, unknown>)[profileName] = interpolatedProfile;
+        interpolatedProfile = interpolateDeep(coreProfile, env, { rootPath: 'profiles.*', tolerant: false }) as Record<string, unknown>;
       } catch (error) {
         pushIssue(`/profiles/${profileName}`, error);
+        interpolatedProfile = coreProfile;
       }
+
+      if (sourceOverrides !== undefined) {
+        interpolatedProfile['source_overrides'] = sourceOverrides;
+      }
+      (config['profiles'] as Record<string, unknown>)[profileName] = interpolatedProfile;
 
       if (!sourceOverrides || typeof sourceOverrides !== 'object' || Array.isArray(sourceOverrides)) continue;
 
@@ -161,7 +164,7 @@ function prepareConfigForValidation(loadResult: LoadResult): { config: Record<st
           (sourceOverrides as Record<string, unknown>)[sourceId] = interpolateDeep(
             sourceOverride,
             env,
-            { rootPath: 'profiles.*.source_overrides.*', tolerant: true },
+            { rootPath: 'profiles.*.source_overrides.*', tolerant: false },
           );
         } catch (error) {
           pushIssue(`/profiles/${profileName}/source_overrides/${sourceId}`, error);
@@ -355,7 +358,6 @@ export async function runConfig(
       if (!ensureNoSource(options, 'set')) return 2;
       return runConfigSet(positionals, options, loadResult);
     case 'diff':
-      if (!ensureNoSource(options, 'diff')) return 2;
       return runConfigDiff(positionals, options, loadResult);
     default:
       console.error(`Unknown config subcommand: ${subcommand}`);

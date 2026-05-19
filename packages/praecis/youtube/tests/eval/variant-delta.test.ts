@@ -15,7 +15,7 @@ const score = (judgeModelId = "judge-a", overrides: Partial<ClaimSetScore> = {})
   hallucinations: [],
   redundancies: [],
   gapAreas: [],
-  judgeMeta: { judgeModelId, judgePromptVersion: "v1" },
+  judgeMeta: { judgeModelId, judgePromptVersion: "v2" },
   ...overrides,
 });
 

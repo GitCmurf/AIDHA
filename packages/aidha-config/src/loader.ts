@@ -25,7 +25,7 @@ import { validateStructure } from './schema.js';
 import { interpolateString } from './interpolation.js';
 import { computeBaseDirPrelim, computeFinalBaseDir } from './paths.js';
 import { SUPPORTED_CONFIG_VERSION } from './types.js';
-import type { AidhaConfig, ConfigLogSink } from './types.js';
+import type { AidhaConfig, UnresolvedAidhaConfig, ConfigLogSink } from './types.js';
 import { discoverConfigPath, checkFilePermissions, ConfigNotFoundError } from './discovery.js';
 export { ConfigNotFoundError } from './discovery.js';
 export { ConfigParseError } from './parser.js';
@@ -83,7 +83,7 @@ export interface LoadOptions {
 /** Result of loading a config file. */
 export interface LoadResult {
   /** The parsed, interpolated, validated config. Null if no file found. */
-  config: AidhaConfig | null;
+  config: UnresolvedAidhaConfig | null;
   /** Absolute path to the config file, or null if not found. */
   configPath: string | null;
   /** The resolved base directory. */
@@ -207,7 +207,7 @@ export async function loadConfig(options: LoadOptions = {}): Promise<LoadResult>
     ? interpolateString(defaultProfileRaw, env)
     : undefined;
 
-  const config = rawObj as unknown as AidhaConfig;
+  const config = rawObj as unknown as UnresolvedAidhaConfig;
   if (baseDirOverride !== undefined) config.base_dir = baseDirOverride;
   if (defaultProfile !== undefined) config.default_profile = defaultProfile;
 

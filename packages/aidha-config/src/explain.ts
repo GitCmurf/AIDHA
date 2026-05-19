@@ -344,6 +344,24 @@ function resolveSourceLabel(
   registrations?: ReadonlyArray<SourceRegistration>,
 ): string | null {
   if (!registrations) return null;
+
+  if (key.startsWith('activeSourceConfig.')) {
+    const fullSourceKey = key.slice('activeSourceConfig.'.length);
+    const dotIdx = fullSourceKey.indexOf('.');
+    if (dotIdx !== -1) {
+      const sourceId = fullSourceKey.slice(0, dotIdx);
+      const remainingKey = fullSourceKey.slice(dotIdx + 1);
+      const registration = registrations.find((r) => r.sourceId === sourceId);
+      if (registration) {
+        const keyCandidates = toKeyCandidates(remainingKey);
+        for (const candidate of keyCandidates) {
+          const label = registration.metadata?.explainLabels?.[candidate];
+          if (label) return label;
+        }
+      }
+    }
+  }
+
   const sourceKey = key.startsWith('activeSourceConfig.')
     ? key.slice('activeSourceConfig.'.length)
     : key;

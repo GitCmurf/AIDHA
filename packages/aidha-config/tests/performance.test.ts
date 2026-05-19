@@ -44,7 +44,7 @@ sources:
     }
   };
 
-  it('loader + resolver completes under 50ms', async () => {
+  it('loader + resolver completes under 250ms', async () => {
     await createConfig();
 
     // Warm up

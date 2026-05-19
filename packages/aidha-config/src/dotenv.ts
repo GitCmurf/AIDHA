@@ -133,16 +133,16 @@ export function loadDotenvFiles(options: DotenvLoadOptions): DotenvLoadResult {
       onWarning(permWarning);
     }
 
+    if (dotenvStat.size > DOTENV_MAX_FILE_SIZE) {
+      onWarning(`Dotenv file '${dotenvPath}' exceeds maximum size; skipping.`);
+      continue;
+    }
+
     let content: string;
     try {
       content = readFileSync(dotenvPath, 'utf-8');
     } catch {
       onWarning(`Failed to read dotenv file: ${dotenvPath}`);
-      continue;
-    }
-
-    if (Buffer.byteLength(content, 'utf-8') > DOTENV_MAX_FILE_SIZE) {
-      onWarning(`Dotenv file '${dotenvPath}' exceeds maximum size; skipping.`);
       continue;
     }
 

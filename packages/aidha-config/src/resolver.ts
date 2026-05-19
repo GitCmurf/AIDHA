@@ -31,7 +31,7 @@ import type {
 import { SUPPORTED_CONFIG_VERSION } from './types.js';
 import { DEFAULTS } from './defaults.js';
 import { resolvePathValue, resolvePathValues } from './paths.js';
-import { validateConfig } from './schema.js';
+import { validateConfig, validateRegisteredSourcePayload } from './schema.js';
 import { ConfigValidationError } from './loader.js';
 import { interpolateDeep } from './interpolation.js';
 
@@ -519,6 +519,18 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   }
 
   // ── Final validation ────────────────────────────────────────────────
+  if (sourceId && activeSourceConfig) {
+    const sourceErrors = validateRegisteredSourcePayload(
+      sourceId,
+      activeSourceConfig,
+      `activeSourceConfig.${sourceId}`,
+      sourceRegistrations,
+    );
+    if (sourceErrors.length > 0) {
+      throw new ConfigValidationError(configPath ?? 'resolved-config', sourceErrors);
+    }
+  }
+
   const finalFullConfig: AidhaConfig = {
     config_version: SUPPORTED_CONFIG_VERSION,
     default_profile: activeProfileName,

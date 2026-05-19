@@ -406,6 +406,43 @@ function transcriptCoverageScore(segments: Transcript['segments']): number {
   return (end * 1_000) + segments.length;
 }
 
+export async function fetchPlaylistWithYtDlp(
+  playlistId: string,
+  rtConfig?: YtDlpRuntimeConfig,
+): Promise<Result<{ videoIds: string[] }>> {
+  const cfg = rtConfig ?? ytDlpDefaultConfig();
+  const url = `https://www.youtube.com/playlist?list=${playlistId}`;
+  const args = [
+    '--flat-playlist',
+    '--print',
+    'id',
+    '--no-progress',
+    '--ignore-errors',
+    url,
+  ];
+
+  try {
+    if (cfg.debugTranscript) {
+      resolveLogger(cfg).debug(`[playlist] yt-dlp: ${cfg.bin} ${args.join(' ')}`);
+    }
+
+    const { stdout } = await execFileAsync(cfg.bin, args, {
+      timeout: cfg.timeoutMs,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    const videoIds = stdout.split('\n').map(id => id.trim()).filter(Boolean);
+    if (videoIds.length === 0) {
+      return { ok: false, error: new Error(`No videos found in playlist ${playlistId}`) };
+    }
+
+    return { ok: true, value: { videoIds } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: new Error(`Failed to fetch playlist with yt-dlp: ${message}`) };
+  }
+}
+
 export async function fetchTranscriptWithYtDlp(
   videoIdOrUrl: string,
   rtConfig?: YtDlpRuntimeConfig,

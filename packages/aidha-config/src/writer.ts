@@ -261,7 +261,7 @@ export function writeConfig(options: WriteOptions): WriteResult {
   }
 
   // ── Atomic write (temp → rename) ────────────────────────────────────
-  const tmpPath = `${filePath}.tmp.${process.pid}`;
+  const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
   const yaml = stringifyYAML(config, {
     lineWidth: 120,
     defaultKeyType: 'PLAIN',
@@ -702,7 +702,7 @@ export function mutateConfig(options: MutateOptions): WriteResult {
   }
 
   const backupPath = rotateBackups(filePath);
-  const tmpPath = `${filePath}.tmp.${process.pid}`;
+  const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
   atomicWriteYaml(tmpPath, filePath, doc.toString());
 
   return { written: true, backupPath, validationErrors };

@@ -57,7 +57,8 @@ sources:
     await createConfig();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runCli(['config', 'show', '--config', configPath]);
+    const code = await runCli(['config', 'show', '--config', configPath]);
+    expect(code).toBe(0);
 
     const output = sanitize(consoleLog.mock.calls.map(args => args[0]).join('\n'));
     expect(output).toMatchSnapshot();
@@ -67,7 +68,8 @@ sources:
     await createConfig();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runCli(['config', 'show', '--config', configPath, '--json']);
+    const code = await runCli(['config', 'show', '--config', configPath, '--json']);
+    expect(code).toBe(0);
 
     const output = sanitize(consoleLog.mock.calls.map(args => args[0]).join('\n'));
     expect(output).toMatchSnapshot();
@@ -77,7 +79,8 @@ sources:
     await createConfig();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runCli(['config', 'explain', 'llm.model', '--config', configPath]);
+    const code = await runCli(['config', 'explain', 'llm.model', '--config', configPath]);
+    expect(code).toBe(0);
 
     const output = sanitize(consoleLog.mock.calls.map(args => args[0]).join('\n'));
     expect(output).toMatchSnapshot();
@@ -87,7 +90,8 @@ sources:
     await createConfig();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runCli(['config', 'explain', 'activeSourceConfig.ytdlp.timeout_ms', '--config', configPath, '--source', 'youtube']);
+    const code = await runCli(['config', 'explain', 'activeSourceConfig.ytdlp.timeout_ms', '--config', configPath, '--source', 'youtube']);
+    expect(code).toBe(0);
 
     const output = sanitize(consoleLog.mock.calls.map(args => args[0]).join('\n'));
     expect(output).toMatchSnapshot();
@@ -97,7 +101,8 @@ sources:
     await createConfig();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runCli(['config', 'list-profiles', '--config', configPath, '--json']);
+    const code = await runCli(['config', 'list-profiles', '--config', configPath, '--json']);
+    expect(code).toBe(0);
 
     const output = sanitize(consoleLog.mock.calls.map(args => args[0]).join('\n'));
     expect(output).toMatchSnapshot();
@@ -107,7 +112,8 @@ sources:
     await createConfig();
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await runCli(['config', 'diff', 'local', 'prod', '--config', configPath]);
+    const code = await runCli(['config', 'diff', 'local', 'prod', '--config', configPath]);
+    expect(code).toBe(0);
 
     const output = sanitize(consoleLog.mock.calls.map(args => args[0]).join('\n'));
     expect(output).toMatchSnapshot();
