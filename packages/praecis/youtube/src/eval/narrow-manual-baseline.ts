@@ -78,7 +78,7 @@ export async function runNarrowManualBaselineComparison(
 ): Promise<NarrowComparisonReport> {
   const startedAt = new Date().toISOString();
   const logger = options.logger ?? consoleLogger;
-  const registry = options.rateLimiterRegistry ?? new RequestRateLimiterRegistry();
+  const registry = options.rateLimiterRegistry ?? globalRegistry;
   if (!options.rateLimiterRegistry) {
     registry.reset();
   }

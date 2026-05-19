@@ -1,6 +1,7 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
+import { consoleLogger } from "./utils/logger.js";
 import { dirname, join, resolve, isAbsolute, relative } from "node:path";
 import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
 import { getHostnameFromUrl, isOpenAiBaseUrl } from "./utils/urls.js";

@@ -136,7 +136,14 @@ export async function loadCliConfigForValidation(
 
     let configPath = opts.configPath || process.env['AIDHA_CONFIG'] || null;
     if (!configPath) {
-      configPath = (err as ConfigParseError | ConfigValidationError | ConfigVersionError | ConfigNotFoundError).filePath;
+      if (
+        err instanceof ConfigParseError ||
+        err instanceof ConfigValidationError ||
+        err instanceof ConfigVersionError ||
+        err instanceof ConfigNotFoundError
+      ) {
+        configPath = err.filePath;
+      }
     }
 
     const loadResult: LoadResult = {

@@ -254,20 +254,6 @@ export function writeConfig(options: WriteOptions): WriteResult {
     return { written: false, backupPath: null, validationErrors };
   }
 
-  // ── Concurrency guard (optimistic locking) ──────────────────────────
-  if (expectedMtime !== undefined) {
-    try {
-      const currentMtime = statSync(filePath).mtimeMs;
-      if (Math.abs(currentMtime - expectedMtime) > mtimeToleranceMs) {
-        throw new ConfigConflictError(expectedMtime, currentMtime);
-      }
-    } catch (err) {
-      // File doesn't exist (or was deleted) so there's nothing to lock against.
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code !== 'ENOENT') throw err;
-    }
-  }
-
   // ── Backup rotation ─────────────────────────────────────────────────
   const backupPath = rotateBackups(filePath);
   if (existsSync(filePath) && backupPath === null && failOnBackupError) {

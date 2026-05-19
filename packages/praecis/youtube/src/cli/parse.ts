@@ -82,7 +82,6 @@ const VALUED_OPTIONS = new Set([
   'area',
   'goal',
   'state',
-  'claims',
   'text',
   'task-title',
   'top',

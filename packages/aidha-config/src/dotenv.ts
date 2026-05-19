@@ -50,6 +50,11 @@ export function parseDotenvContent(content: string): Record<string, string> {
         (value.startsWith("'") && value.endsWith("'")))
     ) {
       value = value.slice(1, -1);
+    } else {
+      const commentMatch = value.match(/(?:\s)#/);
+      if (commentMatch && commentMatch.index !== undefined) {
+        value = value.slice(0, commentMatch.index).trim();
+      }
     }
     result[key] = value;
   }

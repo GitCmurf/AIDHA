@@ -143,8 +143,8 @@ export const optionNumber = (options: CliOptions, key: string, fallback: number)
       const parsed = Number(value);
       if (!Number.isNaN(parsed)) return parsed;
     }
-    // Return NaN for parse failures so callers can distinguish from defaults
-    return NaN;
+    console.error(`Warning: Invalid numeric value for --${key}: "${value}". Falling back to ${fallback}.`);
+    return fallback;
   }
   return fallback;
 };

@@ -866,7 +866,9 @@ async function runConfigDiff(
   const cliOverrides = buildCliOverrides(options);
   const knownProfiles = loadResult.config?.profiles ?? {};
   const requestedProfiles = [profileA, profileB];
-  const missingProfiles = [...new Set(requestedProfiles.filter((name) => !Object.hasOwn(knownProfiles, name)))];
+  const missingProfiles = [
+    ...new Set(requestedProfiles.filter((name) => name !== 'default' && !Object.hasOwn(knownProfiles, name))),
+  ];
 
   if (missingProfiles.length > 0) {
     console.error(`Error: Unknown profile name(s): ${missingProfiles.join(', ')}.`);

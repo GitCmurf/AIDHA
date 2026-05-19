@@ -338,6 +338,7 @@ export function convertValue(keyPath: string, value: string): unknown {
     // Basic heuristics for dynamic keys in COERCION_MAP
     if (parts[0] === 'profiles' && i === 1) return '*';
     if (parts[0] === 'sources' && i === 1) return '*';
+    if (parts[0] === 'source_overrides' && i === 1) return '*';
     if (parts[2] === 'source_overrides' && i === 3) return '*';
     return p;
   }).join('.');

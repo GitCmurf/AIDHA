@@ -994,6 +994,7 @@ export class RealYouTubeClient implements YouTubeClient {
       let lastPayload = '';
       let lastStatus = 0;
       let lastContentType: string | null = null;
+      let detectedLanguage = englishTrack?.languageCode;
 
       if (englishTrack) {
         const transcriptUrls = buildTranscriptUrls(englishTrack.baseUrl);
@@ -1071,6 +1072,7 @@ export class RealYouTubeClient implements YouTubeClient {
         const ytdlpResult = await fetchTranscriptWithYtDlp(videoId, this.ytDlpCfg);
         if (ytdlpResult.ok) {
           segments = ytdlpResult.value.segments;
+          detectedLanguage = ytdlpResult.value.language;
         } else {
           lastError = ytdlpResult.error;
           if (this.ytCfg.debugTranscript) {
@@ -1100,7 +1102,7 @@ export class RealYouTubeClient implements YouTubeClient {
 
       const transcript: Transcript = {
         videoId,
-        language: englishTrack?.languageCode ?? 'unknown',
+        language: detectedLanguage ?? 'unknown',
         segments,
         fullText,
       };

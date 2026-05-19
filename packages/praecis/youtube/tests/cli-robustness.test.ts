@@ -94,7 +94,8 @@ describe('CLI Robustness (Remediation)', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const result = optionNumber({ 'timeout-ms': 'abc' }, 'timeout-ms', 60000);
 
-      expect(Number.isNaN(result)).toBe(true);
+      expect(result).toBe(60000);
+      expect(consoleError).toHaveBeenCalled();
       consoleError.mockRestore();
     });
 
@@ -135,7 +136,7 @@ describe('CLI Robustness (Remediation)', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const { runEvalMatrix } = await import('../src/cli-eval.js');
 
-      const secret = 'sk-abc123def456'; // pragma: allowlist secret
+      const secret = 'sk-abc123def456'; // pragma: allowlist secret gitleaks:allow
 
       const parseSpy = vi.spyOn(JSON, 'parse').mockImplementation(() => {
         throw new Error(`Failed with Authorization: Bearer ${secret}`);
