@@ -136,10 +136,10 @@ describe('CLI Robustness (Remediation)', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       const { runEvalMatrix } = await import('../src/cli-eval.js');
 
-      const secret = 'sk-abc123def456'; // pragma: allowlist secret gitleaks:allow
+      const apiKeyMock = 'sk-11111111111111111111111111111111'; // pragma: allowlist secret gitleaks:allow
 
       const parseSpy = vi.spyOn(JSON, 'parse').mockImplementation(() => {
-        throw new Error(`Failed with Authorization: Bearer ${secret}`);
+        throw new Error(`Failed with Authorization: Bearer ${apiKeyMock}`);
       });
 
       // Write a tiny dummy corpus so that readFileSync doesn't fail
@@ -163,11 +163,10 @@ describe('CLI Robustness (Remediation)', () => {
         // Since we pass `{ llm: {}, export: {} }`, the configuration is completely missing `activeSourceConfig` or other required fields?
         // Actually, if we just want to test sanitizeErrorMessage directly:
         const { sanitizeErrorMessage } = await import('../src/cli.js');
-        const sanitized = sanitizeErrorMessage(`Failed with Authorization: Bearer ${secret}`);
-        expect(sanitized).not.toContain(secret);
+        const sanitized = sanitizeErrorMessage(`Failed with Authorization: Bearer ${apiKeyMock}`);
+        expect(sanitized).not.toContain(apiKeyMock);
         expect(sanitized).toContain('[REDACTED]');
-      } finally {
-        consoleError.mockRestore();
+        } finally {        consoleError.mockRestore();
         parseSpy.mockRestore();
         await fs.rm(dummyPath, { force: true }).catch(() => {});
       }

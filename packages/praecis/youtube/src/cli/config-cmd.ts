@@ -129,7 +129,7 @@ function prepareConfigForValidation(loadResult: LoadResult): { config: Record<st
     for (const [sourceId, sourceConfig] of Object.entries(config['sources'] as Record<string, unknown>)) {
       if (!sourceConfig || typeof sourceConfig !== 'object' || Array.isArray(sourceConfig)) continue;
       try {
-        (config['sources'] as Record<string, unknown>)[sourceId] = interpolateDeep(sourceConfig, env, { rootPath: 'sources.*' });
+        (config['sources'] as Record<string, unknown>)[sourceId] = interpolateDeep(sourceConfig, env, { rootPath: 'sources.*', tolerant: true });
       } catch (error) {
         pushIssue(`/sources/${sourceId}`, error);
       }
@@ -144,7 +144,7 @@ function prepareConfigForValidation(loadResult: LoadResult): { config: Record<st
       const { source_overrides: sourceOverrides, ...coreProfile } = profileClone;
 
       try {
-        const interpolatedProfile = interpolateDeep(coreProfile, env, { rootPath: 'profiles.*' }) as Record<string, unknown>;
+        const interpolatedProfile = interpolateDeep(coreProfile, env, { rootPath: 'profiles.*', tolerant: true }) as Record<string, unknown>;
         if (sourceOverrides !== undefined) {
           interpolatedProfile['source_overrides'] = sourceOverrides;
         }
@@ -161,7 +161,7 @@ function prepareConfigForValidation(loadResult: LoadResult): { config: Record<st
           (sourceOverrides as Record<string, unknown>)[sourceId] = interpolateDeep(
             sourceOverride,
             env,
-            { rootPath: 'profiles.*.source_overrides.*' },
+            { rootPath: 'profiles.*.source_overrides.*', tolerant: true },
           );
         } catch (error) {
           pushIssue(`/profiles/${profileName}/source_overrides/${sourceId}`, error);

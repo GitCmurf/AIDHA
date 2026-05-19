@@ -44,18 +44,37 @@ export function parseDotenvContent(content: string): Record<string, string> {
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
     let value = trimmed.slice(eqIdx + 1).trim();
+
+    // 1. Handle quoted values (potentially with trailing comments)
+    if (value.startsWith('"') || value.startsWith("'")) {
+      const quote = value[0] as string;
+      const endQuoteIdx = value.indexOf(quote, 1);
+      if (endQuoteIdx !== -1) {
+        // We have a matching quote.
+        // Check if anything remains after it (optional comment)
+        const remaining = value.slice(endQuoteIdx + 1).trim();
+        if (remaining === '' || remaining.startsWith('#')) {
+          result[key] = value.slice(1, endQuoteIdx);
+          continue;
+        }
+      }
+    }
+
+    // 2. Handle unquoted values (strip inline comments)
+    const commentMatch = value.match(/(?:\s)#/);
+    if (commentMatch && commentMatch.index !== undefined) {
+      value = value.slice(0, commentMatch.index).trim();
+    }
+
+    // 3. Strip quotes if they fully enclose the remaining value (fallback for poorly formatted lines)
     if (
       value.length >= 2 &&
       ((value.startsWith('"') && value.endsWith('"')) ||
         (value.startsWith("'") && value.endsWith("'")))
     ) {
       value = value.slice(1, -1);
-    } else {
-      const commentMatch = value.match(/(?:\s)#/);
-      if (commentMatch && commentMatch.index !== undefined) {
-        value = value.slice(0, commentMatch.index).trim();
-      }
     }
+
     result[key] = value;
   }
   return result;
