@@ -107,7 +107,12 @@ export function createNarrowJudgeStage(context: NarrowJudgeStageContext): {
 
       for (const report of video.candidateReports) {
         const candidate = candidateById.get(report.candidateId);
-        if (!candidate) continue;
+        if (!candidate) {
+          if (judgeableCandidates.has(report.candidateId)) {
+            report.error = `Internal Error: Judgeable candidate data not found for ${report.candidateId}`;
+          }
+          continue;
+        }
         if (!judgeableCandidates.has(report.candidateId)) {
           report.note = [report.note, "Judge skipped for lower-ranked row"].filter(Boolean).join(" - ") || undefined;
           continue;

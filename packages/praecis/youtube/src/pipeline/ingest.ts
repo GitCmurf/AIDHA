@@ -232,21 +232,25 @@ export class IngestionPipeline {
       },
     };
 
-    const upsertResult = await this.graphStore.upsertNode(nodeType, nodeId, nodeData, { detectNoop: true });
-    if (!upsertResult.ok) {
-      return { ok: false, error: upsertResult.error };
+    const atomicResult = await runAtomically(this.graphStore, async () => {
+      const upsertResult = await this.graphStore.upsertNode(nodeType, nodeId, nodeData, { detectNoop: true });
+      if (!upsertResult.ok) return upsertResult;
+
+      // Store transcript excerpts when available
+      if (transcript) {
+        const excerptResult = await this.storeTranscriptExcerpts(nodeId, video.id, transcript);
+        if (!excerptResult.ok) return excerptResult;
+      }
+
+      return { ok: true, value: { created: upsertResult.value.created } };
+    });
+
+    if (!atomicResult.ok) {
+      return { ok: false, error: atomicResult.error };
     }
 
     // Mark as processed
     this.processedVideos.add(videoId);
-
-    // Store transcript excerpts when available
-    if (transcript) {
-      const excerptResult = await this.storeTranscriptExcerpts(nodeId, video.id, transcript);
-      if (!excerptResult.ok) {
-        return { ok: false, error: excerptResult.error };
-      }
-    }
 
     // Assign tags based on content (simple keyword matching for MVP)
     let tagsAssigned = 0;
@@ -257,7 +261,7 @@ export class IngestionPipeline {
 
     return {
       ok: true,
-      value: { nodeId, tagsAssigned, created: upsertResult.value.created },
+      value: { nodeId, tagsAssigned, created: atomicResult.value.created },
     };
   }
 

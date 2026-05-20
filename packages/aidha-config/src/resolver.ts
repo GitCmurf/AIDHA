@@ -22,15 +22,20 @@
 
 import type {
   AidhaConfig,
+  UnresolvedAidhaConfig,
   Profile,
   ResolvedConfig,
   SourceRegistration,
+  ConfigLogSink,
+  DeepReadonly,
 } from './types.js';
 import { SUPPORTED_CONFIG_VERSION } from './types.js';
 import { DEFAULTS } from './defaults.js';
-import { resolvePathValue } from './paths.js';
-import { validateConfig } from './schema.js';
+import { resolvePathValue, resolvePathValues } from './paths.js';
+import { validateConfig, validateRegisteredSourcePayload } from './schema.js';
 import { ConfigValidationError } from './loader.js';
+import { interpolateDeep } from './interpolation.js';
+
 
 // ── Deep merge helper ────────────────────────────────────────────────────────
 
@@ -112,6 +117,15 @@ function profileToCoreFlat(profile: Profile): Record<string, unknown> {
 }
 
 /**
+ * Interpolate only the core profile fields, leaving `source_overrides` untouched
+ * until the matching source participates in resolution.
+ */
+function interpolateCoreProfile(profile: Profile | undefined, env: Record<string, string | undefined>): Record<string, unknown> {
+  if (!profile) return {};
+  return interpolateDeep(profileToCoreFlat(profile), env, { rootPath: 'profiles.*' }) as Record<string, unknown>;
+}
+
+/**
  * Extract source_overrides for a specific source ID from a profile.
  * Returns ALL keys (core + source-private) because source_overrides
  * is the explicit channel for source-private profile overrides.
@@ -172,11 +186,23 @@ export interface ResolveOptions {
   /** Ingestion source ID (Tier 3). */
   sourceId?: string;
   /** The parsed config file (Tiers 2–4). Null if no config file found. */
-  rawConfig?: AidhaConfig | null;
+  rawConfig?: UnresolvedAidhaConfig | null;
+  /** Hardcoded fallback defaults (Tier 5). Defaults to DEFAULTS. */
+  defaults?: DeepReadonly<AidhaConfig>;
   /** The base directory for the resolved config. */
   baseDir?: string;
   /** Source registrations providing defaults, validation, and metadata. */
   sourceRegistrations?: SourceRegistration[];
+  /** Environment map used for interpolation; defaults to process.env. */
+  env?: Record<string, string | undefined>;
+  /** Callback for structured configuration events. */
+  logSink?: ConfigLogSink;
+  /** Telemetry: path to the config file (for logging). */
+  configPath?: string | null;
+  /** Telemetry: count of loaded environment variables from dotenv files. */
+  dotenvVarCount?: number;
+  /** Telemetry: count of warnings during load. */
+  warningCount?: number;
 }
 
 /** Core-known section names that may appear in source defaults. */
@@ -270,28 +296,39 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     profileName,
     sourceId,
     rawConfig,
+    defaults = DEFAULTS,
     baseDir = process.cwd(),
     sourceRegistrations = [],
+    env: envOverride,
+    logSink,
+    configPath = null,
+    dotenvVarCount = 0,
+    warningCount = 0,
   } = options;
 
+  const env = { ...process.env, ...(envOverride ?? {}) } as Record<string, string | undefined>;
   const activeProfileName = profileName ?? rawConfig?.default_profile ?? 'default';
   const registration = sourceId
-    ? sourceRegistrations.find(r => r.sourceId === sourceId)
+    ? sourceRegistrations.find((r) => r.sourceId === sourceId)
     : undefined;
   const configDefaultName = rawConfig?.default_profile ?? 'default';
 
   // ── Tier 5: Hardcoded defaults ──────────────────────────────────────
-  const defaultProfile = DEFAULTS.profiles?.['default'];
-  if (!defaultProfile) {
-    throw new Error('Hardcoded DEFAULTS is missing required profiles.default');
+  const defaultProfileRaw = defaults.profiles?.['default'];
+  if (!defaultProfileRaw) {
+    throw new Error('Fallback defaults object is missing required profiles.default');
   }
-  let merged = profileToCoreFlat(defaultProfile as Profile);
+  // Interpolate only the core defaults; source-private data is handled later.
+  let merged = interpolateCoreProfile(defaultProfileRaw as Profile, env);
 
   // Source registration defaults are the weakest source-specific layer.
-  // Apply their core-known sections before the configured default profile so
-  // profiles.default can still override them.
-  if (sourceId && registration?.defaults) {
-    const { core: registrationCore } = partitionSourcePayload(registration.defaults);
+  // Interpolated once here; the same result is reused for source payload below.
+  const interpolatedRegistrationDefaults = sourceId && registration?.defaults
+    ? interpolateDeep(registration.defaults, env, { rootPath: 'sources.*' })
+    : undefined;
+
+  if (interpolatedRegistrationDefaults) {
+    const { core: registrationCore } = partitionSourcePayload(interpolatedRegistrationDefaults);
     if (Object.keys(registrationCore).length > 0) {
       merged = deepMerge(merged, registrationCore);
     }
@@ -299,9 +336,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   // ── Tier 4: System-wide default profile from config file ────────────
   if (rawConfig) {
-    const configDefault = rawConfig.profiles?.[configDefaultName];
-    if (configDefault) {
-      merged = deepMerge(merged, profileToCoreFlat(configDefault));
+    const configDefaultRaw = rawConfig.profiles?.[configDefaultName];
+    if (configDefaultRaw) {
+      merged = deepMerge(merged, interpolateCoreProfile(configDefaultRaw as Profile, env));
     }
   }
 
@@ -311,17 +348,22 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
   let activeProfileSourceCore: Record<string, unknown> | undefined;
   let cliSourceCore: Record<string, unknown> | undefined;
   const legacySourceKeys = new Set<string>();
-  const sourceDefaults = sourceId && rawConfig?.sources?.[sourceId]
+
+  const sourceDefaultsRaw = sourceId && rawConfig?.sources?.[sourceId]
     ? (rawConfig.sources[sourceId] as Record<string, unknown>)
+    : undefined;
+  const sourceDefaults = sourceDefaultsRaw
+    ? interpolateDeep(sourceDefaultsRaw, env, { rootPath: 'sources.*' })
     : undefined;
 
   if (registration?.defaults) {
+    // Collect keys from uninterpolated defaults for legacy mapping
     for (const key of collectSourcePrivateKeys(registration.defaults)) {
       legacySourceKeys.add(key);
     }
   }
-  if (sourceDefaults) {
-    for (const key of collectSourcePrivateKeys(sourceDefaults)) {
+  if (sourceDefaultsRaw) {
+    for (const key of collectSourcePrivateKeys(sourceDefaultsRaw)) {
       legacySourceKeys.add(key);
     }
   }
@@ -330,8 +372,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     activeSourceConfig = {};
 
     // Layer 1: Registration defaults (weakest)
-    if (registration?.defaults) {
-      const { sourcePrivate: registrationPrivate } = partitionSourcePayload(registration.defaults);
+    if (interpolatedRegistrationDefaults) {
+      const { sourcePrivate: registrationPrivate } = partitionSourcePayload(interpolatedRegistrationDefaults);
       activeSourceConfig = deepMerge(
         activeSourceConfig ?? {},
         registrationPrivate,
@@ -340,28 +382,26 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
     // Layer 2: Default-profile source_overrides (weaker than source defaults)
     if (rawConfig?.profiles?.[configDefaultName]) {
-      const configDefaultProfile = rawConfig.profiles[configDefaultName];
-      const defaultProfileLegacySourceFields = extractLegacyProfileSourceFields(
-        configDefaultProfile,
+      const configDefaultProfileRaw = rawConfig.profiles[configDefaultName];
+
+      const defaultProfileLegacySourceFieldsRaw = extractLegacyProfileSourceFields(
+        configDefaultProfileRaw,
         legacySourceKeys,
       );
-      if (Object.keys(defaultProfileLegacySourceFields).length > 0) {
+      if (Object.keys(defaultProfileLegacySourceFieldsRaw).length > 0) {
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
-          defaultProfileLegacySourceFields,
+          interpolateDeep(defaultProfileLegacySourceFieldsRaw, env, { rootPath: 'profiles.*' }),
         );
       }
 
-      const defaultProfileSourceOverrides = getSourceOverrides(
-        configDefaultProfile,
-        sourceId,
-      );
-      if (defaultProfileSourceOverrides) {
+      const defaultProfileSourceOverridesRaw = getSourceOverrides(configDefaultProfileRaw as Profile, sourceId);
+      if (defaultProfileSourceOverridesRaw) {
         const {
           core: defaultProfileSourceCorePayload,
           sourcePrivate: defaultProfileSourcePrivate,
         } = partitionValidatedSourcePayload(
-          defaultProfileSourceOverrides,
+          interpolateDeep(defaultProfileSourceOverridesRaw, env, { rootPath: 'profiles.*.source_overrides.*' }),
           `profiles.${configDefaultName}.source_overrides.${sourceId}`,
         );
         activeSourceConfig = deepMerge(
@@ -396,28 +436,31 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     }
 
     // Layer 4: Active named profile source-private fields (Tier 2)
-    if (rawConfig && profileName !== undefined && profileName !== configDefaultName) {
-      const sourceProfile = rawConfig.profiles?.[profileName];
-      const sourceProfileLegacySourceFields = extractLegacyProfileSourceFields(
-        sourceProfile,
+    // Explicitly selected profiles always get the active-profile source merge,
+    // even when they match `default_profile`.
+    if (rawConfig && profileName !== undefined) {
+      const sourceProfileRaw = rawConfig.profiles?.[profileName] as Profile | undefined;
+
+      const sourceProfileLegacySourceFieldsRaw = extractLegacyProfileSourceFields(
+        sourceProfileRaw,
         legacySourceKeys,
       );
-      if (Object.keys(sourceProfileLegacySourceFields).length > 0) {
+      if (Object.keys(sourceProfileLegacySourceFieldsRaw).length > 0) {
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
-          sourceProfileLegacySourceFields,
+          interpolateDeep(sourceProfileLegacySourceFieldsRaw, env, { rootPath: 'profiles.*' }),
         );
       }
 
-      const sourceProfileOverrides = sourceProfile
-        ? getSourceOverrides(sourceProfile, sourceId)
+      const sourceProfileOverridesRaw = sourceProfileRaw
+        ? getSourceOverrides(sourceProfileRaw, sourceId)
         : undefined;
-      if (sourceProfileOverrides) {
+      if (sourceProfileOverridesRaw) {
         const {
           core: sourceProfileCore,
           sourcePrivate: sourceProfilePrivate,
         } = partitionValidatedSourcePayload(
-          sourceProfileOverrides,
+          interpolateDeep(sourceProfileOverridesRaw, env, { rootPath: 'profiles.*.source_overrides.*' }),
           `profiles.${profileName}.source_overrides.${sourceId}`,
         );
         activeSourceConfig = deepMerge(
@@ -435,7 +478,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
     // Layer 5: CLI source overrides (strongest for source payload)
     if (cliOverrides?.source_overrides?.[sourceId]) {
-      const cliSourceOverrides = cliOverrides.source_overrides[sourceId] as Record<string, unknown>;
+      const cliSourceOverridesRaw = cliOverrides.source_overrides[sourceId] as Record<string, unknown>;
+      const cliSourceOverrides = interpolateDeep(cliSourceOverridesRaw, env, { rootPath: 'source_overrides.*' });
+
       const {
         core: cliCore,
         sourcePrivate: cliSourcePrivate,
@@ -455,9 +500,9 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   // ── Tier 2: Named profile from config file ──────────────────────────
   if (rawConfig && profileName) {
-    const namedProfile = rawConfig.profiles?.[profileName];
-    if (namedProfile) {
-      merged = deepMerge(merged, profileToCoreFlat(namedProfile));
+    const namedProfileRaw = rawConfig.profiles?.[profileName];
+    if (namedProfileRaw) {
+      merged = deepMerge(merged, interpolateCoreProfile(namedProfileRaw as Profile, env));
     }
   }
 
@@ -467,11 +512,64 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
 
   // ── Tier 1: CLI flag overrides ──────────────────────────────────────
   if (cliOverrides) {
-    merged = deepMerge(merged, profileToCoreFlat(cliOverrides));
+    merged = deepMerge(merged, interpolateCoreProfile(cliOverrides as Profile, env));
   }
 
   if (cliSourceCore) {
     merged = deepMerge(merged, cliSourceCore);
+  }
+
+  // ── Final validation ────────────────────────────────────────────────
+  if (sourceId && activeSourceConfig) {
+    const sourceErrors = validateRegisteredSourcePayload(
+      sourceId,
+      activeSourceConfig,
+      `activeSourceConfig.${sourceId}`,
+      sourceRegistrations,
+    );
+    if (sourceErrors.length > 0) {
+      throw new ConfigValidationError(configPath ?? 'resolved-config', sourceErrors);
+    }
+  }
+
+  const finalFullConfig: AidhaConfig = {
+    config_version: SUPPORTED_CONFIG_VERSION,
+    default_profile: activeProfileName,
+    profiles: {
+      [activeProfileName]: merged,
+    },
+  };
+
+  const validation = validateConfig(finalFullConfig, sourceRegistrations);
+  if (!validation.valid) {
+    throw new ConfigValidationError(configPath ?? 'resolved-config', validation.errors);
+  }
+
+  const resolvedActiveSourceConfig = activeSourceConfig;
+
+  // ── Emit summary event ──────────────────────────────────────────────
+  if (logSink) {
+    const cliOverrideKeys: string[] = [];
+    if (cliOverrides) {
+      for (const key of Object.keys(cliOverrides)) {
+        if (key === 'source_overrides' && cliOverrides.source_overrides && sourceId) {
+          const srcKeys = Object.keys(cliOverrides.source_overrides[sourceId] ?? {});
+          cliOverrideKeys.push(...srcKeys.map((k) => `source_overrides.${sourceId}.${k}`));
+        } else {
+          cliOverrideKeys.push(key);
+        }
+      }
+    }
+
+    logSink({
+      type: 'config.load.summary',
+      configPath,
+      profile: activeProfileName,
+      sourceId,
+      dotenvVarCount,
+      warningCount,
+      cliOverrideKeys,
+    });
   }
 
   // ── Construct ResolvedConfig ────────────────────────────────────────
@@ -494,7 +592,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     }
   }
   if (rawConfig && activeProfileName) {
-    const profExt = rawConfig.profiles?.[activeProfileName]?.extensions;
+    const profExt = (rawConfig.profiles?.[activeProfileName] as Profile | undefined)?.extensions;
     if (profExt && Object.keys(profExt).length > 0) {
       extensions.profile = { ...profExt };
     }
@@ -506,25 +604,24 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     };
   }
 
-  return {
+  const resolved: ResolvedConfig = {
     baseDir,
-    db: resolvePathValue((m['db'] as string) ?? '', baseDir),
+    db: (m['db'] as string) ?? '',
     llm: {
       model: (llm['model'] as string) ?? '',
       apiKey: (llm['api_key'] as string) ?? '',
       baseUrl: (llm['base_url'] as string) ?? '',
       timeoutMs: (llm['timeout_ms'] as number) ?? 0,
-      cacheDir: resolvePathValue((llm['cache_dir'] as string) ?? '', baseDir),
+      cacheDir: (llm['cache_dir'] as string) ?? '',
       reasoningEffort: (['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const).find(
-        value => value === llm['reasoning_effort']
+        (value) => value === llm['reasoning_effort'],
       ),
-      verbosity: (['low', 'medium', 'high'] as const).find(
-        value => value === llm['verbosity']
-      ),
+      verbosity: (['low', 'medium', 'high'] as const).find((value) => value === llm['verbosity']),
       embeddingBatchSize: (llm['embedding_batch_size'] as number) ?? 20,
-      embeddingTaskType: (
-        ['RETRIEVAL_QUERY', 'RETRIEVAL_DOCUMENT', 'SEMANTIC_SIMILARITY', 'CLASSIFICATION', 'CLUSTERING'] as const
-      ).find(value => value === llm['embedding_task_type']) ?? 'SEMANTIC_SIMILARITY',
+      embeddingTaskType:
+        (['RETRIEVAL_QUERY', 'RETRIEVAL_DOCUMENT', 'SEMANTIC_SIMILARITY', 'CLASSIFICATION', 'CLUSTERING'] as const).find(
+          (value) => value === llm['embedding_task_type'],
+        ) ?? 'SEMANTIC_SIMILARITY',
       embeddingOutputDimensionality: (llm['embedding_output_dimensionality'] as number) ?? 768,
     },
     editor: {
@@ -543,11 +640,14 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       promptVersion: (extraction['prompt_version'] as string) ?? '',
     },
     export: {
-      outDir: resolvePathValue((exp['out_dir'] as string) ?? '', baseDir),
+      outDir: (exp['out_dir'] as string) ?? '',
       sourcePrefix: (exp['source_prefix'] as string) ?? '',
     },
     ...(sourceId ? { activeSourceId: sourceId } : {}),
-    ...(activeSourceConfig !== undefined ? { activeSourceConfig } : {}),
+    ...(resolvedActiveSourceConfig !== undefined ? { activeSourceConfig: resolvedActiveSourceConfig } : {}),
     ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
   };
+
+  // ── Final path resolution ───────────────────────────────────────────
+  return resolvePathValues(resolved as unknown as Record<string, unknown>, baseDir) as unknown as ResolvedConfig;
 }

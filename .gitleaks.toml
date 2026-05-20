@@ -10,3 +10,7 @@ paths = ['''^\.secrets\.baseline$''']
 [[allowlists]]
 description = "aidha-config loader-order test uses a synthetic dotenv fixture"
 paths = ['''^packages/aidha-config/tests/loader-order\.test\.ts$''']
+
+[[allowlists]]
+description = "Historical mock secret in PR commits"
+commits = [ "97ac48a94aed1c0597085b64f9c7c95442015742" ] # pragma: allowlist secret

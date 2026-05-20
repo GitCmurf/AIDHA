@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SourceRegistration } from './types.js';
+import { COERCION_MAP } from './schema.generated.js';
 
 // Under NodeNext, `import X from 'ajv'` yields the namespace object.
 // The constructor lives at `.default`.
@@ -114,7 +115,7 @@ function toValidationErrors(
   }];
 }
 
-function validateRegisteredSourcePayload(
+export function validateRegisteredSourcePayload(
   sourceId: string,
   payload: unknown,
   context: string,
@@ -190,6 +191,111 @@ function validateKnownSourceBlocks(
  * @returns A `ValidationResult` with `valid: true` if the config is valid,
  *   or `valid: false` with an array of structured errors.
  */
+const STRUCTURAL_KEYWORDS = new Set(['required', 'additionalProperties']);
+
+function isTopLevelInstancePath(instancePath: string): boolean {
+  const normalized = instancePath.replace(/^\/+/, '');
+  return normalized.length > 0 && !normalized.includes('/');
+}
+
+function decodeJsonPointerSegment(segment: string): string {
+  return segment.replace(/~1/g, '/').replace(/~0/g, '~');
+}
+
+function instancePathToSchemaPath(instancePath: string): string[] {
+  return instancePath
+    .replace(/^\/+/, '')
+    .split('/')
+    .filter(Boolean)
+    .map(decodeJsonPointerSegment);
+}
+
+function wildcardSchemaPath(instancePath: string): string {
+  const segments = instancePathToSchemaPath(instancePath);
+  if (segments.length === 0) return '';
+
+  const wildcarded = [...segments];
+  if (wildcarded[0] === 'profiles' || wildcarded[0] === 'sources') {
+    if (wildcarded.length > 1) {
+      wildcarded[1] = '*';
+    }
+  }
+
+  const sourceOverridesIndex = wildcarded.indexOf('source_overrides');
+  if (sourceOverridesIndex !== -1 && wildcarded.length > sourceOverridesIndex + 1) {
+    wildcarded[sourceOverridesIndex + 1] = '*';
+  }
+
+  return wildcarded.join('.');
+}
+
+function shouldDeferTypeError(config: unknown, instancePath: string): boolean {
+  const pathSegments = instancePathToSchemaPath(instancePath);
+  if (
+    pathSegments.length < 2
+    || (pathSegments[0] !== 'profiles' && pathSegments[0] !== 'sources')
+  ) {
+    return false;
+  }
+
+  // Profile/source leaf scalars can still be accepted here when they are
+  // string placeholders that `interpolateDeep()` will coerce later.
+  const schemaPath = wildcardSchemaPath(instancePath);
+  if (!(schemaPath in COERCION_MAP)) {
+    return false;
+  }
+
+  let current: unknown = config;
+  for (const segment of pathSegments) {
+    if (current === null || typeof current !== 'object') {
+      return false;
+    }
+
+    if (Array.isArray(current)) {
+      const index = Number(segment);
+      if (!Number.isInteger(index) || index < 0 || index >= current.length) {
+        return false;
+      }
+      current = current[index];
+      continue;
+    }
+
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return typeof current === 'string';
+}
+
+function shouldIncludeAjvError(err: ErrorObject, config: unknown): boolean {
+  if (STRUCTURAL_KEYWORDS.has(err.keyword)) return true;
+  if (err.keyword !== 'type') return false;
+  return isTopLevelInstancePath(err.instancePath) || !shouldDeferTypeError(config, err.instancePath);
+}
+
+export function validateStructure(config: unknown): ValidationResult {
+  const validate = getValidator();
+  const valid = validate(config);
+  const errors: ValidationError[] = [];
+
+  if (!valid) {
+    for (const err of validate.errors ?? []) {
+      if (shouldIncludeAjvError(err, config)) {
+        errors.push({
+          path: err.instancePath || '/',
+          message: err.message ?? 'Unknown validation error',
+          keyword: err.keyword,
+        });
+      }
+    }
+  }
+
+  if (errors.length === 0) {
+    return { valid: true, errors: [] };
+  }
+
+  return { valid: false, errors };
+}
+
 export function validateConfig(
   config: unknown,
   sourceRegistrations: ReadonlyArray<SourceRegistration> = [],
@@ -220,87 +326,24 @@ export function validateConfig(
 /**
  * Convert a string value to the type expected by the schema for a given keyPath.
  *
+ * Consumes COERCION_MAP from schema.generated.ts.
+ *
  * @param keyPath - Dot-separated key path (e.g., 'profiles.local.llm.timeout_ms').
  * @param value - The string value from CLI.
  * @returns The converted value (e.g., number, boolean, or string).
  */
 export function convertValue(keyPath: string, value: string): unknown {
-  const schema = loadSchema();
   const parts = keyPath.split('.');
+  const normalizedPath = parts.map((p, i) => {
+    // Basic heuristics for dynamic keys in COERCION_MAP
+    if (parts[0] === 'profiles' && i === 1) return '*';
+    if (parts[0] === 'sources' && i === 1) return '*';
+    if (parts[0] === 'source_overrides' && i === 1) return '*';
+    if (parts[2] === 'source_overrides' && i === 3) return '*';
+    return p;
+  }).join('.');
 
-  let current: unknown = schema;
-
-  for (const part of parts) {
-    if (!current || typeof current !== 'object') break;
-
-    const currentObj = current as Record<string, unknown>;
-
-    if (currentObj['$ref']) {
-      const refPath = (currentObj['$ref'] as string).replace('#/', '').split('/');
-      let ref: unknown = schema;
-      for (const refPart of refPath) {
-        if (!ref || typeof ref !== 'object') break;
-        const refObj = ref as Record<string, unknown>;
-        if (refPart === '$defs') ref = refObj['$defs'];
-        else ref = refObj[refPart];
-      }
-      current = ref;
-    }
-
-    if (!current || typeof current !== 'object') break;
-    const node = current as Record<string, unknown>;
-
-    if (node['oneOf'] || node['anyOf']) {
-        // Union type encountered; unpredictable structure. Treat as unknown.
-        current = undefined;
-        break;
-    }
-
-
-    if (node['type'] === 'object') {
-      const properties = node['properties'] as Record<string, unknown> | undefined;
-      if (properties && properties[part]) {
-        current = properties[part];
-      } else if (node['additionalProperties']) {
-        // If current.additionalProperties === true, the type is unknown/any.
-        // We should skip conversion (treat as string).
-        if (typeof node['additionalProperties'] === 'object') {
-           current = node['additionalProperties'];
-        } else {
-           // boolean true -> any type.
-           current = undefined;
-        }
-      } else {
-        current = undefined;
-      }
-    } else {
-      current = undefined;
-    }
-  }
-
-  // Resolve final ref if any
-  if (current && typeof current === 'object' && (current as Record<string, unknown>)['$ref']) {
-    const refPath = ((current as Record<string, unknown>)['$ref'] as string).replace('#/', '').split('/');
-    let ref: unknown = schema;
-    for (const refPart of refPath) {
-      if (!ref || typeof ref !== 'object') break;
-      const refObj = ref as Record<string, unknown>;
-      if (refPart === '$defs') ref = refObj['$defs'];
-      else ref = refObj[refPart];
-    }
-    current = ref;
-  }
-
-  if (current && typeof current === 'object') {
-    const node = current as Record<string, unknown>;
-    if (node['oneOf'] || node['anyOf']) {
-        return value;
-    }
-  }
-
-  const expectedType = current && typeof current === 'object'
-    ? (current as Record<string, unknown>)['type']
-    : undefined;
+  const expectedType = COERCION_MAP[normalizedPath] || COERCION_MAP[keyPath];
 
   if (expectedType === 'integer' || expectedType === 'number') {
     if (!value || value.trim().length === 0) {

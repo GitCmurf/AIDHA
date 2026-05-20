@@ -14,7 +14,7 @@ export interface RateLimitStats {
 
 const ONE_MINUTE_MS = 60_000;
 
-class RequestRateLimiterRegistry {
+export class RequestRateLimiterRegistry {
   private readonly states = new Map<string, LimiterState>();
   private readonly stats = new Map<string, RateLimitStats>();
   private readonly locks = new Map<string, Promise<void>>();
@@ -110,11 +110,12 @@ export function wrapClientWithRateLimit(
   client: LlmClient,
   key: string,
   rpm: number,
-  logger: Logger = consoleLogger
+  logger: Logger = consoleLogger,
+  registry: RequestRateLimiterRegistry = requestRateLimiterRegistry
 ): LlmClient {
   return {
     async generate(request: LlmCompletionRequest): Promise<Result<string>> {
-      const waitMs = await requestRateLimiterRegistry.waitForSlot(key, rpm);
+      const waitMs = await registry.waitForSlot(key, rpm);
       if (waitMs > 0) {
         logger.info(`[rate-limit-wait] model=${key} waitMs=${waitMs}`);
       }

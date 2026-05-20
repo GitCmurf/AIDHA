@@ -1,6 +1,7 @@
 import type { ResolvedConfig } from "@aidha/config";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
+import { consoleLogger } from "./utils/logger.js";
 import { dirname, join, resolve, isAbsolute, relative } from "node:path";
 import { writeJsonAtomic, writeFileAtomic } from "./utils/io.js";
 import { getHostnameFromUrl, isOpenAiBaseUrl } from "./utils/urls.js";
@@ -20,16 +21,17 @@ import {
   type ModelCapabilities,
   type LlmCompletionRequest
 } from "./extract/llm-client.js";
-import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
+import { optionString, optionBool, optionNumber, sanitizeErrorMessage, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 import {
   NarrowCorpusSchema,
   runNarrowManualBaselineComparison,
   writeNarrowComparisonReport,
-  type NarrowRunMode,
-} from "./eval/narrow-manual-baseline.js";
-import { wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
-import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
+  NarrowRunMode,
+  } from "./eval/narrow-manual-baseline.js";
+  import { RequestRateLimiterRegistry, wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
+  import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
+
 import { validateSafeId } from "./utils/ids.js";
 import { sanitizeFilename } from "./utils/ids.js";
 
@@ -238,10 +240,15 @@ function validateNonEmptyList(items: string[], optionName: string): number {
  * @returns EXIT_SUCCESS if valid, EXIT_INVALID_OPTIONS if invalid
  */
 function validatePositiveNumber(value: number | undefined, optionName: string): number {
-  if (value !== undefined && value < 1) {
-    // skipcq: JS-0002
-    console.error(`Error: ${optionName} must be a positive number.`);
-    return EXIT_INVALID_OPTIONS;
+  if (value !== undefined) {
+    if (Number.isNaN(value)) {
+      console.error(`Error: Invalid numeric value for ${optionName}.`);
+      return EXIT_INVALID_OPTIONS;
+    }
+    if (value < 1) {
+      console.error(`Error: ${optionName} must be a positive number.`);
+      return EXIT_INVALID_OPTIONS;
+    }
   }
   return EXIT_SUCCESS;
 }
@@ -304,7 +311,10 @@ function isProviderProfileFor(provider: string, baseConfig: ResolvedConfig["llm"
 export const createProviderAwareClient = (
   modelId: string,
   baseConfig: ResolvedConfig["llm"],
-  overrides?: Partial<Pick<ResolvedConfig["llm"], "timeoutMs" | "apiKey" | "baseUrl">> & { maxRequestsPerMinute?: number }
+  overrides?: Partial<Pick<ResolvedConfig["llm"], "timeoutMs" | "apiKey" | "baseUrl">> & {
+    maxRequestsPerMinute?: number;
+    rateLimiterRegistry?: RequestRateLimiterRegistry;
+  }
 ) => {
   const model = getModel(modelId);
   if (!model) {
@@ -357,7 +367,7 @@ export const createProviderAwareClient = (
   };
 
   return overrides?.maxRequestsPerMinute
-    ? wrapClientWithRateLimit(remappedClient, modelId, overrides.maxRequestsPerMinute)
+    ? wrapClientWithRateLimit(remappedClient, modelId, overrides.maxRequestsPerMinute, consoleLogger, overrides.rateLimiterRegistry)
     : remappedClient;
 };
 
@@ -564,13 +574,20 @@ interface EvalRunOptions {
 const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
   const dryRun = optionBool(cleanOptions, "dry-run");
   const runId = optionString(cleanOptions, "run-id", "");
-  const corpusPath = optionString(cleanOptions, "corpus", "");
-  const transcriptDir = optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts");
+  const corpusPath = assertSafeWorkspacePath(
+    resolveRepoRelativePath(optionString(cleanOptions, "corpus", "")),
+    "--corpus"
+  );
+  const transcriptDir = assertSafeWorkspacePath(
+    resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")),
+    "--transcript-dir"
+  );
   const modelsStr = optionString(cleanOptions, "models", "");
   const tier = optionString(cleanOptions, "tier", "");
   const judgeModelsStr = optionString(cleanOptions, "judge-models", "gpt-4o-mini");
   const variantsStr = optionString(cleanOptions, "variants", "raw,editorial-pass-v1");
-  const outputDir = optionString(cleanOptions, "output-dir", "");
+  const outputDirRaw = optionString(cleanOptions, "output-dir", "");
+  const outputDir = outputDirRaw ? assertSafeWorkspacePath(resolveRepoRelativePath(outputDirRaw), "--output-dir") : "";
   const format = optionString(cleanOptions, "format", "both");
   const resume = optionBool(cleanOptions, "resume");
   const maxConcurrency = optionNumber(cleanOptions, "max-concurrency", 1);
@@ -587,6 +604,7 @@ const parseRunOptions = (cleanOptions: CliOptions): EvalRunOptions => {
     extractionMaxChunks, judgeMaxTokens, timeoutMs
   };
 };
+
 
 const handleClearAll = (cleanOptions: CliOptions, cacheDir: string): number => {
   if (optionBool(cleanOptions, "yes")) {
@@ -894,10 +912,10 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
   return {
     dryRun: optionBool(cleanOptions, "dry-run"),
     mode: mode as NarrowEvalOptions["mode"],
-    corpusPath: resolveRepoRelativePath(optionString(cleanOptions, "corpus", "out/eval-matrix/corpus.narrow-manual-baseline.json")),
-    transcriptDir: resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")),
-    manualBaselineDir: resolveRepoRelativePath(optionString(cleanOptions, "manual-baseline-dir", "out/eval-matrix/manual-baseline")),
-    outputDir: resolveRepoRelativePath(optionString(cleanOptions, "output-dir", "out/eval-matrix/reports/narrow-manual-baseline")),
+    corpusPath: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "corpus", "out/eval-matrix/corpus.narrow-manual-baseline.json")), "--corpus"),
+    transcriptDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")), "--transcript-dir"),
+    manualBaselineDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "manual-baseline-dir", "out/eval-matrix/manual-baseline")), "--manual-baseline-dir"),
+    outputDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "output-dir", "out/eval-matrix/reports/narrow-manual-baseline")), "--output-dir"),
     modelsStr: optionString(cleanOptions, "models", "gemini-3.1-flash-lite-preview"),
     variantsStr: optionString(cleanOptions, "variants", "raw,editorial-pass-v1,self-improve-v1"),
     judgeModelIds: judgeEnabled ? parseCsvList(judgeModelsStr) : [],
@@ -1082,6 +1100,7 @@ const runNarrowManualBaseline = async (
 
   invalidateNarrowStages(parsedOpts.outputDir, parsedOpts.refreshStage);
 
+  const registry = new RequestRateLimiterRegistry();
   const report = await runNarrowManualBaselineComparison({
     corpus: corpusResult.data,
     transcriptDir: parsedOpts.transcriptDir,
@@ -1092,6 +1111,7 @@ const runNarrowManualBaseline = async (
     judgeModelIds: parsedOpts.judgeModelIds,
     fallbackModelId: parsedOpts.fallbackModelId,
     config,
+    rateLimiterRegistry: registry,
     clientFactory: (modelId: string) => createProviderAwareClient(
       modelId,
       config.llm,
@@ -1102,6 +1122,7 @@ const runNarrowManualBaseline = async (
           : modelId === "gemini-3.1-flash-lite-preview"
             ? parsedOpts.maxRpmGeminiFlashLite
             : undefined,
+        rateLimiterRegistry: registry,
       }
     ),
     maxConcurrency: parsedOpts.maxConcurrency,
@@ -1131,10 +1152,12 @@ const resolveEvalExecutionParams = (parsedOpts: EvalRunOptions) => {
   }
 
   const runCacheDir = resolveCacheDir(validatedRunId);
-  const finalOutputDir = parsedOpts.outputDir || (validatedRunId ? join("out/eval-matrix/runs", validatedRunId) : "out/eval-matrix/reports");
+  const finalOutputDirRaw = parsedOpts.outputDir || (validatedRunId ? join(REPO_ROOT, "out/eval-matrix/runs", validatedRunId) : join(REPO_ROOT, "out/eval-matrix/reports"));
+  const finalOutputDir = assertSafeWorkspacePath(finalOutputDirRaw, "final evaluation output");
 
   return { runCacheDir, finalOutputDir, error: 0 };
 };
+
 
 const loadExecutionData = (parsedOpts: EvalRunOptions) => {
   const corpusResult = loadCorpusData(parsedOpts.corpusPath);
@@ -1213,8 +1236,9 @@ export const runEvalMatrix = async (
   } catch (error) {
     // Log sanitized message only - full error may contain secrets
     const message = error instanceof Error ? error.message : String(error);
+    const sanitized = sanitizeErrorMessage(message);
     // skipcq: JS-0002
-    console.error("Evaluation failed:", message);
+    console.error("Evaluation failed:", sanitized);
     return 1;
   }
 };

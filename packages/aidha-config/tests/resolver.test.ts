@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { SourceRegistration } from '../src/types.js';
 import { resolveConfig, deepMerge } from '../src/resolver.js';
 import { ConfigValidationError } from '../src/loader.js';
 import type { AidhaConfig } from '../src/types.js';
@@ -191,6 +192,43 @@ describe('resolveConfig — five-tier merge', () => {
     expect(ytdlp.bin).toBe('yt-dlp');
   });
 
+  it('Tier 2: explicitly selecting the configured default profile preserves its source_overrides', () => {
+    const config = minimalConfig({
+      default_profile: 'production',
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 45000 },
+            },
+          },
+        },
+        production: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { timeout_ms: 90000 },
+            },
+          },
+        },
+      },
+      sources: {
+        youtube: {
+          ytdlp: { bin: 'yt-dlp', timeout_ms: 120000 },
+        },
+      },
+    });
+    const resolved = resolveConfig({
+      rawConfig: config,
+      profileName: 'production',
+      sourceId: 'youtube',
+      sourceRegistrations: [TEST_YOUTUBE_REGISTRATION],
+    });
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.timeout_ms).toBe(90000);
+    expect(ytdlp.bin).toBe('yt-dlp');
+  });
+
   it('Tier 2: named profile source_overrides outrank source defaults and default-profile source_overrides', () => {
     const config = minimalConfig({
       profiles: {
@@ -380,6 +418,44 @@ describe('resolveConfig — source boundary', () => {
     const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
     expect(ytdlp.bin).toBe('yt-dlp');
     expect(ytdlp.timeout_ms).toBe(120000);
+  });
+
+  it('should preserve raw source-private runtime paths in activeSourceConfig', () => {
+    const sourceRegistration: SourceRegistration = {
+      sourceId: 'youtube',
+      validateActiveSourceConfig: (value: unknown) => value,
+      resolveSourcePaths: (value: unknown, baseDir: string) => {
+        const sourceConfig = value as { ytdlp?: { cookies_file?: string } };
+        return {
+          ...sourceConfig,
+          ytdlp: sourceConfig.ytdlp?.cookies_file
+            ? { ...sourceConfig.ytdlp, cookies_file: resolve(baseDir, sourceConfig.ytdlp.cookies_file) }
+            : sourceConfig.ytdlp,
+        };
+      },
+    };
+    const config = minimalConfig({
+      profiles: {
+        default: {
+          source_overrides: {
+            youtube: {
+              ytdlp: { cookies_file: './cookies.txt' },
+            },
+          },
+        },
+      },
+    });
+    const baseDir = '/tmp/aidha-resolver-paths';
+    const resolved = resolveConfig({
+      rawConfig: config,
+      sourceId: 'youtube',
+      baseDir,
+      sourceRegistrations: [sourceRegistration],
+    });
+
+    const sourceConfig = resolved.activeSourceConfig as Record<string, unknown>;
+    const ytdlp = sourceConfig.ytdlp as Record<string, unknown>;
+    expect(ytdlp.cookies_file).toBe('./cookies.txt');
   });
 
   it('should keep core source-default sections out of activeSourceConfig', () => {
@@ -657,10 +733,9 @@ describe('resolveConfig — edge cases', () => {
       },
     });
 
-    const resolved = resolveConfig({ rawConfig: config });
-    expect(resolved.llm.reasoningEffort).toBeUndefined();
-    expect(resolved.llm.verbosity).toBeUndefined();
+    expect(() => resolveConfig({ rawConfig: config })).toThrow(/validation/i);
   });
+
 
   it('should resolve embedding fields from config and CLI overrides', () => {
     const config = minimalConfig({
@@ -704,9 +779,9 @@ describe('resolveConfig — edge cases', () => {
       },
     });
 
-    const resolved = resolveConfig({ rawConfig: config });
-    expect(resolved.llm.embeddingTaskType).toBe('SEMANTIC_SIMILARITY');
+    expect(() => resolveConfig({ rawConfig: config })).toThrow(/validation/i);
   });
+
 });
 
 // ── Extensions ───────────────────────────────────────────────────────────────

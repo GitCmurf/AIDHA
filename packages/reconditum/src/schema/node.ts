@@ -73,7 +73,7 @@ export const CreateNodeInput = GraphNode.omit({
   schemaVersion: true,
   createdAt: true,
   updatedAt: true,
-});
+}).strict();
 
 export type CreateNodeInput = z.infer<typeof CreateNodeInput>;
 
@@ -81,9 +81,10 @@ export type CreateNodeInput = z.infer<typeof CreateNodeInput>;
  * Input schema for updating a node (partial, auto-updates timestamp).
  */
 export const UpdateNodeInput = GraphNode.partial().omit({
+  schemaVersion: true,
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}).strict();
 
 export type UpdateNodeInput = z.infer<typeof UpdateNodeInput>;

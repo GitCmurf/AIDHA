@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateConfig } from '../src/schema.js';
+import { validateConfig, validateStructure } from '../src/schema.js';
 import type { SourceRegistration } from '../src/types.js';
 
 /** Helper: creates a minimal valid config for testing. */
@@ -211,6 +211,23 @@ describe('validateConfig — strict schema validation', () => {
     expect(result.valid).toBe(false);
   });
 
+  it.each([
+    ['llm', { llm: [] }, '/profiles/default/llm'],
+    ['source_overrides', { source_overrides: [] }, '/profiles/default/source_overrides'],
+  ])('should reject malformed profile %s sections', (_label, override, expectedPath) => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: {
+          db: './test.sqlite',
+          ...override,
+        },
+      },
+    }));
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'type' && e.path === expectedPath)).toBe(true);
+  });
+
   // ── Extensions pass-through ───────────────────────────────────────────
 
   it('should allow arbitrary keys inside top-level extensions', () => {
@@ -304,6 +321,130 @@ describe('validateConfig — strict schema validation', () => {
       },
     });
     const result = validateConfig(config);
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe('validateStructure — pass 1 (structural, pre-interpolation)', () => {
+  it('should accept a minimal valid config', () => {
+    const result = validateStructure(validConfig());
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('should catch missing required fields', () => {
+    const result = validateStructure({});
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'required')).toBe(true);
+  });
+
+  it('should catch missing config_version', () => {
+    const result = validateStructure({
+      default_profile: 'default',
+      profiles: { default: {} },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'required')).toBe(true);
+  });
+
+  it('should catch missing profiles', () => {
+    const result = validateStructure({
+      config_version: 1,
+      default_profile: 'default',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'required')).toBe(true);
+  });
+
+  it('should catch unknown top-level keys', () => {
+    const result = validateStructure(validConfig({ typo_key: 'bad' }));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'additionalProperties')).toBe(true);
+  });
+
+  it('should catch unknown keys inside a profile', () => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: { db: './test.sqlite', ytdlp_bin: '/usr/bin/yt-dlp' },
+      },
+    }));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'additionalProperties')).toBe(true);
+  });
+
+  it('should NOT report nested type errors (deferred to pass 2)', () => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: { llm: { timeout_ms: -999 } },
+      },
+    }));
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('should accept ${VAR} tokens in fields typed as integer', () => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: { llm: { timeout_ms: '${TIMEOUT}' as unknown as number } },
+      },
+    }));
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('should accept ${VAR} tokens in fields typed as boolean', () => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: { editor: { editor_llm: '${ENABLE_LLM}' as unknown as boolean } },
+      },
+    }));
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('should catch unknown keys even when ${VAR} tokens are present', () => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: { unknown_section: '${VAR}' },
+      },
+    }));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'additionalProperties')).toBe(true);
+  });
+
+  it.each([
+    ['base_dir', { base_dir: 42 }],
+    ['env', { env: [] }],
+    ['profiles', { profiles: 1 }],
+  ])('should reject malformed top-level %s types', (_label, override) => {
+    const result = validateStructure(validConfig(override));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.keyword === 'type')).toBe(true);
+  });
+
+  it('should accept source_overrides as a known profile property', () => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: {
+          db: './test.sqlite',
+          source_overrides: {
+            youtube: { ytdlp: { timeout_ms: 30000 } },
+          },
+        },
+      },
+    }));
+    expect(result.valid).toBe(true);
+  });
+
+  it('should accept extensions as a known profile property', () => {
+    const result = validateStructure(validConfig({
+      profiles: {
+        default: {
+          db: './test.sqlite',
+          extensions: { my_tool: { enabled: true } },
+        },
+      },
+    }));
     expect(result.valid).toBe(true);
   });
 });

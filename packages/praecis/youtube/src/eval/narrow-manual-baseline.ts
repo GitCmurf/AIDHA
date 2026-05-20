@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CorpusEntrySchema } from "./corpus-schema.js";
-import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
+import { RequestRateLimiterRegistry, requestRateLimiterRegistry as globalRegistry } from "./request-rate-limiter.js";
 import { consoleLogger } from "../utils/logger.js";
 import { renderNarrowComparisonMarkdown } from "./narrow-report-renderer.js";
 import {
@@ -78,7 +78,10 @@ export async function runNarrowManualBaselineComparison(
 ): Promise<NarrowComparisonReport> {
   const startedAt = new Date().toISOString();
   const logger = options.logger ?? consoleLogger;
-  requestRateLimiterRegistry.reset();
+  const registry = options.rateLimiterRegistry ?? globalRegistry;
+  if (!options.rateLimiterRegistry) {
+    registry.reset();
+  }
   const context = await prepareNarrowBaselineRunContext(options, logger);
   const {
     fallbackTriggeredFor,
@@ -121,7 +124,7 @@ export async function runNarrowManualBaselineComparison(
       stageExecution: context.stageExecution,
       includeManualBaselines: context.includeManualBaselines,
       embeddingStats,
-      rateLimitStatsByModel: requestRateLimiterRegistry.getStats(),
+      rateLimitStatsByModel: registry.getStats(),
       adaptiveEscalation: context.adaptiveEscalation,
       escalatedVideos,
       escalationReasonsByVideo,

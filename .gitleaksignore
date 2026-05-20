@@ -1,0 +1,2 @@
+# Ignore historical mock API key in PR
+97ac48a94aed1c0597085b64f9c7c95442015742:packages/praecis/youtube/tests/cli-robustness.test.ts:generic-api-key:138

@@ -138,12 +138,16 @@ export const optionString = (options: CliOptions, key: string, fallback: string)
 
 export const optionNumber = (options: CliOptions, key: string, fallback: number): number => {
   const value = options[key];
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? fallback : parsed;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    if (/^-?\d+(\.\d+)?$/.test(value)) {
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    throw new Error(`Invalid numeric value for --${key}: "${value}".`);
   }
   return fallback;
 };
+
 
 export const optionBool = (options: CliOptions, key: string): boolean => {
   return options[key] === true;
@@ -223,9 +227,10 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
   const mode = positionals[1];
   const target = positionals[2];
   if (!mode || !target) {
-    console.error('Usage: ingest <playlist|video> <idOrUrl>');
+    console.error('Usage: ingest <playlist|video|status> <idOrUrl>');
     return 1;
   }
+
 
   const store = await openStore(options, config);
   const taxonomyRegistry = new InMemoryRegistry();
@@ -293,7 +298,7 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
       }
     }
   } else {
-    console.error('Unknown ingest mode. Use playlist or video.');
+    console.error('Unknown ingest mode. Use playlist, video, or status.');
     await store.close();
     await taxonomyRegistry.close();
     return 1;
@@ -445,46 +450,48 @@ async function runExport(positionals: string[], options: CliOptions, config: Res
 
   if (kind === 'gephi') {
     const store = await openStore(options, config);
-    const predicateOpt = optionString(options, 'predicate', '');
-    const nodeTypeOpt = optionString(options, 'node-type', '');
-    const includeLabels = optionBool(options, 'include-labels');
-    const outDir = optionString(options, 'out', config.export.outDir || './out');
+    try {
+      const predicateOpt = optionString(options, 'predicate', '');
+      const nodeTypeOpt = optionString(options, 'node-type', '');
+      const includeLabels = optionBool(options, 'include-labels');
+      const outDir = optionString(options, 'out', config.export.outDir || './out');
 
-    const predicates = predicateOpt
-      ? predicateOpt.split(',').map(s => s.trim()).filter(Boolean) as import('@aidha/graph-backend').ExportGephiOptions['predicates']
-      : undefined;
-    const nodeTypes = nodeTypeOpt
-      ? nodeTypeOpt.split(',').map(s => s.trim()).filter(Boolean) as import('@aidha/graph-backend').ExportGephiOptions['nodeTypes']
-      : undefined;
+      const predicates = predicateOpt
+        ? predicateOpt.split(',').map(s => s.trim()).filter(Boolean) as import('@aidha/graph-backend').ExportGephiOptions['predicates']
+        : undefined;
+      const nodeTypes = nodeTypeOpt
+        ? nodeTypeOpt.split(',').map(s => s.trim()).filter(Boolean) as import('@aidha/graph-backend').ExportGephiOptions['nodeTypes']
+        : undefined;
 
-    const result = await store.exportGephi({ predicates, nodeTypes, includeLabels });
-    if (!result.ok) {
-      console.error(result.error.message);
+      const result = await store.exportGephi({ predicates, nodeTypes, includeLabels });
+      if (!result.ok) {
+        console.error(result.error.message);
+        return 1;
+      }
+
+      await ensureDir(outDir);
+      const nodeHeader = includeLabels ? 'Id,Label,Type,CreatedAt' : 'Id,Type,CreatedAt';
+      const nodeRows = result.value.nodes.map(n =>
+        includeLabels
+          ? `${csvEscape(n.id)},${csvEscape(n.label ?? '')},${csvEscape(n.type)},${csvEscape(n.createdAt)}`
+          : `${csvEscape(n.id)},${csvEscape(n.type)},${csvEscape(n.createdAt)}`
+      );
+      const nodesPath = resolve(outDir, 'nodes.csv');
+      await writeFile(nodesPath, [nodeHeader, ...nodeRows].join('\n') + '\n', 'utf-8');
+
+      const edgeHeader = 'Source,Target,Type,Weight,CreatedAt';
+      const edgeRows = result.value.edges.map(e =>
+        `${csvEscape(e.source)},${csvEscape(e.target)},${csvEscape(e.predicate)},${e.weight},${csvEscape(e.createdAt)}`
+      );
+      const edgesPath = resolve(outDir, 'edges.csv');
+      await writeFile(edgesPath, [edgeHeader, ...edgeRows].join('\n') + '\n', 'utf-8');
+
+      console.log(`Wrote ${result.value.nodes.length} nodes: ${nodesPath}`);
+      console.log(`Wrote ${result.value.edges.length} edges: ${edgesPath}`);
+      return 0;
+    } finally {
       await store.close();
-      return 1;
     }
-
-    await ensureDir(outDir);
-    const nodeHeader = includeLabels ? 'Id,Label,Type,CreatedAt' : 'Id,Type,CreatedAt';
-    const nodeRows = result.value.nodes.map(n =>
-      includeLabels
-        ? `${csvEscape(n.id)},${csvEscape(n.label ?? '')},${csvEscape(n.type)},${csvEscape(n.createdAt)}`
-        : `${csvEscape(n.id)},${csvEscape(n.type)},${csvEscape(n.createdAt)}`
-    );
-    const nodesPath = resolve(outDir, 'nodes.csv');
-    await writeFile(nodesPath, [nodeHeader, ...nodeRows].join('\n') + '\n', 'utf-8');
-
-    const edgeHeader = 'Source,Target,Type,Weight,CreatedAt';
-    const edgeRows = result.value.edges.map(e =>
-      `${csvEscape(e.source)},${csvEscape(e.target)},${csvEscape(e.predicate)},${e.weight},${csvEscape(e.createdAt)}`
-    );
-    const edgesPath = resolve(outDir, 'edges.csv');
-    await writeFile(edgesPath, [edgeHeader, ...edgeRows].join('\n') + '\n', 'utf-8');
-
-    console.log(`Wrote ${result.value.nodes.length} nodes: ${nodesPath}`);
-    console.log(`Wrote ${result.value.edges.length} edges: ${edgesPath}`);
-    await store.close();
-    return 0;
   }
 
   const entity = positionals[2];
@@ -495,163 +502,157 @@ async function runExport(positionals: string[], options: CliOptions, config: Res
   }
 
   const store = await openStore(options, config);
-  const exporter = new DossierExporter({ graphStore: store });
-  const splitStates = optionBool(options, 'split-states');
-  const states = parseClaimStates(options);
-  const pretty = optionBool(options, 'pretty');
-  const sourcePrefix = resolveSourcePrefix(options, config.export.sourcePrefix);
+  try {
+    const exporter = new DossierExporter({ graphStore: store });
+    const splitStates = optionBool(options, 'split-states');
+    const states = parseClaimStates(options);
+    const pretty = optionBool(options, 'pretty');
+    const sourcePrefix = resolveSourcePrefix(options, config.export.sourcePrefix);
 
-  const resolvePlaylistInput = async (): Promise<Result<{
-    playlistId: string;
-    url: string;
-    videoIds: string[];
-  }>> => {
-    const playlistId = parsePlaylistId(target);
-    let videoIds: string[] = [];
-    const videosOption = options['videos'];
-    if (typeof videosOption === 'string' && videosOption.length > 0) {
-      videoIds = videosOption.split(',').map(v => v.trim()).filter(Boolean);
-    } else {
-      const client = optionBool(options, 'mock')
-        ? new MockYouTubeClient()
-        : new RealYouTubeClient(youtubeConfig.youtube, {
-            ...youtubeConfig.ytdlp,
-            debugTranscript: youtubeConfig.youtube.debugTranscript,
-          });
-      const playlistResult = await client.fetchPlaylist(playlistId);
-      if (!playlistResult.ok) return playlistResult;
-      videoIds = playlistResult.value.videoIds;
-    }
-    return {
-      ok: true,
-      value: {
-        playlistId,
-        url: `https://www.youtube.com/playlist?list=${playlistId}`,
-        videoIds,
-      },
+    const resolvePlaylistInput = async (): Promise<Result<{
+      playlistId: string;
+      url: string;
+      videoIds: string[];
+    }>> => {
+      const playlistId = parsePlaylistId(target);
+      let videoIds: string[] = [];
+      const videosOption = options['videos'];
+      if (typeof videosOption === 'string' && videosOption.length > 0) {
+        videoIds = videosOption.split(',').map(v => v.trim()).filter(Boolean);
+      } else {
+        const client = optionBool(options, 'mock')
+          ? new MockYouTubeClient()
+          : new RealYouTubeClient(youtubeConfig.youtube, {
+              ...youtubeConfig.ytdlp,
+              debugTranscript: youtubeConfig.youtube.debugTranscript,
+            });
+        const playlistResult = await client.fetchPlaylist(playlistId);
+        if (!playlistResult.ok) return playlistResult;
+        videoIds = playlistResult.value.videoIds;
+      }
+      return {
+        ok: true,
+        value: {
+          playlistId,
+          url: `https://www.youtube.com/playlist?list=${playlistId}`,
+          videoIds,
+        },
+      };
     };
-  };
 
-  if (kind === 'dossier' && entity === 'video') {
-    const videoId = parseVideoId(target);
-    const result = await exporter.renderVideoDossier(videoId, { states });
-    if (!result.ok) {
-      console.error(result.error.message);
-      await store.close();
-      return 1;
-    }
-    const outPath = optionString(options, 'out', `${config.export.outDir}/dossier-${sourcePrefix}-${videoId}.md`);
-    await ensureDir(dirname(outPath));
-    await writeFile(outPath, result.value, 'utf-8');
-    console.log(`Wrote dossier: ${resolve(outPath)}`);
-    if (splitStates) {
-      const draftResult = await exporter.renderVideoDossier(videoId, { states: ['accepted', 'draft'] });
-      if (!draftResult.ok) {
-        console.error(draftResult.error.message);
-        await store.close();
+    if (kind === 'dossier' && entity === 'video') {
+      const videoId = parseVideoId(target);
+      const result = await exporter.renderVideoDossier(videoId, { states });
+      if (!result.ok) {
+        console.error(result.error.message);
         return 1;
       }
-      const draftPath = deriveDraftPath(outPath);
-      await writeFile(draftPath, draftResult.value, 'utf-8');
-      console.log(`Wrote draft dossier: ${resolve(draftPath)}`);
-    }
-  } else if (kind === 'dossier' && entity === 'playlist') {
-    const playlistInput = await resolvePlaylistInput();
-    if (!playlistInput.ok) {
-      console.error(playlistInput.error.message);
-      await store.close();
-      return 1;
-    }
-    const result = await exporter.renderPlaylistDossier(
-      {
-        playlistId: playlistInput.value.playlistId,
-        title: undefined,
-        url: playlistInput.value.url,
-        videoIds: playlistInput.value.videoIds,
-      },
-      { states }
-    );
-    if (!result.ok) {
-      console.error(result.error.message);
-      await store.close();
-      return 1;
-    }
-    const outPath = optionString(
-      options,
-      'out',
-      `${config.export.outDir}/dossier-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.md`
-    );
-    await ensureDir(dirname(outPath));
-    await writeFile(outPath, result.value, 'utf-8');
-    console.log(`Wrote dossier: ${resolve(outPath)}`);
-    if (splitStates) {
-      const draftResult = await exporter.renderPlaylistDossier(
+      const outPath = optionString(options, 'out', `${config.export.outDir}/dossier-${sourcePrefix}-${videoId}.md`);
+      await ensureDir(dirname(outPath));
+      await writeFile(outPath, result.value, 'utf-8');
+      console.log(`Wrote dossier: ${resolve(outPath)}`);
+      if (splitStates) {
+        const draftResult = await exporter.renderVideoDossier(videoId, { states: ['accepted', 'draft'] });
+        if (!draftResult.ok) {
+          console.error(draftResult.error.message);
+          return 1;
+        }
+        const draftPath = deriveDraftPath(outPath);
+        await writeFile(draftPath, draftResult.value, 'utf-8');
+        console.log(`Wrote draft dossier: ${resolve(draftPath)}`);
+      }
+    } else if (kind === 'dossier' && entity === 'playlist') {
+      const playlistInput = await resolvePlaylistInput();
+      if (!playlistInput.ok) {
+        console.error(playlistInput.error.message);
+        return 1;
+      }
+      const result = await exporter.renderPlaylistDossier(
         {
           playlistId: playlistInput.value.playlistId,
           title: undefined,
           url: playlistInput.value.url,
           videoIds: playlistInput.value.videoIds,
         },
-        { states: ['accepted', 'draft'] }
+        { states }
       );
-      if (!draftResult.ok) {
-        console.error(draftResult.error.message);
-        await store.close();
+      if (!result.ok) {
+        console.error(result.error.message);
         return 1;
       }
-      const draftPath = deriveDraftPath(outPath);
-      await writeFile(draftPath, draftResult.value, 'utf-8');
-      console.log(`Wrote draft dossier: ${resolve(draftPath)}`);
-    }
-  } else if (kind === 'transcript' && entity === 'video') {
-    const videoId = parseVideoId(target);
-    const result = await exporter.exportTranscriptJson(videoId, { pretty });
-    if (!result.ok) {
-      console.error(result.error.message);
-      await store.close();
+      const outPath = optionString(
+        options,
+        'out',
+        `${config.export.outDir}/dossier-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.md`
+      );
+      await ensureDir(dirname(outPath));
+      await writeFile(outPath, result.value, 'utf-8');
+      console.log(`Wrote dossier: ${resolve(outPath)}`);
+      if (splitStates) {
+        const draftResult = await exporter.renderPlaylistDossier(
+          {
+            playlistId: playlistInput.value.playlistId,
+            title: undefined,
+            url: playlistInput.value.url,
+            videoIds: playlistInput.value.videoIds,
+          },
+          { states: ['accepted', 'draft'] }
+        );
+        if (!draftResult.ok) {
+          console.error(draftResult.error.message);
+          return 1;
+        }
+        const draftPath = deriveDraftPath(outPath);
+        await writeFile(draftPath, draftResult.value, 'utf-8');
+        console.log(`Wrote draft dossier: ${resolve(draftPath)}`);
+      }
+    } else if (kind === 'transcript' && entity === 'video') {
+      const videoId = parseVideoId(target);
+      const result = await exporter.exportTranscriptJson(videoId, { pretty });
+      if (!result.ok) {
+        console.error(result.error.message);
+        return 1;
+      }
+      const outPath = optionString(options, 'out', `${config.export.outDir}/transcript-${sourcePrefix}-${videoId}.json`);
+      await ensureDir(dirname(outPath));
+      await writeFile(outPath, result.value, 'utf-8');
+      console.log(`Wrote transcript: ${resolve(outPath)}`);
+    } else if (kind === 'transcript' && entity === 'playlist') {
+      const playlistInput = await resolvePlaylistInput();
+      if (!playlistInput.ok) {
+        console.error(playlistInput.error.message);
+        return 1;
+      }
+      const result = await exporter.exportPlaylistTranscriptJson(
+        {
+          playlistId: playlistInput.value.playlistId,
+          title: undefined,
+          url: playlistInput.value.url,
+          videoIds: playlistInput.value.videoIds,
+        },
+        { pretty }
+      );
+      if (!result.ok) {
+        console.error(result.error.message);
+        return 1;
+      }
+      const outPath = optionString(
+        options,
+        'out',
+        `${config.export.outDir}/transcript-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.json`
+      );
+      await ensureDir(dirname(outPath));
+      await writeFile(outPath, result.value, 'utf-8');
+      console.log(`Wrote transcript: ${resolve(outPath)}`);
+    } else {
+      console.error('Unknown export target. Use dossier/transcript with video/playlist.');
       return 1;
     }
-    const outPath = optionString(options, 'out', `${config.export.outDir}/transcript-${sourcePrefix}-${videoId}.json`);
-    await ensureDir(dirname(outPath));
-    await writeFile(outPath, result.value, 'utf-8');
-    console.log(`Wrote transcript: ${resolve(outPath)}`);
-  } else if (kind === 'transcript' && entity === 'playlist') {
-    const playlistInput = await resolvePlaylistInput();
-    if (!playlistInput.ok) {
-      console.error(playlistInput.error.message);
-      await store.close();
-      return 1;
-    }
-    const result = await exporter.exportPlaylistTranscriptJson(
-      {
-        playlistId: playlistInput.value.playlistId,
-        title: undefined,
-        url: playlistInput.value.url,
-        videoIds: playlistInput.value.videoIds,
-      },
-      { pretty }
-    );
-    if (!result.ok) {
-      console.error(result.error.message);
-      await store.close();
-      return 1;
-    }
-    const outPath = optionString(
-      options,
-      'out',
-      `${config.export.outDir}/transcript-${sourcePrefix}-playlist-${playlistInput.value.playlistId}.json`
-    );
-    await ensureDir(dirname(outPath));
-    await writeFile(outPath, result.value, 'utf-8');
-    console.log(`Wrote transcript: ${resolve(outPath)}`);
-  } else {
-    console.error('Unknown export target. Use dossier/transcript with video/playlist.');
-    await store.close();
-    return 1;
-  }
 
-  await store.close();
-  return 0;
+    return 0;
+  } finally {
+    await store.close();
+  }
 }
 
 async function runQuery(positionals: string[], options: CliOptions, config: ResolvedConfig): Promise<number> {
@@ -1258,6 +1259,28 @@ const handleResolutionFailure = (command: string, resolution: ConfigBridgeResult
 };
 
 const resolveConfigForCommand = async (command: string, positionals: string[], options: CliOptions): Promise<ConfigBridgeResult | null> => {
+  if (command === 'config' && positionals[1] === 'validate') {
+    const resolution = await resolveCliConfig({
+      configPath: typeof options['config'] === 'string' ? options['config'] : undefined,
+      profile: typeof options['profile'] === 'string' ? options['profile'] : undefined,
+      cliOverrides: buildCliOverrides(options),
+    });
+    if (!resolution.ok) {
+      return {
+        ok: false,
+        error: resolution.error,
+        loadResult: resolution.loadResult,
+      };
+    }
+
+    return {
+      ok: true,
+      config: resolution.config,
+      youtubeConfig: resolution.youtubeConfig,
+      loadResult: resolution.loadResult,
+    };
+  }
+
   const cliOverrides = buildCliOverrides(options);
   const resolution = await resolveCliConfig({
     configPath: typeof options['config'] === 'string' ? options['config'] : undefined,
@@ -1362,7 +1385,13 @@ const runMatchingRunner = async (command: string, positionals: string[], options
 
 const handleConfigCommand = (positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {
   const error = !resolution.ok ? resolution.error : undefined;
-  return runConfig(positionals.slice(1), options, resolution.loadResult, resolution.ok ? resolution.config : undefined, error);
+  return runConfig(
+    positionals.slice(1),
+    options,
+    resolution.loadResult,
+    resolution.ok ? resolution.config : undefined,
+    error,
+  );
 };
 
 const executeCommand = async (command: string, positionals: string[], options: CliOptions, resolution: ConfigBridgeResult): Promise<number> => {

@@ -12,7 +12,7 @@
 
 import { DEFAULTS } from './defaults.js';
 import { isSecretKey, redactSecrets } from './redact.js';
-import type { AidhaConfig, Profile, ResolvedConfig, SourceRegistration } from './types.js';
+import type { AidhaConfig, UnresolvedAidhaConfig, Profile, ResolvedConfig, SourceRegistration } from './types.js';
 
 /** The five configuration tiers, from highest to lowest priority. */
 export type ConfigTier =
@@ -43,17 +43,20 @@ export interface Provenance {
   origin: string;
   /** Whether the value is a secret (should be redacted in output). */
   isSecret: boolean;
+  /** Validation status of the key. */
+  validationStatus: 'core' | 'source' | 'unvalidated';
 }
 
 /** Options for building provenance. */
 export interface ProvenanceOptions {
   profileName?: string;
   sourceId?: string;
+  validationStatus?: 'core' | 'source' | 'unvalidated';
 }
 
 export interface ResolveKeyProvenanceOptions {
   key: string;
-  rawConfig?: AidhaConfig | null;
+  rawConfig?: UnresolvedAidhaConfig | null;
   resolvedConfig: ResolvedConfig;
   cliOverrides?: Partial<Profile>;
   profileName?: string;
@@ -113,6 +116,7 @@ export function createProvenance(
     tierLabel: TIER_LABELS[tier],
     origin,
     isSecret,
+    validationStatus: options.validationStatus ?? 'unvalidated',
   };
 }
 
@@ -153,6 +157,10 @@ function toKeyCandidates(path: string): string[] {
   return snakeCasePath === path ? [path] : [path, snakeCasePath];
 }
 
+function keyHasAnyCandidate(keyCandidates: ReadonlyArray<string>, candidatePaths?: ReadonlyArray<string>): boolean {
+  return candidatePaths?.some((candidatePath) => keyCandidates.includes(candidatePath)) ?? false;
+}
+
 function hasAnyPath(obj: unknown, paths: ReadonlyArray<string>): boolean {
   return paths.some(path => deepHas(obj, path));
 }
@@ -178,6 +186,31 @@ function registrationDefaultsHasKey(
     registration.sourceId === sourceId &&
     hasAnyPath(registration.defaults, paths),
   ) ?? false;
+}
+
+function isCoreValidated(keyCandidates: ReadonlyArray<string>): boolean {
+  // Simple check for core sections
+  const coreSections = ['llm', 'editor', 'extraction', 'export', 'db', 'base_dir', 'env', 'default_profile', 'config_version'];
+  return keyCandidates.some((key) => coreSections.includes(key.split('.')[0]!));
+}
+
+function isSourceValidated(
+  keyCandidates: ReadonlyArray<string>,
+  sourceId?: string,
+  registrations?: ReadonlyArray<SourceRegistration>,
+): boolean {
+  if (!sourceId || !registrations) return false;
+
+  const registration = registrations.find(r => r.sourceId === sourceId);
+  if (!registration) return false;
+
+  // If it has scalar coercion or explicit label, it's considered validated/known by source
+  if (keyHasAnyCandidate(keyCandidates, Object.keys(registration.metadata?.scalarCoercions ?? {}))) return true;
+  if (keyHasAnyCandidate(keyCandidates, Object.keys(registration.metadata?.explainLabels ?? {}))) return true;
+  if (keyHasAnyCandidate(keyCandidates, registration.metadata?.pathFields)) return true;
+  if (keyHasAnyCandidate(keyCandidates, registration.metadata?.secretFields)) return true;
+
+  return false;
 }
 
 /**
@@ -211,19 +244,19 @@ export function resolveKeyProvenance(
 
   const defaultProfileName = rawConfig?.default_profile ?? 'default';
   const activeProfileName = profileName ?? defaultProfileName;
-  const activeProfile = rawConfig?.profiles?.[activeProfileName];
+  const activeProfile = rawConfig?.profiles?.[activeProfileName] as Profile | undefined;
   let tier: ConfigTier;
   let hardcodedFromSource = false;
 
   if (has(cliOverrides)) {
     tier = 'cli';
-  } else if (profileName && has(rawConfig?.profiles?.[profileName])) {
+  } else if (profileName && has(rawConfig?.profiles?.[profileName] as Profile | undefined)) {
     tier = 'profile';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
   } else if (has(activeProfile)) {
     tier = 'default';
-  } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
+  } else if (has(rawConfig?.profiles?.[defaultProfileName] as Profile | undefined)) {
     tier = 'default';
   } else if (sourceId && registrationDefaultsHasKey(sourceId, keyCandidates, sourceRegistrations)) {
     tier = 'hardcoded';
@@ -247,9 +280,17 @@ export function resolveKeyProvenance(
       ? sourceId
       : undefined;
 
+  let validationStatus: 'core' | 'source' | 'unvalidated' = 'unvalidated';
+  if (isCoreValidated(keyCandidates)) {
+    validationStatus = 'core';
+  } else if (isSourceValidated(keyCandidates, sourceId, sourceRegistrations)) {
+    validationStatus = 'source';
+  }
+
   const provenance = createProvenance(key, tier, {
     profileName: provenanceProfileName,
     sourceId: provenanceSourceId,
+    validationStatus,
   }, isSecretKey(key) || isSecretKey(sourceKey) || isSecretKey(keyLeaf) || isSecretKey(sourceKeyLeaf));
 
   const value = deepGet(resolvedConfig, key);
@@ -263,9 +304,11 @@ export function resolveKeyProvenance(
  * @param value - The actual value (will be redacted if secret).
  * @returns A formatted explanation string.
  */
-export function formatProvenance(prov: Provenance, value: unknown): string {
-  // Redact ALL secret values regardless of type — numbers, objects,
-  // arrays, and even empty strings should never leak in explain output.
+export function formatProvenance(
+  prov: Provenance,
+  value: unknown,
+  sourceRegistrations?: ReadonlyArray<SourceRegistration>,
+): string {
   let displayValue: string;
   if (prov.isSecret) {
     displayValue = '********';
@@ -285,5 +328,49 @@ export function formatProvenance(prov: Provenance, value: unknown): string {
     }
   }
 
-  return `${prov.key} = ${displayValue}\n  ↳ ${prov.tierLabel} (from ${prov.origin})`;
+  const sourceLabel = resolveSourceLabel(prov.key, sourceRegistrations);
+  const labelSuffix = sourceLabel ? ` — ${sourceLabel}` : '';
+  const validationLabel = prov.validationStatus === 'core'
+    ? ' [core validated]'
+    : prov.validationStatus === 'source'
+      ? ' [source validated]'
+      : ' [unvalidated]';
+
+  return `${prov.key} = ${displayValue}${validationLabel}\n  ↳ ${prov.tierLabel} (from ${prov.origin})${labelSuffix}`;
+}
+
+function resolveSourceLabel(
+  key: string,
+  registrations?: ReadonlyArray<SourceRegistration>,
+): string | null {
+  if (!registrations) return null;
+
+  if (key.startsWith('activeSourceConfig.')) {
+    const fullSourceKey = key.slice('activeSourceConfig.'.length);
+    const dotIdx = fullSourceKey.indexOf('.');
+    if (dotIdx !== -1) {
+      const sourceId = fullSourceKey.slice(0, dotIdx);
+      const remainingKey = fullSourceKey.slice(dotIdx + 1);
+      const registration = registrations.find((r) => r.sourceId === sourceId);
+      if (registration) {
+        const keyCandidates = toKeyCandidates(remainingKey);
+        for (const candidate of keyCandidates) {
+          const label = registration.metadata?.explainLabels?.[candidate];
+          if (label) return label;
+        }
+      }
+    }
+  }
+
+  const sourceKey = key.startsWith('activeSourceConfig.')
+    ? key.slice('activeSourceConfig.'.length)
+    : key;
+  const keyCandidates = toKeyCandidates(sourceKey);
+  for (const reg of registrations) {
+    for (const candidate of keyCandidates) {
+      const label = reg.metadata?.explainLabels?.[candidate];
+      if (label) return label;
+    }
+  }
+  return null;
 }

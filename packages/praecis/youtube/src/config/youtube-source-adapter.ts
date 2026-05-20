@@ -360,12 +360,16 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
   },
 
   resolveSourcePaths(value: ResolvedYoutubeConfig, baseDir: string): ResolvedYoutubeConfig {
+    const ytdlpValue = value.ytdlp as unknown as Record<string, unknown>;
+    const rawCookiesFile = ytdlpValue['cookiesFile'] ?? ytdlpValue['cookies_file'];
+    const cookiesFile = typeof rawCookiesFile === 'string' ? rawCookiesFile : '';
+
     return {
       ...value,
       ytdlp: {
         ...value.ytdlp,
         bin: resolvePathValue(value.ytdlp.bin, baseDir),
-        cookiesFile: value.ytdlp.cookiesFile === '' ? '' : resolve(baseDir, value.ytdlp.cookiesFile),
+        cookiesFile: cookiesFile === '' ? '' : resolve(baseDir, cookiesFile),
       },
     };
   },

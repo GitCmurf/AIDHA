@@ -24,6 +24,10 @@ import {
   ConfigValidationError,
   ConfigVersionError,
   ConfigNotFoundError,
+  InterpolationCycleError,
+  InterpolationDepthError,
+  InterpolationObjectCycleError,
+  UnsetVariableError,
 } from '@aidha/config';
 import {
   YouTubeSourceRegistration,
@@ -68,80 +72,69 @@ export type ConfigBridgeResult =
 
 const ALL_SOURCE_REGISTRATIONS = [YouTubeSourceRegistration];
 
-// ── Bridge ───────────────────────────────────────────────────────────────────
+function isConfigDomainError(error: unknown): error is Error {
+  return (
+    error instanceof ConfigParseError ||
+    error instanceof ConfigValidationError ||
+    error instanceof ConfigVersionError ||
+    error instanceof ConfigNotFoundError ||
+    error instanceof InterpolationCycleError ||
+    error instanceof InterpolationDepthError ||
+    error instanceof InterpolationObjectCycleError ||
+    error instanceof UnsetVariableError
+  );
+}
 
-/**
- * Load and resolve the AIDHA configuration for the CLI.
- *
- * 1. Discover and parse the config file (or use defaults if none found).
- * 2. Resolve through all five tiers: CLI → profile → source → default → DEFAULTS.
- * 3. Narrow activeSourceConfig via source registrations.
- * 4. Return a Result object.
- *
- * Catches known config-domain errors (Parse, Validation, Version, NotFound) and
- * returns them as a failure result. RETHROWS unexpected errors (bugs).
- *
- * In zero-config mode (no config file), only Tiers 1 and 5 contribute.
- */
-export async function resolveCliConfig(
-  opts: ConfigBridgeOptions = {},
-): Promise<ConfigBridgeResult> {
-  try {
-    const processCwd = process.cwd();
-    const initCwd = process.env['INIT_CWD'];
-    const hasLocalProjectConfig = existsSync(join(processCwd, '.aidha', 'config.yaml'));
-    const discoveryCwd =
-      !opts.configPath && initCwd && initCwd !== processCwd && !hasLocalProjectConfig
-        ? initCwd
-        : processCwd;
-    const loadResult = await loadConfig({
-      configPath: opts.configPath || undefined,
-      cwd: discoveryCwd,
-      syncProcessEnv: false,
-      onWarning: (msg) => {
+export function buildResolvedEnv(loadResult: LoadResult): Record<string, string | undefined> {
+  return {
+    ...process.env,
+    ...loadResult.dotenvEnv,
+  };
+}
+
+function getDiscoveryCwd(configPath?: string): string {
+  const processCwd = process.cwd();
+  const initCwd = process.env['INIT_CWD'];
+  const hasLocalProjectConfig = existsSync(join(processCwd, '.aidha', 'config.yaml'));
+  return !configPath && initCwd && initCwd !== processCwd && !hasLocalProjectConfig
+    ? initCwd
+    : processCwd;
+}
+
+export async function loadCliConfig(
+  opts: Pick<ConfigBridgeOptions, 'configPath'> = {},
+): Promise<LoadResult> {
+  return loadConfig({
+    configPath: opts.configPath || undefined,
+    cwd: getDiscoveryCwd(opts.configPath),
+    syncProcessEnv: false,
+    onWarning: (msg) => {
+      // eslint-disable-next-line no-console
+      console.warn(`[config] ${msg}`);
+    },
+    logSink: (event) => {
+      if (event.type === 'config.load.summary') {
         // eslint-disable-next-line no-console
-        console.warn(`[config] ${msg}`);
-      },
-    });
+        // console.debug(`[config] Loaded ${event.configPath ?? 'no config'}`);
+      }
+    },
+  });
+}
 
-    const config = resolveConfig({
-      rawConfig: loadResult.config,
-      baseDir: loadResult.baseDir,
-      profileName: opts.profile || undefined,
-      sourceId: opts.source || undefined,
-      cliOverrides: opts.cliOverrides,
-      sourceRegistrations: ALL_SOURCE_REGISTRATIONS,
-    });
-
-    let youtubeConfig: ResolvedYoutubeConfig | null = null;
-    const resolvedConfig = { ...config };
-
-    if (resolvedConfig.activeSourceId === YOUTUBE_SOURCE_ID && resolvedConfig.activeSourceConfig !== undefined) {
-      resolvedConfig.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
-        resolvedConfig.activeSourceConfig,
-        resolvedConfig.baseDir,
-      );
-      youtubeConfig = YouTubeSourceRegistration.validateActiveSourceConfig(
-        resolvedConfig.activeSourceConfig,
-      );
-    }
-
-    return { ok: true, config: resolvedConfig, youtubeConfig, loadResult };
+export async function loadCliConfigForValidation(
+  opts: Pick<ConfigBridgeOptions, 'configPath'> = {},
+): Promise<{ loadResult: LoadResult; error?: Error }> {
+  try {
+    const loadResult = await loadCliConfig(opts);
+    return { loadResult };
   } catch (error: unknown) {
     const err = error as Error;
 
-    const isConfigError =
-      err instanceof ConfigParseError ||
-      err instanceof ConfigValidationError ||
-      err instanceof ConfigVersionError ||
-      err instanceof ConfigNotFoundError;
-
-    if (!isConfigError) {
+    if (!isConfigDomainError(err)) {
       throw err;
     }
 
     let configPath = opts.configPath || process.env['AIDHA_CONFIG'] || null;
-
     if (!configPath) {
       if (
         err instanceof ConfigParseError ||
@@ -161,10 +154,98 @@ export async function resolveCliConfig(
       dotenvEnv: {},
     };
 
+    return { loadResult, error: err };
+  }
+}
+
+// ── Bridge ───────────────────────────────────────────────────────────────────
+
+/**
+ * Load and resolve the AIDHA configuration for the CLI.
+ *
+ * 1. Discover and parse the config file (or use defaults if none found).
+ * 2. Resolve through all five tiers: CLI → profile → source → default → DEFAULTS.
+ * 3. Narrow activeSourceConfig via source registrations.
+ * 4. Return a Result object.
+ *
+ * Catches known config-domain errors (Parse, Validation, Version, NotFound) and
+ * returns them as a failure result. RETHROWS unexpected errors (bugs).
+ *
+ * In zero-config mode (no config file), only Tiers 1 and 5 contribute.
+ */
+export async function resolveCliConfig(
+  opts: ConfigBridgeOptions = {},
+): Promise<ConfigBridgeResult> {
+  let loadResult: LoadResult | undefined;
+
+  try {
+    loadResult = await loadCliConfig({ configPath: opts.configPath });
+
+    const config = resolveConfig({
+      rawConfig: loadResult.config,
+      baseDir: loadResult.baseDir,
+      profileName: opts.profile || undefined,
+      sourceId: opts.source || undefined,
+      cliOverrides: opts.cliOverrides,
+      sourceRegistrations: ALL_SOURCE_REGISTRATIONS,
+      env: buildResolvedEnv(loadResult),
+      configPath: loadResult.configPath,
+      dotenvVarCount: Object.keys(loadResult.dotenvEnv).length,
+      warningCount: loadResult.warnings.length,
+      logSink: (event) => {
+        if (event.type === 'config.load.summary') {
+          // eslint-disable-next-line no-console
+          // console.debug(`[config] Summary: ${JSON.stringify(event)}`);
+        }
+      },
+    });
+
+    let youtubeConfig: ResolvedYoutubeConfig | null = null;
+    const resolvedConfig = { ...config };
+
+    if (resolvedConfig.activeSourceId === YOUTUBE_SOURCE_ID && resolvedConfig.activeSourceConfig !== undefined) {
+      resolvedConfig.activeSourceConfig = resolveRawYoutubeActiveSourceConfigPaths(
+        resolvedConfig.activeSourceConfig,
+        resolvedConfig.baseDir,
+      );
+      youtubeConfig = YouTubeSourceRegistration.validateActiveSourceConfig(
+        resolvedConfig.activeSourceConfig,
+      );
+    }
+
+    return { ok: true, config: resolvedConfig, youtubeConfig, loadResult };
+  } catch (error: unknown) {
+    const err = error as Error;
+
+    if (!isConfigDomainError(err)) {
+      throw err;
+    }
+
+    let configPath = opts.configPath || process.env['AIDHA_CONFIG'] || null;
+
+    if (!configPath) {
+      if (
+        err instanceof ConfigParseError ||
+        err instanceof ConfigValidationError ||
+        err instanceof ConfigVersionError ||
+        err instanceof ConfigNotFoundError
+      ) {
+        configPath = err.filePath;
+      }
+    }
+
+    const fallbackLoadResult: LoadResult = {
+      config: null,
+      configPath,
+      baseDir: process.cwd(),
+      warnings: [],
+      dotenvEnv: {},
+    };
+
     return {
       ok: false,
       error: err,
-      loadResult,
+      loadResult: loadResult ?? fallbackLoadResult,
     };
   }
 }
@@ -184,14 +265,24 @@ function optStr(options: CliOptions, key: string): string | undefined {
 
 /**
  * Helper to read a numeric CLI option.
- * Returns `undefined` if the option is absent or not a valid integer.
+ * Returns `undefined` if the option is absent or not a valid number.
  */
 function optNum(options: CliOptions, key: string): number | undefined {
   const v = options[key];
-  if (typeof v !== 'string') return undefined;
-  const n = Number.parseInt(v, 10);
-  return Number.isNaN(n) ? undefined : n;
+  if (typeof v !== 'string' || v.trim().length === 0) return undefined;
+
+  // Strict check: only digits, optional minus sign, and optional decimal point.
+  // Note: Most of our config numbers are integers, but let's be flexible if valid.
+  if (/^-?\d+(\.\d+)?$/.test(v)) {
+    const n = Number(v);
+    if (!Number.isNaN(n)) return n;
+  }
+
+  // skipcq: JS-0002
+  console.error(`Warning: Invalid numeric override for --${key}: "${v}". Ignoring.`);
+  return undefined;
 }
+
 
 /**
  * Helper to read a boolean CLI option.

@@ -19,6 +19,13 @@ describe("Judge Prompt Template", () => {
     expect(user).toContain("Atomicity:");
   });
 
+  it("should include a truncation marker for long transcripts", () => {
+    const longTranscript = "alpha ".repeat(20000);
+    const { user } = buildJudgePrompt(longTranscript, mockClaims, mockContext);
+    expect(user).toContain("[TRUNCATED ");
+    expect(user.length).toBeLessThan(60000);
+  });
+
   it("should request JSON output", () => {
     const { system } = buildJudgePrompt(mockTranscript, mockClaims, mockContext);
     expect(system.toLowerCase()).toContain("json");

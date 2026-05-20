@@ -7,6 +7,7 @@ last_updated: 2026-05-13
 title: YouTube Claim Extraction - Production-Grade Atomic Task Breakdown
 type: TASK
 docops_version: "2.0"
+related_ids: [AIDHA-TASK-009]
 ---
 
 <!-- markdownlint-disable MD013 -->

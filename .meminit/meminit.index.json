@@ -1,7 +1,7 @@
 {
   "output_schema_version": "1.0",
   "index_version": "0.1",
-  "generated_at": "2026-05-03T10:43:16.208607+00:00",
+  "generated_at": "2026-05-19T17:42:53.036823+00:00",
   "namespaces": [
     {
       "namespace": "root",
@@ -98,13 +98,31 @@
       "status": "Approved"
     },
     {
-      "document_id": "AIDHA-EVAL-BASELINE",
+      "document_id": "AIDHA-EVAL-001",
       "path": "docs/55-testing/eval-matrix/baseline-workflow.md",
       "namespace": "root",
       "repo_prefix": "AIDHA",
       "type": "TESTING",
       "title": "Evaluation Matrix Baseline Workflow",
-      "status": "Published"
+      "status": "Approved"
+    },
+    {
+      "document_id": "AIDHA-EVAL-004",
+      "path": "docs/55-testing/eval-matrix/task-004-completion-note.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TESTING",
+      "title": "Task 004 Completion Engineering Note",
+      "status": "Approved"
+    },
+    {
+      "document_id": "AIDHA-EVAL-ABLATION-001",
+      "path": "docs/55-testing/eval-matrix/editorial-ablation-v1.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "EVAL",
+      "title": "Editorial Ablation v1 \u2014 raw vs editorial-pass-v1 Delta Comparison",
+      "status": "Draft"
     },
     {
       "document_id": "AIDHA-EVAL-MANUAL-BASELINE",
@@ -114,15 +132,6 @@
       "type": "TESTING",
       "title": "Manual Baseline (No Harness)",
       "status": "Draft"
-    },
-    {
-      "document_id": "AIDHA-EVAL-TASK-004",
-      "path": "docs/55-testing/eval-matrix/task-004-completion-note.md",
-      "namespace": "root",
-      "repo_prefix": "AIDHA",
-      "type": "TESTING",
-      "title": "Task 004 Completion Engineering Note",
-      "status": "Approved"
     },
     {
       "document_id": "AIDHA-FDD-001",
@@ -293,7 +302,7 @@
       "repo_prefix": "AIDHA",
       "type": "PLAN",
       "title": "User Configuration Profiles",
-      "status": "Draft"
+      "status": "In Review"
     },
     {
       "document_id": "AIDHA-PLAN-006",
@@ -446,7 +455,7 @@
       "repo_prefix": "AIDHA",
       "type": "TASK",
       "title": "Public Repository Readiness \u2014 Task List & Strategy",
-      "status": "Draft"
+      "status": "Approved"
     },
     {
       "document_id": "AIDHA-TASK-002",
@@ -455,16 +464,16 @@
       "repo_prefix": "AIDHA",
       "type": "TASK",
       "title": "MVP Vertical Slice Completion Task List",
-      "status": "Draft"
+      "status": "Approved"
     },
     {
-      "document_id": "AIDHA-TASK-003-ATOMIC",
+      "document_id": "AIDHA-TASK-003",
       "path": "docs/05-planning/tasks/task-003-extraction-quality-atomic-breakdown.md",
       "namespace": "root",
       "repo_prefix": "AIDHA",
       "type": "TASK",
       "title": "YouTube Claim Extraction - Production-Grade Atomic Task Breakdown",
-      "status": "Draft"
+      "status": "Approved"
     },
     {
       "document_id": "AIDHA-TASK-004",
@@ -473,7 +482,7 @@
       "repo_prefix": "AIDHA",
       "type": "TASK",
       "title": "Claim Extraction Evaluation Matrix",
-      "status": "Draft"
+      "status": "Approved"
     },
     {
       "document_id": "AIDHA-TASK-005",
@@ -482,7 +491,7 @@
       "repo_prefix": "AIDHA",
       "type": "TASK",
       "title": "Deferred Claim Extraction Improvements",
-      "status": "Draft"
+      "status": "Approved"
     },
     {
       "document_id": "AIDHA-TASK-006",
@@ -491,6 +500,33 @@
       "repo_prefix": "AIDHA",
       "type": "TASK",
       "title": "Evaluation Refinement and Self-Improvement Validation",
+      "status": "Approved"
+    },
+    {
+      "document_id": "AIDHA-TASK-007",
+      "path": "docs/05-planning/tasks/task-007-tech-debt-backlog.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "Engineering Tech Debt Backlog",
+      "status": "Approved"
+    },
+    {
+      "document_id": "AIDHA-TASK-008",
+      "path": "docs/05-planning/tasks/task-008-next-sprint-improvements.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "Next Sprint Improvements and Backlog Burn-Down",
+      "status": "Approved"
+    },
+    {
+      "document_id": "AIDHA-TASK-009",
+      "path": "docs/05-planning/tasks/task-009-speaker-attribution.md",
+      "namespace": "root",
+      "repo_prefix": "AIDHA",
+      "type": "TASK",
+      "title": "Speaker Attribution Pipeline",
       "status": "Draft"
     },
     {
