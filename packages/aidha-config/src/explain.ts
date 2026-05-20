@@ -12,7 +12,7 @@
 
 import { DEFAULTS } from './defaults.js';
 import { isSecretKey, redactSecrets } from './redact.js';
-import type { AidhaConfig, Profile, ResolvedConfig, SourceRegistration } from './types.js';
+import type { AidhaConfig, UnresolvedAidhaConfig, Profile, ResolvedConfig, SourceRegistration } from './types.js';
 
 /** The five configuration tiers, from highest to lowest priority. */
 export type ConfigTier =
@@ -56,7 +56,7 @@ export interface ProvenanceOptions {
 
 export interface ResolveKeyProvenanceOptions {
   key: string;
-  rawConfig?: AidhaConfig | null;
+  rawConfig?: UnresolvedAidhaConfig | null;
   resolvedConfig: ResolvedConfig;
   cliOverrides?: Partial<Profile>;
   profileName?: string;
@@ -244,19 +244,19 @@ export function resolveKeyProvenance(
 
   const defaultProfileName = rawConfig?.default_profile ?? 'default';
   const activeProfileName = profileName ?? defaultProfileName;
-  const activeProfile = rawConfig?.profiles?.[activeProfileName];
+  const activeProfile = rawConfig?.profiles?.[activeProfileName] as Profile | undefined;
   let tier: ConfigTier;
   let hardcodedFromSource = false;
 
   if (has(cliOverrides)) {
     tier = 'cli';
-  } else if (profileName && has(rawConfig?.profiles?.[profileName])) {
+  } else if (profileName && has(rawConfig?.profiles?.[profileName] as Profile | undefined)) {
     tier = 'profile';
   } else if (sourceId && has(rawConfig?.sources?.[sourceId])) {
     tier = 'source';
   } else if (has(activeProfile)) {
     tier = 'default';
-  } else if (has(rawConfig?.profiles?.[defaultProfileName])) {
+  } else if (has(rawConfig?.profiles?.[defaultProfileName] as Profile | undefined)) {
     tier = 'default';
   } else if (sourceId && registrationDefaultsHasKey(sourceId, keyCandidates, sourceRegistrations)) {
     tier = 'hardcoded';

@@ -22,6 +22,7 @@
 
 import type {
   AidhaConfig,
+  UnresolvedAidhaConfig,
   Profile,
   ResolvedConfig,
   SourceRegistration,
@@ -185,7 +186,7 @@ export interface ResolveOptions {
   /** Ingestion source ID (Tier 3). */
   sourceId?: string;
   /** The parsed config file (Tiers 2–4). Null if no config file found. */
-  rawConfig?: AidhaConfig | null;
+  rawConfig?: UnresolvedAidhaConfig | null;
   /** Hardcoded fallback defaults (Tier 5). Defaults to DEFAULTS. */
   defaults?: DeepReadonly<AidhaConfig>;
   /** The base directory for the resolved config. */
@@ -198,8 +199,8 @@ export interface ResolveOptions {
   logSink?: ConfigLogSink;
   /** Telemetry: path to the config file (for logging). */
   configPath?: string | null;
-  /** Telemetry: count of loaded dotenv files. */
-  dotenvFileCount?: number;
+  /** Telemetry: count of loaded environment variables from dotenv files. */
+  dotenvVarCount?: number;
   /** Telemetry: count of warnings during load. */
   warningCount?: number;
 }
@@ -301,7 +302,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     env: envOverride,
     logSink,
     configPath = null,
-    dotenvFileCount = 0,
+    dotenvVarCount = 0,
     warningCount = 0,
   } = options;
 
@@ -438,13 +439,12 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     // Explicitly selected profiles always get the active-profile source merge,
     // even when they match `default_profile`.
     if (rawConfig && profileName !== undefined) {
-      const sourceProfileRaw = rawConfig.profiles?.[profileName];
+      const sourceProfileRaw = rawConfig.profiles?.[profileName] as Profile | undefined;
 
       const sourceProfileLegacySourceFieldsRaw = extractLegacyProfileSourceFields(
         sourceProfileRaw,
         legacySourceKeys,
-      );
-      if (Object.keys(sourceProfileLegacySourceFieldsRaw).length > 0) {
+      );      if (Object.keys(sourceProfileLegacySourceFieldsRaw).length > 0) {
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
           interpolateDeep(sourceProfileLegacySourceFieldsRaw, env, { rootPath: 'profiles.*' }),
@@ -565,7 +565,7 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       configPath,
       profile: activeProfileName,
       sourceId,
-      dotenvFileCount,
+      dotenvVarCount,
       warningCount,
       cliOverrideKeys,
     });
@@ -591,12 +591,11 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     }
   }
   if (rawConfig && activeProfileName) {
-    const profExt = rawConfig.profiles?.[activeProfileName]?.extensions;
+    const profExt = (rawConfig.profiles?.[activeProfileName] as Profile | undefined)?.extensions;
     if (profExt && Object.keys(profExt).length > 0) {
       extensions.profile = { ...profExt };
     }
-  }
-  if (cliOverrides?.extensions && Object.keys(cliOverrides.extensions).length > 0) {
+  }  if (cliOverrides?.extensions && Object.keys(cliOverrides.extensions).length > 0) {
     extensions.profile = {
       ...(extensions.profile ?? {}),
       ...cliOverrides.extensions,

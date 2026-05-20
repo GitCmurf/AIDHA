@@ -190,7 +190,7 @@ export async function resolveCliConfig(
       sourceRegistrations: ALL_SOURCE_REGISTRATIONS,
       env: buildResolvedEnv(loadResult),
       configPath: loadResult.configPath,
-      dotenvFileCount: Object.keys(loadResult.dotenvEnv).length,
+      dotenvVarCount: Object.keys(loadResult.dotenvEnv).length,
       warningCount: loadResult.warnings.length,
       logSink: (event) => {
         if (event.type === 'config.load.summary') {

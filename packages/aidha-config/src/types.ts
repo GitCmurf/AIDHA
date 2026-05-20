@@ -116,6 +116,8 @@ export type UnresolvedAidhaConfig = Record<string, unknown> & {
   config_version: number;
   default_profile: string;
   profiles: Record<string, unknown>;
+  sources?: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
   base_dir?: string;
 };
 
@@ -212,7 +214,7 @@ export type ConfigLogEvent =
       configPath: string | null;
       profile: string;
       sourceId?: string;
-      dotenvFileCount: number;
+      dotenvVarCount: number;
       warningCount: number;
       cliOverrideKeys: string[];
     }

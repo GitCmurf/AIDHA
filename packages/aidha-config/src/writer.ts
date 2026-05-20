@@ -517,6 +517,10 @@ export interface MutateOptions {
   env?: Record<string, string | undefined>;
   /** Source registrations for source-private field coercion and validation. */
   sourceRegistrations?: ReadonlyArray<SourceRegistration>;
+  /** Expected mtime for optimistic locking (timestamp ms). Re-read config and pass current mtime to enable. */
+  expectedMtime?: number;
+  /** Tolerance for optimistic-lock mtime checks (default: 2000ms). */
+  mtimeToleranceMs?: number;
 }
 
 /**
@@ -703,7 +707,7 @@ export function mutateConfig(options: MutateOptions): WriteResult {
 
   const backupPath = rotateBackups(filePath);
   const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
-  atomicWriteYaml(tmpPath, filePath, doc.toString());
+  atomicWriteYaml(tmpPath, filePath, doc.toString(), options.expectedMtime, options.mtimeToleranceMs);
 
   return { written: true, backupPath, validationErrors };
 }

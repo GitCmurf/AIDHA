@@ -931,6 +931,9 @@ export class RealYouTubeClient implements YouTubeClient {
       ok: true,
       value: {
         id: playlistId,
+        title: `Playlist ${playlistId}`,
+        channelId: 'unknown',
+        channelName: 'Unknown Channel',
         videoIds: result.value.videoIds,
       },
     };
