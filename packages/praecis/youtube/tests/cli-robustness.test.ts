@@ -132,7 +132,7 @@ describe('CLI Robustness (Remediation)', () => {
       const { sanitizeErrorMessage } = await import('../src/cli.js');
       const apiKeyMock = 'sk-' + '1'.repeat(32); // pragma: allowlist secret gitleaks:allow
 
-      const sanitized = sanitizeErrorMessage(`Failed with Authorization: Bearer ${apiKeyMock}`);
+      const sanitized = sanitizeErrorMessage(`Failed with Authorization: Bearer ${apiKeyMock}`); // pragma: allowlist secret
       expect(sanitized).not.toContain(apiKeyMock);
       expect(sanitized).toContain('[REDACTED]');
     });

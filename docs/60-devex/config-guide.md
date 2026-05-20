@@ -173,8 +173,10 @@ as `--ytdlp-timeout` are rejected instead of being ignored.
 | `ConfigReadOnlyError` | Write attempted while `AIDHA_CONFIG_READONLY=1`. | Disable read-only mode to allow writes. |
 | `ConfigConflictError` | File changed since it was last read. | Re-run the command or use `--force`. |
 
-- **Acceptance Criteria**: Errors are surfaced with semantic classes and include path/line diagnostics.
-- **Test Reference**: `packages/aidha-config/tests/loader.test.ts`, `packages/aidha-config/tests/schema-validation.test.ts`
+- **Acceptance Criteria**: Errors are surfaced with semantic classes and include
+  path/line diagnostics.
+- **Test Reference**: `packages/aidha-config/tests/loader.test.ts`,
+  `packages/aidha-config/tests/schema-validation.test.ts`
 
 ## Troubleshooting
 
