@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.3"
+version: "0.4"
 last_updated: 2026-05-20
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.4
 > **Last Updated:** 2026-05-20
 > **Type:** PLAN
 
@@ -30,13 +30,15 @@ docops_version: "2.0"
 | 0.1     | 2026-05-20 | AI     | Initial plan: four-axis composition architecture, eight fully-specified vectors, phased execution.      | —         | Draft  | —         |
 | 0.2     | 2026-05-20 | AI     | Pre-review hardening: resolve byte-identical contradiction (semantic-equivalence gate), define `ComposedVector`, scope determinism to cache/mocks, split `.eml`/`.msg`, add `text` Locator kind, per-Resource sensitivity routing, Zotero/screenshot roadmap, PRD-002 revision task. | Self-review (advisor) | Draft | — |
 | 0.3     | 2026-05-20 | AI     | Codex adversarial-review fixes: (1) email Resource identity moved to thread level (`email:thread:<rootMessageId>` with a spelled-out derivation; messages are excerpts) and Objective de-advertised "tagged Outlook" to honest file-import scope; (2) defined the Readwise `source_url`→`web:<canonicalUrl>` work-id derivation so the RSS↔Readwise dedup gate is achievable, with merge/link integration cases pinned; (3) cleaned up three residual `byte-identical` references v0.2 missed (Phase 0 checklist, Risks table, DoD #2). | GPT (adversarial via Codex), Self-review (advisor) | Draft | — |
+| 0.4     | 2026-05-20 | AI     | Showcase-excellence hardening: align the dependency gate to the live `SourceRegistration` baseline; separate acquisition helpers from decode strategies; make typed graph metadata and new edge predicates explicit; fix RSS canonical precedence so RSS↔Readwise merge is actually reachable; add email thread reparenting for out-of-order imports; add chunking policy ownership, dedup-key semantics, and sharper verification gates. | Codex adversarial review, Self-review | Draft | — |
 
 ## Objective
 
 Extend AIDHA ingestion beyond the YouTube transcript proof-of-concept to eight
 fully-specified vectors — **web pages, PDFs/documents, RSS articles, voice notes,
 multi-person meetings, podcasts, Readwise highlights, and Outlook/email via file
-import (`.eml`/`.msg`; tag-triggered Graph API sync deferred to AIDHA-PLAN-008)**,
+import (`.eml` in v1; `.msg` only as a stretch; tag-triggered Graph API sync
+deferred to AIDHA-PLAN-008)**,
 plus a LinkedIn paste bridge — on a single reusable extraction spine, without
 re-implementing the pipeline per source.
 
@@ -66,9 +68,12 @@ share almost all logic and differ only by *added decode steps* (diarisation) and
 *context richness* — composition, not subclassing.
 
 A new shared package `packages/praecis/core/` owns the spine; reusable decode
-strategies live in `packages/praecis/decode/*`; each vector is a thin adapter under
-`packages/praecis/sources/*`. Vectors register through the `SourceRegistration`
-contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating dependency.
+strategies live in `packages/praecis/decode/*`; reusable acquisition helpers
+(`webfetch`, feed parsing, file-byte readers) live in `packages/praecis/acquire/*`;
+each vector is a thin adapter under `packages/praecis/sources/*`. Vectors register
+through the `SourceRegistration` contract delivered by AIDHA-PLAN-005 and present
+in the current baseline (`@aidha/config` + the YouTube source adapter). That
+contract is a baseline dependency, not work re-derived by this plan.
 
 > [!IMPORTANT]
 > AIDHA is pre-alpha with **no persisted production graphs** — only throwaway test
@@ -98,9 +103,10 @@ contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating depend
 - **Browser extension, share targets, OS share-receiver, and tab-group capture.**
   The web vector ships a CLI URL front-end in this plan; richer capture front-ends
   are deferred to a future plan (AIDHA-PLAN-008). The web ingestor is *architected*
-  for them (it accepts pre-fetched DOM text) but does not build them here.
-- **Microsoft Graph API email sync.** Email ships file-import (`.eml`/`.msg`) here;
-  tag-triggered Graph API sync is deferred to AIDHA-PLAN-008.
+  for them (it accepts a pre-fetched DOM/HTML payload) but does not build them here.
+- **Microsoft Graph API email sync.** Email ships `.eml` file-import here (`.msg`
+  only if the stretch parser is taken); tag-triggered Graph API sync is deferred to
+  AIDHA-PLAN-008.
 - **Authenticated LinkedIn fetching / scraping.** LinkedIn ships a paste bridge
   only; authenticated capture is extension-dependent and deferred.
 - **Direct-multimodal claim mining** (sending audio/image bytes straight to a
@@ -124,7 +130,8 @@ contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating depend
   - `packages/praecis/decode/transcribe` — `ITranscriber` + backends.
   - `packages/praecis/decode/diarize` — `IDiarizer` + backends.
   - `packages/praecis/decode/ocr` — scanned-document OCR fallback.
-  - `packages/praecis/decode/webfetch` — `IWebFetcher` + backends.
+  - `packages/praecis/acquire/webfetch` — `IWebFetcher` + backends.
+  - `packages/praecis/acquire/feed` — feed parsing helpers shared by RSS/podcast.
   - `packages/praecis/sources/{web,pdf,feeds,voice,meetings,readwise,email,linkedin}`.
 - **Testing:** Vitest per package (`pnpm -C <pkg> test`). No-network CI is mandatory
   (per AIDHA-PRD-002 NFR-1): every network/model/subprocess boundary is an injected
@@ -149,8 +156,9 @@ contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating depend
 6. **DocOps impacts:** each vector ships a runbook + quickstart update; `pnpm
    docs:build` and DocOps checks stay green.
 7. **pnpm workspace changes:** new leaf packages with explicit, minimal dependency
-   graphs (`core` depends on `reconditum`/`phyla`/`config`; `decode/*` depend on
-   `core`; `sources/*` depend on `core` + the `decode/*` they compose).
+   graphs (`core` depends on `reconditum`/`phyla`/`config`; `acquire/*` and
+   `decode/*` depend on `core` types; `sources/*` depend on `core` plus the
+   acquisition/decode helpers they compose).
 
 ## Terminology
 
@@ -159,7 +167,7 @@ contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating depend
 - **MediaSegment** — the atomic addressable unit produced by Decode: a `Locator`
   plus either resolved `text` or a `mediaRef`, plus optional speaker/section labels.
 - **Locator** — a discriminated union describing *where in a source* a segment lives
-  (timecode, page, dom, message, or external id).
+  (timecode, page, dom, message, text, or external id).
 - **ExtractionContext** — sidecar metadata injected into the candidate miner prompt
   to improve relevance (domain, topics of interest, related projects, show notes).
 - **Canonical ID** — the stable, content-or-identity-derived `Resource` node ID used
@@ -182,7 +190,7 @@ contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating depend
 | Excerpt addressing | `Excerpt` node `metadata` (untyped `z.record`) + `export/types.ts:5-8` (`timestampSeconds`, `timestampLabel`, `timestampUrl`) | Timestamp-native; assumes every excerpt is time-addressable. No typed locator. |
 | Provenance | `packages/reconditum/src/schema/knowledge.ts:29-43` (`Provenance`, single optional object) | One provenance per item; cannot represent "same resource seen via two vectors". |
 | Source typing | `reconditum` `SourceType` enum (`youtube, article, book, note, import, generated`) (`knowledge.ts:15-22`) | Closed enum; missing `web, pdf, voice, meeting, podcast, rss, readwise, email, linkedin`. |
-| Config / sources | `@aidha/config` `SourceRegistration` contract | **Lives in `feat/contract-drift-remediation` (AIDHA-PLAN-005 Phase 5A–5E), not yet merged to `main`.** This worktree predates it. |
+| Config / sources | `@aidha/config` `SourceRegistration` contract and YouTube registration adapter | Present in the current baseline; this plan consumes it and extends it to the new vectors. |
 
 ### The Gap
 
@@ -190,22 +198,25 @@ contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating depend
    `praecis/youtube` into `praecis/core` so other vectors do not copy it.
 2. **No typed addressing abstraction.** Timestamp-hardcoded excerpts and export
    types block page/dom/message addressing.
-3. **No acquisition abstraction.** Each vector needs an `IIngestor` it implements;
-   transcription/fetching/diarisation/OCR need injectable strategy interfaces.
+3. **No acquisition/decode abstraction.** Each vector needs an `IIngestor` it
+   implements; fetching/feed parsing need acquisition helpers, while
+   transcription/diarisation/OCR/text extraction need injectable decode strategies.
 4. **No multi-provenance / dedup-and-link.** The schema cannot model a canonical
    resource reached through several vectors.
-5. **`SourceRegistration` is not on `main`.** The contract every new vector must
-   register through is unmerged (see Dependency Gate below).
+5. **No multi-vector registration inventory.** `SourceRegistration` exists for
+   YouTube, but the new vector packages still need concrete registrations,
+   `activeSourceConfig` validators, redaction metadata, path resolution, and CLI
+   command bindings.
 
-### Dependency Gate (Resolve Before Phase 0)
+### Baseline Dependency Gate (Verify Before Phase 0)
 
-> plan-007 Phase 0 **MUST** begin from a `main` that includes the merge of
-> `feat/contract-drift-remediation` (AIDHA-PLAN-005 Phase 5A–5E). That branch
-> delivers the `SourceRegistration` contract (`youtube-source-adapter.ts`,
-> `source-schema.test.ts`, `cli-source-selection.test.ts`). plan-007 does **not**
-> re-derive or duplicate this work; it consumes it. Practically: debug and merge
-> contract-drift-remediation, recreate this worktree from updated `main`, then start
-> Phase 0. This is a hard `blockedBy`, not an "absorb".
+> plan-007 Phase 0 **MUST** start from a branch that includes AIDHA-PLAN-005's
+> `SourceRegistration` work (`packages/aidha-config/src/types.ts`,
+> `packages/praecis/youtube/src/config/youtube-source-adapter.ts`,
+> `source-schema.test.ts`, `cli-source-selection.test.ts`). The current worktree
+> already contains that contract via `feat/user configuration profiles (#15)`.
+> If another implementation branch lacks it, stop and rebase/merge before starting
+> Phase 0. plan-007 consumes the contract; it does not fork or redesign it.
 
 ---
 
@@ -219,7 +230,8 @@ contract delivered by AIDHA-PLAN-005 (Phase 5A–5E), which is the gating depend
 3. **One spine, many adapters.** `chunk → mine → edit → claim → export` is written
    once in `praecis/core`. A new vector is a thin adapter, not a new pipeline.
 4. **Provenance is additive.** Dedup merges resources but **always** appends the new
-   provenance and a corroboration edge. No provenance is ever discarded.
+   provenance and an `alsoSeenVia` edge; distinct-but-related resources use
+   `corroboratedBy`. No provenance is ever discarded.
 5. **Privacy is a first-class gate.** Every vector declares a sensitivity tier;
    confidential content can be barred from cloud LLMs by config.
 6. **Determinism end-to-end.** Every non-deterministic boundary (network, model,
@@ -265,7 +277,9 @@ Every vector is a declarative composition of four axes:
 
 1. **Acquire** (`IIngestor`) — source-specific. Retrieves raw input, computes the
    canonical Resource ID, builds the `Provenance` record, and declares the
-   sensitivity tier. Output: a `RawSource` (handles + metadata), not text.
+   sensitivity tier. Output: a `RawSource` (handles + metadata), not decoded
+   `MediaSegment`s. Acquisition may use shared helpers (`IWebFetcher`, feed parser,
+   file-byte reader), but those helpers are not pipeline stages.
 2. **Decode** (`IDecodeStrategy[]`) — turns raw input into `MediaSegment[]`. A vector
    composes an ordered chain: e.g. `[transcribe]` (voice), `[transcribe, diarize]`
    (meeting), `[text-extract]` (web), `[text-extract or ocr]` (PDF). Each strategy
@@ -298,7 +312,7 @@ Composition expresses the same relationships without the coupling:
 | Web | webfetch | `[text-extract]` | medium (page meta) |
 | PDF | file | `[text-extract] ?? [ocr]` | medium (title/abstract/DOI) |
 | RSS article | feed item | `[text-extract]` | medium (feed meta) |
-| Email | file (`.eml`/`.msg`) | `[text-extract]` (+ reply-strip) | medium (thread subject) |
+| Email | file (`.eml`; `.msg` stretch) | `[text-extract]` (+ reply-strip) | medium (thread subject) |
 | Readwise | REST API | `[passthrough]` (already segments) | medium (source meta) |
 | LinkedIn | clipboard/stdin | `[passthrough]` | thin |
 
@@ -340,6 +354,8 @@ export interface ExtractionContext {
   domainHints?: string[];
   topicsOfInterest?: string[];
   relatedProjectIds?: string[];
+  /** Hints for selecting a chunking policy without hard-coding source types. */
+  chunkingHints?: ('prose' | 'slides' | 'conversation' | 'highlight')[];
   /** Free-form source-supplied context: show notes, abstract, thread subject. */
   sourceSummary?: string;
 }
@@ -347,6 +363,8 @@ export interface ExtractionContext {
 // raw-source.ts — Acquire output (handles + metadata, not text).
 export interface RawSource {
   canonicalId: string;          // e.g. "web:https://example.com/a"
+  /** Additional deterministic identities used by the dedup resolver before insert. */
+  dedupKeys?: string[];         // e.g. RSS guid, web canonical URL, DOI, content hash
   sourceType: SourceTypeName;   // extended reconditum SourceType
   sensitivity: 'public' | 'personal' | 'confidential';
   provenance: ProvenanceInput;  // sourceUri, ingestedAt, pipelineVersion, sourceType
@@ -367,11 +385,13 @@ A common misreading — flagged for reviewers — is to treat `ITranscriber`,
 | Layer | Interfaces | Role |
 | ----- | ---------- | ---- |
 | **Pipeline (spine)** | `IIngestor`, `IChunker`, `ICandidateMiner`, `IEditor`, `IExporter` | The fixed `chunk → mine → edit → claim → export` backbone, identical for every vector. |
-| **Decode strategies** | `IDecodeStrategy` and its implementations `ITranscriber`, `IDiarizer`, `IWebFetcher`, OCR, text-extract | Injected *into a vector's decode chain*. They produce `MediaSegment[]`; they are not pipeline stages. |
+| **Acquisition helpers** | `IWebFetcher`, feed parser, file-byte reader, API clients | Used by `IIngestor.acquire()` to retrieve raw payloads and source metadata. They do not produce `MediaSegment[]`. |
+| **Decode strategies** | `IDecodeStrategy` and its implementations `ITranscriber`, `IDiarizer`, OCR, text-extract, passthrough | Injected *into a vector's decode chain*. They produce `MediaSegment[]`; they are not pipeline stages. |
 
-A voice `IIngestor` *uses* an `ITranscriber` to produce segments, then hands them to
-the shared spine. The transcriber is a strategy the ingestor composes, sitting
-*below* the pipeline, not beside it.
+A web `IIngestor` may use `IWebFetcher` to retrieve canonical HTML; `text-extract`
+then decodes that HTML into `MediaSegment[]`. A voice vector uses `ITranscriber` as
+its decode strategy. This distinction matters: fetching is provenance-bearing
+acquisition, while transcription/OCR/text extraction is modality processing.
 
 ### 3.6 Package Architecture
 
@@ -386,21 +406,25 @@ packages/praecis/
 │   ├── src/extract/              Two-pass miner + editor (from youtube/extract)
 │   ├── src/export/               Locator-aware dossier/JSON-LD exporter + deep-links
 │   └── src/compose/              composeVector(): wires the four axes + registration
+├── acquire/
+│   ├── webfetch/                 @aidha/acquire-webfetch (IWebFetcher + backends)
+│   └── feed/                     @aidha/acquire-feed     (RSS/podcast feed helpers)
 ├── decode/
 │   ├── text/                     @aidha/decode-text   (readability, pdf-to-text, email render)
 │   ├── transcribe/               @aidha/decode-transcribe (ITranscriber + backends)
 │   ├── diarize/                  @aidha/decode-diarize (IDiarizer + backends)
-│   ├── ocr/                      @aidha/decode-ocr    (Tesseract fallback)
-│   └── webfetch/                 @aidha/decode-webfetch (IWebFetcher + backends)
+│   └── ocr/                      @aidha/decode-ocr    (Tesseract fallback)
 └── sources/
     ├── youtube/  (refactored from packages/praecis/youtube)
     ├── web/   pdf/   feeds/   voice/   meetings/   readwise/   email/   linkedin/
 ```
 
-Dependency rule (enforced by package boundaries): `sources/* → decode/* → core →
-{reconditum, phyla, config}`. No `core → decode` or `core → sources` edges; no
+Dependency rule (enforced by package boundaries): `sources/* → {acquire/*,
+decode/*, core}`; `acquire/*` and `decode/*` may import `core` types/interfaces;
+`core → {reconditum, phyla, config}`; no `core → acquire/decode/sources` edges; no
 `source → source` edges. Source-specific code (email reply-stripping, web
-canonicalisation, PDF slide heuristic) lives in its `sources/*` adapter.
+canonicalisation, PDF slide heuristic) lives in its `sources/*` adapter unless it is
+genuinely reusable across sources.
 
 > **Note on the existing `packages/praecis/youtube` path.** Phase 0 refactors it to
 > implement the `core` interfaces and register via `SourceRegistration`. Whether it
@@ -424,8 +448,22 @@ regenerated fixtures* (Section 7.5).
 ### 4.1 Locator (new)
 
 Add `Locator` (Section 3.4) to `packages/reconditum/src/schema/`. `Excerpt` nodes
-gain a typed `locator: Locator` field (replacing ad-hoc timestamp keys in
-`metadata`). YouTube excerpts use `{ kind: 'timecode', startSec, endSec }`.
+gain a typed locator contract (replacing ad-hoc timestamp keys in `metadata`).
+Because `GraphNode` is currently a generic store envelope with `metadata:
+z.record(...)`, Phase 0 must add a **typed domain validation surface** rather than
+merely documenting new metadata keys:
+
+- `ResourceMetadataSchema` with `canonicalId`, `sourceType`, `provenances`,
+  `dedupKeys`, and source labels.
+- `ExcerptMetadataSchema` with `resourceId`, `locator: Locator`, `sequence`, and
+  optional `speaker`/`section`.
+- `ClaimMetadataSchema` and `ReferenceMetadataSchema` updates where export/review
+  code reads locator or provenance context.
+
+The storage envelope may remain `GraphNode` for compatibility inside
+`GraphStore`, but all upsert/export paths must validate the type-specific metadata
+schema before persisting or rendering. YouTube excerpts use `{ kind: 'timecode',
+startSec, endSec }`.
 
 ### 4.2 SourceType extension
 
@@ -452,6 +490,14 @@ export const SourceType = z.enum([
   default recommendation: array on the Resource for query simplicity, with a
   `corroboratedBy` edge between Resources when two *distinct* canonical resources
   are later judged equivalent.
+- Extend `packages/reconditum/src/schema/edge.ts` `Predicate` with the new
+  relationship semantics this plan uses:
+  - `alsoSeenVia` — same canonical Resource observed through another vector or
+    provenance context.
+  - `corroboratedBy` — distinct canonical Resources judged equivalent or strongly
+    related without being merged.
+  - `hasProvenance` — only if Phase 0 chooses provenance nodes instead of the
+    default `provenances: Provenance[]` array.
 - Dedup behaviour (Section 7.2): when a vector produces a `canonicalId` that already
   exists, **append** the new `Provenance` to the existing Resource and add an
   `alsoSeenVia` edge from the new provenance context; **never** create a duplicate
@@ -496,6 +542,12 @@ export interface IDecodeStrategy {
   decode(ctx: DecodeInput): Promise<Result<MediaSegment[]>>;
 }
 
+// IChunker — shared spine stage, selected by vector policy/context hints.
+export interface IChunker {
+  readonly name: string;                // 'token-window' | 'section' | 'conversation' | 'highlight'
+  chunk(input: ChunkInput): Promise<Result<Chunk[]>>;
+}
+
 // ITranscriber — a decode strategy specialisation (audio → timecoded segments).
 export interface ITranscriber {
   readonly backend: string;             // 'openai' | 'groq' | 'assemblyai' | 'voxtral' | 'nvidia' | 'qwen' | 'local'
@@ -508,10 +560,10 @@ export interface IDiarizer {
   diarize(audio: AudioRef, segments: TimecodedSegment[]): Promise<Result<TimecodedSegment[]>>;
 }
 
-// IWebFetcher — URL → cleaned DOM text (or accepts pre-fetched DOM for future extension).
+// IWebFetcher — acquisition helper, not a decode strategy.
 export interface IWebFetcher {
   readonly backend: string;             // 'readability' | 'playwright'
-  fetch(input: WebFetchInput): Promise<Result<{ url: string; canonicalUrl: string; title: string; text: string }>>;
+  fetch(input: WebFetchInput): Promise<Result<{ url: string; canonicalUrl: string; title: string; html: string }>>;
 }
 
 // IContextProvider — Contextualize axis.
@@ -528,6 +580,7 @@ export interface VectorSpec {
   ingestor: IIngestor;
   decode: IDecodeStrategy[];            // ordered chain
   context: IContextProvider;
+  chunking: IChunker | 'token-window' | 'section' | 'conversation' | 'highlight';
   registration: SourceRegistration;     // from @aidha/config (AIDHA-PLAN-005)
 }
 
@@ -539,6 +592,7 @@ export interface ComposedVector {
   /** Frozen, validated decode chain. */
   readonly decode: readonly IDecodeStrategy[];
   readonly context: IContextProvider;
+  readonly chunking: IChunker;
   readonly registration: SourceRegistration;
   /** Convenience: resolve raw input → MediaSegment[] by running ingestor + decode chain. */
   ingestAndDecode(input: IngestInput): Promise<Result<{ raw: RawSource; segments: MediaSegment[] }>>;
@@ -548,7 +602,9 @@ export interface ComposedVector {
 The shared pipeline (`core/src/pipeline/`) consumes a `ComposedVector` and runs:
 `acquire → decode(chain) → contextualize → chunk → mine → edit → persist claims →
 export`, with idempotency keyed on `canonicalId` and caching keyed on content hashes
-(Section 7.5).
+(Section 7.5). `chunking` is explicit because several vectors need different
+policies (Readwise highlights should not be re-windowed; slide PDFs need section-ish
+chunks; meetings need conversation-aware speaker turns).
 
 ---
 
@@ -565,8 +621,8 @@ mitigations, and its test inventory. Order follows the execution phases (Section
   honouring `<link rel="canonical">`.
 - **Locator:** `dom`. **Sensitivity:** `personal`.
 - **Acquire:** CLI `--url`; `IWebFetcher` (readability default; Playwright backend
-  for JS-heavy pages, opt-in via config). Architected to also accept *pre-fetched*
-  DOM text (future extension passes the body directly — same code path).
+  for JS-heavy pages, opt-in via config). Architected to also accept a *pre-fetched*
+  DOM/HTML payload (future extension passes the body directly — same decode path).
 - **Decode:** `[text-extract]` (readability → main-content text + char offsets).
 - **Context:** medium (page title, meta description, site name).
 - **Gotchas → mitigations:**
@@ -605,18 +661,23 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 
 ### 6.3 RSS Articles (`rss`) — Phase 1
 
-- **Canonical ID:** `rss:<item-guid>` (fallback `web:<canonicalUrl>` if guid
-  absent, enabling dedup with the web vector). **Locator:** `dom`.
-  **Sensitivity:** `public`.
+- **Canonical ID:** `web:<canonicalUrl>` whenever the feed item has an article URL
+  whose canonical URL can be resolved; otherwise `rss:<feedUrl>#<item-guid>` (or a
+  stable hash of feed URL + title + published date when no guid exists). The feed
+  guid is retained as a `dedupKey`/provenance external ID, not preferred over the
+  article work identity. This is the only way RSS can reliably merge with the web
+  and Readwise vectors. **Locator:** `dom`. **Sensitivity:** `public`.
 - **Acquire:** CLI `--feed <url>` (and `--item <guid>`); parse feed, select items;
   fetch full article body via `IWebFetcher` when the feed carries only summaries.
 - **Decode:** `[text-extract]` (reuses web text-extract).
 - **Context:** medium (feed title, item categories).
 - **Gotchas → mitigations:**
   - *Summary-only feeds* → fetch full text via webfetch (shared with web vector).
-  - *Re-published items (changed guid, same content)* → secondary content-hash check
-    feeds dedup-and-link (Section 7.2).
-  - *Feed already covered by web* → shared `web:` canonical fallback dedups.
+  - *Re-published items (changed guid, same canonical URL)* → same `web:` canonical
+    ID merges; the changed guid remains an added dedup/provenance key.
+  - *Feed already covered by web/Readwise* → shared `web:` canonical ID dedups.
+  - *No article URL / bad canonical URL* → fall back to namespaced RSS identity and
+    use content hash only as a corroboration signal, not an automatic merge key.
 - **Tests:** `sources/feeds/tests/rss-parse.test.ts`, `rss-item-id.test.ts`,
   `rss-fulltext-fetch.test.ts` (mocked), `rss-pipeline.test.ts`.
 
@@ -689,7 +750,7 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 - **Canonical ID:** the parent Resource's identity belongs to the **underlying
   work**, not the arrival vector: when the Readwise export item carries a
   `source_url`, the parent canonical ID is `web:<canonicalUrl>` derived by the
-  **same web canonicaliser used by the `web`/`rss` vectors** (Section 6.1); when no
+  **same web canonicaliser used by the `web`/`rss` vectors** (Sections 6.1 and 6.3); when no
   `source_url` is present (manual highlights, some tweets), it falls back to
   `readwise:book:<bookId>`. Deriving `web:<canonicalUrl>` is what lets the same
   article seen via RSS and via Readwise dedup-and-link to one Resource (Section 7.2).
@@ -701,7 +762,9 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 - **Acquire:** Readwise REST API (`/export` with `updated_after` for incremental
   sync); token via `${READWISE_TOKEN}` config interpolation. The parent "book"
   (article/book/podcast/tweet source) becomes a Resource; each highlight becomes a
-  pre-segmented `MediaSegment`.
+  pre-segmented `MediaSegment`. Each parent also carries `readwise:book:<bookId>`
+  as a `dedupKey` so Readwise re-runs remain stable even when the underlying
+  canonical work is a `web:` Resource.
 - **Decode:** `[passthrough]` — highlights are already curated text spans; no
   chunking needed (each highlight is its own excerpt). They still flow through
   mine → edit → claim, but mining treats each highlight as a high-priority candidate
@@ -723,9 +786,13 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 - **Canonical ID:** `email:thread:<rootMessageId>` — the **thread** is the Resource
   unit; each message is an excerpt with a `message` locator carrying its own
   `messageId`. `rootMessageId` is derived deterministically: the first entry of the
-  `References` header, else `In-Reply-To`, else the message's own `Message-ID`. This
-  makes single-message imports stable and lets later messages of the same thread
-  dedup-and-link onto the existing Resource (Section 7.2) regardless of import order.
+  `References` header, else `In-Reply-To`, else the message's own `Message-ID`.
+  Because `In-Reply-To` may point to an immediate parent rather than the true root,
+  Phase 3 must implement `ThreadIdentityResolver`: if a later import reveals an
+  earlier root, it reparents/aliases the provisional `email:thread:<inReplyTo>`
+  Resource to `email:thread:<trueRootMessageId>` and moves/merges excerpts and
+  provenances atomically. Without that reparenting test, the plan must not claim
+  import-order-independent email deduplication.
   **Locator:** `message` (`messageId` per excerpt). **Sensitivity:** `confidential`.
 - **Acquire:** CLI `--file` (and a folder of them). Parse headers
   (from/to/subject/date/Message-ID/References) to reconstruct the thread.
@@ -750,8 +817,9 @@ mitigations, and its test inventory. Order follows the execution phases (Section
   - *Confidential to cloud* → sensitivity gate (Section 7.1).
 - **Tests:** `sources/email/tests/parse-eml.test.ts`,
   `reply-strip.test.ts` (multi-reply fixture), `thread-reconstruction.test.ts`,
-  `email-pipeline.test.ts`, `sensitivity-gate.test.ts`; `parse-msg.test.ts` only if
-  the `.msg` stretch is taken.
+  `thread-reparenting.test.ts` (leaf imported before root), `email-pipeline.test.ts`,
+  `sensitivity-gate.test.ts`; `parse-msg.test.ts` only if the `.msg` stretch is
+  taken.
 
 ### 6.9 LinkedIn — paste bridge (`linkedin`) — Phase 4
 
@@ -802,14 +870,20 @@ vector (`sensitivity-gate.test.ts`).
 ### 7.2 Canonicalization & Dedup-and-Link
 
 - **Stable IDs** per vector (Section 6) make idempotency deterministic.
-- **Dedup-and-link:** when an incoming `canonicalId` matches an existing Resource,
-  AIDHA appends the new `Provenance` and adds an `alsoSeenVia` edge — it does **not**
-  create a duplicate and does **not** discard the arrival. The same article via RSS
-  *and* Readwise becomes one Resource with two provenances **because both derive the
-  same `web:<canonicalUrl>`** — RSS via its `web:` fallback (Section 6.3) and Readwise
-  via its `source_url`→`web:` derivation (Section 6.7). When no shared `web:` id is
-  derivable (e.g. a Readwise highlight with no `source_url`), the two stay distinct
-  Resources linked by `corroboratedBy` rather than merging.
+- **Dedup keys:** every `RawSource` may carry `dedupKeys` in addition to its primary
+  `canonicalId`. Keys are namespaced (`web:`, `rss:`, `readwise:book:`, `doi:`,
+  `content-sha256:`) and ranked by confidence. Strong identity keys (`web:`, `doi:`,
+  exact email thread root) may merge. Weak keys (`content-sha256:` for short text,
+  title/date) may only create `corroboratedBy` links unless a vector-specific test
+  proves safe merging.
+- **Dedup-and-link:** when an incoming `canonicalId` or strong `dedupKey` matches an
+  existing Resource, AIDHA appends the new `Provenance` and adds an `alsoSeenVia`
+  edge — it does **not** create a duplicate and does **not** discard the arrival. The
+  same article via RSS *and* Readwise becomes one Resource with two provenances
+  **because both derive the same `web:<canonicalUrl>`** — RSS from the article URL
+  (Section 6.3) and Readwise from `source_url` (Section 6.7). When no shared strong
+  identity is derivable (e.g. a Readwise highlight with no `source_url`), the two
+  stay distinct Resources linked by `corroboratedBy` rather than merging.
 - **Cross-canonical corroboration:** when two *distinct* canonical Resources are
   later judged to represent the same work (e.g. a PDF and its Readwise highlights),
   a `corroboratedBy` edge links them; their excerpts/claims remain queryable
@@ -877,10 +951,11 @@ vector can transcribe without diarising (voice note) or add diarisation (meeting
 Each phase produces working, tested, documented software. Phases gate on green
 tests + DocOps. TDD throughout: contract test first, mock at IO boundaries.
 
-### Phase 0 — Foundation (gated on contract-drift merge; no new vectors)
+### Phase 0 — Foundation (gated on SourceRegistration baseline; no new vectors)
 
-**Precondition:** `feat/contract-drift-remediation` merged to `main`; worktree
-recreated from updated `main` (Dependency Gate, Section 1).
+**Precondition:** implementation branch includes AIDHA-PLAN-005's
+`SourceRegistration` contract and YouTube registration adapter (Baseline Dependency
+Gate, Section 1).
 
 - [ ] Record an ADR (`docs/20-adr/adr-009-multi-vector-ingestion-architecture.md`)
       capturing the four-axis composition model, the source-vs-modality split, and
@@ -891,10 +966,16 @@ recreated from updated `main` (Dependency Gate, Section 1).
 - [ ] Create `packages/praecis/core` skeleton (package.json, tsconfig, vitest).
 - [ ] Add core types (`Locator`, `MediaSegment`, `ExtractionContext`, `RawSource`)
       with failing schema tests, then implementations.
-- [ ] Add `reconditum` schema changes (Locator field on Excerpt; SourceType
-      extension; multi-provenance) with contract tests; regenerate YouTube fixtures.
+- [ ] Add `reconditum` schema changes with contract tests: Locator-aware
+      type-specific metadata validators, SourceType extension, multi-provenance,
+      `dedupKeys`, and new predicates (`alsoSeenVia`, `corroboratedBy`, plus
+      `hasProvenance` only if provenance nodes are chosen); regenerate YouTube
+      fixtures.
 - [ ] Add interfaces (`IIngestor`, `IChunker`, `ICandidateMiner`, `IEditor`,
       `IExporter`, `IDecodeStrategy`, `IContextProvider`) and `composeVector`.
+- [ ] Implement the `DedupResolver` contract: strong identity merge vs weak
+      corroboration link, with tests for RSS↔web, RSS↔Readwise, PDF↔Readwise, and
+      email provisional-thread reparenting.
 - [ ] Extract pipeline + chunk + extract + export from `praecis/youtube` into
       `core`; make them Locator-aware (deep-link renderers per kind).
 - [ ] Refactor `praecis/youtube` to implement the interfaces, compose via
@@ -914,7 +995,7 @@ shape); `aidha config explain` works for the `youtube` registration.
 ### Phase 1 — Text, no auth: Web + PDF + RSS
 
 - [ ] `decode/text` (readability extract; pdf-to-text; shared char-offset model).
-- [ ] `decode/webfetch` (`IWebFetcher`: readability default, Playwright opt-in).
+- [ ] `acquire/webfetch` (`IWebFetcher`: HTTP/readability default, Playwright opt-in).
 - [ ] `decode/ocr` (Tesseract fallback; mockable).
 - [ ] `sources/web` — acquire (canonicalise URL), compose `[text-extract]`,
       register, CLI `aidha ingest web --url`.
@@ -922,7 +1003,7 @@ shape); `aidha config explain` works for the `youtube` registration.
       slide-vs-paper heuristic, CLI `aidha ingest pdf --file`.
 - [ ] `sources/feeds` (rss part) — parse feed, full-text fetch, compose
       `[text-extract]`, CLI `aidha ingest rss --feed`.
-- [ ] Dedup-and-link wired (web ↔ rss shared `web:` fallback).
+- [ ] Dedup-and-link wired (web ↔ rss shared `web:` work identity).
 
 **Acceptance:** each vector ingests a fixture → claims with correct Locators;
 deep-links render per kind; dedup-and-link test passes; runbooks added; no-network
@@ -955,8 +1036,9 @@ model; cost ceiling honoured; runbooks added.
       sensitivity gate. (`.msg` via `@kenjiuno/msgreader` is a stretch — Section 6.8.)
 
 **Acceptance:** Readwise incremental re-run is idempotent and links cross-vector
-overlaps; multi-reply email fixture produces de-duplicated excerpts; attachments
-recorded as References, not auto-ingested; runbooks added.
+overlaps; out-of-order email thread imports reparent/merge correctly; multi-reply
+email fixture produces de-duplicated excerpts; attachments recorded as References,
+not auto-ingested; runbooks added.
 
 ### Phase 4 — LinkedIn paste bridge
 
@@ -980,12 +1062,12 @@ Out of scope here; seams are in place.
 
 | Package | Key tests |
 | ------- | --------- |
-| `praecis/core` | `locator.test.ts`, `media-segment.test.ts`, `compose-vector.test.ts`, `pipeline.test.ts`, `export-deeplink.test.ts` (all six locator kinds), `dedup-link.test.ts`, `sensitivity-gate.test.ts`, `determinism.test.ts` |
-| `reconditum` | schema contract tests: Locator on Excerpt, extended SourceType, multi-provenance array/edges |
+| `praecis/core` | `locator.test.ts`, `media-segment.test.ts`, `compose-vector.test.ts`, `chunking-policy.test.ts`, `pipeline.test.ts`, `export-deeplink.test.ts` (all six locator kinds), `dedup-link.test.ts`, `dedup-weak-key.test.ts`, `sensitivity-gate.test.ts`, `determinism.test.ts` |
+| `reconditum` | schema contract tests: type-specific metadata validation for Resource/Excerpt/Claim/Reference, extended SourceType, multi-provenance array/edges, `alsoSeenVia`/`corroboratedBy` predicates |
 | `decode/text` | readability extract, pdf text + offsets, email render |
 | `decode/transcribe` | per-backend mocked clients; VAD trim; chunk-stitch timecodes |
 | `decode/diarize` | per-backend mocked; speaker annotation; `none` passthrough |
-| `decode/webfetch` | readability vs playwright selection; canonical URL; mocked HTTP |
+| `acquire/webfetch` | readability vs playwright selection; canonical URL; mocked HTTP |
 | `decode/ocr` | fallback trigger; mocked OCR; graceful failure |
 | `sources/*` | per-vector: id rule, pipeline (fixture → claims), gotcha-specific tests (Section 6) |
 
@@ -996,10 +1078,14 @@ Out of scope here; seams are in place.
 - Cross-vector dedup-and-link integration test, two cases:
   - **Merge:** an RSS item and a Readwise export item whose `source_url` canonicalises
     to the *same* `web:<canonicalUrl>` → **one Resource, two provenances** (asserts the
-    Section 6.7 `source_url`→`web:` derivation lands on the RSS `web:` fallback). The
-    fixture must use a Readwise item that *carries* `source_url`.
+    Section 6.7 `source_url`→`web:` derivation lands on the RSS `web:` identity). The
+    fixture must use a Readwise item that *carries* `source_url`, and the RSS item
+    must have a guid to prove guid does not wrongly outrank the work identity.
   - **Link, not merge:** a Readwise item with no `source_url` → **two Resources joined
     by `corroboratedBy`**, never silently merged.
+  - **Email reparent:** import a reply without `References`, then import the true
+    root; the provisional thread Resource is aliased/merged into the root thread
+    without duplicate excerpts or lost provenance.
 
 ### Determinism gate
 
@@ -1024,6 +1110,7 @@ pnpm -C packages/praecis/core test
 pnpm -C packages/praecis/decode/text test       # …and each decode/* package
 pnpm -C packages/praecis/sources/web test        # …and each sources/* package
 pnpm -C packages/reconditum test
+node scripts/meminit-check.mjs docs/05-planning/plan-007-other-ingestion-vectors.md
 pnpm docs:build
 ```
 
@@ -1047,9 +1134,10 @@ pnpm docs:build
 
 ## 11. Adversarial Review Resilience
 
-This section pre-empts the issues GPT and Gemini are most likely to raise. **DoD
-target: ≤5 substantive issues per reviewer**, where *substantive* = anything needing
-more than a one-line clarification.
+This section pre-empts the issues GPT and Gemini are most likely to raise. The
+review gate is not an issue-count target; it is **zero unresolved blockers** plus a
+triage note for every substantive finding (fixed now, deferred with owner/date, or
+rejected with evidence).
 
 | Anticipated concern | Pre-emptive answer |
 | ------------------- | ------------------ |
@@ -1057,14 +1145,18 @@ more than a one-line clarification.
 | "Excerpt addressing is timestamp-hardcoded; this needs migration." | Locator union (Section 4.1) replaces it; **no migration** — pre-alpha, no persisted graphs (Section 4 preamble). |
 | "Sending private email/meetings to OpenAI is unsafe." | Per-vector sensitivity tier + `require_local_llm` gate enforced in core before any miner call (Section 7.1). |
 | "Same article via two vectors → duplicate resources." | Dedup-and-link (Section 7.2): merge into canonical, append provenance, add `alsoSeenVia`; never duplicate, never discard. |
+| "RSS guid prevents RSS↔Readwise merge." | RSS uses `web:<canonicalUrl>` when an article URL exists; guid is a dedup/provenance key, not the primary work ID (Section 6.3). |
+| "`alsoSeenVia`/`corroboratedBy` do not exist in `Predicate`." | Phase 0 explicitly extends `reconditum` edge predicates and tests them before vector work starts (Section 4.3). |
+| "`Locator` is just another untyped metadata record." | Phase 0 adds type-specific metadata validators for Resource/Excerpt/Claim/Reference upsert/export paths (Section 4.1). |
 | "Scanned PDFs have no text layer." | OCR fallback per page (Section 6.2); graceful failure + warning when OCR unavailable. |
 | "Quoted replies will duplicate email excerpts 5×." | Reply-strip preprocessor (Section 6.8), tested against multi-reply fixtures. |
+| "Email import order still creates duplicate threads." | `ThreadIdentityResolver` reparents provisional thread IDs when a true root later appears; covered by `thread-reparenting.test.ts` (Section 6.8). |
 | "Which diarisation backend, and how do speakers persist?" | `IDiarizer` backends enumerated (7.7); cross-session speaker identity is an explicit Open Question (Q4), not silently assumed. |
 | "LinkedIn can't be fetched unauthenticated." | Acknowledged as a constraint; paste bridge only; extension deferred (Section 6.9, Non-Goals). |
 | "Readwise re-sync will duplicate / miss edits." | `updated_after` cursor + idempotency on `highlightId` (Section 6.7). |
 | "Cost of transcribing long podcasts is unbounded." | Cost ceilings + pre-run estimate + caching (Section 7.3). |
 | "Determinism claims are untested across vectors." | Determinism gate + caching keyed on content hashes (Sections 7.5, 9). |
-| "`SourceRegistration` isn't on main yet." | Hard Dependency Gate (Section 1); Phase 0 blocked until merged. |
+| "`SourceRegistration` isn't available." | Baseline Dependency Gate (Section 1); current worktree has it, and any implementation branch that lacks it must rebase/merge before Phase 0. |
 | "Eight vectors is over-scoped." | Phased with gates; Tier-2/3 explicitly roadmap-only (Appendix A); `mediaRef`/extension are seams, not built. |
 
 ---
@@ -1073,13 +1165,14 @@ more than a one-line clarification.
 
 | Risk | Mitigation |
 | ---- | ---------- |
-| contract-drift merge slips → Phase 0 blocked | Treat the merge as the top sequencing priority; Phase 0 has no other prerequisites. |
+| implementation branch lacks PLAN-005 `SourceRegistration` baseline → Phase 0 blocked | Rebase/merge the current baseline first; do not fork the config contract in this plan. |
 | Pipeline extraction from `youtube` breaks behaviour | Semantic-equivalence regression gate on regenerated fixtures (Phase 0 acceptance): same claims/provenance/deep-link targets, byte-stable across re-runs. |
 | Transcription quality/cost varies by backend | Pluggable backends + fixtures; default cloud, opt-in local; cost ceilings. |
 | Diarisation accuracy on noisy meetings | Backend choice + documented best-effort; per-recording labels only in v1. |
 | Web/LinkedIn anti-bot fragility | Web defaults to readability; LinkedIn is paste-only; no scraping committed. |
 | Scope creep into extension/Graph API | Hard Non-Goals; deferred to PLAN-008. |
 | Decode chain abstraction over-engineered | Plain composed functions + registration record; reviewed against "no DI container" principle (§2.8). |
+| Weak dedup keys merge unrelated Resources | Dedup keys are ranked; weak keys create `corroboratedBy` unless vector-specific tests prove safe merge (Section 7.2). |
 
 ---
 
@@ -1113,15 +1206,17 @@ more than a one-line clarification.
    `pnpm docs:build` and DocOps checks green.
 4. No-network CI green across all new packages; determinism gate passes.
 5. Dedup-and-link, sensitivity gating, and cost ceilings are tested.
-6. Adversarial review (GPT + Gemini) raises **≤5 substantive issues each**, with the
-   Adversarial Review Resilience section (Section 11) pre-empting the known hit-list.
+6. Adversarial review (GPT + Gemini) has **zero unresolved blockers**; every
+   substantive finding is fixed, explicitly deferred with owner/date, or rejected
+   with evidence.
 
 ---
 
 ## Dependencies
 
-- **AIDHA-PLAN-005 Phase 5A–5E** (`SourceRegistration` contract) — hard `blockedBy`,
-  delivered via `feat/contract-drift-remediation` (Dependency Gate, Section 1).
+- **AIDHA-PLAN-005 Phase 5A–5E** (`SourceRegistration` contract) — baseline
+  prerequisite, present in the current worktree; verify before Phase 0 on any new
+  branch (Baseline Dependency Gate, Section 1).
 - **AIDHA-PRD-001** (Graph Database) — node/edge contracts, JSON-LD export, multi-provenance.
 - **AIDHA-PRD-002** (Ingest to Graph) — pipeline, idempotency, no-network CI.
   **To be revised under this plan:** PRD-002 is YouTube-centric; it must be updated
