@@ -60,7 +60,7 @@ profiles:
       profileName: 'local',
       logSink,
       configPath,
-      dotenvFileCount: 0,
+      dotenvVarCount: 0,
       warningCount: 0,
       cliOverrides: { db: 'cli.db' }
     });
@@ -70,7 +70,7 @@ profiles:
       configPath,
       profile: 'local',
       sourceId: undefined,
-      dotenvFileCount: 0,
+      dotenvVarCount: 0,
       warningCount: 0,
       cliOverrideKeys: ['db'],
     });

@@ -181,7 +181,7 @@ function materializeProfileSourceOverridesForDiff(
   profileName: string,
 ): Record<string, unknown> | undefined {
   const rawProfile = loadResult.config?.profiles?.[profileName];
-  const rawSourceOverrides = (rawProfile as Record<string, any> | undefined)?.['source_overrides'];
+  const rawSourceOverrides = (rawProfile as Record<string, unknown> | undefined)?.['source_overrides'];
 
   if (!rawSourceOverrides || typeof rawSourceOverrides !== 'object' || Array.isArray(rawSourceOverrides)) {
     return undefined;

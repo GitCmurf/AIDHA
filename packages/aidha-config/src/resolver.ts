@@ -444,7 +444,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
       const sourceProfileLegacySourceFieldsRaw = extractLegacyProfileSourceFields(
         sourceProfileRaw,
         legacySourceKeys,
-      );      if (Object.keys(sourceProfileLegacySourceFieldsRaw).length > 0) {
+      );
+      if (Object.keys(sourceProfileLegacySourceFieldsRaw).length > 0) {
         activeSourceConfig = deepMerge(
           activeSourceConfig ?? {},
           interpolateDeep(sourceProfileLegacySourceFieldsRaw, env, { rootPath: 'profiles.*' }),
@@ -595,7 +596,8 @@ export function resolveConfig(options: ResolveOptions = {}): ResolvedConfig {
     if (profExt && Object.keys(profExt).length > 0) {
       extensions.profile = { ...profExt };
     }
-  }  if (cliOverrides?.extensions && Object.keys(cliOverrides.extensions).length > 0) {
+  }
+  if (cliOverrides?.extensions && Object.keys(cliOverrides.extensions).length > 0) {
     extensions.profile = {
       ...(extensions.profile ?? {}),
       ...cliOverrides.extensions,
