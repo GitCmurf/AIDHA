@@ -358,7 +358,7 @@ export async function runConfig(
       if (!ensureNoSource(options, 'set')) return 2;
       return runConfigSet(positionals, options, loadResult);
     case 'diff':
-      return runConfigDiff(positionals, options, loadResult);
+      return runConfigDiff(positionals, options, loadResult, error);
     default:
       console.error(`Unknown config subcommand: ${subcommand}`);
       console.error('Available: path, validate, list-profiles, show, get, explain, init, set, diff');
@@ -854,8 +854,11 @@ async function runConfigSet(
 async function runConfigDiff(
   positionals: string[],
   options: CliOptions,
-  loadResult: LoadResult
+  loadResult: LoadResult,
+  error?: Error,
 ): Promise<number> {
+  if (error) return printConfigLoadError(error);
+
   const profileA = positionals[1];
   const profileB = positionals[2];
 
