@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.2"
+version: "0.3"
 last_updated: 2026-05-20
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-05-20
 > **Type:** PLAN
 
@@ -29,12 +29,14 @@ docops_version: "2.0"
 | ------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------ | --------- | ------ | --------- |
 | 0.1     | 2026-05-20 | AI     | Initial plan: four-axis composition architecture, eight fully-specified vectors, phased execution.      | —         | Draft  | —         |
 | 0.2     | 2026-05-20 | AI     | Pre-review hardening: resolve byte-identical contradiction (semantic-equivalence gate), define `ComposedVector`, scope determinism to cache/mocks, split `.eml`/`.msg`, add `text` Locator kind, per-Resource sensitivity routing, Zotero/screenshot roadmap, PRD-002 revision task. | Self-review (advisor) | Draft | — |
+| 0.3     | 2026-05-20 | AI     | Codex adversarial-review fixes: (1) email Resource identity moved to thread level (`email:thread:<rootMessageId>` with a spelled-out derivation; messages are excerpts) and Objective de-advertised "tagged Outlook" to honest file-import scope; (2) defined the Readwise `source_url`→`web:<canonicalUrl>` work-id derivation so the RSS↔Readwise dedup gate is achievable, with merge/link integration cases pinned; (3) cleaned up three residual `byte-identical` references v0.2 missed (Phase 0 checklist, Risks table, DoD #2). | GPT (adversarial via Codex), Self-review (advisor) | Draft | — |
 
 ## Objective
 
 Extend AIDHA ingestion beyond the YouTube transcript proof-of-concept to eight
 fully-specified vectors — **web pages, PDFs/documents, RSS articles, voice notes,
-multi-person meetings, podcasts, Readwise highlights, and tagged Outlook email**,
+multi-person meetings, podcasts, Readwise highlights, and Outlook/email via file
+import (`.eml`/`.msg`; tag-triggered Graph API sync deferred to AIDHA-PLAN-008)**,
 plus a LinkedIn paste bridge — on a single reusable extraction spine, without
 re-implementing the pipeline per source.
 
@@ -684,9 +686,18 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 
 ### 6.7 Readwise (`readwise`) — Phase 3
 
-- **Canonical ID:** `readwise:<highlightId>` for highlights;
-  `readwise:book:<bookId>` for the parent Resource. **Locator:** `external`
-  (`system: 'readwise'`). **Sensitivity:** `personal`.
+- **Canonical ID:** the parent Resource's identity belongs to the **underlying
+  work**, not the arrival vector: when the Readwise export item carries a
+  `source_url`, the parent canonical ID is `web:<canonicalUrl>` derived by the
+  **same web canonicaliser used by the `web`/`rss` vectors** (Section 6.1); when no
+  `source_url` is present (manual highlights, some tweets), it falls back to
+  `readwise:book:<bookId>`. Deriving `web:<canonicalUrl>` is what lets the same
+  article seen via RSS and via Readwise dedup-and-link to one Resource (Section 7.2).
+  Highlights are addressed by `external` locators (`system: 'readwise'`,
+  `externalId: <highlightId>`); re-runs stay idempotent on `<highlightId>`.
+  (This parent-ID scheme deliberately differs from its siblings — Readwise is a
+  re-publication layer over works that have their own identity.) **Locator:**
+  `external` (`system: 'readwise'`). **Sensitivity:** `personal`.
 - **Acquire:** Readwise REST API (`/export` with `updated_after` for incremental
   sync); token via `${READWISE_TOKEN}` config interpolation. The parent "book"
   (article/book/podcast/tweet source) becomes a Resource; each highlight becomes a
@@ -709,9 +720,13 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 
 ### 6.8 Email — file import (`email`) — Phase 3
 
-- **Canonical ID:** `email:<messageId>` per message; the **thread** is the Resource
-  unit, messages are its excerpts. **Locator:** `message`.
-  **Sensitivity:** `confidential`.
+- **Canonical ID:** `email:thread:<rootMessageId>` — the **thread** is the Resource
+  unit; each message is an excerpt with a `message` locator carrying its own
+  `messageId`. `rootMessageId` is derived deterministically: the first entry of the
+  `References` header, else `In-Reply-To`, else the message's own `Message-ID`. This
+  makes single-message imports stable and lets later messages of the same thread
+  dedup-and-link onto the existing Resource (Section 7.2) regardless of import order.
+  **Locator:** `message` (`messageId` per excerpt). **Sensitivity:** `confidential`.
 - **Acquire:** CLI `--file` (and a folder of them). Parse headers
   (from/to/subject/date/Message-ID/References) to reconstruct the thread.
   **`.eml` (MIME text) is the v1 target**, parsed with `mailparser`. **`.msg`** is
@@ -790,7 +805,11 @@ vector (`sensitivity-gate.test.ts`).
 - **Dedup-and-link:** when an incoming `canonicalId` matches an existing Resource,
   AIDHA appends the new `Provenance` and adds an `alsoSeenVia` edge — it does **not**
   create a duplicate and does **not** discard the arrival. The same article via RSS
-  *and* Readwise becomes one Resource with two provenances.
+  *and* Readwise becomes one Resource with two provenances **because both derive the
+  same `web:<canonicalUrl>`** — RSS via its `web:` fallback (Section 6.3) and Readwise
+  via its `source_url`→`web:` derivation (Section 6.7). When no shared `web:` id is
+  derivable (e.g. a Readwise highlight with no `source_url`), the two stay distinct
+  Resources linked by `corroboratedBy` rather than merging.
 - **Cross-canonical corroboration:** when two *distinct* canonical Resources are
   later judged to represent the same work (e.g. a PDF and its Readwise highlights),
   a `corroboratedBy` edge links them; their excerpts/claims remain queryable
@@ -881,7 +900,10 @@ recreated from updated `main` (Dependency Gate, Section 1).
 - [ ] Refactor `praecis/youtube` to implement the interfaces, compose via
       `composeVector`, and register via `SourceRegistration`.
 - [ ] Verify: all existing YouTube tests pass; dossier/JSON-LD exports are
-      byte-identical to pre-refactor fixtures (regression gate).
+      **semantically equivalent** to pre-refactor output — same claims, provenance,
+      and deep-link targets — and **byte-stable across re-runs on the regenerated
+      fixtures** (regression gate; not byte-identical to pre-refactor output, since
+      the new `locator` field changes the export shape — Section 4 preamble).
 
 **Acceptance:** `pnpm -C packages/praecis/core test` and
 `pnpm -C packages/praecis/youtube test` green; YouTube export **semantically
@@ -971,7 +993,13 @@ Out of scope here; seams are in place.
 
 - `aidha ingest <vector> …` for each vector against fixtures (no network).
 - `aidha config explain sources.<id>.…` for each registration.
-- Cross-vector dedup-and-link integration test (RSS + Readwise → one Resource).
+- Cross-vector dedup-and-link integration test, two cases:
+  - **Merge:** an RSS item and a Readwise export item whose `source_url` canonicalises
+    to the *same* `web:<canonicalUrl>` → **one Resource, two provenances** (asserts the
+    Section 6.7 `source_url`→`web:` derivation lands on the RSS `web:` fallback). The
+    fixture must use a Readwise item that *carries* `source_url`.
+  - **Link, not merge:** a Readwise item with no `source_url` → **two Resources joined
+    by `corroboratedBy`**, never silently merged.
 
 ### Determinism gate
 
@@ -1046,7 +1074,7 @@ more than a one-line clarification.
 | Risk | Mitigation |
 | ---- | ---------- |
 | contract-drift merge slips → Phase 0 blocked | Treat the merge as the top sequencing priority; Phase 0 has no other prerequisites. |
-| Pipeline extraction from `youtube` breaks behaviour | Byte-identical export regression gate (Phase 0 acceptance). |
+| Pipeline extraction from `youtube` breaks behaviour | Semantic-equivalence regression gate on regenerated fixtures (Phase 0 acceptance): same claims/provenance/deep-link targets, byte-stable across re-runs. |
 | Transcription quality/cost varies by backend | Pluggable backends + fixtures; default cloud, opt-in local; cost ceilings. |
 | Diarisation accuracy on noisy meetings | Backend choice + documented best-effort; per-recording labels only in v1. |
 | Web/LinkedIn anti-bot fragility | Web defaults to readability; LinkedIn is paste-only; no scraping committed. |
@@ -1077,8 +1105,10 @@ more than a one-line clarification.
 
 1. All eight vectors (+ LinkedIn paste bridge) ingest fixtures end-to-end to
    reviewed-ready draft claims with correct Locators and deep-links.
-2. `praecis/youtube` refactored onto `core`; YouTube exports byte-identical to
-   pre-refactor fixtures.
+2. `praecis/youtube` refactored onto `core`; YouTube exports **semantically
+   equivalent** to pre-refactor output (same claims/provenance/deep-link targets)
+   and byte-stable across re-runs on the regenerated fixtures — not byte-identical
+   to pre-refactor output, since the new `locator` field changes the export shape.
 3. Every vector ships **code + tests + DocOps** (runbook + quickstart) in lockstep;
    `pnpm docs:build` and DocOps checks green.
 4. No-network CI green across all new packages; determinism gate passes.
