@@ -57,7 +57,7 @@ describe('CLI Config Init (Phase 2A)', () => {
     expect(parsed.profiles.local.llm.model).toBe('gpt-4o');
     expect(parsed.profiles.local.source_overrides).toBeUndefined();
     expect(content).toContain('source_overrides:');
-    expect(content).toContain('cookie: ${YOUTUBE_COOKIE}');
+    expect(content).toContain('cookie: ${YOUTUBE_COOKIE:-}');
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Initialized config'));
   });
 
@@ -149,7 +149,7 @@ describe('CLI Config Init (Phase 2A)', () => {
     expect(parsed.profiles).toBeDefined();
     expect(parsed.profiles.local.source_overrides.youtube).toBeDefined();
     expect(parsed.profiles.local.source_overrides.youtube.youtube).toBeDefined();
-    expect(parsed.profiles.local.source_overrides.youtube.youtube.cookie).toContain('${YOUTUBE_COOKIE}');
+    expect(parsed.profiles.local.source_overrides.youtube.youtube.cookie).toContain('${YOUTUBE_COOKIE:-}');
 
     const validateLog = vi.spyOn(console, 'log').mockImplementation(() => {});
     const validateCode = await runCli(['config', 'validate', '--config', configPath]);

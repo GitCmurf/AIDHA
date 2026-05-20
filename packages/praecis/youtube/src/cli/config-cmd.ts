@@ -676,14 +676,14 @@ profiles:
     # source_overrides:
     #   youtube:
     #     youtube:
-    #       cookie: \${YOUTUBE_COOKIE}
+    #       cookie: \${YOUTUBE_COOKIE:-}
 `;
 
 const SOURCE_SCAFFOLDS: Record<string, string> = {
   youtube: `    source_overrides:
       youtube:
         youtube:
-          cookie: \${YOUTUBE_COOKIE}
+          cookie: \${YOUTUBE_COOKIE:-}
 `,
 };
 
@@ -734,7 +734,7 @@ async function runConfigInit(options: CliOptions): Promise<number> {
 # sources:
 #   youtube:
 #     youtube:
-#       cookie: \${YOUTUBE_COOKIE}
+#       cookie: \${YOUTUBE_COOKIE:-}
 `;
   }
 
