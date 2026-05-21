@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.4"
-last_updated: 2026-05-20
+version: "0.5"
+last_updated: 2026-05-21
 title: Other Ingestion Vectors
 type: PLAN
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 0.4
-> **Last Updated:** 2026-05-20
+> **Version:** 0.5
+> **Last Updated:** 2026-05-21
 > **Type:** PLAN
 
 <!-- markdownlint-disable MD013 -->
@@ -31,6 +31,7 @@ docops_version: "2.0"
 | 0.2     | 2026-05-20 | AI     | Pre-review hardening: resolve byte-identical contradiction (semantic-equivalence gate), define `ComposedVector`, scope determinism to cache/mocks, split `.eml`/`.msg`, add `text` Locator kind, per-Resource sensitivity routing, Zotero/screenshot roadmap, PRD-002 revision task. | Self-review (advisor) | Draft | — |
 | 0.3     | 2026-05-20 | AI     | Codex adversarial-review fixes: (1) email Resource identity moved to thread level (`email:thread:<rootMessageId>` with a spelled-out derivation; messages are excerpts) and Objective de-advertised "tagged Outlook" to honest file-import scope; (2) defined the Readwise `source_url`→`web:<canonicalUrl>` work-id derivation so the RSS↔Readwise dedup gate is achievable, with merge/link integration cases pinned; (3) cleaned up three residual `byte-identical` references v0.2 missed (Phase 0 checklist, Risks table, DoD #2). | GPT (adversarial via Codex), Self-review (advisor) | Draft | — |
 | 0.4     | 2026-05-20 | AI     | Showcase-excellence hardening: align the dependency gate to the live `SourceRegistration` baseline; separate acquisition helpers from decode strategies; make typed graph metadata and new edge predicates explicit; fix RSS canonical precedence so RSS↔Readwise merge is actually reachable; add email thread reparenting for out-of-order imports; add chunking policy ownership, dedup-key semantics, and sharper verification gates. | Codex adversarial review, Self-review | Draft | — |
+| 0.5     | 2026-05-21 | AI     | Claude adversarial-review fixes: (B1) replace fetch-dependent `web:` canonicalisation with a single shared, fetch-independent `urlCanonical()` so web/rss/readwise derive identical primary IDs (`rel=canonical`→`dedupKey`; new Q6); (B2/D1) define `DecodeInput` + transcribe/diarize→`IDecodeStrategy` adapters and add `PipelineServices`/`PipelineRuntime` for the missing "run half"; (D2) reframe `mediaRef` as a data-model seam, not a no-refactor pipeline path; (D3) reuse phyla `Result`, make partial decode an `ok` result via `DecodeOutput.warnings`; (D6) split compose-time vs runtime sensitivity gating; (D7) pin `ExtractionContext`+chunker as the only vector→spine seam; (B3/D4/D5) Phase 0 golden snapshot, synthetic-fixture `DedupResolver` tests, internal checkpoints; (D8) `GraphStore` identity-lookup work item; (D9) reparenting crash-safety caveat; (D10) `pdf` vs `document` sourceType. | Claude (adversarial via advisor), Self-review | Draft | — |
 
 ## Objective
 
@@ -511,6 +512,13 @@ export const SourceType = z.enum([
 
 (`article`/`book`/`note`/`import`/`generated` retained for non-vector knowledge.)
 
+`pdf` vs `document`: the `pdf` vector (Section 6.2) sets `sourceType: 'pdf'` for true
+PDF files and `sourceType: 'document'` for the non-PDF formats it also handles via the
+same adapter (EPUB spine items, `.docx`/`.txt`). Both share the `pdf:sha256(bytes)`
+canonical-ID scheme and the `page` locator (EPUB spine items map to "pages"); the
+`sourceType` split is purely so downstream queries can distinguish formats. There is
+no separate `document` vector.
+
 ### 4.3 Multi-provenance + dedup-and-link
 
 `Provenance` (`knowledge.ts:29-43`) currently sits as a single optional object on
@@ -534,6 +542,14 @@ export const SourceType = z.enum([
   exists, **append** the new `Provenance` to the existing Resource and add an
   `alsoSeenVia` edge from the new provenance context; **never** create a duplicate
   Resource and **never** drop the new provenance.
+- **GraphStore query surface (new capability, not just new fields).** The
+  `DedupResolver` must look a Resource up by its primary `canonicalId` **and** by any
+  namespaced `dedupKey` (`web:`, `doi:`, `readwise:book:`, `content-sha256:`). The
+  current store keys by node id only, so Phase 0 must add a lookup index/method
+  (e.g. `GraphStore.findResourceByIdentity(key: string)`) over `canonicalId` +
+  `dedupKeys`, not just persist the new metadata. Without it, dedup degenerates to a
+  full scan. This is an explicit `reconditum` work item, called out so it is not
+  mistaken for a pure schema change.
 
 ### 4.4 Locator-aware export / deep-links
 
@@ -920,7 +936,13 @@ mitigations, and its test inventory. Order follows the execution phases (Section
   Phase 3 must implement `ThreadIdentityResolver`: if a later import reveals an
   earlier root, it reparents/aliases the provisional `email:thread:<inReplyTo>`
   Resource to `email:thread:<trueRootMessageId>` and moves/merges excerpts and
-  provenances atomically. Without that reparenting test, the plan must not claim
+  provenances atomically. **"Atomically" assumes a transactional multi-node mutation
+  the current `GraphStore` may not expose** — Phase 3 must therefore either (a) use a
+  `GraphStore` batch/transaction primitive if one exists, or (b) implement reparenting
+  as an idempotent, **resumable** rewrite (write the new root + edges, repoint
+  excerpts, delete the alias last) so a crash mid-rewrite leaves a recoverable state,
+  not a split thread. This is single-user, so concurrent writers are not a concern;
+  crash-safety is. Without the reparenting test, the plan must not claim
   import-order-independent email deduplication.
   **Locator:** `message` (`messageId` per excerpt). **Sensitivity:** `confidential`.
 - **Acquire:** CLI `--file` (and a folder of them). Parse headers
