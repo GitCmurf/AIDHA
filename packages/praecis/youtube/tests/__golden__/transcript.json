@@ -1,0 +1,23 @@
+{
+  "videoId": "test-video",
+  "resourceId": "youtube-test-video",
+  "title": "Test Video",
+  "url": "https://www.youtube.com/watch?v=test-video",
+  "segments": [
+    {
+      "id": "excerpt-133085fba724f3ade2d6175f1d865adf",
+      "start": 0,
+      "end": 5,
+      "duration": 5,
+      "text": "Hello and welcome to this tutorial.",
+      "speaker": "Host"
+    },
+    {
+      "id": "excerpt-80e7da1263f1d96b23134b7b04e4f485",
+      "start": 5,
+      "end": 10,
+      "duration": 5,
+      "text": "Today we will learn about TypeScript. Docs: https://example.com/docs"
+    }
+  ]
+}
