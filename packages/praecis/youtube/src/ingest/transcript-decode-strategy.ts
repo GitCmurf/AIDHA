@@ -9,11 +9,18 @@ import { hashId } from '../utils/ids.js';
 
 // ── TranscriptDecodeStrategy ──────────────────────────────────────────────────
 
+function isYouTubePayload(p: unknown): p is YouTubeVideoPayload {
+  return typeof p === 'object' && p !== null && 'videoId' in p;
+}
+
 export class TranscriptDecodeStrategy implements IDecodeStrategy {
   readonly name = 'transcript:youtube';
 
   async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
-    const payload = input.raw.payload as YouTubeVideoPayload;
+    if (!isYouTubePayload(input.raw.payload)) {
+      return { ok: false, error: new Error('TranscriptDecodeStrategy: unexpected payload type') };
+    }
+    const payload = input.raw.payload;
 
     if (!payload.transcript) {
       return {

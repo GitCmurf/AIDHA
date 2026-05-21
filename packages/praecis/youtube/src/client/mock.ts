@@ -50,6 +50,15 @@ const MOCK_VIDEOS: Record<string, Video> = {
     publishedAt: '2025-01-02T00:00:00.000Z',
     description: 'Another test video',
   },
+  'no-transcript-video': {
+    id: 'no-transcript-video',
+    title: 'No Transcript Video',
+    channelId: 'UC-test',
+    channelName: 'Test Channel',
+    duration: 120,
+    publishedAt: '2025-01-03T00:00:00.000Z',
+    description: 'A video with no available transcript',
+  },
 };
 
 const MOCK_TRANSCRIPTS: Record<string, Transcript> = {
