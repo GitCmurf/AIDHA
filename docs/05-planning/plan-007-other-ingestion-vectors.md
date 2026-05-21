@@ -289,7 +289,14 @@ Every vector is a declarative composition of four axes:
    projects, show notes, thread subject). Thin for a voice note; rich for a podcast.
 4. **Extract** (the spine) — the unchanged `chunk → mine → edit → claim → export`
    pipeline in `praecis/core`, parameterised by the `ExtractionContext` and aware of
-   `Locator` kinds for deep-link rendering.
+   `Locator` kinds for deep-link rendering. **`ExtractionContext` (plus the chosen
+   `IChunker`) is the *only* channel from a vector into the spine** — no vector
+   subclasses, patches, or swaps the miner/editor/exporter. So when Section 6.7 says
+   Readwise highlights are "high-priority candidates," that is realised through the
+   context (`chunkingHints: ['highlight']`, a `passthrough` decode that keeps each
+   highlight its own segment, and `sourceSummary`), **not** a per-vector miner
+   variant. If a vector ever genuinely needs different extraction *logic*, that is a
+   new spine capability gated behind the chunker/context — never a fork of the miner.
 
 ### 3.3 Composition Over Inheritance (Rationale)
 
@@ -318,9 +325,15 @@ Composition expresses the same relationships without the coupling:
 
 "Meeting" is voice's decode chain **plus** a `diarize` step — a one-line difference
 in a composition record, not a subclass. This table *is* the design: adding a vector
-means writing an `IIngestor`, choosing decode strategies, and registering. The
-`mediaRef` seam (Section 3.4) means a future "direct audio" vector simply omits
-`transcribe` and lets the miner consume audio directly — no refactor.
+means writing an `IIngestor`, choosing decode strategies, and registering.
+
+The `mediaRef` field (Section 3.4) is a **forward-compatible data-model seam, not a
+present pipeline path.** It lets a `MediaSegment` *carry* a media handle today so the
+schema and provenance do not have to change later. It does **not** mean the spine can
+already mine media: `IChunker` (`token-window`, `section`) and `ICandidateMiner`
+consume text. A future "direct audio" vector therefore omits `transcribe` *and*
+requires a media-aware chunker/miner path (deferred, Phase 5 / AIDHA-PLAN-008). The
+honest claim is "the data model won't need a breaking change," not "no refactor."
 
 ### 3.4 Core Types
 
@@ -376,6 +389,25 @@ export interface RawSource {
 ```
 
 `SourceTypeName` is the extended `reconditum` `SourceType` (Section 4.2).
+
+**Error model (`Result<T>`).** Every fallible boundary returns the existing
+`Result<T, E = Error>` already defined in `@aidha/taxonomy`
+(`packages/phyla/src/registry/types.ts`); `core` re-exports it rather than defining a
+second one (`core → phyla` is already a dependency). The convention is
+**`Result.err` for expected, recoverable conditions** (paywall detected, OCR
+unavailable, feed item missing) and **thrown exceptions only for programmer error /
+broken invariants** (a diarize strategy with no upstream segments). Two consequences
+are pinned so reviewers do not have to infer them:
+
+- **Partial decode is a success, not a failure.** When some units decode and others
+  do not (e.g. one scanned PDF page has no text layer and OCR is unavailable),
+  `decode()` returns `Result.ok(MediaSegment[])` for the units that worked plus a
+  `warnings: DecodeWarning[]` channel for the ones that did not — it does **not**
+  return `Result.err` and discard the whole document. A run with zero usable segments
+  *does* return `Result.err` (nothing to mine).
+- **Acquire failure is terminal for that input.** A paywall/login wall (Section 6.1)
+  returns `Result.err` and **no stub Resource is persisted** — failing loudly beats a
+  half-Resource.
 
 ### 3.5 Pipeline Interfaces vs Acquisition Strategies (Layering Rule)
 
@@ -547,11 +579,18 @@ export interface DecodeInput {
   readonly config: ResolvedConfig;     // backend selection, budgets
 }
 
+// DecodeOutput — segments PLUS a warnings side-channel, so partial decode is an
+// `ok` result (some pages OCR'd, some didn't) rather than an all-or-nothing err.
+export interface DecodeOutput {
+  readonly segments: readonly MediaSegment[];
+  readonly warnings?: readonly DecodeWarning[];   // e.g. { unit: 'page 4', reason: 'no text layer; OCR unavailable' }
+}
+
 // IDecodeStrategy — Decode axis. Composable, ordered. The pipeline folds the chain:
-//   segments = chain.reduce(acc => strategy.decode({ raw, upstream: acc, config }))
+//   out = chain.reduce(acc => strategy.decode({ raw, upstream: acc.segments, config }))
 export interface IDecodeStrategy {
   readonly name: string;                // 'text-extract' | 'transcribe' | 'diarize' | 'ocr' | 'passthrough'
-  decode(input: DecodeInput): Promise<Result<MediaSegment[]>>;
+  decode(input: DecodeInput): Promise<Result<DecodeOutput>>;
 }
 
 // IChunker — shared spine stage, selected by vector policy/context hints.
@@ -581,16 +620,16 @@ export const transcribeStrategy = (t: ITranscriber): IDecodeStrategy => ({
   async decode({ raw, config }) {                // first in chain: reads raw audio
     const audio = audioRefFromPayload(raw.payload);
     const segs = await t.transcribe(audio, transcribeOptsFrom(config));
-    return mapResult(segs, timecodedToMediaSegments);   // → MediaSegment[] (timecode locator)
+    return mapResult(segs, s => ({ segments: timecodedToMediaSegments(s) }));  // timecode locators
   },
 });
 export const diarizeStrategy = (d: IDiarizer): IDecodeStrategy => ({
   name: 'diarize',
   async decode({ raw, upstream }) {              // downstream: annotates upstream segments
-    if (!upstream) return err('diarize requires upstream transcribe output');
+    if (!upstream) return err('diarize requires upstream transcribe output');  // invariant → throw-class
     const audio = audioRefFromPayload(raw.payload);
     const annotated = await d.diarize(audio, mediaSegmentsToTimecoded(upstream));
-    return mapResult(annotated, timecodedToMediaSegments); // adds `label` (speaker)
+    return mapResult(annotated, s => ({ segments: timecodedToMediaSegments(s) }));  // adds `label` (speaker)
   },
 });
 // text-extract / ocr / passthrough implement IDecodeStrategy directly (no adapter):
@@ -631,8 +670,9 @@ export interface ComposedVector {
   readonly context: IContextProvider;
   readonly chunking: IChunker;
   readonly registration: SourceRegistration;
-  /** Convenience: resolve raw input → MediaSegment[] by running ingestor + decode chain. */
-  ingestAndDecode(input: IngestInput): Promise<Result<{ raw: RawSource; segments: MediaSegment[] }>>;
+  /** Convenience: run ingestor + decode chain, flattening each step's DecodeOutput
+   *  and concatenating warnings. */
+  ingestAndDecode(input: IngestInput): Promise<Result<{ raw: RawSource; segments: MediaSegment[]; warnings: DecodeWarning[] }>>;
 }
 
 // ── The run half ────────────────────────────────────────────────────────────
@@ -668,6 +708,15 @@ export`, with idempotency keyed on `canonicalId` and caching keyed on content ha
 (Section 7.5). `chunking` is explicit because several vectors need different
 policies (Readwise highlights should not be re-windowed; slide PDFs need section-ish
 chunks; meetings need conversation-aware speaker turns).
+
+`VectorSpec.chunking` is resolved at compose time, but a vector whose policy is only
+known at *content* time (PDF slide-vs-paper, Section 6.2) supplies a **selector
+chunker**: a concrete `IChunker` whose `chunk()` reads `ExtractionContext.chunkingHints`
+(set during decode) and delegates to `section` or `token-window` accordingly. So the
+compile-time binding (`VectorSpec.chunking`) and the runtime hints
+(`ExtractionContext.chunkingHints`) are not rivals — the hints are an *input to* the
+bound chunker, never a second selection path. (Whether the selector heuristic is
+sufficient or chunking should be config-overridable is Open Question Q2.)
 
 ---
 
@@ -844,9 +893,11 @@ mitigations, and its test inventory. Order follows the execution phases (Section
   as a `dedupKey` so Readwise re-runs remain stable even when the underlying
   canonical work is a `web:` Resource.
 - **Decode:** `[passthrough]` — highlights are already curated text spans; no
-  chunking needed (each highlight is its own excerpt). They still flow through
-  mine → edit → claim, but mining treats each highlight as a high-priority candidate
-  (it is *pre-curated by the user* — the highest signal-to-noise input).
+  chunking needed (each highlight is its own excerpt). They still flow through the
+  unchanged mine → edit → claim spine. Their "pre-curated, high signal-to-noise"
+  nature is conveyed to the miner **only** through the `ExtractionContext`
+  (`chunkingHints: ['highlight']` + `sourceSummary`) and the one-segment-per-highlight
+  passthrough — there is **no Readwise-specific miner** (Section 3.2 seam rule).
 - **Context:** medium (book title, author, source category → `domainHints`).
 - **Gotchas → mitigations:**
   - *Incremental sync / idempotency* → persist last `updated_after` cursor; re-runs
@@ -936,14 +987,24 @@ privacy:
   confidential: { allow_cloud_llm: false, require_local_llm: true }
 ```
 
-When a run's vector sensitivity exceeds the configured cloud allowance, the pipeline
-either routes to a configured local model or **fails fast with a clear error** —
-never silently sends confidential content (meeting transcripts, private email) to a
-cloud API. This is enforced in `core` before any miner call. **Routing is evaluated
-per Resource against the active vector's `sensitivity`** (not per batch), so a run
-mixing personal voice notes with confidential meetings routes each Resource
-correctly rather than failing or downgrading the whole batch. Tested per confidential
-vector (`sensitivity-gate.test.ts`).
+The gate fires at **two distinct times**, and pinning *which* matters for UX:
+
+1. **Compose/registration time (fail early).** When `createPipelineRuntime` registers
+   a `ComposedVector` whose `sensitivity` the configured `privacy` policy can never
+   satisfy — e.g. a `confidential` vector with `allow_cloud_llm:false` *and no
+   `require_local_llm` backend configured* — registration fails immediately with a
+   config error. The user learns the run is impossible **before** selecting a file,
+   not after acquisition.
+2. **Run time (route per Resource).** For a registration that *can* be satisfied,
+   routing is evaluated **per Resource against the active vector's `sensitivity`**
+   (not per batch) and enforced in `core` **before any miner call**, so a run mixing
+   personal voice notes with confidential meetings routes each Resource correctly
+   rather than failing or downgrading the whole batch.
+
+Either way, confidential content (meeting transcripts, private email) is **never**
+silently sent to a cloud API. Tested per confidential vector
+(`sensitivity-gate.test.ts`), covering both the compose-time rejection and the
+runtime per-Resource routing.
 
 ### 7.2 Canonicalization & Dedup-and-Link
 
