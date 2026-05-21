@@ -535,11 +535,23 @@ export interface IIngestor<TPayload = unknown> {
   acquire(input: IngestInput): Promise<Result<RawSource & { payload: TPayload }>>;
 }
 
-// IDecodeStrategy — Decode axis. Composable, ordered.
+// DecodeInput — what flows INTO a decode strategy. This is the type that makes
+// the decode CHAIN work: the first strategy sees the RawSource; every downstream
+// strategy sees the segments produced so far. Both always carry the shared context
+// so a strategy can read source metadata (e.g. diarize needs the audio handle that
+// transcribe also used).
+export interface DecodeInput {
+  readonly raw: RawSource;              // always present: identity, payload, sourceType
+  /** undefined for the first strategy in the chain; the upstream output otherwise. */
+  readonly upstream?: readonly MediaSegment[];
+  readonly config: ResolvedConfig;     // backend selection, budgets
+}
+
+// IDecodeStrategy — Decode axis. Composable, ordered. The pipeline folds the chain:
+//   segments = chain.reduce(acc => strategy.decode({ raw, upstream: acc, config }))
 export interface IDecodeStrategy {
   readonly name: string;                // 'text-extract' | 'transcribe' | 'diarize' | 'ocr' | 'passthrough'
-  /** Transform raw source (or upstream segments) into segments. */
-  decode(ctx: DecodeInput): Promise<Result<MediaSegment[]>>;
+  decode(input: DecodeInput): Promise<Result<MediaSegment[]>>;
 }
 
 // IChunker — shared spine stage, selected by vector policy/context hints.
@@ -559,6 +571,31 @@ export interface IDiarizer {
   readonly backend: string;             // 'pyannote' | 'whisperx' | 'assemblyai' | 'none'
   diarize(audio: AudioRef, segments: TimecodedSegment[]): Promise<Result<TimecodedSegment[]>>;
 }
+
+// ITranscriber/IDiarizer are NOT IDecodeStrategy — their signatures are
+// domain-shaped (audio in, timecoded segments in/out). Thin ADAPTERS in
+// decode/transcribe and decode/diarize bridge them to the chain contract. This is
+// the seam the four-axis model hangs on, so it is spelled out rather than implied:
+export const transcribeStrategy = (t: ITranscriber): IDecodeStrategy => ({
+  name: 'transcribe',
+  async decode({ raw, config }) {                // first in chain: reads raw audio
+    const audio = audioRefFromPayload(raw.payload);
+    const segs = await t.transcribe(audio, transcribeOptsFrom(config));
+    return mapResult(segs, timecodedToMediaSegments);   // → MediaSegment[] (timecode locator)
+  },
+});
+export const diarizeStrategy = (d: IDiarizer): IDecodeStrategy => ({
+  name: 'diarize',
+  async decode({ raw, upstream }) {              // downstream: annotates upstream segments
+    if (!upstream) return err('diarize requires upstream transcribe output');
+    const audio = audioRefFromPayload(raw.payload);
+    const annotated = await d.diarize(audio, mediaSegmentsToTimecoded(upstream));
+    return mapResult(annotated, timecodedToMediaSegments); // adds `label` (speaker)
+  },
+});
+// text-extract / ocr / passthrough implement IDecodeStrategy directly (no adapter):
+// they read raw.payload (html/pdf bytes/api rows) and emit MediaSegment[] with the
+// vector's locator kind.
 
 // IWebFetcher — acquisition helper, not a decode strategy.
 export interface IWebFetcher {
@@ -597,6 +634,32 @@ export interface ComposedVector {
   /** Convenience: resolve raw input → MediaSegment[] by running ingestor + decode chain. */
   ingestAndDecode(input: IngestInput): Promise<Result<{ raw: RawSource; segments: MediaSegment[] }>>;
 }
+
+// ── The run half ────────────────────────────────────────────────────────────
+// A ComposedVector is only the source-specific half. The cross-cutting services
+// (LLM, cache, cost ceiling, store, sensitivity policy) are NOT in VectorSpec —
+// they are shared across all vectors and injected once when the runtime is built.
+// This is the assembly an engineer wires in `main`/CLI; without it Section 5 would
+// specify the vector but not how a vector actually runs.
+export interface PipelineServices {
+  readonly store: GraphStore;           // reconditum; also backs the DedupResolver
+  readonly miner: ICandidateMiner;      // holds the LLM client (see below)
+  readonly editor: IEditor;
+  readonly exporter: IExporter;
+  readonly llm: ILLMClient;             // sensitivity policy is applied around this
+  readonly cache: ICache;               // content-hash keyed (Section 7.5)
+  readonly costCeiling: CostCeiling;    // tokens + spend per run (Section 7.3)
+  readonly privacy: PrivacyPolicy;      // per-tier cloud allowance (Section 7.1)
+}
+
+export interface PipelineRuntime {
+  /** Register a composed vector by sourceId; throws on duplicate/invalid registration. */
+  register(vector: ComposedVector): void;
+  /** Run one vector end-to-end against an input, honouring cache/cost/sensitivity. */
+  run(sourceId: string, input: IngestInput): Promise<Result<RunReport>>;
+}
+
+export function createPipelineRuntime(services: PipelineServices): PipelineRuntime;
 ```
 
 The shared pipeline (`core/src/pipeline/`) consumes a `ComposedVector` and runs:
