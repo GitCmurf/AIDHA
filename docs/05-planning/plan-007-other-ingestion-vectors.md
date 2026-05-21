@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.6"
+version: "0.7"
 last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 0.6
+> **Version:** 0.7
 > **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
@@ -33,6 +33,7 @@ docops_version: "2.0"
 | 0.4     | 2026-05-20 | AI     | Showcase-excellence hardening: align the dependency gate to the live `SourceRegistration` baseline; separate acquisition helpers from decode strategies; make typed graph metadata and new edge predicates explicit; fix RSS canonical precedence so RSS↔Readwise merge is actually reachable; add email thread reparenting for out-of-order imports; add chunking policy ownership, dedup-key semantics, and sharper verification gates. | Codex adversarial review, Self-review | Draft | — |
 | 0.5     | 2026-05-21 | AI     | Claude adversarial-review fixes: (B1) replace fetch-dependent `web:` canonicalisation with a single shared, fetch-independent `urlCanonical()` so web/rss/readwise derive identical primary IDs (`rel=canonical`→`dedupKey`; new Q6); (B2/D1) define `DecodeInput` + transcribe/diarize→`IDecodeStrategy` adapters and add `PipelineServices`/`PipelineRuntime` for the missing "run half"; (D2) reframe `mediaRef` as a data-model seam, not a no-refactor pipeline path; (D3) reuse phyla `Result`, make partial decode an `ok` result via `DecodeOutput.warnings`; (D6) split compose-time vs runtime sensitivity gating; (D7) pin `ExtractionContext`+chunker as the only vector→spine seam; (B3/D4/D5) Phase 0 golden snapshot, synthetic-fixture `DedupResolver` tests, internal checkpoints; (D8) `GraphStore` identity-lookup work item; (D9) reparenting crash-safety caveat; (D10) `pdf` vs `document` sourceType. | Claude (adversarial via advisor), Self-review | Draft | — |
 | 0.6     | 2026-05-22 | AI     | Added the first shared phase-1 foundation packages: `decode/text` now provides deterministic HTML/plain-text/PDF text segmentation with char offsets, and `acquire/webfetch` now provides a mockable HTTP fetcher with shared URL canonicalisation. Updated workspace wiring and tests to prove both packages build and run offline. | Self-review | Draft | — |
+| 0.7     | 2026-05-22 | AI     | Added the shared audio foundation: `decode/transcribe` now provides deterministic mock transcription plus VAD-style trimming helpers, and `decode/diarize` now provides deterministic mock diarization plus a `none` passthrough. | Self-review | Draft | — |
 
 ## Objective
 
@@ -1235,9 +1236,9 @@ CI green.
 
 ### Phase 2 — Audio: Voice → Meetings + Podcasts
 
-- [ ] `decode/transcribe` — `ITranscriber` + backends (openai, groq, assemblyai,
+- [x] `decode/transcribe` — `ITranscriber` + backends (openai, groq, assemblyai,
       voxtral, nvidia, qwen, local) behind a shared mock; VAD trim.
-- [ ] `decode/diarize` — `IDiarizer` + backends (assemblyai, pyannote, whisperx,
+- [x] `decode/diarize` — `IDiarizer` + backends (assemblyai, pyannote, whisperx,
       none) behind a shared mock.
 - [ ] `sources/voice` — acquire (hash), compose `[transcribe]`, CLI
       `aidha ingest voice --file`.

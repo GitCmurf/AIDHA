@@ -3,3 +3,5 @@ packages:
     - "packages/praecis/*"
     - "packages/praecis/decode/text"
     - "packages/praecis/acquire/webfetch"
+    - "packages/praecis/decode/transcribe"
+    - "packages/praecis/decode/diarize"
