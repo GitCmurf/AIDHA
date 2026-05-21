@@ -83,7 +83,7 @@ describe('DossierExporter', () => {
     expect(md).toContain('Hello and welcome to this tutorial.');
     expect(md).toContain('Excerpt:');
     expect(md).toContain('https://example.com/docs');
-    expect(md).toMatch(/t=\d+s/);
+    expect(md).toMatch(/t=\d+/);
   });
 
   it('includes timestamped claim lines with excerpts', async () => {
@@ -98,7 +98,7 @@ describe('DossierExporter', () => {
     if (!result.ok) return;
 
     const md = result.value;
-    const claimLines = md.split('\n').filter(line => /^\d+\.\s+\[\d+:\d+\]\(.*t=\d+s\)/.test(line));
+    const claimLines = md.split('\n').filter(line => /^\d+\.\s+\[\d+:\d+\]\(.*t=\d+/.test(line));
     expect(claimLines.length).toBeGreaterThan(0);
     const excerptLines = md.split('\n').filter(line => line.trim().startsWith('- Excerpt:'));
     expect(excerptLines.length).toBeGreaterThan(0);

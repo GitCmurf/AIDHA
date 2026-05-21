@@ -319,6 +319,7 @@ export class IngestionPipeline {
           end: segment.start + segment.duration,
           sequence: index,
           source: 'youtube',
+          locator: { kind: 'timecode', startSec: segment.start, endSec: segment.start + segment.duration },
           ...(segment.speaker ? { speaker: segment.speaker } : {}),
         },
       };
