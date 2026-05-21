@@ -2,8 +2,8 @@
 document_id: AIDHA-PRD-002
 owner: Ingestion Product Lead
 status: Draft
-last_updated: 2026-01-24
-version: '0.3'
+last_updated: 2026-05-21
+version: '0.4'
 title: Ingest to Graph Database
 type: PRD
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Product Lead
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.3
-> **Last Updated:** 2026-01-24
+> **Version:** 0.4
+> **Last Updated:** 2026-05-21
 > **Type:** PRD
 
 ## Version History
@@ -25,15 +25,22 @@ docops_version: '2.0'
 | 0.1     | 2025-11-09 | TBD    | Skeleton PRD created                                     | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Migrate to Meminit DocOps 2.0 (ID + metadata + filename) | —         | Draft  | —         |
 | 0.3     | 2026-01-24 | Codex  | Flesh out ingestion requirements and acceptance criteria | —         | Draft  | —         |
+| 0.4     | 2026-05-21 | AI     | Revise for multi-vector ingestion: four-axis model, core interfaces, Phase 0 deliverables (PLAN-007) | — | Draft | — |
 
 ---
 
 ## Executive Summary
 
-AIDHA needs a repeatable ingestion pipeline that takes external sources (starting with YouTube),
-extracts structured content (metadata + transcripts), classifies it using the shared taxonomy, and
-persists it into the cognition graph with provenance. The pipeline should also produce human-facing
-summaries and AI-friendly exports (JSON-LD).
+AIDHA needs a repeatable ingestion pipeline that takes external sources, extracts structured content,
+classifies it using the shared taxonomy, and persists it into the cognition graph with provenance.
+The pipeline is built on a **four-axis composition model**: **Acquire → Decode → Contextualize →
+Extract**. Each ingestion vector is composed from implementations of these four axes rather than
+built as a one-off pipeline.
+
+YouTube is the Phase 0 reference implementation. New vectors are registered by providing an
+`IIngestor` (Acquire), an `IDecodeStrategy` (Decode), an optional `IContextProvider`
+(Contextualize), and wiring them together via `composeVector()` from `@aidha/praecis-core`. The
+pipeline should also produce human-facing summaries and AI-friendly exports (JSON-LD).
 
 This PRD specifies the ingestion engine’s MVP behavior, interfaces, idempotency guarantees, and test
 requirements so coding models can implement features safely and incrementally.
@@ -59,6 +66,8 @@ Without a robust ingestion pipeline:
 5. Produce deterministic outputs suitable for:
    - local inspection (Markdown/JSON summaries),
    - graph export (JSON-LD).
+6. Register new ingestion vectors by implementing `IIngestor` + `IDecodeStrategy` and wiring them
+   via `composeVector()` — no per-vector pipeline boilerplate.
 
 ### Success Metrics (MVP targets)
 
@@ -112,6 +121,31 @@ Without a robust ingestion pipeline:
 - Running ingestion as a hosted service (MVP is local CLI).
 - Real-time streaming ingestion.
 - Multi-tenant auth and user management.
+
+## Architecture
+
+### Four-Axis Composition Model (PLAN-007, Phase 0)
+
+Ingestion is decomposed into four composable axes. Each vector wires an implementation per axis;
+shared infrastructure lives in `@aidha/praecis-core`.
+
+| Axis | Interface | Responsibility |
+| --- | --- | --- |
+| **Acquire** | `IIngestor` | Fetch raw bytes/stream and return a `RawSource` |
+| **Decode** | `IDecodeStrategy` | Parse a `RawSource` into `MediaSegment[]` |
+| **Contextualize** | `IContextProvider` | Enrich segments with graph context (stub in Phase 0) |
+| **Extract** | `IChunker` + miner/editor/exporter | Chunk segments and run extraction |
+
+`composeVector(spec: VectorSpec): ComposedVector` assembles the four axes and returns a runnable
+pipeline. `runVector()` drives end-to-end execution.
+
+**`Locator`** is a discriminated union (`timecode | page | dom | message | text | external`) that
+records where in a source document an excerpt originated. `DossierExporter` (in `@aidha/praecis-core`)
+renders Locator-aware deep links in output artifacts. Excerpt nodes carry
+`metadata.locator` so provenance is traceable to the source position.
+
+Each ingestion vector ships: code (ingestor + decode strategy + `VectorSpec` factory) + tests +
+DocOps documentation. YouTube (`packages/praecis/youtube`) is the Phase 0 reference implementation.
 
 ## Requirements
 
@@ -176,7 +210,8 @@ FR-7. **Summaries / commentary outputs (MVP-lite)**
 
 NFR-1. **No-network CI**
 
-- CI/unit tests MUST run without network access using a mock YouTube client.
+- CI/unit tests MUST run without network access for all ingestion vectors (mock clients or fixture
+  data replace real network calls).
 - Network tests, if any, MUST be opt-in/skipped by default.
 
 NFR-2. **Deterministic outputs**

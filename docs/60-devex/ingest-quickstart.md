@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-02-23
-version: '0.25'
+last_updated: 2026-05-21
+version: '0.26'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.25
-> **Last Updated:** 2026-02-23
+> **Version:** 0.26
+> **Last Updated:** 2026-05-21
 > **Type:** GUIDE
 
 ## Version History
@@ -47,10 +47,19 @@ docops_version: '2.0'
 | 0.23    | 2026-02-09 | AI     | Add claims purge command for clean extraction reruns | — | Draft | — |
 | 0.24    | 2026-02-09 | AI     | Add source-prefixed default export filenames | — | Draft | — |
 | 0.25    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
+| 0.26    | 2026-05-21 | AI     | Add architecture note referencing multi-vector model (PLAN-007 Phase 0) | — | Draft | — |
 
 ## Purpose
 
 Outline how to use API keys, run local ingestion via the YouTube CLI, and inspect outputs.
+
+## Architecture Note
+
+This quickstart covers the **YouTube ingestion vector**, which is the Phase 0 reference
+implementation of AIDHA's four-axis ingestion model (**Acquire → Decode → Contextualize →
+Extract**). New vectors are registered by implementing `IIngestor` and `IDecodeStrategy` from
+`@aidha/praecis-core` and wiring them via `composeVector()`. See AIDHA-PRD-002 for the full
+architecture description.
 
 ## Prerequisites
 
