@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.7"
+version: "0.9"
 last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 0.7
+> **Version:** 0.9
 > **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
@@ -34,6 +34,8 @@ docops_version: "2.0"
 | 0.5     | 2026-05-21 | AI     | Claude adversarial-review fixes: (B1) replace fetch-dependent `web:` canonicalisation with a single shared, fetch-independent `urlCanonical()` so web/rss/readwise derive identical primary IDs (`rel=canonical`→`dedupKey`; new Q6); (B2/D1) define `DecodeInput` + transcribe/diarize→`IDecodeStrategy` adapters and add `PipelineServices`/`PipelineRuntime` for the missing "run half"; (D2) reframe `mediaRef` as a data-model seam, not a no-refactor pipeline path; (D3) reuse phyla `Result`, make partial decode an `ok` result via `DecodeOutput.warnings`; (D6) split compose-time vs runtime sensitivity gating; (D7) pin `ExtractionContext`+chunker as the only vector→spine seam; (B3/D4/D5) Phase 0 golden snapshot, synthetic-fixture `DedupResolver` tests, internal checkpoints; (D8) `GraphStore` identity-lookup work item; (D9) reparenting crash-safety caveat; (D10) `pdf` vs `document` sourceType. | Claude (adversarial via advisor), Self-review | Draft | — |
 | 0.6     | 2026-05-22 | AI     | Added the first shared phase-1 foundation packages: `decode/text` now provides deterministic HTML/plain-text/PDF text segmentation with char offsets, and `acquire/webfetch` now provides a mockable HTTP fetcher with shared URL canonicalisation. Updated workspace wiring and tests to prove both packages build and run offline. | Self-review | Draft | — |
 | 0.7     | 2026-05-22 | AI     | Added the shared audio foundation: `decode/transcribe` now provides deterministic mock transcription plus VAD-style trimming helpers, and `decode/diarize` now provides deterministic mock diarization plus a `none` passthrough. | Self-review | Draft | — |
+| 0.8     | 2026-05-22 | AI     | Added the OCR foundation package: `decode/ocr` now provides a deterministic mock OCR engine and OCR block-to-text normalisation helpers, keeping the future PDF/image fallback seam explicit and testable. | Self-review | Draft | — |
+| 0.9     | 2026-05-22 | AI     | Added the first concrete phase-1 vector adapter: `sources/web` now composes the shared fetch + text packages into an ingest/decode vector with deterministic canonical IDs, dedup keys, and offline tests. | Self-review | Draft | — |
 
 ## Objective
 
@@ -1221,7 +1223,7 @@ shape); `aidha config explain` works for the `youtube` registration.
 
 - [x] `decode/text` (readability extract; pdf-to-text; shared char-offset model).
 - [x] `acquire/webfetch` (`IWebFetcher`: HTTP/readability default, Playwright opt-in).
-- [ ] `decode/ocr` (Tesseract fallback; mockable).
+- [x] `decode/ocr` (Tesseract fallback; mockable).
 - [ ] `sources/web` — acquire (canonicalise URL), compose `[text-extract]`,
       register, CLI `aidha ingest web --url`.
 - [ ] `sources/pdf` — acquire (hash + metadata), compose `[text-extract] ?? [ocr]`,

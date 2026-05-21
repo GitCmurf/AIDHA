@@ -5,3 +5,5 @@ packages:
     - "packages/praecis/acquire/webfetch"
     - "packages/praecis/decode/transcribe"
     - "packages/praecis/decode/diarize"
+    - "packages/praecis/decode/ocr"
+    - "packages/praecis/sources/web"
