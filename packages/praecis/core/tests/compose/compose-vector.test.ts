@@ -2,9 +2,10 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { describe, it, expect } from 'vitest';
-import { composeVector } from '../../src/compose/vector.js';
+import { composeVector, transcribeStrategy, diarizeStrategy } from '../../src/compose/vector.js';
 import type { VectorSpec } from '../../src/compose/vector.js';
-import type { IIngestor, IDecodeStrategy, IContextProvider, IngestInput } from '../../src/interfaces/index.js';
+import { createPipelineRuntime } from '../../src/compose/runtime.js';
+import type { IIngestor, IDecodeStrategy, IContextProvider, IngestInput, ITranscriber, IDiarizer, TimecodedSegment, AudioRef, TranscribeOptions } from '../../src/interfaces/index.js';
 import type { RawSource, DecodeOutput, ExtractionContext } from '../../src/types/index.js';
 import type { Result } from '@aidha/taxonomy';
 import type { SourceRegistration, ResolvedConfig } from '@aidha/config';
@@ -129,5 +130,93 @@ describe('composeVector', () => {
     );
     const result = await vec.ingestAndDecode({ ref: 'https://example.com/page' });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('transcribeStrategy adapter', () => {
+  function makeTranscriber(): ITranscriber {
+    return {
+      backend: 'mock',
+      async transcribe(_audio: AudioRef, _opts: TranscribeOptions): Promise<Result<TimecodedSegment[]>> {
+        return {
+          ok: true,
+          value: [{ id: 'seg-1', startSec: 0, endSec: 5, text: 'hello', speaker: 'A' }],
+        };
+      },
+    };
+  }
+
+  it('wraps ITranscriber and returns timecoded MediaSegments', async () => {
+    const strategy = transcribeStrategy(makeTranscriber());
+    expect(strategy.name).toContain('transcribe');
+    const result = await strategy.decode({
+      raw: {
+        canonicalId: 'test:1',
+        sourceType: 'voice',
+        sensitivity: 'personal',
+        provenance: { ingestedAt: new Date().toISOString(), sourceType: 'voice' },
+        payload: { uri: 'file:///audio.mp3', mimeType: 'audio/mpeg' },
+        label: 'test',
+      },
+      config: {} as ResolvedConfig,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+    expect(result.value.segments).toHaveLength(1);
+    expect(result.value.segments[0]!.locator.kind).toBe('timecode');
+  });
+});
+
+describe('diarizeStrategy adapter', () => {
+  function makeDiarizer(): IDiarizer {
+    return {
+      backend: 'mock',
+      async diarize(_audio: AudioRef, segments: TimecodedSegment[]): Promise<Result<TimecodedSegment[]>> {
+        return { ok: true, value: segments.map(s => ({ ...s, speaker: 'Speaker-A' })) };
+      },
+    };
+  }
+
+  const audioPayload = { uri: 'file:///audio.mp3', mimeType: 'audio/mpeg' };
+  const mockRaw: RawSource = {
+    canonicalId: 'test:1',
+    sourceType: 'meeting',
+    sensitivity: 'confidential',
+    provenance: { ingestedAt: new Date().toISOString(), sourceType: 'meeting' },
+    payload: audioPayload,
+    label: 'test',
+  };
+
+  it('throws (not Result.err) when upstream is undefined', async () => {
+    const strategy = diarizeStrategy(makeDiarizer());
+    await expect(
+      strategy.decode({ raw: mockRaw, config: {} as ResolvedConfig })
+    ).rejects.toThrow('upstream');
+  });
+
+  it('annotates upstream timecoded segments with speaker labels', async () => {
+    const strategy = diarizeStrategy(makeDiarizer());
+    const result = await strategy.decode({
+      raw: mockRaw,
+      upstream: [{ id: 'seg-0', locator: { kind: 'timecode', startSec: 0, endSec: 5 }, text: 'hi' }],
+      config: {} as ResolvedConfig,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+    expect(result.value.segments[0]!.label).toBe('Speaker-A');
+  });
+});
+
+describe('createPipelineRuntime', () => {
+  it('register throws on duplicate sourceId', () => {
+    const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
+    const mockVector = composeVector(makeSpec());
+    runtime.register(mockVector);
+    expect(() => runtime.register(mockVector)).toThrow('duplicate sourceId');
+  });
+
+  it('run() throws not-yet-implemented', async () => {
+    const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
+    await expect(runtime.run('any', { ref: 'x' })).rejects.toThrow('not yet implemented');
   });
 });
