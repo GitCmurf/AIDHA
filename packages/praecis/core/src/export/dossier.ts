@@ -257,7 +257,7 @@ export class DossierExporter {
     }
 
     const baseUrl =
-      (resource.metadata?.['url'] as string | undefined) ||
+      getStringMetadata(resource.metadata as Record<string, unknown> | undefined, 'url') ||
       `https://www.youtube.com/watch?v=${videoId}`;
 
     const allowedStates = new Set<ClaimState>(options.states ?? [DEFAULT_CLAIM_STATE]);
@@ -337,7 +337,7 @@ export class DossierExporter {
       resourceId,
       videoId,
       title: resource.label,
-      channelName: resource.metadata?.['channelName'] as string | undefined,
+      channelName: getStringMetadata(resource.metadata as Record<string, unknown> | undefined, 'channelName'),
       url: baseUrl,
       claims: sortedClaims,
       references,
@@ -399,7 +399,7 @@ export class DossierExporter {
     if (!excerptsResult.ok) return excerptsResult;
 
     const baseUrl =
-      (resource.metadata?.['url'] as string | undefined) ||
+      getStringMetadata(resource.metadata as Record<string, unknown> | undefined, 'url') ||
       `https://www.youtube.com/watch?v=${videoId}`;
 
     const segments = sortTranscriptSegments(
