@@ -648,7 +648,9 @@ export const transcribeStrategy = (t: ITranscriber): IDecodeStrategy => ({
 export const diarizeStrategy = (d: IDiarizer): IDecodeStrategy => ({
   name: 'diarize',
   async decode({ raw, upstream }) {              // downstream: annotates upstream segments
-    if (!upstream) return err('diarize requires upstream transcribe output');  // invariant → throw-class
+    // Composing diarize without an upstream transcribe is a wiring bug, not a
+    // recoverable runtime condition → throw, per the error model (Section 3.4).
+    if (!upstream) throw new Error('diarize strategy requires an upstream transcribe step');
     const audio = audioRefFromPayload(raw.payload);
     const annotated = await d.diarize(audio, mediaSegmentsToTimecoded(upstream));
     return mapResult(annotated, s => ({ segments: timecodedToMediaSegments(s) }));  // adds `label` (speaker)
@@ -751,14 +753,14 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 ### 6.1 Web (`web`) — Phase 1
 
 - **Canonical ID:** `web:<canonicalUrl>` where `canonicalUrl` is computed by the
-  **shared string-level `urlCanonical()`** (Section 7.2): lower-case host, resolve
-  the redirect chain, strip tracking params (`utm_*`, `fbclid`, etc.), normalise
-  trailing slash. This is **fetch-independent** so `rss` and `readwise` derive the
-  *same* primary ID from a bare URL. A `<link rel="canonical">` discovered *after*
-  fetch is recorded as an additional `dedupKey` (`web:<relCanonicalUrl>`), **not**
-  promoted to the primary ID — otherwise the same article would canonicalise
-  differently depending on whether the arriving vector fetched the page (Section 7.2,
-  Open Question Q6).
+  **shared pure-string `urlCanonical()`** (Section 7.2): lower-case host, strip
+  tracking params (`utm_*`, `fbclid`, etc.), normalise trailing slash — **no network
+  I/O**, so `rss` and `readwise` derive the *same* primary ID from a bare URL. Two
+  things only knowable *after* a fetch are recorded as additional `dedupKey`s, **never**
+  promoted to the primary ID: the `<link rel="canonical">` URL (`web:<relCanonicalUrl>`)
+  and the post-redirect final URL (`web:<finalUrl>`). Promoting either would make the
+  same article canonicalise differently depending on whether the arriving vector
+  fetched the page (Section 7.2, Open Question Q6).
 - **Locator:** `dom`. **Sensitivity:** `personal`.
 - **Acquire:** CLI `--url`; `IWebFetcher` (readability default; Playwright backend
   for JS-heavy pages, opt-in via config). Architected to also accept a *pre-fetched*
@@ -770,9 +772,9 @@ mitigations, and its test inventory. Order follows the execution phases (Section
     default to keep the dependency optional.
   - *Paywalls / login walls* → detect (very short body, known login markers) and
     fail gracefully with a clear message; do not store a stub Resource.
-  - *Canonical-URL drift* → the redirect chain is resolved inside the shared
-    `urlCanonical()` so the primary ID is stable across vectors; `rel=canonical` adds
-    a `dedupKey` that lets a *fetched* duplicate merge with a *string-only* arrival
+  - *Canonical-URL drift* → the primary ID is the pure-string `urlCanonical()`, stable
+    across vectors; the post-fetch `rel=canonical` and post-redirect final URLs are
+    added as `dedupKey`s so a *fetched* duplicate merges with a *string-only* arrival
     (Section 7.2). The primary ID never depends on having fetched the page.
 - **Tests:** `sources/web/tests/canonicalize.test.ts`, `fetch-readability.test.ts`
   (mocked HTTP), `paywall-detection.test.ts`, `web-pipeline.test.ts` (fixture HTML
@@ -1040,22 +1042,30 @@ runtime per-Resource routing.
 - **Two-tier URL canonicalisation (the linchpin of cross-vector merge).** A single
   shared helper `urlCanonical(rawUrl: string): string` lives in `core` and is the
   **only** thing that computes a `web:` *primary* ID. It is deliberately
-  **fetch-independent** — it operates on a URL string alone:
+  **fetch-independent** — it operates on a URL string alone, performs **no network
+  I/O**, and is pure:
   1. lower-case scheme + host, drop default ports and fragments;
-  2. resolve a bounded redirect chain (HEAD-only, optional; skipped offline);
-  3. strip tracking params (`utm_*`, `fbclid`, `gclid`, `ref`, …) and sort the
+  2. strip tracking params (`utm_*`, `fbclid`, `gclid`, `ref`, …) and sort the
      remaining query;
-  4. normalise the trailing slash.
+  3. normalise the trailing slash.
 
   Every vector that knows a URL — `web`, `rss`, `readwise` — derives its primary
   `web:<canonicalUrl>` through this same helper, so the *same article yields the same
   ID regardless of which vector arrives first and whether it fetched the page*.
-  `<link rel="canonical">` is **content** (only available after a fetch), so it is
-  **never** part of the primary ID; a fetching vector (`web`) records the discovered
-  `web:<relCanonicalUrl>` as an additional **`dedupKey`**. This lets a later
-  string-only arrival (RSS/Readwise) whose URL equals the discovered canonical merge
-  in, without making the primary ID fetch-dependent. (Whether the redirect-resolution
-  step in (2) is on by default is Open Question Q6.)
+  Anything that requires a network round-trip is therefore **content, not identity**,
+  and can only ever produce a `dedupKey` — never the primary ID:
+  - `<link rel="canonical">` (available only after a fetch) → `web:<relCanonicalUrl>`
+    `dedupKey`, recorded by the fetching vector (`web`).
+  - the **final URL after following redirects** (e.g. a `bit.ly` short link the `web`
+    vector resolves on fetch) → `web:<finalUrl>` `dedupKey`.
+
+  Both let a later string-only arrival (RSS/Readwise) whose URL equals the discovered
+  target merge in, *without* making the primary ID depend on a fetch or on config. A
+  pure-string helper cannot drift between vectors; a redirect-resolving one would
+  (RSS with resolution off and `web` with it on would mint different `web:` IDs for
+  the same short link — the silent-merge failure this two-tier split exists to
+  prevent). See Open Question Q6 for the only remaining knob (whether `web` records
+  redirect-target `dedupKey`s by default).
 - **Dedup keys:** every `RawSource` may carry `dedupKeys` in addition to its primary
   `canonicalId`. Keys are namespaced (`web:`, `rss:`, `readwise:book:`, `doi:`,
   `content-sha256:`) and ranked by confidence. Strong identity keys (`web:`, `doi:`,
@@ -1405,13 +1415,14 @@ rejected with evidence).
   unified into a `Person` node? *v1:* no; per-recording labels only.
 - **Q5 — Watch-directory ingestion:** is a thin re-run loop enough for voice notes,
   or is a daemon wanted? *v1:* documented loop, no daemon.
-- **Q6 — Redirect resolution in `urlCanonical()`:** should the bounded HEAD redirect
-  step (Section 7.2 step 2) be on by default? It improves merge recall (shortened/
-  syndicated links collapse to the final URL) but reintroduces a network dependency
-  into ID computation, which weakens the "fetch-independent primary ID" guarantee for
-  the vectors that rely on it. *Lean:* off by default (pure string canonicalisation);
-  redirect-resolved URLs become `dedupKeys`, not the primary ID, mirroring the
-  `rel=canonical` treatment. Resolve in Phase 1 when `web`/`rss` land.
+- **Q6 — Redirect-target `dedupKey`s:** *Decided:* redirect resolution is **never**
+  part of the primary `web:` ID — `urlCanonical()` is pure-string (Section 7.2). The
+  only remaining knob is whether the `web` vector should record the post-fetch
+  redirect-target URL as a `dedupKey` **by default** (improves merge recall for
+  shortened/syndicated links) or only on request (avoids extra HEAD requests and
+  occasional false targets). *Lean:* on by default for `web` (it has already fetched,
+  so the final URL is free); off for vectors that would have to fetch *solely* to
+  resolve it. Confirm in Phase 1 when `web`/`rss` land.
 
 ---
 
