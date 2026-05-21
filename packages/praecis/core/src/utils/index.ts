@@ -2,3 +2,4 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 export * from './url-canonical.js';
+export * from './graph-helpers.js';

@@ -76,6 +76,9 @@ importers:
       '@aidha/graph-backend':
         specifier: workspace:*
         version: link:../../reconditum
+      '@aidha/praecis-core':
+        specifier: workspace:*
+        version: link:../core
       '@aidha/taxonomy':
         specifier: workspace:*
         version: link:../../phyla
