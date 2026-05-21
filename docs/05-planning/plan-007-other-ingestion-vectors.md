@@ -595,11 +595,17 @@ export interface DecodeInput {
   readonly config: ResolvedConfig;     // backend selection, budgets
 }
 
+// DecodeWarning — a non-fatal, per-unit decode problem (kept, not thrown).
+export interface DecodeWarning {
+  readonly unit: string;     // e.g. 'page 4', 'enclosure', 'message <id>'
+  readonly reason: string;   // e.g. 'no text layer; OCR unavailable'
+}
+
 // DecodeOutput — segments PLUS a warnings side-channel, so partial decode is an
 // `ok` result (some pages OCR'd, some didn't) rather than an all-or-nothing err.
 export interface DecodeOutput {
   readonly segments: readonly MediaSegment[];
-  readonly warnings?: readonly DecodeWarning[];   // e.g. { unit: 'page 4', reason: 'no text layer; OCR unavailable' }
+  readonly warnings?: readonly DecodeWarning[];
 }
 
 // IDecodeStrategy — Decode axis. Composable, ordered. The pipeline folds the chain:
