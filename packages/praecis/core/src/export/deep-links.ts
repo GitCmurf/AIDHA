@@ -19,7 +19,7 @@ function extractYouTubeId(resourceUri: string): string | null {
     }
     if (url.hostname === 'www.youtube.com' || url.hostname === 'youtube.com') {
       const v = url.searchParams.get('v');
-      return v !== '' ? v : null;
+      return v;
     }
   } catch {
     // unparsable
