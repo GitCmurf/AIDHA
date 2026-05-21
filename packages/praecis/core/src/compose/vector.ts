@@ -19,9 +19,11 @@ import type { MediaSegment, RawSource, DecodeOutput } from '../types/index.js';
 import type { DecodeWarning } from '../types/index.js';
 import type { Result } from '@aidha/taxonomy';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
+import { TokenWindowChunker } from '../chunk/token-window-chunker.js';
+import { SectionChunker } from '../chunk/section-chunker.js';
 
 // ---------------------------------------------------------------------------
-// DefaultChunker — placeholder until CP-0c
+// DefaultChunker — fallback for unrecognized string names
 // ---------------------------------------------------------------------------
 
 class DefaultChunker implements IChunker {
@@ -30,7 +32,7 @@ class DefaultChunker implements IChunker {
   async chunk(_input: ChunkInput): Promise<Result<Chunk[]>> {
     return {
       ok: false,
-      error: new Error('not yet implemented — chunkers ship in CP-0c'),
+      error: new Error(`unknown chunker "${this.name}"`),
     };
   }
 }
@@ -80,8 +82,10 @@ export function composeVector(spec: VectorSpec): ComposedVector {
 
   const chunking: IChunker =
     typeof spec.chunking === 'string'
-      ? new DefaultChunker(spec.chunking)
-      : spec.chunking;
+      ? spec.chunking === 'token-window' ? new TokenWindowChunker()
+      : spec.chunking === 'section' ? new SectionChunker()
+      : new DefaultChunker(spec.chunking)
+    : spec.chunking;
 
   const frozenDecode = Object.freeze([...spec.decode]);
 

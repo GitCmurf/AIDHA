@@ -6,3 +6,5 @@ export * from './utils/index.js';
 export * from './export/index.js';
 export * from './interfaces/index.js';
 export * from './compose/index.js';
+export * from './chunk/index.js';
+export * from './extract/index.js';
