@@ -616,9 +616,15 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 
 ### 6.1 Web (`web`) — Phase 1
 
-- **Canonical ID:** `web:<canonicalUrl>` where `canonicalUrl` is the URL after
-  resolving redirects and stripping tracking params (`utm_*`, `fbclid`, etc.) and
-  honouring `<link rel="canonical">`.
+- **Canonical ID:** `web:<canonicalUrl>` where `canonicalUrl` is computed by the
+  **shared string-level `urlCanonical()`** (Section 7.2): lower-case host, resolve
+  the redirect chain, strip tracking params (`utm_*`, `fbclid`, etc.), normalise
+  trailing slash. This is **fetch-independent** so `rss` and `readwise` derive the
+  *same* primary ID from a bare URL. A `<link rel="canonical">` discovered *after*
+  fetch is recorded as an additional `dedupKey` (`web:<relCanonicalUrl>`), **not**
+  promoted to the primary ID — otherwise the same article would canonicalise
+  differently depending on whether the arriving vector fetched the page (Section 7.2,
+  Open Question Q6).
 - **Locator:** `dom`. **Sensitivity:** `personal`.
 - **Acquire:** CLI `--url`; `IWebFetcher` (readability default; Playwright backend
   for JS-heavy pages, opt-in via config). Architected to also accept a *pre-fetched*
@@ -630,8 +636,10 @@ mitigations, and its test inventory. Order follows the execution phases (Section
     default to keep the dependency optional.
   - *Paywalls / login walls* → detect (very short body, known login markers) and
     fail gracefully with a clear message; do not store a stub Resource.
-  - *Canonical-URL drift* → resolve `rel=canonical` and redirect chain before ID
-    computation so the same article via two URLs dedups.
+  - *Canonical-URL drift* → the redirect chain is resolved inside the shared
+    `urlCanonical()` so the primary ID is stable across vectors; `rel=canonical` adds
+    a `dedupKey` that lets a *fetched* duplicate merge with a *string-only* arrival
+    (Section 7.2). The primary ID never depends on having fetched the page.
 - **Tests:** `sources/web/tests/canonicalize.test.ts`, `fetch-readability.test.ts`
   (mocked HTTP), `paywall-detection.test.ts`, `web-pipeline.test.ts` (fixture HTML
   → claims), `locator-deeplink.test.ts` (text-fragment).
@@ -661,12 +669,16 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 
 ### 6.3 RSS Articles (`rss`) — Phase 1
 
-- **Canonical ID:** `web:<canonicalUrl>` whenever the feed item has an article URL
-  whose canonical URL can be resolved; otherwise `rss:<feedUrl>#<item-guid>` (or a
-  stable hash of feed URL + title + published date when no guid exists). The feed
-  guid is retained as a `dedupKey`/provenance external ID, not preferred over the
-  article work identity. This is the only way RSS can reliably merge with the web
-  and Readwise vectors. **Locator:** `dom`. **Sensitivity:** `public`.
+- **Canonical ID:** `web:<canonicalUrl>` whenever the feed item carries an article
+  URL, computed by the **same fetch-independent `urlCanonical()`** the `web` and
+  `readwise` vectors use (Section 7.2); otherwise `rss:<feedUrl>#<item-guid>` (or a
+  stable hash of feed URL + title + published date when no guid exists). Because
+  `urlCanonical()` is string-level, RSS derives the primary `web:` ID *without*
+  fetching, so it lands on the identical ID a fetched `web` arrival would — that is
+  what makes the merge reliable rather than dependent on `rel=canonical` agreeing
+  with the request URL. The feed guid is retained as a `dedupKey`/provenance external
+  ID, not preferred over the article work identity. **Locator:** `dom`.
+  **Sensitivity:** `public`.
 - **Acquire:** CLI `--feed <url>` (and `--item <guid>`); parse feed, select items;
   fetch full article body via `IWebFetcher` when the feed carries only summaries.
 - **Decode:** `[text-extract]` (reuses web text-extract).
@@ -750,10 +762,13 @@ mitigations, and its test inventory. Order follows the execution phases (Section
 - **Canonical ID:** the parent Resource's identity belongs to the **underlying
   work**, not the arrival vector: when the Readwise export item carries a
   `source_url`, the parent canonical ID is `web:<canonicalUrl>` derived by the
-  **same web canonicaliser used by the `web`/`rss` vectors** (Sections 6.1 and 6.3); when no
-  `source_url` is present (manual highlights, some tweets), it falls back to
-  `readwise:book:<bookId>`. Deriving `web:<canonicalUrl>` is what lets the same
-  article seen via RSS and via Readwise dedup-and-link to one Resource (Section 7.2).
+  **same fetch-independent `urlCanonical()` the `web`/`rss` vectors use**
+  (Sections 6.1, 6.3, 7.2). Readwise does **not** fetch the page, so it relies on the
+  string-level primary ID — which is exactly why `urlCanonical()` must not depend on
+  `rel=canonical`. When no `source_url` is present (manual highlights, some tweets),
+  it falls back to `readwise:book:<bookId>`. Deriving the same `web:<canonicalUrl>`
+  is what lets the same article seen via RSS and via Readwise dedup-and-link to one
+  Resource (Section 7.2).
   Highlights are addressed by `external` locators (`system: 'readwise'`,
   `externalId: <highlightId>`); re-runs stay idempotent on `<highlightId>`.
   (This parent-ID scheme deliberately differs from its siblings — Readwise is a
@@ -870,6 +885,25 @@ vector (`sensitivity-gate.test.ts`).
 ### 7.2 Canonicalization & Dedup-and-Link
 
 - **Stable IDs** per vector (Section 6) make idempotency deterministic.
+- **Two-tier URL canonicalisation (the linchpin of cross-vector merge).** A single
+  shared helper `urlCanonical(rawUrl: string): string` lives in `core` and is the
+  **only** thing that computes a `web:` *primary* ID. It is deliberately
+  **fetch-independent** — it operates on a URL string alone:
+  1. lower-case scheme + host, drop default ports and fragments;
+  2. resolve a bounded redirect chain (HEAD-only, optional; skipped offline);
+  3. strip tracking params (`utm_*`, `fbclid`, `gclid`, `ref`, …) and sort the
+     remaining query;
+  4. normalise the trailing slash.
+
+  Every vector that knows a URL — `web`, `rss`, `readwise` — derives its primary
+  `web:<canonicalUrl>` through this same helper, so the *same article yields the same
+  ID regardless of which vector arrives first and whether it fetched the page*.
+  `<link rel="canonical">` is **content** (only available after a fetch), so it is
+  **never** part of the primary ID; a fetching vector (`web`) records the discovered
+  `web:<relCanonicalUrl>` as an additional **`dedupKey`**. This lets a later
+  string-only arrival (RSS/Readwise) whose URL equals the discovered canonical merge
+  in, without making the primary ID fetch-dependent. (Whether the redirect-resolution
+  step in (2) is on by default is Open Question Q6.)
 - **Dedup keys:** every `RawSource` may carry `dedupKeys` in addition to its primary
   `canonicalId`. Keys are namespaced (`web:`, `rss:`, `readwise:book:`, `doi:`,
   `content-sha256:`) and ranked by confidence. Strong identity keys (`web:`, `doi:`,
@@ -880,10 +914,11 @@ vector (`sensitivity-gate.test.ts`).
   existing Resource, AIDHA appends the new `Provenance` and adds an `alsoSeenVia`
   edge — it does **not** create a duplicate and does **not** discard the arrival. The
   same article via RSS *and* Readwise becomes one Resource with two provenances
-  **because both derive the same `web:<canonicalUrl>`** — RSS from the article URL
-  (Section 6.3) and Readwise from `source_url` (Section 6.7). When no shared strong
-  identity is derivable (e.g. a Readwise highlight with no `source_url`), the two
-  stay distinct Resources linked by `corroboratedBy` rather than merging.
+  **because both run `urlCanonical()` over the same article URL** — RSS from the feed
+  item link (Section 6.3) and Readwise from `source_url` (Section 6.7) — yielding the
+  identical primary ID without either needing to fetch. When no shared strong identity
+  is derivable (e.g. a Readwise highlight with no `source_url`), the two stay distinct
+  Resources linked by `corroboratedBy` rather than merging.
 - **Cross-canonical corroboration:** when two *distinct* canonical Resources are
   later judged to represent the same work (e.g. a PDF and its Readwise highlights),
   a `corroboratedBy` edge links them; their excerpts/claims remain queryable
@@ -1146,6 +1181,7 @@ rejected with evidence).
 | "Sending private email/meetings to OpenAI is unsafe." | Per-vector sensitivity tier + `require_local_llm` gate enforced in core before any miner call (Section 7.1). |
 | "Same article via two vectors → duplicate resources." | Dedup-and-link (Section 7.2): merge into canonical, append provenance, add `alsoSeenVia`; never duplicate, never discard. |
 | "RSS guid prevents RSS↔Readwise merge." | RSS uses `web:<canonicalUrl>` when an article URL exists; guid is a dedup/provenance key, not the primary work ID (Section 6.3). |
+| "`web:` IDs differ across vectors because only `web` fetches `rel=canonical`." | The primary `web:` ID is computed by a single **fetch-independent** `urlCanonical()` shared by web/rss/readwise; `rel=canonical` is a post-fetch `dedupKey`, never the primary ID (Section 7.2, Q6). |
 | "`alsoSeenVia`/`corroboratedBy` do not exist in `Predicate`." | Phase 0 explicitly extends `reconditum` edge predicates and tests them before vector work starts (Section 4.3). |
 | "`Locator` is just another untyped metadata record." | Phase 0 adds type-specific metadata validators for Resource/Excerpt/Claim/Reference upsert/export paths (Section 4.1). |
 | "Scanned PDFs have no text layer." | OCR fallback per page (Section 6.2); graceful failure + warning when OCR unavailable. |
@@ -1191,6 +1227,13 @@ rejected with evidence).
   unified into a `Person` node? *v1:* no; per-recording labels only.
 - **Q5 — Watch-directory ingestion:** is a thin re-run loop enough for voice notes,
   or is a daemon wanted? *v1:* documented loop, no daemon.
+- **Q6 — Redirect resolution in `urlCanonical()`:** should the bounded HEAD redirect
+  step (Section 7.2 step 2) be on by default? It improves merge recall (shortened/
+  syndicated links collapse to the final URL) but reintroduces a network dependency
+  into ID computation, which weakens the "fetch-independent primary ID" guarantee for
+  the vectors that rely on it. *Lean:* off by default (pure string canonicalisation);
+  redirect-resolved URLs become `dedupKeys`, not the primary ID, mirroring the
+  `rel=canonical` treatment. Resolve in Phase 1 when `web`/`rss` land.
 
 ---
 
