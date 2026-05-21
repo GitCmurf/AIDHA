@@ -1116,6 +1116,12 @@ tests + DocOps. TDD throughout: contract test first, mock at IO boundaries.
 `SourceRegistration` contract and YouTube registration adapter (Baseline Dependency
 Gate, Section 1).
 
+- [ ] **(Must be first — the baseline is destroyed by the schema delta below.)**
+      Capture the current `praecis/youtube` dossier/JSON-LD export for the existing
+      fixtures as a **golden snapshot** (`packages/praecis/youtube/tests/__golden__/`),
+      committed before any schema change. This snapshot is what the Phase 0 acceptance
+      "semantically equivalent to pre-refactor" gate diffs against; without it the gate
+      is unverifiable.
 - [ ] Record an ADR (`docs/20-adr/adr-009-multi-vector-ingestion-architecture.md`)
       capturing the four-axis composition model, the source-vs-modality split, and
       the multi-provenance decision (array vs nodes — resolve Q1).
@@ -1133,8 +1139,13 @@ Gate, Section 1).
 - [ ] Add interfaces (`IIngestor`, `IChunker`, `ICandidateMiner`, `IEditor`,
       `IExporter`, `IDecodeStrategy`, `IContextProvider`) and `composeVector`.
 - [ ] Implement the `DedupResolver` contract: strong identity merge vs weak
-      corroboration link, with tests for RSS↔web, RSS↔Readwise, PDF↔Readwise, and
-      email provisional-thread reparenting.
+      corroboration link. **Tested in Phase 0 against synthetic `RawSource` fixtures**
+      (hand-written `canonicalId`/`dedupKeys` pairs), since the RSS/Readwise/PDF/email
+      vectors do not exist until Phases 1–3. The synthetic cases cover the *resolver
+      logic* (web↔rss same `urlCanonical()`; rss/readwise vs no-`source_url`;
+      strong-vs-weak key ranking; provisional-thread reparenting). The end-to-end
+      cross-vector integration tests (real fixtures through real vectors) are listed
+      in the phases that introduce those vectors (Sections 8 Phase 1/3, 9).
 - [ ] Extract pipeline + chunk + extract + export from `praecis/youtube` into
       `core`; make them Locator-aware (deep-link renderers per kind).
 - [ ] Refactor `praecis/youtube` to implement the interfaces, compose via
@@ -1144,6 +1155,21 @@ Gate, Section 1).
       and deep-link targets — and **byte-stable across re-runs on the regenerated
       fixtures** (regression gate; not byte-identical to pre-refactor output, since
       the new `locator` field changes the export shape — Section 4 preamble).
+
+**Internal checkpoints (Phase 0 is large and refactor-risky — gate mid-phase, not
+just at the end):**
+
+- **CP-0a (schema landed):** `reconditum` contract tests green — Locator union,
+  type-specific metadata validators, extended SourceType, multi-provenance, new
+  predicates — *and* the golden snapshot still loads. Stop here if the schema delta
+  alone broke fixture loading.
+- **CP-0b (framework landed):** `core` types, interfaces, `composeVector`, and
+  `DedupResolver` (synthetic fixtures) green, before touching `praecis/youtube`.
+- **CP-0c (extraction landed):** pipeline/chunk/extract/export moved into `core` and
+  Locator-aware, exercised by `core`'s own tests, before re-wiring YouTube onto it.
+- **CP-0d (YouTube re-wired):** the final semantic-equivalence diff vs the CP-0
+  golden snapshot. Drift caught here is isolated to the re-wire, not entangled with
+  schema or framework changes.
 
 **Acceptance:** `pnpm -C packages/praecis/core test` and
 `pnpm -C packages/praecis/youtube test` green; YouTube export **semantically
