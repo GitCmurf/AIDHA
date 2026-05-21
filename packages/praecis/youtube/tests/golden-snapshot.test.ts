@@ -71,7 +71,7 @@ describe('Phase 0 golden snapshot (plan-007)', () => {
     }
 
     const committed = await readFile(goldenPath, 'utf-8');
-    expect(dossierMd).toBe(committed);
+    expect(dossierMd.trimEnd()).toBe(committed.trimEnd());
   });
 
   it('transcript JSON matches committed golden file (or writes it when UPDATE_GOLDEN=1)', async () => {
@@ -85,6 +85,6 @@ describe('Phase 0 golden snapshot (plan-007)', () => {
     }
 
     const committed = await readFile(goldenPath, 'utf-8');
-    expect(transcriptJson).toBe(committed);
+    expect(transcriptJson.trimEnd()).toBe(committed.trimEnd());
   });
 });

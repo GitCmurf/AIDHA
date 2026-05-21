@@ -177,6 +177,8 @@ export interface GraphStore {
     options?: UpsertEdgeOptions
   ): Promise<Result<UpsertEdgeResult>>;
   getEdges(options?: QueryEdgesOptions): Promise<Result<QueryResult<GraphEdge>>>;
+  /** Look up a Resource by its primary canonicalId or any namespaced dedupKey. */
+  findResourceByIdentity(key: string): Promise<Result<GraphNode | null>>;
   deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>>;
   exportSnapshot(options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>>;
   exportGephi(options?: ExportGephiOptions): Promise<Result<GephiExport>>;

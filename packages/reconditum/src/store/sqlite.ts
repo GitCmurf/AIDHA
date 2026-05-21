@@ -643,6 +643,10 @@ export class SQLiteStore implements GraphStore {
     }
   }
 
+  async findResourceByIdentity(_key: string): Promise<Result<import('../schema/index.js').GraphNode | null>> {
+    throw new Error('findResourceByIdentity not yet implemented');
+  }
+
   async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
     try {
       if (this.ftsEnabled) {

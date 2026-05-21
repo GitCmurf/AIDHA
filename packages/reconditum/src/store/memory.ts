@@ -217,6 +217,25 @@ export class InMemoryStore implements GraphStore {
     }
   }
 
+  async findResourceByIdentity(key: string): Promise<Result<GraphNode | null>> {
+    try {
+      for (const node of this.nodes.values()) {
+        if (node.type !== 'Resource') continue;
+        const meta = node.metadata as Record<string, unknown>;
+        if (meta['canonicalId'] === key) return { ok: true, value: node };
+        if (
+          Array.isArray(meta['dedupKeys']) &&
+          (meta['dedupKeys'] as string[]).includes(key)
+        ) {
+          return { ok: true, value: node };
+        }
+      }
+      return { ok: true, value: null };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
   async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
     try {
       this.nodes.delete(id);
