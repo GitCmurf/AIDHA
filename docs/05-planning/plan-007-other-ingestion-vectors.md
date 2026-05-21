@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.5"
-last_updated: 2026-05-21
+version: "0.6"
+last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 0.5
-> **Last Updated:** 2026-05-21
+> **Version:** 0.6
+> **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
 <!-- markdownlint-disable MD013 -->
@@ -32,6 +32,7 @@ docops_version: "2.0"
 | 0.3     | 2026-05-20 | AI     | Codex adversarial-review fixes: (1) email Resource identity moved to thread level (`email:thread:<rootMessageId>` with a spelled-out derivation; messages are excerpts) and Objective de-advertised "tagged Outlook" to honest file-import scope; (2) defined the Readwise `source_url`→`web:<canonicalUrl>` work-id derivation so the RSS↔Readwise dedup gate is achievable, with merge/link integration cases pinned; (3) cleaned up three residual `byte-identical` references v0.2 missed (Phase 0 checklist, Risks table, DoD #2). | GPT (adversarial via Codex), Self-review (advisor) | Draft | — |
 | 0.4     | 2026-05-20 | AI     | Showcase-excellence hardening: align the dependency gate to the live `SourceRegistration` baseline; separate acquisition helpers from decode strategies; make typed graph metadata and new edge predicates explicit; fix RSS canonical precedence so RSS↔Readwise merge is actually reachable; add email thread reparenting for out-of-order imports; add chunking policy ownership, dedup-key semantics, and sharper verification gates. | Codex adversarial review, Self-review | Draft | — |
 | 0.5     | 2026-05-21 | AI     | Claude adversarial-review fixes: (B1) replace fetch-dependent `web:` canonicalisation with a single shared, fetch-independent `urlCanonical()` so web/rss/readwise derive identical primary IDs (`rel=canonical`→`dedupKey`; new Q6); (B2/D1) define `DecodeInput` + transcribe/diarize→`IDecodeStrategy` adapters and add `PipelineServices`/`PipelineRuntime` for the missing "run half"; (D2) reframe `mediaRef` as a data-model seam, not a no-refactor pipeline path; (D3) reuse phyla `Result`, make partial decode an `ok` result via `DecodeOutput.warnings`; (D6) split compose-time vs runtime sensitivity gating; (D7) pin `ExtractionContext`+chunker as the only vector→spine seam; (B3/D4/D5) Phase 0 golden snapshot, synthetic-fixture `DedupResolver` tests, internal checkpoints; (D8) `GraphStore` identity-lookup work item; (D9) reparenting crash-safety caveat; (D10) `pdf` vs `document` sourceType. | Claude (adversarial via advisor), Self-review | Draft | — |
+| 0.6     | 2026-05-22 | AI     | Added the first shared phase-1 foundation packages: `decode/text` now provides deterministic HTML/plain-text/PDF text segmentation with char offsets, and `acquire/webfetch` now provides a mockable HTTP fetcher with shared URL canonicalisation. Updated workspace wiring and tests to prove both packages build and run offline. | Self-review | Draft | — |
 
 ## Objective
 
@@ -1217,8 +1218,8 @@ shape); `aidha config explain` works for the `youtube` registration.
 
 ### Phase 1 — Text, no auth: Web + PDF + RSS
 
-- [ ] `decode/text` (readability extract; pdf-to-text; shared char-offset model).
-- [ ] `acquire/webfetch` (`IWebFetcher`: HTTP/readability default, Playwright opt-in).
+- [x] `decode/text` (readability extract; pdf-to-text; shared char-offset model).
+- [x] `acquire/webfetch` (`IWebFetcher`: HTTP/readability default, Playwright opt-in).
 - [ ] `decode/ocr` (Tesseract fallback; mockable).
 - [ ] `sources/web` — acquire (canonicalise URL), compose `[text-extract]`,
       register, CLI `aidha ingest web --url`.
