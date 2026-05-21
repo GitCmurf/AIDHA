@@ -215,8 +215,9 @@ describe('createPipelineRuntime', () => {
     expect(() => runtime.register(mockVector)).toThrow('duplicate sourceId');
   });
 
-  it('run() throws not-yet-implemented', async () => {
+  it('run() returns err for unregistered sourceId', async () => {
     const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
-    await expect(runtime.run('any', { ref: 'x' })).rejects.toThrow('not yet implemented');
+    const result = await runtime.run('any', { ref: 'x' });
+    expect(result.ok).toBe(false);
   });
 });

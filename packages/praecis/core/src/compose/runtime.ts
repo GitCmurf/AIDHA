@@ -4,6 +4,7 @@
 import type { PipelineServices, PipelineRuntime, IngestInput, RunReport } from '../interfaces/index.js';
 import type { Result } from '@aidha/taxonomy';
 import type { ComposedVector } from './vector.js';
+import { runVector } from '../pipeline/spine.js';
 
 export function createPipelineRuntime(_services: PipelineServices): PipelineRuntime {
   const registry = new Map<string, ComposedVector>();
@@ -17,8 +18,12 @@ export function createPipelineRuntime(_services: PipelineServices): PipelineRunt
       registry.set(cv.sourceId, cv);
     },
 
-    async run(_sourceId: string, _input: IngestInput): Promise<Result<RunReport>> {
-      throw new Error('PipelineRuntime.run() not yet implemented — requires spine (CP-0c)');
+    async run(sourceId: string, input: IngestInput): Promise<Result<RunReport>> {
+      const vector = registry.get(sourceId);
+      if (!vector) {
+        return { ok: false, error: new Error(`PipelineRuntime: no vector registered for "${sourceId}"`) };
+      }
+      return runVector(vector, input);
     },
   };
 }
