@@ -109,7 +109,7 @@ export function composeVector(spec: VectorSpec): ComposedVector {
       const decodeResult = await strategy.decode({
         raw,
         upstream: currentSegments,
-        config: {} as ResolvedConfig, // spine injects real config in CP-0c
+        config: {} as ResolvedConfig,
       });
       if (!decodeResult.ok) {
         return decodeResult;

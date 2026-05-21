@@ -244,4 +244,64 @@ describe('DossierExporter', () => {
     expect(payload.videos[0]?.videoId).toBe('test-video');
     expect((payload.videos[0]?.segments ?? []).length).toBeGreaterThan(0);
   });
+
+  it('falls back to formatTimestamp label when Excerpt has no locator in metadata', async () => {
+    // Manually construct a minimal graph without locator — simulates pre-CP-0d excerpts
+    const videoId = 'legacy-video';
+    const resourceId = `youtube-${videoId}`;
+
+    await graphStore.upsertNode('Resource', resourceId, {
+      label: 'Legacy Video',
+      metadata: {
+        videoId,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        channelName: 'Legacy Channel',
+      },
+    });
+
+    const excerptId = 'excerpt-legacy-001';
+    // No `locator` key — only raw start/end timestamps
+    await graphStore.upsertNode('Excerpt', excerptId, {
+      label: 'Legacy excerpt',
+      content: 'Old transcript text.',
+      metadata: {
+        videoId,
+        resourceId,
+        start: 3661,
+        end: 3671,
+        duration: 10,
+        sequence: 0,
+        source: 'youtube',
+      },
+    });
+
+    const claimId = 'claim-legacy-001';
+    await graphStore.upsertNode('Claim', claimId, {
+      label: 'Legacy claim',
+      content: 'A claim from the old transcript.',
+      metadata: {
+        resourceId,
+        state: 'accepted',
+      },
+    });
+
+    await graphStore.upsertEdge(claimId, 'claimDerivedFrom', excerptId, {});
+
+    const exporter = new DossierExporter({ graphStore });
+    const result = await exporter.buildVideoDossier(videoId);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const dossier = result.value;
+    expect(dossier.claims).toHaveLength(1);
+
+    const claim = dossier.claims[0];
+    expect(claim).toBeDefined();
+    if (!claim) return;
+
+    // Fallback formatter produces h:mm:ss for times >= 3600s
+    expect(claim.label).toBe('1:01:01');
+    // Deep link uses buildTimestampUrl fallback
+    expect(claim.deepLink).toContain('t=3661');
+  });
 });

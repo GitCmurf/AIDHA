@@ -80,9 +80,9 @@ describe('renderLabel', () => {
     expect(renderLabel(loc)).toBe('1:05');
   });
 
-  it('timecode 3661 seconds renders as 61:01', () => {
+  it('timecode 3661 seconds renders as 1:01:01', () => {
     const loc: Locator = { kind: 'timecode', startSec: 3661, endSec: 3671 };
-    expect(renderLabel(loc)).toBe('61:01');
+    expect(renderLabel(loc)).toBe('1:01:01');
   });
 
   it('page renders as p.<n>', () => {
