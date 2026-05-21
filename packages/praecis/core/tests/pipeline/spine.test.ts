@@ -4,7 +4,14 @@
 import { describe, it, expect } from 'vitest';
 import { composeVector } from '../../src/compose/vector.js';
 import { createPipelineRuntime } from '../../src/compose/runtime.js';
-import type { IIngestor, IDecodeStrategy, IContextProvider, IngestInput, ExtractionContext } from '../../src/interfaces/index.js';
+import type {
+  IIngestor,
+  IDecodeStrategy,
+  IContextProvider,
+  IngestInput,
+  ExtractionContext,
+  PipelineServices,
+} from '../../src/interfaces/index.js';
 import type { RawSource, DecodeOutput } from '../../src/types/index.js';
 import type { Result } from '@aidha/taxonomy';
 import type { SourceRegistration, ResolvedConfig } from '@aidha/config';
@@ -66,6 +73,43 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
     registration: makeRegistration('test-source'),
   });
 
+  const services: PipelineServices = {
+    store: {} as PipelineServices['store'],
+    miner: {
+      async mine() {
+        return {
+          ok: true,
+          value: [{ id: 'claim-1' }, { id: 'claim-2' }],
+        };
+      },
+    },
+    editor: {
+      async edit(miningResult) {
+        return { ok: true, value: miningResult };
+      },
+    },
+    exporter: {
+      async export(editResult) {
+        return { ok: true, value: editResult };
+      },
+    },
+    llm: {
+      async complete() {
+        return { ok: true, value: 'ok' };
+      },
+    },
+    cache: {
+      async get() {
+        return { ok: true, value: null };
+      },
+      async set() {
+        return { ok: true, value: undefined };
+      },
+    },
+    costCeiling: {},
+    privacy: { allowCloudLlm: true, sensitivityCeiling: 'confidential' },
+  };
+
   it('run() returns RunReport on success', async () => {
     const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
     runtime.register(vec);
@@ -77,6 +121,15 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
     expect(result.value.claimsExtracted).toBe(0);
     expect(Array.isArray(result.value.warnings)).toBe(true);
     expect(result.value.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('run() uses PipelineServices when provided and reports extracted claims', async () => {
+    const runtime = createPipelineRuntime(services);
+    runtime.register(vec);
+    const result = await runtime.run('test-source', { ref: 'https://example.com' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+    expect(result.value.claimsExtracted).toBe(2);
   });
 
   it('run() returns err for unknown sourceId', async () => {

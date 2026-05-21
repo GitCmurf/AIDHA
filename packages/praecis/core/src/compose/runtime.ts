@@ -6,7 +6,7 @@ import type { Result } from '@aidha/taxonomy';
 import type { ComposedVector } from './vector.js';
 import { runVector } from '../pipeline/spine.js';
 
-export function createPipelineRuntime(_services: PipelineServices): PipelineRuntime {
+export function createPipelineRuntime(services: Partial<PipelineServices> = {}): PipelineRuntime {
   const registry = new Map<string, ComposedVector>();
 
   return {
@@ -23,7 +23,7 @@ export function createPipelineRuntime(_services: PipelineServices): PipelineRunt
       if (!vector) {
         return { ok: false, error: new Error(`PipelineRuntime: no vector registered for "${sourceId}"`) };
       }
-      return runVector(vector, input);
+      return runVector(vector, input, services);
     },
   };
 }
