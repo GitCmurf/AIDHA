@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.2"
+version: "1.3"
 last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 1.2
+> **Version:** 1.3
 > **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
@@ -39,6 +39,7 @@ docops_version: "2.0"
 | 1.0     | 2026-05-22 | AI     | Added the PDF vector adapter: `sources/pdf` now composes shared text + OCR packages into a file-ingest/decode vector with deterministic sha256 canonical IDs, page locators, and OCR fallback tests. | Self-review | Draft | — |
 | 1.1     | 2026-05-22 | AI     | Added the RSS adapter: `sources/feeds` now parses RSS feeds, selects items by guid, derives `web:` canonical IDs from item links, and fetches full article HTML when feeds are summary-only. | Self-review | Draft | — |
 | 1.2     | 2026-05-22 | AI     | Added the generic `aidha` CLI package with offline `ingest web\|pdf\|rss` commands plus shared `config explain` support over the registered source set; rebuilt the phase-1 runtime packages so the CLI executes the current source implementations. | Self-review | Draft | — |
+| 1.3     | 2026-05-22 | AI     | Wired the dedup/link graph helper in `packages/praecis/core`: `DedupResolver` now has an application path that appends provenance on shared `web:` identity merges and creates `corroboratedBy`/`alsoSeenVia` links for non-identical arrivals. | Self-review | Draft | — |
 
 ## Objective
 
@@ -1235,7 +1236,7 @@ shape); `aidha config explain` works for the `youtube` registration.
       `[text-extract]`, CLI `aidha ingest rss --feed`.
 - [x] `packages/praecis/cli` — generic `aidha ingest web|pdf|rss` plus
       shared `config explain` over the registered source set.
-- [ ] Dedup-and-link wired (web ↔ rss shared `web:` work identity).
+- [x] Dedup-and-link wired (web ↔ rss shared `web:` work identity).
 
 **Acceptance:** each vector ingests a fixture → claims with correct Locators;
 deep-links render per kind; dedup-and-link test passes; runbooks added; no-network

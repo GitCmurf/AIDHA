@@ -8,3 +8,6 @@ export { createPipelineRuntime } from './runtime.js';
 
 export type { DedupAction, DedupResult } from './dedup-resolver.js';
 export { DedupResolver } from './dedup-resolver.js';
+
+export type { DedupLinkResult } from './dedup-link.js';
+export { applyDedupResolution } from './dedup-link.js';
