@@ -4,3 +4,4 @@
 export * from './token-window-chunker.js';
 export * from './section-chunker.js';
 export * from './conversation-chunker.js';
+export * from './highlight-chunker.js';

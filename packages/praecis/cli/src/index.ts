@@ -32,6 +32,13 @@ import {
   PodcastSourceRegistration,
   type PodcastFetchFn,
 } from '@aidha/praecis-source-feeds';
+import {
+  createReadwiseVectorSpec,
+  ReadwiseSourceRegistration,
+  fetchReadwiseExport,
+  type ReadwiseFetchFn,
+  type ReadwiseBook,
+} from '@aidha/praecis-source-readwise';
 import { composeVector, type ComposedVector } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
@@ -42,7 +49,7 @@ export interface CliOptions {
 }
 
 export interface IngestSummary {
-  readonly sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast';
+  readonly sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast' | 'readwise';
   readonly ref: string;
   readonly canonicalId: string;
   readonly label?: string;
@@ -71,6 +78,7 @@ const SOURCE_REGISTRATIONS: SourceRegistration[] = [
   MeetingSourceRegistration,
   RssSourceRegistration,
   PodcastSourceRegistration,
+  ReadwiseSourceRegistration,
 ];
 
 function isString(value: unknown): value is string {
@@ -186,6 +194,44 @@ export async function runPodcastIngest(
   };
   const vectorOptions = options.fetchFn ? { fetchFn: options.fetchFn } : {};
   return buildIngestSummary('podcast', ref, createPodcastVectorSpec(vectorOptions), metadata);
+}
+
+export interface ReadwiseBatchSummary {
+  readonly sourceId: 'readwise';
+  readonly updatedAfter?: string;
+  readonly totalBooks: number;
+  readonly summaries: readonly IngestSummary[];
+}
+
+export async function runReadwiseIngest(
+  updatedAfter: string | undefined,
+  options: { token: string; fetchFn?: ReadwiseFetchFn } = { token: '' },
+): Promise<ReadwiseBatchSummary> {
+  if (!options.token) {
+    throw new Error('readwise token is required');
+  }
+
+  const readwiseOptions: Parameters<typeof fetchReadwiseExport>[0] = {
+    token: options.token,
+    ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}),
+    ...(updatedAfter ? { updatedAfter } : {}),
+  };
+  const books = await fetchReadwiseExport(readwiseOptions);
+
+  const summaries: IngestSummary[] = [];
+  for (const book of books) {
+    const vector = createReadwiseVectorSpec(book);
+    const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
+    const summary = await buildIngestSummary('readwise', ref, vector);
+    summaries.push(summary);
+  }
+
+  return {
+    sourceId: 'readwise',
+    totalBooks: books.length,
+    summaries,
+    ...(updatedAfter ? { updatedAfter } : {}),
+  };
 }
 
 export async function resolveAidhaConfig(
@@ -435,7 +481,25 @@ export async function runCli(argv: string[]): Promise<number> {
         return 0;
       }
 
-      console.error('Usage: ingest <web|pdf|voice|meeting|rss|podcast> ...');
+      if (mode === 'readwise') {
+        const since = optionString(options, 'since') ?? positionals[2];
+        const token = optionString(options, 'token') ?? process.env['READWISE_TOKEN'];
+        if (!token) {
+          console.error('Usage: ingest readwise --since <iso8601> [--token <token>] [--json]');
+          return 1;
+        }
+        const summary = await runReadwiseIngest(since, { token });
+        if (optionBool(options, 'json')) {
+          console.log(JSON.stringify(summary, null, 2));
+        } else {
+          console.log(`Ingested readwise export since ${since ?? 'start'}`);
+          console.log(`Books: ${summary.totalBooks}`);
+          console.log(`Summaries: ${summary.summaries.length}`);
+        }
+        return 0;
+      }
+
+      console.error('Usage: ingest <web|pdf|voice|meeting|rss|podcast|readwise> ...');
       return 1;
     }
 

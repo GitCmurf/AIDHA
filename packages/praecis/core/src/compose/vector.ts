@@ -22,6 +22,7 @@ import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import { TokenWindowChunker } from '../chunk/token-window-chunker.js';
 import { SectionChunker } from '../chunk/section-chunker.js';
 import { ConversationChunker } from '../chunk/conversation-chunker.js';
+import { HighlightChunker } from '../chunk/highlight-chunker.js';
 
 // ---------------------------------------------------------------------------
 // DefaultChunker — fallback for unrecognized string names
@@ -86,6 +87,7 @@ export function composeVector(spec: VectorSpec): ComposedVector {
       ? spec.chunking === 'token-window' ? new TokenWindowChunker()
       : spec.chunking === 'section' ? new SectionChunker()
       : spec.chunking === 'conversation' ? new ConversationChunker()
+      : spec.chunking === 'highlight' ? new HighlightChunker()
       : new DefaultChunker(spec.chunking)
     : spec.chunking;
 

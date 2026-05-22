@@ -7,6 +7,7 @@ import {
   explainResolvedKey,
   resolveAidhaConfig,
   runMeetingIngest,
+  runReadwiseIngest,
   runPodcastIngest,
   runPdfIngest,
   runRssIngest,
@@ -151,6 +152,43 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.segmentCount).toBeGreaterThan(0);
     expect(summary.segments[0]?.locator.kind).toBe('timecode');
     expect(summary.segments[0]?.locator.speaker).toBeDefined();
+  });
+
+  it('ingests readwise exports with the shared web canonical id and highlight locators', async () => {
+    const summary = await runReadwiseIngest('2026-05-01T00:00:00Z', {
+      token: 'token-123',
+      fetchFn: async (url) => {
+        expect(url).toContain('updatedAfter=2026-05-01T00%3A00%3A00Z');
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              count: 1,
+              nextPageCursor: null,
+              results: [
+                {
+                  user_book_id: 11,
+                  title: 'How to Do What You Love',
+                  author: 'Paul Graham',
+                  source_url: 'https://example.com/article?utm_source=readwise',
+                  readwise_url: 'https://readwise.io/bookreview/11',
+                  highlights: [
+                    { id: 1, text: 'First quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
+                    { id: 2, text: 'Second quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
+                  ],
+                },
+              ],
+            };
+          },
+        };
+      },
+    });
+
+    expect(summary.sourceId).toBe('readwise');
+    expect(summary.totalBooks).toBe(1);
+    expect(summary.summaries[0]?.canonicalId).toBe('web:https://example.com/article');
+    expect(summary.summaries[0]?.segments[0]?.locator).toEqual({ kind: 'external', system: 'readwise', externalId: '1' });
   });
 
   it('explains config provenance for source registrations', async () => {

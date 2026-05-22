@@ -76,8 +76,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-05-21",
-      "version": "0.26",
+      "last_updated": "2026-05-22",
+      "version": "0.28",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -337,6 +337,20 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-004-readwise-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-004",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Readwise Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "05-planning/plan-004-improve-claims-quality-editorial-ranking.md",
     "title": "Improve Claim Quality and Editorial Ranking (Plan)",
     "front_matter": {
@@ -357,7 +371,7 @@
       "document_id": "AIDHA-PLAN-007",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "1.6",
+      "version": "1.7",
       "last_updated": "2026-05-22",
       "title": "Other Ingestion Vectors",
       "type": "PLAN",

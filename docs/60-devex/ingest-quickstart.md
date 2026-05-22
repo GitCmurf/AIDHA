@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-05-21
-version: '0.26'
+last_updated: 2026-05-22
+version: '0.28'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.26
-> **Last Updated:** 2026-05-21
+> **Version:** 0.28
+> **Last Updated:** 2026-05-22
 > **Type:** GUIDE
 
 ## Version History
@@ -49,6 +49,7 @@ docops_version: '2.0'
 | 0.25    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 | 0.26    | 2026-05-21 | AI     | Add architecture note referencing multi-vector model (PLAN-007 Phase 0) | — | Draft | — |
 | 0.27    | 2026-05-22 | AI     | Add podcast ingest command and note the shared multi-vector CLI surface. | — | Draft | — |
+| 0.28    | 2026-05-22 | AI     | Add Readwise batch ingest command and note the shared export cursor surface. | — | Draft  | — |
 
 ## Purpose
 
@@ -248,6 +249,7 @@ aidha ingest rss --feed <url> [--item-guid <guid>]
 aidha ingest voice --file <path>
 aidha ingest meeting --file <path>
 aidha ingest podcast --feed <url> [--episode <guid>] [--panel]
+aidha ingest readwise --since <iso8601> [--token <token>]
 ```
 
 Use `--json` to emit machine-readable summaries for scripts and regression checks.
