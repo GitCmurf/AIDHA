@@ -9,3 +9,4 @@ packages:
     - "packages/praecis/sources/web"
     - "packages/praecis/sources/pdf"
     - "packages/praecis/sources/feeds"
+    - "packages/praecis/sources/voice"

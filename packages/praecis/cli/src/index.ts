@@ -18,6 +18,10 @@ import {
   PdfSourceRegistration,
 } from '@aidha/praecis-source-pdf';
 import {
+  createVoiceVectorSpec,
+  VoiceSourceRegistration,
+} from '@aidha/praecis-source-voice';
+import {
   createRssVectorSpec,
   RssSourceRegistration,
 } from '@aidha/praecis-source-feeds';
@@ -56,6 +60,7 @@ const SOURCE_REGISTRATIONS: SourceRegistration[] = [
   YouTubeSourceRegistration,
   WebSourceRegistration,
   PdfSourceRegistration,
+  VoiceSourceRegistration,
   RssSourceRegistration,
 ];
 
@@ -108,7 +113,7 @@ function normalizeOutputChunks(chunks: readonly Chunk[]): IngestSummary['chunks'
 }
 
 async function buildIngestSummary(
-  sourceId: 'web' | 'pdf' | 'rss',
+  sourceId: 'web' | 'pdf' | 'voice' | 'rss',
   ref: string,
   vector: ComposedVector,
   metadata?: Record<string, unknown>,
@@ -144,6 +149,10 @@ export async function runWebIngest(ref: string, fetchFn?: WebFetchFn): Promise<I
 
 export async function runPdfIngest(ref: string, readFileFn?: typeof readFile): Promise<IngestSummary> {
   return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec(readFileFn)));
+}
+
+export async function runVoiceIngest(ref: string): Promise<IngestSummary> {
+  return buildIngestSummary('voice', ref, createVoiceVectorSpec());
 }
 
 export async function runRssIngest(
@@ -317,6 +326,24 @@ export async function runCli(argv: string[]): Promise<number> {
           console.log(JSON.stringify(summary, null, 2));
         } else {
           console.log(`Ingested pdf ${summary.ref}`);
+          console.log(`Canonical: ${summary.canonicalId}`);
+          console.log(`Segments: ${summary.segmentCount}`);
+          console.log(`Chunks: ${summary.chunkCount}`);
+        }
+        return 0;
+      }
+
+      if (mode === 'voice') {
+        const ref = optionString(options, 'file') ?? positionals[2];
+        if (!ref) {
+          console.error('Usage: ingest voice --file <path> [--json]');
+          return 1;
+        }
+        const summary = await runVoiceIngest(ref);
+        if (optionBool(options, 'json')) {
+          console.log(JSON.stringify(summary, null, 2));
+        } else {
+          console.log(`Ingested voice ${summary.ref}`);
           console.log(`Canonical: ${summary.canonicalId}`);
           console.log(`Segments: ${summary.segmentCount}`);
           console.log(`Chunks: ${summary.chunkCount}`);

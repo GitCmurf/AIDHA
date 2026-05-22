@@ -8,6 +8,7 @@ import {
   resolveAidhaConfig,
   runPdfIngest,
   runRssIngest,
+  runVoiceIngest,
   runWebIngest,
 } from '../src/index.js';
 
@@ -47,6 +48,20 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.canonicalId).toBe(`pdf:${expectedHash}`);
     expect(summary.segmentCount).toBe(2);
     expect(summary.segments[0]?.locator.kind).toBe('page');
+  });
+
+  it('ingests voice fixtures with deterministic timecoded segments', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-voice-'));
+    const filePath = join(dir, 'note.m4a');
+    await writeFile(filePath, Buffer.from('voice note alpha beta gamma delta', 'utf8'));
+
+    const summary = await runVoiceIngest(filePath);
+    const expectedHash = createHash('sha256').update(Buffer.from('voice note alpha beta gamma delta', 'utf8')).digest('hex');
+
+    expect(summary.sourceId).toBe('voice');
+    expect(summary.canonicalId).toBe(`voice:${expectedHash}`);
+    expect(summary.segmentCount).toBeGreaterThan(0);
+    expect(summary.segments[0]?.locator.kind).toBe('timecode');
   });
 
   it('ingests rss fixtures and resolves linked articles through the shared web identity', async () => {

@@ -79,6 +79,9 @@ importers:
       '@aidha/praecis-source-pdf':
         specifier: workspace:*
         version: link:../sources/pdf
+      '@aidha/praecis-source-voice':
+        specifier: workspace:*
+        version: link:../sources/voice
       '@aidha/praecis-source-web':
         specifier: workspace:*
         version: link:../sources/web
@@ -218,6 +221,28 @@ importers:
       '@aidha/praecis-decode-text':
         specifier: workspace:*
         version: link:../../decode/text
+    devDependencies:
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.7.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.6(@types/node@25.7.0)(vite@8.0.12(@types/node@25.7.0)(yaml@2.9.0))
+
+  packages/praecis/sources/voice:
+    dependencies:
+      '@aidha/config':
+        specifier: workspace:*
+        version: link:../../../aidha-config
+      '@aidha/praecis-core':
+        specifier: workspace:*
+        version: link:../../core
+      '@aidha/praecis-decode-transcribe':
+        specifier: workspace:*
+        version: link:../../decode/transcribe
     devDependencies:
       '@types/node':
         specifier: ^25.7.0
