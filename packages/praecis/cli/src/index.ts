@@ -22,6 +22,10 @@ import {
   VoiceSourceRegistration,
 } from '@aidha/praecis-source-voice';
 import {
+  createMeetingVectorSpec,
+  MeetingSourceRegistration,
+} from '@aidha/praecis-source-meetings';
+import {
   createRssVectorSpec,
   RssSourceRegistration,
 } from '@aidha/praecis-source-feeds';
@@ -61,6 +65,7 @@ const SOURCE_REGISTRATIONS: SourceRegistration[] = [
   WebSourceRegistration,
   PdfSourceRegistration,
   VoiceSourceRegistration,
+  MeetingSourceRegistration,
   RssSourceRegistration,
 ];
 
@@ -113,7 +118,7 @@ function normalizeOutputChunks(chunks: readonly Chunk[]): IngestSummary['chunks'
 }
 
 async function buildIngestSummary(
-  sourceId: 'web' | 'pdf' | 'voice' | 'rss',
+  sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss',
   ref: string,
   vector: ComposedVector,
   metadata?: Record<string, unknown>,
@@ -153,6 +158,10 @@ export async function runPdfIngest(ref: string, readFileFn?: typeof readFile): P
 
 export async function runVoiceIngest(ref: string): Promise<IngestSummary> {
   return buildIngestSummary('voice', ref, createVoiceVectorSpec());
+}
+
+export async function runMeetingIngest(ref: string): Promise<IngestSummary> {
+  return buildIngestSummary('meeting', ref, createMeetingVectorSpec());
 }
 
 export async function runRssIngest(
@@ -344,6 +353,24 @@ export async function runCli(argv: string[]): Promise<number> {
           console.log(JSON.stringify(summary, null, 2));
         } else {
           console.log(`Ingested voice ${summary.ref}`);
+          console.log(`Canonical: ${summary.canonicalId}`);
+          console.log(`Segments: ${summary.segmentCount}`);
+          console.log(`Chunks: ${summary.chunkCount}`);
+        }
+        return 0;
+      }
+
+      if (mode === 'meeting') {
+        const ref = optionString(options, 'file') ?? positionals[2];
+        if (!ref) {
+          console.error('Usage: ingest meeting --file <path> [--json]');
+          return 1;
+        }
+        const summary = await runMeetingIngest(ref);
+        if (optionBool(options, 'json')) {
+          console.log(JSON.stringify(summary, null, 2));
+        } else {
+          console.log(`Ingested meeting ${summary.ref}`);
           console.log(`Canonical: ${summary.canonicalId}`);
           console.log(`Segments: ${summary.segmentCount}`);
           console.log(`Chunks: ${summary.chunkCount}`);

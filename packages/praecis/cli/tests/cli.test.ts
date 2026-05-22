@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import {
   explainResolvedKey,
   resolveAidhaConfig,
+  runMeetingIngest,
   runPdfIngest,
   runRssIngest,
   runVoiceIngest,
@@ -62,6 +63,21 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.canonicalId).toBe(`voice:${expectedHash}`);
     expect(summary.segmentCount).toBeGreaterThan(0);
     expect(summary.segments[0]?.locator.kind).toBe('timecode');
+  });
+
+  it('ingests meeting fixtures with diarized timecoded segments', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-meeting-'));
+    const filePath = join(dir, 'standup.wav');
+    await writeFile(filePath, Buffer.from('meeting transcript alpha beta gamma delta epsilon zeta eta theta', 'utf8'));
+
+    const summary = await runMeetingIngest(filePath);
+    const expectedHash = createHash('sha256').update(Buffer.from('meeting transcript alpha beta gamma delta epsilon zeta eta theta', 'utf8')).digest('hex');
+
+    expect(summary.sourceId).toBe('meeting');
+    expect(summary.canonicalId).toBe(`meeting:${expectedHash}`);
+    expect(summary.segmentCount).toBeGreaterThan(0);
+    expect(summary.segments[0]?.locator.kind).toBe('timecode');
+    expect(summary.segments[0]?.label).toBeDefined();
   });
 
   it('ingests rss fixtures and resolves linked articles through the shared web identity', async () => {
