@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.1"
+version: "1.2"
 last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 1.1
+> **Version:** 1.2
 > **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
@@ -38,6 +38,7 @@ docops_version: "2.0"
 | 0.9     | 2026-05-22 | AI     | Added the first concrete phase-1 vector adapter: `sources/web` now composes the shared fetch + text packages into an ingest/decode vector with deterministic canonical IDs, dedup keys, and offline tests. | Self-review | Draft | — |
 | 1.0     | 2026-05-22 | AI     | Added the PDF vector adapter: `sources/pdf` now composes shared text + OCR packages into a file-ingest/decode vector with deterministic sha256 canonical IDs, page locators, and OCR fallback tests. | Self-review | Draft | — |
 | 1.1     | 2026-05-22 | AI     | Added the RSS adapter: `sources/feeds` now parses RSS feeds, selects items by guid, derives `web:` canonical IDs from item links, and fetches full article HTML when feeds are summary-only. | Self-review | Draft | — |
+| 1.2     | 2026-05-22 | AI     | Added the generic `aidha` CLI package with offline `ingest web\|pdf\|rss` commands plus shared `config explain` support over the registered source set; rebuilt the phase-1 runtime packages so the CLI executes the current source implementations. | Self-review | Draft | — |
 
 ## Objective
 
@@ -1226,12 +1227,14 @@ shape); `aidha config explain` works for the `youtube` registration.
 - [x] `decode/text` (readability extract; pdf-to-text; shared char-offset model).
 - [x] `acquire/webfetch` (`IWebFetcher`: HTTP/readability default, Playwright opt-in).
 - [x] `decode/ocr` (Tesseract fallback; mockable).
-- [ ] `sources/web` — acquire (canonicalise URL), compose `[text-extract]`,
+- [x] `sources/web` — acquire (canonicalise URL), compose `[text-extract]`,
       register, CLI `aidha ingest web --url`.
-- [ ] `sources/pdf` — acquire (hash + metadata), compose `[text-extract] ?? [ocr]`,
+- [x] `sources/pdf` — acquire (hash + metadata), compose `[text-extract] ?? [ocr]`,
       slide-vs-paper heuristic, CLI `aidha ingest pdf --file`.
 - [x] `sources/feeds` (rss part) — parse feed, full-text fetch, compose
       `[text-extract]`, CLI `aidha ingest rss --feed`.
+- [x] `packages/praecis/cli` — generic `aidha ingest web|pdf|rss` plus
+      shared `config explain` over the registered source set.
 - [ ] Dedup-and-link wired (web ↔ rss shared `web:` work identity).
 
 **Acceptance:** each vector ingests a fixture → claims with correct Locators;

@@ -18,6 +18,9 @@ export {
   CreateJobInput,
 } from './schema/index.js';
 
+// Config exports
+export * from './config/index.js';
+
 // Client exports
 export type { YouTubeClient } from './client/index.js';
 export { MockYouTubeClient, RealYouTubeClient } from './client/index.js';
