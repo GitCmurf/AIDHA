@@ -39,6 +39,15 @@ import {
   type ReadwiseFetchFn,
   type ReadwiseBook,
 } from '@aidha/praecis-source-readwise';
+import {
+  runEmailBatch,
+  EmailSourceRegistration,
+  type EmailBatchSummary,
+} from '@aidha/praecis-source-email';
+import {
+  createLinkedInVectorSpec,
+  LinkedInSourceRegistration,
+} from '@aidha/praecis-source-linkedin';
 import { composeVector, type ComposedVector } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
@@ -49,7 +58,7 @@ export interface CliOptions {
 }
 
 export interface IngestSummary {
-  readonly sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast' | 'readwise';
+  readonly sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast' | 'readwise' | 'email' | 'linkedin';
   readonly ref: string;
   readonly canonicalId: string;
   readonly label?: string;
@@ -79,6 +88,8 @@ const SOURCE_REGISTRATIONS: SourceRegistration[] = [
   RssSourceRegistration,
   PodcastSourceRegistration,
   ReadwiseSourceRegistration,
+  EmailSourceRegistration,
+  LinkedInSourceRegistration,
 ];
 
 function isString(value: unknown): value is string {
@@ -232,6 +243,17 @@ export async function runReadwiseIngest(
     summaries,
     ...(updatedAfter ? { updatedAfter } : {}),
   };
+}
+
+export async function runEmailIngest(ref: string): Promise<EmailBatchSummary> {
+  return runEmailBatch(ref);
+}
+
+export async function runLinkedInIngest(
+  ref: string,
+  options: { pasteText: string; url?: string },
+): Promise<IngestSummary> {
+  return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec(options));
 }
 
 export async function resolveAidhaConfig(
@@ -499,7 +521,47 @@ export async function runCli(argv: string[]): Promise<number> {
         return 0;
       }
 
-      console.error('Usage: ingest <web|pdf|voice|meeting|rss|podcast|readwise> ...');
+      if (mode === 'email') {
+        const ref = optionString(options, 'file') ?? positionals[2];
+        if (!ref) {
+          console.error('Usage: ingest email --file <path> [--json]');
+          return 1;
+        }
+        const summary = await runEmailIngest(ref);
+        if (optionBool(options, 'json')) {
+          console.log(JSON.stringify(summary, null, 2));
+        } else {
+          console.log(`Ingested email ${ref}`);
+          console.log(`Threads: ${summary.threads}`);
+          console.log(`Messages: ${summary.importedFiles}`);
+        }
+        return 0;
+      }
+
+      if (mode === 'linkedin') {
+        const url = optionString(options, 'url') ?? positionals[2];
+        const pasteOption = options['paste'];
+        const pasteText =
+          optionString(options, 'paste') ??
+          (pasteOption === true ? await readStdinText() : undefined);
+        if (!pasteText) {
+          console.error('Usage: ingest linkedin --paste <text> [--url <url>] [--json]');
+          return 1;
+        }
+        const linkedInOptions = url ? { pasteText, url } : { pasteText };
+        const summary = await runLinkedInIngest(url ?? 'stdin', linkedInOptions);
+        if (optionBool(options, 'json')) {
+          console.log(JSON.stringify(summary, null, 2));
+        } else {
+          console.log(`Ingested linkedin ${summary.ref}`);
+          console.log(`Canonical: ${summary.canonicalId}`);
+          console.log(`Segments: ${summary.segmentCount}`);
+          console.log(`Chunks: ${summary.chunkCount}`);
+        }
+        return 0;
+      }
+
+      console.error('Usage: ingest <web|pdf|voice|meeting|rss|podcast|readwise|email|linkedin> ...');
       return 1;
     }
 
@@ -514,4 +576,18 @@ export async function runCli(argv: string[]): Promise<number> {
 
 export function makeStableLabel(seed: string): string {
   return stableId(seed);
+}
+
+async function readStdinText(): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const chunks: string[] = [];
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => {
+      chunks.push(String(chunk));
+    });
+    process.stdin.on('end', () => {
+      resolve(chunks.join(''));
+    });
+    process.stdin.on('error', reject);
+  });
 }

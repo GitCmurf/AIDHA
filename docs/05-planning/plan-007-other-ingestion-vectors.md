@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.7"
+version: "1.9"
 last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 1.7
+> **Version:** 1.9
 > **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
@@ -44,6 +44,8 @@ docops_version: "2.0"
 | 1.5     | 2026-05-22 | AI     | Added the meetings vector: `sources/meetings` now hashes audio bytes into `meeting:` identities, composes shared transcribe + diarize mocks, and is exposed through the generic `aidha ingest meeting --file` CLI with conversation chunking. | Self-review | Draft | — |
 | 1.6     | 2026-05-22 | AI     | Added the podcast vector: `sources/feeds` now handles podcast enclosure ingestion with show-notes context, optional panel diarisation, and the generic `aidha ingest podcast --feed --episode` CLI. | Self-review | Draft | — |
 | 1.7     | 2026-05-22 | AI     | Added the Readwise vector: `sources/readwise` now pages the export API with `updatedAfter`, derives `web:` or `readwise:book:` identities, and exposes batch ingestion through `aidha ingest readwise --since`. | Self-review | Draft | — |
+| 1.8     | 2026-05-22 | AI     | Added the email vector: `sources/email` now parses `.eml` files, reconstructs threads deterministically, and exposes batch ingestion through `aidha ingest email --file`. | Self-review | Draft | — |
+| 1.9     | 2026-05-22 | AI     | Added the LinkedIn paste bridge: `sources/linkedin` now canonicalises pasted posts from `--paste`/stdin, exposes `text` locators, and is wired through `aidha ingest linkedin --paste`. | Self-review | Draft | — |
 
 ## Objective
 
@@ -1268,7 +1270,7 @@ model; cost ceiling honoured; runbooks added.
 
 - [x] `sources/readwise` — REST export with `updated_after` cursor, passthrough
       decode, idempotent on `highlightId`, CLI `aidha ingest readwise --since`.
-- [ ] `sources/email` — `.eml` parse (`mailparser`), thread reconstruction,
+- [x] `sources/email` — `.eml` parse (`mailparser`), thread reconstruction,
       reply-strip preprocessor, `message` locators, CLI `aidha ingest email --file`;
       sensitivity gate. (`.msg` via `@kenjiuno/msgreader` is a stretch — Section 6.8.)
 
@@ -1279,7 +1281,7 @@ not auto-ingested; runbooks added.
 
 ### Phase 4 — LinkedIn paste bridge
 
-- [ ] `sources/linkedin` — `--paste` (stdin/editor) + `--url` (provenance only,
+- [x] `sources/linkedin` — `--paste` (stdin/editor) + `--url` (provenance only,
       no fetch), passthrough decode, CLI `aidha ingest linkedin --paste`.
 
 **Acceptance:** pasted post → claims; canonical `activityUrn` ID set when URL given

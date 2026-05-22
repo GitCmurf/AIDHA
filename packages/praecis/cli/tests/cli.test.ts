@@ -6,6 +6,8 @@ import { createHash } from 'node:crypto';
 import {
   explainResolvedKey,
   resolveAidhaConfig,
+  runEmailIngest,
+  runLinkedInIngest,
   runMeetingIngest,
   runReadwiseIngest,
   runPodcastIngest,
@@ -189,6 +191,60 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.totalBooks).toBe(1);
     expect(summary.summaries[0]?.canonicalId).toBe('web:https://example.com/article');
     expect(summary.summaries[0]?.segments[0]?.locator).toEqual({ kind: 'external', system: 'readwise', externalId: '1' });
+  });
+
+  it('ingests email fixtures into a reparented thread summary', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-email-'));
+    await writeFile(
+      join(dir, 'leaf.eml'),
+      [
+        'Message-ID: <msg-c>',
+        'Date: Thu, 22 May 2026 10:00:00 +0000',
+        'From: Carol <carol@example.com>',
+        'To: Bob <bob@example.com>',
+        'Subject: Re: Project status',
+        'In-Reply-To: <msg-b>',
+        '',
+        'Leaf body',
+      ].join('\r\n'),
+    );
+    await writeFile(
+      join(dir, 'root.eml'),
+      [
+        'Message-ID: <msg-b>',
+        'Date: Thu, 22 May 2026 11:00:00 +0000',
+        'From: Bob <bob@example.com>',
+        'To: Alice <alice@example.com>',
+        'Subject: Re: Project status',
+        'References: <msg-a>',
+        'In-Reply-To: <msg-a>',
+        '',
+        'Root body',
+      ].join('\r\n'),
+    );
+
+    const summary = await runEmailIngest(dir);
+
+    expect(summary.sourceId).toBe('email');
+    expect(summary.threads).toBe(1);
+    expect(summary.importedFiles).toBe(2);
+    expect(summary.summaries[0]?.canonicalId).toBe('email:thread:msg-a');
+    expect(summary.summaries[0]?.segmentCount).toBe(2);
+  });
+
+  it('ingests linkedin paste fixtures with optional activity urn provenance', async () => {
+    const summary = await runLinkedInIngest(
+      'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/',
+      {
+        pasteText: 'First paragraph.\n\nSecond paragraph.',
+        url: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/',
+      },
+    );
+
+    expect(summary.sourceId).toBe('linkedin');
+    expect(summary.canonicalId).toBe('linkedin:urn:li:activity:1234567890');
+    expect(summary.segmentCount).toBe(2);
+    expect(summary.segments[0]?.locator.kind).toBe('text');
   });
 
   it('explains config provenance for source registrations', async () => {

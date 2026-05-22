@@ -10,5 +10,7 @@ packages:
     - "packages/praecis/sources/pdf"
     - "packages/praecis/sources/feeds"
     - "packages/praecis/sources/readwise"
+    - "packages/praecis/sources/email"
+    - "packages/praecis/sources/linkedin"
     - "packages/praecis/sources/voice"
     - "packages/praecis/sources/meetings"

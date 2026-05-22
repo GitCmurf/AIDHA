@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-05-22
-version: '0.28'
+version: '0.30'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.28
+> **Version:** 0.30
 > **Last Updated:** 2026-05-22
 > **Type:** GUIDE
 
@@ -50,6 +50,9 @@ docops_version: '2.0'
 | 0.26    | 2026-05-21 | AI     | Add architecture note referencing multi-vector model (PLAN-007 Phase 0) | — | Draft | — |
 | 0.27    | 2026-05-22 | AI     | Add podcast ingest command and note the shared multi-vector CLI surface. | — | Draft | — |
 | 0.28    | 2026-05-22 | AI     | Add Readwise batch ingest command and note the shared export cursor surface. | — | Draft  | — |
+
+| 0.29    | 2026-05-22 | AI     | Email import. | —         | Draft  | —         |
+| 0.30    | 2026-05-22 | AI     | LinkedIn paste. | —         | Draft  | —         |
 
 ## Purpose
 
@@ -250,9 +253,18 @@ aidha ingest voice --file <path>
 aidha ingest meeting --file <path>
 aidha ingest podcast --feed <url> [--episode <guid>] [--panel]
 aidha ingest readwise --since <iso8601> [--token <token>]
+aidha ingest email --file <path>
+aidha ingest linkedin --paste <text> [--url <url>]
 ```
 
 Use `--json` to emit machine-readable summaries for scripts and regression checks.
+
+The email import path accepts a single `.eml` file or a directory of `.eml`
+messages, reconstructs threads deterministically, and emits per-thread summaries
+with `message` locators.
+
+LinkedIn paste imports accept `--paste` with a value, or `--paste` with no value
+to read from stdin, and optionally attach a provenance-only `--url`.
 
 - **Review drafts in batches**
 

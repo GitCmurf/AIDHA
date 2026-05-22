@@ -77,7 +77,7 @@
       "owner": "Ingestion Team",
       "status": "Draft",
       "last_updated": "2026-05-22",
-      "version": "0.28",
+      "version": "0.30",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -309,6 +309,20 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-006-linkedin-paste.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-006",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "LinkedIn Paste Bridge Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "50-runbooks/runbook-003-youtube-ingestion.md",
     "title": null,
     "front_matter": {
@@ -318,6 +332,20 @@
       "last_updated": "2026-05-09",
       "version": "1.18",
       "title": "YouTube Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-005-email-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-005",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Email Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
     }
@@ -371,7 +399,7 @@
       "document_id": "AIDHA-PLAN-007",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "1.7",
+      "version": "1.9",
       "last_updated": "2026-05-22",
       "title": "Other Ingestion Vectors",
       "type": "PLAN",
