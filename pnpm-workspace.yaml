@@ -7,3 +7,4 @@ packages:
     - "packages/praecis/decode/diarize"
     - "packages/praecis/decode/ocr"
     - "packages/praecis/sources/web"
+    - "packages/praecis/sources/pdf"

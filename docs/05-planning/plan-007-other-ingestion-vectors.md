@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.9"
+version: "1.0"
 last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 0.9
+> **Version:** 1.0
 > **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
@@ -36,6 +36,7 @@ docops_version: "2.0"
 | 0.7     | 2026-05-22 | AI     | Added the shared audio foundation: `decode/transcribe` now provides deterministic mock transcription plus VAD-style trimming helpers, and `decode/diarize` now provides deterministic mock diarization plus a `none` passthrough. | Self-review | Draft | — |
 | 0.8     | 2026-05-22 | AI     | Added the OCR foundation package: `decode/ocr` now provides a deterministic mock OCR engine and OCR block-to-text normalisation helpers, keeping the future PDF/image fallback seam explicit and testable. | Self-review | Draft | — |
 | 0.9     | 2026-05-22 | AI     | Added the first concrete phase-1 vector adapter: `sources/web` now composes the shared fetch + text packages into an ingest/decode vector with deterministic canonical IDs, dedup keys, and offline tests. | Self-review | Draft | — |
+| 1.0     | 2026-05-22 | AI     | Added the PDF vector adapter: `sources/pdf` now composes shared text + OCR packages into a file-ingest/decode vector with deterministic sha256 canonical IDs, page locators, and OCR fallback tests. | Self-review | Draft | — |
 
 ## Objective
 
