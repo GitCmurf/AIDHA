@@ -28,6 +28,9 @@ import {
 import {
   createRssVectorSpec,
   RssSourceRegistration,
+  createPodcastVectorSpec,
+  PodcastSourceRegistration,
+  type PodcastFetchFn,
 } from '@aidha/praecis-source-feeds';
 import { composeVector, type ComposedVector } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
@@ -39,7 +42,7 @@ export interface CliOptions {
 }
 
 export interface IngestSummary {
-  readonly sourceId: string;
+  readonly sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast';
   readonly ref: string;
   readonly canonicalId: string;
   readonly label?: string;
@@ -67,6 +70,7 @@ const SOURCE_REGISTRATIONS: SourceRegistration[] = [
   VoiceSourceRegistration,
   MeetingSourceRegistration,
   RssSourceRegistration,
+  PodcastSourceRegistration,
 ];
 
 function isString(value: unknown): value is string {
@@ -118,7 +122,7 @@ function normalizeOutputChunks(chunks: readonly Chunk[]): IngestSummary['chunks'
 }
 
 async function buildIngestSummary(
-  sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss',
+  sourceId: IngestSummary['sourceId'],
   ref: string,
   vector: ComposedVector,
   metadata?: Record<string, unknown>,
@@ -170,6 +174,18 @@ export async function runRssIngest(
 ): Promise<IngestSummary> {
   const metadata = options.itemGuid ? { itemGuid: options.itemGuid } : undefined;
   return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec(options.fetchFn)), metadata);
+}
+
+export async function runPodcastIngest(
+  ref: string,
+  options: { fetchFn?: PodcastFetchFn; episodeGuid?: string; panel?: boolean } = {},
+): Promise<IngestSummary> {
+  const metadata = {
+    ...(options.episodeGuid ? { episodeGuid: options.episodeGuid } : {}),
+    ...(options.panel ? { panel: true } : {}),
+  };
+  const vectorOptions = options.fetchFn ? { fetchFn: options.fetchFn } : {};
+  return buildIngestSummary('podcast', ref, createPodcastVectorSpec(vectorOptions), metadata);
 }
 
 export async function resolveAidhaConfig(
@@ -398,7 +414,28 @@ export async function runCli(argv: string[]): Promise<number> {
         return 0;
       }
 
-      console.error('Usage: ingest <web|pdf|rss> ...');
+      if (mode === 'podcast') {
+        const ref = optionString(options, 'feed') ?? positionals[2];
+        if (!ref) {
+          console.error('Usage: ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]');
+          return 1;
+        }
+        const summary = await runPodcastIngest(ref, {
+          ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
+          ...(optionBool(options, 'panel') ? { panel: true } : {}),
+        });
+        if (optionBool(options, 'json')) {
+          console.log(JSON.stringify(summary, null, 2));
+        } else {
+          console.log(`Ingested podcast ${summary.ref}`);
+          console.log(`Canonical: ${summary.canonicalId}`);
+          console.log(`Segments: ${summary.segmentCount}`);
+          console.log(`Chunks: ${summary.chunkCount}`);
+        }
+        return 0;
+      }
+
+      console.error('Usage: ingest <web|pdf|voice|meeting|rss|podcast> ...');
       return 1;
     }
 

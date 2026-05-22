@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.5"
+version: "1.6"
 last_updated: 2026-05-22
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** Draft
-> **Version:** 1.5
+> **Version:** 1.6
 > **Last Updated:** 2026-05-22
 > **Type:** PLAN
 
@@ -42,6 +42,7 @@ docops_version: "2.0"
 | 1.3     | 2026-05-22 | AI     | Wired the dedup/link graph helper in `packages/praecis/core`: `DedupResolver` now has an application path that appends provenance on shared `web:` identity merges and creates `corroboratedBy`/`alsoSeenVia` links for non-identical arrivals. | Self-review | Draft | — |
 | 1.4     | 2026-05-22 | AI     | Added the voice vector: `sources/voice` now hashes audio bytes into `voice:` identities, composes the shared transcribe mock, and is exposed through the generic `aidha ingest voice --file` CLI. | Self-review | Draft | — |
 | 1.5     | 2026-05-22 | AI     | Added the meetings vector: `sources/meetings` now hashes audio bytes into `meeting:` identities, composes shared transcribe + diarize mocks, and is exposed through the generic `aidha ingest meeting --file` CLI with conversation chunking. | Self-review | Draft | — |
+| 1.6     | 2026-05-22 | AI     | Added the podcast vector: `sources/feeds` now handles podcast enclosure ingestion with show-notes context, optional panel diarisation, and the generic `aidha ingest podcast --feed --episode` CLI. | Self-review | Draft | — |
 
 ## Objective
 
@@ -1254,7 +1255,7 @@ CI green.
       `aidha ingest voice --file`.
 - [x] `sources/meetings` — compose `[transcribe, diarize]`, speaker locators, CLI
       `aidha ingest meeting --file`; sensitivity gate enforced.
-- [ ] `sources/feeds` (podcast part) — enclosure download + show-notes context,
+- [x] `sources/feeds` (podcast part) — enclosure download + show-notes context,
       compose `[transcribe] | [transcribe, diarize]`, CLI
       `aidha ingest podcast --feed --episode`.
 

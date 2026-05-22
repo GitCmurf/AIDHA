@@ -30,7 +30,9 @@
     "@aidha/config": "workspace:*",
     "@aidha/praecis-acquire-webfetch": "workspace:*",
     "@aidha/praecis-core": "workspace:*",
-    "@aidha/praecis-decode-text": "workspace:*"
+    "@aidha/praecis-decode-diarize": "workspace:*",
+    "@aidha/praecis-decode-text": "workspace:*",
+    "@aidha/praecis-decode-transcribe": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",

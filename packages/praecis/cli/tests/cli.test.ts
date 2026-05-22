@@ -7,6 +7,7 @@ import {
   explainResolvedKey,
   resolveAidhaConfig,
   runMeetingIngest,
+  runPodcastIngest,
   runPdfIngest,
   runRssIngest,
   runVoiceIngest,
@@ -98,6 +99,58 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.sourceId).toBe('rss');
     expect(summary.canonicalId).toBe('web:https://example.com/article');
     expect(summary.segmentCount).toBeGreaterThan(0);
+  });
+
+  it('ingests podcast fixtures and diarizes panel episodes', async () => {
+    const summary = await runPodcastIngest('https://pod.example.com/feed.xml', {
+      episodeGuid: 'episode-2',
+      panel: true,
+      fetchFn: async (url) => {
+        if (url === 'https://pod.example.com/feed.xml') {
+          return {
+            ok: true,
+            url,
+            status: 200,
+            async text() {
+              return `<?xml version="1.0"?><rss><channel><title>Example podcast</title><item><title>Panel episode</title><guid>episode-2</guid><link>https://pod.example.com/panel-notes</link><description>Panel summary</description><category>Panel</category><enclosure url="https://cdn.example.com/panel.m4a" type="audio/mp4" /></item></channel></rss>`;
+            },
+            async arrayBuffer() {
+              return new TextEncoder().encode('feed').buffer;
+            },
+          };
+        }
+        if (url === 'https://pod.example.com/panel-notes') {
+          return {
+            ok: true,
+            url,
+            status: 200,
+            async text() {
+              return '<html><body><article><h1>Panel episode</h1><p>Show notes.</p></article></body></html>';
+            },
+            async arrayBuffer() {
+              return new TextEncoder().encode('notes').buffer;
+            },
+          };
+        }
+        return {
+          ok: true,
+          url,
+          status: 200,
+          async text() {
+            return 'panel episode audio alpha beta gamma delta epsilon zeta eta theta';
+          },
+          async arrayBuffer() {
+            return new TextEncoder().encode('panel episode audio alpha beta gamma delta epsilon zeta eta theta').buffer;
+          },
+        };
+      },
+    });
+
+    expect(summary.sourceId).toBe('podcast');
+    expect(summary.canonicalId).toBe('podcast:https://cdn.example.com/panel.m4a');
+    expect(summary.segmentCount).toBeGreaterThan(0);
+    expect(summary.segments[0]?.locator.kind).toBe('timecode');
+    expect(summary.segments[0]?.locator.speaker).toBeDefined();
   });
 
   it('explains config provenance for source registrations', async () => {

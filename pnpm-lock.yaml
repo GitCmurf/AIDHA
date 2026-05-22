@@ -196,9 +196,15 @@ importers:
       '@aidha/praecis-core':
         specifier: workspace:*
         version: link:../../core
+      '@aidha/praecis-decode-diarize':
+        specifier: workspace:*
+        version: link:../../decode/diarize
       '@aidha/praecis-decode-text':
         specifier: workspace:*
         version: link:../../decode/text
+      '@aidha/praecis-decode-transcribe':
+        specifier: workspace:*
+        version: link:../../decode/transcribe
     devDependencies:
       '@types/node':
         specifier: ^25.7.0

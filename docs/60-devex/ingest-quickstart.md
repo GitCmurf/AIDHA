@@ -48,6 +48,7 @@ docops_version: '2.0'
 | 0.24    | 2026-02-09 | AI     | Add source-prefixed default export filenames | — | Draft | — |
 | 0.25    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 | 0.26    | 2026-05-21 | AI     | Add architecture note referencing multi-vector model (PLAN-007 Phase 0) | — | Draft | — |
+| 0.27    | 2026-05-22 | AI     | Add podcast ingest command and note the shared multi-vector CLI surface. | — | Draft | — |
 
 ## Purpose
 
@@ -234,6 +235,22 @@ Optional:
 
    This removes `Claim` nodes for the video and cascades related claim edges.
    It does not delete the `Resource` or `Excerpt` nodes.
+
+## Quickstart (Other Vectors)
+
+The shared `aidha` CLI now exposes the non-YouTube ingestion vectors implemented in
+PLAN-007. Each command runs offline against local fixtures or injected mocks.
+
+```bash
+aidha ingest web --url <url>
+aidha ingest pdf --file <path>
+aidha ingest rss --feed <url> [--item-guid <guid>]
+aidha ingest voice --file <path>
+aidha ingest meeting --file <path>
+aidha ingest podcast --feed <url> [--episode <guid>] [--panel]
+```
+
+Use `--json` to emit machine-readable summaries for scripts and regression checks.
 
 - **Review drafts in batches**
 

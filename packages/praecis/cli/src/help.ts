@@ -7,6 +7,7 @@ Usage:
   aidha ingest voice --file <path> [--json]
   aidha ingest meeting --file <path> [--json]
   aidha ingest rss --feed <url> [--item-guid <guid>] [--json]
+  aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]
 
 Notes:
   - Ingest commands run offline against local fixtures or injected mocks.

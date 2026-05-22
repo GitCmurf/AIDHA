@@ -206,3 +206,5 @@ export function createRssVectorSpec(fetchFn?: WebFetchFn) {
     registration: RssSourceRegistration,
   };
 }
+
+export * from './podcast.js';
