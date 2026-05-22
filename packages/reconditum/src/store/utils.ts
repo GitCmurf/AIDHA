@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import type { GraphNode, GraphEdge } from '../schema/index.js';
+import type { GraphNode, GraphEdge, NodeType } from '../schema/index.js';
+import {
+  ClaimMetadataSchema,
+  ExcerptMetadataSchema,
+  ResourceMetadataSchema,
+} from '../schema/domain-metadata.js';
 import type { NodeSortField, EdgeSortField, SortOption } from './types.js';
 
 export function nowIso(): string {
@@ -33,6 +38,28 @@ export function stableStringify(value: unknown): string {
 
 export function deepEqual(a: unknown, b: unknown): boolean {
   return stableStringify(a) === stableStringify(b);
+}
+
+export function validateNodeMetadata(type: NodeType, metadata: Record<string, unknown>): Record<string, unknown> {
+  const result =
+    type === 'Resource' ? ResourceMetadataSchema.safeParse(metadata)
+    : type === 'Excerpt' ? ExcerptMetadataSchema.safeParse(metadata)
+    : type === 'Claim' ? ClaimMetadataSchema.safeParse(metadata)
+    : { success: true as const, data: metadata };
+
+  if (!result.success) {
+    const issues = result.error.issues.map(issue => `${issue.path.join('.') || '<root>'}: ${issue.message}`).join('; ');
+    throw new Error(`invalid ${type} metadata: ${issues}`);
+  }
+
+  return result.data;
+}
+
+export function resourceMatchesIdentity(node: GraphNode, key: string): boolean {
+  if (node.type !== 'Resource') return false;
+  const metadata = node.metadata as Record<string, unknown>;
+  if (metadata['canonicalId'] === key) return true;
+  return Array.isArray(metadata['dedupKeys']) && metadata['dedupKeys'].includes(key);
 }
 
 export function nodeMatchesFilters(node: GraphNode, filters?: Record<string, unknown>): boolean {

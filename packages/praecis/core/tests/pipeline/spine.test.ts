@@ -15,6 +15,8 @@ import type {
 import type { RawSource, DecodeOutput } from '../../src/types/index.js';
 import type { Result } from '@aidha/taxonomy';
 import type { SourceRegistration, ResolvedConfig } from '@aidha/config';
+import { InMemoryStore } from '@aidha/graph-backend';
+import { GraphPipelineExporter, MemoryCache, SystemClock } from '../../src/pipeline/services.js';
 
 function makeRegistration(sourceId: string): SourceRegistration {
   return { sourceId, validateActiveSourceConfig: (v) => v };
@@ -74,12 +76,17 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
   });
 
   const services: PipelineServices = {
-    store: {} as PipelineServices['store'],
+    store: new InMemoryStore(),
     miner: {
       async mine() {
         return {
           ok: true,
-          value: [{ id: 'claim-1' }, { id: 'claim-2' }],
+          value: {
+            claims: [
+              { id: 'claim-1', text: 'Claim one is specific enough to persist.', excerptIds: ['chunk-0'], state: 'draft' },
+              { id: 'claim-2', text: 'Claim two is specific enough to persist.', excerptIds: ['chunk-0'], state: 'draft' },
+            ],
+          },
         };
       },
     },
@@ -89,8 +96,8 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
       },
     },
     exporter: {
-      async export(editResult) {
-        return { ok: true, value: editResult };
+      async export(editResult, raw, chunks) {
+        return new GraphPipelineExporter(services.store).export(editResult, raw, chunks);
       },
     },
     llm: {
@@ -98,16 +105,10 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
         return { ok: true, value: 'ok' };
       },
     },
-    cache: {
-      async get() {
-        return { ok: true, value: null };
-      },
-      async set() {
-        return { ok: true, value: undefined };
-      },
-    },
     costCeiling: {},
-    privacy: { allowCloudLlm: true, sensitivityCeiling: 'confidential' },
+    cache: new MemoryCache(),
+    privacy: { defaultRoute: 'local', routes: { confidential: 'local' } },
+    clock: new SystemClock(),
   };
 
   it('run() returns RunReport on success', async () => {
@@ -118,7 +119,8 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
     if (!result.ok) throw result.error;
     expect(result.value.sourceId).toBe('test-source');
     expect(result.value.canonicalId).toBe('web:https://example.com');
-    expect(result.value.claimsExtracted).toBe(0);
+    expect(result.value.claimsExtracted).toBeGreaterThan(0);
+    expect(result.value.claimIds.length).toBe(result.value.claimsExtracted);
     expect(Array.isArray(result.value.warnings)).toBe(true);
     expect(result.value.durationMs).toBeGreaterThanOrEqual(0);
   });

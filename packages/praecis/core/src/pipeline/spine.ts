@@ -6,80 +6,134 @@ import type {
   RunReport,
   PipelineServices,
   ExtractionContext,
+  MiningResult,
 } from '../interfaces/index.js';
 import type { ComposedVector } from '../compose/vector.js';
 import type { Result } from '@aidha/taxonomy';
 import type { DecodeWarning } from '../types/index.js';
 import type { ResolvedConfig } from '@aidha/config';
+import { createHash } from 'node:crypto';
 
-function emptyContext(): ExtractionContext {
-  return {};
+function stableHash(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 24);
 }
 
-function countExtracted(value: unknown): number {
-  if (Array.isArray(value)) {
-    return value.length;
+function policyRoute(services: PipelineServices, sensitivity: ComposedVector['sensitivity']): RunReport['policyRoute'] {
+  return services.privacy.routes?.[sensitivity] ?? services.privacy.defaultRoute;
+}
+
+function assertPolicyAllows(services: PipelineServices, sensitivity: ComposedVector['sensitivity']): Result<RunReport['policyRoute']> {
+  const route = policyRoute(services, sensitivity);
+  if (route === 'disabled') {
+    return { ok: false, error: new Error(`privacy policy disables ${sensitivity} extraction`) };
   }
-  if (typeof value !== 'object' || value === null) {
-    return 0;
+  if (route === 'cloud' && sensitivity === 'confidential') {
+    return { ok: false, error: new Error('privacy policy forbids cloud extraction for confidential resources') };
   }
-  const record = value as Record<string, unknown>;
-  if (typeof record['claimsExtracted'] === 'number') {
-    return record['claimsExtracted'];
+  return { ok: true, value: route };
+}
+
+function assertWithinCost(services: PipelineServices, tokenUsage: number, spendUsd: number): Result<void> {
+  if (services.costCeiling.maxTokens !== undefined && tokenUsage > services.costCeiling.maxTokens) {
+    return { ok: false, error: new Error(`cost ceiling exceeded: ${tokenUsage} tokens > ${services.costCeiling.maxTokens}`) };
   }
-  if (Array.isArray(record['claims'])) {
-    return record['claims'].length;
+  if (services.costCeiling.maxSpendUsd !== undefined && spendUsd > services.costCeiling.maxSpendUsd) {
+    return { ok: false, error: new Error(`cost ceiling exceeded: $${spendUsd.toFixed(6)} > $${services.costCeiling.maxSpendUsd.toFixed(6)}`) };
   }
-  if (Array.isArray(record['items'])) {
-    return record['items'].length;
+  return { ok: true, value: undefined };
+}
+
+function parseMiningResult(value: string): MiningResult | null {
+  try {
+    const parsed = JSON.parse(value) as MiningResult;
+    return Array.isArray(parsed.claims) ? parsed : null;
+  } catch {
+    return null;
   }
-  return 0;
 }
 
 export async function runVector(
   vector: ComposedVector,
   input: IngestInput,
-  services: Partial<PipelineServices> = {},
+  services: PipelineServices,
 ): Promise<Result<RunReport>> {
-  const startMs = Date.now();
+  const startMs = services.clock.now().getTime();
+
+  const registrationPolicy = assertPolicyAllows(services, vector.sensitivity);
+  if (!registrationPolicy.ok) return registrationPolicy;
 
   const ingestResult = await vector.ingestAndDecode(input);
   if (!ingestResult.ok) return ingestResult;
 
   const { raw, segments, warnings } = ingestResult.value;
 
-  const context =
-    services.miner || services.editor || services.exporter || services.llm || services.cache
-      ? await vector.context.build(raw, {} as ResolvedConfig)
-      : emptyContext();
+  const runtimePolicy = assertPolicyAllows(services, raw.sensitivity);
+  if (!runtimePolicy.ok) return runtimePolicy;
+
+  const context: ExtractionContext = await vector.context.build(raw, {} as ResolvedConfig);
 
   const chunkResult = await vector.chunking.chunk({ segments, context });
   if (!chunkResult.ok) return chunkResult;
 
   const warningMessages = warnings.map((w: DecodeWarning) => `${w.unit}: ${w.reason}`);
-  let claimsExtracted = 0;
+  const cacheKey = `pipeline:${raw.canonicalId}:${stableHash(chunkResult.value.map(chunk => [chunk.id, chunk.text]))}`;
+  let cacheHits = 0;
+  let cacheWrites = 0;
 
-  if (services.miner && services.editor && services.exporter) {
+  let miningResult: MiningResult | null = null;
+  const cached = await services.cache.get(cacheKey);
+  if (!cached.ok) return cached;
+  if (cached.value) {
+    miningResult = parseMiningResult(cached.value);
+    if (miningResult) {
+      cacheHits += 1;
+    }
+  }
+
+  if (!miningResult) {
     const mined = await services.miner.mine(chunkResult.value, context);
     if (!mined.ok) return mined;
-
-    const edited = await services.editor.edit(mined.value, context);
-    if (!edited.ok) return edited;
-
-    const exported = await services.exporter.export(edited.value, raw);
-    if (!exported.ok) return exported;
-
-    claimsExtracted = countExtracted(edited.value) || countExtracted(mined.value) || countExtracted(exported.value);
+    miningResult = mined.value;
+    const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
+    if (cacheSet.ok) {
+      cacheWrites += 1;
+    } else {
+      console.warn(`pipeline cache write failed for ${cacheKey}: ${cacheSet.error.message}`);
+    }
   }
+
+  const edited = await services.editor.edit(miningResult, context);
+  if (!edited.ok) return edited;
+
+  const tokenUsage = (miningResult.tokenUsage ?? 0) + (edited.value.tokenUsage ?? 0);
+  const spendUsd = (miningResult.spendUsd ?? 0) + (edited.value.spendUsd ?? 0);
+  const costCheck = assertWithinCost(services, tokenUsage, spendUsd);
+  if (!costCheck.ok) return costCheck;
+
+  const exported = await services.exporter.export(edited.value, raw, chunkResult.value);
+  if (!exported.ok) return exported;
 
   return {
     ok: true,
     value: {
       sourceId: vector.sourceId,
       canonicalId: raw.canonicalId,
-      claimsExtracted,
+      resourceId: exported.value.resourceId,
+      excerptCount: exported.value.excerptIds.length,
+      chunkCount: chunkResult.value.length,
+      segmentCount: segments.length,
+      segments,
+      chunks: chunkResult.value,
+      claimsExtracted: edited.value.claims.length,
+      claimIds: exported.value.claimIds,
+      dedupAction: exported.value.dedupAction,
+      policyRoute: runtimePolicy.value,
+      cacheHits,
+      cacheWrites,
+      tokenUsage,
+      spendUsd,
       warnings: warningMessages,
-      durationMs: Date.now() - startMs,
+      durationMs: Math.max(0, services.clock.now().getTime() - startMs),
     },
   };
 }

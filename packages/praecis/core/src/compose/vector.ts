@@ -14,6 +14,7 @@ import type {
   IngestInput,
   ChunkInput,
   Chunk,
+  Sensitivity,
 } from '../interfaces/index.js';
 import type { MediaSegment, RawSource, DecodeOutput } from '../types/index.js';
 import type { DecodeWarning } from '../types/index.js';
@@ -45,7 +46,7 @@ class DefaultChunker implements IChunker {
 
 export interface VectorSpec {
   readonly sourceId: string;
-  readonly sensitivity: 'public' | 'personal' | 'confidential';
+  readonly sensitivity: Sensitivity;
   readonly ingestor: IIngestor;
   readonly decode: IDecodeStrategy[];
   readonly context: IContextProvider;

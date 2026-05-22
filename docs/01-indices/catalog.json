@@ -309,6 +309,20 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-007-web-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-007",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Web Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "50-runbooks/runbook-006-linkedin-paste.md",
     "title": null,
     "front_matter": {
@@ -323,6 +337,34 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-012-podcast-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-012",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Podcast Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-009-rss-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-009",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "RSS Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "50-runbooks/runbook-003-youtube-ingestion.md",
     "title": null,
     "front_matter": {
@@ -332,6 +374,20 @@
       "last_updated": "2026-05-09",
       "version": "1.18",
       "title": "YouTube Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-011-meeting-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-011",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Meeting Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
     }
@@ -379,6 +435,34 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-010-voice-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-010",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Voice Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-008-pdf-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-008",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "PDF Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "05-planning/plan-004-improve-claims-quality-editorial-ranking.md",
     "title": "Improve Claim Quality and Editorial Ranking (Plan)",
     "front_matter": {
@@ -399,7 +483,7 @@
       "document_id": "AIDHA-PLAN-007",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "1.9",
+      "version": "2.1",
       "last_updated": "2026-05-22",
       "title": "Other Ingestion Vectors",
       "type": "PLAN",

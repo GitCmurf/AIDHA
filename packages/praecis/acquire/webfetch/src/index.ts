@@ -7,6 +7,7 @@ import { urlCanonical } from '@aidha/praecis-core';
 export interface WebFetchResponse {
   readonly url: string;
   readonly canonicalUrl: string;
+  readonly inputCanonicalUrl: string;
   readonly title: string;
   readonly html: string;
 }
@@ -58,6 +59,7 @@ export class HttpWebFetcher implements IWebFetcher {
         value: {
           url: resolvedUrl,
           canonicalUrl: urlCanonical(resolvedUrl),
+          inputCanonicalUrl: urlCanonical(input.url),
           title: extractTitle(html) || resolvedUrl,
           html,
         },

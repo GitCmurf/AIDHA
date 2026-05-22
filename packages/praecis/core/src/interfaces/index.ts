@@ -57,15 +57,65 @@ export interface CostCeiling {
   readonly maxSpendUsd?: number;
 }
 
+export type Sensitivity = 'public' | 'personal' | 'confidential';
+export type LlmRoute = 'cloud' | 'local' | 'disabled';
+
 export interface PrivacyPolicy {
-  readonly allowCloudLlm: boolean;
-  readonly sensitivityCeiling: 'public' | 'personal' | 'confidential';
+  readonly defaultRoute: LlmRoute;
+  readonly routes?: Partial<Record<Sensitivity, LlmRoute>>;
+}
+
+export interface DraftClaim {
+  readonly id?: string;
+  readonly text: string;
+  readonly excerptIds: readonly string[];
+  readonly state: 'draft';
+  readonly confidence?: number;
+  readonly type?: string;
+  readonly classification?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface MiningResult {
+  readonly claims: readonly DraftClaim[];
+  readonly tokenUsage?: number;
+  readonly spendUsd?: number;
+}
+
+export interface EditingResult {
+  readonly claims: readonly DraftClaim[];
+  readonly tokenUsage?: number;
+  readonly spendUsd?: number;
+  readonly diagnostics?: readonly string[];
+}
+
+export interface ExportResult {
+  readonly resourceId: string;
+  readonly excerptIds: readonly string[];
+  readonly claimIds: readonly string[];
+  readonly dedupAction: 'create' | 'merge' | 'corroborate';
+  readonly created: number;
+  readonly updated: number;
+  readonly noop: number;
 }
 
 export interface RunReport {
   readonly sourceId: string;
   readonly canonicalId: string;
+  readonly resourceId: string;
+  readonly excerptCount: number;
+  readonly chunkCount: number;
+  readonly segmentCount: number;
+  readonly segments: readonly MediaSegment[];
+  readonly chunks: readonly Chunk[];
   readonly claimsExtracted: number;
+  readonly claimIds: readonly string[];
+  readonly dedupAction: 'create' | 'merge' | 'corroborate';
+  readonly policyRoute: LlmRoute;
+  readonly cacheHits: number;
+  readonly cacheWrites: number;
+  readonly tokenUsage: number;
+  readonly spendUsd: number;
   readonly warnings: readonly string[];
   readonly durationMs: number;
 }
@@ -77,6 +127,10 @@ export interface ILLMClient {
 export interface ICache {
   get(key: string): Promise<Result<string | null>>;
   set(key: string, value: string): Promise<Result<void>>;
+}
+
+export interface Clock {
+  now(): Date;
 }
 
 export interface IIngestor<TPayload = unknown> {
@@ -101,15 +155,15 @@ export interface IChunker {
 }
 
 export interface ICandidateMiner {
-  mine(chunks: readonly Chunk[], context: ExtractionContext): Promise<Result<unknown>>;
+  mine(chunks: readonly Chunk[], context: ExtractionContext): Promise<Result<MiningResult>>;
 }
 
 export interface IEditor {
-  edit(miningResult: unknown, context: ExtractionContext): Promise<Result<unknown>>;
+  edit(miningResult: MiningResult, context: ExtractionContext): Promise<Result<EditingResult>>;
 }
 
 export interface IExporter {
-  export(editResult: unknown, raw: RawSource): Promise<Result<unknown>>;
+  export(editResult: EditingResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>>;
 }
 
 export interface ITranscriber {
@@ -124,7 +178,7 @@ export interface IDiarizer {
 
 export interface IWebFetcher {
   readonly backend: string;
-  fetch(input: WebFetchInput): Promise<Result<{ url: string; canonicalUrl: string; title: string; html: string }>>;
+  fetch(input: WebFetchInput): Promise<Result<{ url: string; canonicalUrl: string; inputCanonicalUrl: string; title: string; html: string }>>;
 }
 
 export interface IContextProvider {
@@ -136,10 +190,11 @@ export interface PipelineServices {
   readonly miner: ICandidateMiner;
   readonly editor: IEditor;
   readonly exporter: IExporter;
-  readonly llm: ILLMClient;
+  readonly llm?: ILLMClient;
   readonly cache: ICache;
   readonly costCeiling: CostCeiling;
   readonly privacy: PrivacyPolicy;
+  readonly clock: Clock;
 }
 
 export interface PipelineRuntime {

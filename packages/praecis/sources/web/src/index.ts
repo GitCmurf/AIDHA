@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 export interface WebPagePayload {
   readonly url: string;
   readonly canonicalUrl: string;
+  readonly resolvedCanonicalUrl: string;
   readonly title: string;
   readonly html: string;
   readonly text: string;
@@ -33,12 +34,14 @@ export class WebIngestor implements IIngestor<WebPagePayload> {
     const fetchResult = await this.fetcher.fetch({ url: input.ref });
     if (!fetchResult.ok) return fetchResult;
 
-    const { url, canonicalUrl, title, html } = fetchResult.value;
-    const textResult = extractTextFromHtml(html, { sourceId: `web:${canonicalUrl}` });
+    const { url, canonicalUrl, inputCanonicalUrl, title, html } = fetchResult.value;
+    const primaryCanonicalUrl = inputCanonicalUrl ?? urlCanonical(input.ref);
+    const textResult = extractTextFromHtml(html, { sourceId: `web:${primaryCanonicalUrl}` });
 
     const payload: WebPagePayload = {
       url,
-      canonicalUrl,
+      canonicalUrl: primaryCanonicalUrl,
+      resolvedCanonicalUrl: canonicalUrl,
       title,
       html,
       text: textResult.text,
@@ -47,9 +50,9 @@ export class WebIngestor implements IIngestor<WebPagePayload> {
     return {
       ok: true,
       value: {
-        canonicalId: `web:${canonicalUrl}`,
+        canonicalId: `web:${primaryCanonicalUrl}`,
         dedupKeys: Array.from(
-          new Set([canonicalUrl, url, input.ref].filter((value): value is string => typeof value === 'string' && value.length > 0))
+          new Set([primaryCanonicalUrl, canonicalUrl, url, input.ref].filter((value): value is string => typeof value === 'string' && value.length > 0))
         ),
         sourceType: 'web',
         sensitivity: 'public',

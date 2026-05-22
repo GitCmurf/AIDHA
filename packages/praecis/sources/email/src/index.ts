@@ -19,7 +19,7 @@ import type {
   Result,
   Locator,
 } from '@aidha/praecis-core';
-import { composeVector, normalizeText } from '@aidha/praecis-core';
+import { composeVector, createDefaultPipelineServices, createPipelineRuntime, normalizeText } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
@@ -107,6 +107,11 @@ export interface EmailThreadSummary {
   readonly label?: string;
   readonly segmentCount: number;
   readonly chunkCount: number;
+  readonly claimsExtracted: number;
+  readonly claimIds: readonly string[];
+  readonly resourceId: string;
+  readonly dedupAction: 'create' | 'merge' | 'corroborate';
+  readonly policyRoute: 'cloud' | 'local' | 'disabled';
   readonly warnings: readonly string[];
   readonly segments: readonly {
     readonly id: string;
@@ -168,7 +173,7 @@ function normalizeHeaderList(headers: string | string[] | undefined): string[] {
     .filter((value): value is string => Boolean(value));
 }
 
-function stripEmailReply(text: string): string {
+export function stripEmailReply(text: string): string {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
   const kept: string[] = [];
   let inQuotedReply = false;
@@ -456,33 +461,57 @@ export function createEmailVectorSpec(thread: EmailThread) {
 export async function runEmailBatch(ref: string, readFileFn: typeof readFile = readFile): Promise<EmailBatchSummary> {
   const messages = await parseEmailInputs(ref, readFileFn);
   const threads = groupEmailMessages(messages);
-  const summaries = threads.map(thread => {
+  const summaries: EmailThreadSummary[] = [];
+  const services = createDefaultPipelineServices();
+  for (const thread of threads) {
     const vector = createEmailVectorSpec(thread);
-    const summary = {
+    const runtime = createPipelineRuntime(services);
+    runtime.register(vector);
+    const runEmailThread = async () => {
+      const run = await runtime.run('email', { ref: thread.messages.map(message => message.filePath).join(', ') });
+      if (!run.ok) {
+        return run;
+      }
+      const reparent = await reparentEmailThread(services.store, thread, { skipTransaction: true });
+      if (!reparent.ok) {
+        return { ok: false as const, error: reparent.error };
+      }
+      return run;
+    };
+    const run = services.store.runInTransaction
+      ? await services.store.runInTransaction(runEmailThread)
+      : await runEmailThread();
+    if (!run.ok) {
+      throw run.error;
+    }
+    const summary: EmailThreadSummary = {
       sourceId: 'email' as const,
       ref: thread.messages.map(message => message.filePath).join(', '),
-      canonicalId: thread.threadId,
+      canonicalId: run.value.canonicalId,
+      resourceId: run.value.resourceId,
       label: thread.subject,
-      segmentCount: thread.messages.length,
-      chunkCount: thread.messages.length,
-      warnings: [] as string[],
-      segments: thread.messages.map((message, index) => ({
-        id: stableId(`${thread.threadId}:${message.messageId}:${index}`),
-        locator: messageLocator(message.messageId, message.bodyText),
-        text: message.bodyText,
-        label: message.from ?? message.subject,
+      segmentCount: run.value.segmentCount,
+      chunkCount: run.value.chunkCount,
+      claimsExtracted: run.value.claimsExtracted,
+      claimIds: run.value.claimIds,
+      dedupAction: run.value.dedupAction,
+      policyRoute: run.value.policyRoute,
+      warnings: run.value.warnings,
+      segments: run.value.segments.map(segment => ({
+        id: segment.id,
+        locator: segment.locator,
+        text: segment.text,
+        label: segment.label,
       })),
-      chunks: thread.messages.map((message, index) => ({
-        id: stableId(`${thread.threadId}:${message.messageId}:${index}`),
-        locator: messageLocator(message.messageId, message.bodyText),
-        text: message.bodyText,
-        segmentIds: [stableId(`${thread.threadId}:${message.messageId}:${index}`)],
+      chunks: run.value.chunks.map(chunk => ({
+        id: chunk.id,
+        locator: chunk.locator,
+        text: chunk.text,
+        segmentIds: chunk.segments.map(segment => segment.id),
       })),
     };
-    // Keep the vector object reachable for parity with other sources and to validate composition.
-    void vector;
-    return summary;
-  });
+    summaries.push(summary);
+  }
 
   return {
     sourceId: 'email',
@@ -492,7 +521,15 @@ export async function runEmailBatch(ref: string, readFileFn: typeof readFile = r
   };
 }
 
-export async function reparentEmailThread(store: GraphStore, thread: EmailThread): Promise<Result<void>> {
+export interface ReparentEmailThreadOptions {
+  readonly skipTransaction?: boolean;
+}
+
+export async function reparentEmailThread(
+  store: GraphStore,
+  thread: EmailThread,
+  options: ReparentEmailThreadOptions = {},
+): Promise<Result<void>> {
   const apply = async (): Promise<Result<void>> => {
     const finalThreadId = thread.threadId;
     const provisionalId = provisionalThreadId(thread.messages[0]?.messageId ?? thread.rootMessageId);
@@ -551,7 +588,7 @@ export async function reparentEmailThread(store: GraphStore, thread: EmailThread
     return { ok: true, value: undefined };
   };
 
-  if (store.runInTransaction) {
+  if (!options.skipTransaction && store.runInTransaction) {
     return store.runInTransaction(apply);
   }
   return apply();

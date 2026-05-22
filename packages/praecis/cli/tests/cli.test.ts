@@ -26,6 +26,11 @@ function makeFetchResponse(url: string, html: string) {
   };
 }
 
+function expectDraftClaims(summary: { claimsExtracted: number; claimIds: readonly string[] }) {
+  expect(summary.claimsExtracted).toBeGreaterThan(0);
+  expect(summary.claimIds.length).toBe(summary.claimsExtracted);
+}
+
 describe('aidha cli phase-1 surface', () => {
   it('ingests web fixtures with deterministic canonical ids and chunks', async () => {
     const summary = await runWebIngest('https://example.com/article', async () => ({
@@ -39,6 +44,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.canonicalId).toBe('web:https://example.com/article');
     expect(summary.segmentCount).toBeGreaterThan(0);
     expect(summary.chunkCount).toBeGreaterThan(0);
+    expectDraftClaims(summary);
   });
 
   it('ingests pdf fixtures with page locators', async () => {
@@ -53,6 +59,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.canonicalId).toBe(`pdf:${expectedHash}`);
     expect(summary.segmentCount).toBe(2);
     expect(summary.segments[0]?.locator.kind).toBe('page');
+    expectDraftClaims(summary);
   });
 
   it('ingests voice fixtures with deterministic timecoded segments', async () => {
@@ -67,6 +74,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.canonicalId).toBe(`voice:${expectedHash}`);
     expect(summary.segmentCount).toBeGreaterThan(0);
     expect(summary.segments[0]?.locator.kind).toBe('timecode');
+    expectDraftClaims(summary);
   });
 
   it('ingests meeting fixtures with diarized timecoded segments', async () => {
@@ -82,6 +90,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.segmentCount).toBeGreaterThan(0);
     expect(summary.segments[0]?.locator.kind).toBe('timecode');
     expect(summary.segments[0]?.label).toBeDefined();
+    expectDraftClaims(summary);
   });
 
   it('ingests rss fixtures and resolves linked articles through the shared web identity', async () => {
@@ -102,6 +111,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.sourceId).toBe('rss');
     expect(summary.canonicalId).toBe('web:https://example.com/article');
     expect(summary.segmentCount).toBeGreaterThan(0);
+    expectDraftClaims(summary);
   });
 
   it('ingests podcast fixtures and diarizes panel episodes', async () => {
@@ -154,6 +164,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.segmentCount).toBeGreaterThan(0);
     expect(summary.segments[0]?.locator.kind).toBe('timecode');
     expect(summary.segments[0]?.locator.speaker).toBeDefined();
+    expectDraftClaims(summary);
   });
 
   it('ingests readwise exports with the shared web canonical id and highlight locators', async () => {
@@ -191,6 +202,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.totalBooks).toBe(1);
     expect(summary.summaries[0]?.canonicalId).toBe('web:https://example.com/article');
     expect(summary.summaries[0]?.segments[0]?.locator).toEqual({ kind: 'external', system: 'readwise', externalId: '1' });
+    expectDraftClaims(summary.summaries[0]!);
   });
 
   it('ingests email fixtures into a reparented thread summary', async () => {
@@ -230,6 +242,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.importedFiles).toBe(2);
     expect(summary.summaries[0]?.canonicalId).toBe('email:thread:msg-a');
     expect(summary.summaries[0]?.segmentCount).toBe(2);
+    expectDraftClaims(summary.summaries[0]!);
   });
 
   it('ingests linkedin paste fixtures with optional activity urn provenance', async () => {
@@ -245,6 +258,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.canonicalId).toBe('linkedin:urn:li:activity:1234567890');
     expect(summary.segmentCount).toBe(2);
     expect(summary.segments[0]?.locator.kind).toBe('text');
+    expectDraftClaims(summary);
   });
 
   it('explains config provenance for source registrations', async () => {

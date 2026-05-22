@@ -41,6 +41,7 @@ describe('WebTextDecodeStrategy', () => {
         payload: {
           url: 'https://example.com/article',
           canonicalUrl: 'https://example.com/article',
+          resolvedCanonicalUrl: 'https://example.com/article',
           title: 'Example title',
           html: '<h1>Example title</h1><p>Hello world</p>',
           text: 'Example title\n\nHello world',
@@ -65,6 +66,19 @@ describe('createWebVectorSpec', () => {
     if (!result.ok) throw result.error;
     expect(result.value.raw.canonicalId).toBe('web:https://example.com/article');
     expect(result.value.segments.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the primary web id fetch-independent when a request redirects', async () => {
+    const vector = composeVector(createWebVectorSpec(makeFetch(
+      '<title>Redirect</title><p>Redirected body text with enough detail.</p>',
+      'https://cdn.example.com/final',
+    )));
+    const result = await vector.ingestAndDecode({ ref: 'https://example.com/original?utm_source=test' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+    expect(result.value.raw.canonicalId).toBe('web:https://example.com/original');
+    expect(result.value.raw.dedupKeys).toContain('https://cdn.example.com/final');
   });
 });
 

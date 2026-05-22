@@ -22,7 +22,9 @@ function uniqueProvenances(existing: readonly unknown[] = [], incoming: readonly
   const merged: unknown[] = [];
 
   for (const provenance of [...existing, ...incoming]) {
-    const key = JSON.stringify(provenance);
+    const key = provenance !== null && typeof provenance === 'object'
+      ? JSON.stringify(provenance, Object.keys(provenance as Record<string, unknown>).sort())
+      : JSON.stringify(provenance);
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(provenance);

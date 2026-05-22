@@ -65,7 +65,7 @@ export const ResourceMetadataSchema = z.object({
   provenances: z.array(Provenance).optional().default([]),
   dedupKeys: z.array(z.string()).optional(),
   label: z.string().optional(),
-});
+}).passthrough();
 
 export type ResourceMetadataSchema = z.infer<typeof ResourceMetadataSchema>;
 
@@ -79,7 +79,7 @@ export const ExcerptMetadataSchema = z.object({
   sequence: z.number().int().optional(),
   speaker: z.string().optional(),
   section: z.string().optional(),
-});
+}).passthrough();
 
 export type ExcerptMetadataSchema = z.infer<typeof ExcerptMetadataSchema>;
 

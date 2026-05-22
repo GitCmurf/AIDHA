@@ -48,7 +48,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, type ComposedVector } from '@aidha/praecis-core';
+import { composeVector, createPipelineRuntime, type ComposedVector } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { CLI_USAGE_TEXT } from './help.js';
@@ -64,6 +64,11 @@ export interface IngestSummary {
   readonly label?: string;
   readonly segmentCount: number;
   readonly chunkCount: number;
+  readonly claimsExtracted: number;
+  readonly claimIds: readonly string[];
+  readonly resourceId: string;
+  readonly dedupAction: 'create' | 'merge' | 'corroborate';
+  readonly policyRoute: 'cloud' | 'local' | 'disabled';
   readonly warnings: readonly string[];
   readonly segments: Array<{
     readonly id: string;
@@ -147,27 +152,27 @@ async function buildIngestSummary(
   metadata?: Record<string, unknown>,
 ): Promise<IngestSummary> {
   const ingestInput = metadata ? { ref, metadata } : { ref };
-  const result = await vector.ingestAndDecode(ingestInput);
+  const runtime = createPipelineRuntime();
+  runtime.register(vector);
+  const result = await runtime.run(vector.sourceId, ingestInput);
   if (!result.ok) {
     throw result.error;
-  }
-
-  const context = await vector.context.build(result.value.raw, {} as ResolvedConfig);
-  const chunkResult = await vector.chunking.chunk({ segments: result.value.segments, context });
-  if (!chunkResult.ok) {
-    throw chunkResult.error;
   }
 
   return {
     sourceId,
     ref,
-    canonicalId: result.value.raw.canonicalId,
-    label: result.value.raw.label,
-    segmentCount: result.value.segments.length,
-    chunkCount: chunkResult.value.length,
-    warnings: result.value.warnings.map(w => `${w.unit}: ${w.reason}`),
+    canonicalId: result.value.canonicalId,
+    resourceId: result.value.resourceId,
+    segmentCount: result.value.segmentCount,
+    chunkCount: result.value.chunkCount,
+    claimsExtracted: result.value.claimsExtracted,
+    claimIds: result.value.claimIds,
+    dedupAction: result.value.dedupAction,
+    policyRoute: result.value.policyRoute,
+    warnings: result.value.warnings,
     segments: normalizeOutputSegments(result.value.segments),
-    chunks: normalizeOutputChunks(chunkResult.value),
+    chunks: normalizeOutputChunks(result.value.chunks),
   };
 }
 

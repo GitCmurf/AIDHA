@@ -55,6 +55,8 @@ import {
   nodeCursorKey,
   edgeCursorKey,
   applyCursorAndLimit,
+  resourceMatchesIdentity,
+  validateNodeMetadata,
 } from './utils.js';
 
 // LevelGraph type declarations (library lacks proper TS types)
@@ -268,7 +270,7 @@ export class LevelGraphStore implements GraphStore {
         return existingResult;
       }
       const existing = existingResult.value;
-      const metadata = data.metadata ?? {};
+      const metadata = validateNodeMetadata(type, data.metadata ?? {});
 
       if (!existing) {
         const timestamp = nowIso();
@@ -363,8 +365,15 @@ export class LevelGraphStore implements GraphStore {
     }
   }
 
-  async findResourceByIdentity(_key: string): Promise<Result<import('../schema/index.js').GraphNode | null>> {
-    throw new Error('findResourceByIdentity not yet implemented');
+  async findResourceByIdentity(key: string): Promise<Result<import('../schema/index.js').GraphNode | null>> {
+    try {
+      const result = await this.queryNodes({ type: 'Resource' });
+      if (!result.ok) return result;
+      const match = result.value.items.find(node => resourceMatchesIdentity(node, key)) ?? null;
+      return { ok: true, value: match };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
   }
 
   async deleteNode(id: string, options?: DeleteNodeOptions): Promise<Result<void>> {
