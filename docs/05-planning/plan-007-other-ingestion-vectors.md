@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.10"
+version: "2.11"
 last_updated: 2026-05-25
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.10
+> **Version:** 2.11
 > **Last Updated:** 2026-05-25
 > **Type:** PLAN
 
@@ -57,6 +57,7 @@ docops_version: "2.0"
 | 2.8     | 2026-05-25 | AI     | Hardened the shared ingestion architecture after self-review: added the production `createIngestionRuntime` facade, typed durable taxonomy assignment metadata in the graph schema, source-neutral runtime/layering guardrails, and a generic-vector fresh-service taxonomy idempotency test so YouTube is no longer structurally distinguishable from other vectors. | Codex adversarial self-review | In Review | — |
 | 2.9     | 2026-05-25 | AI     | Removed the remaining source-neutrality gap at the public ingestion surface: generic `aidha ingest youtube` now uses the same configured runtime and summary contract as every other vector, while YouTube-specific diagnostics/eval tooling remains explicitly advanced tooling. Stale current-state prose was reconciled to the v2.9 implementation. | Codex adversarial self-review | In Review | — |
 | 2.10    | 2026-05-25 | AI     | Hardened the final public-ingest surface: generic `aidha ingest` now derives source registration, usage, dispatch, and summary rendering from a source manifest table; YouTube playlist ingestion is exposed through the same generic command path; `createIngestionRuntime.runVector` can safely run multiple same-source vectors without stale registration reuse; malformed durable taxonomy assignment metadata now fails visibly instead of being silently dropped. | Codex adversarial self-review | In Review | — |
+| 2.11    | 2026-05-25 | AI     | Remediated the r6 quality findings: taxonomy assignment timestamps now use the injected deterministic clock and are asserted as exact durable records; configured ingestion exposes only `runVector`, reuses assembled services, and routes YouTube through the same path as other vectors; the SQLite durability proof is ungated; and `ReferenceMetadataSchema` is implemented in the graph backend. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r6.txt` |
 
 ## Objective
 
@@ -220,7 +221,7 @@ contract is a baseline dependency, not work re-derived by this plan.
 
 ### Current Remediation State
 
-Version 2.10 resolves the implementation and product-surface neutrality blockers
+Version 2.11 resolves the implementation and product-surface neutrality blockers
 found across the 2026-05-25 peer-review rounds. `packages/praecis/core` owns the
 shared runtime, extractor, prompt routing, token budget, reference extraction,
 purge path, dedup/link logic, Resource metadata persistence, classification, and
@@ -242,10 +243,14 @@ fixture import; it is not the privileged ingestion route.
 Regression gates protect the production path: YouTube golden snapshots and CLI
 claim extraction converge through the shared runtime, source packages cannot
 import low-level runtime/default-service factories, and taxonomy assignment writes
-are centralized in core typed metadata helpers. The configured runtime's
-`runVector` path now executes the supplied vector for each call, so same-source
-batch work cannot accidentally reuse a previous registration; malformed durable
-`taxonomyAssignments` metadata fails visibly instead of being silently dropped.
+are centralized in core typed metadata helpers. The configured runtime now exposes
+only the source-neutral `runVector` path, reuses already assembled services for
+batch work, and executes YouTube through the same path as the other vectors.
+Taxonomy assignment timestamps come from the injected runtime clock and are
+asserted as exact durable records in tests. Malformed durable
+`taxonomyAssignments` metadata fails visibly instead of being silently dropped,
+and `Reference` metadata is validated by `ReferenceMetadataSchema` alongside
+Resource, Excerpt, and Claim metadata.
 
 ### The Gap
 
@@ -1569,8 +1574,8 @@ rejected with evidence).
 | 2. YouTube refactored onto core with equivalent exports and stable reruns | `packages/praecis/core/src/extract/*` now owns the YouTube v2 two-pass extractor, internal editorial selection, prompt routing, verification, token-budget, LLM client, claim/reference extraction, and purge path. `packages/praecis/youtube/src/extract/`, `packages/praecis/youtube/src/utils/ids.ts`, and the public legacy `IngestionPipeline` are deleted. `packages/praecis/youtube/src/ingest/runtime-ingestion.ts` is the single production YouTube ingest entrypoint used by both CLI claim paths and the golden snapshot harness; `packages/praecis/youtube/tests/cli-runtime-convergence.test.ts` rejects the legacy claim-extraction bypass; `packages/praecis/youtube/tests/extractor-boundary.test.ts` rejects a reopened local extractor fork. `packages/praecis/youtube/tests/pipeline.test.ts` asserts production Resource metadata (`channelName`, duration, description, transcript state) is persisted by the spine and that transcript acquisition failures leave no stub Resource. YouTube remains a source adapter, not a privileged runtime path; classification, taxonomy persistence, policy routing, ranking, and summaries are owned by `praecis/core` and shared generic service assembly. |
 | 3. Every vector ships code, tests, runbook/quickstart, docs green | Runbooks `AIDHA-RUNBOOK-004` through `AIDHA-RUNBOOK-012` cover Readwise, email, LinkedIn, web, PDF, RSS, voice, meeting, and podcast; `pnpm docs:build` and scoped `scripts/meminit-check.mjs` passed on 2026-05-25. |
 | 4. No-network CI green and determinism gate passes | Targeted no-network package gates passed on 2026-05-25 for core, YouTube, CLI, and all eight source packages; the reliable sequential workspace gate also passed on 2026-05-25. `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
-| 5. Dedup/link, sensitivity, cost ceilings, Resource metadata, and classification tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. `packages/praecis/core/tests/compose/dedup-link.test.ts` covers `RawSource.resourceMetadata` creation, same-canonical refresh, cross-canonical conflict recording, conflict-count reporting, and conflict warnings; `packages/praecis/core/tests/pipeline/classifier.test.ts` covers config-seeded taxonomy, graph-backed assignment persistence, malformed persisted assignment metadata, config validation, keyword assignment, and idempotent reruns; YouTube and email tests prove assignments persist through source-neutral runtime wiring. |
-| 6. Adversarial review blockers resolved | The 2026-05-25 Opus r5 blocker is fixed in code and tests: taxonomy assignment writes now persist on durable Resource metadata, fresh SQLite-backed YouTube reruns report `tagsAssigned: 0` after the first assignment, email classification uses the same configured service builder, generic CLI services open the configured SQLite store, and YouTube no longer has privileged classification or core persistence wiring. The v2.10 hardening removes the remaining public ingestion-surface distinction with a manifest-driven generic CLI, generic YouTube video and playlist ingestion, same-source `runVector` regression coverage, and visible failure for malformed durable taxonomy assignment metadata. Earlier r1/r2/r3/r4 fixes remain fenced by extractor-boundary, CLI convergence, web paywall/login-wall, PDF slide-vs-paper, actual-cost-ceiling, resource-metadata, metadata-conflict, config-seeded classification, and core layering tests. |
+| 5. Dedup/link, sensitivity, cost ceilings, Resource metadata, and classification tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. `packages/praecis/core/tests/compose/dedup-link.test.ts` covers `RawSource.resourceMetadata` creation, same-canonical refresh, cross-canonical conflict recording, conflict-count reporting, and conflict warnings; `packages/praecis/core/tests/pipeline/classifier.test.ts` covers config-seeded taxonomy, graph-backed assignment persistence with exact deterministic `assignedAt`, malformed persisted assignment metadata, config validation, keyword assignment, and idempotent reruns; `packages/reconditum/tests/contract/metadata-validation.test.ts` covers Resource, Excerpt, Claim, and Reference metadata validation; YouTube and email tests prove assignments persist through source-neutral runtime wiring. |
+| 6. Adversarial review blockers resolved | The 2026-05-25 Opus r5 blocker is fixed in code and tests: taxonomy assignment writes now persist on durable Resource metadata, fresh SQLite-backed YouTube reruns report `tagsAssigned: 0` after the first assignment, email classification uses the same configured service builder, generic CLI services open the configured SQLite store, and YouTube no longer has privileged classification or core persistence wiring. The v2.11 hardening closes r6: assignment timestamps use the injected clock and exact persisted-record assertions; configured ingestion exposes/reuses `runVector` rather than a parallel register/run path; the SQLite durability proof is ungated; and Reference metadata validation exists. Earlier r1/r2/r3/r4 fixes remain fenced by extractor-boundary, CLI convergence, web paywall/login-wall, PDF slide-vs-paper, actual-cost-ceiling, resource-metadata, metadata-conflict, config-seeded classification, and core layering tests. |
 
 **Final local gates run on 2026-05-25:**
 
