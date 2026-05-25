@@ -493,14 +493,14 @@ export async function runEmailBatch(
     throw servicesResult.error;
   }
   const services = servicesResult.value;
-  for (const thread of threads) {
-    const vector = createEmailVectorSpec(thread);
-    const runEmailThread = async () => {
-      const runtime = await createIngestionRuntime(services);
-      if (!runtime.ok) {
-        return runtime;
-      }
-      try {
+  const runtime = await createIngestionRuntime(services);
+  if (!runtime.ok) {
+    throw runtime.error;
+  }
+  try {
+    for (const thread of threads) {
+      const vector = createEmailVectorSpec(thread);
+      const runEmailThread = async () => {
         const run = await runtime.value.runVector(vector, { ref: thread.messages.map(message => message.filePath).join(', ') });
         if (!run.ok) {
           return run;
@@ -510,52 +510,52 @@ export async function runEmailBatch(
           return { ok: false as const, error: reparent.error };
         }
         return run;
-      } finally {
-        await runtime.value.close();
+      };
+      const run = services.store.runInTransaction
+        ? await services.store.runInTransaction(runEmailThread)
+        : await runEmailThread();
+      if (!run.ok) {
+        throw run.error;
       }
-    };
-    const run = services.store.runInTransaction
-      ? await services.store.runInTransaction(runEmailThread)
-      : await runEmailThread();
-    if (!run.ok) {
-      throw run.error;
+      const summary: EmailThreadSummary = {
+        sourceId: 'email' as const,
+        ref: thread.messages.map(message => message.filePath).join(', '),
+        canonicalId: run.value.canonicalId,
+        resourceId: run.value.resourceId,
+        label: thread.subject,
+        segmentCount: run.value.segmentCount,
+        chunkCount: run.value.chunkCount,
+        claimsExtracted: run.value.claimsExtracted,
+        claimIds: run.value.claimIds,
+        claims: run.value.claims.map(claim => ({
+          text: claim.text,
+          excerptIds: claim.excerptIds,
+          method: claim.metadata?.['method'],
+          model: claim.metadata?.['model'],
+          promptVersion: claim.metadata?.['promptVersion'],
+        })),
+        dedupAction: run.value.dedupAction,
+        policyRoute: run.value.policyRoute,
+        classification: run.value.classification,
+        metadataConflictCount: run.value.metadataConflictCount,
+        warnings: run.value.warnings,
+        segments: run.value.segments.map(segment => ({
+          id: segment.id,
+          locator: segment.locator,
+          text: segment.text,
+          label: segment.label,
+        })),
+        chunks: run.value.chunks.map(chunk => ({
+          id: chunk.id,
+          locator: chunk.locator,
+          text: chunk.text,
+          segmentIds: chunk.segments.map(segment => segment.id),
+        })),
+      };
+      summaries.push(summary);
     }
-    const summary: EmailThreadSummary = {
-      sourceId: 'email' as const,
-      ref: thread.messages.map(message => message.filePath).join(', '),
-      canonicalId: run.value.canonicalId,
-      resourceId: run.value.resourceId,
-      label: thread.subject,
-      segmentCount: run.value.segmentCount,
-      chunkCount: run.value.chunkCount,
-      claimsExtracted: run.value.claimsExtracted,
-      claimIds: run.value.claimIds,
-      claims: run.value.claims.map(claim => ({
-        text: claim.text,
-        excerptIds: claim.excerptIds,
-        method: claim.metadata?.['method'],
-        model: claim.metadata?.['model'],
-        promptVersion: claim.metadata?.['promptVersion'],
-      })),
-      dedupAction: run.value.dedupAction,
-      policyRoute: run.value.policyRoute,
-      classification: run.value.classification,
-      metadataConflictCount: run.value.metadataConflictCount,
-      warnings: run.value.warnings,
-      segments: run.value.segments.map(segment => ({
-        id: segment.id,
-        locator: segment.locator,
-        text: segment.text,
-        label: segment.label,
-      })),
-      chunks: run.value.chunks.map(chunk => ({
-        id: chunk.id,
-        locator: chunk.locator,
-        text: chunk.text,
-        segmentIds: chunk.segments.map(segment => segment.id),
-      })),
-    };
-    summaries.push(summary);
+  } finally {
+    await runtime.value.close();
   }
 
   return {

@@ -58,16 +58,38 @@ async function deleteStaleExcerpts(
 }
 
 async function runtimeFor(input: YouTubeIngestServices): Promise<Result<ConfiguredIngestionRuntime>> {
-  const runtime = await createIngestionRuntime({
+  return createIngestionRuntime({
     ...input.services,
     store: input.store,
     ...(input.config ? { config: input.config } : {}),
     ...(input.taxonomyRegistry ? { taxonomyRegistry: input.taxonomyRegistry } : {}),
     ...(input.llm ? { llm: input.llm } : {}),
   });
-  if (!runtime.ok) return runtime;
-  runtime.value.register(composeVector(createYouTubeVectorSpec(input.client)));
-  return runtime;
+}
+
+async function ingestYouTubeVideoWithRuntime(
+  runtime: ConfiguredIngestionRuntime,
+  input: YouTubeIngestServices,
+  videoId: string,
+  options: IngestVideoOptions = {},
+): Promise<Result<YouTubeVideoIngestResult>> {
+  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec(input.client)), { ref: videoId });
+  if (!run.ok) return run;
+
+  if (options.refreshTranscript) {
+    const cleanup = await deleteStaleExcerpts(input.store, run.value.resourceId, run.value.excerptIds);
+    if (!cleanup.ok) return cleanup;
+  }
+
+  return {
+    ok: true,
+    value: {
+      nodeId: run.value.resourceId,
+      classification: run.value.classification,
+      created: run.value.dedupAction === 'create',
+      report: run.value,
+    },
+  };
 }
 
 export async function ingestYouTubeVideo(
@@ -78,23 +100,7 @@ export async function ingestYouTubeVideo(
   const runtime = await runtimeFor(input);
   if (!runtime.ok) return runtime;
   try {
-    const run = await runtime.value.run('youtube', { ref: videoId });
-    if (!run.ok) return run;
-
-    if (options.refreshTranscript) {
-      const cleanup = await deleteStaleExcerpts(input.store, run.value.resourceId, run.value.excerptIds);
-      if (!cleanup.ok) return cleanup;
-    }
-
-    return {
-      ok: true,
-      value: {
-        nodeId: run.value.resourceId,
-        classification: run.value.classification,
-        created: run.value.dedupAction === 'create',
-        report: run.value,
-      },
-    };
+    return await ingestYouTubeVideoWithRuntime(runtime.value, input, videoId, options);
   } finally {
     await runtime.value.close();
   }
@@ -108,23 +114,29 @@ export async function ingestYouTubePlaylist(
   const playlist = await input.client.fetchPlaylist(playlistId);
   if (!playlist.ok) return playlist;
 
+  const runtime = await runtimeFor(input);
+  if (!runtime.ok) return runtime;
   const errors: IngestionJob['errors'] = [];
   const nodeIds: string[] = [];
   let classificationStatus: ClassificationResult['status'] = 'disabled';
   const classificationWarnings: string[] = [];
   let tagsMatched = 0;
   let tagsAssigned = 0;
-  for (const videoId of playlist.value.videoIds) {
-    const result = await ingestYouTubeVideo(input, videoId, options);
-    if (result.ok) {
-      nodeIds.push(result.value.nodeId);
-      if (result.value.classification.status === 'completed') classificationStatus = 'completed';
-      tagsMatched += result.value.classification.tagsMatched;
-      tagsAssigned += result.value.classification.tagsAssigned;
-      classificationWarnings.push(...result.value.classification.warnings);
-    } else {
-      errors.push({ videoId, message: result.error.message, timestamp: now() });
+  try {
+    for (const videoId of playlist.value.videoIds) {
+      const result = await ingestYouTubeVideoWithRuntime(runtime.value, input, videoId, options);
+      if (result.ok) {
+        nodeIds.push(result.value.nodeId);
+        if (result.value.classification.status === 'completed') classificationStatus = 'completed';
+        tagsMatched += result.value.classification.tagsMatched;
+        tagsAssigned += result.value.classification.tagsAssigned;
+        classificationWarnings.push(...result.value.classification.warnings);
+      } else {
+        errors.push({ videoId, message: result.error.message, timestamp: now() });
+      }
     }
+  } finally {
+    await runtime.value.close();
   }
 
   const job: IngestionJob = {

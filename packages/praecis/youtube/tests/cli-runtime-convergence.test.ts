@@ -15,6 +15,9 @@ describe('YouTube CLI runtime convergence', () => {
     expect(ingestSource).toContain('createIngestionRuntime');
     expect(ingestSource).not.toContain('createPipelineRuntime');
     expect(ingestSource).toContain('createYouTubeVectorSpec');
+    expect(ingestSource).toContain('runVector');
+    expect(ingestSource).not.toContain('.register(');
+    expect(ingestSource).not.toContain(".run('youtube'");
     expect(cliSource).not.toContain('new IngestionPipeline');
     expect(cliSource).not.toContain('new ClaimExtractionPipeline');
   });

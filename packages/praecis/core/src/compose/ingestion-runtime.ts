@@ -3,42 +3,43 @@
 
 import type { Result } from '@aidha/taxonomy';
 import type { ComposedVector } from './vector.js';
-import { createPipelineRuntime } from './runtime.js';
-import type { IngestInput, PipelineRuntime, PipelineServices, RunReport } from '../interfaces/index.js';
+import type { IngestInput, PipelineServices, RunReport } from '../interfaces/index.js';
+import { runVector as runPipelineVector } from '../pipeline/spine.js';
 import { createConfiguredPipelineServices } from '../pipeline/services.js';
 
-export interface ConfiguredIngestionRuntime extends PipelineRuntime {
+export interface ConfiguredIngestionRuntime {
   runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>>;
   close(): Promise<void>;
+}
+
+function isPipelineServices(value: Partial<PipelineServices>): value is PipelineServices {
+  return value.store !== undefined
+    && value.miner !== undefined
+    && value.exporter !== undefined
+    && value.cache !== undefined
+    && value.costCeiling !== undefined
+    && value.privacy !== undefined
+    && value.clock !== undefined
+    && value.config !== undefined
+    && value.allowHeuristicFallback !== undefined;
 }
 
 export async function createIngestionRuntime(
   overrides: Partial<PipelineServices> = {},
 ): Promise<Result<ConfiguredIngestionRuntime>> {
-  const services = await createConfiguredPipelineServices(overrides);
+  const services = isPipelineServices(overrides)
+    ? { ok: true as const, value: overrides }
+    : await createConfiguredPipelineServices(overrides);
   if (!services.ok) return services;
 
-  const runtime = createPipelineRuntime(services.value);
-  const registered = new Set<string>();
   const ownsStore = overrides.store === undefined;
   const ownsTaxonomyRegistry = overrides.taxonomyRegistry === undefined;
-
-  function register(vector: { readonly sourceId: string }): void {
-    runtime.register(vector);
-    registered.add(vector.sourceId);
-  }
 
   return {
     ok: true,
     value: {
-      register,
-      run(sourceId: string, input: IngestInput): Promise<Result<RunReport>> {
-        return runtime.run(sourceId, input);
-      },
       runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>> {
-        const singleRunRuntime = createPipelineRuntime(services.value);
-        singleRunRuntime.register(vector);
-        return singleRunRuntime.run(vector.sourceId, input);
+        return runPipelineVector(vector, input, services.value);
       },
       async close(): Promise<void> {
         if (ownsTaxonomyRegistry) {
