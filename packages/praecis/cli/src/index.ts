@@ -10,7 +10,14 @@ import {
   ConfigNotFoundError,
 } from '@aidha/config';
 import type { LoadResult, ResolvedConfig, SourceRegistration } from '@aidha/config';
-import { YouTubeSourceRegistration } from '@aidha/ingestion-youtube';
+import {
+  createYouTubeVectorSpec,
+  MockYouTubeClient,
+  RealYouTubeClient,
+  YouTubeSourceRegistration,
+  type ResolvedYoutubeConfig,
+  type YouTubeClient,
+} from '@aidha/ingestion-youtube';
 import {
   createWebVectorSpec,
   WebSourceRegistration,
@@ -50,7 +57,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createIngestionRuntime, type ClassificationResult, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
+import { composeVector, createIngestionRuntime, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { CLI_USAGE_TEXT } from './help.js';
@@ -60,7 +67,7 @@ export interface CliOptions {
 }
 
 export interface IngestSummary {
-  readonly sourceId: 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast' | 'readwise' | 'email' | 'linkedin';
+  readonly sourceId: 'youtube' | 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast' | 'readwise' | 'email' | 'linkedin';
   readonly ref: string;
   readonly canonicalId: string;
   readonly label?: string;
@@ -124,6 +131,49 @@ type WebFetchFn = Parameters<typeof createWebVectorSpec>[0];
 
 function stableId(seed: string): string {
   return createHash('sha256').update(seed).digest('hex').slice(0, 16);
+}
+
+function createMockExtractionLlm(): LlmClient {
+  return {
+    async generate(request) {
+      const excerptId = /"id":\s*"([^"]+)"/.exec(request.user)?.[1] ?? 'mock-excerpt';
+      return {
+        ok: true,
+        value: JSON.stringify({
+          claims: [{
+            text: 'The mock YouTube fixture contains a claim-worthy point for review.',
+            excerptIds: [excerptId],
+            confidence: 0.84,
+            type: 'fact',
+            classification: 'fact',
+            evidenceType: 'direct',
+            why: 'Deterministic mock extraction keeps generic CLI tests offline.',
+          }],
+        }),
+      };
+    },
+  };
+}
+
+function parseYouTubeVideoId(input: string): string {
+  if (!input.includes('/') && !input.includes('.')) {
+    return input;
+  }
+  try {
+    const url = new URL(input);
+    if (url.searchParams.has('v')) {
+      return url.searchParams.get('v') ?? input;
+    }
+    if (url.hostname === 'youtu.be') {
+      return url.pathname.slice(1);
+    }
+    if (url.pathname.startsWith('/embed/')) {
+      return url.pathname.slice(7);
+    }
+  } catch {
+    return input;
+  }
+  return input;
 }
 
 function normalizeOutputSegments(segments: readonly MediaSegment[]): IngestSummary['segments'] {
@@ -286,6 +336,22 @@ export async function runLinkedInIngest(
   options: { pasteText: string; url?: string; services?: Partial<PipelineServices> },
 ): Promise<IngestSummary> {
   return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec(options), undefined, options.services ?? {});
+}
+
+function youtubeConfigFromResolved(config?: ResolvedConfig): ResolvedYoutubeConfig {
+  return YouTubeSourceRegistration.validateActiveSourceConfig(config?.activeSourceConfig);
+}
+
+export async function runYouTubeIngest(
+  ref: string,
+  options: { client?: YouTubeClient; services?: Partial<PipelineServices> } = {},
+): Promise<IngestSummary> {
+  const youtubeConfig = youtubeConfigFromResolved(options.services?.config);
+  const client = options.client ?? new RealYouTubeClient(youtubeConfig.youtube, {
+    ...youtubeConfig.ytdlp,
+    debugTranscript: youtubeConfig.youtube.debugTranscript,
+  });
+  return buildIngestSummary('youtube', ref, composeVector(createYouTubeVectorSpec(client)), undefined, options.services ?? {});
 }
 
 export async function resolveAidhaConfig(
@@ -460,6 +526,35 @@ export async function runCli(argv: string[]): Promise<number> {
 
     if (command === 'ingest') {
       const mode = positionals[1];
+      if (mode === 'youtube') {
+        const ref = optionString(options, 'url') ?? positionals[2];
+        if (!ref) {
+          console.error('Usage: ingest youtube --url <videoIdOrUrl> [--mock] [--json]');
+          return 1;
+        }
+        const summary = await withRuntimeServicesForSource('youtube', options, services => {
+          const mock = optionBool(options, 'mock');
+          const mockServices: Partial<PipelineServices> = {
+            ...services,
+            ...(services.config && !services.config.llm.model ? { config: { ...services.config, llm: { ...services.config.llm, model: 'mock-youtube-llm' } } } : {}),
+            llm: createMockExtractionLlm(),
+          };
+          return runYouTubeIngest(parseYouTubeVideoId(ref), {
+            ...(mock ? { client: new MockYouTubeClient() } : {}),
+            services: mock ? mockServices : services,
+          });
+        });
+        if (optionBool(options, 'json')) {
+          console.log(JSON.stringify(summary, null, 2));
+        } else {
+          console.log(`Ingested youtube ${summary.ref}`);
+          console.log(`Canonical: ${summary.canonicalId}`);
+          console.log(`Segments: ${summary.segmentCount}`);
+          console.log(`Chunks: ${summary.chunkCount}`);
+        }
+        return 0;
+      }
+
       if (mode === 'web') {
         const ref = optionString(options, 'url') ?? positionals[2];
         if (!ref) {
@@ -635,7 +730,7 @@ export async function runCli(argv: string[]): Promise<number> {
         return 0;
       }
 
-      console.error('Usage: ingest <web|pdf|voice|meeting|rss|podcast|readwise|email|linkedin> ...');
+      console.error('Usage: ingest <youtube|web|pdf|voice|meeting|rss|podcast|readwise|email|linkedin> ...');
       return 1;
     }
 

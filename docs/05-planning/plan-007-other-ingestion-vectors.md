@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.8"
+version: "2.9"
 last_updated: 2026-05-25
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.8
+> **Version:** 2.9
 > **Last Updated:** 2026-05-25
 > **Type:** PLAN
 
@@ -55,6 +55,7 @@ docops_version: "2.0"
 | 2.6     | 2026-05-25 | AI     | Closed the r4 production-wiring blocker: taxonomy classification now seeds from `extensions.taxonomy`, both production CLIs thread the seeded registry into the spine, CLI summaries expose classification and metadata-conflict telemetry, and tag counts distinguish matched tags from net-new assignments. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r4.txt` |
 | 2.7     | 2026-05-25 | AI     | Closed the r5 durability blocker: taxonomy assignments now persist on graph Resource metadata, fresh service/store reruns report only durable net-new assignments, generic vectors use the same configured service builder, and YouTube no longer has privileged classification or core persistence routing. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r5.txt` |
 | 2.8     | 2026-05-25 | AI     | Hardened the shared ingestion architecture after self-review: added the production `createIngestionRuntime` facade, typed durable taxonomy assignment metadata in the graph schema, source-neutral runtime/layering guardrails, and a generic-vector fresh-service taxonomy idempotency test so YouTube is no longer structurally distinguishable from other vectors. | Codex adversarial self-review | In Review | — |
+| 2.9     | 2026-05-25 | AI     | Removed the remaining source-neutrality gap at the public ingestion surface: generic `aidha ingest youtube` now uses the same configured runtime and summary contract as every other vector, while YouTube-specific diagnostics/eval tooling remains explicitly advanced tooling. Stale current-state prose was reconciled to the v2.9 implementation. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -218,18 +219,25 @@ contract is a baseline dependency, not work re-derived by this plan.
 
 ### Current Remediation State
 
-Version 2.3 resolves the central architectural blocker found in the 2026-05-25
-peer review: `packages/praecis/youtube/src/extract/`, `youtube/src/utils/ids.ts`,
-and the public legacy `IngestionPipeline` have been removed. YouTube imports the
-shared extractor, prompt, token-budget, reference, purge, and ID utilities from
-`@aidha/praecis-core`, and YouTube CLI `ingest` plus `extract claims` both enter
-through `createPipelineRuntime(createYouTubeVectorSpec(...))`.
+Version 2.9 resolves the implementation and product-surface neutrality blockers
+found across the 2026-05-25 peer-review rounds. `packages/praecis/core` owns the
+shared runtime, extractor, prompt routing, token budget, reference extraction,
+purge path, dedup/link logic, Resource metadata persistence, classification, and
+taxonomy assignment persistence. Source packages, including YouTube, supply thin
+vector adapters and enter production ingestion through `createIngestionRuntime`.
 
-The regression gate now protects the live runtime path:
-`packages/praecis/youtube/tests/golden-snapshot.test.ts` uses
-`RuntimeIngestionHarness`, which composes the YouTube vector through the shared
-runtime, and `packages/praecis/youtube/tests/extractor-boundary.test.ts` fails if
-the local YouTube extractor directory or local extractor imports reappear.
+The generic `aidha ingest` CLI now exposes YouTube beside the other vectors:
+`youtube`, `web`, `pdf`, `voice`, `meeting`, `rss`, `podcast`, `readwise`,
+`email`, and `linkedin` all use the same configured service/runtime assembly and
+summary contract. The separate `aidha-youtube` command remains for advanced
+YouTube-only operations such as transcript diagnosis, dossier export, review
+queues, eval-matrix tooling, and fixture import; it is not the privileged
+ingestion route.
+
+Regression gates protect the production path: YouTube golden snapshots and CLI
+claim extraction converge through the shared runtime, source packages cannot
+import low-level runtime/default-service factories, and taxonomy assignment writes
+are centralized in core typed metadata helpers.
 
 ### The Gap
 
@@ -488,8 +496,10 @@ packages/praecis/
 │   ├── diarize/                  @aidha/decode-diarize (IDiarizer + backends)
 │   └── ocr/                      @aidha/decode-ocr    (Tesseract fallback)
 └── sources/
-    ├── youtube/  (refactored from packages/praecis/youtube)
     ├── web/   pdf/   feeds/   voice/   meetings/   readwise/   email/   linkedin/
+    └── youtube remains at packages/praecis/youtube for advanced tooling, but
+        its ingestion adapter follows the same SourceRegistration/vector/runtime
+        contract and is surfaced through the generic aidha CLI.
 ```
 
 Dependency rule (enforced by package boundaries): `sources/* → {acquire/*,
@@ -499,11 +509,11 @@ decode/*, core}`; `acquire/*` and `decode/*` may import `core` types/interfaces;
 canonicalisation, PDF slide heuristic) lives in its `sources/*` adapter unless it is
 genuinely reusable across sources.
 
-> **Note on the existing `packages/praecis/youtube` path.** Phase 0 refactors it to
-> implement the `core` interfaces and register via `SourceRegistration`. Whether it
-> physically moves to `packages/praecis/sources/youtube` or stays in place is a
-> mechanical decision recorded in Phase 0; the import surface (`@aidha/praecis-youtube`)
-> is preserved either way.
+> **Note on the existing `packages/praecis/youtube` path.** YouTube stays in its
+> historical package because it owns additional diagnostics, review, export,
+> evaluation, and fixture tooling. Ingestion itself is source-neutral: the generic
+> CLI imports its `SourceRegistration` and vector adapter exactly as it does for
+> the other vectors.
 
 ---
 
@@ -1545,12 +1555,12 @@ rejected with evidence).
 
 | DoD Item | Evidence |
 | -------- | -------- |
-| 1. Eight vectors + LinkedIn ingest fixtures to reviewed-ready draft claims with locators/deep-links | `packages/praecis/cli/tests/cli.test.ts` asserts web, PDF, voice, meeting, RSS, podcast, Readwise, email, and LinkedIn runtime summaries include persisted draft claim IDs, locators, and claim summaries whose metadata uses `method: "llm"` with model and prompt-version fields. `packages/praecis/core/tests/export/deep-links.test.ts` covers locator deep-link rendering. |
+| 1. YouTube, eight additional vectors, and LinkedIn ingest fixtures to reviewed-ready draft claims with locators/deep-links | `packages/praecis/cli/tests/cli.test.ts` asserts YouTube, web, PDF, voice, meeting, RSS, podcast, Readwise, email, and LinkedIn runtime summaries include persisted draft claim IDs, locators, and claim summaries whose metadata uses `method: "llm"` with model and prompt-version fields. `packages/praecis/core/tests/export/deep-links.test.ts` covers locator deep-link rendering. |
 | 2. YouTube refactored onto core with equivalent exports and stable reruns | `packages/praecis/core/src/extract/*` now owns the YouTube v2 two-pass extractor, internal editorial selection, prompt routing, verification, token-budget, LLM client, claim/reference extraction, and purge path. `packages/praecis/youtube/src/extract/`, `packages/praecis/youtube/src/utils/ids.ts`, and the public legacy `IngestionPipeline` are deleted. `packages/praecis/youtube/src/ingest/runtime-ingestion.ts` is the single production YouTube ingest entrypoint used by both CLI claim paths and the golden snapshot harness; `packages/praecis/youtube/tests/cli-runtime-convergence.test.ts` rejects the legacy claim-extraction bypass; `packages/praecis/youtube/tests/extractor-boundary.test.ts` rejects a reopened local extractor fork. `packages/praecis/youtube/tests/pipeline.test.ts` asserts production Resource metadata (`channelName`, duration, description, transcript state) is persisted by the spine and that transcript acquisition failures leave no stub Resource. YouTube remains a source adapter, not a privileged runtime path; classification, taxonomy persistence, policy routing, ranking, and summaries are owned by `praecis/core` and shared generic service assembly. |
 | 3. Every vector ships code, tests, runbook/quickstart, docs green | Runbooks `AIDHA-RUNBOOK-004` through `AIDHA-RUNBOOK-012` cover Readwise, email, LinkedIn, web, PDF, RSS, voice, meeting, and podcast; `pnpm docs:build` and scoped `scripts/meminit-check.mjs` passed on 2026-05-25. |
 | 4. No-network CI green and determinism gate passes | Targeted no-network package gates passed on 2026-05-25 for core, YouTube, CLI, and all eight source packages; the reliable sequential workspace gate also passed on 2026-05-25. `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
 | 5. Dedup/link, sensitivity, cost ceilings, Resource metadata, and classification tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. `packages/praecis/core/tests/compose/dedup-link.test.ts` covers `RawSource.resourceMetadata` creation, same-canonical refresh, cross-canonical conflict recording, conflict-count reporting, and conflict warnings; `packages/praecis/core/tests/pipeline/classifier.test.ts` covers config-seeded taxonomy, graph-backed assignment persistence, config validation, keyword assignment, and idempotent reruns; YouTube and email tests prove assignments persist through source-neutral runtime wiring. |
-| 6. Adversarial review blockers resolved | The 2026-05-25 Opus r5 blocker is fixed in code and tests: taxonomy assignment writes now persist on durable Resource metadata, fresh SQLite-backed YouTube reruns report `tagsAssigned: 0` after the first assignment, email classification uses the same configured service builder, generic CLI services open the configured SQLite store, and YouTube no longer has privileged classification or core persistence wiring. Earlier r1/r2/r3/r4 fixes remain fenced by extractor-boundary, CLI convergence, web paywall/login-wall, PDF slide-vs-paper, actual-cost-ceiling, resource-metadata, metadata-conflict, config-seeded classification, and core layering tests. |
+| 6. Adversarial review blockers resolved | The 2026-05-25 Opus r5 blocker is fixed in code and tests: taxonomy assignment writes now persist on durable Resource metadata, fresh SQLite-backed YouTube reruns report `tagsAssigned: 0` after the first assignment, email classification uses the same configured service builder, generic CLI services open the configured SQLite store, and YouTube no longer has privileged classification or core persistence wiring. The v2.9 hardening also removes the remaining public ingestion-surface distinction by adding `aidha ingest youtube` to the generic CLI. Earlier r1/r2/r3/r4 fixes remain fenced by extractor-boundary, CLI convergence, web paywall/login-wall, PDF slide-vs-paper, actual-cost-ceiling, resource-metadata, metadata-conflict, config-seeded classification, and core layering tests. |
 
 **Final local gates run on 2026-05-25:**
 

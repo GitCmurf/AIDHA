@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { LlmClient, PipelineServices } from '@aidha/praecis-core';
 import { SQLiteStore } from '@aidha/graph-backend';
+import { MockYouTubeClient } from '@aidha/ingestion-youtube';
 import {
   explainResolvedKey,
   resolveRuntimeServicesForSource,
@@ -16,8 +17,10 @@ import {
   runPodcastIngest,
   runPdfIngest,
   runRssIngest,
+  runCli,
   runVoiceIngest,
   runWebIngest,
+  runYouTubeIngest,
 } from '../src/index.js';
 
 function testConfig(): PipelineServices['config'] {
@@ -126,6 +129,57 @@ function expectDraftClaims(summary: {
 }
 
 describe('aidha cli phase-1 surface', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('ingests youtube through the generic source-neutral CLI runtime', async () => {
+    const summary = await runYouTubeIngest('test-video', {
+      client: new MockYouTubeClient(),
+      services: services(),
+    });
+
+    expect(summary.sourceId).toBe('youtube');
+    expect(summary.canonicalId).toBe('youtube-test-video');
+    expect(summary.segmentCount).toBeGreaterThan(0);
+    expect(summary.segments[0]?.locator.kind).toBe('timecode');
+    expectDraftClaims(summary);
+  });
+
+  it('exposes youtube on the generic aidha ingest command surface', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-youtube-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'youtube', '--url', 'test-video', '--mock', '--json', '--config', configPath]);
+      expect(code).toBe(0);
+      const summary = JSON.parse(logs.join('\n')) as { sourceId: string; canonicalId: string; claimsExtracted: number };
+      expect(summary.sourceId).toBe('youtube');
+      expect(summary.canonicalId).toBe('youtube-test-video');
+      expect(summary.claimsExtracted).toBeGreaterThan(0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('ingests web fixtures with deterministic canonical ids and chunks', async () => {
     const summary = await runWebIngest('https://example.com/article', async () => ({
       ...makeFetchResponse(

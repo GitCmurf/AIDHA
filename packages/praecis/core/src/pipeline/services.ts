@@ -666,6 +666,13 @@ export class KeywordTaxonomyClassifier implements IClassifier {
   }
 }
 
+/**
+ * Low-level default service factory for core tests and internal runtime assembly.
+ *
+ * Production callers should use createConfiguredPipelineServices() or
+ * createIngestionRuntime() so taxonomy configuration and durable assignment
+ * persistence are wired consistently.
+ */
 export function createDefaultPipelineServices(overrides: Partial<PipelineServices> = {}): PipelineServices {
   const store = overrides.store ?? new InMemoryStore();
   const config = overrides.config ?? defaultResolvedConfig();

@@ -7,6 +7,13 @@ import type { ComposedVector } from './vector.js';
 import { runVector } from '../pipeline/spine.js';
 import { createDefaultPipelineServices } from '../pipeline/services.js';
 
+/**
+ * Low-level runtime primitive for core tests and runtime composition.
+ *
+ * Production entrypoints should use createIngestionRuntime(), which resolves
+ * configured services, taxonomy persistence, and lifecycle ownership in one
+ * place before delegating to this primitive.
+ */
 export function createPipelineRuntime(services: Partial<PipelineServices> = {}): PipelineRuntime {
   const registry = new Map<string, ComposedVector>();
   const runtimeServices = createDefaultPipelineServices(services);
