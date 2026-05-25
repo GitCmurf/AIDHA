@@ -244,10 +244,25 @@ describe('aidha cli phase-1 surface', () => {
     try {
       const code = await runCli(['ingest', 'youtube', '--playlist', 'test-playlist', '--mock', '--json', '--config', configPath]);
       expect(code).toBe(0);
-      const summary = JSON.parse(logs.join('\n')) as { sourceId: string; playlistId: string; videos: number; summaries: Array<{ sourceId: string }> };
+      const summary = JSON.parse(logs.join('\n')) as {
+        sourceId: string;
+        playlistId: string;
+        videos: number;
+        itemCount: number;
+        classification: { status: string; tagsMatched: number; tagsAssigned: number };
+        metadataConflictCount: number;
+        warnings: string[];
+        details: { playlistId: string; videos: number };
+        summaries: Array<{ sourceId: string }>;
+      };
       expect(summary.sourceId).toBe('youtube');
       expect(summary.playlistId).toBe('test-playlist');
       expect(summary.videos).toBe(2);
+      expect(summary.itemCount).toBe(2);
+      expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2 });
+      expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
+      expect(summary.metadataConflictCount).toBe(0);
+      expect(summary.warnings).toEqual([]);
       expect(summary.summaries.map(item => item.sourceId)).toEqual(['youtube', 'youtube']);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -262,6 +277,11 @@ describe('aidha cli phase-1 surface', () => {
 
     expect(summary.sourceId).toBe('youtube');
     expect(summary.playlistId).toBe('test-playlist');
+    expect(summary.itemCount).toBe(2);
+    expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2 });
+    expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
+    expect(summary.metadataConflictCount).toBe(0);
+    expect(summary.warnings).toEqual([]);
     expect(summary.summaries).toHaveLength(2);
     expect(summary.summaries[0]?.canonicalId).toBe('youtube-test-video');
     expect(summary.summaries[1]?.canonicalId).toBe('youtube-test-video-2');
@@ -437,7 +457,12 @@ describe('aidha cli phase-1 surface', () => {
     });
 
     expect(summary.sourceId).toBe('readwise');
+    expect(summary.itemCount).toBe(1);
     expect(summary.totalBooks).toBe(1);
+    expect(summary.details).toEqual({ updatedAfter: '2026-05-01T00:00:00Z', totalBooks: 1 });
+    expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
+    expect(summary.metadataConflictCount).toBe(0);
+    expect(summary.warnings).toEqual([]);
     expect(summary.summaries[0]?.canonicalId).toBe('web:https://example.com/article');
     expect(summary.summaries[0]?.segments[0]?.locator).toEqual({ kind: 'external', system: 'readwise', externalId: '1' });
     expectDraftClaims(summary.summaries[0]!);
@@ -476,8 +501,13 @@ describe('aidha cli phase-1 surface', () => {
     const summary = await runEmailIngest(dir, services());
 
     expect(summary.sourceId).toBe('email');
+    expect(summary.itemCount).toBe(1);
     expect(summary.threads).toBe(1);
     expect(summary.importedFiles).toBe(2);
+    expect(summary.details).toEqual({ importedFiles: 2, threads: 1 });
+    expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
+    expect(summary.metadataConflictCount).toBe(0);
+    expect(summary.warnings).toEqual([]);
     expect(summary.summaries[0]?.canonicalId).toBe('email:thread:msg-a');
     expect(summary.summaries[0]?.segmentCount).toBe(2);
     expectDraftClaims(summary.summaries[0]!);

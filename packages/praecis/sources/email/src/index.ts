@@ -97,9 +97,17 @@ export interface EmailThreadPayload {
 
 export interface EmailBatchSummary {
   readonly sourceId: 'email';
+  readonly itemCount: number;
   readonly importedFiles: number;
   readonly threads: number;
   readonly summaries: readonly EmailThreadSummary[];
+  readonly classification: ClassificationResult;
+  readonly metadataConflictCount: number;
+  readonly warnings: readonly string[];
+  readonly details: {
+    readonly importedFiles: number;
+    readonly threads: number;
+  };
 }
 
 export interface EmailThreadSummary {
@@ -480,6 +488,16 @@ export function createEmailVectorSpec(thread: EmailThread) {
   });
 }
 
+function aggregateClassification(summaries: readonly EmailThreadSummary[]): ClassificationResult {
+  const enabled = summaries.filter(summary => summary.classification.status === 'completed');
+  return {
+    status: enabled.length > 0 ? 'completed' : 'disabled',
+    tagsMatched: summaries.reduce((sum, summary) => sum + summary.classification.tagsMatched, 0),
+    tagsAssigned: summaries.reduce((sum, summary) => sum + summary.classification.tagsAssigned, 0),
+    warnings: summaries.flatMap(summary => summary.classification.warnings),
+  };
+}
+
 export async function runEmailBatch(
   ref: string,
   readFileFn: typeof readFile = readFile,
@@ -560,9 +578,17 @@ export async function runEmailBatch(
 
   return {
     sourceId: 'email',
+    itemCount: threads.length,
     importedFiles: messages.length,
     threads: threads.length,
     summaries,
+    classification: aggregateClassification(summaries),
+    metadataConflictCount: summaries.reduce((sum, summary) => sum + summary.metadataConflictCount, 0),
+    warnings: summaries.flatMap(summary => summary.warnings),
+    details: {
+      importedFiles: messages.length,
+      threads: threads.length,
+    },
   };
 }
 

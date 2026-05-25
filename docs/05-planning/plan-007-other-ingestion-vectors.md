@@ -59,6 +59,7 @@ docops_version: "2.0"
 | 2.10    | 2026-05-25 | AI     | Hardened the final public-ingest surface: generic `aidha ingest` now derives source registration, usage, dispatch, and summary rendering from a source manifest table; YouTube playlist ingestion is exposed through the same generic command path; `createIngestionRuntime.runVector` can safely run multiple same-source vectors without stale registration reuse; malformed durable taxonomy assignment metadata now fails visibly instead of being silently dropped. | Codex adversarial self-review | In Review | — |
 | 2.11    | 2026-05-25 | AI     | Remediated the r6 quality findings: taxonomy assignment timestamps now use the injected deterministic clock and are asserted as exact durable records; configured ingestion exposes only `runVector`, reuses assembled services, and routes YouTube through the same path as other vectors; the SQLite durability proof is ungated; and `ReferenceMetadataSchema` is implemented in the graph backend. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r6.txt` |
 | 2.12    | 2026-05-25 | AI     | Closed the reputation-readiness polish pass: the runtime contract now matches code (`ConfiguredIngestionRuntime` exposes only `runVector`/`close` and `PipelineServices.clock` is explicit); generic CLI help is generated from the source manifest registry instead of a parallel usage array; assembled-service runtime reuse is explicit through `createIngestionRuntimeFromServices`; and manifest uniqueness/help coverage tests guard future vector additions. | Codex adversarial self-review | In Review | — |
+| 2.13    | 2026-05-25 | AI     | Added the final runtime-context polish: generic CLI manifests now receive a shared `IngestExecutionContext` instead of raw service overrides, playlist/export batch flows reuse one configured runtime per command, and YouTube/Readwise/email batch summaries expose a common item-count/classification/metadata-conflict/warnings/details contract. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -236,7 +237,11 @@ summary contract. Single-video and playlist YouTube ingestion are both available
 through that generic command. The command surface is manifest-driven: each source
 contributes its `SourceRegistration`, usage line, argument adapter, runner, and
 summary presenter through one source manifest table consumed by config
-resolution, usage text, dispatch, and output formatting. The separate
+resolution, usage text, dispatch, and output formatting. Manifest runners receive
+a shared `IngestExecutionContext`, so command-level service/config resolution and
+runtime lifecycle are owned by the CLI shell while source runners only adapt
+arguments into `runVector` calls. Playlist/export-style batches reuse that one
+configured runtime for every item in the command. The separate
 `aidha-youtube` command remains for advanced YouTube-only operations such as
 transcript diagnosis, dossier export, review queues, eval-matrix tooling, and
 fixture import; it is not the privileged ingestion route.
@@ -247,6 +252,9 @@ import low-level runtime/default-service factories, and taxonomy assignment writ
 are centralized in core typed metadata helpers. The configured runtime now exposes
 only the source-neutral `runVector` path, reuses already assembled services for
 batch work, and executes YouTube through the same path as the other vectors.
+Batch summaries for YouTube playlists, Readwise exports, and email imports share
+the same top-level `itemCount`, aggregate `classification`,
+`metadataConflictCount`, `warnings`, and vector-specific `details` fields.
 Taxonomy assignment timestamps come from the injected runtime clock and are
 asserted as exact durable records in tests. Malformed durable
 `taxonomyAssignments` metadata fails visibly instead of being silently dropped,
