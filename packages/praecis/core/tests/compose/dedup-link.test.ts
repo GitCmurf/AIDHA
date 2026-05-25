@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import type { GraphStore } from '@aidha/graph-backend';
 import { applyDedupResolution } from '../../src/compose/dedup-link.js';
@@ -69,6 +69,7 @@ describe('applyDedupResolution', () => {
 
     const result = await applyDedupResolution(store, rss);
     expect(result.ok).toBe(true);
+    expect(result.ok && result.value.metadataConflictCount).toBe(0);
     if (!result.ok) return;
     expect(result.value.action).toBe('merge');
     expect(result.value.resourceId).toBe(web.canonicalId);
@@ -167,6 +168,7 @@ describe('applyDedupResolution', () => {
     });
     const result = await applyDedupResolution(store, rss);
     expect(result.ok).toBe(true);
+    expect(result.ok && result.value.metadataConflictCount).toBe(1);
 
     const nodeResult = await store.getNode(web.canonicalId);
     expect(nodeResult.ok).toBe(true);
@@ -183,6 +185,30 @@ describe('applyDedupResolution', () => {
         incomingSourceType: 'rss',
       },
     ]);
+  });
+
+  it('warns when metadata conflicts are recorded', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const web = makeSource({
+      canonicalId: 'web:https://example.com/article',
+      sourceType: 'web',
+      dedupKeys: ['web:https://example.com/article'],
+      resourceMetadata: { title: 'Canonical web title' },
+    });
+    await seedResource(store, web);
+
+    const rss = makeSource({
+      canonicalId: 'rss:https://blog.example.com/feed.xml#item-1',
+      sourceType: 'rss',
+      dedupKeys: ['web:https://example.com/article'],
+      resourceMetadata: { title: 'Feed item title' },
+    });
+
+    const result = await applyDedupResolution(store, rss);
+
+    expect(result.ok).toBe(true);
+    expect(warn).toHaveBeenCalledWith('Resource metadata conflicts recorded for web:https://example.com/article: 1');
+    warn.mockRestore();
   });
 
   it('adds alsoSeenVia when a strong dedup key merges a different canonical id', async () => {

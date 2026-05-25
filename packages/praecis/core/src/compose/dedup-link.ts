@@ -11,6 +11,7 @@ export interface DedupLinkResult {
   readonly resourceId: string;
   readonly matchedKey?: string;
   readonly edgeCreated: boolean;
+  readonly metadataConflictCount: number;
 }
 
 function uniqueStrings(values: readonly string[] = []): string[] {
@@ -126,7 +127,7 @@ export function mergeResourceMetadata(
   return merged;
 }
 
-function resourceMetadata(node: GraphNode | null | undefined, source: RawSource) {
+function resourceMetadata(node: GraphNode | null | undefined, source: RawSource): Record<string, unknown> {
   const existingMetadata = (node?.metadata ?? {}) as Record<string, unknown>;
   const existingDedupKeys = Array.isArray(existingMetadata['dedupKeys'])
     ? existingMetadata['dedupKeys'].filter((value): value is string => typeof value === 'string')
@@ -161,19 +162,25 @@ async function upsertResource(
   resourceId: string,
   source: RawSource,
   existingNode?: GraphNode | null,
-): Promise<Result<GraphNode>> {
+): Promise<Result<{ readonly node: GraphNode; readonly metadataConflictCount: number }>> {
+  const metadata = resourceMetadata(existingNode, source);
+  const conflicts = metadata['metadataConflicts'];
+  const conflictCount = Array.isArray(conflicts) ? conflicts.length : 0;
   const result = await store.upsertNode(
     'Resource',
     resourceId,
     {
       label: existingNode?.label ?? source.label ?? resourceId,
       content: existingNode?.content,
-      metadata: resourceMetadata(existingNode, source),
+      metadata,
     },
     { detectNoop: true },
   );
   if (!result.ok) return result;
-  return { ok: true, value: result.value.node };
+  if (conflictCount > 0) {
+    console.warn(`Resource metadata conflicts recorded for ${resourceId}: ${conflictCount}`);
+  }
+  return { ok: true, value: { node: result.value.node, metadataConflictCount: conflictCount } };
 }
 
 export async function applyDedupResolution(
@@ -191,8 +198,9 @@ export async function applyDedupResolution(
       ok: true,
       value: {
         action: 'create',
-        resourceId: created.value.id,
+        resourceId: created.value.node.id,
         edgeCreated: false,
+        metadataConflictCount: created.value.metadataConflictCount,
       },
     };
   }
@@ -228,9 +236,10 @@ export async function applyDedupResolution(
       ok: true,
       value: {
         action: 'merge',
-        resourceId: merged.value.id,
+        resourceId: merged.value.node.id,
         matchedKey: resolution.value.matchedKey,
         edgeCreated,
+        metadataConflictCount: merged.value.metadataConflictCount,
       },
     };
   }
@@ -239,7 +248,7 @@ export async function applyDedupResolution(
   if (!created.ok) return created;
 
   const edge = await store.upsertEdge(
-    created.value.id,
+    created.value.node.id,
     'corroboratedBy',
     matchedNode.id,
     {
@@ -255,10 +264,11 @@ export async function applyDedupResolution(
   return {
     ok: true,
     value: {
-      action: 'corroborate',
-      resourceId: created.value.id,
-      matchedKey: resolution.value.matchedKey,
-      edgeCreated: !edge.value.noop,
-    },
-  };
-}
+        action: 'corroborate',
+        resourceId: created.value.node.id,
+        matchedKey: resolution.value.matchedKey,
+        edgeCreated: !edge.value.noop,
+        metadataConflictCount: created.value.metadataConflictCount,
+      },
+    };
+  }

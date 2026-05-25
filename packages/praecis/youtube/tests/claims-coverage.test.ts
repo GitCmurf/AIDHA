@@ -148,7 +148,7 @@ describe('Evaluation harness: claim coverage', () => {
     });
 
     const pipeline = new ClaimExtractionPipeline({ graphStore: store, extractor });
-    const result = await pipeline.extractClaimsForVideo(videoId, { maxClaims: 8 });
+    const result = await pipeline.extractClaimsForVideo(`youtube-${videoId}`, { maxClaims: 8 });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 

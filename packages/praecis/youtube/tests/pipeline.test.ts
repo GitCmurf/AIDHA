@@ -328,8 +328,17 @@ describe('production YouTube runtime ingestion', () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
-      // Check that assignments were created
-      expect(result.value.tagsAssigned).toBeGreaterThanOrEqual(0);
+      expect(result.value.tagsAssigned).toBe(1);
+      const assignments = await taxonomyRegistry.getAssignments('youtube-test-video');
+      expect(assignments.ok).toBe(true);
+      if (!assignments.ok) return;
+      expect(assignments.value).toMatchObject([{
+        nodeId: 'youtube-test-video',
+        tagId: 'tag-1',
+        confidence: 0.7,
+        source: 'automatic',
+        assignedBy: 'praecis-keyword-classifier',
+      }]);
     });
   });
 });

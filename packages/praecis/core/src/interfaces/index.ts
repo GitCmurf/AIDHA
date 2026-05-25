@@ -7,6 +7,7 @@ import type { RawSource } from '../types/index.js';
 import type { DecodeOutput } from '../types/index.js';
 import type { Locator } from '../types/index.js';
 import type { Result } from '@aidha/taxonomy';
+import type { TaxonomyRegistry } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
 import type { LlmClient } from '../extract/llm-client.js';
@@ -88,9 +89,27 @@ export interface ExportResult {
   readonly excerptIds: readonly string[];
   readonly claimIds: readonly string[];
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
+  readonly metadataConflictCount: number;
   readonly created: number;
   readonly updated: number;
   readonly noop: number;
+}
+
+export interface ClassificationRequest {
+  readonly raw: RawSource;
+  readonly resourceId: string;
+  readonly excerptIds: readonly string[];
+  readonly claimIds: readonly string[];
+  readonly claims: readonly DraftClaim[];
+  readonly chunks: readonly Chunk[];
+  readonly context: ExtractionContext;
+  readonly config: ResolvedConfig;
+}
+
+export interface ClassificationResult {
+  readonly status: 'completed' | 'disabled';
+  readonly tagsAssigned: number;
+  readonly warnings: readonly string[];
 }
 
 export interface RunReport {
@@ -113,6 +132,8 @@ export interface RunReport {
   readonly tokenUsage: number;
   readonly spendUsd: number;
   readonly warnings: readonly string[];
+  readonly classification: ClassificationResult;
+  readonly metadataConflictCount: number;
   readonly durationMs: number;
 }
 
@@ -167,6 +188,10 @@ export interface IExporter {
   export(miningResult: MiningResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>>;
 }
 
+export interface IClassifier {
+  classify(request: ClassificationRequest): Promise<Result<ClassificationResult>>;
+}
+
 export interface ITranscriber {
   readonly backend: string;
   transcribe(audio: AudioRef, opts: TranscribeOptions): Promise<Result<TimecodedSegment[]>>;
@@ -190,6 +215,8 @@ export interface PipelineServices {
   readonly store: GraphStore;
   readonly miner: ICandidateMiner;
   readonly exporter: IExporter;
+  readonly classifier?: IClassifier;
+  readonly taxonomyRegistry?: TaxonomyRegistry;
   readonly llm?: LlmClient;
   readonly cache: ICache;
   readonly costCeiling: CostCeiling;

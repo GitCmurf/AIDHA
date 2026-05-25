@@ -84,14 +84,13 @@ function fixtureConfig() {
 }
 
 export class RuntimeIngestionHarness {
-  constructor(private readonly config: RuntimeIngestionConfig) {
-    void config.taxonomyRegistry;
-  }
+  constructor(private readonly config: RuntimeIngestionConfig) {}
 
   async ingestPlaylist(playlistId: string): Promise<Result<IngestionResult>> {
     return ingestYouTubePlaylist({
       store: this.config.graphStore,
       client: this.config.youtubeClient,
+      taxonomyRegistry: this.config.taxonomyRegistry,
       config: fixtureConfig(),
       llm: createFixtureLlm(),
     }, playlistId);
@@ -104,6 +103,7 @@ export class RuntimeIngestionHarness {
     const result = await ingestYouTubeVideo({
       store: this.config.graphStore,
       client: this.config.youtubeClient,
+      taxonomyRegistry: this.config.taxonomyRegistry,
       config: fixtureConfig(),
       llm: createFixtureLlm(),
     }, videoId, options);

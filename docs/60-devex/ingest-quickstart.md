@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-05-25
-version: '0.31'
+version: '0.32'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.31
+> **Version:** 0.32
 > **Last Updated:** 2026-05-25
 > **Type:** GUIDE
 
@@ -54,6 +54,7 @@ docops_version: '2.0'
 | 0.29    | 2026-05-22 | AI     | Email import. | —         | Draft  | —         |
 | 0.30    | 2026-05-22 | AI     | LinkedIn paste. | —         | Draft  | —         |
 | 0.31    | 2026-05-25 | AI     | Clarify Resource metadata. | — | Draft | AIDHA-PLAN-007 |
+| 0.32    | 2026-05-25 | AI     | Clarify classification status. | — | Draft | AIDHA-PLAN-007 |
 
 ## Purpose
 
@@ -73,6 +74,11 @@ dedup keys, provenance, and label. YouTube CLI ingestion and claim extraction bo
 call the same production `ingestYouTubeVideo()` entrypoint, so channel,
 description, duration, and transcript-state metadata seen in dossiers is produced
 by the same path users run locally.
+
+Classification is a shared optional spine step. With a configured taxonomy
+registry, the default classifier assigns matching taxonomy tags to the persisted
+Resource and reports the real `tagsAssigned` count. Without one, reports show
+classification as disabled; `0` no longer hides a stage that never ran.
 
 ## Prerequisites
 

@@ -136,7 +136,7 @@ async function extractFingerprint(fixture: GoldenFixture): Promise<{ claimIds: s
       graphStore: store,
       extractor: new FixtureClaimExtractor(),
     });
-    const result = await pipeline.extractClaimsForVideo(fixture.videoId, { maxClaims: 15 });
+    const result = await pipeline.extractClaimsForVideo(`youtube-${fixture.videoId}`, { maxClaims: 15 });
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
 
@@ -195,7 +195,7 @@ describe('golden YouTube transcript fixtures', () => {
           graphStore: store,
           extractor: new FixtureClaimExtractor(),
         });
-        const extraction = await pipeline.extractClaimsForVideo(fixture.videoId, { maxClaims: 15 });
+        const extraction = await pipeline.extractClaimsForVideo(`youtube-${fixture.videoId}`, { maxClaims: 15 });
         expect(extraction.ok).toBe(true);
         if (!extraction.ok) throw extraction.error;
 

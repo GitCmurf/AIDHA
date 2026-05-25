@@ -7,6 +7,7 @@ import {
   type RunReport,
 } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
+import type { TaxonomyRegistry } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import type { YouTubeClient } from '../client/types.js';
 import type { IngestionJob } from '../schema/index.js';
@@ -17,6 +18,7 @@ export interface YouTubeIngestServices {
   readonly store: GraphStore;
   readonly client: YouTubeClient;
   readonly config?: ResolvedConfig;
+  readonly taxonomyRegistry?: TaxonomyRegistry;
   readonly llm?: LlmClient;
   readonly services?: Partial<PipelineServices>;
 }
@@ -58,6 +60,7 @@ function runtimeFor(input: YouTubeIngestServices) {
     ...input.services,
     store: input.store,
     ...(input.config ? { config: input.config } : {}),
+    ...(input.taxonomyRegistry ? { taxonomyRegistry: input.taxonomyRegistry } : {}),
     ...(input.llm ? { llm: input.llm } : {}),
   });
   runtime.register(composeVector(createYouTubeVectorSpec(input.client)));
@@ -82,7 +85,7 @@ export async function ingestYouTubeVideo(
     ok: true,
     value: {
       nodeId: run.value.resourceId,
-      tagsAssigned: 0,
+      tagsAssigned: run.value.classification.tagsAssigned,
       created: run.value.dedupAction === 'create',
       report: run.value,
     },
@@ -99,10 +102,12 @@ export async function ingestYouTubePlaylist(
 
   const errors: IngestionJob['errors'] = [];
   const nodeIds: string[] = [];
+  let tagsAssigned = 0;
   for (const videoId of playlist.value.videoIds) {
     const result = await ingestYouTubeVideo(input, videoId, options);
     if (result.ok) {
       nodeIds.push(result.value.nodeId);
+      tagsAssigned += result.value.tagsAssigned;
     } else {
       errors.push({ videoId, message: result.error.message, timestamp: now() });
     }
@@ -127,7 +132,7 @@ export async function ingestYouTubePlaylist(
     value: {
       job,
       videosProcessed: job.progress.completed,
-      tagsAssigned: 0,
+      tagsAssigned,
       nodeIds,
     },
   };

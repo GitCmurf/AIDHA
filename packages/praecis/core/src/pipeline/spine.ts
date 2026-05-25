@@ -125,6 +125,20 @@ export async function runVector(
   const exported = await services.exporter.export(miningResult, raw, chunkResult.value);
   if (!exported.ok) return exported;
 
+  const classification = services.classifier
+    ? await services.classifier.classify({
+      raw,
+      resourceId: exported.value.resourceId,
+      excerptIds: exported.value.excerptIds,
+      claimIds: exported.value.claimIds,
+      claims: miningResult.claims,
+      chunks: chunkResult.value,
+      context,
+      config: services.config,
+    })
+    : { ok: true as const, value: { status: 'disabled' as const, tagsAssigned: 0, warnings: [] } };
+  if (!classification.ok) return classification;
+
   return {
     ok: true,
     value: {
@@ -146,7 +160,9 @@ export async function runVector(
       cacheWrites,
       tokenUsage,
       spendUsd,
-      warnings: warningMessages,
+      warnings: [...warningMessages, ...classification.value.warnings],
+      classification: classification.value,
+      metadataConflictCount: exported.value.metadataConflictCount,
       durationMs: Math.max(0, services.clock.now().getTime() - startMs),
     },
   };

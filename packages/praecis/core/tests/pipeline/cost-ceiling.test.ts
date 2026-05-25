@@ -40,7 +40,7 @@ function makeVector() {
 describe('cost ceiling', () => {
   it('fails before export and leaves no partial claims when token ceiling is exceeded', async () => {
     const store = new InMemoryStore();
-    const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, created: 0, updated: 0, noop: 0 } })) };
+    const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, metadataConflictCount: 0, created: 0, updated: 0, noop: 0 } })) };
     const runtime = createPipelineRuntime(createDefaultPipelineServices({
       store,
       exporter,
@@ -59,7 +59,7 @@ describe('cost ceiling', () => {
 
   it('enforces post-mine ceilings against actual provider token usage', async () => {
     const store = new InMemoryStore();
-    const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, created: 0, updated: 0, noop: 0 } })) };
+    const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, metadataConflictCount: 0, created: 0, updated: 0, noop: 0 } })) };
     const runtime = createPipelineRuntime(createDefaultPipelineServices({
       store,
       exporter,

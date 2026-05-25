@@ -3,7 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { CURRENT_GRAPH_SCHEMA_VERSION, InMemoryStore, type GraphNode, type GraphStore } from '@aidha/graph-backend';
-import type { Result } from '@aidha/taxonomy';
+import type { Result, TaxonomyRegistry } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import { applyDedupResolution } from '../compose/dedup-link.js';
 import {
@@ -20,8 +20,11 @@ import type {
   ExtractionContext,
   ExportResult,
   ICache,
+  IClassifier,
   ICandidateMiner,
   IExporter,
+  ClassificationRequest,
+  ClassificationResult,
   MiningRequest,
   MiningResult,
   PipelineServices,
@@ -342,11 +345,56 @@ export class GraphPipelineExporter implements IExporter {
         excerptIds,
         claimIds,
         dedupAction: dedup.value.action,
+        metadataConflictCount: dedup.value.metadataConflictCount,
         created,
         updated,
         noop,
       },
     };
+  }
+}
+
+function normalizeForMatch(value: string): string {
+  return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+function matchNeedle(haystack: string, needle: string): boolean {
+  const normalizedNeedle = normalizeForMatch(needle);
+  if (!normalizedNeedle) return false;
+  return ` ${haystack} `.includes(` ${normalizedNeedle} `);
+}
+
+export class KeywordTaxonomyClassifier implements IClassifier {
+  constructor(private readonly registry: TaxonomyRegistry) {}
+
+  async classify(request: ClassificationRequest): Promise<Result<ClassificationResult>> {
+    const tags = await this.registry.listTags();
+    if (!tags.ok) return tags;
+
+    const text = normalizeForMatch([
+      request.raw.label,
+      request.context.sourceSummary ?? '',
+      ...request.chunks.map(chunk => chunk.text),
+      ...request.claims.map(claim => claim.text),
+    ].join('\n'));
+
+    let tagsAssigned = 0;
+    for (const tag of tags.value) {
+      const terms = [tag.name, ...tag.aliases];
+      if (!terms.some(term => matchNeedle(text, term))) continue;
+
+      const assigned = await this.registry.assignTag({
+        nodeId: request.resourceId,
+        tagId: tag.id,
+        confidence: 0.7,
+        source: 'automatic',
+        assignedBy: 'praecis-keyword-classifier',
+      });
+      if (!assigned.ok) return assigned;
+      tagsAssigned += 1;
+    }
+
+    return { ok: true, value: { status: 'completed', tagsAssigned, warnings: [] } };
   }
 }
 
@@ -360,6 +408,8 @@ export function createDefaultPipelineServices(overrides: Partial<PipelineService
     store,
     miner: overrides.miner ?? (llm ? new CanonicalLlmClaimMiner() : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
     exporter: overrides.exporter ?? new GraphPipelineExporter(store),
+    ...(overrides.classifier ? { classifier: overrides.classifier } : overrides.taxonomyRegistry ? { classifier: new KeywordTaxonomyClassifier(overrides.taxonomyRegistry) } : {}),
+    ...(overrides.taxonomyRegistry ? { taxonomyRegistry: overrides.taxonomyRegistry } : {}),
     cache: overrides.cache ?? new MemoryCache(),
     costCeiling: overrides.costCeiling ?? {},
     privacy: overrides.privacy ?? { defaultRoute: 'local', routes: { confidential: 'local' } },

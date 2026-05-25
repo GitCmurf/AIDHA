@@ -3,7 +3,7 @@ document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
 last_updated: 2026-05-25
-version: '1.19'
+version: '1.20'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.19
+> **Version:** 1.20
 > **Last Updated:** 2026-05-25
 > **Type:** RUNBOOK
 
@@ -50,6 +50,7 @@ docops_version: '2.0'
 | 1.17    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 | 1.18    | 2026-05-09 | AI     | Document optional speaker metadata propagation for excerpts, prompts, and exports. | — | Draft | AIDHA-TASK-008 |
 | 1.19    | 2026-05-25 | AI     | Document the shared production ingest path and persisted YouTube Resource metadata contract. | — | Draft | AIDHA-PLAN-007 |
+| 1.20    | 2026-05-25 | AI     | Document taxonomy classification status and metadata conflict reporting. | — | Draft | AIDHA-PLAN-007 |
 
 ## Purpose
 
@@ -89,6 +90,12 @@ auditing steps.
    dossier exports and status commands do not depend on test-only augmentation.
    Transcript acquisition failures return an error and do not create a stub
    Resource.
+
+   If a taxonomy registry is configured, ingestion reports `tagsAssigned` from
+   real automatic tag assignments. If no classifier is configured, the shared
+   runtime reports classification as disabled rather than pretending zero tags
+   were assigned. Resource metadata conflicts are counted in the run report and
+   warned once so operators can investigate disagreeing source metadata.
 
 - **Check ingestion status**
 

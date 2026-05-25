@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.4"
+version: "2.5"
 last_updated: 2026-05-25
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.4
+> **Version:** 2.5
 > **Last Updated:** 2026-05-25
 > **Type:** PLAN
 
@@ -51,6 +51,7 @@ docops_version: "2.0"
 | 2.2     | 2026-05-23 | AI     | Remediated the second completeness review, but overclaimed the YouTube extraction migration: the extractor had been copied into `praecis/core` while the live YouTube tree kept using its local fork. | Claude Opus peer review, Codex implementation audit | Superseded | — |
 | 2.3     | 2026-05-25 | AI     | Closed the fork for real: deleted the local YouTube extractor and legacy `IngestionPipeline`, routed YouTube ingest/extract through the shared runtime, pointed golden snapshots at the live path, added fork-regression fences, enforced actual post-mine cost usage, and implemented web paywall/login-wall plus PDF slide-vs-paper mitigations. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25.txt` |
 | 2.4     | 2026-05-25 | AI     | Remediated the v2.3 peer-review blocker: added a first-class `RawSource.resourceMetadata` channel, persisted source-specific Resource metadata through the shared spine, collapsed the golden harness and CLI onto the same production YouTube ingest function, removed the no-op editor seam from the runtime contract, and replaced the remaining pre-commit/full-gate deferrals with required local evidence. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r2.txt` |
+| 2.5     | 2026-05-25 | AI     | Remediated the r3 taxonomy-classification honesty blocker: added an optional shared `IClassifier` port with keyword taxonomy assignment, made disabled classification explicit in `RunReport`, replaced the masking YouTube tag-count test with a real registry-assignment assertion, and surfaced Resource metadata conflict counts. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r3.txt` |
 
 ## Objective
 
@@ -745,6 +746,8 @@ export interface PipelineServices {
   readonly store: GraphStore;           // reconditum; also backs the DedupResolver
   readonly miner: ICandidateMiner;      // holds the LLM client (see below)
   readonly exporter: IExporter;
+  readonly classifier?: IClassifier;    // optional taxonomy assignment port
+  readonly taxonomyRegistry?: TaxonomyRegistry;
   readonly llm: ILLMClient;             // sensitivity policy is applied around this
   readonly cache: ICache;               // content-hash keyed (Section 7.5)
   readonly costCeiling: CostCeiling;    // tokens + spend per run (Section 7.3)
@@ -763,10 +766,17 @@ export function createPipelineRuntime(services: PipelineServices): PipelineRunti
 
 The shared pipeline (`core/src/pipeline/`) consumes a `ComposedVector` and runs:
 `acquire → decode(chain) → contextualize → chunk → mine → persist claims →
-export`, with idempotency keyed on `canonicalId` and caching keyed on content hashes
-(Section 7.5). `chunking` is explicit because several vectors need different
+export → classify(optional)`, with idempotency keyed on `canonicalId` and caching
+keyed on content hashes (Section 7.5). `chunking` is explicit because several vectors need different
 policies (Readwise highlights should not be re-windowed; slide PDFs need section-ish
 chunks; meetings need conversation-aware speaker turns).
+
+Classification is a shared optional spine port, not a YouTube-only side effect.
+When a classifier is configured, the default `KeywordTaxonomyClassifier` consumes
+`TaxonomyRegistry` tags and assigns matching tag names/aliases to the persisted
+Resource after export resolves the final Resource ID. When absent,
+`RunReport.classification.status` is `disabled` and `tagsAssigned` is `0`; a zero
+count from a configured classifier means it ran and found no matching taxonomy tags.
 
 `VectorSpec.chunking` is resolved at compose time, but a vector whose policy is only
 known at *content* time (PDF slide-vs-paper, Section 6.2) supplies a **selector
@@ -1514,9 +1524,9 @@ rejected with evidence).
 | 1. Eight vectors + LinkedIn ingest fixtures to reviewed-ready draft claims with locators/deep-links | `packages/praecis/cli/tests/cli.test.ts` asserts web, PDF, voice, meeting, RSS, podcast, Readwise, email, and LinkedIn runtime summaries include persisted draft claim IDs, locators, and claim summaries whose metadata uses `method: "llm"` with model and prompt-version fields. `packages/praecis/core/tests/export/deep-links.test.ts` covers locator deep-link rendering. |
 | 2. YouTube refactored onto core with equivalent exports and stable reruns | `packages/praecis/core/src/extract/*` now owns the YouTube v2 two-pass extractor, internal editorial selection, prompt routing, verification, token-budget, LLM client, claim/reference extraction, and purge path. `packages/praecis/youtube/src/extract/`, `packages/praecis/youtube/src/utils/ids.ts`, and the public legacy `IngestionPipeline` are deleted. `packages/praecis/youtube/src/ingest/runtime-ingestion.ts` is the single production YouTube ingest entrypoint used by both CLI claim paths and the golden snapshot harness; `packages/praecis/youtube/tests/cli-runtime-convergence.test.ts` rejects the legacy claim-extraction bypass; `packages/praecis/youtube/tests/extractor-boundary.test.ts` rejects a reopened local extractor fork. `packages/praecis/youtube/tests/pipeline.test.ts` asserts production Resource metadata (`channelName`, duration, description, transcript state) is persisted by the spine and that transcript acquisition failures leave no stub Resource. `packages/praecis/youtube/src/export/dossier.ts` owns YouTube-specific dossier semantics so `praecis/core` has no source-specific export layer. |
 | 3. Every vector ships code, tests, runbook/quickstart, docs green | Runbooks `AIDHA-RUNBOOK-004` through `AIDHA-RUNBOOK-012` cover Readwise, email, LinkedIn, web, PDF, RSS, voice, meeting, and podcast; `pnpm docs:build` and scoped `scripts/meminit-check.mjs` passed on 2026-05-25. |
-| 4. No-network CI green and determinism gate passes | Targeted no-network package gates passed on 2026-05-25 for core, YouTube, CLI, and all eight source packages. The required sequential workspace gate is now an explicit final handoff gate in this section rather than a deferral. `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
-| 5. Dedup/link, sensitivity, cost ceilings, and Resource metadata tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. `packages/praecis/core/tests/compose/dedup-link.test.ts` now covers `RawSource.resourceMetadata` creation, same-canonical refresh, and cross-canonical conflict recording; each source vector test asserts the source-specific metadata it expects the spine to persist. |
-| 6. Adversarial review blockers resolved | The 2026-05-25 Opus r2 blocker is fixed in code and tests: `RawSource.resourceMetadata` threads source-specific Resource metadata through the spine; the YouTube CLI and golden tests share `ingestYouTubeVideo()` instead of divergent harness state; the no-op `IEditor`/`PassthroughEditor` runtime seam is removed; stale §15 pre-commit/workspace-gate deferrals are replaced by final local gate requirements; the previous r1 fixes remain fenced by extractor-boundary, CLI convergence, web paywall/login-wall, PDF slide-vs-paper, actual-cost-ceiling, and core layering tests. |
+| 4. No-network CI green and determinism gate passes | Targeted no-network package gates passed on 2026-05-25 for core, YouTube, CLI, and all eight source packages; the reliable sequential workspace gate also passed on 2026-05-25. `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
+| 5. Dedup/link, sensitivity, cost ceilings, Resource metadata, and classification tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. `packages/praecis/core/tests/compose/dedup-link.test.ts` covers `RawSource.resourceMetadata` creation, same-canonical refresh, cross-canonical conflict recording, conflict-count reporting, and conflict warnings; `packages/praecis/core/tests/pipeline/classifier.test.ts` covers keyword taxonomy assignment and idempotent reruns; each source vector test asserts the source-specific metadata it expects the spine to persist. |
+| 6. Adversarial review blockers resolved | The 2026-05-25 Opus r3 blocker is fixed in code and tests: taxonomy classification is a real optional `IClassifier` spine port, absent classifiers report `classification.status: "disabled"`, YouTube playlist `tagsAssigned` is derived from actual `TaxonomyRegistry.assignTag()` results, and the previous non-protective tag-count assertion is replaced by a concrete assignment check. The r3 metadata-conflict telemetry finding is also fixed by surfacing conflict counts in export/run reports and warning when conflicts are recorded. Earlier r1/r2 fixes remain fenced by extractor-boundary, CLI convergence, web paywall/login-wall, PDF slide-vs-paper, actual-cost-ceiling, resource-metadata, and core layering tests. |
 
 **Final local gates run on 2026-05-25:**
 
