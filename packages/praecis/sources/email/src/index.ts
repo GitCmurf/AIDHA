@@ -18,6 +18,7 @@ import type {
   RawSource,
   Result,
   Locator,
+  ClassificationResult,
   PipelineServices,
 } from '@aidha/praecis-core';
 import { composeVector, createDefaultPipelineServices, createPipelineRuntime, normalizeText } from '@aidha/praecis-core';
@@ -120,6 +121,8 @@ export interface EmailThreadSummary {
   readonly resourceId: string;
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: 'cloud' | 'local' | 'disabled';
+  readonly classification: ClassificationResult;
+  readonly metadataConflictCount: number;
   readonly warnings: readonly string[];
   readonly segments: readonly {
     readonly id: string;
@@ -526,6 +529,8 @@ export async function runEmailBatch(
       })),
       dedupAction: run.value.dedupAction,
       policyRoute: run.value.policyRoute,
+      classification: run.value.classification,
+      metadataConflictCount: run.value.metadataConflictCount,
       warnings: run.value.warnings,
       segments: run.value.segments.map(segment => ({
         id: segment.id,

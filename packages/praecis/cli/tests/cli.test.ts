@@ -83,6 +83,24 @@ function services(): Partial<PipelineServices> {
   return { config: testConfig(), llm: fakeLlm() };
 }
 
+function taxonomyServices(): Partial<PipelineServices> {
+  return {
+    config: {
+      ...testConfig(),
+      extensions: {
+        global: {
+          taxonomy: {
+            categories: [{ id: 'cat-1', name: 'Social' }],
+            topics: [{ id: 'topic-1', name: 'Posts', categoryId: 'cat-1' }],
+            tags: [{ id: 'tag-1', name: 'linkedin', topicIds: ['topic-1'] }],
+          },
+        },
+      },
+    },
+    llm: fakeLlm(),
+  };
+}
+
 function makeFetchResponse(url: string, html: string) {
   return {
     ok: true,
@@ -337,6 +355,20 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.segmentCount).toBe(2);
     expect(summary.segments[0]?.locator.kind).toBe('text');
     expectDraftClaims(summary);
+  });
+
+  it('surfaces classification and metadata conflict telemetry in summaries', async () => {
+    const summary = await runLinkedInIngest('stdin', {
+      pasteText: 'LinkedIn update about resilient ingestion.',
+      services: taxonomyServices(),
+    });
+
+    expect(summary.classification).toMatchObject({
+      status: 'completed',
+      tagsMatched: 1,
+      tagsAssigned: 1,
+    });
+    expect(summary.metadataConflictCount).toBe(0);
   });
 
   it('explains config provenance for source registrations', async () => {

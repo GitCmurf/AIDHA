@@ -7,8 +7,49 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
+import { ingestYouTubePlaylist } from '../src/ingest/runtime-ingestion.js';
+import { createFixtureLlm, RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
 import type { IngestionResult } from '../src/pipeline/types.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+function productionSeededConfig(): ResolvedConfig {
+  return {
+    baseDir: process.cwd(),
+    db: ':memory:',
+    llm: {
+      model: 'test-llm',
+      apiKey: '',
+      baseUrl: '',
+      timeoutMs: 30_000,
+      cacheDir: './out/cache/claims',
+      reasoningEffort: 'medium',
+      verbosity: 'medium',
+      embeddingBatchSize: 20,
+      embeddingTaskType: 'SEMANTIC_SIMILARITY',
+      embeddingOutputDimensionality: 768,
+    },
+    editor: {
+      version: 'v2',
+      windowMinutes: 5,
+      maxPerWindow: 3,
+      minWindows: 1,
+      minWords: 1,
+      minChars: 1,
+      editorLlm: false,
+    },
+    extraction: { maxClaims: 10, chunkMinutes: 5, maxChunks: 0, promptVersion: 'v1' },
+    export: { outDir: './out', sourcePrefix: '' },
+    extensions: {
+      global: {
+        taxonomy: {
+          categories: [{ id: 'cat-1', name: 'Technology' }],
+          topics: [{ id: 'topic-1', name: 'Programming', categoryId: 'cat-1' }],
+          tags: [{ id: 'tag-1', name: 'tutorial', topicIds: ['topic-1'] }],
+        },
+      },
+    },
+  };
+}
 
 describe('production YouTube runtime ingestion', () => {
   let graphStore: InMemoryStore;
@@ -323,6 +364,23 @@ describe('production YouTube runtime ingestion', () => {
   });
 
   describe('classification', () => {
+    it('assigns tags from production config without hand-injected registry', async () => {
+      const result = await ingestYouTubePlaylist({
+        store: graphStore,
+        client: youtubeClient,
+        config: productionSeededConfig(),
+        llm: createFixtureLlm(),
+      }, 'test-playlist');
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.classification).toMatchObject({
+        status: 'completed',
+        tagsMatched: 1,
+        tagsAssigned: 1,
+      });
+    });
+
     it('assigns tags to video nodes', async () => {
       const result = await pipeline.ingestPlaylist('test-playlist');
       expect(result.ok).toBe(true);

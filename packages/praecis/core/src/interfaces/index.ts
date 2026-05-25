@@ -108,6 +108,7 @@ export interface ClassificationRequest {
 
 export interface ClassificationResult {
   readonly status: 'completed' | 'disabled';
+  readonly tagsMatched: number;
   readonly tagsAssigned: number;
   readonly warnings: readonly string[];
 }

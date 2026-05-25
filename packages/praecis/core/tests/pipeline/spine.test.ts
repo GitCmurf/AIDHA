@@ -182,7 +182,7 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
     expect(result.value.claimsExtracted).toBeGreaterThan(0);
     expect(result.value.claimIds.length).toBe(result.value.claimsExtracted);
     expect(Array.isArray(result.value.warnings)).toBe(true);
-    expect(result.value.classification).toEqual({ status: 'disabled', tagsAssigned: 0, warnings: [] });
+    expect(result.value.classification).toEqual({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0, warnings: [] });
     expect(result.value.metadataConflictCount).toBe(0);
     expect(result.value.durationMs).toBeGreaterThanOrEqual(0);
   });

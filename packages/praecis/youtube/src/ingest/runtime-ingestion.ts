@@ -5,6 +5,8 @@ import {
   type LlmClient,
   type PipelineServices,
   type RunReport,
+  type ClassificationResult,
+  createTaxonomyRegistryFromConfig,
 } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
 import type { TaxonomyRegistry } from '@aidha/taxonomy';
@@ -26,6 +28,7 @@ export interface YouTubeIngestServices {
 export interface YouTubeVideoIngestResult {
   readonly nodeId: string;
   readonly tagsAssigned: number;
+  readonly classification: ClassificationResult;
   readonly created: boolean;
   readonly report: RunReport;
 }
@@ -55,16 +58,20 @@ async function deleteStaleExcerpts(
   return { ok: true, value: undefined };
 }
 
-function runtimeFor(input: YouTubeIngestServices) {
+async function runtimeFor(input: YouTubeIngestServices): Promise<Result<ReturnType<typeof createPipelineRuntime>>> {
+  const configuredRegistry = input.taxonomyRegistry
+    ? { ok: true as const, value: input.taxonomyRegistry }
+    : input.config ? await createTaxonomyRegistryFromConfig(input.config) : { ok: true as const, value: undefined };
+  if (!configuredRegistry.ok) return configuredRegistry;
   const runtime = createPipelineRuntime({
     ...input.services,
     store: input.store,
     ...(input.config ? { config: input.config } : {}),
-    ...(input.taxonomyRegistry ? { taxonomyRegistry: input.taxonomyRegistry } : {}),
+    ...(configuredRegistry.value ? { taxonomyRegistry: configuredRegistry.value } : {}),
     ...(input.llm ? { llm: input.llm } : {}),
   });
   runtime.register(composeVector(createYouTubeVectorSpec(input.client)));
-  return runtime;
+  return { ok: true, value: runtime };
 }
 
 export async function ingestYouTubeVideo(
@@ -72,8 +79,9 @@ export async function ingestYouTubeVideo(
   videoId: string,
   options: IngestVideoOptions = {},
 ): Promise<Result<YouTubeVideoIngestResult>> {
-  const runtime = runtimeFor(input);
-  const run = await runtime.run('youtube', { ref: videoId });
+  const runtime = await runtimeFor(input);
+  if (!runtime.ok) return runtime;
+  const run = await runtime.value.run('youtube', { ref: videoId });
   if (!run.ok) return run;
 
   if (options.refreshTranscript) {
@@ -86,6 +94,7 @@ export async function ingestYouTubeVideo(
     value: {
       nodeId: run.value.resourceId,
       tagsAssigned: run.value.classification.tagsAssigned,
+      classification: run.value.classification,
       created: run.value.dedupAction === 'create',
       report: run.value,
     },
@@ -102,12 +111,18 @@ export async function ingestYouTubePlaylist(
 
   const errors: IngestionJob['errors'] = [];
   const nodeIds: string[] = [];
+  let classificationStatus: ClassificationResult['status'] = 'disabled';
+  const classificationWarnings: string[] = [];
+  let tagsMatched = 0;
   let tagsAssigned = 0;
   for (const videoId of playlist.value.videoIds) {
     const result = await ingestYouTubeVideo(input, videoId, options);
     if (result.ok) {
       nodeIds.push(result.value.nodeId);
+      if (result.value.classification.status === 'completed') classificationStatus = 'completed';
+      tagsMatched += result.value.classification.tagsMatched;
       tagsAssigned += result.value.tagsAssigned;
+      classificationWarnings.push(...result.value.classification.warnings);
     } else {
       errors.push({ videoId, message: result.error.message, timestamp: now() });
     }
@@ -133,6 +148,12 @@ export async function ingestYouTubePlaylist(
       job,
       videosProcessed: job.progress.completed,
       tagsAssigned,
+      classification: {
+        status: classificationStatus,
+        tagsMatched,
+        tagsAssigned,
+        warnings: Array.from(new Set(classificationWarnings)),
+      },
       nodeIds,
     },
   };

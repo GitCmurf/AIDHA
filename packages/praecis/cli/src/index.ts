@@ -48,7 +48,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createPipelineRuntime, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
+import { composeVector, createPipelineRuntime, createTaxonomyRegistryFromConfig, type ClassificationResult, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { CLI_USAGE_TEXT } from './help.js';
@@ -76,6 +76,8 @@ export interface IngestSummary {
   readonly resourceId: string;
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: 'cloud' | 'local' | 'disabled';
+  readonly classification: ClassificationResult;
+  readonly metadataConflictCount: number;
   readonly warnings: readonly string[];
   readonly segments: Array<{
     readonly id: string;
@@ -160,7 +162,17 @@ async function buildIngestSummary(
   services: Partial<PipelineServices> = {},
 ): Promise<IngestSummary> {
   const ingestInput = metadata ? { ref, metadata } : { ref };
-  const runtime = createPipelineRuntime(services);
+  let runtimeServices = services;
+  if (!runtimeServices.taxonomyRegistry && !runtimeServices.classifier && runtimeServices.config) {
+    const taxonomyRegistry = await createTaxonomyRegistryFromConfig(runtimeServices.config);
+    if (!taxonomyRegistry.ok) {
+      throw taxonomyRegistry.error;
+    }
+    if (taxonomyRegistry.value) {
+      runtimeServices = { ...runtimeServices, taxonomyRegistry: taxonomyRegistry.value };
+    }
+  }
+  const runtime = createPipelineRuntime(runtimeServices);
   runtime.register(vector);
   const result = await runtime.run(vector.sourceId, ingestInput);
   if (!result.ok) {
@@ -185,6 +197,8 @@ async function buildIngestSummary(
     })),
     dedupAction: result.value.dedupAction,
     policyRoute: result.value.policyRoute,
+    classification: result.value.classification,
+    metadataConflictCount: result.value.metadataConflictCount,
     warnings: result.value.warnings,
     segments: normalizeOutputSegments(result.value.segments),
     chunks: normalizeOutputChunks(result.value.chunks),
@@ -373,7 +387,14 @@ async function resolveRuntimeServicesForSource(
   if (!configResult.ok) {
     throw configResult.error;
   }
-  return { config: configResult.config };
+  const taxonomyRegistry = await createTaxonomyRegistryFromConfig(configResult.config);
+  if (!taxonomyRegistry.ok) {
+    throw taxonomyRegistry.error;
+  }
+  return {
+    config: configResult.config,
+    ...(taxonomyRegistry.value ? { taxonomyRegistry: taxonomyRegistry.value } : {}),
+  };
 }
 
 export async function runCli(argv: string[]): Promise<number> {

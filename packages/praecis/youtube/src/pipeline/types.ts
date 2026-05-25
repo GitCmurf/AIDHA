@@ -2,6 +2,7 @@
  * Pipeline types.
  */
 import type { IngestionJob } from '../schema/index.js';
+import type { ClassificationResult } from '@aidha/praecis-core';
 
 /**
  * Result wrapper.
@@ -22,6 +23,9 @@ export interface IngestionResult {
 
   /** Number of tags assigned */
   tagsAssigned: number;
+
+  /** Taxonomy classification status and counts */
+  classification: ClassificationResult;
 
   /** Node IDs created */
   nodeIds: string[];

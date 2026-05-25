@@ -136,7 +136,7 @@ export async function runVector(
       context,
       config: services.config,
     })
-    : { ok: true as const, value: { status: 'disabled' as const, tagsAssigned: 0, warnings: [] } };
+    : { ok: true as const, value: { status: 'disabled' as const, tagsMatched: 0, tagsAssigned: 0, warnings: [] } };
   if (!classification.ok) return classification;
 
   return {
