@@ -21,7 +21,7 @@ import type {
   ClassificationResult,
   PipelineServices,
 } from '@aidha/praecis-core';
-import { composeVector, createConfiguredPipelineServices, createIngestionRuntime, normalizeText } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, normalizeText } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
@@ -493,15 +493,15 @@ export async function runEmailBatch(
     throw servicesResult.error;
   }
   const services = servicesResult.value;
-  const runtime = await createIngestionRuntime(services);
-  if (!runtime.ok) {
-    throw runtime.error;
-  }
+  const runtime = createIngestionRuntimeFromServices(services, {
+    store: serviceOverrides.store === undefined,
+    taxonomyRegistry: serviceOverrides.taxonomyRegistry === undefined,
+  });
   try {
     for (const thread of threads) {
       const vector = createEmailVectorSpec(thread);
       const runEmailThread = async () => {
-        const run = await runtime.value.runVector(vector, { ref: thread.messages.map(message => message.filePath).join(', ') });
+        const run = await runtime.runVector(vector, { ref: thread.messages.map(message => message.filePath).join(', ') });
         if (!run.ok) {
           return run;
         }
@@ -555,7 +555,7 @@ export async function runEmailBatch(
       summaries.push(summary);
     }
   } finally {
-    await runtime.value.close();
+    await runtime.close();
   }
 
   return {

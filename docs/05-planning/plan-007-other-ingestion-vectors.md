@@ -58,6 +58,7 @@ docops_version: "2.0"
 | 2.9     | 2026-05-25 | AI     | Removed the remaining source-neutrality gap at the public ingestion surface: generic `aidha ingest youtube` now uses the same configured runtime and summary contract as every other vector, while YouTube-specific diagnostics/eval tooling remains explicitly advanced tooling. Stale current-state prose was reconciled to the v2.9 implementation. | Codex adversarial self-review | In Review | — |
 | 2.10    | 2026-05-25 | AI     | Hardened the final public-ingest surface: generic `aidha ingest` now derives source registration, usage, dispatch, and summary rendering from a source manifest table; YouTube playlist ingestion is exposed through the same generic command path; `createIngestionRuntime.runVector` can safely run multiple same-source vectors without stale registration reuse; malformed durable taxonomy assignment metadata now fails visibly instead of being silently dropped. | Codex adversarial self-review | In Review | — |
 | 2.11    | 2026-05-25 | AI     | Remediated the r6 quality findings: taxonomy assignment timestamps now use the injected deterministic clock and are asserted as exact durable records; configured ingestion exposes only `runVector`, reuses assembled services, and routes YouTube through the same path as other vectors; the SQLite durability proof is ungated; and `ReferenceMetadataSchema` is implemented in the graph backend. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r6.txt` |
+| 2.12    | 2026-05-25 | AI     | Closed the reputation-readiness polish pass: the runtime contract now matches code (`ConfiguredIngestionRuntime` exposes only `runVector`/`close` and `PipelineServices.clock` is explicit); generic CLI help is generated from the source manifest registry instead of a parallel usage array; assembled-service runtime reuse is explicit through `createIngestionRuntimeFromServices`; and manifest uniqueness/help coverage tests guard future vector additions. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -778,6 +779,9 @@ export interface PipelineServices {
   readonly cache: ICache;               // content-hash keyed (Section 7.5)
   readonly costCeiling: CostCeiling;    // tokens + spend per run (Section 7.3)
   readonly privacy: PrivacyPolicy;      // per-tier cloud allowance (Section 7.1)
+  readonly clock: Clock;                // injected time for durable metadata
+  readonly config: ResolvedConfig;      // global/profile/source-resolved config
+  readonly allowHeuristicFallback: boolean;
 }
 
 export interface PipelineRuntime {
@@ -789,7 +793,7 @@ export interface PipelineRuntime {
 
 export function createPipelineRuntime(services: PipelineServices): PipelineRuntime;
 
-export interface ConfiguredIngestionRuntime extends PipelineRuntime {
+export interface ConfiguredIngestionRuntime {
   runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>>;
   close(): Promise<void>;
 }
@@ -797,14 +801,22 @@ export interface ConfiguredIngestionRuntime extends PipelineRuntime {
 export function createIngestionRuntime(
   services?: Partial<PipelineServices>,
 ): Promise<Result<ConfiguredIngestionRuntime>>;
+
+export function createIngestionRuntimeFromServices(
+  services: PipelineServices,
+  ownership?: { store?: boolean; taxonomyRegistry?: boolean },
+): ConfiguredIngestionRuntime;
 ```
 
 Production CLIs and source packages assemble ingestion through
 `createIngestionRuntime`, which resolves configured services, config-seeded
 taxonomy vocabulary, durable graph-backed taxonomy assignment storage, privacy,
-cache, cost ceiling, and lifecycle ownership in one place. `createPipelineRuntime`
-remains the low-level runtime primitive used by core tests and runtime
-implementation code; vector packages do not assemble it directly.
+cache, cost ceiling, deterministic clock, and lifecycle ownership in one place.
+When a batch has already assembled `PipelineServices`, it reuses them explicitly
+through `createIngestionRuntimeFromServices` rather than relying on structural
+type detection. `createPipelineRuntime` remains the low-level runtime primitive
+used by core tests and runtime implementation code; vector packages do not
+assemble it directly.
 
 The shared pipeline (`core/src/pipeline/`) consumes a `ComposedVector` and runs:
 `acquire → decode(chain) → contextualize → chunk → mine → persist claims →

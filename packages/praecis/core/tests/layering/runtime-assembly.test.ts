@@ -39,6 +39,21 @@ describe('production ingestion assembly', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('prevents production ingestion entrypoints from using low-level runtime registration', () => {
+    const roots = [
+      join(repoRoot, 'packages/praecis/cli/src'),
+      join(repoRoot, 'packages/praecis/sources'),
+      join(repoRoot, 'packages/praecis/youtube/src/ingest'),
+    ];
+    const offenders = roots
+      .flatMap(sourceFiles)
+      .filter(path => path.includes('/src/'))
+      .filter(path => /\.register\(/.test(readFileSync(path, 'utf8')))
+      .map(relative);
+
+    expect(offenders).toEqual([]);
+  });
+
   it('centralizes taxonomy assignment metadata writes in the core helper', () => {
     const offenders = sourceFiles(join(repoRoot, 'packages/praecis'))
       .filter(path => path.includes('/src/'))

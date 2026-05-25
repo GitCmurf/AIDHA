@@ -5,7 +5,12 @@ export type { VectorSpec, ComposedVector } from './vector.js';
 export { composeVector, transcribeStrategy, diarizeStrategy } from './vector.js';
 
 export { createPipelineRuntime } from './runtime.js';
-export { createIngestionRuntime, type ConfiguredIngestionRuntime } from './ingestion-runtime.js';
+export {
+  createIngestionRuntime,
+  createIngestionRuntimeFromServices,
+  type ConfiguredIngestionRuntime,
+  type IngestionRuntimeOwnership,
+} from './ingestion-runtime.js';
 
 export type { DedupAction, DedupResult } from './dedup-resolver.js';
 export { DedupResolver } from './dedup-resolver.js';

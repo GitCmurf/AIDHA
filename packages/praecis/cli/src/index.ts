@@ -60,7 +60,7 @@ import {
 import { composeVector, createIngestionRuntime, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
-import { CLI_USAGE_TEXT, INGEST_USAGE_LINES } from './help.js';
+import { createCliUsageText } from './help.js';
 
 export interface CliOptions {
   [key: string]: string | boolean | undefined;
@@ -102,7 +102,7 @@ export interface IngestSummary {
   }>;
 }
 
-type SourceId = IngestSummary['sourceId'];
+export type SourceId = IngestSummary['sourceId'];
 
 export interface YouTubeBatchSummary {
   readonly sourceId: 'youtube';
@@ -111,9 +111,9 @@ export interface YouTubeBatchSummary {
   readonly summaries: readonly IngestSummary[];
 }
 
-type IngestCommandSummary = IngestSummary | ReadwiseBatchSummary | EmailBatchSummary | YouTubeBatchSummary;
+export type IngestCommandSummary = IngestSummary | ReadwiseBatchSummary | EmailBatchSummary | YouTubeBatchSummary;
 
-interface SourceIngestManifest<TSummary extends IngestCommandSummary = IngestCommandSummary> {
+export interface SourceIngestManifest<TSummary extends IngestCommandSummary = IngestCommandSummary> {
   readonly sourceId: SourceId;
   readonly registration: SourceRegistration;
   readonly usage: string;
@@ -566,11 +566,24 @@ function requireRef(options: CliOptions, positionals: readonly string[], key: st
   return ref;
 }
 
-const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
+const INGEST_USAGE: Record<SourceId, string> = {
+  youtube: 'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--json]',
+  web: 'aidha ingest web --url <url> [--json]',
+  pdf: 'aidha ingest pdf --file <path> [--json]',
+  voice: 'aidha ingest voice --file <path> [--json]',
+  meeting: 'aidha ingest meeting --file <path> [--json]',
+  rss: 'aidha ingest rss --feed <url> [--item-guid <guid>] [--json]',
+  podcast: 'aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]',
+  readwise: 'aidha ingest readwise --since <iso8601> [--token <token>] [--json]',
+  email: 'aidha ingest email --file <path> [--json]',
+  linkedin: 'aidha ingest linkedin --paste <text> [--url <url>] [--json]',
+};
+
+export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
   {
     sourceId: 'youtube',
     registration: YouTubeSourceRegistration,
-    usage: INGEST_USAGE_LINES[0],
+    usage: INGEST_USAGE.youtube,
     async run({ positionals, options, services }) {
       const mock = optionBool(options, 'mock');
       const youtubeServices: Partial<PipelineServices> = mock
@@ -589,7 +602,7 @@ const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
       }
       const ref = optionString(options, 'url') ?? positionals[2];
       if (!ref) {
-        throw new Error(`Usage: ${INGEST_USAGE_LINES[0]}`);
+        throw new Error(`Usage: ${INGEST_USAGE.youtube}`);
       }
       return runYouTubeIngest(parseYouTubeVideoId(ref), { ...(client ? { client } : {}), services: youtubeServices });
     },
@@ -607,36 +620,36 @@ const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
   {
     sourceId: 'web',
     registration: WebSourceRegistration,
-    usage: INGEST_USAGE_LINES[1],
-    run: ({ positionals, options, services }) => runWebIngest(requireRef(options, positionals, 'url', INGEST_USAGE_LINES[1]), undefined, services),
+    usage: INGEST_USAGE.web,
+    run: ({ positionals, options, services }) => runWebIngest(requireRef(options, positionals, 'url', INGEST_USAGE.web), undefined, services),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'pdf',
     registration: PdfSourceRegistration,
-    usage: INGEST_USAGE_LINES[2],
-    run: ({ positionals, options, services }) => runPdfIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[2]), undefined, services),
+    usage: INGEST_USAGE.pdf,
+    run: ({ positionals, options, services }) => runPdfIngest(requireRef(options, positionals, 'file', INGEST_USAGE.pdf), undefined, services),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'voice',
     registration: VoiceSourceRegistration,
-    usage: INGEST_USAGE_LINES[3],
-    run: ({ positionals, options, services }) => runVoiceIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[3]), services),
+    usage: INGEST_USAGE.voice,
+    run: ({ positionals, options, services }) => runVoiceIngest(requireRef(options, positionals, 'file', INGEST_USAGE.voice), services),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'meeting',
     registration: MeetingSourceRegistration,
-    usage: INGEST_USAGE_LINES[4],
-    run: ({ positionals, options, services }) => runMeetingIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[4]), services),
+    usage: INGEST_USAGE.meeting,
+    run: ({ positionals, options, services }) => runMeetingIngest(requireRef(options, positionals, 'file', INGEST_USAGE.meeting), services),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'rss',
     registration: RssSourceRegistration,
-    usage: INGEST_USAGE_LINES[5],
-    run: ({ positionals, options, services }) => runRssIngest(requireRef(options, positionals, 'feed', INGEST_USAGE_LINES[5]), {
+    usage: INGEST_USAGE.rss,
+    run: ({ positionals, options, services }) => runRssIngest(requireRef(options, positionals, 'feed', INGEST_USAGE.rss), {
       ...(optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : {}),
       services,
     }),
@@ -645,8 +658,8 @@ const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
   {
     sourceId: 'podcast',
     registration: PodcastSourceRegistration,
-    usage: INGEST_USAGE_LINES[6],
-    run: ({ positionals, options, services }) => runPodcastIngest(requireRef(options, positionals, 'feed', INGEST_USAGE_LINES[6]), {
+    usage: INGEST_USAGE.podcast,
+    run: ({ positionals, options, services }) => runPodcastIngest(requireRef(options, positionals, 'feed', INGEST_USAGE.podcast), {
       ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
       ...(optionBool(options, 'panel') ? { panel: true } : {}),
       services,
@@ -656,12 +669,12 @@ const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
   {
     sourceId: 'readwise',
     registration: ReadwiseSourceRegistration,
-    usage: INGEST_USAGE_LINES[7],
+    usage: INGEST_USAGE.readwise,
     run: ({ positionals, options, services }) => {
       const since = optionString(options, 'since') ?? positionals[2];
       const token = optionString(options, 'token') ?? process.env['READWISE_TOKEN'];
       if (!token) {
-        throw new Error(`Usage: ${INGEST_USAGE_LINES[7]}`);
+        throw new Error(`Usage: ${INGEST_USAGE.readwise}`);
       }
       return runReadwiseIngest(since, { token, services });
     },
@@ -677,8 +690,8 @@ const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
   {
     sourceId: 'email',
     registration: EmailSourceRegistration,
-    usage: INGEST_USAGE_LINES[8],
-    run: ({ positionals, options, services }) => runEmailIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[8]), services),
+    usage: INGEST_USAGE.email,
+    run: ({ positionals, options, services }) => runEmailIngest(requireRef(options, positionals, 'file', INGEST_USAGE.email), services),
     print(summary) {
       if (!isEmailBatchSummary(summary)) return [`Ingested ${summary.sourceId}`];
       return [
@@ -691,13 +704,13 @@ const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
   {
     sourceId: 'linkedin',
     registration: LinkedInSourceRegistration,
-    usage: INGEST_USAGE_LINES[9],
+    usage: INGEST_USAGE.linkedin,
     async run({ positionals, options, services }) {
       const url = optionString(options, 'url') ?? positionals[2];
       const pasteOption = options['paste'];
       const pasteText = optionString(options, 'paste') ?? (pasteOption === true ? await readStdinText() : undefined);
       if (!pasteText) {
-        throw new Error(`Usage: ${INGEST_USAGE_LINES[9]}`);
+        throw new Error(`Usage: ${INGEST_USAGE.linkedin}`);
       }
       const linkedInOptions = url ? { pasteText, url, services } : { pasteText, services };
       return runLinkedInIngest(url ?? 'stdin', linkedInOptions);
@@ -708,6 +721,7 @@ const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
 
 const SOURCE_MANIFEST_BY_ID = new Map(SOURCE_MANIFESTS.map(manifest => [manifest.sourceId, manifest]));
 const SOURCE_REGISTRATIONS: SourceRegistration[] = SOURCE_MANIFESTS.map(manifest => manifest.registration);
+const CLI_USAGE_TEXT = createCliUsageText(SOURCE_MANIFESTS.map(manifest => manifest.usage));
 
 export async function runCli(argv: string[]): Promise<number> {
   const positionals: string[] = [];

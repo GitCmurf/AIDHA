@@ -12,43 +12,41 @@ export interface ConfiguredIngestionRuntime {
   close(): Promise<void>;
 }
 
-function isPipelineServices(value: Partial<PipelineServices>): value is PipelineServices {
-  return value.store !== undefined
-    && value.miner !== undefined
-    && value.exporter !== undefined
-    && value.cache !== undefined
-    && value.costCeiling !== undefined
-    && value.privacy !== undefined
-    && value.clock !== undefined
-    && value.config !== undefined
-    && value.allowHeuristicFallback !== undefined;
+export interface IngestionRuntimeOwnership {
+  readonly store?: boolean;
+  readonly taxonomyRegistry?: boolean;
+}
+
+export function createIngestionRuntimeFromServices(
+  services: PipelineServices,
+  ownership: IngestionRuntimeOwnership = {},
+): ConfiguredIngestionRuntime {
+  return {
+    runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>> {
+      return runPipelineVector(vector, input, services);
+    },
+    async close(): Promise<void> {
+      if (ownership.taxonomyRegistry) {
+        await services.taxonomyRegistry?.close();
+      }
+      if (ownership.store) {
+        await services.store.close();
+      }
+    },
+  };
 }
 
 export async function createIngestionRuntime(
   overrides: Partial<PipelineServices> = {},
 ): Promise<Result<ConfiguredIngestionRuntime>> {
-  const services = isPipelineServices(overrides)
-    ? { ok: true as const, value: overrides }
-    : await createConfiguredPipelineServices(overrides);
+  const services = await createConfiguredPipelineServices(overrides);
   if (!services.ok) return services;
-
-  const ownsStore = overrides.store === undefined;
-  const ownsTaxonomyRegistry = overrides.taxonomyRegistry === undefined;
 
   return {
     ok: true,
-    value: {
-      runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>> {
-        return runPipelineVector(vector, input, services.value);
-      },
-      async close(): Promise<void> {
-        if (ownsTaxonomyRegistry) {
-          await services.value.taxonomyRegistry?.close();
-        }
-        if (ownsStore) {
-          await services.value.store.close();
-        }
-      },
-    },
+    value: createIngestionRuntimeFromServices(services.value, {
+      store: overrides.store === undefined,
+      taxonomyRegistry: overrides.taxonomyRegistry === undefined,
+    }),
   };
 }

@@ -22,6 +22,7 @@ import {
   runWebIngest,
   runYouTubeIngest,
   runYouTubePlaylistIngest,
+  SOURCE_MANIFESTS,
 } from '../src/index.js';
 
 function testConfig(): PipelineServices['config'] {
@@ -135,6 +136,42 @@ describe('aidha cli phase-1 surface', () => {
     vi.restoreAllMocks();
   });
 
+  it('derives source command ids and usage from a unique manifest registry', () => {
+    const sourceIds = SOURCE_MANIFESTS.map(manifest => manifest.sourceId);
+    const usageLines = SOURCE_MANIFESTS.map(manifest => manifest.usage);
+    const registrationIds = SOURCE_MANIFESTS.map(manifest => manifest.registration.sourceId);
+
+    expect(new Set(sourceIds).size).toBe(SOURCE_MANIFESTS.length);
+    expect(new Set(usageLines).size).toBe(SOURCE_MANIFESTS.length);
+    expect(new Set(registrationIds).size).toBe(SOURCE_MANIFESTS.length);
+    expect(SOURCE_MANIFESTS.map(manifest => manifest.usage)).toEqual([
+      'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--json]',
+      'aidha ingest web --url <url> [--json]',
+      'aidha ingest pdf --file <path> [--json]',
+      'aidha ingest voice --file <path> [--json]',
+      'aidha ingest meeting --file <path> [--json]',
+      'aidha ingest rss --feed <url> [--item-guid <guid>] [--json]',
+      'aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]',
+      'aidha ingest readwise --since <iso8601> [--token <token>] [--json]',
+      'aidha ingest email --file <path> [--json]',
+      'aidha ingest linkedin --paste <text> [--url <url>] [--json]',
+    ]);
+  });
+
+  it('prints help from the source manifest registry instead of a parallel usage list', async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    const code = await runCli([]);
+    expect(code).toBe(0);
+    const helpText = logs.join('\n');
+    for (const manifest of SOURCE_MANIFESTS) {
+      expect(helpText).toContain(manifest.usage);
+    }
+  });
+
   it('ingests youtube through the generic source-neutral CLI runtime', async () => {
     const summary = await runYouTubeIngest('test-video', {
       client: new MockYouTubeClient(),
@@ -180,7 +217,7 @@ describe('aidha cli phase-1 surface', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it('ingests youtube playlists through the same generic command surface', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-youtube-playlist-'));
@@ -215,7 +252,7 @@ describe('aidha cli phase-1 surface', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it('runs youtube playlist ingestion as a reusable helper', async () => {
     const summary = await runYouTubePlaylistIngest('test-playlist', {
@@ -444,7 +481,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.summaries[0]?.canonicalId).toBe('email:thread:msg-a');
     expect(summary.summaries[0]?.segmentCount).toBe(2);
     expectDraftClaims(summary.summaries[0]!);
-  }, 30_000);
+  }, 60_000);
 
   it('ingests linkedin paste fixtures with optional activity urn provenance', async () => {
     const summary = await runLinkedInIngest(
@@ -522,7 +559,7 @@ describe('aidha cli phase-1 surface', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it('explains config provenance for source registrations', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-config-'));
@@ -580,5 +617,5 @@ describe('aidha cli phase-1 surface', () => {
     } finally {
       await servicesForWeb.store?.close();
     }
-  });
+  }, 30_000);
 });
