@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { SQLiteStore } from '@aidha/graph-backend';
 import {
   formatProvenance,
   loadConfig,
@@ -48,7 +50,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createPipelineRuntime, createTaxonomyRegistryFromConfig, type ClassificationResult, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createPipelineRuntime, type ClassificationResult, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { CLI_USAGE_TEXT } from './help.js';
@@ -162,17 +164,11 @@ async function buildIngestSummary(
   services: Partial<PipelineServices> = {},
 ): Promise<IngestSummary> {
   const ingestInput = metadata ? { ref, metadata } : { ref };
-  let runtimeServices = services;
-  if (!runtimeServices.taxonomyRegistry && !runtimeServices.classifier && runtimeServices.config) {
-    const taxonomyRegistry = await createTaxonomyRegistryFromConfig(runtimeServices.config);
-    if (!taxonomyRegistry.ok) {
-      throw taxonomyRegistry.error;
-    }
-    if (taxonomyRegistry.value) {
-      runtimeServices = { ...runtimeServices, taxonomyRegistry: taxonomyRegistry.value };
-    }
+  const runtimeServices = await createConfiguredPipelineServices(services);
+  if (!runtimeServices.ok) {
+    throw runtimeServices.error;
   }
-  const runtime = createPipelineRuntime(runtimeServices);
+  const runtime = createPipelineRuntime(runtimeServices.value);
   runtime.register(vector);
   const result = await runtime.run(vector.sourceId, ingestInput);
   if (!result.ok) {
@@ -374,7 +370,7 @@ export function explainResolvedKey(
   return formatProvenance(provenance, value);
 }
 
-async function resolveRuntimeServicesForSource(
+export async function resolveRuntimeServicesForSource(
   sourceId: IngestSummary['sourceId'],
   options: CliOptions,
 ): Promise<Partial<PipelineServices>> {
@@ -387,14 +383,29 @@ async function resolveRuntimeServicesForSource(
   if (!configResult.ok) {
     throw configResult.error;
   }
-  const taxonomyRegistry = await createTaxonomyRegistryFromConfig(configResult.config);
-  if (!taxonomyRegistry.ok) {
-    throw taxonomyRegistry.error;
-  }
+  await mkdir(dirname(configResult.config.db), { recursive: true });
+  const store = SQLiteStore.open(configResult.config.db);
   return {
+    store,
     config: configResult.config,
-    ...(taxonomyRegistry.value ? { taxonomyRegistry: taxonomyRegistry.value } : {}),
   };
+}
+
+async function closeRuntimeServices(services: Partial<PipelineServices>): Promise<void> {
+  await services.store?.close();
+}
+
+async function withRuntimeServicesForSource<T>(
+  sourceId: IngestSummary['sourceId'],
+  options: CliOptions,
+  work: (services: Partial<PipelineServices>) => Promise<T>,
+): Promise<T> {
+  const services = await resolveRuntimeServicesForSource(sourceId, options);
+  try {
+    return await work(services);
+  } finally {
+    await closeRuntimeServices(services);
+  }
 }
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -453,7 +464,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest web --url <url> [--json]');
           return 1;
         }
-        const summary = await runWebIngest(ref, undefined, await resolveRuntimeServicesForSource('web', options));
+        const summary = await withRuntimeServicesForSource('web', options, services => runWebIngest(ref, undefined, services));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -471,7 +482,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest pdf --file <path> [--json]');
           return 1;
         }
-        const summary = await runPdfIngest(ref, undefined, await resolveRuntimeServicesForSource('pdf', options));
+        const summary = await withRuntimeServicesForSource('pdf', options, services => runPdfIngest(ref, undefined, services));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -489,7 +500,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest voice --file <path> [--json]');
           return 1;
         }
-        const summary = await runVoiceIngest(ref, await resolveRuntimeServicesForSource('voice', options));
+        const summary = await withRuntimeServicesForSource('voice', options, services => runVoiceIngest(ref, services));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -507,7 +518,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest meeting --file <path> [--json]');
           return 1;
         }
-        const summary = await runMeetingIngest(ref, await resolveRuntimeServicesForSource('meeting', options));
+        const summary = await withRuntimeServicesForSource('meeting', options, services => runMeetingIngest(ref, services));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -525,10 +536,10 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest rss --feed <url> [--item-guid <guid>] [--json]');
           return 1;
         }
-        const summary = await runRssIngest(ref, {
+        const summary = await withRuntimeServicesForSource('rss', options, services => runRssIngest(ref, {
           ...(optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : {}),
-          services: await resolveRuntimeServicesForSource('rss', options),
-        });
+          services,
+        }));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -546,11 +557,11 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]');
           return 1;
         }
-        const summary = await runPodcastIngest(ref, {
+        const summary = await withRuntimeServicesForSource('podcast', options, services => runPodcastIngest(ref, {
           ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
           ...(optionBool(options, 'panel') ? { panel: true } : {}),
-          services: await resolveRuntimeServicesForSource('podcast', options),
-        });
+          services,
+        }));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -569,7 +580,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest readwise --since <iso8601> [--token <token>] [--json]');
           return 1;
         }
-        const summary = await runReadwiseIngest(since, { token, services: await resolveRuntimeServicesForSource('readwise', options) });
+        const summary = await withRuntimeServicesForSource('readwise', options, services => runReadwiseIngest(since, { token, services }));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -586,7 +597,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest email --file <path> [--json]');
           return 1;
         }
-        const summary = await runEmailIngest(ref, await resolveRuntimeServicesForSource('email', options));
+        const summary = await withRuntimeServicesForSource('email', options, services => runEmailIngest(ref, services));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -607,10 +618,10 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest linkedin --paste <text> [--url <url>] [--json]');
           return 1;
         }
-        const linkedInOptions = url
-          ? { pasteText, url, services: await resolveRuntimeServicesForSource('linkedin', options) }
-          : { pasteText, services: await resolveRuntimeServicesForSource('linkedin', options) };
-        const summary = await runLinkedInIngest(url ?? 'stdin', linkedInOptions);
+        const summary = await withRuntimeServicesForSource('linkedin', options, services => {
+          const linkedInOptions = url ? { pasteText, url, services } : { pasteText, services };
+          return runLinkedInIngest(url ?? 'stdin', linkedInOptions);
+        });
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {

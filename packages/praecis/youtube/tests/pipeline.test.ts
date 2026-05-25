@@ -4,7 +4,10 @@
  * Tests the complete ingestion flow from playlist to graph nodes.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { InMemoryStore } from '@aidha/graph-backend';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { InMemoryStore, SQLiteStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
 import { ingestYouTubePlaylist } from '../src/ingest/runtime-ingestion.js';
@@ -112,7 +115,6 @@ describe('production YouTube runtime ingestion', () => {
       expect(firstExcerpt).toBeDefined();
       if (!firstExcerpt) return;
       expect(firstExcerpt.metadata).toMatchObject({
-        videoId: 'test-video',
         resourceId: 'youtube-test-video',
         speaker: 'Host',
       });
@@ -381,12 +383,67 @@ describe('production YouTube runtime ingestion', () => {
       });
     });
 
+    it.runIf(SQLiteStore.isAvailable())('persists config-seeded tags across fresh SQLite-backed ingests', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'aidha-youtube-taxonomy-'));
+      const dbPath = join(dir, 'graph.sqlite');
+      const config = { ...productionSeededConfig(), db: dbPath };
+      const firstStore = SQLiteStore.open(dbPath);
+      try {
+        const first = await ingestYouTubePlaylist({
+          store: firstStore,
+          client: new MockYouTubeClient(),
+          config,
+          llm: createFixtureLlm(),
+        }, 'test-playlist');
+        expect(first.ok).toBe(true);
+        if (!first.ok) throw first.error;
+        expect(first.value.classification).toMatchObject({
+          status: 'completed',
+          tagsMatched: 1,
+          tagsAssigned: 1,
+        });
+      } finally {
+        await firstStore.close();
+      }
+
+      const secondStore = SQLiteStore.open(dbPath);
+      try {
+        const second = await ingestYouTubePlaylist({
+          store: secondStore,
+          client: new MockYouTubeClient(),
+          config,
+          llm: createFixtureLlm(),
+        }, 'test-playlist');
+        expect(second.ok).toBe(true);
+        if (!second.ok) throw second.error;
+        expect(second.value.classification).toMatchObject({
+          status: 'completed',
+          tagsMatched: 1,
+          tagsAssigned: 0,
+        });
+
+        const resource = await secondStore.getNode('youtube-test-video');
+        expect(resource.ok).toBe(true);
+        if (!resource.ok) throw resource.error;
+        expect(resource.value?.metadata?.['taxonomyAssignments']).toMatchObject([{
+          nodeId: 'youtube-test-video',
+          tagId: 'tag-1',
+          confidence: 0.7,
+          source: 'automatic',
+          assignedBy: 'praecis-keyword-classifier',
+        }]);
+      } finally {
+        await secondStore.close();
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
     it('assigns tags to video nodes', async () => {
       const result = await pipeline.ingestPlaylist('test-playlist');
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
-      expect(result.value.tagsAssigned).toBe(1);
+      expect(result.value.classification.tagsAssigned).toBe(1);
       const assignments = await taxonomyRegistry.getAssignments('youtube-test-video');
       expect(assignments.ok).toBe(true);
       if (!assignments.ok) return;

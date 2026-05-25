@@ -67,6 +67,9 @@ importers:
       '@aidha/config':
         specifier: workspace:*
         version: link:../../aidha-config
+      '@aidha/graph-backend':
+        specifier: workspace:*
+        version: link:../../reconditum
       '@aidha/ingestion-youtube':
         specifier: workspace:*
         version: link:../youtube

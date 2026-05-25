@@ -99,7 +99,7 @@ export class RuntimeIngestionHarness {
   async ingestVideo(
     videoId: string,
     options: IngestVideoOptions = {},
-  ): Promise<Result<{ nodeId: string; tagsAssigned: number; created: boolean }>> {
+  ): Promise<Result<{ nodeId: string; classification: import('@aidha/praecis-core').ClassificationResult; created: boolean }>> {
     const result = await ingestYouTubeVideo({
       store: this.config.graphStore,
       client: this.config.youtubeClient,
@@ -112,7 +112,7 @@ export class RuntimeIngestionHarness {
       ok: true,
       value: {
         nodeId: result.value.nodeId,
-        tagsAssigned: result.value.tagsAssigned,
+        classification: result.value.classification,
         created: result.value.created,
       },
     };

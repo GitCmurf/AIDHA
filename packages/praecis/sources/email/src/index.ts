@@ -21,7 +21,7 @@ import type {
   ClassificationResult,
   PipelineServices,
 } from '@aidha/praecis-core';
-import { composeVector, createDefaultPipelineServices, createPipelineRuntime, normalizeText } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createPipelineRuntime, normalizeText } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
@@ -488,7 +488,11 @@ export async function runEmailBatch(
   const messages = await parseEmailInputs(ref, readFileFn);
   const threads = groupEmailMessages(messages);
   const summaries: EmailThreadSummary[] = [];
-  const services = createDefaultPipelineServices(serviceOverrides);
+  const servicesResult = await createConfiguredPipelineServices(serviceOverrides);
+  if (!servicesResult.ok) {
+    throw servicesResult.error;
+  }
+  const services = servicesResult.value;
   for (const thread of threads) {
     const vector = createEmailVectorSpec(thread);
     const runtime = createPipelineRuntime(services);

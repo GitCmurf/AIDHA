@@ -4,8 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { LlmClient, PipelineServices } from '@aidha/praecis-core';
+import { SQLiteStore } from '@aidha/graph-backend';
 import {
   explainResolvedKey,
+  resolveRuntimeServicesForSource,
   resolveAidhaConfig,
   runEmailIngest,
   runLinkedInIngest,
@@ -400,5 +402,32 @@ describe('aidha cli phase-1 surface', () => {
     const output = explainResolvedKey('activeSourceConfig', resolved, { source: 'youtube' });
     expect(output).toContain('youtube');
     expect(output).toContain('ytdlp');
+  });
+
+  it.runIf(SQLiteStore.isAvailable())('builds generic CLI runtime services with a durable SQLite store', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-store-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+
+    const servicesForWeb = await resolveRuntimeServicesForSource('web', { config: configPath });
+    try {
+      expect(servicesForWeb.store).toBeInstanceOf(SQLiteStore);
+      expect(servicesForWeb.config?.db).toBe(dbPath);
+    } finally {
+      await servicesForWeb.store?.close();
+    }
   });
 });

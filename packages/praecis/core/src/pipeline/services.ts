@@ -4,7 +4,19 @@
 import { createHash } from 'node:crypto';
 import { CURRENT_GRAPH_SCHEMA_VERSION, InMemoryStore, type GraphNode, type GraphStore } from '@aidha/graph-backend';
 import { InMemoryRegistry, type Result, type TaxonomyRegistry } from '@aidha/taxonomy';
-import type { CreateCategoryInput, CreateTagInput, CreateTopicInput } from '@aidha/taxonomy';
+import {
+  CreateCategoryInput,
+  CreateTagInput,
+  CreateTopicInput,
+  TagAssignment,
+  type Category,
+  type CreateAssignmentInput,
+  type Tag,
+  type Topic,
+  type UpdateCategoryInput,
+  type UpdateTagInput,
+  type UpdateTopicInput,
+} from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import { applyDedupResolution } from '../compose/dedup-link.js';
 import {
@@ -284,7 +296,6 @@ export class GraphPipelineExporter implements IExporter {
             resourceId: dedup.value.resourceId,
             locator: chunk.locator,
             sequence: index,
-            ...(raw.sourceType === 'youtube' ? { videoId: raw.canonicalId.replace(/^youtube-/, '') } : {}),
             ...(chunk.locator.kind === 'timecode' ? {
               start: chunk.locator.startSec,
               end: chunk.locator.endSec,
@@ -369,6 +380,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+const TAXONOMY_ASSIGNMENTS_METADATA_KEY = 'taxonomyAssignments';
+
 function taxonomyExtensionFromConfig(config: ResolvedConfig): Record<string, unknown> | undefined {
   const merged: Record<string, unknown> = {};
   for (const scope of [config.extensions?.global, config.extensions?.source, config.extensions?.profile]) {
@@ -380,42 +393,260 @@ function taxonomyExtensionFromConfig(config: ResolvedConfig): Record<string, unk
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function mergeById<T extends { id: string }>(scopes: readonly (Record<string, unknown> | undefined)[], key: string): T[] {
+type TaxonomySeedKey = 'categories' | 'topics' | 'tags';
+type TaxonomySeedScope = 'global' | 'source' | 'profile';
+
+interface TaxonomySeedScopeEntry {
+  readonly name: TaxonomySeedScope;
+  readonly value?: Record<string, unknown>;
+}
+
+function zodErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function mergeById<T extends { id: string }>(
+  scopes: readonly TaxonomySeedScopeEntry[],
+  key: TaxonomySeedKey,
+  parse: (value: unknown) => T,
+): Result<T[]> {
   const values = new Map<string, T>();
   for (const scope of scopes) {
-    const taxonomy = scope?.['taxonomy'];
+    const taxonomy = scope.value?.['taxonomy'];
     if (!isRecord(taxonomy)) continue;
     const entries = taxonomy[key];
     if (!Array.isArray(entries)) continue;
-    for (const entry of entries) {
-      if (!isRecord(entry) || typeof entry['id'] !== 'string') continue;
-      values.set(entry['id'], entry as T);
+    for (const [index, entry] of entries.entries()) {
+      try {
+        const parsed = parse(entry);
+        values.set(parsed.id, parsed);
+      } catch (error) {
+        const id = isRecord(entry) && typeof entry['id'] === 'string' ? ` id="${entry['id']}"` : '';
+        return {
+          ok: false,
+          error: new Error(`Invalid taxonomy ${key} entry at ${scope.name}.${key}[${index}]${id}: ${zodErrorMessage(error)}`),
+        };
+      }
     }
   }
-  return Array.from(values.values());
+  return { ok: true, value: Array.from(values.values()) };
 }
 
-export async function createTaxonomyRegistryFromConfig(config: ResolvedConfig): Promise<Result<TaxonomyRegistry | undefined>> {
+function assignmentTimestamp(): string {
+  return new Date().toISOString();
+}
+
+function parseAssignments(metadata: Record<string, unknown>): TagAssignment[] {
+  const value = metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(entry => {
+    const parsed = TagAssignment.safeParse(entry);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+function assignmentKey(assignment: Pick<TagAssignment, 'nodeId' | 'tagId'>): string {
+  return `${assignment.nodeId}|${assignment.tagId}`;
+}
+
+export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
+  constructor(
+    private readonly vocabulary: TaxonomyRegistry,
+    private readonly store: GraphStore,
+  ) {}
+
+  addCategory(input: CreateCategoryInput): Promise<Result<Category>> {
+    return this.vocabulary.addCategory(input);
+  }
+
+  getCategory(id: string): Promise<Result<Category | null>> {
+    return this.vocabulary.getCategory(id);
+  }
+
+  updateCategory(id: string, input: UpdateCategoryInput): Promise<Result<Category>> {
+    return this.vocabulary.updateCategory(id, input);
+  }
+
+  deleteCategory(id: string): Promise<Result<void>> {
+    return this.vocabulary.deleteCategory(id);
+  }
+
+  listCategories(parentId?: string): Promise<Result<Category[]>> {
+    return this.vocabulary.listCategories(parentId);
+  }
+
+  addTopic(input: CreateTopicInput): Promise<Result<Topic>> {
+    return this.vocabulary.addTopic(input);
+  }
+
+  getTopic(id: string): Promise<Result<Topic | null>> {
+    return this.vocabulary.getTopic(id);
+  }
+
+  updateTopic(id: string, input: UpdateTopicInput): Promise<Result<Topic>> {
+    return this.vocabulary.updateTopic(id, input);
+  }
+
+  deleteTopic(id: string): Promise<Result<void>> {
+    return this.vocabulary.deleteTopic(id);
+  }
+
+  listTopics(categoryId?: string): Promise<Result<Topic[]>> {
+    return this.vocabulary.listTopics(categoryId);
+  }
+
+  addTag(input: CreateTagInput): Promise<Result<Tag>> {
+    return this.vocabulary.addTag(input);
+  }
+
+  getTag(id: string): Promise<Result<Tag | null>> {
+    return this.vocabulary.getTag(id);
+  }
+
+  updateTag(id: string, input: UpdateTagInput): Promise<Result<Tag>> {
+    return this.vocabulary.updateTag(id, input);
+  }
+
+  deleteTag(id: string): Promise<Result<void>> {
+    return this.vocabulary.deleteTag(id);
+  }
+
+  listTags(topicId?: string): Promise<Result<Tag[]>> {
+    return this.vocabulary.listTags(topicId);
+  }
+
+  findTagByAlias(alias: string): Promise<Result<Tag | null>> {
+    return this.vocabulary.findTagByAlias(alias);
+  }
+
+  async assignTag(input: CreateAssignmentInput): Promise<Result<TagAssignment>> {
+    try {
+      const resource = await this.store.getNode(input.nodeId);
+      if (!resource.ok) return resource;
+      if (!resource.value) {
+        return { ok: false, error: new Error(`Cannot assign taxonomy tag; node not found: ${input.nodeId}`) };
+      }
+      const assignment = TagAssignment.parse({
+        ...input,
+        confidence: input.confidence ?? 1,
+        source: input.source ?? 'manual',
+        assignedAt: assignmentTimestamp(),
+      });
+      const metadata = { ...(resource.value.metadata ?? {}) };
+      const existing = parseAssignments(metadata);
+      const byKey = new Map(existing.map(item => [assignmentKey(item), item]));
+      byKey.set(assignmentKey(assignment), assignment);
+      const assignments = Array.from(byKey.values()).sort((a, b) => a.tagId.localeCompare(b.tagId));
+      metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY] = assignments;
+
+      const updated = await this.store.upsertNode(
+        resource.value.type,
+        resource.value.id,
+        {
+          label: resource.value.label,
+          ...(resource.value.content !== undefined ? { content: resource.value.content } : {}),
+          metadata,
+        },
+        { detectNoop: true },
+      );
+      if (!updated.ok) return { ok: false, error: updated.error };
+      return { ok: true, value: assignment };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async getAssignments(nodeId: string): Promise<Result<TagAssignment[]>> {
+    const resource = await this.store.getNode(nodeId);
+    if (!resource.ok) return resource;
+    if (!resource.value) return { ok: true, value: [] };
+    const assignments = parseAssignments(resource.value.metadata ?? {})
+      .filter(assignment => assignment.nodeId === nodeId)
+      .sort((a, b) => a.tagId.localeCompare(b.tagId));
+    return { ok: true, value: assignments };
+  }
+
+  async removeAssignment(nodeId: string, tagId: string): Promise<Result<void>> {
+    const resource = await this.store.getNode(nodeId);
+    if (!resource.ok) return resource;
+    if (!resource.value) return { ok: true, value: undefined };
+    const metadata = { ...(resource.value.metadata ?? {}) };
+    const assignments = parseAssignments(metadata).filter(assignment => !(assignment.nodeId === nodeId && assignment.tagId === tagId));
+    if (assignments.length > 0) {
+      metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY] = assignments;
+    } else {
+      delete metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY];
+    }
+    const updated = await this.store.upsertNode(
+      resource.value.type,
+      resource.value.id,
+      {
+        label: resource.value.label,
+        ...(resource.value.content !== undefined ? { content: resource.value.content } : {}),
+        metadata,
+      },
+      { detectNoop: true },
+    );
+    if (!updated.ok) return { ok: false, error: updated.error };
+    return { ok: true, value: undefined };
+  }
+
+  close(): Promise<void> {
+    return this.vocabulary.close();
+  }
+}
+
+export async function createTaxonomyRegistryFromConfig(
+  config: ResolvedConfig,
+  options: { readonly store?: GraphStore } = {},
+): Promise<Result<TaxonomyRegistry | undefined>> {
   if (!taxonomyExtensionFromConfig(config)) {
     return { ok: true, value: undefined };
   }
 
-  const scopes = [config.extensions?.global, config.extensions?.source, config.extensions?.profile];
-  const registry = new InMemoryRegistry();
-  for (const category of mergeById<CreateCategoryInput>(scopes, 'categories')) {
-    const result = await registry.addCategory(category);
+  const scopes: TaxonomySeedScopeEntry[] = [
+    { name: 'global', value: config.extensions?.global },
+    { name: 'source', value: config.extensions?.source },
+    { name: 'profile', value: config.extensions?.profile },
+  ];
+  const vocabulary = new InMemoryRegistry();
+  const categories = mergeById<CreateCategoryInput>(scopes, 'categories', value => CreateCategoryInput.parse(value));
+  if (!categories.ok) return categories;
+  const topics = mergeById<CreateTopicInput>(scopes, 'topics', value => CreateTopicInput.parse(value));
+  if (!topics.ok) return topics;
+  const tags = mergeById<CreateTagInput>(scopes, 'tags', value => CreateTagInput.parse(value));
+  if (!tags.ok) return tags;
+
+  for (const category of categories.value) {
+    const result = await vocabulary.addCategory(category);
     if (!result.ok) return result;
   }
-  for (const topic of mergeById<CreateTopicInput>(scopes, 'topics')) {
-    const result = await registry.addTopic(topic);
+  for (const topic of topics.value) {
+    const result = await vocabulary.addTopic(topic);
     if (!result.ok) return result;
   }
-  for (const tag of mergeById<CreateTagInput>(scopes, 'tags')) {
-    const result = await registry.addTag(tag);
+  for (const tag of tags.value) {
+    const result = await vocabulary.addTag(tag);
     if (!result.ok) return result;
   }
 
-  return { ok: true, value: registry };
+  return { ok: true, value: options.store ? new GraphBackedTaxonomyRegistry(vocabulary, options.store) : vocabulary };
+}
+
+export async function createConfiguredPipelineServices(overrides: Partial<PipelineServices> = {}): Promise<Result<PipelineServices>> {
+  const store = overrides.store ?? new InMemoryStore();
+  const config = overrides.config ?? defaultResolvedConfig();
+  const registry = overrides.taxonomyRegistry
+    ? { ok: true as const, value: overrides.taxonomyRegistry }
+    : await createTaxonomyRegistryFromConfig(config, { store });
+  if (!registry.ok) return registry;
+  return { ok: true, value: createDefaultPipelineServices({
+    ...overrides,
+    store,
+    config,
+    ...(registry.value ? { taxonomyRegistry: registry.value } : {}),
+  }) };
 }
 
 export class KeywordTaxonomyClassifier implements IClassifier {
@@ -432,16 +663,17 @@ export class KeywordTaxonomyClassifier implements IClassifier {
       ...request.claims.map(claim => claim.text),
     ].join('\n'));
 
+    const existingAssignments = await this.registry.getAssignments(request.resourceId);
+    if (!existingAssignments.ok) return existingAssignments;
+    const existingTagIds = new Set(existingAssignments.value.map(assignment => assignment.tagId));
+
     let tagsMatched = 0;
     let tagsAssigned = 0;
     for (const tag of tags.value) {
       const terms = [tag.name, ...tag.aliases];
       if (!terms.some(term => matchNeedle(text, term))) continue;
       tagsMatched += 1;
-
-      const existingAssignments = await this.registry.getAssignments(request.resourceId);
-      if (!existingAssignments.ok) return existingAssignments;
-      const alreadyAssigned = existingAssignments.value.some(assignment => assignment.tagId === tag.id);
+      if (existingTagIds.has(tag.id)) continue;
 
       const assigned = await this.registry.assignTag({
         nodeId: request.resourceId,
@@ -451,37 +683,12 @@ export class KeywordTaxonomyClassifier implements IClassifier {
         assignedBy: 'praecis-keyword-classifier',
       });
       if (!assigned.ok) return assigned;
-      if (!alreadyAssigned) tagsAssigned += 1;
+      existingTagIds.add(tag.id);
+      tagsAssigned += 1;
     }
 
     return { ok: true, value: { status: 'completed', tagsMatched, tagsAssigned, warnings: [] } };
   }
-}
-
-export async function createDefaultPipelineServicesAsync(overrides: Partial<PipelineServices> = {}): Promise<Result<PipelineServices>> {
-  const store = overrides.store ?? new InMemoryStore();
-  const config = overrides.config ?? defaultResolvedConfig();
-  const configuredClient = config.llm.model && config.llm.baseUrl ? createLlmClientFromConfig(config.llm) : undefined;
-  const llm = overrides.llm ?? (configuredClient?.ok ? configuredClient.value : undefined);
-  const allowHeuristicFallback = overrides.allowHeuristicFallback ?? false;
-  const configuredRegistry = overrides.taxonomyRegistry
-    ? { ok: true as const, value: overrides.taxonomyRegistry }
-    : await createTaxonomyRegistryFromConfig(config);
-  if (!configuredRegistry.ok) return configuredRegistry;
-  return { ok: true, value: {
-    store,
-    miner: overrides.miner ?? (llm ? new CanonicalLlmClaimMiner() : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
-    exporter: overrides.exporter ?? new GraphPipelineExporter(store),
-    ...(overrides.classifier ? { classifier: overrides.classifier } : configuredRegistry.value ? { classifier: new KeywordTaxonomyClassifier(configuredRegistry.value) } : {}),
-    ...(configuredRegistry.value ? { taxonomyRegistry: configuredRegistry.value } : {}),
-    cache: overrides.cache ?? new MemoryCache(),
-    costCeiling: overrides.costCeiling ?? {},
-    privacy: overrides.privacy ?? { defaultRoute: 'local', routes: { confidential: 'local' } },
-    clock: overrides.clock ?? new SystemClock(),
-    config,
-    allowHeuristicFallback,
-    ...(llm ? { llm } : {}),
-  } };
 }
 
 export function createDefaultPipelineServices(overrides: Partial<PipelineServices> = {}): PipelineServices {

@@ -2,6 +2,7 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { describe, expect, it } from 'vitest';
+import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { createTaxonomyRegistryFromConfig, KeywordTaxonomyClassifier } from '../../src/pipeline/services.js';
 import type { ResolvedConfig } from '../../src/index.js';
@@ -54,6 +55,84 @@ describe('KeywordTaxonomyClassifier', () => {
     const result = await createTaxonomyRegistryFromConfig({} as ResolvedConfig);
 
     expect(result).toEqual({ ok: true, value: undefined });
+  });
+
+  it('persists graph-backed assignments on resource metadata', async () => {
+    const store = new InMemoryStore();
+    const resource = await store.upsertNode('Resource', 'web:https://example.com', {
+      label: 'Example',
+      metadata: { canonicalId: 'web:https://example.com', sourceType: 'web', provenances: [] },
+    });
+    expect(resource.ok).toBe(true);
+    if (!resource.ok) throw resource.error;
+
+    const registryResult = await createTaxonomyRegistryFromConfig({
+      extensions: {
+        global: {
+          taxonomy: {
+            categories: [{ id: 'cat-1', name: 'Articles' }],
+            topics: [{ id: 'topic-1', name: 'Web', categoryId: 'cat-1' }],
+            tags: [{ id: 'tag-1', name: 'resilience', topicIds: ['topic-1'] }],
+          },
+        },
+      },
+    } as ResolvedConfig, { store });
+    expect(registryResult.ok).toBe(true);
+    if (!registryResult.ok || !registryResult.value) throw new Error('expected graph-backed registry');
+
+    const assigned = await registryResult.value.assignTag({
+      nodeId: 'web:https://example.com',
+      tagId: 'tag-1',
+      confidence: 0.7,
+      source: 'automatic',
+      assignedBy: 'test',
+    });
+    expect(assigned.ok).toBe(true);
+    if (!assigned.ok) throw assigned.error;
+
+    const persisted = await store.getNode('web:https://example.com');
+    expect(persisted.ok).toBe(true);
+    if (!persisted.ok) throw persisted.error;
+    expect(persisted.value?.metadata?.['taxonomyAssignments']).toMatchObject([{
+      nodeId: 'web:https://example.com',
+      tagId: 'tag-1',
+      confidence: 0.7,
+      source: 'automatic',
+      assignedBy: 'test',
+    }]);
+
+    const assignments = await registryResult.value.getAssignments('web:https://example.com');
+    expect(assignments.ok).toBe(true);
+    if (!assignments.ok) throw assignments.error;
+    expect(assignments.value).toHaveLength(1);
+
+    const removed = await registryResult.value.removeAssignment('web:https://example.com', 'tag-1');
+    expect(removed.ok).toBe(true);
+    if (!removed.ok) throw removed.error;
+    const afterRemove = await registryResult.value.getAssignments('web:https://example.com');
+    expect(afterRemove.ok).toBe(true);
+    if (!afterRemove.ok) throw afterRemove.error;
+    expect(afterRemove.value).toEqual([]);
+
+    await registryResult.value.close();
+    await store.close();
+  });
+
+  it('reports malformed taxonomy seed entries at the config boundary', async () => {
+    const result = await createTaxonomyRegistryFromConfig({
+      extensions: {
+        global: {
+          taxonomy: {
+            tags: [{ id: 'tag-1', name: 'missing topics' }],
+          },
+        },
+      },
+    } as ResolvedConfig);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('Invalid taxonomy tags entry at global.tags[0] id="tag-1"');
+    expect(result.error.message).toContain('topicIds');
   });
 
   it('assigns taxonomy tags by tag name or alias', async () => {

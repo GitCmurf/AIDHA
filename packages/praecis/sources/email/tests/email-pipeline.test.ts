@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ResolvedConfig } from '@aidha/config';
 import type { LlmClient, LlmCompletionRequest, PipelineServices } from '@aidha/praecis-core';
+import { InMemoryStore } from '@aidha/graph-backend';
 import type { Result } from '@aidha/taxonomy';
 import { createEmailVectorSpec, runEmailBatch } from '../src/index.js';
 
@@ -82,6 +83,21 @@ function services(): Partial<PipelineServices> {
   return { config: testConfig(), llm: fakeLlm() };
 }
 
+function taxonomyConfig(): ResolvedConfig {
+  return {
+    ...testConfig(),
+    extensions: {
+      global: {
+        taxonomy: {
+          categories: [{ id: 'cat-1', name: 'Work' }],
+          topics: [{ id: 'topic-1', name: 'Email', categoryId: 'cat-1' }],
+          tags: [{ id: 'tag-1', name: 'project', topicIds: ['topic-1'] }],
+        },
+      },
+    },
+  };
+}
+
 describe('createEmailVectorSpec', () => {
   it('produces message locators for thread excerpts', async () => {
     const vector = createEmailVectorSpec({
@@ -155,5 +171,35 @@ describe('runEmailBatch', () => {
     expect(result.threads).toBe(1);
     expect(result.summaries[0]!.canonicalId).toBe('email:thread:msg-a');
     expect(result.summaries[0]!.segmentCount).toBe(2);
+  });
+
+  it('classifies email threads through the shared config-seeded registry', async () => {
+    const dir = await makeEmailDir();
+    await writeEmailFile(dir, 'project.eml', [
+      'Message-ID: <msg-a>',
+      'Date: Thu, 22 May 2026 09:00:00 +0000',
+      'From: Alice <alice@example.com>',
+      'To: Bob <bob@example.com>',
+      'Subject: Project status',
+      '',
+      'The project status update is ready for review.',
+    ].join('\r\n'));
+
+    const store = new InMemoryStore();
+    const result = await runEmailBatch(dir, undefined, { config: taxonomyConfig(), llm: fakeLlm(), store });
+    expect(result.summaries[0]?.classification).toMatchObject({
+      status: 'completed',
+      tagsMatched: 1,
+      tagsAssigned: 1,
+    });
+    const resource = await store.getNode('email:thread:msg-a');
+    expect(resource.ok).toBe(true);
+    if (!resource.ok) throw resource.error;
+    expect(resource.value?.metadata?.['taxonomyAssignments']).toMatchObject([{
+      nodeId: 'email:thread:msg-a',
+      tagId: 'tag-1',
+      source: 'automatic',
+    }]);
+    await store.close();
   });
 });

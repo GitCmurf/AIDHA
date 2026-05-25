@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@aidha/config": "workspace:*",
+    "@aidha/graph-backend": "workspace:*",
     "@aidha/ingestion-youtube": "workspace:*",
     "@aidha/praecis-core": "workspace:*",
     "@aidha/praecis-source-email": "workspace:*",

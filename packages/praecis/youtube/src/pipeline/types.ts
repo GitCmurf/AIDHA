@@ -21,9 +21,6 @@ export interface IngestionResult {
   /** Number of videos processed */
   videosProcessed: number;
 
-  /** Number of tags assigned */
-  tagsAssigned: number;
-
   /** Taxonomy classification status and counts */
   classification: ClassificationResult;
 
