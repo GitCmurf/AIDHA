@@ -54,6 +54,8 @@ function productionSeededConfig(): ResolvedConfig {
   };
 }
 
+const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
+
 describe('production YouTube runtime ingestion', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
@@ -383,7 +385,7 @@ describe('production YouTube runtime ingestion', () => {
       });
     });
 
-    it.runIf(SQLiteStore.isAvailable())('persists config-seeded tags across fresh SQLite-backed ingests', async () => {
+    it('persists config-seeded tags across fresh SQLite-backed ingests', async () => {
       const dir = await mkdtemp(join(tmpdir(), 'aidha-youtube-taxonomy-'));
       const dbPath = join(dir, 'graph.sqlite');
       const config = { ...productionSeededConfig(), db: dbPath };
@@ -394,6 +396,7 @@ describe('production YouTube runtime ingestion', () => {
           client: new MockYouTubeClient(),
           config,
           llm: createFixtureLlm(),
+          services: { clock: fixedClock },
         }, 'test-playlist');
         expect(first.ok).toBe(true);
         if (!first.ok) throw first.error;
@@ -413,6 +416,7 @@ describe('production YouTube runtime ingestion', () => {
           client: new MockYouTubeClient(),
           config,
           llm: createFixtureLlm(),
+          services: { clock: fixedClock },
         }, 'test-playlist');
         expect(second.ok).toBe(true);
         if (!second.ok) throw second.error;
@@ -425,11 +429,12 @@ describe('production YouTube runtime ingestion', () => {
         const resource = await secondStore.getNode('youtube-test-video');
         expect(resource.ok).toBe(true);
         if (!resource.ok) throw resource.error;
-        expect(resource.value?.metadata?.['taxonomyAssignments']).toMatchObject([{
+        expect(resource.value?.metadata?.['taxonomyAssignments']).toEqual([{
           nodeId: 'youtube-test-video',
           tagId: 'tag-1',
           confidence: 0.7,
           source: 'automatic',
+          assignedAt: '2026-05-25T12:34:56.000Z',
           assignedBy: 'praecis-keyword-classifier',
         }]);
       } finally {

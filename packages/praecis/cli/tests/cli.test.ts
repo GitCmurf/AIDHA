@@ -104,6 +104,7 @@ function taxonomyServices(): Partial<PipelineServices> {
       },
     },
     llm: fakeLlm(),
+    clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
   };
 }
 
@@ -510,7 +511,14 @@ describe('aidha cli phase-1 surface', () => {
       expect(second.classification).toMatchObject({ status: 'completed', tagsMatched: 1, tagsAssigned: 0 });
       expect(resource.ok).toBe(true);
       if (!resource.ok) throw resource.error;
-      expect(resource.value?.metadata?.['taxonomyAssignments']).toMatchObject([{ tagId: 'tag-1' }]);
+      expect(resource.value?.metadata?.['taxonomyAssignments']).toEqual([{
+        nodeId: second.resourceId,
+        tagId: 'tag-1',
+        confidence: 0.7,
+        source: 'automatic',
+        assignedAt: '2026-05-25T12:34:56.000Z',
+        assignedBy: 'praecis-keyword-classifier',
+      }]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

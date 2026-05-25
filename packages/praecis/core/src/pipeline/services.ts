@@ -432,14 +432,11 @@ function mergeById<T extends { id: string }>(
   return { ok: true, value: Array.from(values.values()) };
 }
 
-function assignmentTimestamp(): string {
-  return new Date().toISOString();
-}
-
 export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
   constructor(
     private readonly vocabulary: TaxonomyRegistry,
     private readonly store: GraphStore,
+    private readonly clock: Clock = new SystemClock(),
   ) {}
 
   addCategory(input: CreateCategoryInput): Promise<Result<Category>> {
@@ -517,7 +514,7 @@ export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
         ...input,
         confidence: input.confidence ?? 1,
         source: input.source ?? 'manual',
-        assignedAt: assignmentTimestamp(),
+        assignedAt: this.clock.now().toISOString(),
       });
       const metadata = withTaxonomyAssignment({ ...(resource.value.metadata ?? {}) }, assignment);
 
@@ -576,7 +573,7 @@ export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
 
 export async function createTaxonomyRegistryFromConfig(
   config: ResolvedConfig,
-  options: { readonly store?: GraphStore } = {},
+  options: { readonly store?: GraphStore; readonly clock?: Clock } = {},
 ): Promise<Result<TaxonomyRegistry | undefined>> {
   if (!taxonomyExtensionFromConfig(config)) {
     return { ok: true, value: undefined };
@@ -608,20 +605,22 @@ export async function createTaxonomyRegistryFromConfig(
     if (!result.ok) return result;
   }
 
-  return { ok: true, value: options.store ? new GraphBackedTaxonomyRegistry(vocabulary, options.store) : vocabulary };
+  return { ok: true, value: options.store ? new GraphBackedTaxonomyRegistry(vocabulary, options.store, options.clock) : vocabulary };
 }
 
 export async function createConfiguredPipelineServices(overrides: Partial<PipelineServices> = {}): Promise<Result<PipelineServices>> {
   const store = overrides.store ?? new InMemoryStore();
   const config = overrides.config ?? defaultResolvedConfig();
+  const clock = overrides.clock ?? new SystemClock();
   const registry = overrides.taxonomyRegistry
     ? { ok: true as const, value: overrides.taxonomyRegistry }
-    : await createTaxonomyRegistryFromConfig(config, { store });
+    : await createTaxonomyRegistryFromConfig(config, { store, clock });
   if (!registry.ok) return registry;
   return { ok: true, value: createDefaultPipelineServices({
     ...overrides,
     store,
     config,
+    clock,
     ...(registry.value ? { taxonomyRegistry: registry.value } : {}),
   }) };
 }

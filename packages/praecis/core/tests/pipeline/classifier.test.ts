@@ -20,6 +20,8 @@ async function registryWithTag() {
   return registry;
 }
 
+const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
+
 describe('KeywordTaxonomyClassifier', () => {
   it('builds a seeded registry from resolved config extensions', async () => {
     const config = {
@@ -76,7 +78,7 @@ describe('KeywordTaxonomyClassifier', () => {
           },
         },
       },
-    } as ResolvedConfig, { store });
+    } as ResolvedConfig, { store, clock: fixedClock });
     expect(registryResult.ok).toBe(true);
     if (!registryResult.ok || !registryResult.value) throw new Error('expected graph-backed registry');
 
@@ -93,18 +95,26 @@ describe('KeywordTaxonomyClassifier', () => {
     const persisted = await store.getNode('web:https://example.com');
     expect(persisted.ok).toBe(true);
     if (!persisted.ok) throw persisted.error;
-    expect(persisted.value?.metadata?.['taxonomyAssignments']).toMatchObject([{
+    expect(persisted.value?.metadata?.['taxonomyAssignments']).toEqual([{
       nodeId: 'web:https://example.com',
       tagId: 'tag-1',
       confidence: 0.7,
       source: 'automatic',
+      assignedAt: '2026-05-25T12:34:56.000Z',
       assignedBy: 'test',
     }]);
 
     const assignments = await registryResult.value.getAssignments('web:https://example.com');
     expect(assignments.ok).toBe(true);
     if (!assignments.ok) throw assignments.error;
-    expect(assignments.value).toHaveLength(1);
+    expect(assignments.value).toEqual([{
+      nodeId: 'web:https://example.com',
+      tagId: 'tag-1',
+      confidence: 0.7,
+      source: 'automatic',
+      assignedAt: '2026-05-25T12:34:56.000Z',
+      assignedBy: 'test',
+    }]);
 
     const removed = await registryResult.value.removeAssignment('web:https://example.com', 'tag-1');
     expect(removed.ok).toBe(true);

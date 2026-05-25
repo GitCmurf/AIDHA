@@ -83,6 +83,8 @@ function services(): Partial<PipelineServices> {
   return { config: testConfig(), llm: fakeLlm() };
 }
 
+const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
+
 function taxonomyConfig(): ResolvedConfig {
   return {
     ...testConfig(),
@@ -186,7 +188,7 @@ describe('runEmailBatch', () => {
     ].join('\r\n'));
 
     const store = new InMemoryStore();
-    const result = await runEmailBatch(dir, undefined, { config: taxonomyConfig(), llm: fakeLlm(), store });
+    const result = await runEmailBatch(dir, undefined, { config: taxonomyConfig(), llm: fakeLlm(), store, clock: fixedClock });
     expect(result.summaries[0]?.classification).toMatchObject({
       status: 'completed',
       tagsMatched: 1,
@@ -195,10 +197,13 @@ describe('runEmailBatch', () => {
     const resource = await store.getNode('email:thread:msg-a');
     expect(resource.ok).toBe(true);
     if (!resource.ok) throw resource.error;
-    expect(resource.value?.metadata?.['taxonomyAssignments']).toMatchObject([{
+    expect(resource.value?.metadata?.['taxonomyAssignments']).toEqual([{
       nodeId: 'email:thread:msg-a',
       tagId: 'tag-1',
+      confidence: 0.7,
       source: 'automatic',
+      assignedAt: '2026-05-25T12:34:56.000Z',
+      assignedBy: 'praecis-keyword-classifier',
     }]);
     await store.close();
   });
