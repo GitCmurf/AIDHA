@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.11"
+version: "2.14"
 last_updated: 2026-05-25
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.11
+> **Version:** 2.14
 > **Last Updated:** 2026-05-25
 > **Type:** PLAN
 
@@ -60,6 +60,7 @@ docops_version: "2.0"
 | 2.11    | 2026-05-25 | AI     | Remediated the r6 quality findings: taxonomy assignment timestamps now use the injected deterministic clock and are asserted as exact durable records; configured ingestion exposes only `runVector`, reuses assembled services, and routes YouTube through the same path as other vectors; the SQLite durability proof is ungated; and `ReferenceMetadataSchema` is implemented in the graph backend. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r6.txt` |
 | 2.12    | 2026-05-25 | AI     | Closed the reputation-readiness polish pass: the runtime contract now matches code (`ConfiguredIngestionRuntime` exposes only `runVector`/`close` and `PipelineServices.clock` is explicit); generic CLI help is generated from the source manifest registry instead of a parallel usage array; assembled-service runtime reuse is explicit through `createIngestionRuntimeFromServices`; and manifest uniqueness/help coverage tests guard future vector additions. | Codex adversarial self-review | In Review | — |
 | 2.13    | 2026-05-25 | AI     | Added the final runtime-context polish: generic CLI manifests now receive a shared `IngestExecutionContext` instead of raw service overrides, playlist/export batch flows reuse one configured runtime per command, and YouTube/Readwise/email batch summaries expose a common item-count/classification/metadata-conflict/warnings/details contract. | Codex adversarial self-review | In Review | — |
+| 2.14    | 2026-05-25 | AI     | Closed the r7 playlist-leverage gap: YouTube playlist fetch, resilient per-video execution, aggregate telemetry, and injected-clock job/error timestamps now live in one shared production function consumed by both CLIs; partial-playlist failures are behaviorally tested through the generic helper and `aidha-youtube`; and the source-grep convergence fence was replaced with a production CLI regression. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r7.txt` |
 
 ## Objective
 
@@ -223,7 +224,7 @@ contract is a baseline dependency, not work re-derived by this plan.
 
 ### Current Remediation State
 
-Version 2.11 resolves the implementation and product-surface neutrality blockers
+Version 2.14 resolves the implementation and product-surface neutrality blockers
 found across the 2026-05-25 peer-review rounds. `packages/praecis/core` owns the
 shared runtime, extractor, prompt routing, token budget, reference extraction,
 purge path, dedup/link logic, Resource metadata persistence, classification, and
@@ -245,6 +246,14 @@ configured runtime for every item in the command. The separate
 `aidha-youtube` command remains for advanced YouTube-only operations such as
 transcript diagnosis, dossier export, review queues, eval-matrix tooling, and
 fixture import; it is not the privileged ingestion route.
+
+YouTube playlist ingestion has one production orchestration surface: the shared
+playlist runner owns playlist fetch, per-video execution, partial-failure
+collection, aggregate classification, and injected-clock job/error telemetry.
+The generic `aidha ingest youtube --playlist` helper and the `aidha-youtube`
+`ingest playlist` command both consume that runner, so one failed video no
+longer aborts an otherwise usable playlist and no CLI carries a private fail-fast
+loop.
 
 Regression gates protect the production path: YouTube golden snapshots and CLI
 claim extraction converge through the shared runtime, source packages cannot

@@ -146,6 +146,36 @@ describe('production YouTube runtime ingestion', () => {
       expect(result.value.job.progress.completed).toBe(0);
       expect(result.value.job.progress.failed).toBe(0);
     });
+
+    it('continues after a per-video failure and records deterministic job telemetry', async () => {
+      const result = await ingestYouTubePlaylist({
+        store: graphStore,
+        client: youtubeClient,
+        taxonomyRegistry,
+        config: productionSeededConfig(),
+        llm: createFixtureLlm(),
+        clock: fixedClock,
+      }, 'partial-playlist');
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.job).toEqual({
+        id: 'job-partial-playlist',
+        playlistId: 'partial-playlist',
+        status: 'completed',
+        progress: { total: 2, completed: 1, failed: 1 },
+        errors: [{
+          videoId: 'missing-video',
+          message: 'Video not found: missing-video',
+          timestamp: '2026-05-25T12:34:56.000Z',
+        }],
+        createdAt: '2026-05-25T12:34:56.000Z',
+        completedAt: '2026-05-25T12:34:56.000Z',
+      });
+      expect(result.value.videosProcessed).toBe(1);
+      expect(result.value.nodeIds).toEqual(['youtube-test-video']);
+      expect(result.value.videos.map(video => video.videoId)).toEqual(['test-video']);
+    });
   });
 
   describe('ingestVideo', () => {

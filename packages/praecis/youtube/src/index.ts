@@ -26,10 +26,10 @@ export type { YouTubeClient } from './client/index.js';
 export { MockYouTubeClient, RealYouTubeClient } from './client/index.js';
 
 // Source-neutral ingest adapter
-export { createYouTubeVectorSpec } from './ingest/index.js';
+export { createYouTubeVectorSpec, ingestYouTubePlaylist, ingestYouTubeVideo, runYouTubePlaylistIngestion } from './ingest/index.js';
 
 // Pipeline status exports
-export type { PipelineConfig, IngestionResult } from './pipeline/index.js';
+export type { PipelineConfig, IngestionResult, YouTubeVideoIngestResult } from './pipeline/index.js';
 
 // Export (Markdown dossier)
 export type {

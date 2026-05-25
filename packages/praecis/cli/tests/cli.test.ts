@@ -252,14 +252,19 @@ describe('aidha cli phase-1 surface', () => {
         classification: { status: string; tagsMatched: number; tagsAssigned: number };
         metadataConflictCount: number;
         warnings: string[];
-        details: { playlistId: string; videos: number };
+        details: {
+          playlistId: string;
+          videos: number;
+          failed: number;
+          errors: Array<{ videoId: string; message: string; timestamp: string }>;
+        };
         summaries: Array<{ sourceId: string }>;
       };
       expect(summary.sourceId).toBe('youtube');
       expect(summary.playlistId).toBe('test-playlist');
       expect(summary.videos).toBe(2);
       expect(summary.itemCount).toBe(2);
-      expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2 });
+      expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2, failed: 0, errors: [] });
       expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
       expect(summary.metadataConflictCount).toBe(0);
       expect(summary.warnings).toEqual([]);
@@ -278,13 +283,38 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.sourceId).toBe('youtube');
     expect(summary.playlistId).toBe('test-playlist');
     expect(summary.itemCount).toBe(2);
-    expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2 });
+    expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2, failed: 0, errors: [] });
     expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
     expect(summary.metadataConflictCount).toBe(0);
     expect(summary.warnings).toEqual([]);
     expect(summary.summaries).toHaveLength(2);
     expect(summary.summaries[0]?.canonicalId).toBe('youtube-test-video');
     expect(summary.summaries[1]?.canonicalId).toBe('youtube-test-video-2');
+  });
+
+  it('reuses resilient playlist ingestion for partial youtube failures', async () => {
+    const summary = await runYouTubePlaylistIngest('partial-playlist', {
+      client: new MockYouTubeClient(),
+      services: taxonomyServices(),
+    });
+
+    expect(summary.sourceId).toBe('youtube');
+    expect(summary.playlistId).toBe('partial-playlist');
+    expect(summary.itemCount).toBe(2);
+    expect(summary.videos).toBe(1);
+    expect(summary.summaries).toHaveLength(1);
+    expect(summary.summaries[0]?.canonicalId).toBe('youtube-test-video');
+    expect(summary.details).toEqual({
+      playlistId: 'partial-playlist',
+      videos: 1,
+      failed: 1,
+      errors: [{
+        videoId: 'missing-video',
+        message: 'Video not found: missing-video',
+        timestamp: '2026-05-25T12:34:56.000Z',
+      }],
+    });
+    expect(summary.warnings).toContain('missing-video: Video not found: missing-video');
   });
 
   it('ingests web fixtures with deterministic canonical ids and chunks', async () => {

@@ -35,7 +35,7 @@ import {
   formatTranscriptDiagnosis,
   formatExtractionDiagnosis,
 } from './index.js';
-import { ingestYouTubeVideo } from './ingest/index.js';
+import { ingestYouTubePlaylist, ingestYouTubeVideo } from './ingest/index.js';
 import { runConfig } from './cli/config-cmd.js';
 import { parseArgs } from './cli/parse.js';
 import { CLI_USAGE_TEXT } from './cli/help.js';
@@ -375,11 +375,11 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
   const client = useMock
     ? new MockYouTubeClient()
     : new RealYouTubeClient(youtubeConfig.youtube, ytDlpConfig);
+  const runtimeConfig = useMock && !config.llm.model
+    ? { ...config, llm: { ...config.llm, model: 'mock-youtube-llm' } }
+    : config;
 
   const runVideoThroughCore = async (videoId: string) => {
-    const runtimeConfig = useMock && !config.llm.model
-      ? { ...config, llm: { ...config.llm, model: 'mock-youtube-llm' } }
-      : config;
     return ingestYouTubeVideo({
       store,
       client,
@@ -390,26 +390,23 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
 
   if (mode === 'playlist') {
     const playlistId = parsePlaylistId(target);
-    const playlistResult = await client.fetchPlaylist(playlistId);
-    if (!playlistResult.ok) {
-      console.error(playlistResult.error.message);
+    const result = await ingestYouTubePlaylist({
+      store,
+      client,
+      config: runtimeConfig,
+      ...(useMock ? { llm: createMockExtractionLlm() } : {}),
+    }, playlistId);
+    if (!result.ok) {
+      console.error(result.error.message);
       await store.close();
       return 1;
     }
-    let completed = 0;
-    let failed = 0;
-    for (const videoId of playlistResult.value.videoIds) {
-      const result = await runVideoThroughCore(videoId);
-      if (result.ok) {
-        completed += 1;
-      } else {
-        failed += 1;
-        console.error(`${videoId}: ${result.error.message}`);
-      }
+    for (const error of result.value.job.errors) {
+      console.error(`${error.videoId}: ${error.message}`);
     }
-    console.log(`Ingested playlist ${playlistId}: ${completed} videos`);
-    if (failed > 0) {
-      console.log(`Errors: ${failed}`);
+    console.log(`Ingested playlist ${playlistId}: ${result.value.videosProcessed} videos`);
+    if (result.value.job.progress.failed > 0) {
+      console.log(`Errors: ${result.value.job.progress.failed}`);
     }
   } else if (mode === 'status') {
     const videoId = parseVideoId(target);

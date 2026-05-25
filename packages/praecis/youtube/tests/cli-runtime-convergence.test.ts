@@ -1,24 +1,38 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import { describe, expect, it } from 'vitest';
-import { readFile } from 'node:fs/promises';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runCli } from '../src/cli.js';
 
 describe('YouTube CLI runtime convergence', () => {
-  it('uses the shared production ingest API instead of local CLI orchestration or the legacy fork', async () => {
-    const cliSource = await readFile(join(process.cwd(), 'src', 'cli.ts'), 'utf8');
-    const ingestSource = await readFile(join(process.cwd(), 'src', 'ingest', 'runtime-ingestion.ts'), 'utf8');
-
-    expect(cliSource).toContain('ingestYouTubeVideo');
-    expect(cliSource).not.toContain('createPipelineRuntime');
-    expect(ingestSource).toContain('createIngestionRuntime');
-    expect(ingestSource).not.toContain('createPipelineRuntime');
-    expect(ingestSource).toContain('createYouTubeVectorSpec');
-    expect(ingestSource).toContain('runVector');
-    expect(ingestSource).not.toContain('.register(');
-    expect(ingestSource).not.toContain(".run('youtube'");
-    expect(cliSource).not.toContain('new IngestionPipeline');
-    expect(cliSource).not.toContain('new ClaimExtractionPipeline');
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
+
+  it('continues playlist ingestion through the production runtime when one video fails', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-youtube-cli-convergence-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const logs: string[] = [];
+    const errors: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+    vi.spyOn(console, 'error').mockImplementation((value?: unknown) => {
+      errors.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'playlist', 'partial-playlist', '--db', dbPath, '--mock']);
+
+      expect(code).toBe(0);
+      expect(logs).toContain('Ingested playlist partial-playlist: 1 videos');
+      expect(logs).toContain('Errors: 1');
+      expect(errors).toContain('missing-video: Video not found: missing-video');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
 });

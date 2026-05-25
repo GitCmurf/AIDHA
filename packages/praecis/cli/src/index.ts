@@ -15,6 +15,7 @@ import {
   MockYouTubeClient,
   RealYouTubeClient,
   YouTubeSourceRegistration,
+  runYouTubePlaylistIngestion,
   type ResolvedYoutubeConfig,
   type YouTubeClient,
 } from '@aidha/ingestion-youtube';
@@ -104,7 +105,7 @@ export interface IngestSummary {
 
 export type SourceId = IngestSummary['sourceId'];
 
-export interface BatchIngestSummary<TSourceId extends SourceId, TDetails extends Record<string, unknown> = Record<string, unknown>> {
+export interface BatchIngestSummary<TSourceId extends SourceId, TDetails extends object = Record<string, unknown>> {
   readonly sourceId: TSourceId;
   readonly itemCount: number;
   readonly summaries: readonly IngestSummary[];
@@ -114,15 +115,27 @@ export interface BatchIngestSummary<TSourceId extends SourceId, TDetails extends
   readonly details: TDetails;
 }
 
-export interface YouTubeBatchSummary extends BatchIngestSummary<'youtube', { readonly playlistId: string; readonly videos: number }> {
+export interface YouTubeBatchSummary extends BatchIngestSummary<'youtube', YouTubeBatchDetails> {
   readonly playlistId: string;
   readonly videos: number;
+}
+
+interface YouTubeBatchDetails {
+  readonly playlistId: string;
+  readonly videos: number;
+  readonly failed: number;
+  readonly errors: readonly {
+    readonly videoId: string;
+    readonly message: string;
+    readonly timestamp: string;
+  }[];
 }
 
 export type IngestCommandSummary = IngestSummary | ReadwiseBatchSummary | EmailBatchSummary | YouTubeBatchSummary;
 
 export interface IngestExecutionContext {
   readonly services: Partial<PipelineServices>;
+  runReport(sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<RunReport>;
   runVector(sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<IngestSummary>;
 }
 
@@ -299,16 +312,20 @@ async function createIngestExecutionContext(services: Partial<PipelineServices> 
   if (!runtime.ok) {
     throw runtime.error;
   }
+  const runReport = async (_sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<RunReport> => {
+    const ingestInput = metadata ? { ref, metadata } : { ref };
+    const result = await runtime.value.runVector(vector, ingestInput);
+    if (!result.ok) {
+      throw result.error;
+    }
+    return result.value;
+  };
   return {
     context: {
       services,
+      runReport,
       async runVector(sourceId, ref, vector, metadata) {
-        const ingestInput = metadata ? { ref, metadata } : { ref };
-        const result = await runtime.value.runVector(vector, ingestInput);
-        if (!result.ok) {
-          throw result.error;
-        }
-        return summaryFromRunReport(sourceId, ref, result.value);
+        return summaryFromRunReport(sourceId, ref, await runReport(sourceId, ref, vector, metadata));
       },
     },
     close() {
@@ -469,40 +486,66 @@ export async function runYouTubePlaylistIngest(
     debugTranscript: youtubeConfig.youtube.debugTranscript,
   });
   const playlistId = parseYouTubePlaylistId(playlistRef);
-  const videos = await client.fetchPlaylist(playlistId);
-  if (!videos.ok) {
-    throw videos.error;
-  }
 
-  const runVideos = async (context: IngestExecutionContext): Promise<IngestSummary[]> => {
-    const summaries: IngestSummary[] = [];
-    for (const videoId of videos.value.videoIds) {
-      summaries.push(await context.runVector('youtube', videoId, composeVector(createYouTubeVectorSpec(client))));
-    }
-    return summaries;
-  };
+  const runPlaylist = async (context: IngestExecutionContext) => runYouTubePlaylistIngestion({
+    playlistId,
+    client,
+    ...(context.services.clock ? { clock: context.services.clock } : {}),
+    async runVideo(videoId) {
+      try {
+        const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec(client)));
+        return {
+          ok: true,
+          value: {
+            videoId,
+            nodeId: report.resourceId,
+            classification: report.classification,
+            created: report.dedupAction === 'create',
+            report,
+          },
+        };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      }
+    },
+  });
 
   let summaries: IngestSummary[];
+  let result: Awaited<ReturnType<typeof runPlaylist>>;
   if (options.context) {
-    summaries = await runVideos(options.context);
+    result = await runPlaylist(options.context);
   } else {
     const execution = await createIngestExecutionContext(services);
     try {
-      summaries = await runVideos(execution.context);
+      result = await runPlaylist(execution.context);
     } finally {
       await execution.close();
     }
   }
+  if (!result.ok) {
+    throw result.error;
+  }
+  const playlist = result.value;
+  summaries = playlist.videos.map(video => summaryFromRunReport('youtube', video.videoId, video.report));
+  const warnings = [
+    ...aggregateWarnings(summaries),
+    ...playlist.job.errors.map(error => `${error.videoId}: ${error.message}`),
+  ];
   return {
     sourceId: 'youtube',
     playlistId,
     videos: summaries.length,
-    itemCount: summaries.length,
+    itemCount: playlist.job.progress.total,
     summaries,
-    classification: aggregateClassification(summaries),
+    classification: playlist.classification,
     metadataConflictCount: aggregateMetadataConflictCount(summaries),
-    warnings: aggregateWarnings(summaries),
-    details: { playlistId, videos: summaries.length },
+    warnings,
+    details: {
+      playlistId,
+      videos: summaries.length,
+      failed: playlist.job.progress.failed,
+      errors: playlist.job.errors,
+    },
   };
 }
 
