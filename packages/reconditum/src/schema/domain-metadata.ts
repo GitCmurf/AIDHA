@@ -59,12 +59,25 @@ export type LocatorSchema = z.infer<typeof LocatorSchema>;
 // ResourceMetadataSchema — validates Resource node metadata
 // ---------------------------------------------------------------------------
 
+export const TaxonomyAssignmentMetadataSchema = z.object({
+  nodeId: z.string(),
+  tagId: z.string(),
+  confidence: z.number().min(0).max(1),
+  source: z.enum(['manual', 'automatic', 'imported', 'inferred']),
+  assignedAt: z.string().datetime(),
+  assignedBy: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export type TaxonomyAssignmentMetadataSchema = z.infer<typeof TaxonomyAssignmentMetadataSchema>;
+
 export const ResourceMetadataSchema = z.object({
   canonicalId: z.string().optional(),
   sourceType: SourceType.optional(),
   provenances: z.array(Provenance).optional().default([]),
   dedupKeys: z.array(z.string()).optional(),
   label: z.string().optional(),
+  taxonomyAssignments: z.array(TaxonomyAssignmentMetadataSchema).optional(),
 }).passthrough();
 
 export type ResourceMetadataSchema = z.infer<typeof ResourceMetadataSchema>;

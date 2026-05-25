@@ -1,8 +1,8 @@
 import type { GraphStore } from '@aidha/graph-backend';
 import {
   composeVector,
-  createConfiguredPipelineServices,
-  createPipelineRuntime,
+  createIngestionRuntime,
+  type ConfiguredIngestionRuntime,
   type LlmClient,
   type PipelineServices,
   type RunReport,
@@ -57,18 +57,17 @@ async function deleteStaleExcerpts(
   return { ok: true, value: undefined };
 }
 
-async function runtimeFor(input: YouTubeIngestServices): Promise<Result<ReturnType<typeof createPipelineRuntime>>> {
-  const services = await createConfiguredPipelineServices({
+async function runtimeFor(input: YouTubeIngestServices): Promise<Result<ConfiguredIngestionRuntime>> {
+  const runtime = await createIngestionRuntime({
     ...input.services,
     store: input.store,
     ...(input.config ? { config: input.config } : {}),
     ...(input.taxonomyRegistry ? { taxonomyRegistry: input.taxonomyRegistry } : {}),
     ...(input.llm ? { llm: input.llm } : {}),
   });
-  if (!services.ok) return services;
-  const runtime = createPipelineRuntime(services.value);
-  runtime.register(composeVector(createYouTubeVectorSpec(input.client)));
-  return { ok: true, value: runtime };
+  if (!runtime.ok) return runtime;
+  runtime.value.register(composeVector(createYouTubeVectorSpec(input.client)));
+  return runtime;
 }
 
 export async function ingestYouTubeVideo(
@@ -78,23 +77,27 @@ export async function ingestYouTubeVideo(
 ): Promise<Result<YouTubeVideoIngestResult>> {
   const runtime = await runtimeFor(input);
   if (!runtime.ok) return runtime;
-  const run = await runtime.value.run('youtube', { ref: videoId });
-  if (!run.ok) return run;
+  try {
+    const run = await runtime.value.run('youtube', { ref: videoId });
+    if (!run.ok) return run;
 
-  if (options.refreshTranscript) {
-    const cleanup = await deleteStaleExcerpts(input.store, run.value.resourceId, run.value.excerptIds);
-    if (!cleanup.ok) return cleanup;
+    if (options.refreshTranscript) {
+      const cleanup = await deleteStaleExcerpts(input.store, run.value.resourceId, run.value.excerptIds);
+      if (!cleanup.ok) return cleanup;
+    }
+
+    return {
+      ok: true,
+      value: {
+        nodeId: run.value.resourceId,
+        classification: run.value.classification,
+        created: run.value.dedupAction === 'create',
+        report: run.value,
+      },
+    };
+  } finally {
+    await runtime.value.close();
   }
-
-  return {
-    ok: true,
-    value: {
-      nodeId: run.value.resourceId,
-      classification: run.value.classification,
-      created: run.value.dedupAction === 'create',
-      report: run.value,
-    },
-  };
 }
 
 export async function ingestYouTubePlaylist(

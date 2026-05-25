@@ -21,7 +21,7 @@ import type {
   ClassificationResult,
   PipelineServices,
 } from '@aidha/praecis-core';
-import { composeVector, createConfiguredPipelineServices, createPipelineRuntime, normalizeText } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntime, normalizeText } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
@@ -495,18 +495,24 @@ export async function runEmailBatch(
   const services = servicesResult.value;
   for (const thread of threads) {
     const vector = createEmailVectorSpec(thread);
-    const runtime = createPipelineRuntime(services);
-    runtime.register(vector);
     const runEmailThread = async () => {
-      const run = await runtime.run('email', { ref: thread.messages.map(message => message.filePath).join(', ') });
-      if (!run.ok) {
+      const runtime = await createIngestionRuntime(services);
+      if (!runtime.ok) {
+        return runtime;
+      }
+      try {
+        const run = await runtime.value.runVector(vector, { ref: thread.messages.map(message => message.filePath).join(', ') });
+        if (!run.ok) {
+          return run;
+        }
+        const reparent = await reparentEmailThread(services.store, thread, { skipTransaction: true });
+        if (!reparent.ok) {
+          return { ok: false as const, error: reparent.error };
+        }
         return run;
+      } finally {
+        await runtime.value.close();
       }
-      const reparent = await reparentEmailThread(services.store, thread, { skipTransaction: true });
-      if (!reparent.ok) {
-        return { ok: false as const, error: reparent.error };
-      }
-      return run;
     };
     const run = services.store.runInTransaction
       ? await services.store.runInTransaction(runEmailThread)

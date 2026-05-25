@@ -35,6 +35,7 @@ export {
 
 export {
   LocatorSchema,
+  TaxonomyAssignmentMetadataSchema,
   ResourceMetadataSchema,
   ExcerptMetadataSchema,
   ClaimMetadataSchema,

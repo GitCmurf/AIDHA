@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -371,6 +371,46 @@ describe('aidha cli phase-1 surface', () => {
       tagsAssigned: 1,
     });
     expect(summary.metadataConflictCount).toBe(0);
+  });
+
+  it.runIf(SQLiteStore.isAvailable())('persists generic vector taxonomy assignments across fresh CLI service lifetimes', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-taxonomy-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    try {
+      const seeded = taxonomyServices();
+      const config = { ...seeded.config!, db: dbPath };
+      const firstStore = SQLiteStore.open(dbPath);
+      let first: Awaited<ReturnType<typeof runLinkedInIngest>>;
+      try {
+        first = await runLinkedInIngest('stdin', {
+          pasteText: 'LinkedIn update about durable ingestion.',
+          services: { ...seeded, config, store: firstStore },
+        });
+      } finally {
+        await firstStore.close();
+      }
+
+      const secondStore = SQLiteStore.open(dbPath);
+      let second: Awaited<ReturnType<typeof runLinkedInIngest>>;
+      let resource: Awaited<ReturnType<SQLiteStore['getNode']>>;
+      try {
+        second = await runLinkedInIngest('stdin', {
+          pasteText: 'LinkedIn update about durable ingestion.',
+          services: { ...seeded, config, store: secondStore },
+        });
+        resource = await secondStore.getNode(second.resourceId);
+      } finally {
+        await secondStore.close();
+      }
+
+      expect(first.classification).toMatchObject({ status: 'completed', tagsMatched: 1, tagsAssigned: 1 });
+      expect(second.classification).toMatchObject({ status: 'completed', tagsMatched: 1, tagsAssigned: 0 });
+      expect(resource.ok).toBe(true);
+      if (!resource.ok) throw resource.error;
+      expect(resource.value?.metadata?.['taxonomyAssignments']).toMatchObject([{ tagId: 'tag-1' }]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('explains config provenance for source registrations', async () => {

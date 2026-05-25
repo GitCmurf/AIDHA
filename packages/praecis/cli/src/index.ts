@@ -50,7 +50,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createConfiguredPipelineServices, createPipelineRuntime, type ClassificationResult, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
+import { composeVector, createIngestionRuntime, type ClassificationResult, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { CLI_USAGE_TEXT } from './help.js';
@@ -164,41 +164,43 @@ async function buildIngestSummary(
   services: Partial<PipelineServices> = {},
 ): Promise<IngestSummary> {
   const ingestInput = metadata ? { ref, metadata } : { ref };
-  const runtimeServices = await createConfiguredPipelineServices(services);
-  if (!runtimeServices.ok) {
-    throw runtimeServices.error;
+  const runtime = await createIngestionRuntime(services);
+  if (!runtime.ok) {
+    throw runtime.error;
   }
-  const runtime = createPipelineRuntime(runtimeServices.value);
-  runtime.register(vector);
-  const result = await runtime.run(vector.sourceId, ingestInput);
-  if (!result.ok) {
-    throw result.error;
-  }
+  try {
+    const result = await runtime.value.runVector(vector, ingestInput);
+    if (!result.ok) {
+      throw result.error;
+    }
 
-  return {
-    sourceId,
-    ref,
-    canonicalId: result.value.canonicalId,
-    resourceId: result.value.resourceId,
-    segmentCount: result.value.segmentCount,
-    chunkCount: result.value.chunkCount,
-    claimsExtracted: result.value.claimsExtracted,
-    claimIds: result.value.claimIds,
-    claims: result.value.claims.map(claim => ({
-      text: claim.text,
-      excerptIds: claim.excerptIds,
-      method: claim.metadata?.['method'],
-      model: claim.metadata?.['model'],
-      promptVersion: claim.metadata?.['promptVersion'],
-    })),
-    dedupAction: result.value.dedupAction,
-    policyRoute: result.value.policyRoute,
-    classification: result.value.classification,
-    metadataConflictCount: result.value.metadataConflictCount,
-    warnings: result.value.warnings,
-    segments: normalizeOutputSegments(result.value.segments),
-    chunks: normalizeOutputChunks(result.value.chunks),
-  };
+    return {
+      sourceId,
+      ref,
+      canonicalId: result.value.canonicalId,
+      resourceId: result.value.resourceId,
+      segmentCount: result.value.segmentCount,
+      chunkCount: result.value.chunkCount,
+      claimsExtracted: result.value.claimsExtracted,
+      claimIds: result.value.claimIds,
+      claims: result.value.claims.map(claim => ({
+        text: claim.text,
+        excerptIds: claim.excerptIds,
+        method: claim.metadata?.['method'],
+        model: claim.metadata?.['model'],
+        promptVersion: claim.metadata?.['promptVersion'],
+      })),
+      dedupAction: result.value.dedupAction,
+      policyRoute: result.value.policyRoute,
+      classification: result.value.classification,
+      metadataConflictCount: result.value.metadataConflictCount,
+      warnings: result.value.warnings,
+      segments: normalizeOutputSegments(result.value.segments),
+      chunks: normalizeOutputChunks(result.value.chunks),
+    };
+  } finally {
+    await runtime.value.close();
+  }
 }
 
 export async function runWebIngest(ref: string, fetchFn?: WebFetchFn, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {

@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.7"
+version: "2.8"
 last_updated: 2026-05-25
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.7
+> **Version:** 2.8
 > **Last Updated:** 2026-05-25
 > **Type:** PLAN
 
@@ -54,6 +54,7 @@ docops_version: "2.0"
 | 2.5     | 2026-05-25 | AI     | Remediated the r3 taxonomy-classification honesty blocker: added an optional shared `IClassifier` port with keyword taxonomy assignment, made disabled classification explicit in `RunReport`, replaced the masking YouTube tag-count test with a real registry-assignment assertion, and surfaced Resource metadata conflict counts. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r3.txt` |
 | 2.6     | 2026-05-25 | AI     | Closed the r4 production-wiring blocker: taxonomy classification now seeds from `extensions.taxonomy`, both production CLIs thread the seeded registry into the spine, CLI summaries expose classification and metadata-conflict telemetry, and tag counts distinguish matched tags from net-new assignments. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r4.txt` |
 | 2.7     | 2026-05-25 | AI     | Closed the r5 durability blocker: taxonomy assignments now persist on graph Resource metadata, fresh service/store reruns report only durable net-new assignments, generic vectors use the same configured service builder, and YouTube no longer has privileged classification or core persistence routing. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r5.txt` |
+| 2.8     | 2026-05-25 | AI     | Hardened the shared ingestion architecture after self-review: added the production `createIngestionRuntime` facade, typed durable taxonomy assignment metadata in the graph schema, source-neutral runtime/layering guardrails, and a generic-vector fresh-service taxonomy idempotency test so YouTube is no longer structurally distinguishable from other vectors. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -764,7 +765,23 @@ export interface PipelineRuntime {
 }
 
 export function createPipelineRuntime(services: PipelineServices): PipelineRuntime;
+
+export interface ConfiguredIngestionRuntime extends PipelineRuntime {
+  runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>>;
+  close(): Promise<void>;
+}
+
+export function createIngestionRuntime(
+  services?: Partial<PipelineServices>,
+): Promise<Result<ConfiguredIngestionRuntime>>;
 ```
+
+Production CLIs and source packages assemble ingestion through
+`createIngestionRuntime`, which resolves configured services, config-seeded
+taxonomy vocabulary, durable graph-backed taxonomy assignment storage, privacy,
+cache, cost ceiling, and lifecycle ownership in one place. `createPipelineRuntime`
+remains the low-level runtime primitive used by core tests and runtime
+implementation code; vector packages do not assemble it directly.
 
 The shared pipeline (`core/src/pipeline/`) consumes a `ComposedVector` and runs:
 `acquire → decode(chain) → contextualize → chunk → mine → persist claims →
@@ -779,10 +796,11 @@ builder seeds taxonomy vocabulary from categories, topics, and tags, then backs
 Resource tag assignments with the graph store. The default
 `KeywordTaxonomyClassifier` assigns matching tag names/aliases to the persisted
 Resource after export resolves the final Resource ID. Assignments persist on
-Resource metadata as `taxonomyAssignments`, so later commands and fresh process
-reruns read the same durable state. When absent, `RunReport.classification.status`
-is `disabled`; when present, `tagsMatched` reports matching taxonomy tags and
-`tagsAssigned` reports durable net-new assignments.
+Resource metadata as typed `taxonomyAssignments` validated by the graph schema,
+so later commands and fresh process reruns read the same durable state. When
+absent, `RunReport.classification.status` is `disabled`; when present,
+`tagsMatched` reports matching taxonomy tags and `tagsAssigned` reports durable
+net-new assignments.
 
 `VectorSpec.chunking` is resolved at compose time, but a vector whose policy is only
 known at *content* time (PDF slide-vs-paper, Section 6.2) supplies a **selector

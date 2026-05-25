@@ -8,6 +8,7 @@ import {
   ResourceMetadataSchema,
   ExcerptMetadataSchema,
   ClaimMetadataSchema,
+  TaxonomyAssignmentMetadataSchema,
 } from '../../src/schema/index.js';
 
 describe('SourceType', () => {
@@ -140,6 +141,37 @@ describe('ResourceMetadataSchema', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.provenances).toHaveLength(1);
+  });
+
+  it('validates durable taxonomy assignments', () => {
+    const result = ResourceMetadataSchema.safeParse({
+      canonicalId: 'web:https://example.com',
+      sourceType: 'web',
+      taxonomyAssignments: [{
+        nodeId: 'web:https://example.com',
+        tagId: 'tag-1',
+        confidence: 0.7,
+        source: 'automatic',
+        assignedBy: 'praecis-keyword-classifier',
+        assignedAt: '2026-05-25T12:00:00.000Z',
+      }],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.taxonomyAssignments?.[0]?.tagId).toBe('tag-1');
+  });
+
+  it('rejects malformed taxonomy assignments', () => {
+    const result = TaxonomyAssignmentMetadataSchema.safeParse({
+      nodeId: 'web:https://example.com',
+      tagId: 'tag-1',
+      confidence: 1.5,
+      source: 'automatic',
+      assignedAt: 'not-a-date',
+    });
+
+    expect(result.success).toBe(false);
   });
 });
 

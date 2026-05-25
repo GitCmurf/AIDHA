@@ -19,6 +19,7 @@ import {
 } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import { applyDedupResolution } from '../compose/dedup-link.js';
+import { readTaxonomyAssignments, withTaxonomyAssignment, withoutTaxonomyAssignment } from './taxonomy-metadata.js';
 import {
   createLlmClientFromConfig,
   DEFAULT_COST_PER_1K_TOKENS,
@@ -380,8 +381,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-const TAXONOMY_ASSIGNMENTS_METADATA_KEY = 'taxonomyAssignments';
-
 function taxonomyExtensionFromConfig(config: ResolvedConfig): Record<string, unknown> | undefined {
   const merged: Record<string, unknown> = {};
   for (const scope of [config.extensions?.global, config.extensions?.source, config.extensions?.profile]) {
@@ -435,19 +434,6 @@ function mergeById<T extends { id: string }>(
 
 function assignmentTimestamp(): string {
   return new Date().toISOString();
-}
-
-function parseAssignments(metadata: Record<string, unknown>): TagAssignment[] {
-  const value = metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY];
-  if (!Array.isArray(value)) return [];
-  return value.flatMap(entry => {
-    const parsed = TagAssignment.safeParse(entry);
-    return parsed.success ? [parsed.data] : [];
-  });
-}
-
-function assignmentKey(assignment: Pick<TagAssignment, 'nodeId' | 'tagId'>): string {
-  return `${assignment.nodeId}|${assignment.tagId}`;
 }
 
 export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
@@ -533,12 +519,7 @@ export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
         source: input.source ?? 'manual',
         assignedAt: assignmentTimestamp(),
       });
-      const metadata = { ...(resource.value.metadata ?? {}) };
-      const existing = parseAssignments(metadata);
-      const byKey = new Map(existing.map(item => [assignmentKey(item), item]));
-      byKey.set(assignmentKey(assignment), assignment);
-      const assignments = Array.from(byKey.values()).sort((a, b) => a.tagId.localeCompare(b.tagId));
-      metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY] = assignments;
+      const metadata = withTaxonomyAssignment({ ...(resource.value.metadata ?? {}) }, assignment);
 
       const updated = await this.store.upsertNode(
         resource.value.type,
@@ -561,7 +542,7 @@ export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
     const resource = await this.store.getNode(nodeId);
     if (!resource.ok) return resource;
     if (!resource.value) return { ok: true, value: [] };
-    const assignments = parseAssignments(resource.value.metadata ?? {})
+    const assignments = readTaxonomyAssignments(resource.value.metadata ?? {})
       .filter(assignment => assignment.nodeId === nodeId)
       .sort((a, b) => a.tagId.localeCompare(b.tagId));
     return { ok: true, value: assignments };
@@ -571,13 +552,7 @@ export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
     const resource = await this.store.getNode(nodeId);
     if (!resource.ok) return resource;
     if (!resource.value) return { ok: true, value: undefined };
-    const metadata = { ...(resource.value.metadata ?? {}) };
-    const assignments = parseAssignments(metadata).filter(assignment => !(assignment.nodeId === nodeId && assignment.tagId === tagId));
-    if (assignments.length > 0) {
-      metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY] = assignments;
-    } else {
-      delete metadata[TAXONOMY_ASSIGNMENTS_METADATA_KEY];
-    }
+    const metadata = withoutTaxonomyAssignment({ ...(resource.value.metadata ?? {}) }, nodeId, tagId);
     const updated = await this.store.upsertNode(
       resource.value.type,
       resource.value.id,
