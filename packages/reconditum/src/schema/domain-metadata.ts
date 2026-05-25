@@ -112,3 +112,15 @@ export const ClaimMetadataSchema = z.object({
 }).passthrough();  // allow additional metadata fields
 
 export type ClaimMetadataSchema = z.infer<typeof ClaimMetadataSchema>;
+
+// ---------------------------------------------------------------------------
+// ReferenceMetadataSchema — validates Reference node metadata
+// ---------------------------------------------------------------------------
+
+export const ReferenceMetadataSchema = z.object({
+  url: z.string().url().optional(),
+  resourceId: z.string().optional(),
+  source: SourceType.optional(),
+}).passthrough();
+
+export type ReferenceMetadataSchema = z.infer<typeof ReferenceMetadataSchema>;

@@ -46,4 +46,30 @@ describe.each(stores)('domain metadata validation on %s writes', (_name, createS
       await store.close();
     }
   }, 60_000);
+
+  it('rejects invalid Reference URL metadata', async () => {
+    const store = await createStore();
+    try {
+      const result = await store.upsertNode('Reference', 'ref-invalid', {
+        label: 'Invalid',
+        metadata: { url: 'not a url', resourceId: 'resource-1', source: 'web' },
+      });
+      expect(result.ok).toBe(false);
+    } finally {
+      await store.close();
+    }
+  }, 60_000);
+
+  it('accepts valid Reference metadata', async () => {
+    const store = await createStore();
+    try {
+      const result = await store.upsertNode('Reference', 'ref-valid', {
+        label: 'Reference',
+        metadata: { url: 'https://example.com/docs', resourceId: 'resource-1', source: 'web' },
+      });
+      expect(result.ok).toBe(true);
+    } finally {
+      await store.close();
+    }
+  }, 60_000);
 });

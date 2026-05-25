@@ -5,6 +5,7 @@ import type { GraphNode, GraphEdge, NodeType } from '../schema/index.js';
 import {
   ClaimMetadataSchema,
   ExcerptMetadataSchema,
+  ReferenceMetadataSchema,
   ResourceMetadataSchema,
 } from '../schema/domain-metadata.js';
 import type { NodeSortField, EdgeSortField, SortOption } from './types.js';
@@ -45,6 +46,7 @@ export function validateNodeMetadata(type: NodeType, metadata: Record<string, un
     type === 'Resource' ? ResourceMetadataSchema.safeParse(metadata)
     : type === 'Excerpt' ? ExcerptMetadataSchema.safeParse(metadata)
     : type === 'Claim' ? ClaimMetadataSchema.safeParse(metadata)
+    : type === 'Reference' ? ReferenceMetadataSchema.safeParse(metadata)
     : { success: true as const, data: metadata };
 
   if (!result.success) {
