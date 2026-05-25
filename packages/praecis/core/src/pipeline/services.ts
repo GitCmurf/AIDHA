@@ -19,7 +19,7 @@ import {
 } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import { applyDedupResolution } from '../compose/dedup-link.js';
-import { readTaxonomyAssignments, withTaxonomyAssignment, withoutTaxonomyAssignment } from './taxonomy-metadata.js';
+import { readTaxonomyAssignmentsResult, withTaxonomyAssignment, withoutTaxonomyAssignment } from './taxonomy-metadata.js';
 import {
   createLlmClientFromConfig,
   DEFAULT_COST_PER_1K_TOKENS,
@@ -542,7 +542,9 @@ export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
     const resource = await this.store.getNode(nodeId);
     if (!resource.ok) return resource;
     if (!resource.value) return { ok: true, value: [] };
-    const assignments = readTaxonomyAssignments(resource.value.metadata ?? {})
+    const assignmentsResult = readTaxonomyAssignmentsResult(resource.value.metadata ?? {});
+    if (!assignmentsResult.ok) return assignmentsResult;
+    const assignments = assignmentsResult.value
       .filter(assignment => assignment.nodeId === nodeId)
       .sort((a, b) => a.tagId.localeCompare(b.tagId));
     return { ok: true, value: assignments };

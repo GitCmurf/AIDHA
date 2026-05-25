@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { composeVector, transcribeStrategy, diarizeStrategy } from '../../src/compose/vector.js';
 import type { VectorSpec } from '../../src/compose/vector.js';
 import { createPipelineRuntime } from '../../src/compose/runtime.js';
+import { createIngestionRuntime } from '../../src/compose/ingestion-runtime.js';
 import type { IIngestor, IDecodeStrategy, IContextProvider, IngestInput, ITranscriber, IDiarizer, TimecodedSegment, AudioRef, TranscribeOptions } from '../../src/interfaces/index.js';
 import type { RawSource, DecodeOutput, ExtractionContext } from '../../src/types/index.js';
 import type { Result } from '@aidha/taxonomy';
@@ -219,5 +220,32 @@ describe('createPipelineRuntime', () => {
     const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
     const result = await runtime.run('any', { ref: 'x' });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('createIngestionRuntime', () => {
+  it('runVector executes the supplied vector even when sourceId repeats', async () => {
+    const runtime = await createIngestionRuntime({ allowHeuristicFallback: true });
+    expect(runtime.ok).toBe(true);
+    if (!runtime.ok) throw runtime.error;
+    try {
+      const first = composeVector(makeSpec());
+      const second = composeVector(makeSpec({
+        ingestor: makeIngestor('test-source', { variant: 'second' }),
+        decode: [makeDecodeStrategy('plain-text')],
+      }));
+
+      const firstResult = await runtime.value.runVector(first, { ref: 'one' });
+      const secondResult = await runtime.value.runVector(second, { ref: 'two' });
+
+      expect(firstResult.ok).toBe(true);
+      if (!firstResult.ok) throw firstResult.error;
+      expect(secondResult.ok).toBe(true);
+      if (!secondResult.ok) throw secondResult.error;
+      expect(firstResult.value.canonicalId).toBe('web:one');
+      expect(secondResult.value.canonicalId).toBe('web:two');
+    } finally {
+      await runtime.value.close();
+    }
   });
 });

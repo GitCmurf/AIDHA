@@ -60,7 +60,7 @@ import {
 import { composeVector, createIngestionRuntime, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
-import { CLI_USAGE_TEXT } from './help.js';
+import { CLI_USAGE_TEXT, INGEST_USAGE_LINES } from './help.js';
 
 export interface CliOptions {
   [key: string]: string | boolean | undefined;
@@ -102,18 +102,28 @@ export interface IngestSummary {
   }>;
 }
 
-const SOURCE_REGISTRATIONS: SourceRegistration[] = [
-  YouTubeSourceRegistration,
-  WebSourceRegistration,
-  PdfSourceRegistration,
-  VoiceSourceRegistration,
-  MeetingSourceRegistration,
-  RssSourceRegistration,
-  PodcastSourceRegistration,
-  ReadwiseSourceRegistration,
-  EmailSourceRegistration,
-  LinkedInSourceRegistration,
-];
+type SourceId = IngestSummary['sourceId'];
+
+export interface YouTubeBatchSummary {
+  readonly sourceId: 'youtube';
+  readonly playlistId: string;
+  readonly videos: number;
+  readonly summaries: readonly IngestSummary[];
+}
+
+type IngestCommandSummary = IngestSummary | ReadwiseBatchSummary | EmailBatchSummary | YouTubeBatchSummary;
+
+interface SourceIngestManifest<TSummary extends IngestCommandSummary = IngestCommandSummary> {
+  readonly sourceId: SourceId;
+  readonly registration: SourceRegistration;
+  readonly usage: string;
+  run(args: {
+    readonly positionals: readonly string[];
+    readonly options: CliOptions;
+    readonly services: Partial<PipelineServices>;
+  }): Promise<TSummary>;
+  print(summary: TSummary): readonly string[];
+}
 
 function isString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
@@ -169,6 +179,21 @@ function parseYouTubeVideoId(input: string): string {
     }
     if (url.pathname.startsWith('/embed/')) {
       return url.pathname.slice(7);
+    }
+  } catch {
+    return input;
+  }
+  return input;
+}
+
+function parseYouTubePlaylistId(input: string): string {
+  if (!input.includes('/') && !input.includes('.')) {
+    return input;
+  }
+  try {
+    const url = new URL(input);
+    if (url.searchParams.has('list')) {
+      return url.searchParams.get('list') ?? input;
     }
   } catch {
     return input;
@@ -354,6 +379,38 @@ export async function runYouTubeIngest(
   return buildIngestSummary('youtube', ref, composeVector(createYouTubeVectorSpec(client)), undefined, options.services ?? {});
 }
 
+export async function runYouTubePlaylistIngest(
+  playlistRef: string,
+  options: { client?: YouTubeClient; services?: Partial<PipelineServices> } = {},
+): Promise<YouTubeBatchSummary> {
+  const youtubeConfig = youtubeConfigFromResolved(options.services?.config);
+  const client = options.client ?? new RealYouTubeClient(youtubeConfig.youtube, {
+    ...youtubeConfig.ytdlp,
+    debugTranscript: youtubeConfig.youtube.debugTranscript,
+  });
+  const playlistId = parseYouTubePlaylistId(playlistRef);
+  const videos = await client.fetchPlaylist(playlistId);
+  if (!videos.ok) {
+    throw videos.error;
+  }
+  const summaries: IngestSummary[] = [];
+  for (const videoId of videos.value.videoIds) {
+    summaries.push(await buildIngestSummary(
+      'youtube',
+      videoId,
+      composeVector(createYouTubeVectorSpec(client)),
+      undefined,
+      options.services ?? {},
+    ));
+  }
+  return {
+    sourceId: 'youtube',
+    playlistId,
+    videos: summaries.length,
+    summaries,
+  };
+}
+
 export async function resolveAidhaConfig(
   opts: { configPath?: string; profile?: string; source?: string } = {},
 ): Promise<{ readonly ok: true; readonly config: ResolvedConfig; readonly loadResult: LoadResult } | { readonly ok: false; readonly error: Error; readonly loadResult: LoadResult }> {
@@ -476,6 +533,182 @@ async function withRuntimeServicesForSource<T>(
   }
 }
 
+function printSingleIngestSummary(summary: IngestSummary): readonly string[] {
+  return [
+    `Ingested ${summary.sourceId} ${summary.ref}`,
+    `Canonical: ${summary.canonicalId}`,
+    `Segments: ${summary.segmentCount}`,
+    `Chunks: ${summary.chunkCount}`,
+  ];
+}
+
+function isYouTubeBatchSummary(summary: IngestCommandSummary): summary is YouTubeBatchSummary {
+  return summary.sourceId === 'youtube' && 'playlistId' in summary;
+}
+
+function isReadwiseBatchSummary(summary: IngestCommandSummary): summary is ReadwiseBatchSummary {
+  return summary.sourceId === 'readwise' && 'totalBooks' in summary;
+}
+
+function isEmailBatchSummary(summary: IngestCommandSummary): summary is EmailBatchSummary {
+  return summary.sourceId === 'email' && 'threads' in summary;
+}
+
+function isSingleIngestSummary(summary: IngestCommandSummary): summary is IngestSummary {
+  return 'canonicalId' in summary;
+}
+
+function requireRef(options: CliOptions, positionals: readonly string[], key: string, usage: string): string {
+  const ref = optionString(options, key) ?? positionals[2];
+  if (!ref) {
+    throw new Error(`Usage: ${usage}`);
+  }
+  return ref;
+}
+
+const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
+  {
+    sourceId: 'youtube',
+    registration: YouTubeSourceRegistration,
+    usage: INGEST_USAGE_LINES[0],
+    async run({ positionals, options, services }) {
+      const mock = optionBool(options, 'mock');
+      const youtubeServices: Partial<PipelineServices> = mock
+        ? {
+            ...services,
+            ...(services.config && !services.config.llm.model
+              ? { config: { ...services.config, llm: { ...services.config.llm, model: 'mock-youtube-llm' } } }
+              : {}),
+            llm: createMockExtractionLlm(),
+          }
+        : services;
+      const client = mock ? new MockYouTubeClient() : undefined;
+      const playlist = optionString(options, 'playlist');
+      if (playlist) {
+        return runYouTubePlaylistIngest(playlist, { ...(client ? { client } : {}), services: youtubeServices });
+      }
+      const ref = optionString(options, 'url') ?? positionals[2];
+      if (!ref) {
+        throw new Error(`Usage: ${INGEST_USAGE_LINES[0]}`);
+      }
+      return runYouTubeIngest(parseYouTubeVideoId(ref), { ...(client ? { client } : {}), services: youtubeServices });
+    },
+    print(summary) {
+      if (isYouTubeBatchSummary(summary)) {
+        return [
+          `Ingested youtube playlist ${summary.playlistId}`,
+          `Videos: ${summary.videos}`,
+          `Summaries: ${summary.summaries.length}`,
+        ];
+      }
+      return isSingleIngestSummary(summary) ? printSingleIngestSummary(summary) : [`Ingested ${summary.sourceId}`];
+    },
+  },
+  {
+    sourceId: 'web',
+    registration: WebSourceRegistration,
+    usage: INGEST_USAGE_LINES[1],
+    run: ({ positionals, options, services }) => runWebIngest(requireRef(options, positionals, 'url', INGEST_USAGE_LINES[1]), undefined, services),
+    print: printSingleIngestSummary,
+  },
+  {
+    sourceId: 'pdf',
+    registration: PdfSourceRegistration,
+    usage: INGEST_USAGE_LINES[2],
+    run: ({ positionals, options, services }) => runPdfIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[2]), undefined, services),
+    print: printSingleIngestSummary,
+  },
+  {
+    sourceId: 'voice',
+    registration: VoiceSourceRegistration,
+    usage: INGEST_USAGE_LINES[3],
+    run: ({ positionals, options, services }) => runVoiceIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[3]), services),
+    print: printSingleIngestSummary,
+  },
+  {
+    sourceId: 'meeting',
+    registration: MeetingSourceRegistration,
+    usage: INGEST_USAGE_LINES[4],
+    run: ({ positionals, options, services }) => runMeetingIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[4]), services),
+    print: printSingleIngestSummary,
+  },
+  {
+    sourceId: 'rss',
+    registration: RssSourceRegistration,
+    usage: INGEST_USAGE_LINES[5],
+    run: ({ positionals, options, services }) => runRssIngest(requireRef(options, positionals, 'feed', INGEST_USAGE_LINES[5]), {
+      ...(optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : {}),
+      services,
+    }),
+    print: printSingleIngestSummary,
+  },
+  {
+    sourceId: 'podcast',
+    registration: PodcastSourceRegistration,
+    usage: INGEST_USAGE_LINES[6],
+    run: ({ positionals, options, services }) => runPodcastIngest(requireRef(options, positionals, 'feed', INGEST_USAGE_LINES[6]), {
+      ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
+      ...(optionBool(options, 'panel') ? { panel: true } : {}),
+      services,
+    }),
+    print: printSingleIngestSummary,
+  },
+  {
+    sourceId: 'readwise',
+    registration: ReadwiseSourceRegistration,
+    usage: INGEST_USAGE_LINES[7],
+    run: ({ positionals, options, services }) => {
+      const since = optionString(options, 'since') ?? positionals[2];
+      const token = optionString(options, 'token') ?? process.env['READWISE_TOKEN'];
+      if (!token) {
+        throw new Error(`Usage: ${INGEST_USAGE_LINES[7]}`);
+      }
+      return runReadwiseIngest(since, { token, services });
+    },
+    print(summary) {
+      if (!isReadwiseBatchSummary(summary)) return [`Ingested ${summary.sourceId}`];
+      return [
+        `Ingested readwise export since ${summary.updatedAfter ?? 'start'}`,
+        `Books: ${summary.totalBooks}`,
+        `Summaries: ${summary.summaries.length}`,
+      ];
+    },
+  },
+  {
+    sourceId: 'email',
+    registration: EmailSourceRegistration,
+    usage: INGEST_USAGE_LINES[8],
+    run: ({ positionals, options, services }) => runEmailIngest(requireRef(options, positionals, 'file', INGEST_USAGE_LINES[8]), services),
+    print(summary) {
+      if (!isEmailBatchSummary(summary)) return [`Ingested ${summary.sourceId}`];
+      return [
+        'Ingested email batch',
+        `Threads: ${summary.threads}`,
+        `Messages: ${summary.importedFiles}`,
+      ];
+    },
+  },
+  {
+    sourceId: 'linkedin',
+    registration: LinkedInSourceRegistration,
+    usage: INGEST_USAGE_LINES[9],
+    async run({ positionals, options, services }) {
+      const url = optionString(options, 'url') ?? positionals[2];
+      const pasteOption = options['paste'];
+      const pasteText = optionString(options, 'paste') ?? (pasteOption === true ? await readStdinText() : undefined);
+      if (!pasteText) {
+        throw new Error(`Usage: ${INGEST_USAGE_LINES[9]}`);
+      }
+      const linkedInOptions = url ? { pasteText, url, services } : { pasteText, services };
+      return runLinkedInIngest(url ?? 'stdin', linkedInOptions);
+    },
+    print: printSingleIngestSummary,
+  },
+] as const;
+
+const SOURCE_MANIFEST_BY_ID = new Map(SOURCE_MANIFESTS.map(manifest => [manifest.sourceId, manifest]));
+const SOURCE_REGISTRATIONS: SourceRegistration[] = SOURCE_MANIFESTS.map(manifest => manifest.registration);
+
 export async function runCli(argv: string[]): Promise<number> {
   const positionals: string[] = [];
   const options: CliOptions = {};
@@ -526,212 +759,24 @@ export async function runCli(argv: string[]): Promise<number> {
 
     if (command === 'ingest') {
       const mode = positionals[1];
-      if (mode === 'youtube') {
-        const ref = optionString(options, 'url') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest youtube --url <videoIdOrUrl> [--mock] [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('youtube', options, services => {
-          const mock = optionBool(options, 'mock');
-          const mockServices: Partial<PipelineServices> = {
-            ...services,
-            ...(services.config && !services.config.llm.model ? { config: { ...services.config, llm: { ...services.config.llm, model: 'mock-youtube-llm' } } } : {}),
-            llm: createMockExtractionLlm(),
-          };
-          return runYouTubeIngest(parseYouTubeVideoId(ref), {
-            ...(mock ? { client: new MockYouTubeClient() } : {}),
-            services: mock ? mockServices : services,
-          });
-        });
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested youtube ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
+      const manifest = isString(mode) ? SOURCE_MANIFEST_BY_ID.get(mode as SourceId) : undefined;
+      if (!manifest) {
+        console.error(`Usage: ingest <${SOURCE_MANIFESTS.map(item => item.sourceId).join('|')}> ...`);
+        return 1;
       }
-
-      if (mode === 'web') {
-        const ref = optionString(options, 'url') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest web --url <url> [--json]');
-          return 1;
+      const summary = await withRuntimeServicesForSource(manifest.sourceId, options, services => manifest.run({
+        positionals,
+        options,
+        services,
+      }));
+      if (optionBool(options, 'json')) {
+        console.log(JSON.stringify(summary, null, 2));
+      } else {
+        for (const line of manifest.print(summary)) {
+          console.log(line);
         }
-        const summary = await withRuntimeServicesForSource('web', options, services => runWebIngest(ref, undefined, services));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested web ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
       }
-
-      if (mode === 'pdf') {
-        const ref = optionString(options, 'file') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest pdf --file <path> [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('pdf', options, services => runPdfIngest(ref, undefined, services));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested pdf ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
-      }
-
-      if (mode === 'voice') {
-        const ref = optionString(options, 'file') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest voice --file <path> [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('voice', options, services => runVoiceIngest(ref, services));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested voice ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
-      }
-
-      if (mode === 'meeting') {
-        const ref = optionString(options, 'file') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest meeting --file <path> [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('meeting', options, services => runMeetingIngest(ref, services));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested meeting ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
-      }
-
-      if (mode === 'rss') {
-        const ref = optionString(options, 'feed') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest rss --feed <url> [--item-guid <guid>] [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('rss', options, services => runRssIngest(ref, {
-          ...(optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : {}),
-          services,
-        }));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested rss ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
-      }
-
-      if (mode === 'podcast') {
-        const ref = optionString(options, 'feed') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('podcast', options, services => runPodcastIngest(ref, {
-          ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
-          ...(optionBool(options, 'panel') ? { panel: true } : {}),
-          services,
-        }));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested podcast ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
-      }
-
-      if (mode === 'readwise') {
-        const since = optionString(options, 'since') ?? positionals[2];
-        const token = optionString(options, 'token') ?? process.env['READWISE_TOKEN'];
-        if (!token) {
-          console.error('Usage: ingest readwise --since <iso8601> [--token <token>] [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('readwise', options, services => runReadwiseIngest(since, { token, services }));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested readwise export since ${since ?? 'start'}`);
-          console.log(`Books: ${summary.totalBooks}`);
-          console.log(`Summaries: ${summary.summaries.length}`);
-        }
-        return 0;
-      }
-
-      if (mode === 'email') {
-        const ref = optionString(options, 'file') ?? positionals[2];
-        if (!ref) {
-          console.error('Usage: ingest email --file <path> [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('email', options, services => runEmailIngest(ref, services));
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested email ${ref}`);
-          console.log(`Threads: ${summary.threads}`);
-          console.log(`Messages: ${summary.importedFiles}`);
-        }
-        return 0;
-      }
-
-      if (mode === 'linkedin') {
-        const url = optionString(options, 'url') ?? positionals[2];
-        const pasteOption = options['paste'];
-        const pasteText =
-          optionString(options, 'paste') ??
-          (pasteOption === true ? await readStdinText() : undefined);
-        if (!pasteText) {
-          console.error('Usage: ingest linkedin --paste <text> [--url <url>] [--json]');
-          return 1;
-        }
-        const summary = await withRuntimeServicesForSource('linkedin', options, services => {
-          const linkedInOptions = url ? { pasteText, url, services } : { pasteText, services };
-          return runLinkedInIngest(url ?? 'stdin', linkedInOptions);
-        });
-        if (optionBool(options, 'json')) {
-          console.log(JSON.stringify(summary, null, 2));
-        } else {
-          console.log(`Ingested linkedin ${summary.ref}`);
-          console.log(`Canonical: ${summary.canonicalId}`);
-          console.log(`Segments: ${summary.segmentCount}`);
-          console.log(`Chunks: ${summary.chunkCount}`);
-        }
-        return 0;
-      }
-
-      console.error('Usage: ingest <youtube|web|pdf|voice|meeting|rss|podcast|readwise|email|linkedin> ...');
-      return 1;
+      return 0;
     }
 
     console.log(CLI_USAGE_TEXT);

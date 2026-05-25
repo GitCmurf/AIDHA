@@ -36,10 +36,9 @@ export async function createIngestionRuntime(
         return runtime.run(sourceId, input);
       },
       runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>> {
-        if (!registered.has(vector.sourceId)) {
-          register(vector);
-        }
-        return runtime.run(vector.sourceId, input);
+        const singleRunRuntime = createPipelineRuntime(services.value);
+        singleRunRuntime.register(vector);
+        return singleRunRuntime.run(vector.sourceId, input);
       },
       async close(): Promise<void> {
         if (ownsTaxonomyRegistry) {

@@ -21,6 +21,7 @@ import {
   runVoiceIngest,
   runWebIngest,
   runYouTubeIngest,
+  runYouTubePlaylistIngest,
 } from '../src/index.js';
 
 function testConfig(): PipelineServices['config'] {
@@ -178,6 +179,54 @@ describe('aidha cli phase-1 surface', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  it('ingests youtube playlists through the same generic command surface', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-youtube-playlist-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'youtube', '--playlist', 'test-playlist', '--mock', '--json', '--config', configPath]);
+      expect(code).toBe(0);
+      const summary = JSON.parse(logs.join('\n')) as { sourceId: string; playlistId: string; videos: number; summaries: Array<{ sourceId: string }> };
+      expect(summary.sourceId).toBe('youtube');
+      expect(summary.playlistId).toBe('test-playlist');
+      expect(summary.videos).toBe(2);
+      expect(summary.summaries.map(item => item.sourceId)).toEqual(['youtube', 'youtube']);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('runs youtube playlist ingestion as a reusable helper', async () => {
+    const summary = await runYouTubePlaylistIngest('test-playlist', {
+      client: new MockYouTubeClient(),
+      services: services(),
+    });
+
+    expect(summary.sourceId).toBe('youtube');
+    expect(summary.playlistId).toBe('test-playlist');
+    expect(summary.summaries).toHaveLength(2);
+    expect(summary.summaries[0]?.canonicalId).toBe('youtube-test-video');
+    expect(summary.summaries[1]?.canonicalId).toBe('youtube-test-video-2');
   });
 
   it('ingests web fixtures with deterministic canonical ids and chunks', async () => {

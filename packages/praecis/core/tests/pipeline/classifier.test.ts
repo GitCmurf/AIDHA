@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
-import { createTaxonomyRegistryFromConfig, KeywordTaxonomyClassifier } from '../../src/pipeline/services.js';
+import { createTaxonomyRegistryFromConfig, GraphBackedTaxonomyRegistry, KeywordTaxonomyClassifier } from '../../src/pipeline/services.js';
 import type { ResolvedConfig } from '../../src/index.js';
 
 async function registryWithTag() {
@@ -116,6 +116,43 @@ describe('KeywordTaxonomyClassifier', () => {
 
     await registryResult.value.close();
     await store.close();
+  });
+
+  it('surfaces malformed persisted taxonomy assignment metadata', async () => {
+    const vocabulary = await registryWithTag();
+    const store = {
+      async getNode(id: string) {
+        return {
+          ok: true as const,
+          value: {
+            id,
+            type: 'Resource' as const,
+            label: 'Example',
+            createdAt: '2026-05-25T00:00:00.000Z',
+            updatedAt: '2026-05-25T00:00:00.000Z',
+            metadata: {
+              canonicalId: id,
+              sourceType: 'web',
+              provenances: [],
+              taxonomyAssignments: [{ tagId: 'tag-1' }],
+            },
+          },
+        };
+      },
+      async upsertNode() {
+        throw new Error('unexpected write');
+      },
+      close: async () => undefined,
+    };
+    const registry = new GraphBackedTaxonomyRegistry(vocabulary, store as never);
+
+    const assignments = await registry.getAssignments('web:https://example.com');
+
+    expect(assignments.ok).toBe(false);
+    if (assignments.ok) throw new Error('expected malformed metadata to fail');
+    expect(assignments.error.message).toContain('Invalid taxonomyAssignments metadata at index 0');
+
+    await registry.close();
   });
 
   it('reports malformed taxonomy seed entries at the config boundary', async () => {
