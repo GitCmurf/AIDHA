@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2026-02-15",
-      "version": "1.4",
+      "last_updated": "2026-05-25",
+      "version": "1.5",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -77,7 +77,7 @@
       "owner": "Ingestion Team",
       "status": "Draft",
       "last_updated": "2026-05-25",
-      "version": "0.32",
+      "version": "0.33",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -372,7 +372,7 @@
       "owner": "Ingestion Oncall",
       "status": "Draft",
       "last_updated": "2026-05-25",
-      "version": "1.20",
+      "version": "1.21",
       "title": "YouTube Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
@@ -483,7 +483,7 @@
       "document_id": "AIDHA-PLAN-007",
       "owner": "Ingestion Engineering Lead",
       "status": "In Review",
-      "version": "2.5",
+      "version": "2.6",
       "last_updated": "2026-05-25",
       "title": "Other Ingestion Vectors",
       "type": "PLAN",

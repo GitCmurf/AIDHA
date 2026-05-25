@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
-last_updated: 2026-02-15
-version: "1.4"
+last_updated: 2026-05-25
+version: "1.5"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.4
-> **Last Updated:** 2026-02-15
+> **Version:** 1.5
+> **Last Updated:** 2026-05-25
 > **Type:** GUIDE
 
 ## Version History
@@ -28,6 +28,7 @@ docops_version: "2.0"
 | 1.2     | 2026-02-14 | CMF    | Update SourceDefaults structure to match schema nesting | —         | Draft  | —         |
 | 1.3     | 2026-02-15 | AI     | Restore guide identity and clarify nested sources keys  | —         | Draft  | —         |
 | 1.4     | 2026-02-15 | AI     | Assign unique document ID and simplify overview text    | —         | Draft  | —         |
+| 1.5     | 2026-05-25 | AI     | Document taxonomy extension seed data for ingestion classification. | — | Draft | AIDHA-PLAN-007 |
 
 # AIDHA Configuration Guide
 
@@ -56,6 +57,34 @@ AIDHA searches for a configuration file in the following order:
 5. `~/.config/aidha/config.yaml` (Fallback)
 
 If no file is found, AIDHA runs with safe defaults.
+
+## Taxonomy Classification Seeds
+
+Ingestion classification is enabled by adding taxonomy seed data under the
+`extensions.taxonomy` key. The same shape can appear at the top level, under a
+source's `extensions`, or under a profile's `extensions`; resolution merges them
+as global -> source -> profile, deduping entries by `id`.
+
+```yaml
+extensions:
+  taxonomy:
+    categories:
+      - id: cat-learning
+        name: Learning
+    topics:
+      - id: topic-programming
+        name: Programming
+        categoryId: cat-learning
+    tags:
+      - id: tag-tutorial
+        name: tutorial
+        aliases: [walkthrough]
+        topicIds: [topic-programming]
+```
+
+When configured, the default classifier matches tag names and aliases against the
+ingested Resource text and reports `classification.status: completed`. Without
+this block, classification is explicitly reported as disabled.
 
 ## Configuration Structure
 
