@@ -6,16 +6,20 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runEvalMatrix } from './cli-eval.js';
-import { InMemoryRegistry } from '@aidha/taxonomy';
 import { SQLiteStore } from '@aidha/graph-backend';
+import {
+  composeVector,
+  createDefaultPipelineServices,
+  createPipelineRuntime,
+  type LlmClient,
+  type LlmCompletionRequest,
+  purgeClaimsForResource,
+  ReferenceExtractionPipeline,
+} from '@aidha/praecis-core';
+import type { GraphStore } from '@aidha/graph-backend';
 import {
   MockYouTubeClient,
   RealYouTubeClient,
-  IngestionPipeline,
-  ClaimExtractionPipeline,
-  LlmClaimExtractor,
-  ReferenceExtractionPipeline,
-  purgeClaimsForVideo,
   DossierExporter,
   searchClaims,
   findRelatedClaims,
@@ -34,12 +38,15 @@ import {
   formatTranscriptDiagnosis,
   formatExtractionDiagnosis,
 } from './index.js';
+import { createYouTubeVectorSpec } from './ingest/index.js';
 import { runConfig } from './cli/config-cmd.js';
 import { parseArgs } from './cli/parse.js';
 import { CLI_USAGE_TEXT } from './cli/help.js';
 import { formatIngestionStatus } from './cli/status.js';
 import type { ClaimState } from './utils/claim-state.js';
 import type { Result } from './pipeline/types.js';
+import type { YouTubeClient } from './client/types.js';
+import type { Playlist, Transcript, Video } from './schema/index.js';
 import { runYtDlpPreflight } from './client/yt-dlp.js';
 import { parseTranscriptTtml } from './client/transcript.js';
 import {
@@ -49,7 +56,6 @@ import {
 } from './cli/config-bridge.js';
 import type { ResolvedConfig } from '@aidha/config';
 import type { ResolvedYoutubeConfig } from './config/index.js';
-import { createLlmClientFromConfig } from './extract/llm-client.js';
 
 export type CliOptions = Record<string, string | boolean>;
 
@@ -57,6 +63,33 @@ export type CliOptions = Record<string, string | boolean>;
 const ENV_VERBOSE = 'AIDHA_VERBOSE';
 const ERROR_PREFIX = '[error]';
 const VERBOSE = process.env[ENV_VERBOSE] === '1' || process.env[ENV_VERBOSE] === 'true';
+
+function createMockExtractionLlm(): LlmClient {
+  return {
+    async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+      const excerptIds = Array.from(new Set(
+        request.user.match(/youtube-[A-Za-z0-9_-]+:excerpt:[a-f0-9]{16,32}|\b(?:seg-)?[a-f0-9]{16,32}\b/gu) ?? [],
+      ));
+      const excerptId = excerptIds[0] ?? 'mock-excerpt';
+      return {
+        ok: true,
+        value: JSON.stringify({
+          claims: [{
+            text: 'The mock YouTube fixture contains a claim-worthy point for review.',
+            excerptIds: [excerptId],
+            startSeconds: 0,
+            type: 'claim',
+            classification: 'fact',
+            domain: 'General',
+            confidence: 0.9,
+            why: 'Deterministic mock extraction keeps CLI tests offline.',
+            method: 'llm',
+          }],
+        }),
+      };
+    },
+  };
+}
 
 export function sanitizeErrorMessage(message: string): string {
   return message
@@ -192,6 +225,113 @@ function parseCsvList(options: CliOptions, key: string): string[] {
   return value.split(',').map(item => item.trim()).filter(Boolean);
 }
 
+function metadataString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function metadataNumber(metadata: Record<string, unknown> | undefined, key: string): number | undefined {
+  const value = metadata?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function timecodeFromMetadata(metadata: Record<string, unknown>): { start: number; end: number; speaker?: string } | null {
+  const start = metadataNumber(metadata, 'start');
+  const end = metadataNumber(metadata, 'end');
+  if (start !== undefined && end !== undefined) {
+    return {
+      start,
+      end,
+      ...(metadataString(metadata, 'speaker') ? { speaker: metadataString(metadata, 'speaker') } : {}),
+    };
+  }
+  const locator = metadata['locator'];
+  if (typeof locator === 'object' && locator !== null) {
+    const record = locator as Record<string, unknown>;
+    if (record['kind'] === 'timecode') {
+      const locatorStart = metadataNumber(record, 'startSec');
+      const locatorEnd = metadataNumber(record, 'endSec');
+      if (locatorStart !== undefined && locatorEnd !== undefined) {
+        return {
+          start: locatorStart,
+          end: locatorEnd,
+          ...(metadataString(record, 'speaker') ? { speaker: metadataString(record, 'speaker') } : {}),
+        };
+      }
+    }
+  }
+  return null;
+}
+
+async function createStoredYouTubeClient(store: GraphStore, videoId: string): Promise<YouTubeClient | null> {
+  const resourceId = `youtube-${videoId}`;
+  const resourceResult = await store.getNode(resourceId);
+  if (!resourceResult.ok || !resourceResult.value) return null;
+  const resource = resourceResult.value;
+  const metadata = resource.metadata as Record<string, unknown>;
+  const excerptsResult = await store.queryNodes({ type: 'Excerpt', filters: { resourceId } });
+  if (!excerptsResult.ok || excerptsResult.value.items.length === 0) return null;
+
+  const video: Video = {
+    id: videoId,
+    title: resource.label,
+    channelId: metadataString(metadata, 'channelId') ?? 'stored',
+    channelName: metadataString(metadata, 'channelName') ?? 'Stored YouTube',
+    duration: metadataNumber(metadata, 'duration') ?? 0,
+    publishedAt: metadataString(metadata, 'publishedAt') ?? new Date(0).toISOString(),
+    ...(metadataString(metadata, 'description') ? { description: metadataString(metadata, 'description') } : {}),
+    ...(metadataString(metadata, 'thumbnailUrl') ? { thumbnailUrl: metadataString(metadata, 'thumbnailUrl') } : {}),
+  };
+
+  const segments = excerptsResult.value.items
+    .map(excerpt => {
+      const timecode = timecodeFromMetadata(excerpt.metadata as Record<string, unknown>);
+      if (!timecode) return null;
+      return {
+        start: timecode.start,
+        duration: Math.max(0, timecode.end - timecode.start),
+        text: excerpt.content ?? '',
+        ...(timecode.speaker ? { speaker: timecode.speaker } : {}),
+      };
+    })
+    .filter((segment): segment is Transcript['segments'][number] => segment !== null && segment.text.trim().length > 0)
+    .sort((a, b) => a.start - b.start);
+  if (segments.length === 0) return null;
+
+  const transcript: Transcript = {
+    videoId,
+    language: metadataString(metadata, 'language') ?? 'en',
+    segments,
+    fullText: segments.map(segment => segment.text).join(' '),
+  };
+
+  return {
+    async fetchPlaylist(playlistId: string): Promise<Result<Playlist>> {
+      return {
+        ok: true,
+        value: {
+          id: playlistId,
+          title: playlistId,
+          channelId: video.channelId,
+          channelName: video.channelName,
+          videoIds: [videoId],
+          publishedAt: video.publishedAt,
+        },
+      };
+    },
+    async fetchVideo(requestedVideoId: string): Promise<Result<Video>> {
+      return requestedVideoId === videoId
+        ? { ok: true, value: video }
+        : { ok: false, error: new Error(`Stored video not found: ${requestedVideoId}`) };
+    },
+    async fetchTranscript(requestedVideoId: string): Promise<Result<Transcript>> {
+      return requestedVideoId === videoId
+        ? { ok: true, value: transcript }
+        : { ok: false, error: new Error(`Stored transcript not found: ${requestedVideoId}`) };
+    },
+  };
+}
+
 async function ensureDir(path: string): Promise<void> {
   await mkdir(path, { recursive: true });
 }
@@ -228,35 +368,52 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
   }
 
   const store = await openStore(options, config);
-  const taxonomyRegistry = new InMemoryRegistry();
 
   const ytDlpConfig = {
     ...youtubeConfig.ytdlp,
     debugTranscript: youtubeConfig.youtube.debugTranscript,
   };
 
-  const client = optionBool(options, 'mock')
+  const useMock = optionBool(options, 'mock');
+  const client = useMock
     ? new MockYouTubeClient()
     : new RealYouTubeClient(youtubeConfig.youtube, ytDlpConfig);
 
-  const pipeline = new IngestionPipeline({
-    graphStore: store,
-    taxonomyRegistry,
-    youtubeClient: client,
-  });
+  const runVideoThroughCore = async (videoId: string) => {
+    const runtimeConfig = useMock && !config.llm.model
+      ? { ...config, llm: { ...config.llm, model: 'mock-youtube-llm' } }
+      : config;
+    const runtime = createPipelineRuntime(createDefaultPipelineServices({
+      store,
+      config: runtimeConfig,
+      ...(useMock ? { llm: createMockExtractionLlm() } : {}),
+    }));
+    runtime.register(composeVector(createYouTubeVectorSpec(client)));
+    return runtime.run('youtube', { ref: videoId });
+  };
 
   if (mode === 'playlist') {
     const playlistId = parsePlaylistId(target);
-    const result = await pipeline.ingestPlaylist(playlistId);
-    if (!result.ok) {
-      console.error(result.error.message);
+    const playlistResult = await client.fetchPlaylist(playlistId);
+    if (!playlistResult.ok) {
+      console.error(playlistResult.error.message);
       await store.close();
-      await taxonomyRegistry.close();
       return 1;
     }
-    console.log(`Ingested playlist ${playlistId}: ${result.value.videosProcessed} videos`);
-    if (result.value.job.errors.length > 0) {
-      console.log(`Errors: ${result.value.job.errors.length}`);
+    let completed = 0;
+    let failed = 0;
+    for (const videoId of playlistResult.value.videoIds) {
+      const result = await runVideoThroughCore(videoId);
+      if (result.ok) {
+        completed += 1;
+      } else {
+        failed += 1;
+        console.error(`${videoId}: ${result.error.message}`);
+      }
+    }
+    console.log(`Ingested playlist ${playlistId}: ${completed} videos`);
+    if (failed > 0) {
+      console.log(`Errors: ${failed}`);
     }
   } else if (mode === 'status') {
     const videoId = parseVideoId(target);
@@ -265,7 +422,6 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
     if (!statusResult.ok) {
       console.error(statusResult.error.message);
       await store.close();
-      await taxonomyRegistry.close();
       return 1;
     }
     const output = formatIngestionStatus(statusResult.value, {
@@ -274,13 +430,10 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
     console.log(output);
   } else if (mode === 'video') {
     const videoId = parseVideoId(target);
-    const result = await pipeline.ingestVideo(videoId, {
-      refreshTranscript: optionBool(options, 'refresh-transcript') ?? false,
-    });
+    const result = await runVideoThroughCore(videoId);
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
-      await taxonomyRegistry.close();
       return 1;
     }
     console.log(`Ingested video ${videoId}`);
@@ -295,12 +448,10 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
   } else {
     console.error('Unknown ingest mode. Use playlist or video.');
     await store.close();
-    await taxonomyRegistry.close();
     return 1;
   }
 
   await store.close();
-  await taxonomyRegistry.close();
   return 0;
 }
 
@@ -315,85 +466,34 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
   const store = await openStore(options, config);
 
   if (mode === 'claims') {
-    const useLlm = optionBool(options, 'llm');
-    const editorLlm = optionBool(options, 'editor-llm');
-    const showEditorDiagnostics = optionBool(options, 'editorial-diagnostics');
-
-    let extractor: LlmClaimExtractor | undefined;
-    if (useLlm) {
-      if (!config.llm.model) {
-        console.error('Missing LLM model. Provide --model or set llm.model in config.');
-        await store.close();
-        return 1;
-      }
-
-      const clientResult = createLlmClientFromConfig(config.llm);
-      if (!clientResult.ok) {
-        console.error(clientResult.error.message);
-        await store.close();
-        return 1;
-      }
-
-      extractor = new LlmClaimExtractor({
-        client: clientResult.value,
-        model: config.llm.model,
-        promptVersion: config.extraction.promptVersion,
-        chunkMinutes: config.extraction.chunkMinutes > 0 ? config.extraction.chunkMinutes : undefined,
-        maxChunks: config.extraction.maxChunks > 0 ? config.extraction.maxChunks : undefined,
-        cacheDir: config.llm.cacheDir || undefined,
-        editorVersion: config.editor.version === 'v2' ? 'v2' : 'v1',
-        editorWindowMinutes: config.editor.windowMinutes > 0 ? config.editor.windowMinutes : undefined,
-        editorMaxPerWindow: config.editor.maxPerWindow > 0 ? config.editor.maxPerWindow : undefined,
-        editorMinWindows: config.editor.minWindows > 0 ? config.editor.minWindows : undefined,
-        editorMinWords: config.editor.minWords > 0 ? config.editor.minWords : undefined,
-        editorMinChars: config.editor.minChars > 0 ? config.editor.minChars : undefined,
-        editorLlm: config.editor.editorLlm || editorLlm,
-        reasoningEffort: config.llm.reasoningEffort,
-        verbosity: config.llm.verbosity,
-      });
-    }
-
-    const pipeline = new ClaimExtractionPipeline({ graphStore: store, extractor });
-    const result = await pipeline.extractClaimsForVideo(videoId, {
-      maxClaims: config.extraction.maxClaims > 0 ? config.extraction.maxClaims : undefined,
-    });
+    const useMock = optionBool(options, 'mock') || !config.llm.model;
+    const storedClient = await createStoredYouTubeClient(store, videoId);
+    const client = storedClient ?? (useMock
+      ? new MockYouTubeClient()
+      : new RealYouTubeClient(youtubeConfig.youtube, {
+          ...youtubeConfig.ytdlp,
+          debugTranscript: youtubeConfig.youtube.debugTranscript,
+        }));
+    const runtimeConfig = useMock && !config.llm.model
+      ? { ...config, llm: { ...config.llm, model: 'mock-youtube-llm' } }
+      : config;
+    const runtime = createPipelineRuntime(createDefaultPipelineServices({
+      store,
+      config: runtimeConfig,
+      ...(useMock ? { llm: createMockExtractionLlm() } : {}),
+    }));
+    runtime.register(composeVector(createYouTubeVectorSpec(client)));
+    const result = await runtime.run('youtube', { ref: videoId });
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
       return 1;
     }
-    console.log(`Claims: created=${result.value.claimsCreated} updated=${result.value.claimsUpdated} noop=${result.value.claimsNoop}`);
-
-    if (showEditorDiagnostics) {
-      const resourceId = `youtube-${videoId}`;
-      const resourceResult = await store.getNode(resourceId);
-      if (resourceResult.ok && resourceResult.value) {
-        const diagnosticsJson = resourceResult.value.metadata?.['lastClaimRunEditorDiagnostics'];
-        if (typeof diagnosticsJson === 'string') {
-          try {
-            const diagnostics = JSON.parse(diagnosticsJson) as import('./extract/editorial-ranking.js').EditorialDiagnostics;
-            console.log('\nEditorial Diagnostics:');
-            console.log(`  Total candidates: ${diagnostics.totalCandidates}`);
-            console.log(`  Selected: ${diagnostics.selectedCount}`);
-            console.log(`  Dropped: ${Object.entries(diagnostics.droppedCounts).map(([reason, count]) => `${reason}=${count}`).join(', ')}`);
-            console.log('  Window coverage:');
-            for (const coverage of diagnostics.windowCoverage) {
-              console.log(`    Window ${coverage.windowIndex}: ${coverage.selectedCount} claims`);
-            }
-            if (diagnostics.echoAnalyzedCount > 0) {
-              console.log(`  Echo detection: analyzed=${diagnostics.echoAnalyzedCount} tagged=${diagnostics.echoTaggedCount}`);
-            }
-          } catch {
-            console.log('  (Unable to parse diagnostics)');
-          }
-        } else {
-          console.log('  (No diagnostics available)');
-        }
-      }
-    }
+    console.log(`Claims: extracted=${result.value.claimsExtracted} resource=${result.value.resourceId}`);
   } else if (mode === 'refs') {
+    const resourceId = `youtube-${videoId}`;
     const pipeline = new ReferenceExtractionPipeline({ graphStore: store });
-    const result = await pipeline.extractReferencesForVideo(videoId);
+    const result = await pipeline.extractReferencesForResource(resourceId);
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
@@ -421,8 +521,9 @@ async function runClaims(positionals: string[], options: CliOptions, config: Res
   }
 
   const videoId = parseVideoId(target);
+  const resourceId = `youtube-${videoId}`;
   const store = await openStore(options, config);
-  const result = await purgeClaimsForVideo(store, videoId);
+  const result = await purgeClaimsForResource(store, resourceId);
   if (!result.ok) {
     console.error(result.error.message);
     await store.close();

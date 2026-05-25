@@ -1,8 +1,8 @@
 import { SCORE_DIMENSIONS, type ScoreDimension } from "./scoring-rubric.js";
 import { scoreClaimSet } from "./scoring-executor.js";
 import type { GoldenAnnotationEntry, GoldenClaimNode } from "./golden-annotation-schema.js";
-import type { LlmClient } from "../extract/llm-client.js";
-import type { ClaimCandidate } from "../extract/types.js";
+import type { LlmClient } from '@aidha/praecis-core';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { CalibrationRecord, CalibrationVideoResult } from "./calibration-schema.js";
 
 export interface CalibrationRunOptions {

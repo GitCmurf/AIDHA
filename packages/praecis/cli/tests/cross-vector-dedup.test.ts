@@ -16,7 +16,7 @@ function makeFetchResponse(url: string, text: string) {
 
 describe('cross-vector dedup integration', () => {
   it('merges RSS and Readwise when both resolve to the same web canonical id', async () => {
-    const services = createDefaultPipelineServices();
+    const services = createDefaultPipelineServices({ allowHeuristicFallback: true });
     const runtime = createPipelineRuntime(services);
     runtime.register(composeVector(createRssVectorSpec(async url => {
       if (url === 'https://blog.example.com/feed.xml') {
@@ -44,7 +44,7 @@ describe('cross-vector dedup integration', () => {
   });
 
   it('links but does not merge Readwise books without source_url', async () => {
-    const services = createDefaultPipelineServices();
+    const services = createDefaultPipelineServices({ allowHeuristicFallback: true });
     const runtime = createPipelineRuntime(services);
     runtime.register(createReadwiseVectorSpec({
       user_book_id: 8,

@@ -57,14 +57,14 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
     };
 
     const raw: RawSource & { payload: YouTubeVideoPayload } = {
-      canonicalId: `youtube:${videoId}`,
+      canonicalId: `youtube-${videoId}`,
       dedupKeys: [videoId],
-      sourceType: 'YouTubeVideo',
+      sourceType: 'youtube',
       sensitivity: 'public',
       provenance: {
         sourceUri: `https://www.youtube.com/watch?v=${videoId}`,
         ingestedAt: new Date().toISOString(),
-        sourceType: 'YouTubeVideo',
+        sourceType: 'youtube',
       },
       label: video.title,
       payload,

@@ -33,7 +33,7 @@ function makeVector() {
 describe('determinism', () => {
   it('rerunning the same fixture produces a byte-stable graph snapshot after the first write', async () => {
     const store = new InMemoryStore();
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({ store }));
+    const runtime = createPipelineRuntime(createDefaultPipelineServices({ store, allowHeuristicFallback: true }));
     runtime.register(makeVector());
 
     const first = await runtime.run('web', { ref: 'fixture' });

@@ -5,8 +5,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { IngestionPipeline } from '../src/pipeline/ingest.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
+import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
 import { searchClaims } from '../src/retrieve/query.js';
 import { createTaskFromClaim, DEFAULT_INBOX_PROJECT_ID } from '../src/tasks/index.js';
 
@@ -24,13 +24,13 @@ describe('searchClaims', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
   let youtubeClient: MockYouTubeClient;
-  let ingestion: IngestionPipeline;
+  let ingestion: RuntimeIngestionHarness;
 
   beforeEach(async () => {
     graphStore = new InMemoryStore();
     taxonomyRegistry = new InMemoryRegistry();
     youtubeClient = new MockYouTubeClient();
-    ingestion = new IngestionPipeline({
+    ingestion = new RuntimeIngestionHarness({
       graphStore,
       taxonomyRegistry,
       youtubeClient,
@@ -63,7 +63,7 @@ describe('searchClaims', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const result = await searchClaims(graphStore, { query: 'TypeScript' });
     expect(result.ok).toBe(true);
@@ -80,7 +80,7 @@ describe('searchClaims', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const claims = await graphStore.queryNodes({ type: 'Claim' });
     expect(claims.ok).toBe(true);
@@ -111,7 +111,7 @@ describe('searchClaims', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const first = await searchClaims(graphStore, { query: 'TypeScript' });
     expect(first.ok).toBe(true);
@@ -128,7 +128,7 @@ describe('searchClaims', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const claims = await graphStore.queryNodes({ type: 'Claim' });
     expect(claims.ok).toBe(true);
@@ -153,7 +153,7 @@ describe('searchClaims', () => {
 
   it('gracefully falls back when FTS store throws', async () => {
     const throwingStore = new ThrowingFtsStore();
-    const localIngestion = new IngestionPipeline({
+    const localIngestion = new RuntimeIngestionHarness({
       graphStore: throwingStore,
       taxonomyRegistry,
       youtubeClient,
@@ -161,7 +161,7 @@ describe('searchClaims', () => {
     await localIngestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore: throwingStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const result = await searchClaims(throwingStore, { query: 'TypeScript' });
     expect(result.ok).toBe(true);

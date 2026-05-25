@@ -1,5 +1,5 @@
 import type { ResolvedConfig } from "@aidha/config";
-import type { LlmClient } from "../extract/index.js";
+import type { LlmClient } from '@aidha/praecis-core';
 import type { CorpusEntry } from "./corpus-schema.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { EvalModel } from "./model-registry.js";

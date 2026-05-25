@@ -40,9 +40,14 @@ export function escapeTripleQuoted(value: string): string {
  * ```
  */
 export function sanitizeForPrompt(text: string, maxLength: number): string {
-  return text
+  const normalized = text.normalize('NFKC');
+  const sanitized = normalized
     .replace(/ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/gi, '[REDACTED]')
     .replace(/(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/gi, '[REDACTED]')
-    .replace(/```/g, '\'\'\'') // Prevent code fence injection
-    .slice(0, maxLength); // Limit length
+    .replace(/\b(new\s+task|you\s+are\s+now|act\s+as|from\s+now\s+on)\b/gi, '[REDACTED]')
+    .replace(/```/g, '\'\'\''); // Prevent code fence injection
+  if (sanitized !== normalized) {
+    console.warn('prompt safety: suspicious prompt content was redacted');
+  }
+  return Array.from(sanitized).slice(0, maxLength).join('');
 }

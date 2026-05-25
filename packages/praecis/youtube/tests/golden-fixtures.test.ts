@@ -4,8 +4,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from '../src/extract/types.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from '@aidha/praecis-core';
 
 type FixtureSegment = {
   id: string;

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { ResolvedConfig } from '@aidha/config';
+import type { LlmClient, LlmCompletionRequest, PipelineServices } from '@aidha/praecis-core';
+import type { Result } from '@aidha/taxonomy';
 import { createEmailVectorSpec, runEmailBatch } from '../src/index.js';
 
 async function makeEmailDir(): Promise<string> {
@@ -12,6 +15,71 @@ async function writeEmailFile(dir: string, name: string, contents: string): Prom
   const file = join(dir, name);
   await writeFile(file, contents);
   return file;
+}
+
+function testConfig(): ResolvedConfig {
+  return {
+    baseDir: process.cwd(),
+    db: ':memory:',
+    llm: {
+      model: 'test-model',
+      apiKey: '',
+      baseUrl: 'http://localhost/v1',
+      timeoutMs: 1000,
+      cacheDir: '',
+      reasoningEffort: 'medium',
+      verbosity: 'medium',
+      embeddingBatchSize: 20,
+      embeddingTaskType: 'SEMANTIC_SIMILARITY',
+      embeddingOutputDimensionality: 768,
+    },
+    editor: {
+      version: 'v2',
+      windowMinutes: 5,
+      maxPerWindow: 3,
+      minWindows: 1,
+      minWords: 1,
+      minChars: 1,
+      editorLlm: false,
+    },
+    extraction: {
+      maxClaims: 3,
+      chunkMinutes: 5,
+      maxChunks: 0,
+      promptVersion: 'v1',
+    },
+    export: {
+      outDir: './out',
+      sourcePrefix: '',
+    },
+  };
+}
+
+function fakeLlm(): LlmClient {
+  return {
+    async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+      const excerptId = request.user.match(/\bemail:[^\s\]")]+/u)?.[0] ?? 'email:excerpt';
+      return {
+        ok: true,
+        value: JSON.stringify({
+          claims: [{
+            text: 'The email thread contains a project status update.',
+            excerptIds: [excerptId],
+            type: 'claim',
+            classification: 'fact',
+            domain: 'Work',
+            confidence: 0.9,
+            why: 'The message body states project status information.',
+            method: 'llm',
+          }],
+        }),
+      };
+    },
+  };
+}
+
+function services(): Partial<PipelineServices> {
+  return { config: testConfig(), llm: fakeLlm() };
 }
 
 describe('createEmailVectorSpec', () => {
@@ -75,7 +143,7 @@ describe('runEmailBatch', () => {
       'Parent body',
     ].join('\r\n'));
 
-    const result = await runEmailBatch(dir);
+    const result = await runEmailBatch(dir, undefined, services());
     expect(result.sourceId).toBe('email');
     expect(result.threads).toBe(1);
     expect(result.summaries[0]!.canonicalId).toBe('email:thread:msg-a');

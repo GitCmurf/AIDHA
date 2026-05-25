@@ -3,9 +3,9 @@ import { writeFileAtomic } from "../utils/io.js";
 import { join } from "node:path";
 import type { Result } from "../pipeline/types.js";
 import { requestRateLimiterRegistry } from "./request-rate-limiter.js";
-import { normalizeText } from "../extract/utils.js";
-import { hashText } from "../utils/ids.js";
-import { normalizeBaseUrl } from "../extract/llm-client.js";
+import { normalizeText } from '@aidha/praecis-core';
+import { hashText } from '@aidha/praecis-core';
+import { normalizeBaseUrl } from '@aidha/praecis-core';
 import { consoleLogger, type Logger } from "../utils/logger.js";
 
 export interface GeminiEmbeddingClientConfig {

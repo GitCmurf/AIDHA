@@ -1,5 +1,5 @@
 import type { CorpusEntry } from "./corpus-schema.js";
-import { hashId } from "../utils/ids.js";
+import { hashId } from '@aidha/praecis-core';
 
 interface CorpusSignatureEntry {
   videoId: string;

@@ -1,7 +1,7 @@
 import type { GraphStore, NodeDataInput } from '@aidha/graph-backend';
-import type { Result } from '../pipeline/types.js';
+import type { Result } from '@aidha/taxonomy';
 import type { ReferenceExtractionResult } from './types.js';
-import { extractUrls } from '../utils/urls.js';
+import { extractUrls } from './utils.js';
 import { hashId } from '../utils/ids.js';
 
 export interface ReferenceExtractionConfig {
@@ -15,8 +15,7 @@ export class ReferenceExtractionPipeline {
     this.graphStore = config.graphStore;
   }
 
-  async extractReferencesForVideo(videoId: string): Promise<Result<ReferenceExtractionResult>> {
-    const resourceId = `youtube-${videoId}`;
+  async extractReferencesForResource(resourceId: string): Promise<Result<ReferenceExtractionResult>> {
     const resourceResult = await this.graphStore.getNode(resourceId);
     if (!resourceResult.ok) return resourceResult;
     if (!resourceResult.value) {
@@ -31,6 +30,8 @@ export class ReferenceExtractionPipeline {
     const excerpts = excerptsResult.value.items;
 
     const description = resourceResult.value.metadata?.['description'] as string | undefined;
+    const source =
+      resourceResult.value.metadata?.['sourceType'] ?? resourceResult.value.metadata?.['source'];
     const urls = new Set<string>(extractUrls(description));
     const excerptUrlMap = new Map<string, string[]>();
 
@@ -53,15 +54,14 @@ export class ReferenceExtractionPipeline {
 
     const referenceIds = new Map<string, string>();
     for (const url of urls) {
-      const referenceId = hashId('reference', [url]);
+      const referenceId = hashId('reference', [url, resourceId]);
       const data: NodeDataInput = {
         label: url,
         content: url,
         metadata: {
           url,
           resourceId,
-          videoId,
-          source: 'youtube',
+          ...(typeof source === 'string' ? { source } : {}),
         },
       };
       const upsert = await this.graphStore.upsertNode('Reference', referenceId, data, { detectNoop: true });
@@ -110,5 +110,9 @@ export class ReferenceExtractionPipeline {
         edgesNoop,
       },
     };
+  }
+
+  async extractReferencesForVideo(resourceId: string): Promise<Result<ReferenceExtractionResult>> {
+    return this.extractReferencesForResource(resourceId);
   }
 }

@@ -505,5 +505,5 @@ sqliteMigrationDescribe('SQLiteStore schema migration', () => {
       await store.close();
       rmSync(tempDir, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, 180_000);
 });

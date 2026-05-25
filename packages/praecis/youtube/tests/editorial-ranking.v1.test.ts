@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { ClaimCandidate } from '../src/extract/types.js';
-import { runEditorPassV1 } from '../src/extract/editorial-ranking.js';
+import type { ClaimCandidate } from '@aidha/praecis-core';
+import { runEditorPassV1 } from '@aidha/praecis-core';
 
 function baseCandidates(): ClaimCandidate[] {
   return [

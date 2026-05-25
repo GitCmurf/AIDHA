@@ -70,7 +70,7 @@ export async function runVector(
   const runtimePolicy = assertPolicyAllows(services, raw.sensitivity);
   if (!runtimePolicy.ok) return runtimePolicy;
 
-  const context: ExtractionContext = await vector.context.build(raw, {} as ResolvedConfig);
+  const context: ExtractionContext = await vector.context.build(raw, services.config as ResolvedConfig);
 
   const chunkResult = await vector.chunking.chunk({ segments, context });
   if (!chunkResult.ok) return chunkResult;
@@ -91,7 +91,22 @@ export async function runVector(
   }
 
   if (!miningResult) {
-    const mined = await services.miner.mine(chunkResult.value, context);
+    const miningRequest = {
+      raw,
+      chunks: chunkResult.value,
+      context,
+      config: services.config,
+      policyRoute: runtimePolicy.value,
+      llm: services.llm,
+      costCeiling: services.costCeiling,
+    };
+    const estimate = services.miner.estimate?.(miningRequest);
+    if (estimate && !estimate.ok) return estimate;
+    if (estimate?.ok) {
+      const estimatedCostCheck = assertWithinCost(services, estimate.value.tokenUsage, estimate.value.spendUsd);
+      if (!estimatedCostCheck.ok) return estimatedCostCheck;
+    }
+    const mined = await services.miner.mine(miningRequest);
     if (!mined.ok) return mined;
     miningResult = mined.value;
     const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
@@ -102,7 +117,27 @@ export async function runVector(
     }
   }
 
-  const edited = await services.editor.edit(miningResult, context);
+  const editingRequest = {
+    miningResult,
+    raw,
+    chunks: chunkResult.value,
+    context,
+    config: services.config,
+    policyRoute: runtimePolicy.value,
+    llm: services.llm,
+    costCeiling: services.costCeiling,
+  };
+  const editEstimate = services.editor.estimate?.(editingRequest);
+  if (editEstimate && !editEstimate.ok) return editEstimate;
+  if (editEstimate?.ok) {
+    const editEstimatedCostCheck = assertWithinCost(
+      services,
+      (miningResult.tokenUsage ?? 0) + editEstimate.value.tokenUsage,
+      (miningResult.spendUsd ?? 0) + editEstimate.value.spendUsd,
+    );
+    if (!editEstimatedCostCheck.ok) return editEstimatedCostCheck;
+  }
+  const edited = await services.editor.edit(editingRequest);
   if (!edited.ok) return edited;
 
   const tokenUsage = (miningResult.tokenUsage ?? 0) + (edited.value.tokenUsage ?? 0);
@@ -126,6 +161,7 @@ export async function runVector(
       chunks: chunkResult.value,
       claimsExtracted: edited.value.claims.length,
       claimIds: exported.value.claimIds,
+      claims: edited.value.claims,
       dedupAction: exported.value.dedupAction,
       policyRoute: runtimePolicy.value,
       cacheHits,

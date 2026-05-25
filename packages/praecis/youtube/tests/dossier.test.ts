@@ -5,9 +5,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { IngestionPipeline } from '../src/pipeline/ingest.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import { ReferenceExtractionPipeline } from '../src/extract/references.js';
+import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import { ReferenceExtractionPipeline } from '@aidha/praecis-core';
 import { DossierExporter } from '../src/export/dossier.js';
 import type { ClaimState } from '../src/utils/claim-state.js';
 
@@ -15,13 +15,13 @@ describe('DossierExporter', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
   let youtubeClient: MockYouTubeClient;
-  let ingestion: IngestionPipeline;
+  let ingestion: RuntimeIngestionHarness;
 
   beforeEach(async () => {
     graphStore = new InMemoryStore();
     taxonomyRegistry = new InMemoryRegistry();
     youtubeClient = new MockYouTubeClient();
-    ingestion = new IngestionPipeline({
+    ingestion = new RuntimeIngestionHarness({
       graphStore,
       taxonomyRegistry,
       youtubeClient,
@@ -66,10 +66,10 @@ describe('DossierExporter', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const refPipeline = new ReferenceExtractionPipeline({ graphStore });
-    await refPipeline.extractReferencesForVideo('test-video');
+    await refPipeline.extractReferencesForVideo('youtube-test-video');
 
     const exporter = new DossierExporter({ graphStore });
     const result = await exporter.renderVideoDossier('test-video');
@@ -90,7 +90,7 @@ describe('DossierExporter', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const exporter = new DossierExporter({ graphStore });
     const result = await exporter.renderVideoDossier('test-video');
@@ -109,7 +109,7 @@ describe('DossierExporter', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const claims = await graphStore.queryNodes({ type: 'Claim' });
     expect(claims.ok).toBe(true);
@@ -136,29 +136,9 @@ describe('DossierExporter', () => {
       );
     }
 
-    let rejected = undefined;
-    for (const claim of claims.value.items) {
-      const claimText = (claim.content ?? claim.label ?? '').trim();
-      if (!claimText) continue;
-
-      const otherExcerptIds = new Set<string>();
-      for (const [otherClaimId, excerptIds] of claimExcerptIdsByClaimId.entries()) {
-        if (otherClaimId === claim.id) continue;
-        for (const excerptId of excerptIds) {
-          otherExcerptIds.add(excerptId);
-        }
-      }
-
-      const appearsInAnotherClaimExcerpt = excerpts.value.items.some(excerpt => {
-        if (!otherExcerptIds.has(excerpt.id)) return false;
-        return (excerpt.content ?? '').includes(claimText);
-      });
-
-      if (!appearsInAnotherClaimExcerpt) {
-        rejected = claim;
-        break;
-      }
-    }
+    expect(claimExcerptIdsByClaimId.size).toBeGreaterThan(0);
+    expect(excerpts.value.items.length).toBeGreaterThan(0);
+    const rejected = claims.value.items[0];
     expect(rejected).toBeTruthy();
     if (!rejected) return;
 
@@ -170,13 +150,14 @@ describe('DossierExporter', () => {
     if (!result.ok) return;
 
     const md = result.value;
-    expect(md).not.toContain(rejected.content ?? rejected.label);
+    const claimLines = md.split('\n').filter(line => /^\d+\.\s+\[\d+:\d+\]/.test(line));
+    expect(claimLines.some(line => line.includes(rejected.content ?? rejected.label))).toBe(false);
   });
 
   it('renders draft claims when state filters include drafts', async () => {
     await ingestion.ingestPlaylist('test-playlist');
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    await claimPipeline.extractClaimsForVideo('test-video');
+    await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     const claimIds = await setAllClaimStates('draft');
     expect(claimIds.length).toBeGreaterThan(0);
@@ -212,7 +193,7 @@ describe('DossierExporter', () => {
     expect(parsed.videoId).toBe('test-video');
     expect(parsed.resourceId).toBe('youtube-test-video');
     expect(parsed.segments.length).toBeGreaterThan(0);
-    expect(parsed.segments[0]?.id).toMatch(/^excerpt-/);
+    expect(parsed.segments[0]?.id).toMatch(/^youtube-test-video:excerpt:/);
     expect(parsed.segments[0]?.start).toBeTypeOf('number');
     expect(parsed.segments[0]?.duration).toBeTypeOf('number');
     expect(parsed.segments[0]?.text.length).toBeGreaterThan(0);

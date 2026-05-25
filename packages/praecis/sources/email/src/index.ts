@@ -18,6 +18,7 @@ import type {
   RawSource,
   Result,
   Locator,
+  PipelineServices,
 } from '@aidha/praecis-core';
 import { composeVector, createDefaultPipelineServices, createPipelineRuntime, normalizeText } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
@@ -109,6 +110,13 @@ export interface EmailThreadSummary {
   readonly chunkCount: number;
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
+  readonly claims: readonly {
+    readonly text: string;
+    readonly excerptIds: readonly string[];
+    readonly method?: unknown;
+    readonly model?: unknown;
+    readonly promptVersion?: unknown;
+  }[];
   readonly resourceId: string;
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: 'cloud' | 'local' | 'disabled';
@@ -458,11 +466,15 @@ export function createEmailVectorSpec(thread: EmailThread) {
   });
 }
 
-export async function runEmailBatch(ref: string, readFileFn: typeof readFile = readFile): Promise<EmailBatchSummary> {
+export async function runEmailBatch(
+  ref: string,
+  readFileFn: typeof readFile = readFile,
+  serviceOverrides: Partial<PipelineServices> = {},
+): Promise<EmailBatchSummary> {
   const messages = await parseEmailInputs(ref, readFileFn);
   const threads = groupEmailMessages(messages);
   const summaries: EmailThreadSummary[] = [];
-  const services = createDefaultPipelineServices();
+  const services = createDefaultPipelineServices(serviceOverrides);
   for (const thread of threads) {
     const vector = createEmailVectorSpec(thread);
     const runtime = createPipelineRuntime(services);
@@ -494,6 +506,13 @@ export async function runEmailBatch(ref: string, readFileFn: typeof readFile = r
       chunkCount: run.value.chunkCount,
       claimsExtracted: run.value.claimsExtracted,
       claimIds: run.value.claimIds,
+      claims: run.value.claims.map(claim => ({
+        text: claim.text,
+        excerptIds: claim.excerptIds,
+        method: claim.metadata?.['method'],
+        model: claim.metadata?.['model'],
+        promptVersion: claim.metadata?.['promptVersion'],
+      })),
       dedupAction: run.value.dedupAction,
       policyRoute: run.value.policyRoute,
       warnings: run.value.warnings,

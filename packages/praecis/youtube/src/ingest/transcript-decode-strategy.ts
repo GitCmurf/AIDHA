@@ -5,7 +5,7 @@ import type { IDecodeStrategy, DecodeInput, DecodeOutput } from '@aidha/praecis-
 import type { MediaSegment } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
 import type { YouTubeVideoPayload } from './youtube-ingestor.js';
-import { hashId } from '../utils/ids.js';
+import { hashId } from '@aidha/praecis-core';
 
 // ── TranscriptDecodeStrategy ──────────────────────────────────────────────────
 

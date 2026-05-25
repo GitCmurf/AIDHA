@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSelfImproveClaimsPrompt } from "../../src/extract/prompts/self-improve-claims-v1";
+import { buildSelfImproveClaimsPrompt } from '@aidha/praecis-core';
 
 describe("self-improve-claims-v1 prompt packs", () => {
   it("adds enumeration v2 refinement guidance", () => {

@@ -8,12 +8,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { InMemoryStore } from '@aidha/graph-backend';
 import type { Result } from '../src/pipeline/types.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import type { LlmClient, LlmCompletionRequest } from '../src/extract/llm-client.js';
-import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
-import { HeuristicClaimExtractor } from '../src/extract/claims.js';
-import { decidePromptPack } from '../src/extract/prompt-routing.js';
-import { hashId } from '../src/utils/ids.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import type { LlmClient, LlmCompletionRequest } from '@aidha/praecis-core';
+import { LlmClaimExtractor } from '@aidha/praecis-core';
+import { HeuristicClaimExtractor } from '@aidha/praecis-core';
+import { decidePromptPack } from '@aidha/praecis-core';
+import { hashId } from '@aidha/praecis-core';
 import { BufferedLogger } from '../src/utils/logger.js';
 
 class StubLlmClient implements LlmClient {
@@ -412,7 +412,7 @@ describe('LLM claim extraction', () => {
     });
 
     const pipeline = new ClaimExtractionPipeline({ graphStore: store, extractor });
-    const result = await pipeline.extractClaimsForVideo('llm-video-2', { maxClaims: 5 });
+    const result = await pipeline.extractClaimsForVideo('youtube-llm-video-2', { maxClaims: 5 });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -593,7 +593,7 @@ describe('LLM claim extraction', () => {
     });
 
     const llmPipeline = new ClaimExtractionPipeline({ graphStore: store, extractor: llmExtractor });
-    const llmResult = await llmPipeline.extractClaimsForVideo('metadata-clear', { maxClaims: 5 });
+    const llmResult = await llmPipeline.extractClaimsForVideo('youtube-metadata-clear', { maxClaims: 5 });
     expect(llmResult.ok).toBe(true);
 
     const afterLlm = await store.getNode(resourceId);
@@ -607,7 +607,7 @@ describe('LLM claim extraction', () => {
       graphStore: store,
       extractor: new HeuristicClaimExtractor(),
     });
-    const heuristicResult = await heuristicPipeline.extractClaimsForVideo('metadata-clear', { maxClaims: 5 });
+    const heuristicResult = await heuristicPipeline.extractClaimsForVideo('youtube-metadata-clear', { maxClaims: 5 });
     expect(heuristicResult.ok).toBe(true);
 
     const afterHeuristic = await store.getNode(resourceId);

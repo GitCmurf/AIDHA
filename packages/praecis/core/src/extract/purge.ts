@@ -1,5 +1,5 @@
 import type { GraphNode, GraphStore } from '@aidha/graph-backend';
-import type { Result } from '../pipeline/types.js';
+import type { Result } from '@aidha/taxonomy';
 
 const CLAIM_RUN_METADATA_KEYS = [
   'lastClaimRunAt',
@@ -55,11 +55,10 @@ export interface PurgeClaimsResult {
   clearedRunMetadata: boolean;
 }
 
-export async function purgeClaimsForVideo(
+export async function purgeClaimsForResource(
   store: GraphStore,
-  videoId: string
+  resourceId: string
 ): Promise<Result<PurgeClaimsResult>> {
-  const resourceId = `youtube-${videoId}`;
   return runAtomically(store, async () => {
     const resourceResult = await store.getNode(resourceId);
     if (!resourceResult.ok) return resourceResult;
@@ -110,4 +109,11 @@ export async function purgeClaimsForVideo(
       },
     };
   });
+}
+
+export async function purgeClaimsForVideo(
+  store: GraphStore,
+  resourceId: string
+): Promise<Result<PurgeClaimsResult>> {
+  return purgeClaimsForResource(store, resourceId);
 }

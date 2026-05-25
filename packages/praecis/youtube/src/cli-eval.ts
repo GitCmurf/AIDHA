@@ -19,7 +19,7 @@ import {
   detectModelCapabilities,
   type ModelCapabilities,
   type LlmCompletionRequest
-} from "./extract/llm-client.js";
+} from '@aidha/praecis-core';
 import { optionString, optionBool, optionNumber, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 import {
@@ -30,8 +30,7 @@ import {
 } from "./eval/narrow-manual-baseline.js";
 import { wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
 import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
-import { validateSafeId } from "./utils/ids.js";
-import { sanitizeFilename } from "./utils/ids.js";
+import { sanitizeFilename, validateSafeId } from "@aidha/praecis-core";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider Configuration

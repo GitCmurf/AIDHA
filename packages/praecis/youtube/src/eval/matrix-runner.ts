@@ -2,13 +2,13 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CURRENT_GRAPH_SCHEMA_VERSION, type GraphNode } from "@aidha/graph-backend";
 import { Transcript } from "../schema/transcript.js";
-import type { ClaimCandidate } from "../extract/types.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { ClaimSetScore } from "./scoring-rubric.js";
 import type { CorpusEntry } from "./corpus-schema.js";
 import { getModel, type EvalModel } from "./model-registry.js";
-import { estimateTokens, estimateCost } from "../extract/token-budget.js";
-import { formatErrorRecord } from "../extract/utils.js";
+import { estimateTokens, estimateCost } from '@aidha/praecis-core';
+import { formatErrorRecord } from '@aidha/praecis-core';
 import {
   getCachedExtraction,
   setCachedExtraction,
@@ -18,15 +18,15 @@ import {
 } from "./matrix-cache.js";
 import { scoreClaimSet } from "./scoring-executor.js";
 import { computeConsensus } from "./consensus-scorer.js";
-import { LlmClaimExtractor } from "../extract/llm-claims.js";
-import type { LlmClient, LlmTokenUsage } from "../extract/llm-client.js";
+import { LlmClaimExtractor } from '@aidha/praecis-core';
+import type { LlmClient, LlmTokenUsage } from '@aidha/praecis-core';
 import {
   PROMPT_VERSION as EXTRACT_PROMPT_VERSION,
   type Pass1PromptConfigId,
-} from "../extract/prompts/pass1-claim-mining-v2.js";
+} from '@aidha/praecis-core';
 import { JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";
-import { isValidSafeId } from "../utils/ids.js";
-import { decidePromptPack, type ExtractionPromptPackId, type PromptRoutingDecision } from "../extract/prompt-routing.js";
+import { isValidSafeId } from '@aidha/praecis-core';
+import { decidePromptPack, type ExtractionPromptPackId, type PromptRoutingDecision } from '@aidha/praecis-core';
 import type { NarrowJudgeResult } from "./narrow-judge.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 

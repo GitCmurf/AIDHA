@@ -6,7 +6,7 @@ import { runEvaluationMatrix } from "../../src/eval/matrix-runner";
 import { getModel } from "../../src/eval/model-registry";
 import { aggregateMatrixResults } from "../../src/eval/matrix-aggregator";
 import { renderMatrixReport } from "../../src/eval/report-markdown";
-import type { LlmClient } from "../../src/extract/llm-client";
+import type { LlmClient } from '@aidha/praecis-core';
 import * as matrixCache from "../../src/eval/matrix-cache";
 import { BufferedLogger } from "../../src/utils/logger";
 
@@ -48,8 +48,11 @@ const makeMockClaim = () => ({
   why: "reason",
 });
 
-vi.mock("../../src/extract/llm-claims", () => ({
-  LlmClaimExtractor: class MockLlmClaimExtractor {
+vi.mock("@aidha/praecis-core", async () => {
+  const actual = await vi.importActual<typeof import("@aidha/praecis-core")>("@aidha/praecis-core");
+  return {
+    ...actual,
+    LlmClaimExtractor: class MockLlmClaimExtractor {
     extractClaims = vi.fn().mockImplementation(
       async (input: { resource: { id?: string }; excerpts?: Array<{ metadata?: { speaker?: string } }> }) =>
         trackActiveProviderCall(async () => {
@@ -79,7 +82,8 @@ vi.mock("../../src/extract/llm-claims", () => ({
       retryTriggered: false,
     });
   },
-}));
+  };
+});
 
 vi.mock("../../src/eval/matrix-cache", async () => {
   const actual = await vi.importActual<typeof import("../../src/eval/matrix-cache")>("../../src/eval/matrix-cache");

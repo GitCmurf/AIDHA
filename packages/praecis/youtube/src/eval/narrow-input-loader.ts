@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { ClaimCandidate } from "../extract/index.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import { GoldenAnnotationEntrySchema } from "./golden-annotation-schema.js";
 import {
   flattenGoldenClaimForest,

@@ -1,5 +1,5 @@
 import type { GraphNode, GraphStore, NodeDataInput } from '@aidha/graph-backend';
-import type { Result } from '../pipeline/types.js';
+import type { Result } from '@aidha/taxonomy';
 import type { ClaimExtractionResult, ClaimExtractor, ClaimExtractionInput, ClaimCandidate } from './types.js';
 import { hashId } from '../utils/ids.js';
 import { DEFAULT_CLAIM_STATE, type ClaimState } from '../utils/claim-state.js';
@@ -56,8 +56,7 @@ function validateClaim(claim: ClaimCandidate, logger: Logger): ClaimCandidate | 
     });
     return null;
   }
-  // Merge the validated result with original claim to preserve fields not in schema
-  return { ...claim, ...result.data };
+  return result.data;
 }
 
 export interface ClaimExtractionConfig {
@@ -103,8 +102,10 @@ const MIN_SENTENCE_WORDS = 4;
 interface MergedSegment {
   text: string;
   startSeconds: number | undefined;
-  /** Start time of the last excerpt in this merged segment (used for gap calculation) */
+  /** Start time of the last excerpt in this merged segment. */
   lastStartSeconds: number | undefined;
+  /** End time of the last excerpt in this merged segment, falling back to start time if absent. */
+  lastEndSeconds: number | undefined;
   excerptIndices: number[];
   /** Character offset ranges for each excerpt within the merged text [start, end) */
   excerptRanges: Array<{ start: number; end: number; index: number }>;
@@ -142,12 +143,17 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     const maxClaims = input.maxClaims ?? 20;
 
     // Step 1: Convert excerpts to mergeable segments, keeping track of original indices
-    const segments: Array<MergeableSegment & { originalIndex: number }> = input.excerpts
+    const segments: Array<MergeableSegment & { originalIndex: number; endSeconds: number | undefined }> = input.excerpts
       .map((excerpt, index) => ({
         text: normalizeText(excerpt.content ?? ''),
         startSeconds: typeof excerpt.metadata?.['start'] === 'number'
           ? (excerpt.metadata?.['start'] as number)
           : undefined,
+        endSeconds: typeof excerpt.metadata?.['end'] === 'number'
+          ? (excerpt.metadata?.['end'] as number)
+          : typeof excerpt.metadata?.['start'] === 'number'
+            ? (excerpt.metadata?.['start'] as number)
+            : undefined,
         originalIndex: index,
       }))
       .filter(segment => segment.text.length > 0)
@@ -170,17 +176,16 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
     let currentMerged: MergedSegment = {
       text: segments[0]!.text,
       startSeconds: segments[0]!.startSeconds,
-      lastStartSeconds: segments[0]!.startSeconds, // Initialize with first segment's start
+      lastStartSeconds: segments[0]!.startSeconds,
+      lastEndSeconds: segments[0]!.endSeconds,
       excerptIndices: [segments[0]!.originalIndex],
       excerptRanges: [{ start: 0, end: segments[0]!.text.length, index: segments[0]!.originalIndex }],
     };
 
     for (let i = 1; i < segments.length; i++) {
       const segment = segments[i]!;
-      // Calculate gap from the last merged segment's start to the next segment's start
-      // Since we don't have excerpt end times, we use the start of each excerpt as a proxy
-      const gap = typeof currentMerged.lastStartSeconds === 'number' && typeof segment.startSeconds === 'number'
-        ? segment.startSeconds - currentMerged.lastStartSeconds
+      const gap = typeof currentMerged.lastEndSeconds === 'number' && typeof segment.startSeconds === 'number'
+        ? segment.startSeconds - currentMerged.lastEndSeconds
         : Infinity;
 
       const shouldMerge = gap >= 0 && gap <= DEFAULT_MERGE_GAP_SECONDS &&
@@ -195,14 +200,15 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
           end: currentMerged.text.length,
           index: segment.originalIndex,
         });
-        // Update lastStartSeconds to track the most recent segment's start time
         currentMerged.lastStartSeconds = segment.startSeconds;
+        currentMerged.lastEndSeconds = segment.endSeconds;
       } else {
         mergedSegments.push(currentMerged);
         currentMerged = {
           text: segment.text,
           startSeconds: segment.startSeconds,
           lastStartSeconds: segment.startSeconds,
+          lastEndSeconds: segment.endSeconds,
           excerptIndices: [segment.originalIndex],
           excerptRanges: [{ start: 0, end: segment.text.length, index: segment.originalIndex }],
         };
@@ -275,9 +281,9 @@ export class HeuristicClaimExtractor implements ClaimExtractor {
         // Estimate startSeconds based on sentence position within merged text
         // If the merged segment has a valid time range, interpolate proportionally
         let estimatedStartSeconds = merged.startSeconds;
-        if (typeof merged.startSeconds === 'number' && typeof merged.lastStartSeconds === 'number' && merged.text.length > 0) {
+        if (typeof merged.startSeconds === 'number' && typeof merged.lastEndSeconds === 'number' && merged.text.length > 0) {
           const positionRatio = sentenceStart / merged.text.length;
-          const timeRange = merged.lastStartSeconds - merged.startSeconds;
+          const timeRange = merged.lastEndSeconds - merged.startSeconds;
           estimatedStartSeconds = merged.startSeconds + (timeRange * positionRatio);
         }
 
@@ -429,11 +435,10 @@ export class ClaimExtractionPipeline {
     this.logger = config.logger ?? consoleLogger;
   }
 
-  async extractClaimsForVideo(
-    videoId: string,
+  async extractClaimsForResource(
+    resourceId: string,
     options: { maxClaims?: number } = {}
   ): Promise<Result<ClaimExtractionResult>> {
-    const resourceId = `youtube-${videoId}`;
     const resourceResult = await this.graphStore.getNode(resourceId);
     if (!resourceResult.ok) return resourceResult;
     if (!resourceResult.value) {
@@ -505,11 +510,13 @@ export class ClaimExtractionPipeline {
         const label = claim.text.length > 120 ? `${claim.text.slice(0, 117)}...` : claim.text;
         const metadata: Record<string, unknown> = {
           resourceId,
-          videoId,
           method: claim.method ?? 'heuristic',
           confidence: claim.confidence ?? 0.4,
           state: claim.state ?? DEFAULT_CLAIM_STATE,
         };
+        if (typeof resourceResult.value.metadata?.['videoId'] === 'string') {
+          metadata['videoId'] = resourceResult.value.metadata['videoId'];
+        }
         if (extractorEditorVersion) metadata['editorVersion'] = extractorEditorVersion;
         if (typeof claim.startSeconds === 'number') metadata['startSeconds'] = claim.startSeconds;
         if (claim.type) metadata['type'] = claim.type;
@@ -615,6 +622,13 @@ export class ClaimExtractionPipeline {
         edgesNoop,
       },
     };
+  }
+
+  async extractClaimsForVideo(
+    resourceId: string,
+    options: { maxClaims?: number } = {}
+  ): Promise<Result<ClaimExtractionResult>> {
+    return this.extractClaimsForResource(resourceId, options);
   }
 
   private getExtractorEditorVersion(): 'v1' | 'v2' | undefined {

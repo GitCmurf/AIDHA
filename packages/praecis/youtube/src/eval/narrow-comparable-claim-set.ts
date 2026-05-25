@@ -1,7 +1,7 @@
-import type { ClaimCandidate } from "../extract/index.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { MatrixCell } from "./matrix-runner.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
-import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
+import type { Pass1PromptConfigId } from '@aidha/praecis-core';
 import type {
   CandidateDiagnostics,
   ComparableClaimSet,

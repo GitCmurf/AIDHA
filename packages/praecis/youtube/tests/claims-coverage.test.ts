@@ -4,9 +4,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import type { Result } from '../src/pipeline/types.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
-import type { LlmClient, LlmCompletionRequest } from '../src/extract/llm-client.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import { LlmClaimExtractor } from '@aidha/praecis-core';
+import type { LlmClient, LlmCompletionRequest } from '@aidha/praecis-core';
 
 class StubLlmClient implements LlmClient {
   private responses: string[];

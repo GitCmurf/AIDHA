@@ -29,7 +29,9 @@
   "dependencies": {
     "@aidha/graph-backend": "workspace:*",
     "@aidha/taxonomy": "workspace:*",
-    "@aidha/config": "workspace:*"
+    "@aidha/config": "workspace:*",
+    "compromise": "^14.15.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",

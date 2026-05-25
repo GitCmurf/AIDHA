@@ -4,11 +4,11 @@ import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import type { GraphNode } from '@aidha/graph-backend';
 import type { ResolvedConfig } from '@aidha/config';
-import type { Result } from '../pipeline/types.js';
+import type { Result } from '@aidha/taxonomy';
 import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from './types.js';
 import { HeuristicClaimExtractor } from './claims.js';
 import { runEditorPassV1, runEditorPassV2, runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics, DEFAULT_ECHO_DETECTION, type EditorialDiagnostics } from './editorial-ranking.js';
-import type { LlmClient } from './llm-client.js';
+import type { LlmClient, LlmTokenUsage } from './llm-client.js';
 import { detectModelCapabilities } from './llm-client.js';
 import { clamp, normalizeText, toNumber, hasDanglingEnding, isCompleteSentence, startsWithConnector } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
@@ -162,6 +162,9 @@ export interface ExtractionRunStats {
   retryTriggered: boolean;
   retryReason?: PromptRetryReason;
   retryPromptPackId?: ExtractionPromptPackId;
+  actualTokenUsage: LlmTokenUsage;
+  actualSpendUsd: number;
+  usageUnavailableCount: number;
 }
 
 type CacheMetadata = z.infer<typeof CacheMetadataSchema>;
@@ -744,7 +747,7 @@ async function writeRewriteCache(
 }
 
 function cacheKeyForChunk(input: {
-  videoId: string;
+  resourceId: string;
   chunk: ClaimChunk;
   transcriptHash: string;
   model: string;
@@ -760,7 +763,7 @@ function cacheKeyForChunk(input: {
   chunkOverlapExcerpts?: number;
 }): string {
   return hashId('llm-claims', [
-    input.videoId,
+    input.resourceId,
     input.chunk.index,
     input.chunk.start,
     input.chunk.end,
@@ -785,14 +788,14 @@ function cacheKeyForChunk(input: {
  * Does not include schema version in the hash.
  */
 function legacyCacheKeyForChunk(input: {
-  videoId: string;
+  resourceId: string;
   chunk: ClaimChunk;
   transcriptHash: string;
   model: string;
   promptVersion: string;
 }): string {
   return hashId('llm-claims', [
-    input.videoId,
+    input.resourceId,
     input.chunk.index,
     input.chunk.start,
     input.chunk.end,
@@ -862,9 +865,7 @@ export async function loadCachedClaimCandidates(
       overlapExcerpts: chunkOverlapExcerpts,
     }
   );
-  const videoId = typeof input.resource.metadata?.['videoId'] === 'string'
-    ? (input.resource.metadata?.['videoId'] as string)
-    : input.resource.id;
+  const resourceId = input.resource.id;
 
   const effectivePromptVersion = input.promptVersion.includes(':pack:')
     ? input.promptVersion
@@ -876,7 +877,7 @@ export async function loadCachedClaimCandidates(
 
   for (const chunk of chunked) {
     const cacheKey = cacheKeyForChunk({
-      videoId,
+      resourceId,
       chunk,
       transcriptHash,
       model: input.model,
@@ -892,7 +893,7 @@ export async function loadCachedClaimCandidates(
       chunkOverlapExcerpts,
     });
     const legacyCacheKey = legacyCacheKeyForChunk({
-      videoId,
+      resourceId,
       chunk,
       transcriptHash,
       model: input.model,
@@ -1016,6 +1017,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
     routeConfidence: 0,
     routeSignals: [],
     retryTriggered: false,
+    actualTokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    actualSpendUsd: 0,
+    usageUnavailableCount: 0,
   };
 
   constructor(config: LlmClaimExtractorConfig) {
@@ -1097,7 +1101,28 @@ export class LlmClaimExtractor implements ClaimExtractor {
   }
 
   getLastRunStats(): ExtractionRunStats {
-    return { ...this.lastRunStats };
+    return {
+      ...this.lastRunStats,
+      chunkInputTokenCounts: [...this.lastRunStats.chunkInputTokenCounts],
+      routeSignals: [...this.lastRunStats.routeSignals],
+      actualTokenUsage: { ...this.lastRunStats.actualTokenUsage },
+    };
+  }
+
+  private recordUsage(usage: LlmTokenUsage | undefined): void {
+    if (!usage) {
+      this.lastRunStats.usageUnavailableCount += 1;
+      return;
+    }
+    this.lastRunStats.actualTokenUsage = {
+      inputTokens: this.lastRunStats.actualTokenUsage.inputTokens + usage.inputTokens,
+      outputTokens: this.lastRunStats.actualTokenUsage.outputTokens + usage.outputTokens,
+      totalTokens: this.lastRunStats.actualTokenUsage.totalTokens + usage.totalTokens,
+    };
+    this.lastRunStats.actualSpendUsd = estimateCost(
+      this.lastRunStats.actualTokenUsage.totalTokens,
+      DEFAULT_COST_PER_1K_TOKENS,
+    );
   }
 
   private effectivePromptVersion(promptPackId: ExtractionPromptPackId): string {
@@ -1276,6 +1301,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       }
 
       if (result.ok) {
+        this.recordUsage(result.usage);
         return result;
       }
 
@@ -1346,6 +1372,9 @@ export class LlmClaimExtractor implements ClaimExtractor {
       routeConfidence: routing.decision.routeConfidence,
       routeSignals: routing.decision.routeSignals,
       retryTriggered: false,
+      actualTokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      actualSpendUsd: 0,
+      usageUnavailableCount: 0,
     };
 
     const firstPass = await this.runExtractionPass({
@@ -1515,12 +1544,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     collectTraces?: boolean;
   }): Promise<ClaimCandidate[]> {
     const { resource, excerpts, transcriptHash, selected, signal } = input;
-    const videoId = typeof resource?.metadata?.['videoId'] === 'string'
-      ? (resource.metadata?.['videoId'] as string)
-      : (resource?.id || 'unknown');
+    const resourceId = resource?.id || 'unknown';
     const setHash = candidateSetHash(selected);
     const cacheKey = hashId('llm-editor-rewrite', [
-      videoId,
+      resourceId,
       transcriptHash,
       setHash,
       this.model,
@@ -1652,6 +1679,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       this.logger.error(`Editor rewrite error: ${response.error.message}`);
       return null;
     }
+    this.recordUsage(response.usage);
 
     const parsed = this.parseRewriteResponse(response.value);
     if (parsed) {
@@ -1688,6 +1716,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       this.logger.error(`Editor rewrite retry error: ${retry.error.message}`);
       return null;
     }
+    this.recordUsage(retry.usage);
 
     const retryParsed = this.parseRewriteResponse(retry.value);
     if (retryParsed) {
@@ -1858,12 +1887,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     collectTraces?: boolean;
   }): Promise<ClaimCandidate[]> {
     const { resource, chunk, transcriptHash, excerptStartMap, chunkCount, promptPackId, signal, collectTraces } = input;
-    const videoId = typeof resource?.metadata?.['videoId'] === 'string'
-      ? (resource.metadata?.['videoId'] as string)
-      : (resource?.id || 'unknown');
+    const resourceId = resource?.id || 'unknown';
     const effectivePromptVersion = this.effectivePromptVersion(promptPackId);
     const cacheKey = cacheKeyForChunk({
-      videoId,
+      resourceId,
       chunk,
       transcriptHash,
       model: this.model,
@@ -1879,7 +1906,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
       chunkOverlapExcerpts: this.chunkOverlapExcerpts,
     });
     const legacyCacheKey = legacyCacheKeyForChunk({
-      videoId,
+      resourceId,
       chunk,
       transcriptHash,
       model: this.model,
@@ -1954,12 +1981,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
 
     // Only fallback if LLM actually failed; successful empty results should be cached
     if (!success && this.fallback) {
-      const videoId = typeof resource.metadata?.['videoId'] === 'string'
-        ? (resource.metadata?.['videoId'] as string)
-        : resource.id;
+      const resourceId = resource.id;
       this.lastRunStats.fallbackChunkCount += 1;
       this.logger.warn(
-        `[LLM-FALLBACK] video=${videoId} chunk=${chunk.index} ` +
+        `[LLM-FALLBACK] resource=${resourceId} chunk=${chunk.index} ` +
         `LLM extraction failed; falling back to heuristic extraction`
       );
       const fallbackClaims = await this.fallback.extractClaims({

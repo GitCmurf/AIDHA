@@ -1,7 +1,7 @@
 import type { EvalModel } from "./model-registry.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
-import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
+import type { Pass1PromptConfigId } from '@aidha/praecis-core';
 import type {
   NarrowComparisonReport,
   NarrowRunMode,

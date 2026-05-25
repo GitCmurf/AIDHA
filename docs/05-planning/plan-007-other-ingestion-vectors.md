@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
-status: Draft
-version: "2.1"
-last_updated: 2026-05-22
+status: In Review
+version: "2.3"
+last_updated: 2026-05-25
 title: Other Ingestion Vectors
 type: PLAN
 docops_version: "2.0"
@@ -14,9 +14,9 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-PLAN-007
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
-> **Status:** Draft
-> **Version:** 2.1
-> **Last Updated:** 2026-05-22
+> **Status:** In Review
+> **Version:** 2.3
+> **Last Updated:** 2026-05-25
 > **Type:** PLAN
 
 <!-- markdownlint-disable MD013 -->
@@ -48,6 +48,8 @@ docops_version: "2.0"
 | 1.9     | 2026-05-22 | AI     | Added the LinkedIn paste bridge: `sources/linkedin` now canonicalises pasted posts from `--paste`/stdin, exposes `text` locators, and is wired through `aidha ingest linkedin --paste`. | Self-review | Draft | — |
 | 2.0     | 2026-05-22 | AI     | Reopened Phases 1-4 after completeness review found the source adapters were scaffolded but did not run the shared mine/edit/export spine, enforce sensitivity/cost/cache, persist claims, or satisfy the named acceptance tests. | Claude Opus completeness review, Codex implementation audit | Draft | — |
 | 2.1     | 2026-05-22 | AI     | Closed PLAN-007 remediation: shared runtime now persists draft claims, enforces sensitivity/cost/cache, runs graph dedup on persistent stores, fixes web redirect identity, adds missing acceptance tests/runbooks, and records DoD evidence. | CodeRabbit adversarial review, Codex self-audit | Draft | — |
+| 2.2     | 2026-05-23 | AI     | Remediated the second completeness review, but overclaimed the YouTube extraction migration: the extractor had been copied into `praecis/core` while the live YouTube tree kept using its local fork. | Claude Opus peer review, Codex implementation audit | Superseded | — |
+| 2.3     | 2026-05-25 | AI     | Closed the fork for real: deleted the local YouTube extractor and legacy `IngestionPipeline`, routed YouTube ingest/extract through the shared runtime, pointed golden snapshots at the live path, added fork-regression fences, enforced actual post-mine cost usage, and implemented web paywall/login-wall plus PDF slide-vs-paper mitigations. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25.txt` |
 
 ## Objective
 
@@ -198,7 +200,7 @@ contract is a baseline dependency, not work re-derived by this plan.
 
 ## 1. Current State and Gap Analysis
 
-### What Exists Today
+### Pre-Remediation Baseline
 
 | Capability | Where it lives | Coupling problem |
 | ---------- | -------------- | ---------------- |
@@ -209,10 +211,25 @@ contract is a baseline dependency, not work re-derived by this plan.
 | Source typing | `reconditum` `SourceType` enum (`youtube, article, book, note, import, generated`) (`knowledge.ts:15-22`) | Closed enum; missing `web, pdf, voice, meeting, podcast, rss, readwise, email, linkedin`. |
 | Config / sources | `@aidha/config` `SourceRegistration` contract and YouTube registration adapter | Present in the current baseline; this plan consumes it and extends it to the new vectors. |
 
+### Current Remediation State
+
+Version 2.3 resolves the central architectural blocker found in the 2026-05-25
+peer review: `packages/praecis/youtube/src/extract/`, `youtube/src/utils/ids.ts`,
+and the public legacy `IngestionPipeline` have been removed. YouTube imports the
+shared extractor, prompt, token-budget, reference, purge, and ID utilities from
+`@aidha/praecis-core`, and YouTube CLI `ingest` plus `extract claims` both enter
+through `createPipelineRuntime(createYouTubeVectorSpec(...))`.
+
+The regression gate now protects the live runtime path:
+`packages/praecis/youtube/tests/golden-snapshot.test.ts` uses
+`RuntimeIngestionHarness`, which composes the YouTube vector through the shared
+runtime, and `packages/praecis/youtube/tests/extractor-boundary.test.ts` fails if
+the local YouTube extractor directory or local extractor imports reappear.
+
 ### The Gap
 
-1. **No reusable pipeline package.** Pipeline logic must be extracted from
-   `praecis/youtube` into `praecis/core` so other vectors do not copy it.
+1. **Reusable pipeline package must stay authoritative.** Pipeline logic now lives
+   in `praecis/core`; fork-regression tests must prevent future source-local copies.
 2. **No typed addressing abstraction.** Timestamp-hardcoded excerpts and export
    types block page/dom/message addressing.
 3. **No acquisition/decode abstraction.** Each vector needs an `IIngestor` it
@@ -1164,12 +1181,13 @@ vector can transcribe without diarising (voice note) or add diarisation (meeting
 Each phase produces working, tested, documented software. Phases gate on green
 tests + DocOps. TDD throughout: contract test first, mock at IO boundaries.
 
-> [!WARNING]
-> Implementation status was over-attested in versions 1.2-1.9. The adapter half
-> of Phases 1-4 exists, but acceptance remains pending until every vector runs
-> through the shared spine (`chunk → mine → edit → export`), persists draft
-> claims, enforces dedup/sensitivity/cost/cache, has its runbook, and passes the
-> verification tests named in Section 9.
+> [!NOTE]
+> Implementation status was over-attested in versions 1.2-1.9 and again in 2.1:
+> the runtime persisted draft claims, but the non-YouTube vectors still used a
+> heuristic miner. Version 2.2 closes that gap by making the YouTube v2 two-pass
+> LLM extractor available in `praecis/core`; version 2.3 closes the remaining fork
+> by deleting the live YouTube copy and making YouTube compose that shared runtime.
+> Heuristic extraction is now an explicit test/fallback opt-in, not the product path.
 
 ### Phase 0 — Foundation (gated on SourceRegistration baseline; no new vectors)
 
@@ -1177,29 +1195,29 @@ tests + DocOps. TDD throughout: contract test first, mock at IO boundaries.
 `SourceRegistration` contract and YouTube registration adapter (Baseline Dependency
 Gate, Section 1).
 
-- [ ] **(Must be first — the baseline is destroyed by the schema delta below.)**
+- [x] **(Must be first — the baseline is destroyed by the schema delta below.)**
       Capture the current `praecis/youtube` dossier/JSON-LD export for the existing
       fixtures as a **golden snapshot** (`packages/praecis/youtube/tests/__golden__/`),
       committed before any schema change. This snapshot is what the Phase 0 acceptance
       "semantically equivalent to pre-refactor" gate diffs against; without it the gate
       is unverifiable.
-- [ ] Record an ADR (`docs/20-adr/adr-009-multi-vector-ingestion-architecture.md`)
+- [x] Record an ADR (`docs/20-adr/adr-009-multi-vector-ingestion-architecture.md`)
       capturing the four-axis composition model, the source-vs-modality split, and
       the multi-provenance decision (array vs nodes — resolve Q1).
-- [ ] Revise `AIDHA-PRD-002` (or author a new `AIDHA-PRD-004` "Multi-Vector
+- [x] Revise `AIDHA-PRD-002` (or author a new `AIDHA-PRD-004` "Multi-Vector
       Ingestion") so the product requirements reflect the four-axis architecture and
       the eight vectors, not just YouTube.
-- [ ] Create `packages/praecis/core` skeleton (package.json, tsconfig, vitest).
-- [ ] Add core types (`Locator`, `MediaSegment`, `ExtractionContext`, `RawSource`)
+- [x] Create `packages/praecis/core` skeleton (package.json, tsconfig, vitest).
+- [x] Add core types (`Locator`, `MediaSegment`, `ExtractionContext`, `RawSource`)
       with failing schema tests, then implementations.
-- [ ] Add `reconditum` schema changes with contract tests: Locator-aware
+- [x] Add `reconditum` schema changes with contract tests: Locator-aware
       type-specific metadata validators, SourceType extension, multi-provenance,
       `dedupKeys`, and new predicates (`alsoSeenVia`, `corroboratedBy`, plus
       `hasProvenance` only if provenance nodes are chosen); regenerate YouTube
       fixtures.
-- [ ] Add interfaces (`IIngestor`, `IChunker`, `ICandidateMiner`, `IEditor`,
+- [x] Add interfaces (`IIngestor`, `IChunker`, `ICandidateMiner`, `IEditor`,
       `IExporter`, `IDecodeStrategy`, `IContextProvider`) and `composeVector`.
-- [ ] Implement the `DedupResolver` contract: strong identity merge vs weak
+- [x] Implement the `DedupResolver` contract: strong identity merge vs weak
       corroboration link. **Tested in Phase 0 against synthetic `RawSource` fixtures**
       (hand-written `canonicalId`/`dedupKeys` pairs), since the RSS/Readwise/PDF/email
       vectors do not exist until Phases 1–3. The synthetic cases cover the *resolver
@@ -1207,11 +1225,11 @@ Gate, Section 1).
       strong-vs-weak key ranking; provisional-thread reparenting). The end-to-end
       cross-vector integration tests (real fixtures through real vectors) are listed
       in the phases that introduce those vectors (Sections 8 Phase 1/3, 9).
-- [ ] Extract pipeline + chunk + extract + export from `praecis/youtube` into
+- [x] Extract pipeline + chunk + extract + export from `praecis/youtube` into
       `core`; make them Locator-aware (deep-link renderers per kind).
-- [ ] Refactor `praecis/youtube` to implement the interfaces, compose via
+- [x] Refactor `praecis/youtube` to implement the interfaces, compose via
       `composeVector`, and register via `SourceRegistration`.
-- [ ] Verify: all existing YouTube tests pass; dossier/JSON-LD exports are
+- [x] Verify: all existing YouTube tests pass; dossier/JSON-LD exports are
       **semantically equivalent** to pre-refactor output — same claims, provenance,
       and deep-link targets — and **byte-stable across re-runs on the regenerated
       fixtures** (regression gate; not byte-identical to pre-refactor output, since
@@ -1241,8 +1259,8 @@ shape); `aidha config explain` works for the `youtube` registration.
 ### Phase 1 — Text, no auth: Web + PDF + RSS
 
 **Status:** Accepted. The CLI/runtime path now runs acquire/decode/context/chunk
-through the shared mine/edit/export spine, persists draft claims, and exercises
-graph dedup/linking end-to-end.
+through the shared mine/edit/export spine, persists draft claims from the shared
+two-pass LLM extractor, and exercises graph dedup/linking end-to-end.
 
 - [x] `decode/text` (readability extract; pdf-to-text; shared char-offset model).
 - [x] `acquire/webfetch` (`IWebFetcher`: HTTP/readability default, Playwright opt-in).
@@ -1264,9 +1282,10 @@ CI green.
 
 ### Phase 2 — Audio: Voice → Meetings + Podcasts
 
-**Status:** Accepted. Mock transcribe/diarize adapters, runtime policy
-enforcement, cost ceiling behavior, speaker claim export, and runbooks are
-implemented and covered by tests.
+**Status:** Accepted. Mock transcribe/diarize adapters feed the same shared
+two-pass LLM extractor as the text vectors; runtime policy enforcement, cost
+ceiling behavior, speaker claim export, and runbooks are implemented and covered
+by tests.
 
 - [x] `decode/transcribe` — `ITranscriber` + backends (openai, groq, assemblyai,
       voxtral, nvidia, qwen, local) behind a shared mock; VAD trim.
@@ -1286,9 +1305,10 @@ model; cost ceiling honoured; runbooks added.
 
 ### Phase 3 — APIs: Readwise + Email file-import
 
-**Status:** Accepted. Readwise/email adapters now run through runtime dedup,
-email runtime and reparenting share the store transaction, reply-strip coverage
-exists, and end-to-end claim persistence is tested.
+**Status:** Accepted. Readwise/email adapters now run through runtime dedup and
+the shared two-pass LLM extractor; email runtime and reparenting share the store
+transaction, reply-strip coverage exists, and end-to-end claim persistence is
+tested.
 
 - [x] `sources/readwise` — REST export with `updated_after` cursor, passthrough
       decode, idempotent on `highlightId`, CLI `aidha ingest readwise --since`.
@@ -1304,7 +1324,7 @@ not auto-ingested; runbooks added.
 ### Phase 4 — LinkedIn paste bridge
 
 **Status:** Accepted. Paste acquisition runs through the shared runtime and
-persists draft claims.
+persists draft claims mined by the shared two-pass LLM extractor.
 
 - [x] `sources/linkedin` — `--paste` (stdin/editor) + `--url` (provenance only,
       no fetch), passthrough decode, CLI `aidha ingest linkedin --paste`.
@@ -1489,20 +1509,24 @@ rejected with evidence).
 
 | DoD Item | Evidence |
 | -------- | -------- |
-| 1. Eight vectors + LinkedIn ingest fixtures to draft claims with locators/deep-links | `packages/praecis/cli/tests/cli.test.ts` asserts web, PDF, voice, meeting, RSS, podcast, Readwise, email, and LinkedIn runtime summaries include persisted draft claim IDs and locators. `packages/praecis/core/tests/export/deep-links.test.ts` covers locator deep-link rendering. |
-| 2. YouTube refactored onto core with equivalent exports and stable reruns | `packages/praecis/youtube/src/ingest/youtube-vector.ts` implements the core `VectorSpec`; `packages/praecis/youtube/tests/ingest/youtube-vector.test.ts`, `golden-snapshot.test.ts`, `golden-fixtures.test.ts`, and the full YouTube suite passed under `pnpm test`. |
-| 3. Every vector ships code, tests, runbook/quickstart, docs green | Runbooks `AIDHA-RUNBOOK-004` through `AIDHA-RUNBOOK-012` cover Readwise, email, LinkedIn, web, PDF, RSS, voice, meeting, and podcast; `pnpm docs:build`, scoped `scripts/meminit-check.mjs`, and `pre-commit run --all-files` passed. |
-| 4. No-network CI green and determinism gate passes | `pnpm test` passed across the workspace; `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
-| 5. Dedup/link, sensitivity, and cost ceilings tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. |
-| 6. Adversarial review blockers resolved | CodeRabbit review was run repeatedly on the uncommitted diff; all returned substantive findings were fixed, revalidated, and the final review completed with zero findings. |
+| 1. Eight vectors + LinkedIn ingest fixtures to reviewed-ready draft claims with locators/deep-links | `packages/praecis/cli/tests/cli.test.ts` asserts web, PDF, voice, meeting, RSS, podcast, Readwise, email, and LinkedIn runtime summaries include persisted draft claim IDs, locators, and claim summaries whose metadata uses `method: "llm"` with model and prompt-version fields. `packages/praecis/core/tests/export/deep-links.test.ts` covers locator deep-link rendering. |
+| 2. YouTube refactored onto core with equivalent exports and stable reruns | `packages/praecis/core/src/extract/*` now owns the YouTube v2 two-pass extractor, editor, prompt routing, verification, token-budget, LLM client, claim/reference extraction, and purge path. `packages/praecis/youtube/src/extract/`, `packages/praecis/youtube/src/utils/ids.ts`, and the public legacy `IngestionPipeline` are deleted. `packages/praecis/youtube/src/cli.ts` routes `ingest` and `extract claims` through `createPipelineRuntime(createYouTubeVectorSpec(...))`; `packages/praecis/youtube/tests/cli-runtime-convergence.test.ts` rejects the legacy claim-extraction bypass; `packages/praecis/youtube/tests/extractor-boundary.test.ts` rejects a reopened local extractor fork. `packages/praecis/youtube/src/export/dossier.ts` owns YouTube-specific dossier semantics so `praecis/core` has no source-specific export layer. |
+| 3. Every vector ships code, tests, runbook/quickstart, docs green | Runbooks `AIDHA-RUNBOOK-004` through `AIDHA-RUNBOOK-012` cover Readwise, email, LinkedIn, web, PDF, RSS, voice, meeting, and podcast; `pnpm docs:build` and scoped `scripts/meminit-check.mjs` passed on 2026-05-25. |
+| 4. No-network CI green and determinism gate passes | Targeted no-network package gates passed on 2026-05-25 for core, YouTube, web, and PDF. The last recorded workspace-wide `pnpm -r --workspace-concurrency=1 --if-present test:ci` pass remains 2026-05-23; rerun it before merge because the sequential form is the reliable local full gate for this checkout when Node's experimental SQLite backend is involved. `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
+| 5. Dedup/link, sensitivity, and cost ceilings tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. |
+| 6. Adversarial review blockers resolved | The 2026-05-25 Opus blocker is fixed in code and tests: the YouTube extractor fork is gone, golden snapshots exercise the live shared runtime path, legacy `IngestionPipeline` is removed from the public API, CLI claim extraction enters the shared gates, web paywall/login-wall handling and PDF slide-vs-paper chunk selection have targeted tests, actual token usage is enforced after mining, production defaults require an LLM-backed miner, heuristic fallback is explicit opt-in, and core layering tests reject new YouTube-specific semantics in `praecis/core/src`. |
 
-**Final local gates run on 2026-05-22:**
+**Final local gates run on 2026-05-25:**
 
-- `pnpm build`
-- `pnpm test`
+- `pnpm -C packages/praecis/core build`
+- `pnpm -C packages/praecis/youtube build`
+- `pnpm --filter @aidha/praecis-core test:ci`
+- `pnpm --filter @aidha/ingestion-youtube test:ci`
+- `pnpm --filter @aidha/praecis-source-web test:ci`
+- `pnpm --filter @aidha/praecis-source-pdf test:ci`
 - `pnpm docs:build`
-- `pre-commit run --all-files`
-- `node scripts/meminit-check.mjs docs/05-planning/plan-007-other-ingestion-vectors.md docs/50-runbooks/runbook-007-web-ingestion.md docs/50-runbooks/runbook-008-pdf-ingestion.md docs/50-runbooks/runbook-009-rss-ingestion.md docs/50-runbooks/runbook-010-voice-ingestion.md docs/50-runbooks/runbook-011-meeting-ingestion.md docs/50-runbooks/runbook-012-podcast-ingestion.md`
+- `node scripts/meminit-check.mjs docs/05-planning/plan-007-other-ingestion-vectors.md`
+- Pending before peer-review handoff: workspace-wide `pnpm -r --workspace-concurrency=1 --if-present test:ci` and `pre-commit run --all-files`.
 
 ---
 

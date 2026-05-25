@@ -48,7 +48,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createPipelineRuntime, type ComposedVector } from '@aidha/praecis-core';
+import { composeVector, createPipelineRuntime, type ComposedVector, type PipelineServices } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { CLI_USAGE_TEXT } from './help.js';
@@ -66,6 +66,13 @@ export interface IngestSummary {
   readonly chunkCount: number;
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
+  readonly claims: Array<{
+    readonly text: string;
+    readonly excerptIds: readonly string[];
+    readonly method?: unknown;
+    readonly model?: unknown;
+    readonly promptVersion?: unknown;
+  }>;
   readonly resourceId: string;
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: 'cloud' | 'local' | 'disabled';
@@ -150,9 +157,10 @@ async function buildIngestSummary(
   ref: string,
   vector: ComposedVector,
   metadata?: Record<string, unknown>,
+  services: Partial<PipelineServices> = {},
 ): Promise<IngestSummary> {
   const ingestInput = metadata ? { ref, metadata } : { ref };
-  const runtime = createPipelineRuntime();
+  const runtime = createPipelineRuntime(services);
   runtime.register(vector);
   const result = await runtime.run(vector.sourceId, ingestInput);
   if (!result.ok) {
@@ -168,6 +176,13 @@ async function buildIngestSummary(
     chunkCount: result.value.chunkCount,
     claimsExtracted: result.value.claimsExtracted,
     claimIds: result.value.claimIds,
+    claims: result.value.claims.map(claim => ({
+      text: claim.text,
+      excerptIds: claim.excerptIds,
+      method: claim.metadata?.['method'],
+      model: claim.metadata?.['model'],
+      promptVersion: claim.metadata?.['promptVersion'],
+    })),
     dedupAction: result.value.dedupAction,
     policyRoute: result.value.policyRoute,
     warnings: result.value.warnings,
@@ -176,40 +191,40 @@ async function buildIngestSummary(
   };
 }
 
-export async function runWebIngest(ref: string, fetchFn?: WebFetchFn): Promise<IngestSummary> {
-  return buildIngestSummary('web', ref, composeVector(createWebVectorSpec(fetchFn)));
+export async function runWebIngest(ref: string, fetchFn?: WebFetchFn, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
+  return buildIngestSummary('web', ref, composeVector(createWebVectorSpec(fetchFn)), undefined, services);
 }
 
-export async function runPdfIngest(ref: string, readFileFn?: typeof readFile): Promise<IngestSummary> {
-  return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec(readFileFn)));
+export async function runPdfIngest(ref: string, readFileFn?: typeof readFile, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
+  return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec(readFileFn)), undefined, services);
 }
 
-export async function runVoiceIngest(ref: string): Promise<IngestSummary> {
-  return buildIngestSummary('voice', ref, createVoiceVectorSpec());
+export async function runVoiceIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
+  return buildIngestSummary('voice', ref, createVoiceVectorSpec(), undefined, services);
 }
 
-export async function runMeetingIngest(ref: string): Promise<IngestSummary> {
-  return buildIngestSummary('meeting', ref, createMeetingVectorSpec());
+export async function runMeetingIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
+  return buildIngestSummary('meeting', ref, createMeetingVectorSpec(), undefined, services);
 }
 
 export async function runRssIngest(
   ref: string,
-  options: { fetchFn?: WebFetchFn; itemGuid?: string } = {},
+  options: { fetchFn?: WebFetchFn; itemGuid?: string; services?: Partial<PipelineServices> } = {},
 ): Promise<IngestSummary> {
   const metadata = options.itemGuid ? { itemGuid: options.itemGuid } : undefined;
-  return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec(options.fetchFn)), metadata);
+  return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec(options.fetchFn)), metadata, options.services ?? {});
 }
 
 export async function runPodcastIngest(
   ref: string,
-  options: { fetchFn?: PodcastFetchFn; episodeGuid?: string; panel?: boolean } = {},
+  options: { fetchFn?: PodcastFetchFn; episodeGuid?: string; panel?: boolean; services?: Partial<PipelineServices> } = {},
 ): Promise<IngestSummary> {
   const metadata = {
     ...(options.episodeGuid ? { episodeGuid: options.episodeGuid } : {}),
     ...(options.panel ? { panel: true } : {}),
   };
   const vectorOptions = options.fetchFn ? { fetchFn: options.fetchFn } : {};
-  return buildIngestSummary('podcast', ref, createPodcastVectorSpec(vectorOptions), metadata);
+  return buildIngestSummary('podcast', ref, createPodcastVectorSpec(vectorOptions), metadata, options.services ?? {});
 }
 
 export interface ReadwiseBatchSummary {
@@ -221,7 +236,7 @@ export interface ReadwiseBatchSummary {
 
 export async function runReadwiseIngest(
   updatedAfter: string | undefined,
-  options: { token: string; fetchFn?: ReadwiseFetchFn } = { token: '' },
+  options: { token: string; fetchFn?: ReadwiseFetchFn; services?: Partial<PipelineServices> } = { token: '' },
 ): Promise<ReadwiseBatchSummary> {
   if (!options.token) {
     throw new Error('readwise token is required');
@@ -238,7 +253,7 @@ export async function runReadwiseIngest(
   for (const book of books) {
     const vector = createReadwiseVectorSpec(book);
     const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
-    const summary = await buildIngestSummary('readwise', ref, vector);
+    const summary = await buildIngestSummary('readwise', ref, vector, undefined, options.services ?? {});
     summaries.push(summary);
   }
 
@@ -250,15 +265,15 @@ export async function runReadwiseIngest(
   };
 }
 
-export async function runEmailIngest(ref: string): Promise<EmailBatchSummary> {
-  return runEmailBatch(ref);
+export async function runEmailIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<EmailBatchSummary> {
+  return runEmailBatch(ref, readFile, services);
 }
 
 export async function runLinkedInIngest(
   ref: string,
-  options: { pasteText: string; url?: string },
+  options: { pasteText: string; url?: string; services?: Partial<PipelineServices> },
 ): Promise<IngestSummary> {
-  return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec(options));
+  return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec(options), undefined, options.services ?? {});
 }
 
 export async function resolveAidhaConfig(
@@ -345,6 +360,22 @@ export function explainResolvedKey(
   return formatProvenance(provenance, value);
 }
 
+async function resolveRuntimeServicesForSource(
+  sourceId: IngestSummary['sourceId'],
+  options: CliOptions,
+): Promise<Partial<PipelineServices>> {
+  const configOpts: { configPath?: string; profile?: string; source?: string } = { source: sourceId };
+  const configPath = optionString(options, 'config');
+  const profile = optionString(options, 'profile');
+  if (configPath) configOpts.configPath = configPath;
+  if (profile) configOpts.profile = profile;
+  const configResult = await resolveAidhaConfig(configOpts);
+  if (!configResult.ok) {
+    throw configResult.error;
+  }
+  return { config: configResult.config };
+}
+
 export async function runCli(argv: string[]): Promise<number> {
   const positionals: string[] = [];
   const options: CliOptions = {};
@@ -401,7 +432,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest web --url <url> [--json]');
           return 1;
         }
-        const summary = await runWebIngest(ref);
+        const summary = await runWebIngest(ref, undefined, await resolveRuntimeServicesForSource('web', options));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -419,7 +450,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest pdf --file <path> [--json]');
           return 1;
         }
-        const summary = await runPdfIngest(ref);
+        const summary = await runPdfIngest(ref, undefined, await resolveRuntimeServicesForSource('pdf', options));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -437,7 +468,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest voice --file <path> [--json]');
           return 1;
         }
-        const summary = await runVoiceIngest(ref);
+        const summary = await runVoiceIngest(ref, await resolveRuntimeServicesForSource('voice', options));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -455,7 +486,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest meeting --file <path> [--json]');
           return 1;
         }
-        const summary = await runMeetingIngest(ref);
+        const summary = await runMeetingIngest(ref, await resolveRuntimeServicesForSource('meeting', options));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -475,6 +506,7 @@ export async function runCli(argv: string[]): Promise<number> {
         }
         const summary = await runRssIngest(ref, {
           ...(optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : {}),
+          services: await resolveRuntimeServicesForSource('rss', options),
         });
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
@@ -496,6 +528,7 @@ export async function runCli(argv: string[]): Promise<number> {
         const summary = await runPodcastIngest(ref, {
           ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
           ...(optionBool(options, 'panel') ? { panel: true } : {}),
+          services: await resolveRuntimeServicesForSource('podcast', options),
         });
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
@@ -515,7 +548,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest readwise --since <iso8601> [--token <token>] [--json]');
           return 1;
         }
-        const summary = await runReadwiseIngest(since, { token });
+        const summary = await runReadwiseIngest(since, { token, services: await resolveRuntimeServicesForSource('readwise', options) });
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -532,7 +565,7 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest email --file <path> [--json]');
           return 1;
         }
-        const summary = await runEmailIngest(ref);
+        const summary = await runEmailIngest(ref, await resolveRuntimeServicesForSource('email', options));
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));
         } else {
@@ -553,7 +586,9 @@ export async function runCli(argv: string[]): Promise<number> {
           console.error('Usage: ingest linkedin --paste <text> [--url <url>] [--json]');
           return 1;
         }
-        const linkedInOptions = url ? { pasteText, url } : { pasteText };
+        const linkedInOptions = url
+          ? { pasteText, url, services: await resolveRuntimeServicesForSource('linkedin', options) }
+          : { pasteText, services: await resolveRuntimeServicesForSource('linkedin', options) };
         const summary = await runLinkedInIngest(url ?? 'stdin', linkedInOptions);
         if (optionBool(options, 'json')) {
           console.log(JSON.stringify(summary, null, 2));

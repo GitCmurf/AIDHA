@@ -7,14 +7,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { IngestionPipeline } from '../src/pipeline/ingest.js';
+import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
 import type { IngestionResult } from '../src/pipeline/types.js';
 
-describe('IngestionPipeline', () => {
+describe('RuntimeIngestionHarness', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
   let youtubeClient: MockYouTubeClient;
-  let pipeline: IngestionPipeline;
+  let pipeline: RuntimeIngestionHarness;
 
   beforeEach(async () => {
     graphStore = new InMemoryStore();
@@ -26,7 +26,7 @@ describe('IngestionPipeline', () => {
     await taxonomyRegistry.addTopic({ id: 'topic-1', name: 'Programming', categoryId: 'cat-1' });
     await taxonomyRegistry.addTag({ id: 'tag-1', name: 'tutorial', topicIds: ['topic-1'] });
 
-    pipeline = new IngestionPipeline({
+    pipeline = new RuntimeIngestionHarness({
       graphStore,
       taxonomyRegistry,
       youtubeClient,
@@ -60,14 +60,16 @@ describe('IngestionPipeline', () => {
       const excerptResult = await graphStore.queryNodes({ type: 'Excerpt' });
       expect(excerptResult.ok).toBe(true);
       if (!excerptResult.ok) return;
-      expect(excerptResult.value.items.length).toBe(3);
+      expect(excerptResult.value.items.length).toBe(2);
 
       const edgeResult = await graphStore.getEdges({ predicate: 'resourceHasExcerpt' });
       expect(edgeResult.ok).toBe(true);
       if (!edgeResult.ok) return;
-      expect(edgeResult.value.items.length).toBe(3);
+      expect(edgeResult.value.items.length).toBe(2);
 
-      const firstExcerpt = excerptResult.value.items[0];
+      const firstExcerpt = excerptResult.value.items.find(item => item.metadata?.['resourceId'] === 'youtube-test-video');
+      expect(firstExcerpt).toBeDefined();
+      if (!firstExcerpt) return;
       expect(firstExcerpt.metadata).toMatchObject({
         videoId: 'test-video',
         resourceId: 'youtube-test-video',
@@ -197,7 +199,7 @@ describe('IngestionPipeline', () => {
       });
       expect(excerpts.ok).toBe(true);
       if (!excerpts.ok) return;
-      expect(excerpts.value.items.length).toBe(2);
+      expect(excerpts.value.items.length).toBe(1);
       expect(excerpts.value.items.some(item => item.content?.includes('TypeScript'))).toBe(true);
 
       const resource = await graphStore.getNode('youtube-test-video');

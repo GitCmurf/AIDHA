@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createProviderAwareClient, resolveProviderConnection } from "../../src/cli-eval";
 import type { ResolvedConfig } from "@aidha/config";
-import * as llmClient from "../../src/extract/llm-client";
+import * as llmClient from '@aidha/praecis-core';
 
 // Mock the getModel registry
 vi.mock("../../src/eval/model-registry", async (importOriginal) => {

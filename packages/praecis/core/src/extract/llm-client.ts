@@ -1,4 +1,4 @@
-import type { Result } from '../pipeline/types.js';
+import type { Result } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import { validateLength } from '@aidha/config';
 
@@ -210,7 +210,8 @@ export class OpenAiCompatibleClient implements LlmClient {
     const cached = this.capabilitiesCache.get(model);
 
     if (cached) {
-      cached.lastAccess = now;
+      this.capabilitiesCache.delete(model);
+      this.capabilitiesCache.set(model, { capabilities: cached.capabilities, lastAccess: now });
       return cached.capabilities;
     }
 
@@ -219,8 +220,7 @@ export class OpenAiCompatibleClient implements LlmClient {
 
     // Evict oldest entry if cache exceeds maximum size
     if (this.capabilitiesCache.size > MAX_CAPABILITIES_CACHE_SIZE) {
-      const oldest = [...this.capabilitiesCache.entries()]
-        .sort((a, b) => a[1].lastAccess - b[1].lastAccess)[0]?.[0];
+      const oldest = this.capabilitiesCache.keys().next().value;
       if (oldest) this.capabilitiesCache.delete(oldest);
     }
 

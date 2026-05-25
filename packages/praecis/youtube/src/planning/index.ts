@@ -1,6 +1,6 @@
 import type { GraphStore, NodeDataInput } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
-import { hashId } from '../utils/ids.js';
+import { hashId } from '@aidha/praecis-core';
 
 function normalizeSlug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

@@ -1,4 +1,4 @@
-import type { LlmClient, LlmCompletionRequest } from "../extract/llm-client.js";
+import type { LlmClient, LlmCompletionRequest } from '@aidha/praecis-core';
 import type { Result } from "../pipeline/types.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 

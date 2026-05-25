@@ -21,6 +21,20 @@ export interface WebIngestorOptions {
   readonly fetchFn?: WebFetchFn;
 }
 
+function isPaywallOrLoginWall(html: string, text: string): boolean {
+  const haystack = `${html}\n${text}`.toLowerCase();
+  return [
+    'subscribe to continue',
+    'sign in to continue',
+    'log in to continue',
+    'login to continue',
+    'create an account to continue',
+    'this article is for subscribers',
+    'subscription required',
+    'paywall',
+  ].some(marker => haystack.includes(marker));
+}
+
 export class WebIngestor implements IIngestor<WebPagePayload> {
   readonly sourceId = 'web';
 
@@ -37,6 +51,9 @@ export class WebIngestor implements IIngestor<WebPagePayload> {
     const { url, canonicalUrl, inputCanonicalUrl, title, html } = fetchResult.value;
     const primaryCanonicalUrl = inputCanonicalUrl ?? urlCanonical(input.ref);
     const textResult = extractTextFromHtml(html, { sourceId: `web:${primaryCanonicalUrl}` });
+    if (isPaywallOrLoginWall(html, textResult.text)) {
+      return { ok: false, error: new Error(`paywall/login wall detected for ${primaryCanonicalUrl}; no resource persisted`) };
+    }
 
     const payload: WebPagePayload = {
       url,
@@ -82,6 +99,9 @@ export class WebTextDecodeStrategy implements IDecodeStrategy {
     }
 
     const extracted = extractTextFromHtml(payload.html, { sourceId: input.raw.canonicalId });
+    if (isPaywallOrLoginWall(payload.html, extracted.text)) {
+      return { ok: false, error: new Error(`paywall/login wall detected for ${input.raw.canonicalId}; no resource persisted`) };
+    }
     return {
       ok: true,
       value: {

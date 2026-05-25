@@ -9,11 +9,23 @@ import { YouTubeIngestor } from './youtube-ingestor.js';
 import { TranscriptDecodeStrategy } from './transcript-decode-strategy.js';
 import { YouTubeSourceRegistration, SOURCE_ID } from '../config/youtube-source-adapter.js';
 
-// ── No-op context provider for Phase 0 ───────────────────────────────────────
+// ── YouTube context provider ─────────────────────────────────────────────────
 
-class NoOpContextProvider implements IContextProvider {
-  async build(_raw: RawSource, _userConfig: ResolvedConfig): Promise<ExtractionContext> {
-    return {};
+class YouTubeContextProvider implements IContextProvider {
+  async build(raw: RawSource, _userConfig: ResolvedConfig): Promise<ExtractionContext> {
+    const payload = raw.payload as {
+      title?: string;
+      channelName?: string;
+      description?: string;
+    } | undefined;
+    return {
+      sourceSummary: [
+        payload?.title,
+        payload?.channelName ? `Channel: ${payload.channelName}` : undefined,
+        payload?.description,
+      ].filter(Boolean).join('\n'),
+      chunkingHints: ['conversation'],
+    };
   }
 }
 
@@ -25,7 +37,7 @@ export function createYouTubeVectorSpec(client: YouTubeClient): VectorSpec {
     sensitivity: 'public',
     ingestor: new YouTubeIngestor(client),
     decode: [new TranscriptDecodeStrategy()],
-    context: new NoOpContextProvider(),
+    context: new YouTubeContextProvider(),
     chunking: 'token-window',
     registration: YouTubeSourceRegistration,
   };

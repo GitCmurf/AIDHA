@@ -109,6 +109,9 @@ export async function hashFile(filePath: string): Promise<string | null> {
     const stream = createReadStream(filePath);
     stream.on("data", (chunk) => { hash.update(chunk); });
     stream.on("end", () => resolve(hash.digest("hex").slice(0, 32)));
-    stream.on("error", () => resolve(null));
+    stream.on("error", () => {
+      stream.destroy();
+      resolve(null);
+    });
   });
 }

@@ -9,9 +9,9 @@ import {
   CircuitBreaker,
   CircuitBreakerState,
   CircuitBreakerOpenError,
-} from '../src/extract/circuit-breaker.js';
+} from '@aidha/praecis-core';
 
-import type { CircuitBreakerConfig } from '../src/extract/circuit-breaker.js';
+import type { CircuitBreakerConfig } from '@aidha/praecis-core';
 
 describe('circuit-breaker', () => {
   describe('initial state', () => {

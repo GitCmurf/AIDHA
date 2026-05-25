@@ -1,26 +1,75 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2025-2026 Colin Farmer (GitCmurf)
+/**
+ * Circuit breaker state machine for resilient external service calls.
+ *
+ * The circuit breaker pattern prevents cascade failures by monitoring
+ * failure rates and temporarily blocking calls when a service appears
+ * to be struggling. It provides automatic recovery testing through the
+ * half-open state.
+ */
 
+/**
+ * The three states of a circuit breaker.
+ *
+ * - `closed`: Normal operation, calls pass through and failures are counted.
+ * - `open`: Circuit is tripped, calls fail immediately without executing.
+ * - `half-open`: Recovery testing state, limited calls allowed to test if service recovered.
+ */
 export enum CircuitBreakerState {
   Closed = 'closed',
   Open = 'open',
   HalfOpen = 'half-open',
 }
 
+/**
+ * Configuration options for the circuit breaker.
+ */
 export interface CircuitBreakerConfig {
+  /**
+   * Number of consecutive failures before transitioning to OPEN state.
+   * @default 5
+   */
   failureThreshold: number;
+
+  /**
+   * Time in milliseconds to wait before attempting recovery (transitioning to HALF_OPEN).
+   * @default 30000
+   */
   resetTimeoutMs: number;
+
+  /**
+   * Maximum number of calls allowed in HALF_OPEN state before deciding on state transition.
+   * @default 3
+   */
   halfOpenMaxCalls: number;
+
+  /**
+   * Number of consecutive successes required in HALF_OPEN state to transition to CLOSED.
+   * @default 1
+   */
   halfOpenSuccessThreshold: number;
 }
 
+/**
+ * Runtime statistics for the circuit breaker.
+ */
 export interface CircuitBreakerStats {
+  /** Number of consecutive failures since last success or state reset. */
   failures: number;
+
+  /** Number of consecutive successes (relevant in half-open state). */
   successes: number;
+
+  /** Timestamp of the last failure, or null if no failures recorded. */
   lastFailureTime: number | null;
 }
 
+/**
+ * Error thrown when the circuit breaker blocks execution.
+ */
 export class CircuitBreakerOpenError extends Error {
+  /**
+   * Time in milliseconds until the circuit will attempt recovery.
+   */
   readonly remainingMs: number;
 
   constructor(remainingMs: number, message?: string) {
@@ -30,6 +79,9 @@ export class CircuitBreakerOpenError extends Error {
   }
 }
 
+/**
+ * Default configuration values.
+ */
 const DEFAULT_CONFIG: Required<CircuitBreakerConfig> = {
   failureThreshold: 5,
   resetTimeoutMs: 30000,
@@ -37,6 +89,20 @@ const DEFAULT_CONFIG: Required<CircuitBreakerConfig> = {
   halfOpenSuccessThreshold: 1,
 };
 
+/**
+ * Circuit breaker implementation using a state machine pattern.
+ *
+ * @example
+ * ```typescript
+ * const breaker = new CircuitBreaker({
+ *   failureThreshold: 3,
+ *   resetTimeoutMs: 10000,
+ *   halfOpenMaxCalls: 2,
+ * });
+ *
+ * const result = await breaker.execute(() => fetchData());
+ * ```
+ */
 export class CircuitBreaker {
   private readonly config: Required<CircuitBreakerConfig>;
   private state: CircuitBreakerState = CircuitBreakerState.Closed;
@@ -45,6 +111,11 @@ export class CircuitBreaker {
   private lastFailureTime: number | null = null;
   private halfOpenCallCount = 0;
 
+  /**
+   * Creates a new CircuitBreaker instance.
+   *
+   * @param config - Partial configuration. Unspecified values use defaults.
+   */
   constructor(config: Partial<CircuitBreakerConfig> = {}) {
     const halfOpenMaxCalls = Math.max(1, config.halfOpenMaxCalls ?? DEFAULT_CONFIG.halfOpenMaxCalls);
     // Clamp halfOpenSuccessThreshold to halfOpenMaxCalls to make HalfOpen recoverable
@@ -60,11 +131,21 @@ export class CircuitBreaker {
     };
   }
 
+  /**
+   * Returns the current state of the circuit breaker.
+   *
+   * @returns The current {@link CircuitBreakerState}.
+   */
   getState(): CircuitBreakerState {
     this.maybeTransitionFromOpen();
     return this.state;
   }
 
+  /**
+   * Returns runtime statistics for monitoring and debugging.
+   *
+   * @returns Current {@link CircuitBreakerStats}.
+   */
   getStats(): CircuitBreakerStats {
     return {
       failures: this.failures,
@@ -73,6 +154,13 @@ export class CircuitBreaker {
     };
   }
 
+  /**
+   * Records a successful execution. Updates state based on current state:
+   *
+   * - Closed: Resets failure count to 0.
+   * - Half-open: Increments success count; transitions to CLOSED if threshold met.
+   * - Open: No-op (should not occur - callers should check canExecute first).
+   */
   recordSuccess(): void {
     switch (this.state) {
       case CircuitBreakerState.Closed: {
@@ -98,6 +186,13 @@ export class CircuitBreaker {
     }
   }
 
+  /**
+   * Records a failed execution. Updates state based on current state:
+   *
+   * - Closed: Increments failure count; transitions to OPEN if threshold met.
+   * - Half-open: Immediately transitions back to OPEN.
+   * - Open: No-op (already failing).
+   */
   recordFailure(): void {
     switch (this.state) {
       case CircuitBreakerState.Closed: {
@@ -123,6 +218,15 @@ export class CircuitBreaker {
     }
   }
 
+  /**
+   * Determines whether execution should be allowed based on current state.
+   *
+   * - Closed: Always allows execution.
+   * - Open: Allows if reset timeout has elapsed (auto-transitions to half-open).
+   * - Half-open: Allows if under the max calls limit.
+   *
+   * @returns `true` if execution is permitted, `false` otherwise.
+   */
   canExecute(): boolean {
     this.maybeTransitionFromOpen();
 
@@ -141,12 +245,44 @@ export class CircuitBreaker {
     }
   }
 
+  /**
+   * Increments the half-open call counter.
+   * For manual circuit breaker usage when not using execute().
+   *
+   * WARNING: When using manual mode, ensure recordSuccess()/recordFailure()
+   * are called exactly once per operation to avoid state inconsistencies.
+   * Prefer using execute() for automatic state management.
+   */
   incrementHalfOpenCallCount(): void {
     if (this.state === CircuitBreakerState.HalfOpen) {
       this.halfOpenCallCount++;
     }
   }
 
+  /**
+   * Executes an async function with circuit breaker protection.
+   *
+   * If the circuit is OPEN, throws {@link CircuitBreakerOpenError}.
+   * Otherwise, executes the function and records success or failure.
+   *
+   * **NOTE**: This method treats ALL errors (including application-level errors like
+   * ValidationErrors) as failures. For more granular control, use the manual pattern:
+   * canExecute() → operation → recordSuccess()/recordFailure() based on error type.
+   *
+   * @param fn - Async function to execute.
+   * @returns Promise resolving to the function's return value.
+   * @throws {@link CircuitBreakerOpenError} if circuit is open.
+   * @throws Any error thrown by `fn`.
+   *
+   * @example
+   * ```typescript
+   * const data = await breaker.execute(async () => {
+   *   const response = await fetch(url);
+   *   if (!response.ok) throw new Error('Failed');
+   *   return response.json();
+   * });
+   * ```
+   */
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     // Capture state before canExecute() (which may transition Open→HalfOpen)
     const stateBefore = this.state;
@@ -176,6 +312,10 @@ export class CircuitBreaker {
     }
   }
 
+  /**
+   * Checks if enough time has passed to transition from OPEN to HALF_OPEN.
+   * Called automatically by state-checking methods.
+   */
   private maybeTransitionFromOpen(): void {
     if (this.state !== CircuitBreakerState.Open) {
       return;
@@ -191,6 +331,9 @@ export class CircuitBreaker {
     }
   }
 
+  /**
+   * Transitions to CLOSED state and resets counters.
+   */
   private transitionToClosed(): void {
     this.state = CircuitBreakerState.Closed;
     this.failures = 0;
@@ -199,12 +342,18 @@ export class CircuitBreaker {
     this.lastFailureTime = null;
   }
 
+  /**
+   * Transitions to OPEN state.
+   */
   private transitionToOpen(): void {
     this.state = CircuitBreakerState.Open;
     this.successes = 0;
     this.halfOpenCallCount = 0;
   }
 
+  /**
+   * Transitions to HALF_OPEN state for recovery testing.
+   */
   private transitionToHalfOpen(): void {
     this.state = CircuitBreakerState.HalfOpen;
     this.failures = 0;

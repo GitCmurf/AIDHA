@@ -7,7 +7,7 @@ import {
   writeNarrowVideoScoreArtifact,
   type NarrowVideoScoreArtifact,
 } from "../../src/eval/stage-artifact-store.js";
-import { sanitizeFilename } from "../../src/utils/ids.js";
+import { sanitizeFilename } from '@aidha/praecis-core';
 
 describe("stage artifact store", () => {
   it("sanitizes score-video artifact filenames derived from videoId", async () => {

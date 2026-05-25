@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, buildUserPrompt } from "../../src/extract/prompts/pass1-claim-mining-v2";
+import { buildSystemPrompt, buildUserPrompt } from '@aidha/praecis-core';
 
 describe("pass1-claim-mining-v2 prompt packs", () => {
   it("adds explicit root-plus-members guidance for enumeration v2", () => {

@@ -1,4 +1,4 @@
-import type { ClaimCandidate } from "../../extract/types.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { VideoContext } from "../matrix-runner.js";
 
 export const JUDGE_PROMPT_VERSION = "v1";

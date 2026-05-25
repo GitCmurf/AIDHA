@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import type { ClaimCandidate } from '../src/extract/types.js';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import {
   DEFAULT_ECHO_DETECTION,
   runEditorPassV2,
   runEditorPassV2WithDiagnostics,
-} from '../src/extract/editorial-ranking.js';
+} from '@aidha/praecis-core';
 
 describe('editorial ranking v2', () => {
   it('rejects boilerplate claims', () => {

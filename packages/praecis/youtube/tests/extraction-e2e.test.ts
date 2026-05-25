@@ -8,21 +8,21 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { IngestionPipeline } from '../src/pipeline/ingest.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import { ReferenceExtractionPipeline } from '../src/extract/references.js';
+import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import { ReferenceExtractionPipeline } from '@aidha/praecis-core';
 
 describe('Full extraction pipeline integration', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
   let youtubeClient: MockYouTubeClient;
-  let ingestion: IngestionPipeline;
+  let ingestion: RuntimeIngestionHarness;
 
   beforeEach(async () => {
     graphStore = new InMemoryStore();
     taxonomyRegistry = new InMemoryRegistry();
     youtubeClient = new MockYouTubeClient();
-    ingestion = new IngestionPipeline({
+    ingestion = new RuntimeIngestionHarness({
       graphStore,
       taxonomyRegistry,
       youtubeClient,
@@ -42,7 +42,7 @@ describe('Full extraction pipeline integration', () => {
 
     // Step 2: Extract claims
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(claimResult.ok).toBe(true);
     if (!claimResult.ok) return;
 
@@ -70,13 +70,13 @@ describe('Full extraction pipeline integration', () => {
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
 
     // First run
-    const result1 = await claimPipeline.extractClaimsForVideo('test-video');
+    const result1 = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(result1.ok).toBe(true);
     if (!result1.ok) return;
     const claimsCreated1 = result1.value.claimsCreated;
 
     // Second run (should be idempotent)
-    const result2 = await claimPipeline.extractClaimsForVideo('test-video');
+    const result2 = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(result2.ok).toBe(true);
     if (!result2.ok) return;
     const claimsCreated2 = result2.value.claimsCreated;
@@ -91,7 +91,7 @@ describe('Full extraction pipeline integration', () => {
     if (!ingestResult.ok) return;
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(claimResult.ok).toBe(true);
     if (!claimResult.ok) return;
 
@@ -119,13 +119,13 @@ describe('Full extraction pipeline integration', () => {
     if (!ingestResult.ok) return;
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(claimResult.ok).toBe(true);
     if (!claimResult.ok) return;
 
     // Extract references from claims
     const refPipeline = new ReferenceExtractionPipeline({ graphStore });
-    const refResult = await refPipeline.extractReferencesForVideo('test-video');
+    const refResult = await refPipeline.extractReferencesForVideo('youtube-test-video');
     expect(refResult.ok).toBe(true);
     if (!refResult.ok) return;
 
@@ -153,7 +153,7 @@ describe('Full extraction pipeline integration', () => {
     if (!ingestResult.ok) return;
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(claimResult.ok).toBe(true);
     if (!claimResult.ok) return;
 

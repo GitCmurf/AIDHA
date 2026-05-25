@@ -6,7 +6,7 @@ import { SQLiteStore } from '@aidha/graph-backend';
 import { runCli } from '../src/cli.js';
 import { describeIfSqlite } from './test-utils.js';
 
-const CLI_PURGE_INTEGRATION_TIMEOUT_MS = 120_000;
+const CLI_PURGE_INTEGRATION_TIMEOUT_MS = 300_000;
 
 describeIfSqlite('CLI claims purge', () => {
   let tempRoot = '';

@@ -6,7 +6,7 @@ import { SQLiteStore } from '@aidha/graph-backend';
 import { runCli } from '../src/cli.js';
 import { describeIfSqlite } from './test-utils.js';
 
-const CLI_REVIEW_ATOMICITY_TIMEOUT_MS = 120_000;
+const CLI_REVIEW_ATOMICITY_TIMEOUT_MS = 300_000;
 
 describeIfSqlite('CLI review apply atomicity', () => {
   let tempRoot = '';

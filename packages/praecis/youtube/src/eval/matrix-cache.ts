@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { writeJsonAtomic } from "../utils/io.js";
 import { join } from "node:path";
-import { hashId } from "../utils/ids.js";
+import { hashId } from '@aidha/praecis-core';
 import type { MatrixCell } from "./matrix-runner.js";
 import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
-import type { ClaimCandidate } from "../extract/types.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 /**
  * Serializes a value to a stable string representation for hashing.

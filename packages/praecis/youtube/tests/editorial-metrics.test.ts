@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import type { ClaimCandidate } from '../src/extract/types.js';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import {
   countBoilerplate,
   countFragments,
   timelineCoverage,
   dropCounts,
-} from '../src/extract/editorial-metrics.js';
-import { runEditorPassV1WithDiagnostics } from '../src/extract/editorial-ranking.js';
+} from '@aidha/praecis-core';
+import { runEditorPassV1WithDiagnostics } from '@aidha/praecis-core';
 
 describe('editorial metrics', () => {
   it('counts fragments with default rules', () => {

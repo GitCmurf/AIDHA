@@ -1,4 +1,4 @@
-import type { ClaimCandidate, LlmClient } from "../extract/index.js";
+import type { ClaimCandidate, LlmClient } from '@aidha/praecis-core';
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import type { VideoContext } from "./matrix-runner.js";
 import {

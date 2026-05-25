@@ -17,6 +17,7 @@ import type { Result } from '@aidha/taxonomy';
 import type { SourceRegistration, ResolvedConfig } from '@aidha/config';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { GraphPipelineExporter, MemoryCache, SystemClock } from '../../src/pipeline/services.js';
+import type { LlmClient } from '../../src/extract/index.js';
 
 function makeRegistration(sourceId: string): SourceRegistration {
   return { sourceId, validateActiveSourceConfig: (v) => v };
@@ -48,7 +49,11 @@ function makeDecodeStrategy(): IDecodeStrategy {
       return {
         ok: true,
         value: {
-          segments: [{ id: 'seg-1', locator: { kind: 'text', charStart: 0, charEnd: 10 }, text: 'hello world' }],
+          segments: [{
+            id: 'seg-1',
+            locator: { kind: 'text', charStart: 0, charEnd: 91 },
+            text: 'The fixture describes a source that makes synthesized claims for review using clear evidence.',
+          }],
           warnings: [],
         },
       };
@@ -60,6 +65,64 @@ function makeContextProvider(): IContextProvider {
   return {
     async build(_raw: RawSource, _cfg: ResolvedConfig): Promise<ExtractionContext> {
       return {};
+    },
+  };
+}
+
+function testConfig(): ResolvedConfig {
+  return {
+    baseDir: process.cwd(),
+    db: ':memory:',
+    llm: {
+      model: 'test-model',
+      apiKey: '',
+      baseUrl: 'http://localhost/v1',
+      timeoutMs: 1000,
+      cacheDir: '',
+      reasoningEffort: 'medium',
+      verbosity: 'medium',
+      embeddingBatchSize: 20,
+      embeddingTaskType: 'SEMANTIC_SIMILARITY',
+      embeddingOutputDimensionality: 768,
+    },
+    editor: {
+      version: 'v2',
+      windowMinutes: 5,
+      maxPerWindow: 3,
+      minWindows: 1,
+      minWords: 1,
+      minChars: 1,
+      editorLlm: false,
+    },
+    extraction: {
+      maxClaims: 3,
+      chunkMinutes: 5,
+      maxChunks: 0,
+      promptVersion: 'v2',
+    },
+    export: { outDir: './out', sourcePrefix: 'test' },
+  };
+}
+
+function fakeLlm(): LlmClient {
+  return {
+    async generate(request) {
+      const excerptId = /"id":\s*"([^"]+)"/.exec(request.user)?.[1] ?? 'chunk-0';
+      return {
+        ok: true,
+        value: JSON.stringify({
+          claims: [{
+            text: 'The source provides clear evidence for reviewable synthesized claims.',
+            excerptIds: [excerptId],
+            confidence: 0.82,
+            type: 'fact',
+            classification: 'fact',
+            startSeconds: 0,
+            evidenceType: 'direct',
+            why: 'Synthesizes the fixture into a reviewable assertion.',
+          }],
+        }),
+      };
     },
   };
 }
@@ -91,8 +154,8 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
       },
     },
     editor: {
-      async edit(miningResult) {
-        return { ok: true, value: miningResult };
+      async edit(request) {
+        return { ok: true, value: request.miningResult };
       },
     },
     exporter: {
@@ -101,7 +164,7 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
       },
     },
     llm: {
-      async complete() {
+      async generate() {
         return { ok: true, value: 'ok' };
       },
     },
@@ -109,10 +172,12 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
     cache: new MemoryCache(),
     privacy: { defaultRoute: 'local', routes: { confidential: 'local' } },
     clock: new SystemClock(),
+    config: testConfig(),
+    allowHeuristicFallback: false,
   };
 
   it('run() returns RunReport on success', async () => {
-    const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
+    const runtime = createPipelineRuntime({ config: testConfig(), llm: fakeLlm() });
     runtime.register(vec);
     const result = await runtime.run('test-source', { ref: 'https://example.com' });
     expect(result.ok).toBe(true);

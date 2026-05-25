@@ -16,7 +16,12 @@ function spanLocator(segments: readonly MediaSegment[]): Locator {
   const first = segments[0]!;
   const last = segments[segments.length - 1]!;
   if (first.locator.kind === 'timecode' && last.locator.kind === 'timecode') {
-    return { kind: 'timecode', startSec: first.locator.startSec, endSec: last.locator.endSec };
+    return {
+      kind: 'timecode',
+      startSec: first.locator.startSec,
+      endSec: last.locator.endSec,
+      ...(first.locator.speaker ? { speaker: first.locator.speaker } : {}),
+    };
   }
   if (first.locator.kind === 'text' && last.locator.kind === 'text') {
     return { kind: 'text', charStart: first.locator.charStart, charEnd: last.locator.charEnd };

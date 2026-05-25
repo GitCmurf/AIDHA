@@ -5,9 +5,9 @@
  * meeting minimum quality standards based on the goal-state dossier.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { HeuristicClaimExtractor } from '../src/extract/claims.js';
+import { HeuristicClaimExtractor } from '@aidha/praecis-core';
 import type { GraphNode } from '@aidha/graph-backend';
-import type { ClaimCandidate } from '../src/extract/types.js';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 /**
  * Mock transcript segments simulating a real educational video.

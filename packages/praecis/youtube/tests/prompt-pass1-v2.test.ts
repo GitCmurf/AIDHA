@@ -5,7 +5,7 @@
  * that prevent regression from known-good patterns.
  */
 import { describe, it, expect } from 'vitest';
-import { buildPass1PromptV2, PROMPT_VERSION } from '../src/extract/prompts/pass1-claim-mining-v2.js';
+import { buildPass1PromptV2, PROMPT_VERSION } from '@aidha/praecis-core';
 
 describe('Pass 1 v2 prompt contracts', () => {
   describe('system prompt', () => {

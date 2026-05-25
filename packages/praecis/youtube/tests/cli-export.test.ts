@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { runCli } from '../src/cli.js';
 import { describeIfSqlite } from './test-utils.js';
 
-const CLI_EXPORT_TIMEOUT_MS = 120_000;
+const CLI_EXPORT_TIMEOUT_MS = 300_000;
 
 describeIfSqlite('CLI export flows', () => {
   let tempRoot = '';

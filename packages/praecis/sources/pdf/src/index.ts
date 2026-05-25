@@ -15,7 +15,11 @@ import type {
   RawSource,
   ExtractionContext,
   MediaSegment,
+  IChunker,
+  ChunkInput,
+  Chunk,
 } from '@aidha/praecis-core';
+import { SectionChunker, TokenWindowChunker } from '@aidha/praecis-core';
 import { extractTextFromPdfText } from '@aidha/praecis-decode-text';
 import { ocrBlocksToResult, type OcrBlock } from '@aidha/praecis-decode-ocr';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
@@ -35,6 +39,24 @@ export interface PdfDocumentPayload {
 
 export interface PdfIngestorOptions {
   readonly readFileFn?: typeof readFile;
+}
+
+type PdfDocumentKind = 'slides' | 'paper';
+
+function classifyPdfDocument(payload: PdfDocumentPayload): PdfDocumentKind {
+  const pageTexts = payload.pages.map(page => page.text ?? '').filter(text => text.trim().length > 0);
+  if (pageTexts.length === 0) return 'paper';
+  const totalChars = pageTexts.reduce((sum, text) => sum + text.trim().length, 0);
+  const avgCharsPerPage = totalChars / pageTexts.length;
+  const bulletLines = pageTexts
+    .flatMap(text => text.split(/\n/u))
+    .filter(line => /^\s*(?:[-*•]|\d+[.)])\s+/u.test(line)).length;
+  const totalLines = pageTexts.flatMap(text => text.split(/\n/u)).filter(line => line.trim().length > 0).length || 1;
+  const bulletRatio = bulletLines / totalLines;
+  const title = payload.title.toLowerCase();
+  return avgCharsPerPage < 900 || bulletRatio > 0.25 || /\b(slides?|deck|presentation)\b/u.test(title)
+    ? 'slides'
+    : 'paper';
 }
 
 function sha256Hex(bytes: Uint8Array): string {
@@ -104,9 +126,28 @@ function pageSegmentsFromOcr(payload: PdfDocumentPayload, upstream: readonly Med
   return segments;
 }
 
-class NoOpContextProvider implements IContextProvider {
-  async build(_raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
-    return {};
+class PdfContextProvider implements IContextProvider {
+  async build(raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
+    const payload = raw.payload as PdfDocumentPayload | undefined;
+    if (!payload) return {};
+    const kind = classifyPdfDocument(payload);
+    return {
+      domainHints: kind === 'slides' ? ['slides', 'presentation'] : ['paper', 'long-form document'],
+      chunkingHints: kind === 'slides' ? ['slides'] : ['prose'],
+      sourceSummary: kind === 'slides' ? 'PDF classified as slide deck' : 'PDF classified as prose paper',
+    };
+  }
+}
+
+export class PdfAdaptiveChunker implements IChunker {
+  readonly name = 'pdf-adaptive';
+  private readonly section = new SectionChunker();
+  private readonly tokenWindow = new TokenWindowChunker();
+
+  async chunk(input: ChunkInput): Promise<Result<Chunk[]>> {
+    return input.context.chunkingHints?.includes('slides')
+      ? this.section.chunk(input)
+      : this.tokenWindow.chunk(input);
   }
 }
 
@@ -210,8 +251,12 @@ export function createPdfVectorSpec(readFileFn?: typeof readFile) {
     sensitivity: 'personal' as const,
     ingestor: new PdfIngestor({ readFileFn }),
     decode: [new PdfTextDecodeStrategy(), new PdfOcrDecodeStrategy()],
-    context: new NoOpContextProvider(),
-    chunking: 'section' as const,
+    context: new PdfContextProvider(),
+    chunking: new PdfAdaptiveChunker(),
     registration: PdfSourceRegistration,
   };
+}
+
+export function classifyPdfPayload(payload: PdfDocumentPayload): PdfDocumentKind {
+  return classifyPdfDocument(payload);
 }

@@ -9,6 +9,7 @@ import type { Locator } from '../types/index.js';
 import type { Result } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
+import type { LlmClient } from '../extract/llm-client.js';
 
 export type { MediaSegment, ExtractionContext, RawSource, DecodeOutput, Locator };
 
@@ -110,6 +111,7 @@ export interface RunReport {
   readonly chunks: readonly Chunk[];
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
+  readonly claims: readonly DraftClaim[];
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: LlmRoute;
   readonly cacheHits: number;
@@ -120,9 +122,7 @@ export interface RunReport {
   readonly durationMs: number;
 }
 
-export interface ILLMClient {
-  complete(prompt: string, opts?: { maxTokens?: number }): Promise<Result<string>>;
-}
+export type ILLMClient = LlmClient;
 
 export interface ICache {
   get(key: string): Promise<Result<string | null>>;
@@ -154,12 +154,35 @@ export interface IChunker {
   chunk(input: ChunkInput): Promise<Result<Chunk[]>>;
 }
 
+export interface MiningRequest {
+  readonly raw: RawSource;
+  readonly chunks: readonly Chunk[];
+  readonly context: ExtractionContext;
+  readonly config: ResolvedConfig;
+  readonly policyRoute: LlmRoute;
+  readonly llm?: LlmClient;
+  readonly costCeiling: CostCeiling;
+}
+
+export interface EditingRequest {
+  readonly miningResult: MiningResult;
+  readonly raw: RawSource;
+  readonly chunks: readonly Chunk[];
+  readonly context: ExtractionContext;
+  readonly config: ResolvedConfig;
+  readonly policyRoute: LlmRoute;
+  readonly llm?: LlmClient;
+  readonly costCeiling: CostCeiling;
+}
+
 export interface ICandidateMiner {
-  mine(chunks: readonly Chunk[], context: ExtractionContext): Promise<Result<MiningResult>>;
+  estimate?(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }>;
+  mine(request: MiningRequest): Promise<Result<MiningResult>>;
 }
 
 export interface IEditor {
-  edit(miningResult: MiningResult, context: ExtractionContext): Promise<Result<EditingResult>>;
+  estimate?(request: EditingRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }>;
+  edit(request: EditingRequest): Promise<Result<EditingResult>>;
 }
 
 export interface IExporter {
@@ -190,11 +213,13 @@ export interface PipelineServices {
   readonly miner: ICandidateMiner;
   readonly editor: IEditor;
   readonly exporter: IExporter;
-  readonly llm?: ILLMClient;
+  readonly llm?: LlmClient;
   readonly cache: ICache;
   readonly costCeiling: CostCeiling;
   readonly privacy: PrivacyPolicy;
   readonly clock: Clock;
+  readonly config: ResolvedConfig;
+  readonly allowHeuristicFallback: boolean;
 }
 
 export interface PipelineRuntime {

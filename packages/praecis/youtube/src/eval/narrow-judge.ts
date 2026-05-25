@@ -1,11 +1,11 @@
 import { z } from "zod";
-import type { LlmClient } from "../extract/llm-client.js";
-import type { ClaimCandidate } from "../extract/types.js";
+import type { LlmClient } from '@aidha/praecis-core';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { Result } from "../pipeline/types.js";
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import type { VideoContext } from "./matrix-runner.js";
 import { buildNarrowJudgePrompt, NARROW_JUDGE_PROMPT_VERSION } from "./prompts/judge-narrow-claim-quality.js";
-import { normalizeText } from "../extract/utils.js";
+import { normalizeText } from '@aidha/praecis-core';
 
 const NarrowJudgeFindingSchema = z.object({
   goldId: z.string().min(1).optional(),

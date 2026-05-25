@@ -1,6 +1,6 @@
-import type { ClaimCandidate } from "../extract/index.js";
-import { normalizeKey } from "../extract/utils.js";
-import { TieredVerifier } from "../extract/verification.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
+import { normalizeKey } from '@aidha/praecis-core';
+import { TieredVerifier } from '@aidha/praecis-core';
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import type { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
 import { computeClaimSetHash } from "./matrix-cache.js";

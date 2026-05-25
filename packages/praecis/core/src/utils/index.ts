@@ -3,3 +3,4 @@
 
 export * from './url-canonical.js';
 export * from './graph-helpers.js';
+export * from './ids.js';

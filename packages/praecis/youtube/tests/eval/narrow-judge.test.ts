@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildNarrowJudgePrompt } from "../../src/eval/prompts/judge-narrow-claim-quality";
 import { deriveNarrowJudgeScores, NarrowJudgeFindingsSchema, scoreNarrowClaimSet } from "../../src/eval/narrow-judge";
-import type { LlmClient } from "../../src/extract/llm-client";
+import type { LlmClient } from '@aidha/praecis-core';
 
 describe("narrow judge prompt and scoring", () => {
   it("includes gold and teacher references in the prompt", () => {

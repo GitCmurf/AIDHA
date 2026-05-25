@@ -1,7 +1,7 @@
 import type { GraphNode, GraphStore, NodeDataInput } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
-import { hashId } from '../utils/ids.js';
-import { buildTimestampUrl, formatTimestamp, toNumber } from '../extract/utils.js';
+import { hashId } from '@aidha/praecis-core';
+import { buildTimestampUrl, formatTimestamp, toNumber } from '@aidha/praecis-core';
 
 export const DEFAULT_INBOX_PROJECT_ID = 'project-inbox';
 

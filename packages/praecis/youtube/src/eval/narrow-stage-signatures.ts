@@ -6,9 +6,9 @@ import { computeClaimSetHash } from "./matrix-cache.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import type { NarrowShortlistTarget } from "./stage-artifact-store.js";
 import type { SelfImproveHintInput } from "./teacher-analysis.js";
-import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
-import { normalizeKey } from "../extract/utils.js";
-import { hashFile, hashId } from "../utils/ids.js";
+import type { Pass1PromptConfigId } from '@aidha/praecis-core';
+import { normalizeKey } from '@aidha/praecis-core';
+import { hashFile, hashId } from '@aidha/praecis-core';
 import type {
   ComparableClaimSet,
   NarrowRunMode,

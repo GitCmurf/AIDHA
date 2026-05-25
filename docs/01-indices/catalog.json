@@ -482,9 +482,9 @@
     "front_matter": {
       "document_id": "AIDHA-PLAN-007",
       "owner": "Ingestion Engineering Lead",
-      "status": "Draft",
-      "version": "2.1",
-      "last_updated": "2026-05-22",
+      "status": "In Review",
+      "version": "2.3",
+      "last_updated": "2026-05-25",
       "title": "Other Ingestion Vectors",
       "type": "PLAN",
       "docops_version": "2.0"

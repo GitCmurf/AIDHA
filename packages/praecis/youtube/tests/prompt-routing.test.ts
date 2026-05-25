@@ -3,7 +3,7 @@ import {
   buildTranscriptProfile,
   decidePromptPack,
   determineRetryDecision,
-} from '../src/extract/prompt-routing.js';
+} from '@aidha/praecis-core';
 
 describe('prompt routing', () => {
   it('routes business content from topicDomain metadata', () => {

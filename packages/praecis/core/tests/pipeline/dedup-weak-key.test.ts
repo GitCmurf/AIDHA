@@ -30,7 +30,7 @@ describe('dedup weak key runtime integration', () => {
       metadata: { canonicalId: 'web:https://example.com/a', sourceType: 'web', dedupKeys: ['content-sha256:abc'] },
     });
 
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({ store }));
+    const runtime = createPipelineRuntime(createDefaultPipelineServices({ store, allowHeuristicFallback: true }));
     runtime.register(vector({
       canonicalId: 'readwise:book:1',
       dedupKeys: ['content-sha256:abc'],

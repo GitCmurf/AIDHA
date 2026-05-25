@@ -321,6 +321,7 @@ export function extractDiscourseMarkers(text: string): DiscourseMarker[] {
 
     // Check for multi-word markers using pre-compiled patterns
     for (const { marker, pattern, type } of MULTI_WORD_MARKER_PATTERNS) {
+      pattern.lastIndex = 0;
       let match: RegExpExecArray | null;
       while ((match = pattern.exec(sentenceText)) !== null) {
         const index = match.index + (match[1]?.length ?? 0);
@@ -620,14 +621,6 @@ export function extractKeywords(text: string, options: KeywordExtractionOptions 
   // Extract nouns for keyword analysis
   const nouns = doc.nouns().out('array') as string[];
 
-  // NOTE: compromise v14.x does not have a nounPhrases() method.
-  // Multi-word phrase extraction is handled by extractKeyPhrases in keyphrases.ts
-  // for the verification path. For NLP-enhanced scoring, single-word nouns
-  // combined with frequency analysis provides sufficient signal.
-  // TODO: Re-evaluate when upgrading to compromise v15+ or replacing with
-  // a more capable NLP library with proper noun phrase extraction.
-  const nounPhrases: string[] = [];
-
   // Extract all terms for frequency analysis
   const sentences = doc.json() || [];
   const terms = sentences.flatMap((s: any) => s.terms || []);
@@ -660,22 +653,13 @@ export function extractKeywords(text: string, options: KeywordExtractionOptions 
 
   const candidates: KeywordCandidate[] = [];
 
-  // Normalize noun phrases for case-insensitive matching
-  const nounPhrasesLower = new Set(nounPhrases.map(p => p.toLowerCase().trim()));
-
-  // Score noun phrases higher
-  const allTerms = new Set([...nounPhrases, ...nouns, ...wordFreq.keys()]);
+  const allTerms = new Set([...nouns, ...wordFreq.keys()]);
 
   for (const term of allTerms) {
     const normalizedTerm = term.toLowerCase().trim();
     if (normalizedTerm.length < 3) continue;
 
     let score = 0;
-
-    // Noun phrases get a base score boost
-    if (nounPhrasesLower.has(normalizedTerm)) {
-      score += 2;
-    }
 
     // Frequency score (normalized)
     const freq = wordFreq.get(normalizedTerm) || 1;

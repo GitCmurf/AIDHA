@@ -67,8 +67,7 @@ function normalizeWord(raw: string): string {
 }
 
 /**
- * Checks if a character is alphanumeric (a-z, 0-9).
- * Inline for performance to avoid regex overhead.
+ * Checks if a character is a Unicode letter or ASCII digit.
  */
 function isAlphaNumeric(char: string): boolean {
   return /[\p{L}0-9]/u.test(char);

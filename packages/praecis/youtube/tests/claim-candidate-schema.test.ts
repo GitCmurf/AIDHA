@@ -14,8 +14,8 @@ import {
   CLAIM_METHODS,
   normalizeClaimType,
   normalizeClaimClassification,
-} from '../src/extract/claim-candidate-schema.js';
-import type { ClaimCandidate } from '../src/extract/types.js';
+} from '@aidha/praecis-core';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 describe('ClaimCandidateSchema', () => {
   describe('valid claim validation', () => {

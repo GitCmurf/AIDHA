@@ -1,7 +1,7 @@
 /**
  * Pass 1 Claim Mining Prompt v2
  *
- * Modular prompt for extracting high-resolution claims from video transcripts.
+ * Modular prompt for extracting high-resolution claims from source text.
  * Based on Gemini baseline success showing domain-labeled, evidence-backed claims.
  */
 
@@ -240,11 +240,11 @@ function buildBaseSystemRole(packId: ExtractionPromptPackId): string {
   switch (packId) {
     case 'clinical-risk-management-v2':
     case 'clinical-risk-management':
-      return 'You are a senior analyst extracting high-resolution health and physiological assertions from video transcripts.';
+      return 'You are a senior analyst extracting high-resolution health and physiological assertions from source text.';
     case 'business-framework':
-      return 'You are a senior analyst extracting high-resolution business and presentation claims from video transcripts.';
+      return 'You are a senior analyst extracting high-resolution business and presentation claims from source text.';
     default:
-      return 'You are a senior analyst extracting high-resolution claims from video transcripts.';
+      return 'You are a senior analyst extracting high-resolution claims from source text.';
   }
 }
 
@@ -336,6 +336,10 @@ export function buildUserPrompt(
   excerpts: Array<{id: string; startSeconds: number; text: string}>,
   configId: Pass1PromptConfigId = 'baseline'
 ): string {
+  if (excerpts.length === 0) {
+    throw new Error('buildUserPrompt requires at least one excerpt');
+  }
+
   const schema = {
     claims: [{
       text: 'string (the claim text, standalone and complete)',

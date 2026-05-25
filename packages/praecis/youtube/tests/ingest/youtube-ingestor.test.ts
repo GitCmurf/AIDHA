@@ -27,8 +27,8 @@ describe('YouTubeIngestor', () => {
     if (!result.ok) return;
 
     const raw = result.value;
-    expect(raw.canonicalId).toBe('youtube:test-video');
-    expect(raw.sourceType).toBe('YouTubeVideo');
+    expect(raw.canonicalId).toBe('youtube-test-video');
+    expect(raw.sourceType).toBe('youtube');
     expect(raw.sensitivity).toBe('public');
     expect(raw.label).toBe('Test Video');
     expect(raw.dedupKeys).toEqual(['test-video']);
@@ -41,7 +41,7 @@ describe('YouTubeIngestor', () => {
 
     const { provenance } = result.value;
     expect(provenance.sourceUri).toBe('https://www.youtube.com/watch?v=test-video');
-    expect(provenance.sourceType).toBe('YouTubeVideo');
+    expect(provenance.sourceType).toBe('youtube');
     expect(provenance.ingestedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 

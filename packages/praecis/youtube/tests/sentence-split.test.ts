@@ -6,7 +6,7 @@ import {
   mergeAdjacentSegments,
   countFragmentIndicators,
   type MergeableSegment,
-} from '../src/extract/utils.js';
+} from '@aidha/praecis-core';
 
 describe('sentence splitter', () => {
   describe('splitSentences', () => {

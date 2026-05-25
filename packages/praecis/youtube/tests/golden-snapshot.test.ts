@@ -13,9 +13,8 @@ import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { IngestionPipeline } from '../src/pipeline/ingest.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import { ReferenceExtractionPipeline } from '../src/extract/references.js';
+import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
+import { ReferenceExtractionPipeline } from '@aidha/praecis-core';
 import { DossierExporter } from '../src/export/dossier.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -30,16 +29,12 @@ async function buildGoldenOutputs(): Promise<{
   const taxonomyRegistry = new InMemoryRegistry();
   const youtubeClient = new MockYouTubeClient();
 
-  const ingestion = new IngestionPipeline({ graphStore, taxonomyRegistry, youtubeClient });
+  const ingestion = new RuntimeIngestionHarness({ graphStore, taxonomyRegistry, youtubeClient });
   const ingestResult = await ingestion.ingestPlaylist('test-playlist');
   if (!ingestResult.ok) throw ingestResult.error;
 
-  const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-  const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
-  if (!claimResult.ok) throw claimResult.error;
-
   const refPipeline = new ReferenceExtractionPipeline({ graphStore });
-  const refResult = await refPipeline.extractReferencesForVideo('test-video');
+  const refResult = await refPipeline.extractReferencesForVideo('youtube-test-video');
   if (!refResult.ok) throw refResult.error;
 
   const exporter = new DossierExporter({ graphStore });
