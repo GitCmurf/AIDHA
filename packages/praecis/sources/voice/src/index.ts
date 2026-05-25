@@ -3,6 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import { composeVector, transcribeStrategy } from '@aidha/praecis-core';
 import type {
@@ -62,6 +63,7 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
         uri: `voice:${sha256}`,
         mimeType: guessMimeType(input.ref),
       };
+      const label = basename(input.ref) || input.ref;
 
       return {
         ok: true,
@@ -75,8 +77,14 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
             ingestedAt: new Date().toISOString(),
             sourceType: 'voice',
           },
+          resourceMetadata: {
+            title: label,
+            filePath: input.ref,
+            sha256,
+            mimeType: audio.mimeType,
+          },
           payload: audio,
-          label: input.ref.split('/').pop() ?? input.ref,
+          label,
         },
       };
     } catch (error) {

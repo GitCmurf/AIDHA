@@ -171,6 +171,7 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
         sha256,
         pages,
       };
+      const documentKind = classifyPdfDocument(payload);
 
       return {
         ok: true,
@@ -183,6 +184,13 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
             sourceUri: input.ref,
             ingestedAt: new Date().toISOString(),
             sourceType: 'pdf',
+          },
+          resourceMetadata: {
+            title,
+            filePath: input.ref,
+            sha256,
+            pageCount: pages.length,
+            documentKind,
           },
           payload,
           label: title,

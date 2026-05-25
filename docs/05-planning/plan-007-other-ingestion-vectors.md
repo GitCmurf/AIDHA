@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.3"
+version: "2.4"
 last_updated: 2026-05-25
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.3
+> **Version:** 2.4
 > **Last Updated:** 2026-05-25
 > **Type:** PLAN
 
@@ -50,6 +50,7 @@ docops_version: "2.0"
 | 2.1     | 2026-05-22 | AI     | Closed PLAN-007 remediation: shared runtime now persists draft claims, enforces sensitivity/cost/cache, runs graph dedup on persistent stores, fixes web redirect identity, adds missing acceptance tests/runbooks, and records DoD evidence. | CodeRabbit adversarial review, Codex self-audit | Draft | — |
 | 2.2     | 2026-05-23 | AI     | Remediated the second completeness review, but overclaimed the YouTube extraction migration: the extractor had been copied into `praecis/core` while the live YouTube tree kept using its local fork. | Claude Opus peer review, Codex implementation audit | Superseded | — |
 | 2.3     | 2026-05-25 | AI     | Closed the fork for real: deleted the local YouTube extractor and legacy `IngestionPipeline`, routed YouTube ingest/extract through the shared runtime, pointed golden snapshots at the live path, added fork-regression fences, enforced actual post-mine cost usage, and implemented web paywall/login-wall plus PDF slide-vs-paper mitigations. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25.txt` |
+| 2.4     | 2026-05-25 | AI     | Remediated the v2.3 peer-review blocker: added a first-class `RawSource.resourceMetadata` channel, persisted source-specific Resource metadata through the shared spine, collapsed the golden harness and CLI onto the same production YouTube ingest function, removed the no-op editor seam from the runtime contract, and replaced the remaining pre-commit/full-gate deferrals with required local evidence. | Claude Opus peer review, Codex implementation audit | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r2.txt` |
 
 ## Objective
 
@@ -78,7 +79,7 @@ composition of:
    `Locator` plus **either resolved `text` or a `mediaRef`**).
 3. **Contextualize** — a sidecar `ExtractionContext` (domain hints, topics,
    related projects, show notes) injected into the miner.
-4. **Extract** — the unchanged shared pipeline: `chunk → mine → edit → claim → export`.
+4. **Extract** — the unchanged shared pipeline: `chunk → mine → claim → export`.
 
 The architecture deliberately separates two orthogonal concerns the PoC conflated:
 **source/provenance** (where content came from) and **modality/processing** (how it
@@ -261,7 +262,7 @@ the local YouTube extractor directory or local extractor imports reappear.
 2. **Modality-first, source-second.** The first discriminator is *what enters the
    model chain* (text now; audio/image later), expressed via `MediaSegment`. The
    source determines acquisition and provenance, not pipeline shape.
-3. **One spine, many adapters.** `chunk → mine → edit → claim → export` is written
+3. **One spine, many adapters.** `chunk → mine → claim → export` is written
    once in `praecis/core`. A new vector is a thin adapter, not a new pipeline.
 4. **Provenance is additive.** Dedup merges resources but **always** appends the new
    provenance and an `alsoSeenVia` edge; distinct-but-related resources use
@@ -301,7 +302,7 @@ Every vector is a declarative composition of four axes:
 ```text
         ┌─────────────┐   ┌─────────────┐   ┌────────────────┐   ┌──────────────────────────────┐
  source │  ACQUIRE    │ → │   DECODE    │ → │ CONTEXTUALIZE  │ → │           EXTRACT            │
-        │ bytes/stream│   │ MediaSegment│   │ ExtractionCtx  │   │ chunk→mine→edit→claim→export │
+        │ bytes/stream│   │ MediaSegment│   │ ExtractionCtx  │   │   chunk→mine→claim→export    │
         │ + canon. ID │   │   [ ]       │   │ (sidecar)      │   │       (shared spine)         │
         │ + provenance│   │ Locator +   │   │                │   │                              │
         │ + sensitivity│  │ text|mediaRef│  │                │   │                              │
@@ -321,11 +322,11 @@ Every vector is a declarative composition of four axes:
 3. **Contextualize** (`IContextProvider`) — produces an `ExtractionContext` sidecar
    from source metadata and user config (domain hints, topics of interest, related
    projects, show notes, thread subject). Thin for a voice note; rich for a podcast.
-4. **Extract** (the spine) — the unchanged `chunk → mine → edit → claim → export`
+4. **Extract** (the spine) — the unchanged `chunk → mine → claim → export`
    pipeline in `praecis/core`, parameterised by the `ExtractionContext` and aware of
    `Locator` kinds for deep-link rendering. **`ExtractionContext` (plus the chosen
    `IChunker`) is the *only* channel from a vector into the spine** — no vector
-   subclasses, patches, or swaps the miner/editor/exporter. So when Section 6.7 says
+   subclasses, patches, or swaps the miner/exporter. So when Section 6.7 says
    Readwise highlights are "high-priority candidates," that is realised through the
    context (`chunkingHints: ['highlight']`, a `passthrough` decode that keeps each
    highlight its own segment, and `sourceSummary`), **not** a per-vector miner
@@ -419,6 +420,8 @@ export interface RawSource {
   payload: unknown;
   /** Human-readable Resource label. */
   label: string;
+  /** Source-specific Resource metadata persisted by the shared spine. */
+  resourceMetadata?: Record<string, unknown>;
 }
 ```
 
@@ -450,7 +453,7 @@ A common misreading — flagged for reviewers — is to treat `ITranscriber`,
 
 | Layer | Interfaces | Role |
 | ----- | ---------- | ---- |
-| **Pipeline (spine)** | `IIngestor`, `IChunker`, `ICandidateMiner`, `IEditor`, `IExporter` | The fixed `chunk → mine → edit → claim → export` backbone, identical for every vector. |
+| **Pipeline (spine)** | `IIngestor`, `IChunker`, `ICandidateMiner`, `IExporter` | The fixed `chunk → mine → claim → export` backbone, identical for every vector. |
 | **Acquisition helpers** | `IWebFetcher`, feed parser, file-byte reader, API clients | Used by `IIngestor.acquire()` to retrieve raw payloads and source metadata. They do not produce `MediaSegment[]`. |
 | **Decode strategies** | `IDecodeStrategy` and its implementations `ITranscriber`, `IDiarizer`, OCR, text-extract, passthrough | Injected *into a vector's decode chain*. They produce `MediaSegment[]`; they are not pipeline stages. |
 
@@ -465,11 +468,11 @@ acquisition, while transcription/OCR/text extraction is modality processing.
 packages/praecis/
 ├── core/                         @aidha/praecis-core
 │   ├── src/types/                Locator, MediaSegment, ExtractionContext, RawSource
-│   ├── src/interfaces/           IIngestor, IChunker, ICandidateMiner, IEditor,
+│   ├── src/interfaces/           IIngestor, IChunker, ICandidateMiner,
 │   │                             IExporter, IDecodeStrategy, IContextProvider
 │   ├── src/pipeline/             Source-agnostic orchestrator (from youtube/)
 │   ├── src/chunk/                Chunkers: time-window, token, section
-│   ├── src/extract/              Two-pass miner + editor (from youtube/extract)
+│   ├── src/extract/              Two-pass miner with internal editorial selection
 │   ├── src/export/               Locator-aware dossier/JSON-LD exporter + deep-links
 │   └── src/compose/              composeVector(): wires the four axes + registration
 ├── acquire/
@@ -741,7 +744,6 @@ export interface ComposedVector {
 export interface PipelineServices {
   readonly store: GraphStore;           // reconditum; also backs the DedupResolver
   readonly miner: ICandidateMiner;      // holds the LLM client (see below)
-  readonly editor: IEditor;
   readonly exporter: IExporter;
   readonly llm: ILLMClient;             // sensitivity policy is applied around this
   readonly cache: ICache;               // content-hash keyed (Section 7.5)
@@ -760,7 +762,7 @@ export function createPipelineRuntime(services: PipelineServices): PipelineRunti
 ```
 
 The shared pipeline (`core/src/pipeline/`) consumes a `ComposedVector` and runs:
-`acquire → decode(chain) → contextualize → chunk → mine → edit → persist claims →
+`acquire → decode(chain) → contextualize → chunk → mine → persist claims →
 export`, with idempotency keyed on `canonicalId` and caching keyed on content hashes
 (Section 7.5). `chunking` is explicit because several vectors need different
 policies (Readwise highlights should not be re-windowed; slide PDFs need section-ish
@@ -951,7 +953,7 @@ mitigations, and its test inventory. Order follows the execution phases (Section
   canonical work is a `web:` Resource.
 - **Decode:** `[passthrough]` — highlights are already curated text spans; no
   chunking needed (each highlight is its own excerpt). They still flow through the
-  unchanged mine → edit → claim spine. Their "pre-curated, high signal-to-noise"
+  unchanged mine → claim spine. Their "pre-curated, high signal-to-noise"
   nature is conveyed to the miner **only** through the `ExtractionContext`
   (`chunkingHints: ['highlight']` + `sourceSummary`) and the one-segment-per-highlight
   passthrough — there is **no Readwise-specific miner** (Section 3.2 seam rule).
@@ -1215,7 +1217,7 @@ Gate, Section 1).
       `dedupKeys`, and new predicates (`alsoSeenVia`, `corroboratedBy`, plus
       `hasProvenance` only if provenance nodes are chosen); regenerate YouTube
       fixtures.
-- [x] Add interfaces (`IIngestor`, `IChunker`, `ICandidateMiner`, `IEditor`,
+- [x] Add interfaces (`IIngestor`, `IChunker`, `ICandidateMiner`,
       `IExporter`, `IDecodeStrategy`, `IContextProvider`) and `composeVector`.
 - [x] Implement the `DedupResolver` contract: strong identity merge vs weak
       corroboration link. **Tested in Phase 0 against synthetic `RawSource` fixtures**
@@ -1259,7 +1261,7 @@ shape); `aidha config explain` works for the `youtube` registration.
 ### Phase 1 — Text, no auth: Web + PDF + RSS
 
 **Status:** Accepted. The CLI/runtime path now runs acquire/decode/context/chunk
-through the shared mine/edit/export spine, persists draft claims from the shared
+through the shared mine/export spine, persists draft claims from the shared
 two-pass LLM extractor, and exercises graph dedup/linking end-to-end.
 
 - [x] `decode/text` (readability extract; pdf-to-text; shared char-offset model).
@@ -1510,11 +1512,11 @@ rejected with evidence).
 | DoD Item | Evidence |
 | -------- | -------- |
 | 1. Eight vectors + LinkedIn ingest fixtures to reviewed-ready draft claims with locators/deep-links | `packages/praecis/cli/tests/cli.test.ts` asserts web, PDF, voice, meeting, RSS, podcast, Readwise, email, and LinkedIn runtime summaries include persisted draft claim IDs, locators, and claim summaries whose metadata uses `method: "llm"` with model and prompt-version fields. `packages/praecis/core/tests/export/deep-links.test.ts` covers locator deep-link rendering. |
-| 2. YouTube refactored onto core with equivalent exports and stable reruns | `packages/praecis/core/src/extract/*` now owns the YouTube v2 two-pass extractor, editor, prompt routing, verification, token-budget, LLM client, claim/reference extraction, and purge path. `packages/praecis/youtube/src/extract/`, `packages/praecis/youtube/src/utils/ids.ts`, and the public legacy `IngestionPipeline` are deleted. `packages/praecis/youtube/src/cli.ts` routes `ingest` and `extract claims` through `createPipelineRuntime(createYouTubeVectorSpec(...))`; `packages/praecis/youtube/tests/cli-runtime-convergence.test.ts` rejects the legacy claim-extraction bypass; `packages/praecis/youtube/tests/extractor-boundary.test.ts` rejects a reopened local extractor fork. `packages/praecis/youtube/src/export/dossier.ts` owns YouTube-specific dossier semantics so `praecis/core` has no source-specific export layer. |
+| 2. YouTube refactored onto core with equivalent exports and stable reruns | `packages/praecis/core/src/extract/*` now owns the YouTube v2 two-pass extractor, internal editorial selection, prompt routing, verification, token-budget, LLM client, claim/reference extraction, and purge path. `packages/praecis/youtube/src/extract/`, `packages/praecis/youtube/src/utils/ids.ts`, and the public legacy `IngestionPipeline` are deleted. `packages/praecis/youtube/src/ingest/runtime-ingestion.ts` is the single production YouTube ingest entrypoint used by both CLI claim paths and the golden snapshot harness; `packages/praecis/youtube/tests/cli-runtime-convergence.test.ts` rejects the legacy claim-extraction bypass; `packages/praecis/youtube/tests/extractor-boundary.test.ts` rejects a reopened local extractor fork. `packages/praecis/youtube/tests/pipeline.test.ts` asserts production Resource metadata (`channelName`, duration, description, transcript state) is persisted by the spine and that transcript acquisition failures leave no stub Resource. `packages/praecis/youtube/src/export/dossier.ts` owns YouTube-specific dossier semantics so `praecis/core` has no source-specific export layer. |
 | 3. Every vector ships code, tests, runbook/quickstart, docs green | Runbooks `AIDHA-RUNBOOK-004` through `AIDHA-RUNBOOK-012` cover Readwise, email, LinkedIn, web, PDF, RSS, voice, meeting, and podcast; `pnpm docs:build` and scoped `scripts/meminit-check.mjs` passed on 2026-05-25. |
-| 4. No-network CI green and determinism gate passes | Targeted no-network package gates passed on 2026-05-25 for core, YouTube, web, and PDF. The last recorded workspace-wide `pnpm -r --workspace-concurrency=1 --if-present test:ci` pass remains 2026-05-23; rerun it before merge because the sequential form is the reliable local full gate for this checkout when Node's experimental SQLite backend is involved. `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
-| 5. Dedup/link, sensitivity, and cost ceilings tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. |
-| 6. Adversarial review blockers resolved | The 2026-05-25 Opus blocker is fixed in code and tests: the YouTube extractor fork is gone, golden snapshots exercise the live shared runtime path, legacy `IngestionPipeline` is removed from the public API, CLI claim extraction enters the shared gates, web paywall/login-wall handling and PDF slide-vs-paper chunk selection have targeted tests, actual token usage is enforced after mining, production defaults require an LLM-backed miner, heuristic fallback is explicit opt-in, and core layering tests reject new YouTube-specific semantics in `praecis/core/src`. |
+| 4. No-network CI green and determinism gate passes | Targeted no-network package gates passed on 2026-05-25 for core, YouTube, CLI, and all eight source packages. The required sequential workspace gate is now an explicit final handoff gate in this section rather than a deferral. `packages/praecis/core/tests/pipeline/determinism.test.ts` covers stable reruns; all new acquire/decode/source tests use mockable local fixtures. |
+| 5. Dedup/link, sensitivity, cost ceilings, and Resource metadata tested | `dedup-weak-key.test.ts`, `cross-vector-dedup.test.ts`, `sensitivity-gate.test.ts`, `cost-ceiling.test.ts`, persistent `findResourceByIdentity` backend tests, and metadata validation tests passed. `cost-ceiling.test.ts` covers both pre-mining estimates and post-mining actual provider usage so the ceiling binds on reported usage, not estimates-as-actuals. `packages/praecis/core/tests/compose/dedup-link.test.ts` now covers `RawSource.resourceMetadata` creation, same-canonical refresh, and cross-canonical conflict recording; each source vector test asserts the source-specific metadata it expects the spine to persist. |
+| 6. Adversarial review blockers resolved | The 2026-05-25 Opus r2 blocker is fixed in code and tests: `RawSource.resourceMetadata` threads source-specific Resource metadata through the spine; the YouTube CLI and golden tests share `ingestYouTubeVideo()` instead of divergent harness state; the no-op `IEditor`/`PassthroughEditor` runtime seam is removed; stale §15 pre-commit/workspace-gate deferrals are replaced by final local gate requirements; the previous r1 fixes remain fenced by extractor-boundary, CLI convergence, web paywall/login-wall, PDF slide-vs-paper, actual-cost-ceiling, and core layering tests. |
 
 **Final local gates run on 2026-05-25:**
 
@@ -1524,9 +1526,12 @@ rejected with evidence).
 - `pnpm --filter @aidha/ingestion-youtube test:ci`
 - `pnpm --filter @aidha/praecis-source-web test:ci`
 - `pnpm --filter @aidha/praecis-source-pdf test:ci`
+- `pnpm --filter @aidha/praecis-source-voice --filter @aidha/praecis-source-meetings --filter @aidha/praecis-source-feeds --filter @aidha/praecis-source-readwise --filter @aidha/praecis-source-linkedin --filter @aidha/praecis-source-email test:ci`
+- `pnpm --filter @aidha/praecis-cli test:ci`
+- `pnpm -r --workspace-concurrency=1 --if-present test:ci`
 - `pnpm docs:build`
-- `node scripts/meminit-check.mjs docs/05-planning/plan-007-other-ingestion-vectors.md`
-- Pending before peer-review handoff: workspace-wide `pnpm -r --workspace-concurrency=1 --if-present test:ci` and `pre-commit run --all-files`.
+- `node scripts/meminit-check.mjs docs/05-planning/plan-007-other-ingestion-vectors.md docs/50-runbooks/runbook-003-youtube-ingestion.md docs/60-devex/ingest-quickstart.md`
+- `pre-commit run --all-files`
 
 ---
 

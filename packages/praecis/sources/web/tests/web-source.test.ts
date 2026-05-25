@@ -26,6 +26,12 @@ describe('WebIngestor', () => {
     expect(result.value.canonicalId).toBe('web:https://example.com/article');
     expect(result.value.dedupKeys).toContain('https://Example.com/article?utm_source=rss');
     expect(result.value.payload.text).toBe('Example title\n\nHello');
+    expect(result.value.resourceMetadata).toMatchObject({
+      title: 'Example title',
+      canonicalUrl: 'https://example.com/article',
+      resolvedUrl: 'https://Example.com/article?utm_source=rss',
+      siteName: 'example.com',
+    });
   });
 });
 

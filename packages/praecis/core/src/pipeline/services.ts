@@ -17,17 +17,14 @@ import type {
   Chunk,
   Clock,
   DraftClaim,
-  EditingResult,
   ExtractionContext,
   ExportResult,
   ICache,
   ICandidateMiner,
-  IEditor,
   IExporter,
   MiningRequest,
   MiningResult,
   PipelineServices,
-  EditingRequest,
 } from '../interfaces/index.js';
 import type { RawSource } from '../types/index.js';
 
@@ -258,28 +255,10 @@ export class HeuristicClaimMiner implements ICandidateMiner {
   }
 }
 
-export class PassthroughEditor implements IEditor {
-  estimate(): Result<{ readonly tokenUsage: number; readonly spendUsd: number }> {
-    return { ok: true, value: { tokenUsage: 0, spendUsd: 0 } };
-  }
-
-  async edit(request: EditingRequest): Promise<Result<EditingResult>> {
-    return {
-      ok: true,
-      value: {
-        claims: request.miningResult.claims.map(claim => ({ ...claim, state: 'draft' })),
-        tokenUsage: 0,
-        spendUsd: 0,
-        diagnostics: [],
-      },
-    };
-  }
-}
-
 export class GraphPipelineExporter implements IExporter {
   constructor(private readonly store: GraphStore) {}
 
-  async export(editResult: EditingResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>> {
+  async export(miningResult: MiningResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>> {
     const dedup = await applyDedupResolution(this.store, raw);
     if (!dedup.ok) return dedup;
 
@@ -322,7 +301,7 @@ export class GraphPipelineExporter implements IExporter {
       if (!edge.ok) return edge;
     }
 
-    for (const claim of editResult.claims) {
+    for (const claim of miningResult.claims) {
       const claimId = claim.id ?? `claim:${stableId(`${dedup.value.resourceId}:${claim.text}`)}`;
       const result = await this.store.upsertNode(
         'Claim',
@@ -380,7 +359,6 @@ export function createDefaultPipelineServices(overrides: Partial<PipelineService
   return {
     store,
     miner: overrides.miner ?? (llm ? new CanonicalLlmClaimMiner() : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
-    editor: overrides.editor ?? new PassthroughEditor(),
     exporter: overrides.exporter ?? new GraphPipelineExporter(store),
     cache: overrides.cache ?? new MemoryCache(),
     costCeiling: overrides.costCeiling ?? {},

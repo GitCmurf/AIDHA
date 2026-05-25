@@ -14,6 +14,12 @@ describe('LinkedIn paste bridge identity', () => {
 
     expect(result.value.raw.canonicalId).toBe('linkedin:urn:li:activity:1234567890');
     expect(result.value.raw.dedupKeys).toContain('urn:li:activity:1234567890');
+    expect(result.value.raw.resourceMetadata).toMatchObject({
+      activityUrn: 'urn:li:activity:1234567890',
+      url: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/',
+      paragraphCount: 2,
+    });
+    expect(result.value.raw.resourceMetadata?.['contentHash']).toEqual(expect.any(String));
   });
 
   it('falls back to a pasted-text hash when no url is present', async () => {

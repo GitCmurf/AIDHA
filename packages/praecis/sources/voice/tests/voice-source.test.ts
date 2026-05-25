@@ -26,6 +26,12 @@ describe('VoiceIngestor', () => {
       expect(result.value.canonicalId).toBe(`voice:${expectedHash}`);
       expect(result.value.payload.uri).toBe(`voice:${expectedHash}`);
       expect(result.value.payload.mimeType).toBe('audio/mp4');
+      expect(result.value.resourceMetadata).toMatchObject({
+        title: 'note.m4a',
+        filePath: file,
+        sha256: expectedHash,
+        mimeType: 'audio/mp4',
+      });
     } finally {
       rmSync(file, { force: true });
       rmSync(join(file, '..'), { recursive: true, force: true });

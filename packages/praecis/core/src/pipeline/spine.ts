@@ -117,35 +117,12 @@ export async function runVector(
     }
   }
 
-  const editingRequest = {
-    miningResult,
-    raw,
-    chunks: chunkResult.value,
-    context,
-    config: services.config,
-    policyRoute: runtimePolicy.value,
-    llm: services.llm,
-    costCeiling: services.costCeiling,
-  };
-  const editEstimate = services.editor.estimate?.(editingRequest);
-  if (editEstimate && !editEstimate.ok) return editEstimate;
-  if (editEstimate?.ok) {
-    const editEstimatedCostCheck = assertWithinCost(
-      services,
-      (miningResult.tokenUsage ?? 0) + editEstimate.value.tokenUsage,
-      (miningResult.spendUsd ?? 0) + editEstimate.value.spendUsd,
-    );
-    if (!editEstimatedCostCheck.ok) return editEstimatedCostCheck;
-  }
-  const edited = await services.editor.edit(editingRequest);
-  if (!edited.ok) return edited;
-
-  const tokenUsage = (miningResult.tokenUsage ?? 0) + (edited.value.tokenUsage ?? 0);
-  const spendUsd = (miningResult.spendUsd ?? 0) + (edited.value.spendUsd ?? 0);
+  const tokenUsage = miningResult.tokenUsage ?? 0;
+  const spendUsd = miningResult.spendUsd ?? 0;
   const costCheck = assertWithinCost(services, tokenUsage, spendUsd);
   if (!costCheck.ok) return costCheck;
 
-  const exported = await services.exporter.export(edited.value, raw, chunkResult.value);
+  const exported = await services.exporter.export(miningResult, raw, chunkResult.value);
   if (!exported.ok) return exported;
 
   return {
@@ -159,9 +136,10 @@ export async function runVector(
       segmentCount: segments.length,
       segments,
       chunks: chunkResult.value,
-      claimsExtracted: edited.value.claims.length,
+      excerptIds: exported.value.excerptIds,
+      claimsExtracted: miningResult.claims.length,
       claimIds: exported.value.claimIds,
-      claims: edited.value.claims,
+      claims: miningResult.claims,
       dedupAction: exported.value.dedupAction,
       policyRoute: runtimePolicy.value,
       cacheHits,

@@ -66,6 +66,18 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
         ingestedAt: new Date().toISOString(),
         sourceType: 'youtube',
       },
+      resourceMetadata: {
+        videoId: video.id,
+        channelId: video.channelId,
+        channelName: video.channelName,
+        duration: video.duration,
+        publishedAt: video.publishedAt,
+        description: video.description,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        thumbnailUrl: video.thumbnailUrl,
+        transcriptStatus: transcript ? 'available' : 'missing',
+        ...(transcript?.language ? { transcriptLanguage: transcript.language } : {}),
+      },
       label: video.title,
       payload,
     };

@@ -16,6 +16,7 @@ function makeSource(overrides: Partial<RawSource> & Pick<RawSource, 'canonicalId
       sourceType: overrides.sourceType,
     },
     payload: overrides.payload ?? {},
+    resourceMetadata: overrides.resourceMetadata,
     label: overrides.label ?? overrides.canonicalId,
   };
 }
@@ -28,6 +29,7 @@ async function seedResource(store: GraphStore, source: RawSource): Promise<void>
       sourceType: source.sourceType,
       dedupKeys: source.dedupKeys ?? [],
       provenances: [source.provenance],
+      ...(source.resourceMetadata ?? {}),
     },
   });
 }
@@ -86,6 +88,101 @@ describe('applyDedupResolution', () => {
     expect(edges.ok).toBe(true);
     if (!edges.ok) return;
     expect(edges.value.items).toHaveLength(0);
+  });
+
+  it('persists source-specific Resource metadata on create', async () => {
+    const source = makeSource({
+      canonicalId: 'youtube-test-video',
+      sourceType: 'youtube',
+      resourceMetadata: {
+        videoId: 'test-video',
+        channelName: 'Fixture Channel',
+        description: 'Fixture description',
+      },
+      label: 'Fixture video',
+    });
+
+    const result = await applyDedupResolution(store, source);
+    expect(result.ok).toBe(true);
+    const nodeResult = await store.getNode(source.canonicalId);
+    expect(nodeResult.ok).toBe(true);
+    if (!nodeResult.ok || !nodeResult.value) return;
+
+    expect(nodeResult.value.metadata?.['channelName']).toBe('Fixture Channel');
+    expect(nodeResult.value.metadata?.['description']).toBe('Fixture description');
+    expect(nodeResult.value.metadata?.['canonicalId']).toBe(source.canonicalId);
+  });
+
+  it('allows same-canonical refreshes to update source-specific Resource metadata', async () => {
+    const initial = makeSource({
+      canonicalId: 'youtube-test-video',
+      sourceType: 'youtube',
+      resourceMetadata: {
+        channelName: 'Old Channel',
+        transcriptStatus: 'missing',
+      },
+    });
+    await seedResource(store, initial);
+
+    const refreshed = makeSource({
+      canonicalId: 'youtube-test-video',
+      sourceType: 'youtube',
+      resourceMetadata: {
+        channelName: 'New Channel',
+        transcriptStatus: 'available',
+        transcriptLanguage: 'en',
+      },
+    });
+    const result = await applyDedupResolution(store, refreshed);
+    expect(result.ok).toBe(true);
+
+    const nodeResult = await store.getNode(initial.canonicalId);
+    expect(nodeResult.ok).toBe(true);
+    if (!nodeResult.ok || !nodeResult.value) return;
+    expect(nodeResult.value.metadata?.['channelName']).toBe('New Channel');
+    expect(nodeResult.value.metadata?.['transcriptStatus']).toBe('available');
+    expect(nodeResult.value.metadata?.['transcriptLanguage']).toBe('en');
+  });
+
+  it('records source metadata conflicts on cross-canonical merges without overwriting existing values', async () => {
+    const web = makeSource({
+      canonicalId: 'web:https://example.com/article',
+      sourceType: 'web',
+      dedupKeys: ['web:https://example.com/article'],
+      resourceMetadata: {
+        title: 'Canonical web title',
+        siteName: 'Example',
+      },
+    });
+    await seedResource(store, web);
+
+    const rss = makeSource({
+      canonicalId: 'rss:https://blog.example.com/feed.xml#item-1',
+      sourceType: 'rss',
+      dedupKeys: ['web:https://example.com/article'],
+      resourceMetadata: {
+        title: 'Feed item title',
+        feedTitle: 'Example feed',
+      },
+    });
+    const result = await applyDedupResolution(store, rss);
+    expect(result.ok).toBe(true);
+
+    const nodeResult = await store.getNode(web.canonicalId);
+    expect(nodeResult.ok).toBe(true);
+    if (!nodeResult.ok || !nodeResult.value) return;
+    const metadata = nodeResult.value.metadata as Record<string, unknown>;
+    expect(metadata['title']).toBe('Canonical web title');
+    expect(metadata['feedTitle']).toBe('Example feed');
+    expect(metadata['metadataConflicts']).toEqual([
+      {
+        key: 'title',
+        existing: 'Canonical web title',
+        incoming: 'Feed item title',
+        incomingCanonicalId: rss.canonicalId,
+        incomingSourceType: 'rss',
+      },
+    ]);
   });
 
   it('adds alsoSeenVia when a strong dedup key merges a different canonical id', async () => {

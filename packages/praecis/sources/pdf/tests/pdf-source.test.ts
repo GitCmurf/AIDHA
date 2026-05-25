@@ -34,6 +34,13 @@ describe('PdfIngestor', () => {
       const expectedHash = createHash('sha256').update(Buffer.from('Page one\fPage two', 'utf8')).digest('hex');
       expect(result.value.canonicalId).toBe(`pdf:${expectedHash}`);
       expect(result.value.payload.pages).toHaveLength(2);
+      expect(result.value.resourceMetadata).toMatchObject({
+        title: 'sample.pdf',
+        filePath: file,
+        sha256: expectedHash,
+        pageCount: 2,
+        documentKind: 'slides',
+      });
     } finally {
       rmSync(file, { force: true });
       rmSync(join(file, '..'), { recursive: true, force: true });

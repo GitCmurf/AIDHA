@@ -33,6 +33,99 @@ function uniqueProvenances(existing: readonly unknown[] = [], incoming: readonly
   return merged;
 }
 
+const RESERVED_RESOURCE_METADATA_KEYS = new Set([
+  'canonicalId',
+  'sourceType',
+  'dedupKeys',
+  'provenances',
+  'label',
+]);
+
+interface MetadataConflict {
+  readonly key: string;
+  readonly existing: unknown;
+  readonly incoming: unknown;
+  readonly incomingCanonicalId: string;
+  readonly incomingSourceType: string;
+}
+
+function isJsonSafe(value: unknown): boolean {
+  if (value === null) return true;
+  const valueType = typeof value;
+  if (valueType === 'string' || valueType === 'boolean') return true;
+  if (valueType === 'number') return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonSafe);
+  if (valueType !== 'object') return false;
+  return Object.values(value as Record<string, unknown>).every(isJsonSafe);
+}
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function existingConflicts(metadata: Record<string, unknown>): MetadataConflict[] {
+  const conflicts = metadata['metadataConflicts'];
+  if (!Array.isArray(conflicts)) return [];
+  return conflicts.filter((conflict): conflict is MetadataConflict => (
+    conflict !== null
+    && typeof conflict === 'object'
+    && typeof (conflict as Record<string, unknown>)['key'] === 'string'
+  ));
+}
+
+function uniqueConflicts(conflicts: readonly MetadataConflict[]): MetadataConflict[] {
+  const seen = new Set<string>();
+  const unique: MetadataConflict[] = [];
+  for (const conflict of conflicts) {
+    const key = JSON.stringify(conflict);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(conflict);
+  }
+  return unique;
+}
+
+export function mergeResourceMetadata(
+  existingMetadata: Record<string, unknown>,
+  source: RawSource,
+  options: { readonly sameCanonical: boolean },
+): Record<string, unknown> {
+  const incoming = source.resourceMetadata ?? {};
+  const merged: Record<string, unknown> = { ...existingMetadata };
+  const conflicts = existingConflicts(existingMetadata);
+
+  for (const [key, value] of Object.entries(incoming)) {
+    if (RESERVED_RESOURCE_METADATA_KEYS.has(key)) continue;
+    if (value === undefined) continue;
+    if (!isJsonSafe(value)) {
+      throw new Error(`invalid Resource metadata for ${source.canonicalId}: ${key} is not JSON-safe`);
+    }
+
+    const existingValue = merged[key];
+    if (existingValue === undefined || options.sameCanonical || valuesEqual(existingValue, value)) {
+      merged[key] = value;
+      continue;
+    }
+
+    conflicts.push({
+      key,
+      existing: existingValue,
+      incoming: value,
+      incomingCanonicalId: source.canonicalId,
+      incomingSourceType: source.sourceType,
+    });
+  }
+
+  const unique = uniqueConflicts(conflicts);
+  if (unique.length > 0) {
+    merged['metadataConflicts'] = unique;
+  } else {
+    delete merged['metadataConflicts'];
+  }
+
+  return merged;
+}
+
 function resourceMetadata(node: GraphNode | null | undefined, source: RawSource) {
   const existingMetadata = (node?.metadata ?? {}) as Record<string, unknown>;
   const existingDedupKeys = Array.isArray(existingMetadata['dedupKeys'])
@@ -49,8 +142,12 @@ function resourceMetadata(node: GraphNode | null | undefined, source: RawSource)
     ...existingDedupKeys,
   ]);
 
+  const metadata = mergeResourceMetadata(existingMetadata, source, {
+    sameCanonical: !node || node.id === source.canonicalId,
+  });
+
   return {
-    ...existingMetadata,
+    ...metadata,
     canonicalId: existingMetadata['canonicalId'] ?? node?.id ?? source.canonicalId,
     sourceType: existingMetadata['sourceType'] ?? source.sourceType,
     dedupKeys,

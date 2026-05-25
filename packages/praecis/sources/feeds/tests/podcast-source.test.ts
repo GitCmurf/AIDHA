@@ -83,6 +83,17 @@ describe('PodcastIngestor', () => {
     expect(result.value.payload.showNotesUrl).toBe('https://pod.example.com/solo-notes');
     expect(result.value.dedupKeys).toContain('episode-1');
     expect(result.value.dedupKeys).toContain('https://cdn.example.com/solo.mp3');
+    expect(result.value.resourceMetadata).toMatchObject({
+      title: 'Solo episode',
+      episodeTitle: 'Solo episode',
+      feedTitle: 'Example Podcast',
+      feedUrl: 'https://pod.example.com/feed.xml',
+      guid: 'episode-1',
+      enclosureUrl: 'https://cdn.example.com/solo.mp3',
+      mimeType: 'audio/mpeg',
+      showNotesUrl: 'https://pod.example.com/solo-notes',
+      panel: false,
+    });
   });
 });
 

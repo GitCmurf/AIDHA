@@ -10,7 +10,7 @@ import { MockYouTubeClient } from '../src/client/mock.js';
 import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
 import type { IngestionResult } from '../src/pipeline/types.js';
 
-describe('RuntimeIngestionHarness', () => {
+describe('production YouTube runtime ingestion', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
   let youtubeClient: MockYouTubeClient;
@@ -113,6 +113,17 @@ describe('RuntimeIngestionHarness', () => {
       expect(nodeResult.ok).toBe(true);
       if (!nodeResult.ok) return;
       expect(nodeResult.value).not.toBeNull();
+      expect(nodeResult.value?.metadata).toMatchObject({
+        videoId: 'test-video',
+        channelId: 'UC-test',
+        channelName: 'Test Channel',
+        duration: 300,
+        description: 'A test video about programming. Docs: https://example.com/docs',
+        url: 'https://www.youtube.com/watch?v=test-video',
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        transcriptStatus: 'available',
+        transcriptLanguage: 'en',
+      });
     });
 
     it('retries transcript fetch for existing resources without excerpts', async () => {
@@ -205,10 +216,11 @@ describe('RuntimeIngestionHarness', () => {
       const resource = await graphStore.getNode('youtube-test-video');
       expect(resource.ok).toBe(true);
       if (!resource.ok || !resource.value) return;
-      expect(resource.value.content).toContain('TypeScript');
+      expect(resource.value.metadata?.['transcriptStatus']).toBe('available');
+      expect(resource.value.metadata?.['channelName']).toBe('Test Channel');
     });
 
-    it('preserves stale excerpts when transcript refresh fails', async () => {
+    it('returns err and preserves stale excerpts when transcript refresh fails', async () => {
       await graphStore.upsertNode(
         'Resource',
         'youtube-test-video',
@@ -255,8 +267,7 @@ describe('RuntimeIngestionHarness', () => {
       });
 
       const result = await pipeline.ingestVideo('test-video', { refreshTranscript: true });
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
+      expect(result.ok).toBe(false);
 
       const staleNode = await graphStore.getNode('stale-excerpt');
       expect(staleNode.ok).toBe(true);
@@ -278,6 +289,16 @@ describe('RuntimeIngestionHarness', () => {
       expect(resource.value.content).toBe('stale transcript');
       expect(resource.value.metadata?.['transcriptStatus']).toBe('available');
       expect(resource.value.metadata?.['transcriptError']).toBeUndefined();
+    });
+
+    it('returns err and persists no Resource when a video has no transcript', async () => {
+      const result = await pipeline.ingestVideo('no-transcript-video');
+      expect(result.ok).toBe(false);
+
+      const resource = await graphStore.getNode('youtube-no-transcript-video');
+      expect(resource.ok).toBe(true);
+      if (!resource.ok) return;
+      expect(resource.value).toBeNull();
     });
   });
 

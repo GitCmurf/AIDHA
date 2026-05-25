@@ -444,6 +444,7 @@ export class ClaimExtractionPipeline {
     if (!resourceResult.value) {
       return { ok: false, error: new Error(`Resource not found: ${resourceId}`) };
     }
+    const resource = resourceResult.value;
 
     const excerptsResult = await this.graphStore.queryNodes({
       type: 'Excerpt',
@@ -452,8 +453,8 @@ export class ClaimExtractionPipeline {
     if (!excerptsResult.ok) return excerptsResult;
     const excerpts = excerptsResult.value.items;
     if (excerpts.length === 0) {
-      const status = resourceResult.value.metadata?.['transcriptStatus'];
-      const error = resourceResult.value.metadata?.['transcriptError'];
+      const status = resource.metadata?.['transcriptStatus'];
+      const error = resource.metadata?.['transcriptError'];
       const details = [status ? `status=${status}` : null, error ? `error=${error}` : null]
         .filter(Boolean)
         .join(', ');
@@ -464,7 +465,7 @@ export class ClaimExtractionPipeline {
     }
 
     const candidates = await this.extractor.extractClaims({
-      resource: resourceResult.value,
+      resource,
       excerpts,
       maxClaims: options.maxClaims,
     });
@@ -514,8 +515,8 @@ export class ClaimExtractionPipeline {
           confidence: claim.confidence ?? 0.4,
           state: claim.state ?? DEFAULT_CLAIM_STATE,
         };
-        if (typeof resourceResult.value.metadata?.['videoId'] === 'string') {
-          metadata['videoId'] = resourceResult.value.metadata['videoId'];
+        if (typeof resource.metadata?.['videoId'] === 'string') {
+          metadata['videoId'] = resource.metadata['videoId'];
         }
         if (extractorEditorVersion) metadata['editorVersion'] = extractorEditorVersion;
         if (typeof claim.startSeconds === 'number') metadata['startSeconds'] = claim.startSeconds;

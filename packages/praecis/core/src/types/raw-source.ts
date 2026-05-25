@@ -18,6 +18,8 @@ export interface RawSource {
   };
   /** Opaque payload the decode chain understands (file path, html, api rows…). */
   payload: unknown;
+  /** Source-specific Resource metadata persisted by the shared spine. */
+  resourceMetadata?: Record<string, unknown>;
   /** Human-readable Resource label. */
   label: string;
 }

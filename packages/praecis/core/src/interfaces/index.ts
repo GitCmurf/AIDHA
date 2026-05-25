@@ -83,13 +83,6 @@ export interface MiningResult {
   readonly spendUsd?: number;
 }
 
-export interface EditingResult {
-  readonly claims: readonly DraftClaim[];
-  readonly tokenUsage?: number;
-  readonly spendUsd?: number;
-  readonly diagnostics?: readonly string[];
-}
-
 export interface ExportResult {
   readonly resourceId: string;
   readonly excerptIds: readonly string[];
@@ -109,6 +102,7 @@ export interface RunReport {
   readonly segmentCount: number;
   readonly segments: readonly MediaSegment[];
   readonly chunks: readonly Chunk[];
+  readonly excerptIds: readonly string[];
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
   readonly claims: readonly DraftClaim[];
@@ -164,29 +158,13 @@ export interface MiningRequest {
   readonly costCeiling: CostCeiling;
 }
 
-export interface EditingRequest {
-  readonly miningResult: MiningResult;
-  readonly raw: RawSource;
-  readonly chunks: readonly Chunk[];
-  readonly context: ExtractionContext;
-  readonly config: ResolvedConfig;
-  readonly policyRoute: LlmRoute;
-  readonly llm?: LlmClient;
-  readonly costCeiling: CostCeiling;
-}
-
 export interface ICandidateMiner {
   estimate?(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }>;
   mine(request: MiningRequest): Promise<Result<MiningResult>>;
 }
 
-export interface IEditor {
-  estimate?(request: EditingRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }>;
-  edit(request: EditingRequest): Promise<Result<EditingResult>>;
-}
-
 export interface IExporter {
-  export(editResult: EditingResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>>;
+  export(miningResult: MiningResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>>;
 }
 
 export interface ITranscriber {
@@ -211,7 +189,6 @@ export interface IContextProvider {
 export interface PipelineServices {
   readonly store: GraphStore;
   readonly miner: ICandidateMiner;
-  readonly editor: IEditor;
   readonly exporter: IExporter;
   readonly llm?: LlmClient;
   readonly cache: ICache;

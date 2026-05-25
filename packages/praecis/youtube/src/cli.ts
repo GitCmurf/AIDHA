@@ -8,9 +8,6 @@ import { fileURLToPath } from 'node:url';
 import { runEvalMatrix } from './cli-eval.js';
 import { SQLiteStore } from '@aidha/graph-backend';
 import {
-  composeVector,
-  createDefaultPipelineServices,
-  createPipelineRuntime,
   type LlmClient,
   type LlmCompletionRequest,
   purgeClaimsForResource,
@@ -38,7 +35,7 @@ import {
   formatTranscriptDiagnosis,
   formatExtractionDiagnosis,
 } from './index.js';
-import { createYouTubeVectorSpec } from './ingest/index.js';
+import { ingestYouTubeVideo } from './ingest/index.js';
 import { runConfig } from './cli/config-cmd.js';
 import { parseArgs } from './cli/parse.js';
 import { CLI_USAGE_TEXT } from './cli/help.js';
@@ -383,13 +380,12 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
     const runtimeConfig = useMock && !config.llm.model
       ? { ...config, llm: { ...config.llm, model: 'mock-youtube-llm' } }
       : config;
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({
+    return ingestYouTubeVideo({
       store,
+      client,
       config: runtimeConfig,
       ...(useMock ? { llm: createMockExtractionLlm() } : {}),
-    }));
-    runtime.register(composeVector(createYouTubeVectorSpec(client)));
-    return runtime.run('youtube', { ref: videoId });
+    }, videoId);
   };
 
   if (mode === 'playlist') {
@@ -477,19 +473,18 @@ async function runExtract(positionals: string[], options: CliOptions, config: Re
     const runtimeConfig = useMock && !config.llm.model
       ? { ...config, llm: { ...config.llm, model: 'mock-youtube-llm' } }
       : config;
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({
+    const result = await ingestYouTubeVideo({
       store,
+      client,
       config: runtimeConfig,
       ...(useMock ? { llm: createMockExtractionLlm() } : {}),
-    }));
-    runtime.register(composeVector(createYouTubeVectorSpec(client)));
-    const result = await runtime.run('youtube', { ref: videoId });
+    }, videoId);
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();
       return 1;
     }
-    console.log(`Claims: extracted=${result.value.claimsExtracted} resource=${result.value.resourceId}`);
+    console.log(`Claims: extracted=${result.value.report.claimsExtracted} resource=${result.value.nodeId}`);
   } else if (mode === 'refs') {
     const resourceId = `youtube-${videoId}`;
     const pipeline = new ReferenceExtractionPipeline({ graphStore: store });

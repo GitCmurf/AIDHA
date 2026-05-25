@@ -21,6 +21,15 @@ describe('createReadwiseVectorSpec', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.raw.canonicalId).toBe('web:https://example.com/article');
+    expect(result.value.raw.resourceMetadata).toMatchObject({
+      title: 'How to Do What You Love',
+      author: 'Paul Graham',
+      canonicalUrl: 'https://example.com/article',
+      sourceUrl: 'https://example.com/article?utm_source=readwise',
+      readwiseUrl: 'https://readwise.io/bookreview/11',
+      readwiseBookId: 11,
+      highlightCount: 2,
+    });
     expect(result.value.segments).toHaveLength(2);
     expect(result.value.segments[0]!.locator.kind).toBe('external');
     expect(result.value.segments[0]!.locator).toEqual({ kind: 'external', system: 'readwise', externalId: '1' });

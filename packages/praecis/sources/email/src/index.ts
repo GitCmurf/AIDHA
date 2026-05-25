@@ -379,6 +379,16 @@ export function groupEmailMessages(messages: readonly ParsedEmailMessage[]): Ema
   return Array.from(threads.values());
 }
 
+function emailThreadResourceMetadata(thread: EmailThread): Record<string, unknown> {
+  return {
+    subject: thread.subject,
+    rootMessageId: thread.rootMessageId,
+    messageIds: thread.messages.map(message => message.messageId),
+    participants: [...thread.participants],
+    messageCount: thread.messages.length,
+  };
+}
+
 class EmailContextProvider implements IContextProvider {
   constructor(private readonly thread: EmailThread) {}
 
@@ -412,6 +422,7 @@ class EmailIngestor implements IIngestor<EmailThreadPayload> {
           ingestedAt: new Date().toISOString(),
           sourceType: 'email',
         },
+        resourceMetadata: emailThreadResourceMetadata(this.thread),
         payload: {
           thread: this.thread,
           uri: this.thread.messages[0]?.filePath ?? this.thread.threadId,
@@ -578,12 +589,13 @@ export async function reparentEmailThread(
         canonicalId: finalThreadId,
         sourceType: 'email',
         dedupKeys: mergedDedupKeys,
-        provenances: [
-          ...(rootNode?.metadata && Array.isArray((rootNode.metadata as Record<string, unknown>)['provenances']) ? (rootNode.metadata as Record<string, unknown>)['provenances'] as unknown[] : []),
-          ...(provisionalNode?.metadata && Array.isArray((provisionalNode.metadata as Record<string, unknown>)['provenances']) ? (provisionalNode.metadata as Record<string, unknown>)['provenances'] as unknown[] : []),
-        ],
-      },
-    });
+          provenances: [
+            ...(rootNode?.metadata && Array.isArray((rootNode.metadata as Record<string, unknown>)['provenances']) ? (rootNode.metadata as Record<string, unknown>)['provenances'] as unknown[] : []),
+            ...(provisionalNode?.metadata && Array.isArray((provisionalNode.metadata as Record<string, unknown>)['provenances']) ? (provisionalNode.metadata as Record<string, unknown>)['provenances'] as unknown[] : []),
+          ],
+          ...emailThreadResourceMetadata(thread),
+        },
+      });
 
     const existingEdges = await store.getEdges({ subject: provisionalId, predicate: 'resourceHasExcerpt' });
     if (!existingEdges.ok) return existingEdges;

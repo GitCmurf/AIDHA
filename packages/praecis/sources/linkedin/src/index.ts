@@ -130,6 +130,7 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
     const canonicalId = canonicalIdFor(this.options.pasteText, this.options.url);
     const activityUrn = activityUrnFromUrl(this.options.url);
     const url = clean(this.options.url);
+    const segments = splitPasteText(this.options.pasteText);
 
     return {
       ok: true,
@@ -148,6 +149,12 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
           sourceUri: sourceUriFor(this.options.url),
           ingestedAt: new Date().toISOString(),
           sourceType: 'linkedin',
+        },
+        resourceMetadata: {
+          ...(activityUrn ? { activityUrn } : {}),
+          ...(url ? { url } : {}),
+          paragraphCount: segments.length,
+          contentHash: sha256Hex(normalizeText(this.options.pasteText)),
         },
         payload: {
           pasteText: this.options.pasteText,

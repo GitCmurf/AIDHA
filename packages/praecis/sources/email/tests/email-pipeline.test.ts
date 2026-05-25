@@ -111,6 +111,13 @@ describe('createEmailVectorSpec', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.raw.canonicalId).toBe('email:thread:msg-a');
+    expect(result.value.raw.resourceMetadata).toMatchObject({
+      subject: 'Project status',
+      rootMessageId: 'msg-a',
+      messageIds: ['msg-a'],
+      participants: ['Alice', 'Bob'],
+      messageCount: 1,
+    });
     expect(result.value.segments).toHaveLength(1);
     expect(result.value.segments[0]!.locator).toEqual({ kind: 'message', messageId: 'msg-a', charStart: 0, charEnd: 'Initial note'.length });
     expect(result.value.segments[0]!.text).toBe('Initial note');

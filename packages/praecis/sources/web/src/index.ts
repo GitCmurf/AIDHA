@@ -35,6 +35,14 @@ function isPaywallOrLoginWall(html: string, text: string): boolean {
   ].some(marker => haystack.includes(marker));
 }
 
+function hostname(value: string): string | undefined {
+  try {
+    return new URL(value).hostname || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export class WebIngestor implements IIngestor<WebPagePayload> {
   readonly sourceId = 'web';
 
@@ -77,6 +85,13 @@ export class WebIngestor implements IIngestor<WebPagePayload> {
           sourceUri: url,
           ingestedAt: new Date().toISOString(),
           sourceType: 'web',
+        },
+        resourceMetadata: {
+          title,
+          canonicalUrl: primaryCanonicalUrl,
+          resolvedUrl: url,
+          resolvedCanonicalUrl: canonicalUrl,
+          siteName: hostname(primaryCanonicalUrl) ?? hostname(url),
         },
         payload,
         label: title,

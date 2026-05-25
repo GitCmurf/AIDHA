@@ -240,6 +240,15 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
           ingestedAt: new Date().toISOString(),
           sourceType: 'readwise',
         },
+        resourceMetadata: {
+          title: this.options.book.title,
+          ...(clean(this.options.book.author) ? { author: clean(this.options.book.author) } : {}),
+          ...(clean(this.options.book.category) ? { category: clean(this.options.book.category) } : {}),
+          ...(clean(this.options.book.source_url) ? { canonicalUrl: urlCanonical(this.options.book.source_url!), sourceUrl: this.options.book.source_url } : {}),
+          ...(clean(this.options.book.readwise_url) ? { readwiseUrl: this.options.book.readwise_url } : {}),
+          readwiseBookId: this.options.book.user_book_id,
+          highlightCount: this.options.book.highlights.length,
+        },
         payload: {
           book: this.options.book,
           canonicalId,

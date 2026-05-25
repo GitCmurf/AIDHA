@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-05-22
-version: '0.30'
+last_updated: 2026-05-25
+version: '0.31'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.30
-> **Last Updated:** 2026-05-22
+> **Version:** 0.31
+> **Last Updated:** 2026-05-25
 > **Type:** GUIDE
 
 ## Version History
@@ -53,6 +53,7 @@ docops_version: '2.0'
 
 | 0.29    | 2026-05-22 | AI     | Email import. | —         | Draft  | —         |
 | 0.30    | 2026-05-22 | AI     | LinkedIn paste. | —         | Draft  | —         |
+| 0.31    | 2026-05-25 | AI     | Clarify Resource metadata. | — | Draft | AIDHA-PLAN-007 |
 
 ## Purpose
 
@@ -65,6 +66,13 @@ implementation of AIDHA's four-axis ingestion model (**Acquire → Decode → Co
 Extract**). New vectors are registered by implementing `IIngestor` and `IDecodeStrategy` from
 `@aidha/praecis-core` and wiring them via `composeVector()`. See AIDHA-PRD-002 for the full
 architecture description.
+
+Every ingestor may supply `RawSource.resourceMetadata`; the shared spine persists
+that source-specific metadata on the Resource alongside canonical identity,
+dedup keys, provenance, and label. YouTube CLI ingestion and claim extraction both
+call the same production `ingestYouTubeVideo()` entrypoint, so channel,
+description, duration, and transcript-state metadata seen in dossiers is produced
+by the same path users run locally.
 
 ## Prerequisites
 
@@ -146,8 +154,9 @@ Optional:
      --min-chars 50
    ```
 
-   LLM extraction runs in two passes: chunk-level candidate mining followed by deterministic
-   editor merge/selection. Cache keys include transcript hash + prompt version + model.
+   LLM extraction runs in two passes inside the canonical miner: chunk-level candidate
+   mining followed by deterministic merge/selection. Cache keys include transcript
+   hash + prompt version + model.
 
    Optional rewrite pass (`--editor-llm`): rewrites selected claims for readability while
    keeping numeric values and excerpt-grounded keywords. Rewrite cache keys include transcript

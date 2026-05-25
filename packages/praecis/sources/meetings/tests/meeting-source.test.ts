@@ -26,6 +26,12 @@ describe('MeetingIngestor', () => {
       expect(result.value.canonicalId).toBe(`meeting:${expectedHash}`);
       expect(result.value.sensitivity).toBe('confidential');
       expect(result.value.payload.uri).toBe(`meeting:${expectedHash}`);
+      expect(result.value.resourceMetadata).toMatchObject({
+        title: 'standup.wav',
+        filePath: file,
+        sha256: expectedHash,
+        mimeType: 'audio/wav',
+      });
     } finally {
       rmSync(file, { force: true });
       rmSync(join(file, '..'), { recursive: true, force: true });

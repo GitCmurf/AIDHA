@@ -153,14 +153,9 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
         };
       },
     },
-    editor: {
-      async edit(request) {
-        return { ok: true, value: request.miningResult };
-      },
-    },
     exporter: {
-      async export(editResult, raw, chunks) {
-        return new GraphPipelineExporter(services.store).export(editResult, raw, chunks);
+      async export(miningResult, raw, chunks) {
+        return new GraphPipelineExporter(services.store).export(miningResult, raw, chunks);
       },
     },
     llm: {
