@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
 last_updated: 2026-05-25
-version: "1.5"
+version: "1.6"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.5
+> **Version:** 1.6
 > **Last Updated:** 2026-05-25
 > **Type:** GUIDE
 
@@ -29,6 +29,7 @@ docops_version: "2.0"
 | 1.3     | 2026-02-15 | AI     | Restore guide identity and clarify nested sources keys  | —         | Draft  | —         |
 | 1.4     | 2026-02-15 | AI     | Assign unique document ID and simplify overview text    | —         | Draft  | —         |
 | 1.5     | 2026-05-25 | AI     | Document taxonomy extension seed data for ingestion classification. | — | Draft | AIDHA-PLAN-007 |
+| 1.6     | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence across ingestion vectors. | — | Draft | AIDHA-PLAN-007 |
 
 # AIDHA Configuration Guide
 
@@ -83,8 +84,12 @@ extensions:
 ```
 
 When configured, the default classifier matches tag names and aliases against the
-ingested Resource text and reports `classification.status: completed`. Without
-this block, classification is explicitly reported as disabled.
+ingested Resource text and reports `classification.status: completed`. Matching
+tag assignments persist on the graph Resource metadata as `taxonomyAssignments`,
+so fresh CLI processes read the same assignments and `tagsAssigned` counts only
+durable net-new Resource tags. Without this block, classification is explicitly
+reported as disabled. This contract is shared by every vector; YouTube does not
+use a separate classification path.
 
 ## Configuration Structure
 

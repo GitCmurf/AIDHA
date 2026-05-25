@@ -3,7 +3,7 @@ document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
 last_updated: 2026-05-25
-version: '1.21'
+version: '1.22'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.21
+> **Version:** 1.22
 > **Last Updated:** 2026-05-25
 > **Type:** RUNBOOK
 
@@ -52,6 +52,7 @@ docops_version: '2.0'
 | 1.19    | 2026-05-25 | AI     | Document the shared production ingest path and persisted YouTube Resource metadata contract. | — | Draft | AIDHA-PLAN-007 |
 | 1.20    | 2026-05-25 | AI     | Document taxonomy classification status and metadata conflict reporting. | — | Draft | AIDHA-PLAN-007 |
 | 1.21    | 2026-05-25 | AI     | Document config-seeded taxonomy classification. | — | Draft | AIDHA-PLAN-007 |
+| 1.22    | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence and vector-equal runtime semantics. | — | Draft | AIDHA-PLAN-007 |
 
 ## Purpose
 
@@ -113,10 +114,14 @@ auditing steps.
    ```
 
    When taxonomy is configured, `tagsMatched` counts matching configured tags and
-   `tagsAssigned` counts net-new assignments for the run. Without taxonomy, the
-   shared runtime reports classification as disabled. Resource metadata conflicts
-   are counted in the run report and warned once so operators can investigate
-   disagreeing source metadata.
+   `tagsAssigned` counts durable net-new assignments persisted on Resource
+   metadata as `taxonomyAssignments`. Fresh CLI reruns read those assignments from
+   the graph store instead of rebuilding them from a throwaway registry. Without
+   taxonomy, the shared runtime reports classification as disabled. YouTube uses
+   the same classification and assignment persistence path as every other vector;
+   only acquisition and YouTube-specific exports live in the YouTube package.
+   Resource metadata conflicts are counted in the run report and warned once so
+   operators can investigate disagreeing source metadata.
 
 - **Check ingestion status**
 

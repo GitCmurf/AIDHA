@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-05-25
-version: '0.33'
+version: '0.34'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.33
+> **Version:** 0.34
 > **Last Updated:** 2026-05-25
 > **Type:** GUIDE
 
@@ -56,6 +56,7 @@ docops_version: '2.0'
 | 0.31    | 2026-05-25 | AI     | Clarify Resource metadata. | — | Draft | AIDHA-PLAN-007 |
 | 0.32    | 2026-05-25 | AI     | Clarify classification status. | — | Draft | AIDHA-PLAN-007 |
 | 0.33    | 2026-05-25 | AI     | Document config-seeded taxonomy. | — | Draft | AIDHA-PLAN-007 |
+| 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
 
 ## Purpose
 
@@ -76,10 +77,12 @@ call the same production `ingestYouTubeVideo()` entrypoint, so channel,
 description, duration, and transcript-state metadata seen in dossiers is produced
 by the same path users run locally.
 
-Classification is a shared optional spine step. Add tags under
+Classification is a shared optional spine step for every vector. Add tags under
 `extensions.taxonomy` in the resolved config to enable the default classifier in
-production CLI runs. Reports distinguish `tagsMatched` from net-new
-`tagsAssigned`; without taxonomy, reports show classification as disabled.
+production CLI runs. Reports distinguish `tagsMatched` from durable net-new
+`tagsAssigned`; assignments persist on Resource metadata as `taxonomyAssignments`
+so fresh CLI reruns do not re-count already tagged Resources. Without taxonomy,
+reports show classification as disabled.
 
 ## Prerequisites
 
