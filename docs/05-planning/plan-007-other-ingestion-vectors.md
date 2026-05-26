@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.15"
+version: "2.16"
 last_updated: 2026-05-26
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.15
+> **Version:** 2.16
 > **Last Updated:** 2026-05-26
 > **Type:** PLAN
 
@@ -62,6 +62,7 @@ docops_version: "2.0"
 | 2.13    | 2026-05-25 | AI     | Added the final runtime-context polish: generic CLI manifests now receive a shared `IngestExecutionContext` instead of raw service overrides, playlist/export batch flows reuse one configured runtime per command, and YouTube/Readwise/email batch summaries expose a common item-count/classification/metadata-conflict/warnings/details contract. | Codex adversarial self-review | In Review | — |
 | 2.14    | 2026-05-25 | AI     | Closed the r7 playlist-leverage gap: YouTube playlist fetch, resilient per-video execution, aggregate telemetry, and injected-clock job/error timestamps now live in one shared production function consumed by both CLIs; partial-playlist failures are behaviorally tested through the generic helper and `aidha-youtube`; and the source-grep convergence fence was replaced with a production CLI regression. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r7.txt` |
 | 2.15    | 2026-05-26 | AI     | Closed the reputation-readiness architecture polish: added a shared core batch runner, moved email batch execution onto the generic CLI runtime context, made reference extraction an enabled spine stage with `RunReport` telemetry, changed partial playlist status to `completed_with_errors`, and routed YouTube provenance timestamps through the injected clock. | Codex adversarial self-review | In Review | — |
+| 2.16    | 2026-05-26 | AI     | Closed the final batch UX consistency gap: YouTube, Readwise, and email batches now expose a common outcome/completed/failed/errors/reference-telemetry contract; Readwise and email surface partial item failures instead of silently dropping or aborting successful work; and human CLI output reports batch failures. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -225,7 +226,7 @@ contract is a baseline dependency, not work re-derived by this plan.
 
 ### Current Remediation State
 
-Version 2.15 resolves the implementation and product-surface neutrality blockers
+Version 2.16 resolves the implementation and product-surface neutrality blockers
 found across the 2026-05-25 peer-review rounds. `packages/praecis/core` owns the
 shared runtime, extractor, prompt routing, token budget, reference extraction,
 purge path, dedup/link logic, Resource metadata persistence, classification, and
@@ -244,8 +245,11 @@ a shared `IngestExecutionContext`, so command-level service/config resolution an
 runtime lifecycle are owned by the CLI shell while source runners only adapt
 arguments into `runVector` calls. Playlist/export-style batches reuse that one
 configured runtime for every item in the command and share the core batch
-runner's partial-failure, aggregate telemetry, and injected-clock timestamp
-contract. The separate
+runner's `outcome`/`completed`/`failed`/`errors`, `reference-telemetry`,
+aggregate classification/metadata, and injected-clock timestamp contract. Readwise and
+email use the same partial-failure contract as YouTube: failed items are visible
+in JSON and human output, while successfully ingested items remain available.
+The separate
 `aidha-youtube` command remains for advanced YouTube-only operations such as
 transcript diagnosis, dossier export, review queues, eval-matrix tooling, and
 fixture import; it is not the privileged ingestion route.

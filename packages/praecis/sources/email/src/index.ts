@@ -22,8 +22,10 @@ import type {
   PipelineServices,
   RunReport,
   ComposedVector,
+  BatchOutcome,
+  Clock,
 } from '@aidha/praecis-core';
-import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, normalizeText } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, normalizeText, runBatch } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
@@ -100,6 +102,10 @@ export interface EmailThreadPayload {
 export interface EmailBatchSummary {
   readonly sourceId: 'email';
   readonly itemCount: number;
+  readonly outcome: BatchOutcome;
+  readonly completed: number;
+  readonly failed: number;
+  readonly errors: readonly EmailBatchError[];
   readonly importedFiles: number;
   readonly threads: number;
   readonly summaries: readonly EmailThreadSummary[];
@@ -110,7 +116,14 @@ export interface EmailBatchSummary {
   readonly details: {
     readonly importedFiles: number;
     readonly threads: number;
+    readonly errors: readonly EmailBatchError[];
   };
+}
+
+export interface EmailBatchError {
+  readonly item: string;
+  readonly message: string;
+  readonly timestamp: string;
 }
 
 export interface EmailThreadSummary {
@@ -156,6 +169,7 @@ export interface EmailIngestOptions {
 
 export interface EmailBatchExecutionContext {
   readonly store: GraphStore;
+  readonly clock?: Clock;
   runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>>;
 }
 
@@ -535,6 +549,7 @@ export async function runEmailBatch(
   try {
     return await runEmailBatchWithContext(ref, readFileFn, {
       store: services.store,
+      clock: services.clock,
       runVector: (vector, input) => runtime.runVector(vector, input),
     });
   } finally {
@@ -549,80 +564,94 @@ export async function runEmailBatchWithContext(
 ): Promise<EmailBatchSummary> {
   const messages = await parseEmailInputs(ref, readFileFn);
   const threads = groupEmailMessages(messages);
-  const summaries: EmailThreadSummary[] = [];
-
-  for (const thread of threads) {
-    const vector = createEmailVectorSpec(thread);
-    const threadRef = thread.messages.map(message => message.filePath).join(', ');
-    const runEmailThread = async () => {
-      const run = await context.runVector(vector, { ref: threadRef });
+  const batch = await runBatch({
+    items: threads,
+    clock: context.clock ?? { now: () => new Date() },
+    async runItem(thread) {
+      const vector = createEmailVectorSpec(thread);
+      const threadRef = thread.messages.map(message => message.filePath).join(', ');
+      const runEmailThread = async () => {
+        const run = await context.runVector(vector, { ref: threadRef });
+        if (!run.ok) {
+          return run;
+        }
+        const reparent = await reparentEmailThread(context.store, thread, { skipTransaction: true });
+        if (!reparent.ok) {
+          return { ok: false as const, error: reparent.error };
+        }
+        return run;
+      };
+      const run = context.store.runInTransaction
+        ? await context.store.runInTransaction(runEmailThread)
+        : await runEmailThread();
       if (!run.ok) {
         return run;
       }
-      const reparent = await reparentEmailThread(context.store, thread, { skipTransaction: true });
-      if (!reparent.ok) {
-        return { ok: false as const, error: reparent.error };
-      }
-      return run;
-    };
-    const run = context.store.runInTransaction
-      ? await context.store.runInTransaction(runEmailThread)
-      : await runEmailThread();
-    if (!run.ok) {
-      throw run.error;
-    }
-    const summary: EmailThreadSummary = {
-      sourceId: 'email' as const,
-      ref: threadRef,
-      canonicalId: run.value.canonicalId,
-      resourceId: run.value.resourceId,
-      label: thread.subject,
-      segmentCount: run.value.segmentCount,
-      chunkCount: run.value.chunkCount,
-      claimsExtracted: run.value.claimsExtracted,
-      claimIds: run.value.claimIds,
-      claims: run.value.claims.map(claim => ({
-        text: claim.text,
-        excerptIds: claim.excerptIds,
-        method: claim.metadata?.['method'],
-        model: claim.metadata?.['model'],
-        promptVersion: claim.metadata?.['promptVersion'],
-      })),
-      dedupAction: run.value.dedupAction,
-      policyRoute: run.value.policyRoute,
-      classification: run.value.classification,
-      metadataConflictCount: run.value.metadataConflictCount,
-      references: run.value.references,
-      warnings: run.value.warnings,
-      segments: run.value.segments.map(segment => ({
-        id: segment.id,
-        locator: segment.locator,
-        text: segment.text,
-        label: segment.label,
-      })),
-      chunks: run.value.chunks.map(chunk => ({
-        id: chunk.id,
-        locator: chunk.locator,
-        text: chunk.text,
-        segmentIds: chunk.segments.map(segment => segment.id),
-      })),
-    };
-    summaries.push(summary);
-  }
+      const summary: EmailThreadSummary & { readonly report: RunReport } = {
+        sourceId: 'email' as const,
+        ref: threadRef,
+        canonicalId: run.value.canonicalId,
+        resourceId: run.value.resourceId,
+        label: thread.subject,
+        segmentCount: run.value.segmentCount,
+        chunkCount: run.value.chunkCount,
+        claimsExtracted: run.value.claimsExtracted,
+        claimIds: run.value.claimIds,
+        claims: run.value.claims.map(claim => ({
+          text: claim.text,
+          excerptIds: claim.excerptIds,
+          method: claim.metadata?.['method'],
+          model: claim.metadata?.['model'],
+          promptVersion: claim.metadata?.['promptVersion'],
+        })),
+        dedupAction: run.value.dedupAction,
+        policyRoute: run.value.policyRoute,
+        classification: run.value.classification,
+        metadataConflictCount: run.value.metadataConflictCount,
+        references: run.value.references,
+        warnings: run.value.warnings,
+        segments: run.value.segments.map(segment => ({
+          id: segment.id,
+          locator: segment.locator,
+          text: segment.text,
+          label: segment.label,
+        })),
+        chunks: run.value.chunks.map(chunk => ({
+          id: chunk.id,
+          locator: chunk.locator,
+          text: chunk.text,
+          segmentIds: chunk.segments.map(segment => segment.id),
+        })),
+        report: run.value,
+      };
+      return { ok: true as const, value: summary };
+    },
+  });
+  const summaries = batch.successes.map(success => success.value);
+  const errors = batch.failures.map(failure => ({
+    item: failure.item.messages.map(message => message.filePath).join(', '),
+    message: failure.message,
+    timestamp: failure.timestamp,
+  }));
 
   return {
     sourceId: 'email',
     itemCount: threads.length,
+    outcome: batch.outcome,
+    completed: batch.completed,
+    failed: batch.failed,
+    errors,
     importedFiles: messages.length,
     threads: threads.length,
     summaries,
-    classification: aggregateClassification(summaries),
-    metadataConflictCount: summaries.reduce((sum, summary) => sum + summary.metadataConflictCount, 0),
-    references: aggregateReferences(summaries),
-    warnings: summaries.flatMap(summary => summary.warnings),
+    classification: batch.classification,
+    metadataConflictCount: batch.metadataConflictCount,
+    references: batch.references,
+    warnings: [...batch.warnings, ...errors.map(error => `${error.item}: ${error.message}`)],
     details: {
       importedFiles: messages.length,
       threads: threads.length,
+      errors,
     },
   };
 }

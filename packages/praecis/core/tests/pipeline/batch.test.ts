@@ -18,6 +18,14 @@ describe('runBatch', () => {
           value: {
             classification: { status: 'completed' as const, tagsMatched: 2, tagsAssigned: 1, warnings: ['classified'] },
             metadataConflictCount: 3,
+            references: {
+              referencesCreated: 1,
+              referencesUpdated: 2,
+              referencesNoop: 3,
+              referenceEdgesCreated: 4,
+              referenceEdgesUpdated: 5,
+              referenceEdgesNoop: 6,
+            },
             warnings: ['warning'],
           },
         };
@@ -33,6 +41,14 @@ describe('runBatch', () => {
     expect(result.failures).toEqual([{ item: 'b', message: 'boom', timestamp: '2026-05-25T12:34:56.000Z' }]);
     expect(result.classification).toEqual({ status: 'completed', tagsMatched: 2, tagsAssigned: 1, warnings: ['classified'] });
     expect(result.metadataConflictCount).toBe(3);
+    expect(result.references).toEqual({
+      referencesCreated: 1,
+      referencesUpdated: 2,
+      referencesNoop: 3,
+      referenceEdgesCreated: 4,
+      referenceEdgesUpdated: 5,
+      referenceEdgesNoop: 6,
+    });
     expect(result.warnings).toEqual(['warning']);
   });
 

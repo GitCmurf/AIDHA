@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import type { LlmClient, PipelineServices } from '@aidha/praecis-core';
+import type { ComposedVector, IngestInput, LlmClient, PipelineServices, RunReport } from '@aidha/praecis-core';
 import { SQLiteStore } from '@aidha/graph-backend';
 import { MockYouTubeClient } from '@aidha/ingestion-youtube';
 import {
@@ -131,6 +131,41 @@ function expectDraftClaims(summary: {
   expect(summary.claims.every(claim => claim.promptVersion)).toBe(true);
 }
 
+function reportFor(sourceId: string, ref: string): RunReport {
+  return {
+    sourceId,
+    canonicalId: `${sourceId}:${ref}`,
+    resourceId: `${sourceId}:${ref}`,
+    excerptCount: 1,
+    chunkCount: 1,
+    segmentCount: 1,
+    segments: [],
+    chunks: [],
+    excerptIds: [`${sourceId}:excerpt:${ref}`],
+    claimsExtracted: 0,
+    claimIds: [],
+    claims: [],
+    dedupAction: 'create',
+    policyRoute: 'disabled',
+    cacheHits: 0,
+    cacheWrites: 0,
+    tokenUsage: 0,
+    spendUsd: 0,
+    warnings: [],
+    classification: { status: 'disabled', tagsMatched: 0, tagsAssigned: 0, warnings: [] },
+    metadataConflictCount: 0,
+    references: {
+      referencesCreated: 1,
+      referencesUpdated: 0,
+      referencesNoop: 0,
+      referenceEdgesCreated: 1,
+      referenceEdgesUpdated: 0,
+      referenceEdgesNoop: 0,
+    },
+    durationMs: 0,
+  };
+}
+
 describe('aidha cli phase-1 surface', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -251,6 +286,10 @@ describe('aidha cli phase-1 surface', () => {
         itemCount: number;
         classification: { status: string; tagsMatched: number; tagsAssigned: number };
         metadataConflictCount: number;
+        outcome: string;
+        completed: number;
+        failed: number;
+        errors: Array<{ item: string; message: string; timestamp: string }>;
         warnings: string[];
         details: {
           playlistId: string;
@@ -264,6 +303,10 @@ describe('aidha cli phase-1 surface', () => {
       expect(summary.playlistId).toBe('test-playlist');
       expect(summary.videos).toBe(2);
       expect(summary.itemCount).toBe(2);
+      expect(summary.outcome).toBe('completed');
+      expect(summary.completed).toBe(2);
+      expect(summary.failed).toBe(0);
+      expect(summary.errors).toEqual([]);
       expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2, failed: 0, errors: [] });
       expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
       expect(summary.metadataConflictCount).toBe(0);
@@ -283,6 +326,10 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.sourceId).toBe('youtube');
     expect(summary.playlistId).toBe('test-playlist');
     expect(summary.itemCount).toBe(2);
+    expect(summary.outcome).toBe('completed');
+    expect(summary.completed).toBe(2);
+    expect(summary.failed).toBe(0);
+    expect(summary.errors).toEqual([]);
     expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2, failed: 0, errors: [] });
     expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
     expect(summary.metadataConflictCount).toBe(0);
@@ -301,6 +348,9 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.sourceId).toBe('youtube');
     expect(summary.playlistId).toBe('partial-playlist');
     expect(summary.itemCount).toBe(2);
+    expect(summary.outcome).toBe('completed_with_errors');
+    expect(summary.completed).toBe(1);
+    expect(summary.failed).toBe(1);
     expect(summary.videos).toBe(1);
     expect(summary.summaries).toHaveLength(1);
     expect(summary.summaries[0]?.canonicalId).toBe('youtube-test-video');
@@ -309,11 +359,12 @@ describe('aidha cli phase-1 surface', () => {
       videos: 1,
       failed: 1,
       errors: [{
-        videoId: 'missing-video',
+        item: 'missing-video',
         message: 'Video not found: missing-video',
         timestamp: '2026-05-25T12:34:56.000Z',
       }],
     });
+    expect(summary.errors).toEqual(summary.details.errors);
     expect(summary.warnings).toContain('missing-video: Video not found: missing-video');
   });
 
@@ -488,14 +539,81 @@ describe('aidha cli phase-1 surface', () => {
 
     expect(summary.sourceId).toBe('readwise');
     expect(summary.itemCount).toBe(1);
+    expect(summary.outcome).toBe('completed');
+    expect(summary.completed).toBe(1);
+    expect(summary.failed).toBe(0);
+    expect(summary.errors).toEqual([]);
     expect(summary.totalBooks).toBe(1);
-    expect(summary.details).toEqual({ updatedAfter: '2026-05-01T00:00:00Z', totalBooks: 1 });
+    expect(summary.details).toEqual({ updatedAfter: '2026-05-01T00:00:00Z', totalBooks: 1, errors: [] });
     expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
     expect(summary.metadataConflictCount).toBe(0);
+    expect(summary.references.referencesCreated).toBeGreaterThanOrEqual(0);
     expect(summary.warnings).toEqual([]);
     expect(summary.summaries[0]?.canonicalId).toBe('web:https://example.com/article');
     expect(summary.summaries[0]?.segments[0]?.locator).toEqual({ kind: 'external', system: 'readwise', externalId: '1' });
     expectDraftClaims(summary.summaries[0]!);
+  });
+
+  it('surfaces partial readwise failures without dropping them from the batch contract', async () => {
+    const summary = await runReadwiseIngest(undefined, {
+      token: 'token-123',
+      context: {
+        services: { clock: { now: () => new Date('2026-05-25T12:34:56.000Z') } },
+        async runReport(_sourceId, ref) {
+          if (ref.includes('/12')) {
+            throw new Error('book export failed');
+          }
+          return reportFor('readwise', ref);
+        },
+        async runVector(_sourceId: never, ref: string, _vector: ComposedVector) {
+          return {
+            ...reportFor('readwise', ref),
+            ref,
+            label: undefined,
+            segments: [],
+            chunks: [],
+          };
+        },
+      },
+      fetchFn: async () => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            count: 2,
+            nextPageCursor: null,
+            results: [
+              {
+                user_book_id: 11,
+                title: 'First',
+                author: 'Author',
+                readwise_url: 'https://readwise.io/bookreview/11',
+                highlights: [{ id: 1, text: 'First quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' }],
+              },
+              {
+                user_book_id: 12,
+                title: 'Second',
+                author: 'Author',
+                readwise_url: 'https://readwise.io/bookreview/12',
+                highlights: [{ id: 2, text: 'Second quote', book_id: 12, updated_at: '2026-05-22T00:00:00.000Z' }],
+              },
+            ],
+          };
+        },
+      }),
+    });
+
+    expect(summary.outcome).toBe('completed_with_errors');
+    expect(summary.completed).toBe(1);
+    expect(summary.failed).toBe(1);
+    expect(summary.errors).toEqual([{
+      item: 'https://readwise.io/bookreview/12',
+      message: 'book export failed',
+      timestamp: '2026-05-25T12:34:56.000Z',
+    }]);
+    expect(summary.details.errors).toEqual(summary.errors);
+    expect(summary.references).toMatchObject({ referencesCreated: 1, referenceEdgesCreated: 1 });
+    expect(summary.warnings).toContain('https://readwise.io/bookreview/12: book export failed');
   });
 
   it('ingests email fixtures into a reparented thread summary', async () => {
@@ -532,11 +650,16 @@ describe('aidha cli phase-1 surface', () => {
 
     expect(summary.sourceId).toBe('email');
     expect(summary.itemCount).toBe(1);
+    expect(summary.outcome).toBe('completed');
+    expect(summary.completed).toBe(1);
+    expect(summary.failed).toBe(0);
+    expect(summary.errors).toEqual([]);
     expect(summary.threads).toBe(1);
     expect(summary.importedFiles).toBe(2);
-    expect(summary.details).toEqual({ importedFiles: 2, threads: 1 });
+    expect(summary.details).toEqual({ importedFiles: 2, threads: 1, errors: [] });
     expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
     expect(summary.metadataConflictCount).toBe(0);
+    expect(summary.references.referencesCreated).toBeGreaterThanOrEqual(0);
     expect(summary.warnings).toEqual([]);
     expect(summary.summaries[0]?.canonicalId).toBe('email:thread:msg-a');
     expect(summary.summaries[0]?.segmentCount).toBe(2);

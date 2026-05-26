@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import type { ClassificationResult, Clock, RunReport } from '../interfaces/index.js';
+import type { ClassificationResult, Clock, ReferenceExtractionReport, RunReport } from '../interfaces/index.js';
 import type { Result } from '@aidha/taxonomy';
 
 export type BatchOutcome = 'completed' | 'completed_with_errors' | 'failed';
@@ -34,6 +34,7 @@ export interface BatchRunResult<TItem, TValue> {
   readonly failures: readonly BatchItemFailure<TItem>[];
   readonly classification: ClassificationResult;
   readonly metadataConflictCount: number;
+  readonly references: ReferenceExtractionReport;
   readonly warnings: readonly string[];
 }
 
@@ -51,6 +52,17 @@ function aggregateMetadataConflictCount(values: readonly { readonly report?: Run
   return values.reduce((sum, value) => sum + (value.report?.metadataConflictCount ?? value.metadataConflictCount ?? 0), 0);
 }
 
+function aggregateReferences(values: readonly { readonly report?: RunReport; readonly references?: ReferenceExtractionReport }[]): ReferenceExtractionReport {
+  return {
+    referencesCreated: values.reduce((sum, value) => sum + (value.report?.references.referencesCreated ?? value.references?.referencesCreated ?? 0), 0),
+    referencesUpdated: values.reduce((sum, value) => sum + (value.report?.references.referencesUpdated ?? value.references?.referencesUpdated ?? 0), 0),
+    referencesNoop: values.reduce((sum, value) => sum + (value.report?.references.referencesNoop ?? value.references?.referencesNoop ?? 0), 0),
+    referenceEdgesCreated: values.reduce((sum, value) => sum + (value.report?.references.referenceEdgesCreated ?? value.references?.referenceEdgesCreated ?? 0), 0),
+    referenceEdgesUpdated: values.reduce((sum, value) => sum + (value.report?.references.referenceEdgesUpdated ?? value.references?.referenceEdgesUpdated ?? 0), 0),
+    referenceEdgesNoop: values.reduce((sum, value) => sum + (value.report?.references.referenceEdgesNoop ?? value.references?.referenceEdgesNoop ?? 0), 0),
+  };
+}
+
 function aggregateWarnings(values: readonly { readonly report?: RunReport; readonly warnings?: readonly string[] }[]): readonly string[] {
   return Array.from(new Set(values.flatMap(value => value.report?.warnings ?? value.warnings ?? [])));
 }
@@ -61,7 +73,7 @@ function outcome(total: number, failed: number): BatchOutcome {
   return 'completed';
 }
 
-export async function runBatch<TItem, TValue extends { readonly report?: RunReport; readonly classification?: ClassificationResult; readonly metadataConflictCount?: number; readonly warnings?: readonly string[] }>(
+export async function runBatch<TItem, TValue extends { readonly report?: RunReport; readonly classification?: ClassificationResult; readonly metadataConflictCount?: number; readonly references?: ReferenceExtractionReport; readonly warnings?: readonly string[] }>(
   input: BatchRunInput<TItem, TValue>,
 ): Promise<BatchRunResult<TItem, TValue>> {
   const startedAt = input.clock.now().toISOString();
@@ -89,6 +101,7 @@ export async function runBatch<TItem, TValue extends { readonly report?: RunRepo
     failures,
     classification: aggregateClassification(values),
     metadataConflictCount: aggregateMetadataConflictCount(values),
+    references: aggregateReferences(values),
     warnings: aggregateWarnings(values),
   };
 }

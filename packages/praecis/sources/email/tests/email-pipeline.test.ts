@@ -3,10 +3,10 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ResolvedConfig } from '@aidha/config';
-import type { LlmClient, LlmCompletionRequest, PipelineServices } from '@aidha/praecis-core';
+import type { LlmClient, LlmCompletionRequest, PipelineServices, RunReport } from '@aidha/praecis-core';
 import { InMemoryStore } from '@aidha/graph-backend';
 import type { Result } from '@aidha/taxonomy';
-import { createEmailVectorSpec, runEmailBatch } from '../src/index.js';
+import { createEmailVectorSpec, runEmailBatch, runEmailBatchWithContext } from '../src/index.js';
 
 async function makeEmailDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'aidha-email-'));
@@ -84,6 +84,41 @@ function services(): Partial<PipelineServices> {
 }
 
 const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
+
+function reportFor(ref: string): RunReport {
+  return {
+    sourceId: 'email',
+    canonicalId: 'email:thread:good-msg',
+    resourceId: 'email:thread:good-msg',
+    excerptCount: 1,
+    chunkCount: 1,
+    segmentCount: 1,
+    segments: [],
+    chunks: [],
+    excerptIds: ['email:excerpt:good-msg'],
+    claimsExtracted: 0,
+    claimIds: [],
+    claims: [],
+    dedupAction: 'create',
+    policyRoute: 'disabled',
+    cacheHits: 0,
+    cacheWrites: 0,
+    tokenUsage: 0,
+    spendUsd: 0,
+    warnings: [],
+    classification: { status: 'disabled', tagsMatched: 0, tagsAssigned: 0, warnings: [] },
+    metadataConflictCount: 0,
+    references: {
+      referencesCreated: ref.includes('good') ? 1 : 0,
+      referencesUpdated: 0,
+      referencesNoop: 0,
+      referenceEdgesCreated: ref.includes('good') ? 1 : 0,
+      referenceEdgesUpdated: 0,
+      referenceEdgesNoop: 0,
+    },
+    durationMs: 0,
+  };
+}
 
 function taxonomyConfig(): ResolvedConfig {
   return {
@@ -170,9 +205,63 @@ describe('runEmailBatch', () => {
 
     const result = await runEmailBatch(dir, undefined, services());
     expect(result.sourceId).toBe('email');
+    expect(result.outcome).toBe('completed');
+    expect(result.completed).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.errors).toEqual([]);
     expect(result.threads).toBe(1);
+    expect(result.details).toEqual({ importedFiles: 2, threads: 1, errors: [] });
     expect(result.summaries[0]!.canonicalId).toBe('email:thread:msg-a');
     expect(result.summaries[0]!.segmentCount).toBe(2);
+  });
+
+  it('surfaces partial thread failures without aborting the email batch', async () => {
+    const dir = await makeEmailDir();
+    const goodFile = await writeEmailFile(dir, 'good.eml', [
+      'Message-ID: <good-msg>',
+      'Date: Thu, 22 May 2026 09:00:00 +0000',
+      'From: Alice <alice@example.com>',
+      'To: Bob <bob@example.com>',
+      'Subject: Good thread',
+      '',
+      'Good body',
+    ].join('\r\n'));
+    const badFile = await writeEmailFile(dir, 'bad.eml', [
+      'Message-ID: <bad-msg>',
+      'Date: Thu, 22 May 2026 10:00:00 +0000',
+      'From: Carol <carol@example.com>',
+      'To: Dave <dave@example.com>',
+      'Subject: Bad thread',
+      '',
+      'Bad body',
+    ].join('\r\n'));
+
+    const store = new InMemoryStore();
+    const result = await runEmailBatchWithContext(dir, undefined, {
+      store,
+      clock: fixedClock,
+      async runVector(_vector, input) {
+        if (input.ref === badFile) {
+          return { ok: false, error: new Error('thread export failed') };
+        }
+        return { ok: true, value: reportFor(input.ref) };
+      },
+    });
+
+    expect(result.outcome).toBe('completed_with_errors');
+    expect(result.completed).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.summaries).toHaveLength(1);
+    expect(result.errors).toEqual([{
+      item: badFile,
+      message: 'thread export failed',
+      timestamp: '2026-05-25T12:34:56.000Z',
+    }]);
+    expect(result.details.errors).toEqual(result.errors);
+    expect(result.references).toMatchObject({ referencesCreated: 1, referenceEdgesCreated: 1 });
+    expect(result.warnings).toContain(`${badFile}: thread export failed`);
+    expect(result.summaries[0]?.ref).toBe(goodFile);
+    await store.close();
   });
 
   it('classifies email threads through the shared config-seeded registry', async () => {

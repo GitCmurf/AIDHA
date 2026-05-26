@@ -59,7 +59,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type BatchOutcome, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
@@ -110,11 +110,22 @@ export type SourceId = IngestSummary['sourceId'];
 export interface BatchIngestSummary<TSourceId extends SourceId, TDetails extends object = Record<string, unknown>> {
   readonly sourceId: TSourceId;
   readonly itemCount: number;
+  readonly outcome: BatchOutcome;
+  readonly completed: number;
+  readonly failed: number;
+  readonly errors: readonly BatchIngestError[];
   readonly summaries: readonly IngestSummary[];
   readonly classification: ClassificationResult;
   readonly metadataConflictCount: number;
+  readonly references: RunReport['references'];
   readonly warnings: readonly string[];
   readonly details: TDetails;
+}
+
+export interface BatchIngestError {
+  readonly item: string;
+  readonly message: string;
+  readonly timestamp: string;
 }
 
 export interface YouTubeBatchSummary extends BatchIngestSummary<'youtube', YouTubeBatchDetails> {
@@ -126,11 +137,7 @@ interface YouTubeBatchDetails {
   readonly playlistId: string;
   readonly videos: number;
   readonly failed: number;
-  readonly errors: readonly {
-    readonly videoId: string;
-    readonly message: string;
-    readonly timestamp: string;
-  }[];
+  readonly errors: readonly BatchIngestError[];
 }
 
 export type IngestCommandSummary = IngestSummary | ReadwiseBatchSummary | EmailBatchSummary | YouTubeBatchSummary;
@@ -282,6 +289,17 @@ function aggregateMetadataConflictCount(summaries: readonly { readonly metadataC
   return summaries.reduce((sum, summary) => sum + summary.metadataConflictCount, 0);
 }
 
+function aggregateReferences(summaries: readonly { readonly references: RunReport['references'] }[]): RunReport['references'] {
+  return {
+    referencesCreated: summaries.reduce((sum, summary) => sum + summary.references.referencesCreated, 0),
+    referencesUpdated: summaries.reduce((sum, summary) => sum + summary.references.referencesUpdated, 0),
+    referencesNoop: summaries.reduce((sum, summary) => sum + summary.references.referencesNoop, 0),
+    referenceEdgesCreated: summaries.reduce((sum, summary) => sum + summary.references.referenceEdgesCreated, 0),
+    referenceEdgesUpdated: summaries.reduce((sum, summary) => sum + summary.references.referenceEdgesUpdated, 0),
+    referenceEdgesNoop: summaries.reduce((sum, summary) => sum + summary.references.referenceEdgesNoop, 0),
+  };
+}
+
 function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport): IngestSummary {
   return {
     sourceId,
@@ -392,7 +410,7 @@ export async function runPodcastIngest(
   return buildIngestSummary('podcast', ref, createPodcastVectorSpec(vectorOptions), metadata, options.services ?? {});
 }
 
-export interface ReadwiseBatchSummary extends BatchIngestSummary<'readwise', { readonly updatedAfter?: string; readonly totalBooks: number }> {
+export interface ReadwiseBatchSummary extends BatchIngestSummary<'readwise', { readonly updatedAfter?: string; readonly totalBooks: number; readonly errors: readonly BatchIngestError[] }> {
   readonly updatedAfter?: string;
   readonly totalBooks: number;
 }
@@ -412,46 +430,55 @@ export async function runReadwiseIngest(
   };
   const books = await fetchReadwiseExport(readwiseOptions);
 
-  const runBooks = async (context: IngestExecutionContext): Promise<IngestSummary[]> => {
-    const batch = await runBatch({
-      items: books,
-      clock: context.services.clock ?? { now: () => new Date() },
-      async runItem(book) {
-        const vector = createReadwiseVectorSpec(book);
-        const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
-        try {
-          const report = await context.runReport('readwise', ref, vector);
-          return { ok: true, value: { ...summaryFromRunReport('readwise', ref, report), report } };
-        } catch (error) {
-          return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
-        }
-      },
-    });
-    return batch.successes.map(success => success.value);
-  };
+  const runBooks = async (context: IngestExecutionContext) => runBatch({
+    items: books,
+    clock: context.services.clock ?? { now: () => new Date() },
+    async runItem(book) {
+      const vector = createReadwiseVectorSpec(book);
+      const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
+      try {
+        const report = await context.runReport('readwise', ref, vector);
+        return { ok: true, value: { ...summaryFromRunReport('readwise', ref, report), report } };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      }
+    },
+  });
 
-  let summaries: IngestSummary[];
+  let batch: Awaited<ReturnType<typeof runBooks>>;
   if (options.context) {
-    summaries = await runBooks(options.context);
+    batch = await runBooks(options.context);
   } else {
     const execution = await createIngestExecutionContext(options.services ?? {});
     try {
-      summaries = await runBooks(execution.context);
+      batch = await runBooks(execution.context);
     } finally {
       await execution.close();
     }
   }
+  const summaries = batch.successes.map(success => success.value);
+  const errors = batch.failures.map(failure => ({
+    item: failure.item.readwise_url ?? `readwise:book:${failure.item.user_book_id}`,
+    message: failure.message,
+    timestamp: failure.timestamp,
+  }));
 
   return {
     sourceId: 'readwise',
     itemCount: books.length,
+    outcome: batch.outcome,
+    completed: batch.completed,
+    failed: batch.failed,
+    errors,
     totalBooks: books.length,
     summaries,
-    classification: aggregateClassification(summaries),
-    metadataConflictCount: aggregateMetadataConflictCount(summaries),
-    warnings: aggregateWarnings(summaries),
+    classification: batch.classification,
+    metadataConflictCount: batch.metadataConflictCount,
+    references: batch.references,
+    warnings: [...batch.warnings, ...errors.map(error => `${error.item}: ${error.message}`)],
     details: {
       totalBooks: books.length,
+      errors,
       ...(updatedAfter ? { updatedAfter } : {}),
     },
     ...(updatedAfter ? { updatedAfter } : {}),
@@ -466,6 +493,7 @@ export async function runEmailIngest(
   if (context?.services.store) {
     return runEmailBatchWithContext(ref, readFile, {
       store: context.services.store,
+      ...(context.services.clock ? { clock: context.services.clock } : {}),
       async runVector(vector, input) {
         return { ok: true, value: await context.runReport('email', input.ref, vector, input.metadata) };
       },
@@ -554,24 +582,34 @@ export async function runYouTubePlaylistIngest(
   }
   const playlist = result.value;
   summaries = playlist.videos.map(video => summaryFromRunReport('youtube', video.videoId, video.report));
+  const errors = playlist.job.errors.map(error => ({
+    item: error.videoId,
+    message: error.message,
+    timestamp: error.timestamp,
+  }));
   const warnings = [
     ...aggregateWarnings(summaries),
-    ...playlist.job.errors.map(error => `${error.videoId}: ${error.message}`),
+    ...errors.map(error => `${error.item}: ${error.message}`),
   ];
   return {
     sourceId: 'youtube',
     playlistId,
     videos: summaries.length,
     itemCount: playlist.job.progress.total,
+    outcome: playlist.job.status as BatchOutcome,
+    completed: playlist.job.progress.completed,
+    failed: playlist.job.progress.failed,
+    errors,
     summaries,
     classification: playlist.classification,
     metadataConflictCount: aggregateMetadataConflictCount(summaries),
+    references: aggregateReferences(summaries),
     warnings,
     details: {
       playlistId,
       videos: summaries.length,
       failed: playlist.job.progress.failed,
-      errors: playlist.job.errors,
+      errors,
     },
   };
 }
@@ -711,6 +749,28 @@ function printSingleIngestSummary(summary: IngestSummary): readonly string[] {
   ];
 }
 
+function printBatchTelemetry(summary: {
+  readonly outcome: BatchOutcome;
+  readonly completed: number;
+  readonly failed: number;
+  readonly itemCount: number;
+  readonly errors: readonly BatchIngestError[];
+  readonly warnings: readonly string[];
+}): readonly string[] {
+  const lines = [
+    `Outcome: ${summary.outcome}`,
+    `Completed: ${summary.completed}/${summary.itemCount}`,
+  ];
+  if (summary.failed > 0) {
+    lines.push(`Failed: ${summary.failed}`);
+    lines.push(...summary.errors.map(error => `Error: ${error.item}: ${error.message}`));
+  }
+  if (summary.warnings.length > 0) {
+    lines.push(...summary.warnings.map(warning => `Warning: ${warning}`));
+  }
+  return lines;
+}
+
 function isYouTubeBatchSummary(summary: IngestCommandSummary): summary is YouTubeBatchSummary {
   return summary.sourceId === 'youtube' && 'playlistId' in summary;
 }
@@ -784,6 +844,7 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
           `Ingested youtube playlist ${summary.playlistId}`,
           `Videos: ${summary.videos}`,
           `Summaries: ${summary.summaries.length}`,
+          ...printBatchTelemetry(summary),
         ];
       }
       return isSingleIngestSummary(summary) ? printSingleIngestSummary(summary) : [`Ingested ${summary.sourceId}`];
@@ -862,6 +923,7 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
         `Ingested readwise export since ${summary.updatedAfter ?? 'start'}`,
         `Books: ${summary.totalBooks}`,
         `Summaries: ${summary.summaries.length}`,
+        ...printBatchTelemetry(summary),
       ];
     },
   },
@@ -876,6 +938,7 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
         'Ingested email batch',
         `Threads: ${summary.threads}`,
         `Messages: ${summary.importedFiles}`,
+        ...printBatchTelemetry(summary),
       ];
     },
   },
