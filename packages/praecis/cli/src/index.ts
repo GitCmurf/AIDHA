@@ -59,7 +59,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type BatchOutcome, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type BatchOutcome, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type Result, type RunReport } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
@@ -107,7 +107,7 @@ export interface IngestSummary {
 
 export type SourceId = IngestSummary['sourceId'];
 
-export interface BatchIngestSummary<TSourceId extends SourceId, TDetails extends object = Record<string, unknown>> {
+export interface BatchIngestSummary<TSourceId extends SourceId> {
   readonly sourceId: TSourceId;
   readonly itemCount: number;
   readonly outcome: BatchOutcome;
@@ -119,7 +119,6 @@ export interface BatchIngestSummary<TSourceId extends SourceId, TDetails extends
   readonly metadataConflictCount: number;
   readonly references: RunReport['references'];
   readonly warnings: readonly string[];
-  readonly details: TDetails;
 }
 
 export interface BatchIngestError {
@@ -128,23 +127,16 @@ export interface BatchIngestError {
   readonly timestamp: string;
 }
 
-export interface YouTubeBatchSummary extends BatchIngestSummary<'youtube', YouTubeBatchDetails> {
+export interface YouTubeBatchSummary extends BatchIngestSummary<'youtube'> {
   readonly playlistId: string;
   readonly videos: number;
-}
-
-interface YouTubeBatchDetails {
-  readonly playlistId: string;
-  readonly videos: number;
-  readonly failed: number;
-  readonly errors: readonly BatchIngestError[];
 }
 
 export type IngestCommandSummary = IngestSummary | ReadwiseBatchSummary | EmailBatchSummary | YouTubeBatchSummary;
 
 export interface IngestExecutionContext {
   readonly services: Partial<PipelineServices>;
-  runReport(sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<RunReport>;
+  runReport(sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<Result<RunReport>>;
   runVector(sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<IngestSummary>;
 }
 
@@ -337,20 +329,20 @@ async function createIngestExecutionContext(services: Partial<PipelineServices> 
     store: services.store === undefined,
     taxonomyRegistry: services.taxonomyRegistry === undefined,
   });
-  const runReport = async (_sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<RunReport> => {
+  const runReport = async (_sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<Result<RunReport>> => {
     const ingestInput = metadata ? { ref, metadata } : { ref };
-    const result = await runtime.runVector(vector, ingestInput);
-    if (!result.ok) {
-      throw result.error;
-    }
-    return result.value;
+    return runtime.runVector(vector, ingestInput);
   };
   return {
     context: {
       services: configured.value,
       runReport,
       async runVector(sourceId, ref, vector, metadata) {
-        return summaryFromRunReport(sourceId, ref, await runReport(sourceId, ref, vector, metadata));
+        const result = await runReport(sourceId, ref, vector, metadata);
+        if (!result.ok) {
+          throw result.error;
+        }
+        return summaryFromRunReport(sourceId, ref, result.value);
       },
     },
     close() {
@@ -375,19 +367,19 @@ async function buildIngestSummary(
 }
 
 export async function runWebIngest(ref: string, fetchFn?: WebFetchFn, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('web', ref, composeVector(createWebVectorSpec(fetchFn)), undefined, services);
+  return buildIngestSummary('web', ref, composeVector(createWebVectorSpec(fetchFn, services.clock)), undefined, services);
 }
 
 export async function runPdfIngest(ref: string, readFileFn?: typeof readFile, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec(readFileFn)), undefined, services);
+  return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec(readFileFn, services.clock)), undefined, services);
 }
 
 export async function runVoiceIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('voice', ref, createVoiceVectorSpec(), undefined, services);
+  return buildIngestSummary('voice', ref, createVoiceVectorSpec({ ...(services.clock ? { clock: services.clock } : {}) }), undefined, services);
 }
 
 export async function runMeetingIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('meeting', ref, createMeetingVectorSpec(), undefined, services);
+  return buildIngestSummary('meeting', ref, createMeetingVectorSpec({ ...(services.clock ? { clock: services.clock } : {}) }), undefined, services);
 }
 
 export async function runRssIngest(
@@ -395,7 +387,7 @@ export async function runRssIngest(
   options: { fetchFn?: WebFetchFn; itemGuid?: string; services?: Partial<PipelineServices> } = {},
 ): Promise<IngestSummary> {
   const metadata = options.itemGuid ? { itemGuid: options.itemGuid } : undefined;
-  return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec(options.fetchFn)), metadata, options.services ?? {});
+  return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec(options.fetchFn, options.services?.clock)), metadata, options.services ?? {});
 }
 
 export async function runPodcastIngest(
@@ -406,11 +398,11 @@ export async function runPodcastIngest(
     ...(options.episodeGuid ? { episodeGuid: options.episodeGuid } : {}),
     ...(options.panel ? { panel: true } : {}),
   };
-  const vectorOptions = options.fetchFn ? { fetchFn: options.fetchFn } : {};
+  const vectorOptions = { ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...(options.services?.clock ? { clock: options.services.clock } : {}) };
   return buildIngestSummary('podcast', ref, createPodcastVectorSpec(vectorOptions), metadata, options.services ?? {});
 }
 
-export interface ReadwiseBatchSummary extends BatchIngestSummary<'readwise', { readonly updatedAfter?: string; readonly totalBooks: number; readonly errors: readonly BatchIngestError[] }> {
+export interface ReadwiseBatchSummary extends BatchIngestSummary<'readwise'> {
   readonly updatedAfter?: string;
   readonly totalBooks: number;
 }
@@ -434,14 +426,12 @@ export async function runReadwiseIngest(
     items: books,
     clock: context.services.clock ?? { now: () => new Date() },
     async runItem(book) {
-      const vector = createReadwiseVectorSpec(book);
+      const vector = createReadwiseVectorSpec(book, context.services.clock);
       const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
-      try {
-        const report = await context.runReport('readwise', ref, vector);
-        return { ok: true, value: { ...summaryFromRunReport('readwise', ref, report), report } };
-      } catch (error) {
-        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
-      }
+      const report = await context.runReport('readwise', ref, vector);
+      return report.ok
+        ? { ok: true as const, value: { ...summaryFromRunReport('readwise', ref, report.value), report: report.value } }
+        : report;
     },
   });
 
@@ -476,11 +466,6 @@ export async function runReadwiseIngest(
     metadataConflictCount: batch.metadataConflictCount,
     references: batch.references,
     warnings: [...batch.warnings, ...errors.map(error => `${error.item}: ${error.message}`)],
-    details: {
-      totalBooks: books.length,
-      errors,
-      ...(updatedAfter ? { updatedAfter } : {}),
-    },
     ...(updatedAfter ? { updatedAfter } : {}),
   };
 }
@@ -495,7 +480,7 @@ export async function runEmailIngest(
       store: context.services.store,
       ...(context.services.clock ? { clock: context.services.clock } : {}),
       async runVector(vector, input) {
-        return { ok: true, value: await context.runReport('email', input.ref, vector, input.metadata) };
+        return context.runReport('email', input.ref, vector, input.metadata);
       },
     });
   }
@@ -506,7 +491,7 @@ export async function runLinkedInIngest(
   ref: string,
   options: { pasteText: string; url?: string; services?: Partial<PipelineServices> },
 ): Promise<IngestSummary> {
-  return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec(options), undefined, options.services ?? {});
+  return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec({ ...options, ...(options.services?.clock ? { clock: options.services.clock } : {}) }), undefined, options.services ?? {});
 }
 
 function youtubeConfigFromResolved(config?: ResolvedConfig): ResolvedYoutubeConfig {
@@ -547,21 +532,20 @@ export async function runYouTubePlaylistIngest(
     client,
     ...(context.services.clock ? { clock: context.services.clock } : {}),
     async runVideo(videoId) {
-      try {
-        const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec(client, context.services.clock)));
-        return {
-          ok: true,
-          value: {
-            videoId,
-            nodeId: report.resourceId,
-            classification: report.classification,
-            created: report.dedupAction === 'create',
-            report,
-          },
-        };
-      } catch (error) {
-        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec(client, context.services.clock)));
+      if (!report.ok) {
+        return report;
       }
+      return {
+        ok: true,
+        value: {
+          videoId,
+          nodeId: report.value.resourceId,
+          classification: report.value.classification,
+          created: report.value.dedupAction === 'create',
+          report: report.value,
+        },
+      };
     },
   });
 
@@ -605,12 +589,6 @@ export async function runYouTubePlaylistIngest(
     metadataConflictCount: aggregateMetadataConflictCount(summaries),
     references: aggregateReferences(summaries),
     warnings,
-    details: {
-      playlistId,
-      videos: summaries.length,
-      failed: playlist.job.progress.failed,
-      errors,
-    },
   };
 }
 
@@ -854,28 +832,28 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
     sourceId: 'web',
     registration: WebSourceRegistration,
     usage: INGEST_USAGE.web,
-    run: ({ positionals, options, context }) => context.runVector('web', requireRef(options, positionals, 'url', INGEST_USAGE.web), composeVector(createWebVectorSpec())),
+    run: ({ positionals, options, context }) => context.runVector('web', requireRef(options, positionals, 'url', INGEST_USAGE.web), composeVector(createWebVectorSpec(undefined, context.services.clock))),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'pdf',
     registration: PdfSourceRegistration,
     usage: INGEST_USAGE.pdf,
-    run: ({ positionals, options, context }) => context.runVector('pdf', requireRef(options, positionals, 'file', INGEST_USAGE.pdf), composeVector(createPdfVectorSpec())),
+    run: ({ positionals, options, context }) => context.runVector('pdf', requireRef(options, positionals, 'file', INGEST_USAGE.pdf), composeVector(createPdfVectorSpec(undefined, context.services.clock))),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'voice',
     registration: VoiceSourceRegistration,
     usage: INGEST_USAGE.voice,
-    run: ({ positionals, options, context }) => context.runVector('voice', requireRef(options, positionals, 'file', INGEST_USAGE.voice), createVoiceVectorSpec()),
+    run: ({ positionals, options, context }) => context.runVector('voice', requireRef(options, positionals, 'file', INGEST_USAGE.voice), createVoiceVectorSpec({ ...(context.services.clock ? { clock: context.services.clock } : {}) })),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'meeting',
     registration: MeetingSourceRegistration,
     usage: INGEST_USAGE.meeting,
-    run: ({ positionals, options, context }) => context.runVector('meeting', requireRef(options, positionals, 'file', INGEST_USAGE.meeting), createMeetingVectorSpec()),
+    run: ({ positionals, options, context }) => context.runVector('meeting', requireRef(options, positionals, 'file', INGEST_USAGE.meeting), createMeetingVectorSpec({ ...(context.services.clock ? { clock: context.services.clock } : {}) })),
     print: printSingleIngestSummary,
   },
   {
@@ -885,7 +863,7 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
     run: ({ positionals, options, context }) => context.runVector(
       'rss',
       requireRef(options, positionals, 'feed', INGEST_USAGE.rss),
-      composeVector(createRssVectorSpec()),
+      composeVector(createRssVectorSpec(undefined, context.services.clock)),
       optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : undefined,
     ),
     print: printSingleIngestSummary,
@@ -897,7 +875,7 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
     run: ({ positionals, options, context }) => context.runVector(
       'podcast',
       requireRef(options, positionals, 'feed', INGEST_USAGE.podcast),
-      createPodcastVectorSpec(),
+      createPodcastVectorSpec({ ...(context.services.clock ? { clock: context.services.clock } : {}) }),
       {
         ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
         ...(optionBool(options, 'panel') ? { panel: true } : {}),
@@ -953,7 +931,7 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
       if (!pasteText) {
         throw new Error(`Usage: ${INGEST_USAGE.linkedin}`);
       }
-      const linkedInOptions = url ? { pasteText, url } : { pasteText };
+      const linkedInOptions = { ...(url ? { pasteText, url } : { pasteText }), ...(context.services.clock ? { clock: context.services.clock } : {}) };
       return context.runVector('linkedin', url ?? 'stdin', createLinkedInVectorSpec(linkedInOptions));
     },
     print: printSingleIngestSummary,

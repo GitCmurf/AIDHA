@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.16"
+version: "2.17"
 last_updated: 2026-05-26
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.16
+> **Version:** 2.17
 > **Last Updated:** 2026-05-26
 > **Type:** PLAN
 
@@ -57,12 +57,13 @@ docops_version: "2.0"
 | 2.8     | 2026-05-25 | AI     | Hardened the shared ingestion architecture after self-review: added the production `createIngestionRuntime` facade, typed durable taxonomy assignment metadata in the graph schema, source-neutral runtime/layering guardrails, and a generic-vector fresh-service taxonomy idempotency test so YouTube is no longer structurally distinguishable from other vectors. | Codex adversarial self-review | In Review | — |
 | 2.9     | 2026-05-25 | AI     | Removed the remaining source-neutrality gap at the public ingestion surface: generic `aidha ingest youtube` now uses the same configured runtime and summary contract as every other vector, while YouTube-specific diagnostics/eval tooling remains explicitly advanced tooling. Stale current-state prose was reconciled to the v2.9 implementation. | Codex adversarial self-review | In Review | — |
 | 2.10    | 2026-05-25 | AI     | Hardened the final public-ingest surface: generic `aidha ingest` now derives source registration, usage, dispatch, and summary rendering from a source manifest table; YouTube playlist ingestion is exposed through the same generic command path; `createIngestionRuntime.runVector` can safely run multiple same-source vectors without stale registration reuse; malformed durable taxonomy assignment metadata now fails visibly instead of being silently dropped. | Codex adversarial self-review | In Review | — |
-| 2.11    | 2026-05-25 | AI     | Remediated the r6 quality findings: taxonomy assignment timestamps now use the injected deterministic clock and are asserted as exact durable records; configured ingestion exposes only `runVector`, reuses assembled services, and routes YouTube through the same path as other vectors; the SQLite durability proof is ungated; and `ReferenceMetadataSchema` is implemented in the graph backend. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r6.txt` |
+| 2.11    | 2026-05-25 | AI     | Remediated the r6 quality findings: taxonomy assignment timestamps now use the injected runtime clock and are asserted as exact durable records under fixed-clock tests; configured ingestion exposes only `runVector`, reuses assembled services, and routes YouTube through the same path as other vectors; the SQLite durability proof is ungated; and `ReferenceMetadataSchema` is implemented in the graph backend. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r6.txt` |
 | 2.12    | 2026-05-25 | AI     | Closed the reputation-readiness polish pass: the runtime contract now matches code (`ConfiguredIngestionRuntime` exposes only `runVector`/`close` and `PipelineServices.clock` is explicit); generic CLI help is generated from the source manifest registry instead of a parallel usage array; assembled-service runtime reuse is explicit through `createIngestionRuntimeFromServices`; and manifest uniqueness/help coverage tests guard future vector additions. | Codex adversarial self-review | In Review | — |
-| 2.13    | 2026-05-25 | AI     | Added the final runtime-context polish: generic CLI manifests now receive a shared `IngestExecutionContext` instead of raw service overrides, playlist/export batch flows reuse one configured runtime per command, and YouTube/Readwise/email batch summaries expose a common item-count/classification/metadata-conflict/warnings/details contract. | Codex adversarial self-review | In Review | — |
+| 2.13    | 2026-05-25 | AI     | Added the runtime-context polish: generic CLI manifests now receive a shared `IngestExecutionContext` instead of raw service overrides, playlist/export batch flows reuse one configured runtime per command, and YouTube/Readwise/email batch summaries expose a common item-count/classification/metadata-conflict/warnings contract. | Codex adversarial self-review | In Review | — |
 | 2.14    | 2026-05-25 | AI     | Closed the r7 playlist-leverage gap: YouTube playlist fetch, resilient per-video execution, aggregate telemetry, and injected-clock job/error timestamps now live in one shared production function consumed by both CLIs; partial-playlist failures are behaviorally tested through the generic helper and `aidha-youtube`; and the source-grep convergence fence was replaced with a production CLI regression. | Claude Opus peer review, Codex adversarial self-review | In Review | `docs/05-planning/WIP-plan-007-codex-review-2026-05-25-r7.txt` |
-| 2.15    | 2026-05-26 | AI     | Closed the reputation-readiness architecture polish: added a shared core batch runner, moved email batch execution onto the generic CLI runtime context, made reference extraction an enabled spine stage with `RunReport` telemetry, changed partial playlist status to `completed_with_errors`, and routed YouTube provenance timestamps through the injected clock. | Codex adversarial self-review | In Review | — |
+| 2.15    | 2026-05-26 | AI     | Closed the reputation-readiness architecture polish: added a shared core batch runner, moved email batch execution onto the generic CLI runtime context, made reference extraction an enabled spine stage with `RunReport` telemetry, changed partial playlist status to `completed_with_errors`, and started routing source provenance timestamps through the injected clock. | Codex adversarial self-review | In Review | — |
 | 2.16    | 2026-05-26 | AI     | Closed the final batch UX consistency gap: YouTube, Readwise, and email batches now expose a common outcome/completed/failed/errors/reference-telemetry contract; Readwise and email surface partial item failures instead of silently dropping or aborting successful work; and human CLI output reports batch failures. | Codex adversarial self-review | In Review | — |
+| 2.17    | 2026-05-26 | AI     | Remediated the r8 correctness and determinism findings: CLI `runReport` now returns `Result<RunReport>` so batch adapters cannot accidentally fail fast; all source provenance timestamps use the injected runtime clock; the core batch runner is report-driven, catches thrown item failures, and has an opt-in concurrency seam; informal batch `details` duplication is removed; and unified CLI partial-playlist/email behavior is covered by regressions. | Claude Opus peer review, Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -273,10 +274,11 @@ Reference extraction is now an enabled stage of the shared spine, executed after
 Resource/Excerpt/Claim export and surfaced on `RunReport` as reference-node and
 reference-edge telemetry. Batch summaries for YouTube playlists, Readwise
 exports, and email imports share the same top-level `itemCount`, aggregate
-`classification`, `metadataConflictCount`, `warnings`, and vector-specific
-`details` fields. Taxonomy assignments and YouTube provenance timestamps come
-from the injected runtime clock and are asserted as exact durable records in
-tests. Malformed durable
+`classification`, `metadataConflictCount`, `warnings`, and source-specific
+summary fields rather than a duplicated opaque `details` envelope. Taxonomy
+assignments, graph-node lifecycle timestamps, and source provenance timestamps
+come from the injected runtime clock and are asserted as exact durable records in
+fixed-clock tests. Malformed durable
 `taxonomyAssignments` metadata fails visibly instead of being silently dropped,
 and `Reference` metadata is validated by `ReferenceMetadataSchema` alongside
 Resource, Excerpt, and Claim metadata.
@@ -839,7 +841,7 @@ export function createIngestionRuntimeFromServices(
 Production CLIs and source packages assemble ingestion through
 `createIngestionRuntime`, which resolves configured services, config-seeded
 taxonomy vocabulary, durable graph-backed taxonomy assignment storage, privacy,
-cache, cost ceiling, deterministic clock, and lifecycle ownership in one place.
+cache, cost ceiling, injected-clock determinism, and lifecycle ownership in one place.
 When a batch has already assembled `PipelineServices`, it reuses them explicitly
 through `createIngestionRuntimeFromServices` rather than relying on structural
 type detection. `createPipelineRuntime` remains the low-level runtime primitive

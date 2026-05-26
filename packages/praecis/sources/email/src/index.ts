@@ -113,11 +113,6 @@ export interface EmailBatchSummary {
   readonly metadataConflictCount: number;
   readonly references: RunReport['references'];
   readonly warnings: readonly string[];
-  readonly details: {
-    readonly importedFiles: number;
-    readonly threads: number;
-    readonly errors: readonly EmailBatchError[];
-  };
 }
 
 export interface EmailBatchError {
@@ -437,7 +432,7 @@ class EmailContextProvider implements IContextProvider {
 class EmailIngestor implements IIngestor<EmailThreadPayload> {
   readonly sourceId = 'email';
 
-  constructor(private readonly thread: EmailThread) {}
+  constructor(private readonly thread: EmailThread, private readonly clock?: Clock) {}
 
   async acquire(_input: IngestInput): Promise<Result<RawSource & { payload: EmailThreadPayload }>> {
     return {
@@ -453,7 +448,7 @@ class EmailIngestor implements IIngestor<EmailThreadPayload> {
         sensitivity: 'confidential',
         provenance: {
           sourceUri: this.thread.messages[0]?.filePath,
-          ingestedAt: new Date().toISOString(),
+          ingestedAt: (this.clock?.now() ?? new Date()).toISOString(),
           sourceType: 'email',
         },
         resourceMetadata: emailThreadResourceMetadata(this.thread),
@@ -499,11 +494,11 @@ export const EmailSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createEmailVectorSpec(thread: EmailThread) {
+export function createEmailVectorSpec(thread: EmailThread, clock?: Clock) {
   return composeVector({
     sourceId: 'email',
     sensitivity: 'confidential',
-    ingestor: new EmailIngestor(thread),
+    ingestor: new EmailIngestor(thread, clock),
     decode: [new EmailDecodeStrategy(thread)],
     context: new EmailContextProvider(thread),
     chunking: 'highlight',
@@ -568,7 +563,7 @@ export async function runEmailBatchWithContext(
     items: threads,
     clock: context.clock ?? { now: () => new Date() },
     async runItem(thread) {
-      const vector = createEmailVectorSpec(thread);
+      const vector = createEmailVectorSpec(thread, context.clock);
       const threadRef = thread.messages.map(message => message.filePath).join(', ');
       const runEmailThread = async () => {
         const run = await context.runVector(vector, { ref: threadRef });
@@ -648,11 +643,6 @@ export async function runEmailBatchWithContext(
     metadataConflictCount: batch.metadataConflictCount,
     references: batch.references,
     warnings: [...batch.warnings, ...errors.map(error => `${error.item}: ${error.message}`)],
-    details: {
-      importedFiles: messages.length,
-      threads: threads.length,
-      errors,
-    },
   };
 }
 

@@ -33,6 +33,21 @@ describe('WebIngestor', () => {
       siteName: 'example.com',
     });
   });
+
+  it('uses an injected clock for durable provenance timestamps', async () => {
+    const ingestor = new WebIngestor({
+      fetchFn: makeFetch('<title>Example title</title><p>Hello</p>'),
+      clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+    });
+    const first = await ingestor.acquire({ ref: 'https://example.com/article' });
+    const second = await ingestor.acquire({ ref: 'https://example.com/article' });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) throw new Error('expected acquisitions to succeed');
+    expect(first.value.provenance.ingestedAt).toBe('2026-05-25T12:34:56.000Z');
+    expect(second.value.provenance).toEqual(first.value.provenance);
+  });
 });
 
 describe('WebTextDecodeStrategy', () => {

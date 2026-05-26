@@ -12,6 +12,7 @@ import type {
   DecodeOutput,
   RawSource,
   ExtractionContext,
+  Clock,
 } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import { HttpWebFetcher, type WebFetchFn } from '@aidha/praecis-acquire-webfetch';
@@ -37,6 +38,7 @@ export interface RssFeedPayload {
 
 export interface RssIngestorOptions {
   readonly fetchFn?: WebFetchFn;
+  readonly clock?: Clock;
 }
 
 function parseTag(xml: string, tag: string): string | undefined {
@@ -103,9 +105,11 @@ export class RssIngestor implements IIngestor<RssFeedPayload> {
   readonly sourceId = 'rss';
 
   private readonly fetcher: HttpWebFetcher;
+  private readonly clock?: Clock;
 
   constructor(options: RssIngestorOptions = {}) {
     this.fetcher = new HttpWebFetcher(options.fetchFn);
+    this.clock = options.clock;
   }
 
   async acquire(input: IngestInput): Promise<Result<RawSource & { payload: RssFeedPayload }>> {
@@ -157,7 +161,7 @@ export class RssIngestor implements IIngestor<RssFeedPayload> {
         sensitivity: 'public',
         provenance: {
           sourceUri: input.ref,
-          ingestedAt: new Date().toISOString(),
+          ingestedAt: (this.clock?.now() ?? new Date()).toISOString(),
           sourceType: 'rss',
         },
         resourceMetadata: {
@@ -204,11 +208,11 @@ export const RssSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createRssVectorSpec(fetchFn?: WebFetchFn) {
+export function createRssVectorSpec(fetchFn?: WebFetchFn, clock?: Clock) {
   return {
     sourceId: 'rss',
     sensitivity: 'public' as const,
-    ingestor: new RssIngestor({ fetchFn }),
+    ingestor: new RssIngestor({ ...(fetchFn ? { fetchFn } : {}), ...(clock ? { clock } : {}) }),
     decode: [new RssTextDecodeStrategy()],
     context: new RssContextProvider(),
     chunking: 'token-window' as const,

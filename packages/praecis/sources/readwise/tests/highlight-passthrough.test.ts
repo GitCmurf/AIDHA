@@ -42,4 +42,24 @@ describe('createReadwiseVectorSpec', () => {
     expect(chunkResult.value).toHaveLength(2);
     expect(chunkResult.value[0]!.text).toBe('First quote');
   });
+
+  it('uses an injected clock for durable provenance timestamps', async () => {
+    const book = {
+      user_book_id: 11,
+      title: 'How to Do What You Love',
+      readwise_url: 'https://readwise.io/bookreview/11',
+      highlights: [
+        { id: 1, text: 'First quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
+      ],
+    };
+    const vector = createReadwiseVectorSpec(book, { now: () => new Date('2026-05-25T12:34:56.000Z') });
+    const first = await vector.ingestAndDecode({ ref: 'readwise:book:11' });
+    const second = await vector.ingestAndDecode({ ref: 'readwise:book:11' });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) throw new Error('expected ingests to succeed');
+    expect(first.value.raw.provenance.ingestedAt).toBe('2026-05-25T12:34:56.000Z');
+    expect(second.value.raw.provenance).toEqual(first.value.raw.provenance);
+  });
 });

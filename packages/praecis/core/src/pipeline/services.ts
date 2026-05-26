@@ -119,8 +119,9 @@ function graphNode(
   label: string,
   content: string | undefined,
   metadata: Record<string, unknown>,
+  clock: Clock,
 ): GraphNode {
-  const now = new Date(0).toISOString();
+  const now = clock.now().toISOString();
   return {
     schemaVersion: CURRENT_GRAPH_SCHEMA_VERSION,
     id,
@@ -146,6 +147,7 @@ function resourceFromRequest(request: MiningRequest): GraphNode {
       policyRoute: request.policyRoute,
       ...(request.context.sourceSummary ? { sourceSummary: request.context.sourceSummary } : {}),
     },
+    request.clock,
   );
 }
 
@@ -163,6 +165,7 @@ function excerptsFromRequest(request: MiningRequest): GraphNode[] {
       ...(chunk.locator.kind === 'timecode' && chunk.locator.speaker ? { speaker: chunk.locator.speaker } : {}),
       sourceSummary: request.context.sourceSummary,
     },
+    request.clock,
   ));
 }
 

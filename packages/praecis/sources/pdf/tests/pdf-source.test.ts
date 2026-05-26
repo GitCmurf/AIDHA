@@ -110,6 +110,26 @@ describe('PdfOcrDecodeStrategy', () => {
 });
 
 describe('createPdfVectorSpec', () => {
+  it('uses the injected clock for provenance timestamps', async () => {
+    const file = makeTempPdf('Clocked page');
+    const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
+    try {
+      const vector = composeVector(createPdfVectorSpec(undefined, fixedClock));
+      const first = await vector.ingestAndDecode({ ref: file });
+      const second = await vector.ingestAndDecode({ ref: file });
+
+      expect(first.ok).toBe(true);
+      expect(second.ok).toBe(true);
+      if (!first.ok) throw first.error;
+      if (!second.ok) throw second.error;
+      expect(first.value.raw.provenance.ingestedAt).toBe('2026-05-25T12:34:56.000Z');
+      expect(second.value.raw.provenance).toEqual(first.value.raw.provenance);
+    } finally {
+      rmSync(file, { force: true });
+      rmSync(join(file, '..'), { recursive: true, force: true });
+    }
+  });
+
   it('builds a composed pdf vector that decodes page text', async () => {
     const file = makeTempPdf('Alpha\fBeta');
     try {

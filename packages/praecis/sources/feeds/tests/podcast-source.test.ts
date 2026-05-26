@@ -95,6 +95,21 @@ describe('PodcastIngestor', () => {
       panel: false,
     });
   });
+
+  it('uses an injected clock for durable provenance timestamps', async () => {
+    const ingestor = new PodcastIngestor({
+      fetchFn: makeFetch(),
+      clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+    });
+    const first = await ingestor.acquire({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } });
+    const second = await ingestor.acquire({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) throw new Error('expected acquisitions to succeed');
+    expect(first.value.provenance.ingestedAt).toBe('2026-05-25T12:34:56.000Z');
+    expect(second.value.provenance).toEqual(first.value.provenance);
+  });
 });
 
 describe('createPodcastVectorSpec', () => {

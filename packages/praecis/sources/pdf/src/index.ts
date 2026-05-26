@@ -18,6 +18,7 @@ import type {
   IChunker,
   ChunkInput,
   Chunk,
+  Clock,
 } from '@aidha/praecis-core';
 import { SectionChunker, TokenWindowChunker } from '@aidha/praecis-core';
 import { extractTextFromPdfText } from '@aidha/praecis-decode-text';
@@ -39,6 +40,7 @@ export interface PdfDocumentPayload {
 
 export interface PdfIngestorOptions {
   readonly readFileFn?: typeof readFile;
+  readonly clock?: Clock;
 }
 
 type PdfDocumentKind = 'slides' | 'paper';
@@ -182,7 +184,7 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
           sensitivity: 'personal',
           provenance: {
             sourceUri: input.ref,
-            ingestedAt: new Date().toISOString(),
+            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
             sourceType: 'pdf',
           },
           resourceMetadata: {
@@ -253,11 +255,11 @@ export const PdfSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createPdfVectorSpec(readFileFn?: typeof readFile) {
+export function createPdfVectorSpec(readFileFn?: typeof readFile, clock?: Clock) {
   return {
     sourceId: 'pdf',
     sensitivity: 'personal' as const,
-    ingestor: new PdfIngestor({ readFileFn }),
+    ingestor: new PdfIngestor({ ...(readFileFn ? { readFileFn } : {}), ...(clock ? { clock } : {}) }),
     decode: [new PdfTextDecodeStrategy(), new PdfOcrDecodeStrategy()],
     context: new PdfContextProvider(),
     chunking: new PdfAdaptiveChunker(),

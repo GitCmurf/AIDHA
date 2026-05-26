@@ -14,6 +14,7 @@ import type {
   IngestInput,
   RawSource,
   Result,
+  Clock,
 } from '@aidha/praecis-core';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
 import type { ITranscriber } from '@aidha/praecis-core';
@@ -47,6 +48,7 @@ class VoiceContextProvider implements IContextProvider {
 
 export interface VoiceIngestorOptions {
   readonly readFileFn?: typeof readFile;
+  readonly clock?: Clock;
 }
 
 export class VoiceIngestor implements IIngestor<AudioRef> {
@@ -74,7 +76,7 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
           sensitivity: 'personal',
           provenance: {
             sourceUri: input.ref,
-            ingestedAt: new Date().toISOString(),
+            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
             sourceType: 'voice',
           },
           resourceMetadata: {
@@ -102,6 +104,7 @@ export function createVoiceVectorSpec(options: {
   readonly readFileFn?: typeof readFile;
   readonly transcriber?: ITranscriber;
   readonly mockTranscriber?: MockTranscriberConfig;
+  readonly clock?: Clock;
 } = {}) {
   const transcriber =
     options.transcriber ??
@@ -110,7 +113,7 @@ export function createVoiceVectorSpec(options: {
   return composeVector({
     sourceId: 'voice',
     sensitivity: 'personal',
-    ingestor: new VoiceIngestor({ readFileFn: options.readFileFn }),
+    ingestor: new VoiceIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
     decode: [transcribeStrategy(transcriber)],
     context: new VoiceContextProvider(),
     chunking: 'token-window',

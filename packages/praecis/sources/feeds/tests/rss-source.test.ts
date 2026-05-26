@@ -127,6 +127,20 @@ describe('RssTextDecodeStrategy', () => {
 });
 
 describe('createRssVectorSpec', () => {
+  it('uses the injected clock for provenance timestamps', async () => {
+    const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
+    const vector = composeVector(createRssVectorSpec(makeFetch(), fixedClock));
+    const first = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' });
+    const second = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok) throw first.error;
+    if (!second.ok) throw second.error;
+    expect(first.value.raw.provenance.ingestedAt).toBe('2026-05-25T12:34:56.000Z');
+    expect(second.value.raw.provenance).toEqual(first.value.raw.provenance);
+  });
+
   it('builds a composed rss vector that fetches full text when needed', async () => {
     const vector = composeVector(createRssVectorSpec(makeFetch()));
     const result = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' });

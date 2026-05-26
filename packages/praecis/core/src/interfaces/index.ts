@@ -188,6 +188,7 @@ export interface MiningRequest {
   readonly policyRoute: LlmRoute;
   readonly llm?: LlmClient;
   readonly costCeiling: CostCeiling;
+  readonly clock: Clock;
 }
 
 export interface ICandidateMiner {

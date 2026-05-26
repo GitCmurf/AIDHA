@@ -19,6 +19,7 @@ import type {
   RawSource,
   Result,
   TimecodedSegment,
+  Clock,
 } from '@aidha/praecis-core';
 import { normalizeText, urlCanonical, composeVector, transcribeStrategy, TokenWindowChunker, ConversationChunker } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
@@ -66,6 +67,7 @@ export interface PodcastPayload {
 
 export interface PodcastIngestorOptions {
   readonly fetchFn?: PodcastFetchFn;
+  readonly clock?: Clock;
 }
 
 export interface PodcastVectorOptions {
@@ -74,6 +76,7 @@ export interface PodcastVectorOptions {
   readonly diarizer?: IDiarizer;
   readonly mockTranscriber?: MockTranscriberConfig;
   readonly mockDiarizer?: MockDiarizerConfig;
+  readonly clock?: Clock;
 }
 
 function stableId(seed: string): string {
@@ -324,7 +327,7 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
           sensitivity: 'public',
           provenance: {
             sourceUri: enclosureUrl,
-            ingestedAt: new Date().toISOString(),
+            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
             sourceType: 'podcast',
           },
           resourceMetadata: {
@@ -369,7 +372,7 @@ export const PodcastSourceRegistration: SourceRegistration = {
 export function createPodcastVectorSpec(options: PodcastVectorOptions = {}) {
   const transcriber = options.transcriber ?? new MockTranscriber(options.mockTranscriber ?? { transcriptText: 'podcast transcript sample' });
   const diarizer = options.diarizer ?? new MockDiarizer(options.mockDiarizer ?? {});
-  const vectorOptions = options.fetchFn ? { fetchFn: options.fetchFn } : {};
+  const vectorOptions = { ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...(options.clock ? { clock: options.clock } : {}) };
 
   return composeVector({
     sourceId: 'podcast',

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { ComposedVector, IngestInput, LlmClient, PipelineServices, RunReport } from '@aidha/praecis-core';
-import { SQLiteStore } from '@aidha/graph-backend';
+import { InMemoryStore, SQLiteStore } from '@aidha/graph-backend';
 import { MockYouTubeClient } from '@aidha/ingestion-youtube';
 import {
   explainResolvedKey,
@@ -291,12 +291,6 @@ describe('aidha cli phase-1 surface', () => {
         failed: number;
         errors: Array<{ item: string; message: string; timestamp: string }>;
         warnings: string[];
-        details: {
-          playlistId: string;
-          videos: number;
-          failed: number;
-          errors: Array<{ videoId: string; message: string; timestamp: string }>;
-        };
         summaries: Array<{ sourceId: string }>;
       };
       expect(summary.sourceId).toBe('youtube');
@@ -307,11 +301,56 @@ describe('aidha cli phase-1 surface', () => {
       expect(summary.completed).toBe(2);
       expect(summary.failed).toBe(0);
       expect(summary.errors).toEqual([]);
-      expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2, failed: 0, errors: [] });
       expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
       expect(summary.metadataConflictCount).toBe(0);
       expect(summary.warnings).toEqual([]);
       expect(summary.summaries.map(item => item.sourceId)).toEqual(['youtube', 'youtube']);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it('surfaces partial youtube playlist failures through the generic command surface', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-youtube-partial-playlist-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'youtube', '--playlist', 'partial-playlist', '--mock', '--json', '--config', configPath]);
+      expect(code).toBe(0);
+      const summary = JSON.parse(logs.join('\n')) as {
+        sourceId: string;
+        outcome: string;
+        completed: number;
+        failed: number;
+        errors: Array<{ item: string; message: string; timestamp: string }>;
+      };
+      expect(summary.sourceId).toBe('youtube');
+      expect(summary.outcome).toBe('completed_with_errors');
+      expect(summary.completed).toBe(1);
+      expect(summary.failed).toBe(1);
+      expect(summary.errors).toEqual([{
+        item: 'missing-video',
+        message: 'Video not found: missing-video',
+        timestamp: expect.any(String),
+      }]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -330,7 +369,6 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.completed).toBe(2);
     expect(summary.failed).toBe(0);
     expect(summary.errors).toEqual([]);
-    expect(summary.details).toEqual({ playlistId: 'test-playlist', videos: 2, failed: 0, errors: [] });
     expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
     expect(summary.metadataConflictCount).toBe(0);
     expect(summary.warnings).toEqual([]);
@@ -354,17 +392,11 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.videos).toBe(1);
     expect(summary.summaries).toHaveLength(1);
     expect(summary.summaries[0]?.canonicalId).toBe('youtube-test-video');
-    expect(summary.details).toEqual({
-      playlistId: 'partial-playlist',
-      videos: 1,
-      failed: 1,
-      errors: [{
-        item: 'missing-video',
-        message: 'Video not found: missing-video',
-        timestamp: '2026-05-25T12:34:56.000Z',
-      }],
-    });
-    expect(summary.errors).toEqual(summary.details.errors);
+    expect(summary.errors).toEqual([{
+      item: 'missing-video',
+      message: 'Video not found: missing-video',
+      timestamp: '2026-05-25T12:34:56.000Z',
+    }]);
     expect(summary.warnings).toContain('missing-video: Video not found: missing-video');
   });
 
@@ -544,7 +576,6 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.failed).toBe(0);
     expect(summary.errors).toEqual([]);
     expect(summary.totalBooks).toBe(1);
-    expect(summary.details).toEqual({ updatedAfter: '2026-05-01T00:00:00Z', totalBooks: 1, errors: [] });
     expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
     expect(summary.metadataConflictCount).toBe(0);
     expect(summary.references.referencesCreated).toBeGreaterThanOrEqual(0);
@@ -561,9 +592,9 @@ describe('aidha cli phase-1 surface', () => {
         services: { clock: { now: () => new Date('2026-05-25T12:34:56.000Z') } },
         async runReport(_sourceId, ref) {
           if (ref.includes('/12')) {
-            throw new Error('book export failed');
+            return { ok: false, error: new Error('book export failed') };
           }
-          return reportFor('readwise', ref);
+          return { ok: true, value: reportFor('readwise', ref) };
         },
         async runVector(_sourceId: never, ref: string, _vector: ComposedVector) {
           return {
@@ -611,7 +642,6 @@ describe('aidha cli phase-1 surface', () => {
       message: 'book export failed',
       timestamp: '2026-05-25T12:34:56.000Z',
     }]);
-    expect(summary.details.errors).toEqual(summary.errors);
     expect(summary.references).toMatchObject({ referencesCreated: 1, referenceEdgesCreated: 1 });
     expect(summary.warnings).toContain('https://readwise.io/bookreview/12: book export failed');
   });
@@ -656,7 +686,6 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.errors).toEqual([]);
     expect(summary.threads).toBe(1);
     expect(summary.importedFiles).toBe(2);
-    expect(summary.details).toEqual({ importedFiles: 2, threads: 1, errors: [] });
     expect(summary.classification).toMatchObject({ status: 'disabled', tagsMatched: 0, tagsAssigned: 0 });
     expect(summary.metadataConflictCount).toBe(0);
     expect(summary.references.referencesCreated).toBeGreaterThanOrEqual(0);
@@ -665,6 +694,55 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.summaries[0]?.segmentCount).toBe(2);
     expectDraftClaims(summary.summaries[0]!);
   }, 60_000);
+
+  it('surfaces partial email failures through the unified CLI context adapter', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-email-partial-'));
+    const goodFile = join(dir, 'good.eml');
+    const badFile = join(dir, 'bad.eml');
+    await writeFile(goodFile, [
+      'Message-ID: <good-msg>',
+      'Date: Thu, 22 May 2026 09:00:00 +0000',
+      'From: Alice <alice@example.com>',
+      'To: Bob <bob@example.com>',
+      'Subject: Good thread',
+      '',
+      'Good body',
+    ].join('\r\n'));
+    await writeFile(badFile, [
+      'Message-ID: <bad-msg>',
+      'Date: Thu, 22 May 2026 10:00:00 +0000',
+      'From: Carol <carol@example.com>',
+      'To: Dave <dave@example.com>',
+      'Subject: Bad thread',
+      '',
+      'Bad body',
+    ].join('\r\n'));
+
+    const store = new InMemoryStore();
+    const summary = await runEmailIngest(dir, {}, {
+      services: { store, clock: { now: () => new Date('2026-05-25T12:34:56.000Z') } },
+      async runReport(_sourceId, ref) {
+        if (ref === badFile) {
+          return { ok: false, error: new Error('thread export failed') };
+        }
+        return { ok: true, value: reportFor('email', ref) };
+      },
+      async runVector() {
+        throw new Error('runVector should not be called by batch email ingest');
+      },
+    });
+
+    expect(summary.outcome).toBe('completed_with_errors');
+    expect(summary.completed).toBe(1);
+    expect(summary.failed).toBe(1);
+    expect(summary.errors).toEqual([{
+      item: badFile,
+      message: 'thread export failed',
+      timestamp: '2026-05-25T12:34:56.000Z',
+    }]);
+    expect(summary.warnings).toContain(`${badFile}: thread export failed`);
+    await store.close();
+  });
 
   it('ingests linkedin paste fixtures with optional activity urn provenance', async () => {
     const summary = await runLinkedInIngest(

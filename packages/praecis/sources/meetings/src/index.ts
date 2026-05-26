@@ -14,6 +14,7 @@ import type {
   IngestInput,
   RawSource,
   Result,
+  Clock,
 } from '@aidha/praecis-core';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
 import { MockDiarizer, type MockDiarizerConfig } from '@aidha/praecis-decode-diarize';
@@ -48,6 +49,7 @@ class MeetingContextProvider implements IContextProvider {
 
 export interface MeetingIngestorOptions {
   readonly readFileFn?: typeof readFile;
+  readonly clock?: Clock;
 }
 
 export class MeetingIngestor implements IIngestor<AudioRef> {
@@ -75,7 +77,7 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
           sensitivity: 'confidential',
           provenance: {
             sourceUri: input.ref,
-            ingestedAt: new Date().toISOString(),
+            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
             sourceType: 'meeting',
           },
           resourceMetadata: {
@@ -105,6 +107,7 @@ export function createMeetingVectorSpec(options: {
   readonly diarizer?: IDiarizer;
   readonly mockTranscriber?: MockTranscriberConfig;
   readonly mockDiarizer?: MockDiarizerConfig;
+  readonly clock?: Clock;
 } = {}) {
   const transcriber =
     options.transcriber ??
@@ -116,7 +119,7 @@ export function createMeetingVectorSpec(options: {
   return composeVector({
     sourceId: 'meeting',
     sensitivity: 'confidential',
-    ingestor: new MeetingIngestor({ readFileFn: options.readFileFn }),
+    ingestor: new MeetingIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
     decode: [transcribeStrategy(transcriber), diarizeStrategy(diarizer)],
     context: new MeetingContextProvider(),
     chunking: 'conversation',

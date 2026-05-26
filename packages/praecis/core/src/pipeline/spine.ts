@@ -108,6 +108,7 @@ export async function runVector(
       policyRoute: runtimePolicy.value,
       llm: services.llm,
       costCeiling: services.costCeiling,
+      clock: services.clock,
     };
     const estimate = services.miner.estimate?.(miningRequest);
     if (estimate && !estimate.ok) return estimate;

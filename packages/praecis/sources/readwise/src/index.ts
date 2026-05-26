@@ -16,6 +16,7 @@ import type {
   MediaSegment,
   RawSource,
   Result,
+  Clock,
 } from '@aidha/praecis-core';
 import { composeVector, urlCanonical } from '@aidha/praecis-core';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
@@ -79,6 +80,7 @@ export interface ReadwiseExportOptions {
 
 export interface ReadwiseVectorOptions {
   readonly book: ReadwiseBook;
+  readonly clock?: Clock;
 }
 
 export interface ReadwiseHighlightPayload {
@@ -237,7 +239,7 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
         sensitivity: 'personal',
         provenance: {
           sourceUri: bookSourceUri(this.options.book),
-          ingestedAt: new Date().toISOString(),
+          ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
           sourceType: 'readwise',
         },
         resourceMetadata: {
@@ -265,11 +267,11 @@ export const ReadwiseSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createReadwiseVectorSpec(book: ReadwiseBook) {
+export function createReadwiseVectorSpec(book: ReadwiseBook, clock?: Clock) {
   return composeVector({
     sourceId: 'readwise',
     sensitivity: 'personal',
-    ingestor: new ReadwiseIngestor({ book }),
+    ingestor: new ReadwiseIngestor({ book, ...(clock ? { clock } : {}) }),
     decode: [new ReadwiseHighlightDecodeStrategy(book)],
     context: new ReadwiseContextProvider(book),
     chunking: new ReadwiseHighlightChunker(),

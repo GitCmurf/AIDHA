@@ -20,6 +20,7 @@ export interface BatchItemSuccess<TItem, TValue> {
 export interface BatchRunInput<TItem, TValue> {
   readonly items: readonly TItem[];
   readonly clock: Clock;
+  readonly concurrency?: number;
   runItem(item: TItem): Promise<Result<TValue>>;
 }
 
@@ -38,8 +39,8 @@ export interface BatchRunResult<TItem, TValue> {
   readonly warnings: readonly string[];
 }
 
-function aggregateClassification(values: readonly { readonly report?: RunReport; readonly classification?: ClassificationResult }[]): ClassificationResult {
-  const classifications = values.map(value => value.report?.classification ?? value.classification);
+function aggregateClassification(values: readonly { readonly report: RunReport }[]): ClassificationResult {
+  const classifications = values.map(value => value.report.classification);
   return {
     status: classifications.some(classification => classification?.status === 'completed') ? 'completed' : 'disabled',
     tagsMatched: classifications.reduce((sum, classification) => sum + (classification?.tagsMatched ?? 0), 0),
@@ -48,23 +49,23 @@ function aggregateClassification(values: readonly { readonly report?: RunReport;
   };
 }
 
-function aggregateMetadataConflictCount(values: readonly { readonly report?: RunReport; readonly metadataConflictCount?: number }[]): number {
-  return values.reduce((sum, value) => sum + (value.report?.metadataConflictCount ?? value.metadataConflictCount ?? 0), 0);
+function aggregateMetadataConflictCount(values: readonly { readonly report: RunReport }[]): number {
+  return values.reduce((sum, value) => sum + value.report.metadataConflictCount, 0);
 }
 
-function aggregateReferences(values: readonly { readonly report?: RunReport; readonly references?: ReferenceExtractionReport }[]): ReferenceExtractionReport {
+function aggregateReferences(values: readonly { readonly report: RunReport }[]): ReferenceExtractionReport {
   return {
-    referencesCreated: values.reduce((sum, value) => sum + (value.report?.references.referencesCreated ?? value.references?.referencesCreated ?? 0), 0),
-    referencesUpdated: values.reduce((sum, value) => sum + (value.report?.references.referencesUpdated ?? value.references?.referencesUpdated ?? 0), 0),
-    referencesNoop: values.reduce((sum, value) => sum + (value.report?.references.referencesNoop ?? value.references?.referencesNoop ?? 0), 0),
-    referenceEdgesCreated: values.reduce((sum, value) => sum + (value.report?.references.referenceEdgesCreated ?? value.references?.referenceEdgesCreated ?? 0), 0),
-    referenceEdgesUpdated: values.reduce((sum, value) => sum + (value.report?.references.referenceEdgesUpdated ?? value.references?.referenceEdgesUpdated ?? 0), 0),
-    referenceEdgesNoop: values.reduce((sum, value) => sum + (value.report?.references.referenceEdgesNoop ?? value.references?.referenceEdgesNoop ?? 0), 0),
+    referencesCreated: values.reduce((sum, value) => sum + value.report.references.referencesCreated, 0),
+    referencesUpdated: values.reduce((sum, value) => sum + value.report.references.referencesUpdated, 0),
+    referencesNoop: values.reduce((sum, value) => sum + value.report.references.referencesNoop, 0),
+    referenceEdgesCreated: values.reduce((sum, value) => sum + value.report.references.referenceEdgesCreated, 0),
+    referenceEdgesUpdated: values.reduce((sum, value) => sum + value.report.references.referenceEdgesUpdated, 0),
+    referenceEdgesNoop: values.reduce((sum, value) => sum + value.report.references.referenceEdgesNoop, 0),
   };
 }
 
-function aggregateWarnings(values: readonly { readonly report?: RunReport; readonly warnings?: readonly string[] }[]): readonly string[] {
-  return Array.from(new Set(values.flatMap(value => value.report?.warnings ?? value.warnings ?? [])));
+function aggregateWarnings(values: readonly { readonly report: RunReport }[]): readonly string[] {
+  return Array.from(new Set(values.flatMap(value => value.report.warnings)));
 }
 
 function outcome(total: number, failed: number): BatchOutcome {
@@ -73,15 +74,29 @@ function outcome(total: number, failed: number): BatchOutcome {
   return 'completed';
 }
 
-export async function runBatch<TItem, TValue extends { readonly report?: RunReport; readonly classification?: ClassificationResult; readonly metadataConflictCount?: number; readonly references?: ReferenceExtractionReport; readonly warnings?: readonly string[] }>(
+export async function runBatch<TItem, TValue extends { readonly report: RunReport }>(
   input: BatchRunInput<TItem, TValue>,
 ): Promise<BatchRunResult<TItem, TValue>> {
   const startedAt = input.clock.now().toISOString();
   const successes: BatchItemSuccess<TItem, TValue>[] = [];
   const failures: BatchItemFailure<TItem>[] = [];
+  const concurrency = Math.max(1, Math.floor(input.concurrency ?? 1));
 
-  for (const item of input.items) {
-    const result = await input.runItem(item);
+  async function runOne(item: TItem, index: number): Promise<{ readonly index: number; readonly item: TItem; readonly result: Result<TValue> }> {
+    try {
+      return { index, item, result: await input.runItem(item) };
+    } catch (error) {
+      return { index, item, result: { ok: false, error: error instanceof Error ? error : new Error(String(error)) } };
+    }
+  }
+
+  const settled: Array<{ readonly index: number; readonly item: TItem; readonly result: Result<TValue> }> = [];
+  for (let index = 0; index < input.items.length; index += concurrency) {
+    const slice = input.items.slice(index, index + concurrency);
+    settled.push(...await Promise.all(slice.map((item, offset) => runOne(item, index + offset))));
+  }
+
+  for (const { item, result } of settled.sort((a, b) => a.index - b.index)) {
     if (result.ok) {
       successes.push({ item, value: result.value });
     } else {

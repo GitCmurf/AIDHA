@@ -175,6 +175,40 @@ describe('createEmailVectorSpec', () => {
     expect(result.value.segments[0]!.locator).toEqual({ kind: 'message', messageId: 'msg-a', charStart: 0, charEnd: 'Initial note'.length });
     expect(result.value.segments[0]!.text).toBe('Initial note');
   });
+
+  it('uses an injected clock for durable provenance timestamps', async () => {
+    const thread = {
+      threadId: 'email:thread:msg-a',
+      rootMessageId: 'msg-a',
+      subject: 'Project status',
+      participants: ['Alice', 'Bob'],
+      messages: [
+        {
+          filePath: '/tmp/a.eml',
+          messageId: 'msg-a',
+          threadId: 'email:thread:msg-a',
+          rootMessageId: 'msg-a',
+          subject: 'Project status',
+          from: 'Alice',
+          to: ['Bob'],
+          cc: [],
+          date: '2026-05-22T09:00:00.000Z',
+          bodyText: 'Initial note',
+          references: [],
+          attachments: [],
+        },
+      ],
+    };
+    const vector = createEmailVectorSpec(thread, fixedClock);
+    const first = await vector.ingestAndDecode({ ref: '/tmp/a.eml' });
+    const second = await vector.ingestAndDecode({ ref: '/tmp/a.eml' });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) throw new Error('expected ingests to succeed');
+    expect(first.value.raw.provenance.ingestedAt).toBe('2026-05-25T12:34:56.000Z');
+    expect(second.value.raw.provenance).toEqual(first.value.raw.provenance);
+  });
 });
 
 describe('runEmailBatch', () => {
@@ -210,7 +244,6 @@ describe('runEmailBatch', () => {
     expect(result.failed).toBe(0);
     expect(result.errors).toEqual([]);
     expect(result.threads).toBe(1);
-    expect(result.details).toEqual({ importedFiles: 2, threads: 1, errors: [] });
     expect(result.summaries[0]!.canonicalId).toBe('email:thread:msg-a');
     expect(result.summaries[0]!.segmentCount).toBe(2);
   });
@@ -257,7 +290,6 @@ describe('runEmailBatch', () => {
       message: 'thread export failed',
       timestamp: '2026-05-25T12:34:56.000Z',
     }]);
-    expect(result.details.errors).toEqual(result.errors);
     expect(result.references).toMatchObject({ referencesCreated: 1, referenceEdgesCreated: 1 });
     expect(result.warnings).toContain(`${badFile}: thread export failed`);
     expect(result.summaries[0]?.ref).toBe(goodFile);

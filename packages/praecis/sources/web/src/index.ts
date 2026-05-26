@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import type { Result, IIngestor, IDecodeStrategy, IContextProvider, IngestInput, DecodeInput, DecodeOutput, RawSource, ExtractionContext } from '@aidha/praecis-core';
+import type { Clock, Result, IIngestor, IDecodeStrategy, IContextProvider, IngestInput, DecodeInput, DecodeOutput, RawSource, ExtractionContext } from '@aidha/praecis-core';
 import { normalizeText, urlCanonical } from '@aidha/praecis-core';
 import { HttpWebFetcher, type WebFetchFn } from '@aidha/praecis-acquire-webfetch';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
@@ -19,6 +19,7 @@ export interface WebPagePayload {
 
 export interface WebIngestorOptions {
   readonly fetchFn?: WebFetchFn;
+  readonly clock?: Clock;
 }
 
 function isPaywallOrLoginWall(html: string, text: string): boolean {
@@ -47,9 +48,11 @@ export class WebIngestor implements IIngestor<WebPagePayload> {
   readonly sourceId = 'web';
 
   private readonly fetcher: HttpWebFetcher;
+  private readonly clock?: Clock;
 
   constructor(options: WebIngestorOptions = {}) {
     this.fetcher = new HttpWebFetcher(options.fetchFn);
+    this.clock = options.clock;
   }
 
   async acquire(input: IngestInput): Promise<Result<RawSource & { payload: WebPagePayload }>> {
@@ -83,7 +86,7 @@ export class WebIngestor implements IIngestor<WebPagePayload> {
         sensitivity: 'public',
         provenance: {
           sourceUri: url,
-          ingestedAt: new Date().toISOString(),
+          ingestedAt: (this.clock?.now() ?? new Date()).toISOString(),
           sourceType: 'web',
         },
         resourceMetadata: {
@@ -142,11 +145,11 @@ export const WebSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createWebVectorSpec(fetchFn?: WebFetchFn) {
+export function createWebVectorSpec(fetchFn?: WebFetchFn, clock?: Clock) {
   return {
     sourceId: 'web',
     sensitivity: 'public' as const,
-    ingestor: new WebIngestor({ fetchFn }),
+    ingestor: new WebIngestor({ ...(fetchFn ? { fetchFn } : {}), ...(clock ? { clock } : {}) }),
     decode: [new WebTextDecodeStrategy()],
     context: new NoOpContextProvider(),
     chunking: 'token-window' as const,

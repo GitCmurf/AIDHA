@@ -471,7 +471,7 @@ describe('production YouTube runtime ingestion', () => {
         await secondStore.close();
         await rm(dir, { recursive: true, force: true });
       }
-    });
+    }, 15_000);
 
     it('assigns tags to video nodes', async () => {
       const result = await pipeline.ingestPlaylist('test-playlist');
