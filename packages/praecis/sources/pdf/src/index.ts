@@ -18,7 +18,7 @@ import type {
   IChunker,
   ChunkInput,
   Chunk,
-  Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { SectionChunker, TokenWindowChunker } from '@aidha/praecis-core';
 import { extractTextFromPdfText } from '@aidha/praecis-decode-text';
@@ -40,7 +40,6 @@ export interface PdfDocumentPayload {
 
 export interface PdfIngestorOptions {
   readonly readFileFn?: typeof readFile;
-  readonly clock?: Clock;
 }
 
 type PdfDocumentKind = 'slides' | 'paper';
@@ -158,7 +157,7 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
 
   constructor(private readonly options: PdfIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput): Promise<Result<RawSource & { payload: PdfDocumentPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: PdfDocumentPayload }>> {
     try {
       const fileBytes = await (this.options.readFileFn ?? readFile)(input.ref);
       const bytes = fileBytes instanceof Uint8Array ? fileBytes : new Uint8Array(fileBytes as ArrayBuffer);
@@ -184,7 +183,7 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
           sensitivity: 'personal',
           provenance: {
             sourceUri: input.ref,
-            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
+            ingestedAt: runtimeContext.clock.now().toISOString(),
             sourceType: 'pdf',
           },
           resourceMetadata: {
@@ -257,14 +256,13 @@ export const PdfSourceRegistration: SourceRegistration = {
 
 export interface PdfVectorOptions {
   readonly readFileFn?: typeof readFile;
-  readonly clock?: Clock;
 }
 
 export function createPdfVectorSpec(options: PdfVectorOptions = {}) {
   return {
     sourceId: 'pdf',
     sensitivity: 'personal' as const,
-    ingestor: new PdfIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
+    ingestor: new PdfIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}) }),
     decode: [new PdfTextDecodeStrategy(), new PdfOcrDecodeStrategy()],
     context: new PdfContextProvider(),
     chunking: new PdfAdaptiveChunker(),

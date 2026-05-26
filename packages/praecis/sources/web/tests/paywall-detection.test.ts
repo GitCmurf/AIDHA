@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { WebIngestor, WebTextDecodeStrategy } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
 
 const wallHtml = '<html><title>Blocked</title><body><p>Sign in to continue reading this article.</p></body></html>';
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 describe('web paywall/login-wall detection', () => {
   it('fails acquisition before a stub resource can be persisted', async () => {
@@ -16,7 +21,7 @@ describe('web paywall/login-wall detection', () => {
       }),
     });
 
-    const result = await ingestor.acquire({ ref: 'https://example.com/paywalled' });
+    const result = await ingestor.acquire({ ref: 'https://example.com/paywalled' }, runtimeContext);
 
     expect(result.ok).toBe(false);
     expect(result.ok ? '' : result.error.message).toContain('paywall/login wall detected');

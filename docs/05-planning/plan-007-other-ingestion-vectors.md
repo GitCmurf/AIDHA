@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.18"
+version: "2.19"
 last_updated: 2026-05-26
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.18
+> **Version:** 2.19
 > **Last Updated:** 2026-05-26
 > **Type:** PLAN
 
@@ -65,6 +65,7 @@ docops_version: "2.0"
 | 2.16    | 2026-05-26 | AI     | Closed the final batch UX consistency gap: YouTube, Readwise, and email batches now expose a common outcome/completed/failed/errors/reference-telemetry contract; Readwise and email surface partial item failures instead of silently dropping or aborting successful work; and human CLI output reports batch failures. | Codex adversarial self-review | In Review | — |
 | 2.17    | 2026-05-26 | AI     | Remediated the r8 correctness and determinism findings: CLI `runReport` now returns `Result<RunReport>` so batch adapters cannot accidentally fail fast; all source provenance timestamps use the injected runtime clock; the core batch runner is report-driven, catches thrown item failures, and has an opt-in concurrency seam; informal batch `details` duplication is removed; and unified CLI partial-playlist/email behavior is covered by regressions. | Claude Opus peer review, Codex adversarial self-review | In Review | — |
 | 2.18    | 2026-05-26 | AI     | Completed the final refinement pass: composed vectors now receive an explicit runtime context so decode strategies use the real resolved config; source vector factories use object-style options; generic single-vector CLI dispatch centralizes vector construction; batch failure timestamps are captured at item-failure time; and email thread reparenting uses typed metadata merge helpers. | Codex adversarial self-review | In Review | — |
+| 2.19    | 2026-05-26 | AI     | Closed the runtime-ownership polish: acquisition now receives the same explicit runtime context as decode, source provenance timestamps are stamped from `PipelineServices.clock`, vector factories no longer accept provenance clocks, and the legacy register/run runtime primitive was deleted so production code and regression tests share configured `runVector` semantics. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -228,12 +229,13 @@ contract is a baseline dependency, not work re-derived by this plan.
 
 ### Current Remediation State
 
-Version 2.16 resolves the implementation and product-surface neutrality blockers
+Version 2.19 resolves the implementation and product-surface neutrality blockers
 found across the 2026-05-25 peer-review rounds. `packages/praecis/core` owns the
 shared runtime, extractor, prompt routing, token budget, reference extraction,
 purge path, dedup/link logic, Resource metadata persistence, classification, and
 taxonomy assignment persistence. Source packages, including YouTube, supply thin
-vector adapters and enter production ingestion through `createIngestionRuntime`.
+vector adapters and enter production ingestion through the configured `runVector`
+runtime.
 
 The generic `aidha ingest` CLI now exposes YouTube beside the other vectors:
 `youtube`, `web`, `pdf`, `voice`, `meeting`, `rss`, `podcast`, `readwise`,
@@ -419,7 +421,8 @@ Composition expresses the same relationships without the coupling:
 
 "Meeting" is voice's decode chain **plus** a `diarize` step — a one-line difference
 in a composition record, not a subclass. This table *is* the design: adding a vector
-means writing an `IIngestor`, choosing decode strategies, and registering.
+means writing an `IIngestor`, choosing decode strategies, and exposing a
+configured `ComposedVector` through the source manifest.
 
 The `mediaRef` field (Section 3.4) is a **forward-compatible data-model seam, not a
 present pipeline path.** It lets a `MediaSegment` *carry* a media handle today so the
@@ -677,7 +680,15 @@ Defined in `packages/praecis/core/src/interfaces/`.
 export interface IIngestor<TPayload = unknown> {
   readonly sourceId: string;            // matches SourceRegistration.sourceId
   /** Acquire raw input + identity; no decoding here. */
-  acquire(input: IngestInput): Promise<Result<RawSource & { payload: TPayload }>>;
+  acquire(
+    input: IngestInput,
+    runtimeContext: VectorRuntimeContext,
+  ): Promise<Result<RawSource & { payload: TPayload }>>;
+}
+
+export interface VectorRuntimeContext {
+  readonly config: ResolvedConfig;      // resolved once by the configured runtime
+  readonly clock: Clock;                // source provenance timestamps use this
 }
 
 // DecodeInput — what flows INTO a decode strategy. This is the type that makes
@@ -793,7 +804,10 @@ export interface ComposedVector {
   readonly registration: SourceRegistration;
   /** Convenience: run ingestor + decode chain, flattening each step's DecodeOutput
    *  and concatenating warnings. */
-  ingestAndDecode(input: IngestInput): Promise<Result<{ raw: RawSource; segments: MediaSegment[]; warnings: DecodeWarning[] }>>;
+  ingestAndDecode(
+    input: IngestInput,
+    runtimeContext: VectorRuntimeContext,
+  ): Promise<Result<{ raw: RawSource; segments: MediaSegment[]; warnings: DecodeWarning[] }>>;
 }
 
 // ── The run half ────────────────────────────────────────────────────────────
@@ -817,15 +831,6 @@ export interface PipelineServices {
   readonly allowHeuristicFallback: boolean;
 }
 
-export interface PipelineRuntime {
-  /** Register a composed vector by sourceId; throws on duplicate/invalid registration. */
-  register(vector: ComposedVector): void;
-  /** Run one vector end-to-end against an input, honouring cache/cost/sensitivity. */
-  run(sourceId: string, input: IngestInput): Promise<Result<RunReport>>;
-}
-
-export function createPipelineRuntime(services: PipelineServices): PipelineRuntime;
-
 export interface ConfiguredIngestionRuntime {
   runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>>;
   close(): Promise<void>;
@@ -844,12 +849,13 @@ export function createIngestionRuntimeFromServices(
 Production CLIs and source packages assemble ingestion through
 `createIngestionRuntime`, which resolves configured services, config-seeded
 taxonomy vocabulary, durable graph-backed taxonomy assignment storage, privacy,
-cache, cost ceiling, injected-clock determinism, decode configuration, and lifecycle ownership in one place.
+cache, cost ceiling, injected-clock determinism, acquisition/decode configuration,
+and lifecycle ownership in one place.
 When a batch has already assembled `PipelineServices`, it reuses them explicitly
 through `createIngestionRuntimeFromServices` rather than relying on structural
-type detection. `createPipelineRuntime` remains the low-level runtime primitive
-used by core tests and runtime implementation code; vector packages do not
-assemble it directly.
+type detection. The old low-level register/run primitive is intentionally gone:
+production code, source adapters, and regression tests all exercise the same
+configured `runVector(vector, input)` surface.
 
 The shared pipeline (`core/src/pipeline/`) consumes a `ComposedVector` and runs:
 `acquire → decode(chain) → contextualize → chunk → mine → persist claims →
@@ -1156,24 +1162,20 @@ privacy:
   confidential: { allow_cloud_llm: false, require_local_llm: true }
 ```
 
-The gate fires at **two distinct times**, and pinning *which* matters for UX:
-
-1. **Compose/registration time (fail early).** When `createPipelineRuntime` registers
-   a `ComposedVector` whose `sensitivity` the configured `privacy` policy can never
-   satisfy — e.g. a `confidential` vector with `allow_cloud_llm:false` *and no
-   `require_local_llm` backend configured* — registration fails immediately with a
-   config error. The user learns the run is impossible **before** selecting a file,
-   not after acquisition.
-2. **Run time (route per Resource).** For a registration that *can* be satisfied,
-   routing is evaluated **per Resource against the active vector's `sensitivity`**
-   (not per batch) and enforced in `core` **before any miner call**, so a run mixing
-   personal voice notes with confidential meetings routes each Resource correctly
-   rather than failing or downgrading the whole batch.
+The gate fires before the shared spine mines claims. When a `ComposedVector`'s
+`sensitivity` cannot be satisfied by the resolved privacy policy — e.g. a
+`confidential` vector with cloud LLMs disabled and no local backend configured —
+`runVector` returns a configuration error before acquisition/mining can leak
+content. For vectors that can be satisfied, routing is evaluated **per Resource
+against the active vector's `sensitivity`** (not per batch) and enforced in
+`core` **before any miner call**, so a run mixing personal voice notes with
+confidential meetings routes each Resource correctly rather than failing or
+downgrading the whole batch.
 
 Either way, confidential content (meeting transcripts, private email) is **never**
 silently sent to a cloud API. Tested per confidential vector
-(`sensitivity-gate.test.ts`), covering both the compose-time rejection and the
-runtime per-Resource routing.
+(`sensitivity-gate.test.ts`), covering the impossible-configuration rejection and
+the runtime per-Resource routing.
 
 ### 7.2 Canonicalization & Dedup-and-Link
 

@@ -159,9 +159,14 @@ export interface Clock {
   now(): Date;
 }
 
+export interface VectorRuntimeContext {
+  readonly config: ResolvedConfig;
+  readonly clock: Clock;
+}
+
 export interface IIngestor<TPayload = unknown> {
   readonly sourceId: string;
-  acquire(input: IngestInput): Promise<Result<RawSource & { payload: TPayload }>>;
+  acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: TPayload }>>;
 }
 
 export interface DecodeInput {
@@ -241,12 +246,4 @@ export interface PipelineServices {
   readonly clock: Clock;
   readonly config: ResolvedConfig;
   readonly allowHeuristicFallback: boolean;
-}
-
-export interface PipelineRuntime {
-  // ComposedVector is defined in compose/vector.ts. Using structural typing:
-  // any object with at least { sourceId: string } satisfies the register call.
-  // The concrete overload in runtime.ts narrows to ComposedVector.
-  register(vector: { readonly sourceId: string }): void;
-  run(sourceId: string, input: IngestInput): Promise<Result<RunReport>>;
 }

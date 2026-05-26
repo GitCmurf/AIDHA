@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { composeVector, createDefaultPipelineServices, createPipelineRuntime } from '../../src/index.js';
+import { composeVector, createDefaultPipelineServices, createIngestionRuntimeFromServices } from '../../src/index.js';
 import type { IDecodeStrategy, IIngestor, RawSource, Result } from '../../src/index.js';
 
 function vector(raw: RawSource) {
@@ -30,8 +30,8 @@ describe('dedup weak key runtime integration', () => {
       metadata: { canonicalId: 'web:https://example.com/a', sourceType: 'web', dedupKeys: ['content-sha256:abc'] },
     });
 
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({ store, allowHeuristicFallback: true }));
-    runtime.register(vector({
+    const runtime = createIngestionRuntimeFromServices(createDefaultPipelineServices({ store, allowHeuristicFallback: true }));
+    const readwiseVector = vector({
       canonicalId: 'readwise:book:1',
       dedupKeys: ['content-sha256:abc'],
       sourceType: 'readwise',
@@ -39,9 +39,9 @@ describe('dedup weak key runtime integration', () => {
       provenance: { ingestedAt: '2026-05-22T00:00:00.000Z', sourceType: 'readwise' },
       payload: {},
       label: 'Readwise book',
-    }));
+    });
 
-    const result = await runtime.run('readwise', { ref: 'fixture' });
+    const result = await runtime.runVector(readwiseVector, { ref: 'fixture' });
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.dedupAction).toBe('corroborate');

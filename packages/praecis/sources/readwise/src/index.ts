@@ -16,7 +16,7 @@ import type {
   MediaSegment,
   RawSource,
   Result,
-  Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { composeVector, urlCanonical } from '@aidha/praecis-core';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
@@ -80,7 +80,6 @@ export interface ReadwiseExportOptions {
 
 export interface ReadwiseVectorOptions {
   readonly book: ReadwiseBook;
-  readonly clock?: Clock;
 }
 
 export interface ReadwiseHighlightPayload {
@@ -222,7 +221,7 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
 
   constructor(private readonly options: ReadwiseVectorOptions) {}
 
-  async acquire(input: IngestInput): Promise<Result<RawSource & { payload: ReadwiseHighlightPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: ReadwiseHighlightPayload }>> {
     const canonicalId = bookKey(this.options.book);
     return {
       ok: true,
@@ -239,7 +238,7 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
         sensitivity: 'personal',
         provenance: {
           sourceUri: bookSourceUri(this.options.book),
-          ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
+          ingestedAt: runtimeContext.clock.now().toISOString(),
           sourceType: 'readwise',
         },
         resourceMetadata: {
@@ -269,15 +268,14 @@ export const ReadwiseSourceRegistration: SourceRegistration = {
 
 export interface ReadwiseVectorSpecOptions {
   readonly book: ReadwiseBook;
-  readonly clock?: Clock;
 }
 
 export function createReadwiseVectorSpec(options: ReadwiseVectorSpecOptions) {
-  const { book, clock } = options;
+  const { book } = options;
   return composeVector({
     sourceId: 'readwise',
     sensitivity: 'personal',
-    ingestor: new ReadwiseIngestor({ book, ...(clock ? { clock } : {}) }),
+    ingestor: new ReadwiseIngestor({ book }),
     decode: [new ReadwiseHighlightDecodeStrategy(book)],
     context: new ReadwiseContextProvider(book),
     chunking: new ReadwiseHighlightChunker(),

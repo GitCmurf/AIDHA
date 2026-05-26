@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import type { Clock, IIngestor, IngestInput } from '@aidha/praecis-core';
+import type { IIngestor, IngestInput, VectorRuntimeContext } from '@aidha/praecis-core';
 import type { RawSource } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
 import type { YouTubeClient } from '../client/types.js';
@@ -28,10 +28,11 @@ export interface YouTubeVideoPayload {
 export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
   readonly sourceId: string = SOURCE_ID;
 
-  constructor(private readonly client: YouTubeClient, private readonly clock?: Clock) {}
+  constructor(private readonly client: YouTubeClient) {}
 
   async acquire(
     input: IngestInput,
+    runtimeContext: VectorRuntimeContext,
   ): Promise<Result<RawSource & { payload: YouTubeVideoPayload }>> {
     const videoId = input.ref;
 
@@ -63,7 +64,7 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       sensitivity: 'public',
       provenance: {
         sourceUri: `https://www.youtube.com/watch?v=${videoId}`,
-        ingestedAt: (this.clock?.now() ?? new Date()).toISOString(),
+        ingestedAt: runtimeContext.clock.now().toISOString(),
         sourceType: 'youtube',
       },
       resourceMetadata: {

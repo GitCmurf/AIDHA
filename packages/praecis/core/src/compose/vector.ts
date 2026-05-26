@@ -15,7 +15,7 @@ import type {
   ChunkInput,
   Chunk,
   Sensitivity,
-  Clock,
+  VectorRuntimeContext,
 } from '../interfaces/index.js';
 import type { MediaSegment, RawSource, DecodeOutput } from '../types/index.js';
 import type { DecodeWarning } from '../types/index.js';
@@ -53,11 +53,6 @@ export interface VectorSpec {
   readonly context: IContextProvider;
   readonly chunking: IChunker | 'token-window' | 'section' | 'conversation' | 'highlight';
   readonly registration: SourceRegistration;
-}
-
-export interface VectorRuntimeContext {
-  readonly config: ResolvedConfig;
-  readonly clock: Clock;
 }
 
 export interface ComposedVector {
@@ -105,7 +100,7 @@ export function composeVector(spec: VectorSpec): ComposedVector {
     segments: MediaSegment[];
     warnings: DecodeWarning[];
   }>> {
-    const acquireResult = await spec.ingestor.acquire(input);
+    const acquireResult = await spec.ingestor.acquire(input, runtimeContext);
     if (!acquireResult.ok) {
       return acquireResult;
     }

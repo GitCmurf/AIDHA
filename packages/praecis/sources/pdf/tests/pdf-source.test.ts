@@ -32,7 +32,7 @@ describe('PdfIngestor', () => {
     const file = makeTempPdf('Page one\fPage two');
     try {
       const ingestor = new PdfIngestor();
-      const result = await ingestor.acquire({ ref: file });
+      const result = await ingestor.acquire({ ref: file }, runtimeContext);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw result.error;
@@ -118,9 +118,8 @@ describe('PdfOcrDecodeStrategy', () => {
 describe('createPdfVectorSpec', () => {
   it('uses the injected clock for provenance timestamps', async () => {
     const file = makeTempPdf('Clocked page');
-    const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
     try {
-      const vector = composeVector(createPdfVectorSpec({ clock: fixedClock }));
+      const vector = composeVector(createPdfVectorSpec());
       const first = await vector.ingestAndDecode({ ref: file }, runtimeContext);
       const second = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 

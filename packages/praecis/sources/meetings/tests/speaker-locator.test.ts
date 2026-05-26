@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPipelineRuntime, type LlmClient, type PipelineServices } from '@aidha/praecis-core';
+import { createDefaultPipelineServices, createIngestionRuntimeFromServices, type LlmClient, type PipelineServices } from '@aidha/praecis-core';
 import { createMeetingVectorSpec } from '../src/index.js';
 
 describe('speaker locator', () => {
@@ -56,10 +56,9 @@ describe('speaker locator', () => {
       mockTranscriber: { transcriptText: 'Alice owns the launch plan. Bob owns the review gate.' },
       mockDiarizer: { speakerLabels: ['Alice', 'Bob'] },
     });
-    const runtime = createPipelineRuntime({ config, llm });
-    runtime.register(vector);
+    const runtime = createIngestionRuntimeFromServices(createDefaultPipelineServices({ config, llm }));
 
-    const result = await runtime.run('meeting', { ref: 'fixture.wav' });
+    const result = await runtime.runVector(vector, { ref: 'fixture.wav' });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;

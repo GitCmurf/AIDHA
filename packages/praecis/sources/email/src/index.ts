@@ -24,6 +24,7 @@ import type {
   ComposedVector,
   BatchOutcome,
   Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, normalizeText, runBatch } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
@@ -432,9 +433,9 @@ class EmailContextProvider implements IContextProvider {
 class EmailIngestor implements IIngestor<EmailThreadPayload> {
   readonly sourceId = 'email';
 
-  constructor(private readonly thread: EmailThread, private readonly clock?: Clock) {}
+  constructor(private readonly thread: EmailThread) {}
 
-  async acquire(_input: IngestInput): Promise<Result<RawSource & { payload: EmailThreadPayload }>> {
+  async acquire(_input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: EmailThreadPayload }>> {
     return {
       ok: true,
       value: {
@@ -448,7 +449,7 @@ class EmailIngestor implements IIngestor<EmailThreadPayload> {
         sensitivity: 'confidential',
         provenance: {
           sourceUri: this.thread.messages[0]?.filePath,
-          ingestedAt: (this.clock?.now() ?? new Date()).toISOString(),
+          ingestedAt: runtimeContext.clock.now().toISOString(),
           sourceType: 'email',
         },
         resourceMetadata: emailThreadResourceMetadata(this.thread),
@@ -496,15 +497,14 @@ export const EmailSourceRegistration: SourceRegistration = {
 
 export interface EmailVectorOptions {
   readonly thread: EmailThread;
-  readonly clock?: Clock;
 }
 
 export function createEmailVectorSpec(options: EmailVectorOptions) {
-  const { thread, clock } = options;
+  const { thread } = options;
   return composeVector({
     sourceId: 'email',
     sensitivity: 'confidential',
-    ingestor: new EmailIngestor(thread, clock),
+    ingestor: new EmailIngestor(thread),
     decode: [new EmailDecodeStrategy(thread)],
     context: new EmailContextProvider(thread),
     chunking: 'highlight',
@@ -569,7 +569,7 @@ export async function runEmailBatchWithContext(
     items: threads,
     clock: context.clock ?? { now: () => new Date() },
     async runItem(thread) {
-      const vector = createEmailVectorSpec({ thread, ...(context.clock ? { clock: context.clock } : {}) });
+      const vector = createEmailVectorSpec({ thread });
       const threadRef = thread.messages.map(message => message.filePath).join(', ');
       const runEmailThread = async () => {
         const run = await context.runVector(vector, { ref: threadRef });

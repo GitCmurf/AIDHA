@@ -5,6 +5,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { MockYouTubeClient } from '../../src/client/mock.js';
 import { YouTubeIngestor } from '../../src/ingest/youtube-ingestor.js';
 import { SOURCE_ID } from '../../src/config/youtube-source-adapter.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 describe('YouTubeIngestor', () => {
   let client: MockYouTubeClient;
@@ -21,7 +27,7 @@ describe('YouTubeIngestor', () => {
   });
 
   it('acquires a known video and returns ok result with correct shape', async () => {
-    const result = await ingestor.acquire({ ref: 'test-video' });
+    const result = await ingestor.acquire({ ref: 'test-video' }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -35,8 +41,7 @@ describe('YouTubeIngestor', () => {
   });
 
   it('sets provenance fields correctly', async () => {
-    const fixedIngestor = new YouTubeIngestor(client, { now: () => new Date('2026-05-25T12:34:56.000Z') });
-    const result = await fixedIngestor.acquire({ ref: 'test-video' });
+    const result = await ingestor.acquire({ ref: 'test-video' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -47,7 +52,7 @@ describe('YouTubeIngestor', () => {
   });
 
   it('populates payload with video metadata and transcript', async () => {
-    const result = await ingestor.acquire({ ref: 'test-video' });
+    const result = await ingestor.acquire({ ref: 'test-video' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -66,21 +71,21 @@ describe('YouTubeIngestor', () => {
 
   it('sets transcript to null when transcript is not available', async () => {
     // no-transcript-video exists in MOCK_VIDEOS but has no entry in MOCK_TRANSCRIPTS
-    const result = await ingestor.acquire({ ref: 'no-transcript-video' });
+    const result = await ingestor.acquire({ ref: 'no-transcript-video' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.payload.transcript).toBeNull();
   });
 
   it('returns error when video is not found', async () => {
-    const result = await ingestor.acquire({ ref: 'nonexistent-video' });
+    const result = await ingestor.acquire({ ref: 'nonexistent-video' }, runtimeContext);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain('Video not found');
   });
 
   it('succeeds with a second video that has an available transcript', async () => {
-    const result = await ingestor.acquire({ ref: 'test-video-2' });
+    const result = await ingestor.acquire({ ref: 'test-video-2' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.payload.transcript).not.toBeNull();

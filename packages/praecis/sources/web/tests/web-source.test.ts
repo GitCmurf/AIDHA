@@ -25,7 +25,7 @@ function makeFetch(html: string, url = 'https://Example.com/article?utm_source=r
 describe('WebIngestor', () => {
   it('acquires canonical web payloads with deterministic identities', async () => {
     const ingestor = new WebIngestor({ fetchFn: makeFetch('<title>Example title</title><p>Hello</p>') });
-    const result = await ingestor.acquire({ ref: 'https://example.com/article?utm_source=rss' });
+    const result = await ingestor.acquire({ ref: 'https://example.com/article?utm_source=rss' }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
@@ -43,10 +43,9 @@ describe('WebIngestor', () => {
   it('uses an injected clock for durable provenance timestamps', async () => {
     const ingestor = new WebIngestor({
       fetchFn: makeFetch('<title>Example title</title><p>Hello</p>'),
-      clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
     });
-    const first = await ingestor.acquire({ ref: 'https://example.com/article' });
-    const second = await ingestor.acquire({ ref: 'https://example.com/article' });
+    const first = await ingestor.acquire({ ref: 'https://example.com/article' }, runtimeContext);
+    const second = await ingestor.acquire({ ref: 'https://example.com/article' }, runtimeContext);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);

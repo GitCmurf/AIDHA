@@ -14,7 +14,7 @@ import type {
   IngestInput,
   RawSource,
   Result,
-  Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
 import type { ITranscriber } from '@aidha/praecis-core';
@@ -48,7 +48,6 @@ class VoiceContextProvider implements IContextProvider {
 
 export interface VoiceIngestorOptions {
   readonly readFileFn?: typeof readFile;
-  readonly clock?: Clock;
 }
 
 export class VoiceIngestor implements IIngestor<AudioRef> {
@@ -56,7 +55,7 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
 
   constructor(private readonly options: VoiceIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput): Promise<Result<RawSource & { payload: AudioRef }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: AudioRef }>> {
     try {
       const fileBytes = await (this.options.readFileFn ?? readFile)(input.ref);
       const bytes = normalizeBytes(fileBytes as Uint8Array | ArrayBuffer);
@@ -76,7 +75,7 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
           sensitivity: 'personal',
           provenance: {
             sourceUri: input.ref,
-            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
+            ingestedAt: runtimeContext.clock.now().toISOString(),
             sourceType: 'voice',
           },
           resourceMetadata: {
@@ -104,7 +103,6 @@ export function createVoiceVectorSpec(options: {
   readonly readFileFn?: typeof readFile;
   readonly transcriber?: ITranscriber;
   readonly mockTranscriber?: MockTranscriberConfig;
-  readonly clock?: Clock;
 } = {}) {
   const transcriber =
     options.transcriber ??
@@ -113,7 +111,7 @@ export function createVoiceVectorSpec(options: {
   return composeVector({
     sourceId: 'voice',
     sensitivity: 'personal',
-    ingestor: new VoiceIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
+    ingestor: new VoiceIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}) }),
     decode: [transcribeStrategy(transcriber)],
     context: new VoiceContextProvider(),
     chunking: 'token-window',

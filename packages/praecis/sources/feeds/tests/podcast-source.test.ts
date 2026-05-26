@@ -80,7 +80,7 @@ function makeFetch() {
 describe('PodcastIngestor', () => {
   it('selects an episode by guid and uses the enclosure url as the primary identity', async () => {
     const ingestor = new PodcastIngestor({ fetchFn: makeFetch() });
-    const result = await ingestor.acquire({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } });
+    const result = await ingestor.acquire({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
@@ -105,10 +105,10 @@ describe('PodcastIngestor', () => {
   it('uses an injected clock for durable provenance timestamps', async () => {
     const ingestor = new PodcastIngestor({
       fetchFn: makeFetch(),
-      clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
     });
-    const first = await ingestor.acquire({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } });
-    const second = await ingestor.acquire({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } });
+    const input = { ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } };
+    const first = await ingestor.acquire(input, runtimeContext);
+    const second = await ingestor.acquire(input, runtimeContext);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);

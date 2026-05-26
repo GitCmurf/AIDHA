@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { composeVector } from '../../src/compose/vector.js';
-import { createPipelineRuntime } from '../../src/compose/runtime.js';
+import { createIngestionRuntimeFromServices } from '../../src/compose/ingestion-runtime.js';
 import type {
   IIngestor,
   IDecodeStrategy,
@@ -137,7 +137,7 @@ function fakeLlm(): LlmClient {
   };
 }
 
-describe('pipeline spine (via PipelineRuntime.run)', () => {
+describe('pipeline spine (via ConfiguredIngestionRuntime.runVector)', () => {
   const vec = composeVector({
     sourceId: 'test-source',
     sensitivity: 'public',
@@ -182,9 +182,13 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
   };
 
   it('run() returns RunReport on success', async () => {
-    const runtime = createPipelineRuntime({ config: testConfig(), llm: fakeLlm() });
-    runtime.register(vec);
-    const result = await runtime.run('test-source', { ref: 'https://example.com' });
+    const runtime = createIngestionRuntimeFromServices({
+      ...services,
+      store: new InMemoryStore(),
+      config: testConfig(),
+      llm: fakeLlm(),
+    });
+    const result = await runtime.runVector(vec, { ref: 'https://example.com' });
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.sourceId).toBe('test-source');
@@ -206,9 +210,8 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
   });
 
   it('run() uses PipelineServices when provided and reports extracted claims', async () => {
-    const runtime = createPipelineRuntime(services);
-    runtime.register(vec);
-    const result = await runtime.run('test-source', { ref: 'https://example.com' });
+    const runtime = createIngestionRuntimeFromServices(services);
+    const result = await runtime.runVector(vec, { ref: 'https://example.com' });
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.claimsExtracted).toBe(2);
@@ -217,8 +220,8 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
   it('passes PipelineServices.config into vector decode', async () => {
     const captured: ResolvedConfig[] = [];
     const config = { ...testConfig(), activeSourceConfig: { decodeFlag: true } };
-    const runtime = createPipelineRuntime({ ...services, config });
-    runtime.register(composeVector({
+    const runtime = createIngestionRuntimeFromServices({ ...services, config });
+    const vector = composeVector({
       sourceId: 'config-source',
       sensitivity: 'public',
       ingestor: makeIngestor('config-source'),
@@ -226,18 +229,12 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
       context: makeContextProvider(),
       chunking: 'token-window',
       registration: makeRegistration('config-source'),
-    }));
+    });
 
-    const result = await runtime.run('config-source', { ref: 'https://example.com' });
+    const result = await runtime.runVector(vector, { ref: 'https://example.com' });
 
     expect(result.ok).toBe(true);
     expect(captured).toEqual([config]);
-  });
-
-  it('run() returns err for unknown sourceId', async () => {
-    const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
-    const result = await runtime.run('unknown', { ref: 'x' });
-    expect(result.ok).toBe(false);
   });
 
   it('run() returns err when ingestor fails', async () => {
@@ -256,9 +253,8 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
       chunking: 'token-window',
       registration: makeRegistration('fail'),
     });
-    const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
-    runtime.register(failVec);
-    const result = await runtime.run('fail', { ref: 'x' });
+    const runtime = createIngestionRuntimeFromServices(services);
+    const result = await runtime.runVector(failVec, { ref: 'x' });
     expect(result.ok).toBe(false);
   });
 });

@@ -205,7 +205,7 @@ describe('createEmailVectorSpec', () => {
         },
       ],
     };
-    const vector = createEmailVectorSpec({ thread, clock: fixedClock });
+    const vector = createEmailVectorSpec({ thread });
     const first = await vector.ingestAndDecode({ ref: '/tmp/a.eml' }, runtimeContext);
     const second = await vector.ingestAndDecode({ ref: '/tmp/a.eml' }, runtimeContext);
 

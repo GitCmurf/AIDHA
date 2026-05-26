@@ -23,7 +23,7 @@ describe('MeetingIngestor', () => {
     const file = makeTempMeeting('alpha beta gamma delta');
     try {
       const ingestor = new MeetingIngestor();
-      const result = await ingestor.acquire({ ref: file });
+      const result = await ingestor.acquire({ ref: file }, runtimeContext);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw result.error;
@@ -48,9 +48,8 @@ describe('MeetingIngestor', () => {
 describe('createMeetingVectorSpec', () => {
   it('uses the injected clock for provenance timestamps', async () => {
     const file = makeTempMeeting('clocked meeting audio');
-    const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
     try {
-      const vector = createMeetingVectorSpec({ clock: fixedClock });
+      const vector = createMeetingVectorSpec();
       const first = await vector.ingestAndDecode({ ref: file }, runtimeContext);
       const second = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 

@@ -4,10 +4,8 @@
 import { describe, it, expect } from 'vitest';
 import { composeVector, transcribeStrategy, diarizeStrategy } from '../../src/compose/vector.js';
 import type { VectorSpec } from '../../src/compose/vector.js';
-import type { VectorRuntimeContext } from '../../src/compose/vector.js';
-import { createPipelineRuntime } from '../../src/compose/runtime.js';
 import { createIngestionRuntime } from '../../src/compose/ingestion-runtime.js';
-import type { IIngestor, IDecodeStrategy, IContextProvider, IngestInput, ITranscriber, IDiarizer, TimecodedSegment, AudioRef, TranscribeOptions } from '../../src/interfaces/index.js';
+import type { IIngestor, IDecodeStrategy, IContextProvider, IngestInput, ITranscriber, IDiarizer, TimecodedSegment, AudioRef, TranscribeOptions, VectorRuntimeContext } from '../../src/interfaces/index.js';
 import type { RawSource, DecodeOutput, ExtractionContext } from '../../src/types/index.js';
 import type { Result } from '@aidha/taxonomy';
 import type { SourceRegistration, ResolvedConfig } from '@aidha/config';
@@ -245,21 +243,6 @@ describe('diarizeStrategy adapter', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.segments[0]!.label).toBe('Speaker-A');
-  });
-});
-
-describe('createPipelineRuntime', () => {
-  it('register throws on duplicate sourceId', () => {
-    const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
-    const mockVector = composeVector(makeSpec());
-    runtime.register(mockVector);
-    expect(() => runtime.register(mockVector)).toThrow('duplicate sourceId');
-  });
-
-  it('run() returns err for unregistered sourceId', async () => {
-    const runtime = createPipelineRuntime({} as Parameters<typeof createPipelineRuntime>[0]);
-    const result = await runtime.run('any', { ref: 'x' });
-    expect(result.ok).toBe(false);
   });
 });
 

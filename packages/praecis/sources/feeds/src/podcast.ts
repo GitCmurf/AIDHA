@@ -19,7 +19,7 @@ import type {
   RawSource,
   Result,
   TimecodedSegment,
-  Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { normalizeText, urlCanonical, composeVector, transcribeStrategy, TokenWindowChunker, ConversationChunker } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
@@ -67,7 +67,6 @@ export interface PodcastPayload {
 
 export interface PodcastIngestorOptions {
   readonly fetchFn?: PodcastFetchFn;
-  readonly clock?: Clock;
 }
 
 export interface PodcastVectorOptions {
@@ -76,7 +75,6 @@ export interface PodcastVectorOptions {
   readonly diarizer?: IDiarizer;
   readonly mockTranscriber?: MockTranscriberConfig;
   readonly mockDiarizer?: MockDiarizerConfig;
-  readonly clock?: Clock;
 }
 
 function stableId(seed: string): string {
@@ -270,7 +268,7 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
 
   constructor(private readonly options: PodcastIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput): Promise<Result<RawSource & { payload: PodcastPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: PodcastPayload }>> {
     try {
       const fetchFn = this.options.fetchFn ?? globalThis.fetch.bind(globalThis);
       const feedResponse = await fetchFn(input.ref, { redirect: 'follow' });
@@ -327,7 +325,7 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
           sensitivity: 'public',
           provenance: {
             sourceUri: enclosureUrl,
-            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
+            ingestedAt: runtimeContext.clock.now().toISOString(),
             sourceType: 'podcast',
           },
           resourceMetadata: {
@@ -372,7 +370,7 @@ export const PodcastSourceRegistration: SourceRegistration = {
 export function createPodcastVectorSpec(options: PodcastVectorOptions = {}) {
   const transcriber = options.transcriber ?? new MockTranscriber(options.mockTranscriber ?? { transcriptText: 'podcast transcript sample' });
   const diarizer = options.diarizer ?? new MockDiarizer(options.mockDiarizer ?? {});
-  const vectorOptions = { ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...(options.clock ? { clock: options.clock } : {}) };
+  const vectorOptions = { ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}) };
 
   return composeVector({
     sourceId: 'podcast',

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { composeVector, createDefaultPipelineServices, createPipelineRuntime } from '../../src/index.js';
+import { composeVector, createDefaultPipelineServices, createIngestionRuntimeFromServices } from '../../src/index.js';
 import type { IDecodeStrategy, IIngestor, LlmCompletionRequest, RawSource, Result } from '../../src/index.js';
 
 function makeVector() {
@@ -41,15 +41,14 @@ describe('cost ceiling', () => {
   it('fails before export and leaves no partial claims when token ceiling is exceeded', async () => {
     const store = new InMemoryStore();
     const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, metadataConflictCount: 0, created: 0, updated: 0, noop: 0 } })) };
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({
+    const runtime = createIngestionRuntimeFromServices(createDefaultPipelineServices({
       store,
       exporter,
       miner: { async mine() { return { ok: true as const, value: { tokenUsage: 99, claims: [{ id: 'claim-cost', text: 'A claim that should not be exported.', excerptIds: ['seg-1'], state: 'draft' as const }] } }; } },
       costCeiling: { maxTokens: 10 },
     }));
 
-    runtime.register(makeVector());
-    const result = await runtime.run('web', { ref: 'x' });
+    const result = await runtime.runVector(makeVector(), { ref: 'x' });
 
     expect(result.ok).toBe(false);
     expect(exporter.export).not.toHaveBeenCalled();
@@ -60,7 +59,7 @@ describe('cost ceiling', () => {
   it('enforces post-mine ceilings against actual provider token usage', async () => {
     const store = new InMemoryStore();
     const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, metadataConflictCount: 0, created: 0, updated: 0, noop: 0 } })) };
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({
+    const runtime = createIngestionRuntimeFromServices(createDefaultPipelineServices({
       store,
       exporter,
       llm: {
@@ -93,8 +92,7 @@ describe('cost ceiling', () => {
       costCeiling: { maxTokens: 90 },
     }));
 
-    runtime.register(makeVector());
-    const result = await runtime.run('web', { ref: 'x' });
+    const result = await runtime.runVector(makeVector(), { ref: 'x' });
 
     expect(result.ok).toBe(false);
     expect(result.ok ? '' : result.error.message).toContain('200 tokens > 90');

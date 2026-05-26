@@ -33,7 +33,7 @@ describe('production ingestion assembly', () => {
     const offenders = roots
       .flatMap(sourceFiles)
       .filter(path => path.includes('/src/'))
-      .filter(path => /create(DefaultPipelineServices|PipelineRuntime)/.test(readFileSync(path, 'utf8')))
+      .filter(path => /createDefaultPipelineServices/.test(readFileSync(path, 'utf8')))
       .map(relative);
 
     expect(offenders).toEqual([]);

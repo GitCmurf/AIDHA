@@ -59,7 +59,7 @@ describe('createReadwiseVectorSpec', () => {
         { id: 1, text: 'First quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
       ],
     };
-    const vector = createReadwiseVectorSpec({ book, clock: { now: () => new Date('2026-05-25T12:34:56.000Z') } });
+    const vector = createReadwiseVectorSpec({ book });
     const first = await vector.ingestAndDecode({ ref: 'readwise:book:11' }, runtimeContext);
     const second = await vector.ingestAndDecode({ ref: 'readwise:book:11' }, runtimeContext);
 

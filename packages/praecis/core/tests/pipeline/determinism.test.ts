@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { composeVector, createDefaultPipelineServices, createPipelineRuntime } from '../../src/index.js';
+import { composeVector, createDefaultPipelineServices, createIngestionRuntimeFromServices } from '../../src/index.js';
 import type { IDecodeStrategy, IIngestor, RawSource, Result } from '../../src/index.js';
 
 function makeVector() {
@@ -33,15 +33,15 @@ function makeVector() {
 describe('determinism', () => {
   it('rerunning the same fixture produces a byte-stable graph snapshot after the first write', async () => {
     const store = new InMemoryStore();
-    const runtime = createPipelineRuntime(createDefaultPipelineServices({ store, allowHeuristicFallback: true }));
-    runtime.register(makeVector());
+    const runtime = createIngestionRuntimeFromServices(createDefaultPipelineServices({ store, allowHeuristicFallback: true }));
+    const vector = makeVector();
 
-    const first = await runtime.run('web', { ref: 'fixture' });
+    const first = await runtime.runVector(vector, { ref: 'fixture' });
     expect(first.ok).toBe(true);
     const snapshotOne = await store.exportSnapshot();
     expect(snapshotOne.ok).toBe(true);
 
-    const second = await runtime.run('web', { ref: 'fixture' });
+    const second = await runtime.runVector(vector, { ref: 'fixture' });
     expect(second.ok).toBe(true);
     const snapshotTwo = await store.exportSnapshot();
     expect(snapshotTwo.ok).toBe(true);

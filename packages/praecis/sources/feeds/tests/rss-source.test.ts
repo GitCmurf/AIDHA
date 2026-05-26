@@ -69,7 +69,7 @@ function makeFetch() {
 describe('RssIngestor', () => {
   it('selects the requested item guid', async () => {
     const ingestor = new RssIngestor({ fetchFn: makeFetch() });
-    const result = await ingestor.acquire({ ref: 'https://example.com/feed.xml', metadata: { itemGuid: 'guid-2' } });
+    const result = await ingestor.acquire({ ref: 'https://example.com/feed.xml', metadata: { itemGuid: 'guid-2' } }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
@@ -79,7 +79,7 @@ describe('RssIngestor', () => {
 
   it('uses the article canonical URL when a link is present', async () => {
     const ingestor = new RssIngestor({ fetchFn: makeFetch() });
-    const result = await ingestor.acquire({ ref: 'https://example.com/feed.xml' });
+    const result = await ingestor.acquire({ ref: 'https://example.com/feed.xml' }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
@@ -134,8 +134,7 @@ describe('RssTextDecodeStrategy', () => {
 
 describe('createRssVectorSpec', () => {
   it('uses the injected clock for provenance timestamps', async () => {
-    const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
-    const vector = composeVector(createRssVectorSpec({ fetchFn: makeFetch(), clock: fixedClock }));
+    const vector = composeVector(createRssVectorSpec({ fetchFn: makeFetch() }));
     const first = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
     const second = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
 

@@ -23,7 +23,7 @@ describe('VoiceIngestor', () => {
     const file = makeTempVoice('alpha beta gamma');
     try {
       const ingestor = new VoiceIngestor();
-      const result = await ingestor.acquire({ ref: file });
+      const result = await ingestor.acquire({ ref: file }, runtimeContext);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw result.error;
@@ -48,9 +48,8 @@ describe('VoiceIngestor', () => {
 describe('createVoiceVectorSpec', () => {
   it('uses the injected clock for provenance timestamps', async () => {
     const file = makeTempVoice('clocked voice note');
-    const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
     try {
-      const vector = createVoiceVectorSpec({ clock: fixedClock });
+      const vector = createVoiceVectorSpec();
       const first = await vector.ingestAndDecode({ ref: file }, runtimeContext);
       const second = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 

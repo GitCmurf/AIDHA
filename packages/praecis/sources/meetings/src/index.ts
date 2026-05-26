@@ -14,7 +14,7 @@ import type {
   IngestInput,
   RawSource,
   Result,
-  Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
 import { MockDiarizer, type MockDiarizerConfig } from '@aidha/praecis-decode-diarize';
@@ -49,7 +49,6 @@ class MeetingContextProvider implements IContextProvider {
 
 export interface MeetingIngestorOptions {
   readonly readFileFn?: typeof readFile;
-  readonly clock?: Clock;
 }
 
 export class MeetingIngestor implements IIngestor<AudioRef> {
@@ -57,7 +56,7 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
 
   constructor(private readonly options: MeetingIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput): Promise<Result<RawSource & { payload: AudioRef }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: AudioRef }>> {
     try {
       const fileBytes = await (this.options.readFileFn ?? readFile)(input.ref);
       const bytes = normalizeBytes(fileBytes as Uint8Array | ArrayBuffer);
@@ -77,7 +76,7 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
           sensitivity: 'confidential',
           provenance: {
             sourceUri: input.ref,
-            ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
+            ingestedAt: runtimeContext.clock.now().toISOString(),
             sourceType: 'meeting',
           },
           resourceMetadata: {
@@ -107,7 +106,6 @@ export function createMeetingVectorSpec(options: {
   readonly diarizer?: IDiarizer;
   readonly mockTranscriber?: MockTranscriberConfig;
   readonly mockDiarizer?: MockDiarizerConfig;
-  readonly clock?: Clock;
 } = {}) {
   const transcriber =
     options.transcriber ??
@@ -119,7 +117,7 @@ export function createMeetingVectorSpec(options: {
   return composeVector({
     sourceId: 'meeting',
     sensitivity: 'confidential',
-    ingestor: new MeetingIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
+    ingestor: new MeetingIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}) }),
     decode: [transcribeStrategy(transcriber), diarizeStrategy(diarizer)],
     context: new MeetingContextProvider(),
     chunking: 'conversation',

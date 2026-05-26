@@ -16,7 +16,7 @@ import type {
   MediaSegment,
   RawSource,
   Result,
-  Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { composeVector, normalizeText } from '@aidha/praecis-core';
 import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
@@ -30,7 +30,6 @@ export interface LinkedInPastePayload {
 export interface LinkedInVectorOptions {
   readonly pasteText: string;
   readonly url?: string;
-  readonly clock?: Clock;
 }
 
 function sha256Hex(value: string): string {
@@ -128,7 +127,7 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
 
   constructor(private readonly options: LinkedInVectorOptions) {}
 
-  async acquire(input: IngestInput): Promise<Result<RawSource & { payload: LinkedInPastePayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: LinkedInPastePayload }>> {
     const canonicalId = canonicalIdFor(this.options.pasteText, this.options.url);
     const activityUrn = activityUrnFromUrl(this.options.url);
     const url = clean(this.options.url);
@@ -149,7 +148,7 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
         sensitivity: 'personal',
         provenance: {
           sourceUri: sourceUriFor(this.options.url),
-          ingestedAt: (this.options.clock?.now() ?? new Date()).toISOString(),
+          ingestedAt: runtimeContext.clock.now().toISOString(),
           sourceType: 'linkedin',
         },
         resourceMetadata: {

@@ -12,7 +12,7 @@ import type {
   DecodeOutput,
   RawSource,
   ExtractionContext,
-  Clock,
+  VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import { HttpWebFetcher, type WebFetchFn } from '@aidha/praecis-acquire-webfetch';
@@ -38,7 +38,6 @@ export interface RssFeedPayload {
 
 export interface RssIngestorOptions {
   readonly fetchFn?: WebFetchFn;
-  readonly clock?: Clock;
 }
 
 function parseTag(xml: string, tag: string): string | undefined {
@@ -105,14 +104,11 @@ export class RssIngestor implements IIngestor<RssFeedPayload> {
   readonly sourceId = 'rss';
 
   private readonly fetcher: HttpWebFetcher;
-  private readonly clock?: Clock;
-
   constructor(options: RssIngestorOptions = {}) {
     this.fetcher = new HttpWebFetcher(options.fetchFn);
-    this.clock = options.clock;
   }
 
-  async acquire(input: IngestInput): Promise<Result<RawSource & { payload: RssFeedPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: RssFeedPayload }>> {
     const feedResult = await this.fetcher.fetch({ url: input.ref });
     if (!feedResult.ok) return feedResult;
 
@@ -161,7 +157,7 @@ export class RssIngestor implements IIngestor<RssFeedPayload> {
         sensitivity: 'public',
         provenance: {
           sourceUri: input.ref,
-          ingestedAt: (this.clock?.now() ?? new Date()).toISOString(),
+          ingestedAt: runtimeContext.clock.now().toISOString(),
           sourceType: 'rss',
         },
         resourceMetadata: {
@@ -210,14 +206,13 @@ export const RssSourceRegistration: SourceRegistration = {
 
 export interface RssVectorOptions {
   readonly fetchFn?: WebFetchFn;
-  readonly clock?: Clock;
 }
 
 export function createRssVectorSpec(options: RssVectorOptions = {}) {
   return {
     sourceId: 'rss',
     sensitivity: 'public' as const,
-    ingestor: new RssIngestor({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
+    ingestor: new RssIngestor({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}) }),
     decode: [new RssTextDecodeStrategy()],
     context: new RssContextProvider(),
     chunking: 'token-window' as const,

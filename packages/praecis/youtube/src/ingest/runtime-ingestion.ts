@@ -23,7 +23,6 @@ export interface YouTubeIngestServices {
   readonly taxonomyRegistry?: TaxonomyRegistry;
   readonly llm?: LlmClient;
   readonly services?: Partial<PipelineServices>;
-  readonly clock?: Clock;
 }
 
 async function deleteStaleExcerpts(
@@ -63,8 +62,7 @@ async function ingestYouTubeVideoWithRuntime(
   videoId: string,
   options: IngestVideoOptions = {},
 ): Promise<Result<YouTubeVideoIngestResult>> {
-  const clock = input.clock ?? input.services?.clock;
-  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec({ client: input.client, ...(clock ? { clock } : {}) })), { ref: videoId });
+  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec({ client: input.client })), { ref: videoId });
   if (!run.ok) return run;
 
   if (options.refreshTranscript) {
@@ -153,7 +151,7 @@ export async function ingestYouTubePlaylist(
     return await runYouTubePlaylistIngestion({
       playlistId,
       client: input.client,
-      clock: input.clock ?? input.services?.clock,
+      ...(input.services?.clock ? { clock: input.services.clock } : {}),
       runVideo: videoId => ingestYouTubeVideoWithRuntime(runtime.value, input, videoId, options),
     });
   } finally {

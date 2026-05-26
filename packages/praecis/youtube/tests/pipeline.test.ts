@@ -154,7 +154,7 @@ describe('production YouTube runtime ingestion', () => {
         taxonomyRegistry,
         config: productionSeededConfig(),
         llm: createFixtureLlm(),
-        clock: fixedClock,
+        services: { clock: fixedClock },
       }, 'partial-playlist');
 
       expect(result.ok).toBe(true);
