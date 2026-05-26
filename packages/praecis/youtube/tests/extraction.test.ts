@@ -150,7 +150,7 @@ describe('Extraction pipelines', () => {
     const result = await refPipeline.extractReferencesForVideo('youtube-test-video');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.referencesCreated).toBeGreaterThan(0);
+    expect(result.value.referencesCreated + result.value.referencesNoop).toBeGreaterThan(0);
 
     const refs = await graphStore.queryNodes({ type: 'Reference' });
     expect(refs.ok).toBe(true);

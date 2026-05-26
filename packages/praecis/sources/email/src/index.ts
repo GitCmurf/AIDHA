@@ -20,6 +20,8 @@ import type {
   Locator,
   ClassificationResult,
   PipelineServices,
+  RunReport,
+  ComposedVector,
 } from '@aidha/praecis-core';
 import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, normalizeText } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
@@ -103,6 +105,7 @@ export interface EmailBatchSummary {
   readonly summaries: readonly EmailThreadSummary[];
   readonly classification: ClassificationResult;
   readonly metadataConflictCount: number;
+  readonly references: RunReport['references'];
   readonly warnings: readonly string[];
   readonly details: {
     readonly importedFiles: number;
@@ -131,6 +134,7 @@ export interface EmailThreadSummary {
   readonly policyRoute: 'cloud' | 'local' | 'disabled';
   readonly classification: ClassificationResult;
   readonly metadataConflictCount: number;
+  readonly references: RunReport['references'];
   readonly warnings: readonly string[];
   readonly segments: readonly {
     readonly id: string;
@@ -148,6 +152,11 @@ export interface EmailThreadSummary {
 
 export interface EmailIngestOptions {
   readonly readFileFn?: typeof readFile;
+}
+
+export interface EmailBatchExecutionContext {
+  readonly store: GraphStore;
+  runVector(vector: ComposedVector, input: IngestInput): Promise<Result<RunReport>>;
 }
 
 export interface EmailVectorOptions {
@@ -498,14 +507,22 @@ function aggregateClassification(summaries: readonly EmailThreadSummary[]): Clas
   };
 }
 
+function aggregateReferences(summaries: readonly EmailThreadSummary[]): RunReport['references'] {
+  return {
+    referencesCreated: summaries.reduce((sum, summary) => sum + summary.references.referencesCreated, 0),
+    referencesUpdated: summaries.reduce((sum, summary) => sum + summary.references.referencesUpdated, 0),
+    referencesNoop: summaries.reduce((sum, summary) => sum + summary.references.referencesNoop, 0),
+    referenceEdgesCreated: summaries.reduce((sum, summary) => sum + summary.references.referenceEdgesCreated, 0),
+    referenceEdgesUpdated: summaries.reduce((sum, summary) => sum + summary.references.referenceEdgesUpdated, 0),
+    referenceEdgesNoop: summaries.reduce((sum, summary) => sum + summary.references.referenceEdgesNoop, 0),
+  };
+}
+
 export async function runEmailBatch(
   ref: string,
   readFileFn: typeof readFile = readFile,
   serviceOverrides: Partial<PipelineServices> = {},
 ): Promise<EmailBatchSummary> {
-  const messages = await parseEmailInputs(ref, readFileFn);
-  const threads = groupEmailMessages(messages);
-  const summaries: EmailThreadSummary[] = [];
   const servicesResult = await createConfiguredPipelineServices(serviceOverrides);
   if (!servicesResult.ok) {
     throw servicesResult.error;
@@ -516,64 +533,81 @@ export async function runEmailBatch(
     taxonomyRegistry: serviceOverrides.taxonomyRegistry === undefined,
   });
   try {
-    for (const thread of threads) {
-      const vector = createEmailVectorSpec(thread);
-      const runEmailThread = async () => {
-        const run = await runtime.runVector(vector, { ref: thread.messages.map(message => message.filePath).join(', ') });
-        if (!run.ok) {
-          return run;
-        }
-        const reparent = await reparentEmailThread(services.store, thread, { skipTransaction: true });
-        if (!reparent.ok) {
-          return { ok: false as const, error: reparent.error };
-        }
-        return run;
-      };
-      const run = services.store.runInTransaction
-        ? await services.store.runInTransaction(runEmailThread)
-        : await runEmailThread();
-      if (!run.ok) {
-        throw run.error;
-      }
-      const summary: EmailThreadSummary = {
-        sourceId: 'email' as const,
-        ref: thread.messages.map(message => message.filePath).join(', '),
-        canonicalId: run.value.canonicalId,
-        resourceId: run.value.resourceId,
-        label: thread.subject,
-        segmentCount: run.value.segmentCount,
-        chunkCount: run.value.chunkCount,
-        claimsExtracted: run.value.claimsExtracted,
-        claimIds: run.value.claimIds,
-        claims: run.value.claims.map(claim => ({
-          text: claim.text,
-          excerptIds: claim.excerptIds,
-          method: claim.metadata?.['method'],
-          model: claim.metadata?.['model'],
-          promptVersion: claim.metadata?.['promptVersion'],
-        })),
-        dedupAction: run.value.dedupAction,
-        policyRoute: run.value.policyRoute,
-        classification: run.value.classification,
-        metadataConflictCount: run.value.metadataConflictCount,
-        warnings: run.value.warnings,
-        segments: run.value.segments.map(segment => ({
-          id: segment.id,
-          locator: segment.locator,
-          text: segment.text,
-          label: segment.label,
-        })),
-        chunks: run.value.chunks.map(chunk => ({
-          id: chunk.id,
-          locator: chunk.locator,
-          text: chunk.text,
-          segmentIds: chunk.segments.map(segment => segment.id),
-        })),
-      };
-      summaries.push(summary);
-    }
+    return await runEmailBatchWithContext(ref, readFileFn, {
+      store: services.store,
+      runVector: (vector, input) => runtime.runVector(vector, input),
+    });
   } finally {
     await runtime.close();
+  }
+}
+
+export async function runEmailBatchWithContext(
+  ref: string,
+  readFileFn: typeof readFile = readFile,
+  context: EmailBatchExecutionContext,
+): Promise<EmailBatchSummary> {
+  const messages = await parseEmailInputs(ref, readFileFn);
+  const threads = groupEmailMessages(messages);
+  const summaries: EmailThreadSummary[] = [];
+
+  for (const thread of threads) {
+    const vector = createEmailVectorSpec(thread);
+    const threadRef = thread.messages.map(message => message.filePath).join(', ');
+    const runEmailThread = async () => {
+      const run = await context.runVector(vector, { ref: threadRef });
+      if (!run.ok) {
+        return run;
+      }
+      const reparent = await reparentEmailThread(context.store, thread, { skipTransaction: true });
+      if (!reparent.ok) {
+        return { ok: false as const, error: reparent.error };
+      }
+      return run;
+    };
+    const run = context.store.runInTransaction
+      ? await context.store.runInTransaction(runEmailThread)
+      : await runEmailThread();
+    if (!run.ok) {
+      throw run.error;
+    }
+    const summary: EmailThreadSummary = {
+      sourceId: 'email' as const,
+      ref: threadRef,
+      canonicalId: run.value.canonicalId,
+      resourceId: run.value.resourceId,
+      label: thread.subject,
+      segmentCount: run.value.segmentCount,
+      chunkCount: run.value.chunkCount,
+      claimsExtracted: run.value.claimsExtracted,
+      claimIds: run.value.claimIds,
+      claims: run.value.claims.map(claim => ({
+        text: claim.text,
+        excerptIds: claim.excerptIds,
+        method: claim.metadata?.['method'],
+        model: claim.metadata?.['model'],
+        promptVersion: claim.metadata?.['promptVersion'],
+      })),
+      dedupAction: run.value.dedupAction,
+      policyRoute: run.value.policyRoute,
+      classification: run.value.classification,
+      metadataConflictCount: run.value.metadataConflictCount,
+      references: run.value.references,
+      warnings: run.value.warnings,
+      segments: run.value.segments.map(segment => ({
+        id: segment.id,
+        locator: segment.locator,
+        text: segment.text,
+        label: segment.label,
+      })),
+      chunks: run.value.chunks.map(chunk => ({
+        id: chunk.id,
+        locator: chunk.locator,
+        text: chunk.text,
+        segmentIds: chunk.segments.map(segment => segment.id),
+      })),
+    };
+    summaries.push(summary);
   }
 
   return {
@@ -584,6 +618,7 @@ export async function runEmailBatch(
     summaries,
     classification: aggregateClassification(summaries),
     metadataConflictCount: summaries.reduce((sum, summary) => sum + summary.metadataConflictCount, 0),
+    references: aggregateReferences(summaries),
     warnings: summaries.flatMap(summary => summary.warnings),
     details: {
       importedFiles: messages.length,

@@ -162,7 +162,7 @@ describe('production YouTube runtime ingestion', () => {
       expect(result.value.job).toEqual({
         id: 'job-partial-playlist',
         playlistId: 'partial-playlist',
-        status: 'completed',
+        status: 'completed_with_errors',
         progress: { total: 2, completed: 1, failed: 1 },
         errors: [{
           videoId: 'missing-video',

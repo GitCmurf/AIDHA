@@ -1,6 +1,7 @@
 import type { GraphStore, NodeDataInput } from '@aidha/graph-backend';
 import type { Result } from '@aidha/taxonomy';
 import type { ReferenceExtractionResult } from './types.js';
+import type { IReferenceExtractor, ReferenceExtractionReport } from '../interfaces/index.js';
 import { extractUrls } from './utils.js';
 import { hashId } from '../utils/ids.js';
 
@@ -8,7 +9,7 @@ export interface ReferenceExtractionConfig {
   graphStore: GraphStore;
 }
 
-export class ReferenceExtractionPipeline {
+export class ReferenceExtractionPipeline implements IReferenceExtractor {
   private graphStore: GraphStore;
 
   constructor(config: ReferenceExtractionConfig) {
@@ -114,5 +115,21 @@ export class ReferenceExtractionPipeline {
 
   async extractReferencesForVideo(resourceId: string): Promise<Result<ReferenceExtractionResult>> {
     return this.extractReferencesForResource(resourceId);
+  }
+
+  async extract(resourceId: string): Promise<Result<ReferenceExtractionReport>> {
+    const result = await this.extractReferencesForResource(resourceId);
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      value: {
+        referencesCreated: result.value.referencesCreated,
+        referencesUpdated: result.value.referencesUpdated,
+        referencesNoop: result.value.referencesNoop,
+        referenceEdgesCreated: result.value.edgesCreated,
+        referenceEdgesUpdated: result.value.edgesUpdated,
+        referenceEdgesNoop: result.value.edgesNoop,
+      },
+    };
   }
 }

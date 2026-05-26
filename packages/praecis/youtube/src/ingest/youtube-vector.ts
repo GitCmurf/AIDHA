@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import type { VectorSpec, IContextProvider } from '@aidha/praecis-core';
+import type { Clock, VectorSpec, IContextProvider } from '@aidha/praecis-core';
 import type { RawSource, ExtractionContext } from '@aidha/praecis-core';
 import type { ResolvedConfig } from '@aidha/config';
 import type { YouTubeClient } from '../client/types.js';
@@ -31,11 +31,11 @@ class YouTubeContextProvider implements IContextProvider {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-export function createYouTubeVectorSpec(client: YouTubeClient): VectorSpec {
+export function createYouTubeVectorSpec(client: YouTubeClient, clock?: Clock): VectorSpec {
   return {
     sourceId: SOURCE_ID,
     sensitivity: 'public',
-    ingestor: new YouTubeIngestor(client),
+    ingestor: new YouTubeIngestor(client, clock),
     decode: [new TranscriptDecodeStrategy()],
     context: new YouTubeContextProvider(),
     chunking: 'token-window',

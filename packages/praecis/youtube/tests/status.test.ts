@@ -43,6 +43,6 @@ describe('getIngestionStatus', () => {
     expect(status.value.excerptCount).toBeGreaterThan(0);
     expect(status.value.transcriptStatus).toBe('available');
     expect(status.value.claimCount).toBe(0);
-    expect(status.value.referenceCount).toBe(0);
+    expect(status.value.referenceCount).toBeGreaterThan(0);
   });
 });

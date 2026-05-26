@@ -35,14 +35,15 @@ describe('YouTubeIngestor', () => {
   });
 
   it('sets provenance fields correctly', async () => {
-    const result = await ingestor.acquire({ ref: 'test-video' });
+    const fixedIngestor = new YouTubeIngestor(client, { now: () => new Date('2026-05-25T12:34:56.000Z') });
+    const result = await fixedIngestor.acquire({ ref: 'test-video' });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
     const { provenance } = result.value;
     expect(provenance.sourceUri).toBe('https://www.youtube.com/watch?v=test-video');
     expect(provenance.sourceType).toBe('youtube');
-    expect(provenance.ingestedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(provenance.ingestedAt).toBe('2026-05-25T12:34:56.000Z');
   });
 
   it('populates payload with video metadata and transcript', async () => {
@@ -78,12 +79,10 @@ describe('YouTubeIngestor', () => {
     expect(result.error.message).toContain('Video not found');
   });
 
-  it('succeeds even when transcript fetch fails (transcript null in payload)', async () => {
-    // test-video-2 exists in video mock but has transcript
+  it('succeeds with a second video that has an available transcript', async () => {
     const result = await ingestor.acquire({ ref: 'test-video-2' });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // transcript exists for test-video-2 in mock
     expect(result.value.payload.transcript).not.toBeNull();
   });
 });

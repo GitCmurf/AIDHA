@@ -27,6 +27,7 @@ import {
   estimateTokens,
   LlmClaimExtractor,
 } from '../extract/index.js';
+import { ReferenceExtractionPipeline } from '../extract/references.js';
 import type {
   Chunk,
   Clock,
@@ -37,6 +38,7 @@ import type {
   IClassifier,
   ICandidateMiner,
   IExporter,
+  IReferenceExtractor,
   ClassificationRequest,
   ClassificationResult,
   MiningRequest,
@@ -367,6 +369,18 @@ export class GraphPipelineExporter implements IExporter {
   }
 }
 
+export class GraphReferenceExtractor implements IReferenceExtractor {
+  private readonly pipeline: ReferenceExtractionPipeline;
+
+  constructor(store: GraphStore) {
+    this.pipeline = new ReferenceExtractionPipeline({ graphStore: store });
+  }
+
+  extract(resourceId: string) {
+    return this.pipeline.extract(resourceId);
+  }
+}
+
 function normalizeForMatch(value: string): string {
   return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
@@ -684,6 +698,9 @@ export function createDefaultPipelineServices(overrides: Partial<PipelineService
     store,
     miner: overrides.miner ?? (llm ? new CanonicalLlmClaimMiner() : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
     exporter: overrides.exporter ?? new GraphPipelineExporter(store),
+    ...(overrides.referenceExtractor
+      ? { referenceExtractor: overrides.referenceExtractor }
+      : overrides.exporter ? {} : { referenceExtractor: new GraphReferenceExtractor(store) }),
     ...(overrides.classifier ? { classifier: overrides.classifier } : overrides.taxonomyRegistry ? { classifier: new KeywordTaxonomyClassifier(overrides.taxonomyRegistry) } : {}),
     ...(overrides.taxonomyRegistry ? { taxonomyRegistry: overrides.taxonomyRegistry } : {}),
     cache: overrides.cache ?? new MemoryCache(),

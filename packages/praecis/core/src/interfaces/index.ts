@@ -95,6 +95,15 @@ export interface ExportResult {
   readonly noop: number;
 }
 
+export interface ReferenceExtractionReport {
+  readonly referencesCreated: number;
+  readonly referencesUpdated: number;
+  readonly referencesNoop: number;
+  readonly referenceEdgesCreated: number;
+  readonly referenceEdgesUpdated: number;
+  readonly referenceEdgesNoop: number;
+}
+
 export interface ClassificationRequest {
   readonly raw: RawSource;
   readonly resourceId: string;
@@ -135,6 +144,7 @@ export interface RunReport {
   readonly warnings: readonly string[];
   readonly classification: ClassificationResult;
   readonly metadataConflictCount: number;
+  readonly references: ReferenceExtractionReport;
   readonly durationMs: number;
 }
 
@@ -189,6 +199,10 @@ export interface IExporter {
   export(miningResult: MiningResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>>;
 }
 
+export interface IReferenceExtractor {
+  extract(resourceId: string): Promise<Result<ReferenceExtractionReport>>;
+}
+
 export interface IClassifier {
   classify(request: ClassificationRequest): Promise<Result<ClassificationResult>>;
 }
@@ -216,6 +230,7 @@ export interface PipelineServices {
   readonly store: GraphStore;
   readonly miner: ICandidateMiner;
   readonly exporter: IExporter;
+  readonly referenceExtractor?: IReferenceExtractor;
   readonly classifier?: IClassifier;
   readonly taxonomyRegistry?: TaxonomyRegistry;
   readonly llm?: LlmClient;

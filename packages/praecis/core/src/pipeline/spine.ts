@@ -52,6 +52,15 @@ function parseMiningResult(value: string): MiningResult | null {
   }
 }
 
+const NO_REFERENCES = {
+  referencesCreated: 0,
+  referencesUpdated: 0,
+  referencesNoop: 0,
+  referenceEdgesCreated: 0,
+  referenceEdgesUpdated: 0,
+  referenceEdgesNoop: 0,
+} as const;
+
 export async function runVector(
   vector: ComposedVector,
   input: IngestInput,
@@ -125,6 +134,11 @@ export async function runVector(
   const exported = await services.exporter.export(miningResult, raw, chunkResult.value);
   if (!exported.ok) return exported;
 
+  const references = services.referenceExtractor
+    ? await services.referenceExtractor.extract(exported.value.resourceId)
+    : { ok: true as const, value: NO_REFERENCES };
+  if (!references.ok) return references;
+
   const classification = services.classifier
     ? await services.classifier.classify({
       raw,
@@ -163,6 +177,7 @@ export async function runVector(
       warnings: [...warningMessages, ...classification.value.warnings],
       classification: classification.value,
       metadataConflictCount: exported.value.metadataConflictCount,
+      references: references.value,
       durationMs: Math.max(0, services.clock.now().getTime() - startMs),
     },
   };

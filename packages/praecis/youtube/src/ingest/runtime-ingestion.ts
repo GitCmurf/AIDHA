@@ -5,8 +5,8 @@ import {
   type ConfiguredIngestionRuntime,
   type LlmClient,
   type PipelineServices,
-  type ClassificationResult,
   type Clock,
+  runBatch,
 } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
 import type { TaxonomyRegistry } from '@aidha/taxonomy';
@@ -24,10 +24,6 @@ export interface YouTubeIngestServices {
   readonly llm?: LlmClient;
   readonly services?: Partial<PipelineServices>;
   readonly clock?: Clock;
-}
-
-function now(clock?: Clock): string {
-  return (clock?.now() ?? new Date()).toISOString();
 }
 
 async function deleteStaleExcerpts(
@@ -67,7 +63,7 @@ async function ingestYouTubeVideoWithRuntime(
   videoId: string,
   options: IngestVideoOptions = {},
 ): Promise<Result<YouTubeVideoIngestResult>> {
-  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec(input.client)), { ref: videoId });
+  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec(input.client, input.clock ?? input.services?.clock)), { ref: videoId });
   if (!run.ok) return run;
 
   if (options.refreshTranscript) {
@@ -98,51 +94,33 @@ export async function runYouTubePlaylistIngestion(input: PlaylistRunInput): Prom
   const playlist = await input.client.fetchPlaylist(input.playlistId);
   if (!playlist.ok) return playlist;
 
-  const errors: IngestionJob['errors'] = [];
-  const videos: YouTubeVideoIngestResult[] = [];
-  let classificationStatus: ClassificationResult['status'] = 'disabled';
-  const classificationWarnings: string[] = [];
-  let tagsMatched = 0;
-  let tagsAssigned = 0;
-
-  for (const videoId of playlist.value.videoIds) {
-    const result = await input.runVideo(videoId);
-    if (result.ok) {
-      videos.push(result.value);
-      if (result.value.classification.status === 'completed') classificationStatus = 'completed';
-      tagsMatched += result.value.classification.tagsMatched;
-      tagsAssigned += result.value.classification.tagsAssigned;
-      classificationWarnings.push(...result.value.classification.warnings);
-    } else {
-      errors.push({ videoId, message: result.error.message, timestamp: now(input.clock) });
-    }
-  }
+  const batch = await runBatch({
+    items: playlist.value.videoIds,
+    clock: input.clock ?? { now: () => new Date() },
+    runItem: input.runVideo,
+  });
 
   const job: IngestionJob = {
     id: `job-${input.playlistId}`,
     playlistId: input.playlistId,
-    status: errors.length === playlist.value.videoIds.length && errors.length > 0 ? 'failed' : 'completed',
+    status: batch.outcome,
     progress: {
-      total: playlist.value.videoIds.length,
-      completed: playlist.value.videoIds.length - errors.length,
-      failed: errors.length,
+      total: batch.total,
+      completed: batch.completed,
+      failed: batch.failed,
     },
-    errors,
-    createdAt: now(input.clock),
-    completedAt: now(input.clock),
+    errors: batch.failures.map(error => ({ videoId: error.item, message: error.message, timestamp: error.timestamp })),
+    createdAt: batch.startedAt,
+    completedAt: batch.completedAt,
   };
+  const videos = batch.successes.map(success => success.value);
 
   return {
     ok: true,
     value: {
       job,
       videosProcessed: job.progress.completed,
-      classification: {
-        status: classificationStatus,
-        tagsMatched,
-        tagsAssigned,
-        warnings: Array.from(new Set(classificationWarnings)),
-      },
+      classification: batch.classification,
       nodeIds: videos.map(video => video.nodeId),
       videos,
     },

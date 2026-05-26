@@ -4,3 +4,4 @@
 export * from './spine.js';
 export * from './services.js';
 export * from './taxonomy-metadata.js';
+export * from './batch.js';

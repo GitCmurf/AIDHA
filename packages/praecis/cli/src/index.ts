@@ -51,6 +51,7 @@ import {
 } from '@aidha/praecis-source-readwise';
 import {
   runEmailBatch,
+  runEmailBatchWithContext,
   EmailSourceRegistration,
   type EmailBatchSummary,
 } from '@aidha/praecis-source-email';
@@ -58,7 +59,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createIngestionRuntime, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
@@ -88,6 +89,7 @@ export interface IngestSummary {
   readonly policyRoute: 'cloud' | 'local' | 'disabled';
   readonly classification: ClassificationResult;
   readonly metadataConflictCount: number;
+  readonly references: RunReport['references'];
   readonly warnings: readonly string[];
   readonly segments: Array<{
     readonly id: string;
@@ -301,6 +303,7 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
     policyRoute: result.policyRoute,
     classification: result.classification,
     metadataConflictCount: result.metadataConflictCount,
+    references: result.references,
     warnings: result.warnings,
     segments: normalizeOutputSegments(result.segments),
     chunks: normalizeOutputChunks(result.chunks),
@@ -308,13 +311,17 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
 }
 
 async function createIngestExecutionContext(services: Partial<PipelineServices> = {}): Promise<{ readonly context: IngestExecutionContext; close(): Promise<void> }> {
-  const runtime = await createIngestionRuntime(services);
-  if (!runtime.ok) {
-    throw runtime.error;
+  const configured = await createConfiguredPipelineServices(services);
+  if (!configured.ok) {
+    throw configured.error;
   }
+  const runtime = createIngestionRuntimeFromServices(configured.value, {
+    store: services.store === undefined,
+    taxonomyRegistry: services.taxonomyRegistry === undefined,
+  });
   const runReport = async (_sourceId: SourceId, ref: string, vector: ComposedVector, metadata?: Record<string, unknown>): Promise<RunReport> => {
     const ingestInput = metadata ? { ref, metadata } : { ref };
-    const result = await runtime.value.runVector(vector, ingestInput);
+    const result = await runtime.runVector(vector, ingestInput);
     if (!result.ok) {
       throw result.error;
     }
@@ -322,14 +329,14 @@ async function createIngestExecutionContext(services: Partial<PipelineServices> 
   };
   return {
     context: {
-      services,
+      services: configured.value,
       runReport,
       async runVector(sourceId, ref, vector, metadata) {
         return summaryFromRunReport(sourceId, ref, await runReport(sourceId, ref, vector, metadata));
       },
     },
     close() {
-      return runtime.value.close();
+      return runtime.close();
     },
   };
 }
@@ -406,13 +413,21 @@ export async function runReadwiseIngest(
   const books = await fetchReadwiseExport(readwiseOptions);
 
   const runBooks = async (context: IngestExecutionContext): Promise<IngestSummary[]> => {
-    const summaries: IngestSummary[] = [];
-    for (const book of books) {
-      const vector = createReadwiseVectorSpec(book);
-      const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
-      summaries.push(await context.runVector('readwise', ref, vector));
-    }
-    return summaries;
+    const batch = await runBatch({
+      items: books,
+      clock: context.services.clock ?? { now: () => new Date() },
+      async runItem(book) {
+        const vector = createReadwiseVectorSpec(book);
+        const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
+        try {
+          const report = await context.runReport('readwise', ref, vector);
+          return { ok: true, value: { ...summaryFromRunReport('readwise', ref, report), report } };
+        } catch (error) {
+          return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+        }
+      },
+    });
+    return batch.successes.map(success => success.value);
   };
 
   let summaries: IngestSummary[];
@@ -443,7 +458,19 @@ export async function runReadwiseIngest(
   };
 }
 
-export async function runEmailIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<EmailBatchSummary> {
+export async function runEmailIngest(
+  ref: string,
+  services: Partial<PipelineServices> = {},
+  context?: IngestExecutionContext,
+): Promise<EmailBatchSummary> {
+  if (context?.services.store) {
+    return runEmailBatchWithContext(ref, readFile, {
+      store: context.services.store,
+      async runVector(vector, input) {
+        return { ok: true, value: await context.runReport('email', input.ref, vector, input.metadata) };
+      },
+    });
+  }
   return runEmailBatch(ref, readFile, services);
 }
 
@@ -468,7 +495,7 @@ export async function runYouTubeIngest(
     ...youtubeConfig.ytdlp,
     debugTranscript: youtubeConfig.youtube.debugTranscript,
   });
-  const vector = composeVector(createYouTubeVectorSpec(client));
+  const vector = composeVector(createYouTubeVectorSpec(client, services.clock));
   if (options.context) {
     return options.context.runVector('youtube', ref, vector);
   }
@@ -493,7 +520,7 @@ export async function runYouTubePlaylistIngest(
     ...(context.services.clock ? { clock: context.services.clock } : {}),
     async runVideo(videoId) {
       try {
-        const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec(client)));
+        const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec(client, context.services.clock)));
         return {
           ok: true,
           value: {
@@ -842,7 +869,7 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
     sourceId: 'email',
     registration: EmailSourceRegistration,
     usage: INGEST_USAGE.email,
-    run: ({ positionals, options, context }) => runEmailIngest(requireRef(options, positionals, 'file', INGEST_USAGE.email), context.services),
+    run: ({ positionals, options, context }) => runEmailIngest(requireRef(options, positionals, 'file', INGEST_USAGE.email), context.services, context),
     print(summary) {
       if (!isEmailBatchSummary(summary)) return [`Ingested ${summary.sourceId}`];
       return [
