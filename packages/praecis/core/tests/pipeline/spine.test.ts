@@ -61,6 +61,16 @@ function makeDecodeStrategy(): IDecodeStrategy {
   };
 }
 
+function makeConfigCapturingDecodeStrategy(captured: ResolvedConfig[]): IDecodeStrategy {
+  return {
+    name: 'capture-runtime-config',
+    async decode(input): Promise<Result<DecodeOutput>> {
+      captured.push(input.config);
+      return makeDecodeStrategy().decode(input);
+    },
+  };
+}
+
 function makeContextProvider(): IContextProvider {
   return {
     async build(_raw: RawSource, _cfg: ResolvedConfig): Promise<ExtractionContext> {
@@ -202,6 +212,26 @@ describe('pipeline spine (via PipelineRuntime.run)', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.claimsExtracted).toBe(2);
+  });
+
+  it('passes PipelineServices.config into vector decode', async () => {
+    const captured: ResolvedConfig[] = [];
+    const config = { ...testConfig(), activeSourceConfig: { decodeFlag: true } };
+    const runtime = createPipelineRuntime({ ...services, config });
+    runtime.register(composeVector({
+      sourceId: 'config-source',
+      sensitivity: 'public',
+      ingestor: makeIngestor('config-source'),
+      decode: [makeConfigCapturingDecodeStrategy(captured)],
+      context: makeContextProvider(),
+      chunking: 'token-window',
+      registration: makeRegistration('config-source'),
+    }));
+
+    const result = await runtime.run('config-source', { ref: 'https://example.com' });
+
+    expect(result.ok).toBe(true);
+    expect(captured).toEqual([config]);
   });
 
   it('run() returns err for unknown sourceId', async () => {

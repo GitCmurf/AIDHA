@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { composeVector, transcribeStrategy, diarizeStrategy } from '../../src/compose/vector.js';
 import type { VectorSpec } from '../../src/compose/vector.js';
+import type { VectorRuntimeContext } from '../../src/compose/vector.js';
 import { createPipelineRuntime } from '../../src/compose/runtime.js';
 import { createIngestionRuntime } from '../../src/compose/ingestion-runtime.js';
 import type { IIngestor, IDecodeStrategy, IContextProvider, IngestInput, ITranscriber, IDiarizer, TimecodedSegment, AudioRef, TranscribeOptions } from '../../src/interfaces/index.js';
@@ -21,6 +22,10 @@ function makeRegistration(sourceId: string): SourceRegistration {
 
 // Minimal stub config for decode strategies
 const stubConfig = {} as ResolvedConfig;
+const runtimeContext: VectorRuntimeContext = {
+  config: stubConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 function makeIngestor(sourceId: string, payload: unknown = {}): IIngestor {
   return {
@@ -62,6 +67,26 @@ function makeDecodeStrategy(name: string, segments = 1): IDecodeStrategy {
             locator: { kind: 'text', charStart: 0, charEnd: 10 },
             text: 'hello world',
           })),
+          warnings: [],
+        },
+      };
+    },
+  };
+}
+
+function makeConfigCapturingDecodeStrategy(captured: ResolvedConfig[]): IDecodeStrategy {
+  return {
+    name: 'capture-config',
+    async decode(input): Promise<Result<DecodeOutput>> {
+      captured.push(input.config);
+      return {
+        ok: true,
+        value: {
+          segments: [{
+            id: 'seg-config',
+            locator: { kind: 'text', charStart: 0, charEnd: 10 },
+            text: 'hello world',
+          }],
           warnings: [],
         },
       };
@@ -113,7 +138,7 @@ describe('composeVector', () => {
 
   it('4. ingestAndDecode returns raw + segments + warnings on success', async () => {
     const vec = composeVector(makeSpec());
-    const result = await vec.ingestAndDecode({ ref: 'https://example.com/page' });
+    const result = await vec.ingestAndDecode({ ref: 'https://example.com/page' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('unreachable');
     expect(result.value.raw).toBeDefined();
@@ -129,8 +154,22 @@ describe('composeVector', () => {
         registration: makeRegistration('fail-source'),
       })
     );
-    const result = await vec.ingestAndDecode({ ref: 'https://example.com/page' });
+    const result = await vec.ingestAndDecode({ ref: 'https://example.com/page' }, runtimeContext);
     expect(result.ok).toBe(false);
+  });
+
+  it('passes the runtime config into decode strategies', async () => {
+    const captured: ResolvedConfig[] = [];
+    const vec = composeVector(makeSpec({ decode: [makeConfigCapturingDecodeStrategy(captured)] }));
+    const config = { ...stubConfig, activeSourceConfig: { decodeFlag: true } };
+
+    const result = await vec.ingestAndDecode(
+      { ref: 'https://example.com/page' },
+      { ...runtimeContext, config },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(captured).toEqual([config]);
   });
 });
 
@@ -190,9 +229,10 @@ describe('diarizeStrategy adapter', () => {
 
   it('throws (not Result.err) when upstream is undefined', async () => {
     const strategy = diarizeStrategy(makeDiarizer());
-    await expect(
-      strategy.decode({ raw: mockRaw, config: {} as ResolvedConfig })
-    ).rejects.toThrow('upstream');
+    const result = await strategy.decode({ raw: mockRaw, config: {} as ResolvedConfig });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.error.message).toContain('upstream');
   });
 
   it('annotates upstream timecoded segments with speaker labels', async () => {

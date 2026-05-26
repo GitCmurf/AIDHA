@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-export type { VectorSpec, ComposedVector } from './vector.js';
+export type { VectorSpec, ComposedVector, VectorRuntimeContext } from './vector.js';
 export { composeVector, transcribeStrategy, diarizeStrategy } from './vector.js';
 
 export { createPipelineRuntime } from './runtime.js';

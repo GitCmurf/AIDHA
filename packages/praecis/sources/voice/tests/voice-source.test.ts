@@ -4,6 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createVoiceVectorSpec, VoiceIngestor } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 function makeTempVoice(contents: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'aidha-voice-'));
@@ -45,8 +51,8 @@ describe('createVoiceVectorSpec', () => {
     const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
     try {
       const vector = createVoiceVectorSpec({ clock: fixedClock });
-      const first = await vector.ingestAndDecode({ ref: file });
-      const second = await vector.ingestAndDecode({ ref: file });
+      const first = await vector.ingestAndDecode({ ref: file }, runtimeContext);
+      const second = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
       expect(first.ok).toBe(true);
       expect(second.ok).toBe(true);
@@ -64,7 +70,7 @@ describe('createVoiceVectorSpec', () => {
     const file = makeTempVoice('voice note one two three four five six seven eight nine ten');
     try {
       const vector = createVoiceVectorSpec();
-      const result = await vector.ingestAndDecode({ ref: file });
+      const result = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw result.error;

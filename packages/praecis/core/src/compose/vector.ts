@@ -15,6 +15,7 @@ import type {
   ChunkInput,
   Chunk,
   Sensitivity,
+  Clock,
 } from '../interfaces/index.js';
 import type { MediaSegment, RawSource, DecodeOutput } from '../types/index.js';
 import type { DecodeWarning } from '../types/index.js';
@@ -54,6 +55,11 @@ export interface VectorSpec {
   readonly registration: SourceRegistration;
 }
 
+export interface VectorRuntimeContext {
+  readonly config: ResolvedConfig;
+  readonly clock: Clock;
+}
+
 export interface ComposedVector {
   readonly sourceId: string;
   readonly sensitivity: VectorSpec['sensitivity'];
@@ -62,7 +68,7 @@ export interface ComposedVector {
   readonly context: IContextProvider;
   readonly chunking: IChunker;
   readonly registration: SourceRegistration;
-  ingestAndDecode(input: IngestInput): Promise<Result<{
+  ingestAndDecode(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<{
     raw: RawSource;
     segments: MediaSegment[];
     warnings: DecodeWarning[];
@@ -94,7 +100,7 @@ export function composeVector(spec: VectorSpec): ComposedVector {
 
   const frozenDecode = Object.freeze([...spec.decode]);
 
-  async function ingestAndDecode(input: IngestInput): Promise<Result<{
+  async function ingestAndDecode(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<{
     raw: RawSource;
     segments: MediaSegment[];
     warnings: DecodeWarning[];
@@ -114,7 +120,7 @@ export function composeVector(spec: VectorSpec): ComposedVector {
       const decodeResult = await strategy.decode({
         raw,
         upstream: currentSegments,
-        config: {} as ResolvedConfig,
+        config: runtimeContext.config,
       });
       if (!decodeResult.ok) {
         return decodeResult;
@@ -235,7 +241,7 @@ export function diarizeStrategy(diarizer: IDiarizer): IDecodeStrategy {
     name: `diarize:${diarizer.backend}`,
     async decode(input): Promise<Result<DecodeOutput>> {
       if (!input.upstream || input.upstream.length === 0) {
-        throw new Error('diarize strategy requires an upstream transcribe step');
+        return { ok: false, error: new Error('diarize strategy requires an upstream transcribe step') };
       }
       const audio = audioRefFromPayload(input.raw.payload);
       const timecoded = mediaSegmentsToTimecoded(input.upstream);

@@ -2,21 +2,28 @@ import { describe, expect, it } from 'vitest';
 import type { ResolvedConfig } from '@aidha/config';
 import { createReadwiseVectorSpec } from '../src/index.js';
 
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
+
 describe('createReadwiseVectorSpec', () => {
   it('maps highlights to external locators and keeps the web canonical id when source_url exists', async () => {
     const vector = createReadwiseVectorSpec({
-      user_book_id: 11,
-      title: 'How to Do What You Love',
-      author: 'Paul Graham',
-      source_url: 'https://example.com/article?utm_source=readwise',
-      readwise_url: 'https://readwise.io/bookreview/11',
-      highlights: [
-        { id: 1, text: 'First quote', book_id: 11, note: 'note one', updated_at: '2026-05-22T00:00:00.000Z' },
-        { id: 2, text: 'Second quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
-      ],
+      book: {
+        user_book_id: 11,
+        title: 'How to Do What You Love',
+        author: 'Paul Graham',
+        source_url: 'https://example.com/article?utm_source=readwise',
+        readwise_url: 'https://readwise.io/bookreview/11',
+        highlights: [
+          { id: 1, text: 'First quote', book_id: 11, note: 'note one', updated_at: '2026-05-22T00:00:00.000Z' },
+          { id: 2, text: 'Second quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
+        ],
+      },
     });
 
-    const result = await vector.ingestAndDecode({ ref: 'readwise:book:11' });
+    const result = await vector.ingestAndDecode({ ref: 'readwise:book:11' }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
@@ -52,9 +59,9 @@ describe('createReadwiseVectorSpec', () => {
         { id: 1, text: 'First quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
       ],
     };
-    const vector = createReadwiseVectorSpec(book, { now: () => new Date('2026-05-25T12:34:56.000Z') });
-    const first = await vector.ingestAndDecode({ ref: 'readwise:book:11' });
-    const second = await vector.ingestAndDecode({ ref: 'readwise:book:11' });
+    const vector = createReadwiseVectorSpec({ book, clock: { now: () => new Date('2026-05-25T12:34:56.000Z') } });
+    const first = await vector.ingestAndDecode({ ref: 'readwise:book:11' }, runtimeContext);
+    const second = await vector.ingestAndDecode({ ref: 'readwise:book:11' }, runtimeContext);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);

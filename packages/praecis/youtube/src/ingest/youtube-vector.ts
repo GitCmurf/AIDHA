@@ -31,11 +31,16 @@ class YouTubeContextProvider implements IContextProvider {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-export function createYouTubeVectorSpec(client: YouTubeClient, clock?: Clock): VectorSpec {
+export interface YouTubeVectorOptions {
+  readonly client: YouTubeClient;
+  readonly clock?: Clock;
+}
+
+export function createYouTubeVectorSpec(options: YouTubeVectorOptions): VectorSpec {
   return {
     sourceId: SOURCE_ID,
     sensitivity: 'public',
-    ingestor: new YouTubeIngestor(client, clock),
+    ingestor: new YouTubeIngestor(options.client, options.clock),
     decode: [new TranscriptDecodeStrategy()],
     context: new YouTubeContextProvider(),
     chunking: 'token-window',

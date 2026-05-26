@@ -4,6 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createMeetingVectorSpec, MeetingIngestor } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 function makeTempMeeting(contents: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'aidha-meeting-'));
@@ -45,8 +51,8 @@ describe('createMeetingVectorSpec', () => {
     const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
     try {
       const vector = createMeetingVectorSpec({ clock: fixedClock });
-      const first = await vector.ingestAndDecode({ ref: file });
-      const second = await vector.ingestAndDecode({ ref: file });
+      const first = await vector.ingestAndDecode({ ref: file }, runtimeContext);
+      const second = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
       expect(first.ok).toBe(true);
       expect(second.ok).toBe(true);
@@ -64,7 +70,7 @@ describe('createMeetingVectorSpec', () => {
     const file = makeTempMeeting('standup transcript alpha beta gamma delta epsilon zeta eta theta');
     try {
       const vector = createMeetingVectorSpec();
-      const result = await vector.ingestAndDecode({ ref: file });
+      const result = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw result.error;

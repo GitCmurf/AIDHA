@@ -71,7 +71,10 @@ export async function runVector(
   const registrationPolicy = assertPolicyAllows(services, vector.sensitivity);
   if (!registrationPolicy.ok) return registrationPolicy;
 
-  const ingestResult = await vector.ingestAndDecode(input);
+  const ingestResult = await vector.ingestAndDecode(input, {
+    config: services.config,
+    clock: services.clock,
+  });
   if (!ingestResult.ok) return ingestResult;
 
   const { raw, segments, warnings } = ingestResult.value;

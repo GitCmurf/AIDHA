@@ -267,7 +267,13 @@ export const ReadwiseSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createReadwiseVectorSpec(book: ReadwiseBook, clock?: Clock) {
+export interface ReadwiseVectorSpecOptions {
+  readonly book: ReadwiseBook;
+  readonly clock?: Clock;
+}
+
+export function createReadwiseVectorSpec(options: ReadwiseVectorSpecOptions) {
+  const { book, clock } = options;
   return composeVector({
     sourceId: 'readwise',
     sensitivity: 'personal',
@@ -322,7 +328,7 @@ export async function fetchReadwiseExport(options: ReadwiseExportOptions): Promi
 export async function runReadwiseBatch(options: ReadwiseExportOptions): Promise<ReadwiseBatchResult> {
   const books = await fetchReadwiseExport(options);
   const summaries = books.map(book => {
-    const vector = createReadwiseVectorSpec(book);
+    const vector = createReadwiseVectorSpec({ book });
     return {
       sourceId: vector.sourceId,
       ref: clean(book.readwise_url) ?? buildReadwiseBookSummary(book).ref,

@@ -255,11 +255,16 @@ export const PdfSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createPdfVectorSpec(readFileFn?: typeof readFile, clock?: Clock) {
+export interface PdfVectorOptions {
+  readonly readFileFn?: typeof readFile;
+  readonly clock?: Clock;
+}
+
+export function createPdfVectorSpec(options: PdfVectorOptions = {}) {
   return {
     sourceId: 'pdf',
     sensitivity: 'personal' as const,
-    ingestor: new PdfIngestor({ ...(readFileFn ? { readFileFn } : {}), ...(clock ? { clock } : {}) }),
+    ingestor: new PdfIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
     decode: [new PdfTextDecodeStrategy(), new PdfOcrDecodeStrategy()],
     context: new PdfContextProvider(),
     chunking: new PdfAdaptiveChunker(),

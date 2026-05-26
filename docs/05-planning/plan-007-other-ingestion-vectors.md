@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.17"
+version: "2.18"
 last_updated: 2026-05-26
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.17
+> **Version:** 2.18
 > **Last Updated:** 2026-05-26
 > **Type:** PLAN
 
@@ -64,6 +64,7 @@ docops_version: "2.0"
 | 2.15    | 2026-05-26 | AI     | Closed the reputation-readiness architecture polish: added a shared core batch runner, moved email batch execution onto the generic CLI runtime context, made reference extraction an enabled spine stage with `RunReport` telemetry, changed partial playlist status to `completed_with_errors`, and started routing source provenance timestamps through the injected clock. | Codex adversarial self-review | In Review | — |
 | 2.16    | 2026-05-26 | AI     | Closed the final batch UX consistency gap: YouTube, Readwise, and email batches now expose a common outcome/completed/failed/errors/reference-telemetry contract; Readwise and email surface partial item failures instead of silently dropping or aborting successful work; and human CLI output reports batch failures. | Codex adversarial self-review | In Review | — |
 | 2.17    | 2026-05-26 | AI     | Remediated the r8 correctness and determinism findings: CLI `runReport` now returns `Result<RunReport>` so batch adapters cannot accidentally fail fast; all source provenance timestamps use the injected runtime clock; the core batch runner is report-driven, catches thrown item failures, and has an opt-in concurrency seam; informal batch `details` duplication is removed; and unified CLI partial-playlist/email behavior is covered by regressions. | Claude Opus peer review, Codex adversarial self-review | In Review | — |
+| 2.18    | 2026-05-26 | AI     | Completed the final refinement pass: composed vectors now receive an explicit runtime context so decode strategies use the real resolved config; source vector factories use object-style options; generic single-vector CLI dispatch centralizes vector construction; batch failure timestamps are captured at item-failure time; and email thread reparenting uses typed metadata merge helpers. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -278,7 +279,9 @@ exports, and email imports share the same top-level `itemCount`, aggregate
 summary fields rather than a duplicated opaque `details` envelope. Taxonomy
 assignments, graph-node lifecycle timestamps, and source provenance timestamps
 come from the injected runtime clock and are asserted as exact durable records in
-fixed-clock tests. Malformed durable
+fixed-clock tests. Decode strategies receive the same resolved runtime config
+used by mining/context/classification rather than a fake placeholder, so future
+source-specific decode policy can be configured through the spine. Malformed durable
 `taxonomyAssignments` metadata fails visibly instead of being silently dropped,
 and `Reference` metadata is validated by `ReferenceMetadataSchema` alongside
 Resource, Excerpt, and Claim metadata.
@@ -841,7 +844,7 @@ export function createIngestionRuntimeFromServices(
 Production CLIs and source packages assemble ingestion through
 `createIngestionRuntime`, which resolves configured services, config-seeded
 taxonomy vocabulary, durable graph-backed taxonomy assignment storage, privacy,
-cache, cost ceiling, injected-clock determinism, and lifecycle ownership in one place.
+cache, cost ceiling, injected-clock determinism, decode configuration, and lifecycle ownership in one place.
 When a batch has already assembled `PipelineServices`, it reuses them explicitly
 through `createIngestionRuntimeFromServices` rather than relying on structural
 type detection. `createPipelineRuntime` remains the low-level runtime primitive

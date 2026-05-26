@@ -63,7 +63,8 @@ async function ingestYouTubeVideoWithRuntime(
   videoId: string,
   options: IngestVideoOptions = {},
 ): Promise<Result<YouTubeVideoIngestResult>> {
-  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec(input.client, input.clock ?? input.services?.clock)), { ref: videoId });
+  const clock = input.clock ?? input.services?.clock;
+  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec({ client: input.client, ...(clock ? { clock } : {}) })), { ref: videoId });
   if (!run.ok) return run;
 
   if (options.refreshTranscript) {

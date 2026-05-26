@@ -84,6 +84,10 @@ function services(): Partial<PipelineServices> {
 }
 
 const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
+const runtimeContext = {
+  config: testConfig(),
+  clock: fixedClock,
+};
 
 function reportFor(ref: string): RunReport {
   return {
@@ -138,29 +142,31 @@ function taxonomyConfig(): ResolvedConfig {
 describe('createEmailVectorSpec', () => {
   it('produces message locators for thread excerpts', async () => {
     const vector = createEmailVectorSpec({
-      threadId: 'email:thread:msg-a',
-      rootMessageId: 'msg-a',
-      subject: 'Project status',
-      participants: ['Alice', 'Bob'],
-      messages: [
-        {
-          filePath: '/tmp/a.eml',
-          messageId: 'msg-a',
-          threadId: 'email:thread:msg-a',
-          rootMessageId: 'msg-a',
-          subject: 'Project status',
-          from: 'Alice',
-          to: ['Bob'],
-          cc: [],
-          date: '2026-05-22T09:00:00.000Z',
-          bodyText: 'Initial note',
-          references: [],
-          attachments: [],
-        },
-      ],
+      thread: {
+        threadId: 'email:thread:msg-a',
+        rootMessageId: 'msg-a',
+        subject: 'Project status',
+        participants: ['Alice', 'Bob'],
+        messages: [
+          {
+            filePath: '/tmp/a.eml',
+            messageId: 'msg-a',
+            threadId: 'email:thread:msg-a',
+            rootMessageId: 'msg-a',
+            subject: 'Project status',
+            from: 'Alice',
+            to: ['Bob'],
+            cc: [],
+            date: '2026-05-22T09:00:00.000Z',
+            bodyText: 'Initial note',
+            references: [],
+            attachments: [],
+          },
+        ],
+      },
     });
 
-    const result = await vector.ingestAndDecode({ ref: '/tmp/a.eml' });
+    const result = await vector.ingestAndDecode({ ref: '/tmp/a.eml' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.raw.canonicalId).toBe('email:thread:msg-a');
@@ -199,9 +205,9 @@ describe('createEmailVectorSpec', () => {
         },
       ],
     };
-    const vector = createEmailVectorSpec(thread, fixedClock);
-    const first = await vector.ingestAndDecode({ ref: '/tmp/a.eml' });
-    const second = await vector.ingestAndDecode({ ref: '/tmp/a.eml' });
+    const vector = createEmailVectorSpec({ thread, clock: fixedClock });
+    const first = await vector.ingestAndDecode({ ref: '/tmp/a.eml' }, runtimeContext);
+    const second = await vector.ingestAndDecode({ ref: '/tmp/a.eml' }, runtimeContext);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);

@@ -169,7 +169,16 @@ function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
-type WebFetchFn = Parameters<typeof createWebVectorSpec>[0];
+type WebFetchFn = NonNullable<Parameters<typeof createWebVectorSpec>[0]>['fetchFn'];
+
+interface CliVectorFactoryContext {
+  readonly config?: ResolvedConfig;
+  readonly clock?: PipelineServices['clock'];
+}
+
+function clockOption(context: CliVectorFactoryContext): { readonly clock?: PipelineServices['clock'] } {
+  return context.clock ? { clock: context.clock } : {};
+}
 
 function stableId(seed: string): string {
   return createHash('sha256').update(seed).digest('hex').slice(0, 16);
@@ -366,20 +375,33 @@ async function buildIngestSummary(
   }
 }
 
+function runSingleVector(
+  context: IngestExecutionContext,
+  sourceId: SourceId,
+  ref: string,
+  createVector: (factoryContext: CliVectorFactoryContext) => ComposedVector,
+  metadata?: Record<string, unknown>,
+): Promise<IngestSummary> {
+  return context.runVector(sourceId, ref, createVector({
+    ...(context.services.config ? { config: context.services.config } : {}),
+    ...(context.services.clock ? { clock: context.services.clock } : {}),
+  }), metadata);
+}
+
 export async function runWebIngest(ref: string, fetchFn?: WebFetchFn, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('web', ref, composeVector(createWebVectorSpec(fetchFn, services.clock)), undefined, services);
+  return buildIngestSummary('web', ref, composeVector(createWebVectorSpec({ ...(fetchFn ? { fetchFn } : {}), ...clockOption(services) })), undefined, services);
 }
 
 export async function runPdfIngest(ref: string, readFileFn?: typeof readFile, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec(readFileFn, services.clock)), undefined, services);
+  return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec({ ...(readFileFn ? { readFileFn } : {}), ...clockOption(services) })), undefined, services);
 }
 
 export async function runVoiceIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('voice', ref, createVoiceVectorSpec({ ...(services.clock ? { clock: services.clock } : {}) }), undefined, services);
+  return buildIngestSummary('voice', ref, createVoiceVectorSpec(clockOption(services)), undefined, services);
 }
 
 export async function runMeetingIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('meeting', ref, createMeetingVectorSpec({ ...(services.clock ? { clock: services.clock } : {}) }), undefined, services);
+  return buildIngestSummary('meeting', ref, createMeetingVectorSpec(clockOption(services)), undefined, services);
 }
 
 export async function runRssIngest(
@@ -387,7 +409,7 @@ export async function runRssIngest(
   options: { fetchFn?: WebFetchFn; itemGuid?: string; services?: Partial<PipelineServices> } = {},
 ): Promise<IngestSummary> {
   const metadata = options.itemGuid ? { itemGuid: options.itemGuid } : undefined;
-  return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec(options.fetchFn, options.services?.clock)), metadata, options.services ?? {});
+  return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...clockOption(options.services ?? {}) })), metadata, options.services ?? {});
 }
 
 export async function runPodcastIngest(
@@ -398,7 +420,7 @@ export async function runPodcastIngest(
     ...(options.episodeGuid ? { episodeGuid: options.episodeGuid } : {}),
     ...(options.panel ? { panel: true } : {}),
   };
-  const vectorOptions = { ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...(options.services?.clock ? { clock: options.services.clock } : {}) };
+  const vectorOptions = { ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...clockOption(options.services ?? {}) };
   return buildIngestSummary('podcast', ref, createPodcastVectorSpec(vectorOptions), metadata, options.services ?? {});
 }
 
@@ -426,7 +448,7 @@ export async function runReadwiseIngest(
     items: books,
     clock: context.services.clock ?? { now: () => new Date() },
     async runItem(book) {
-      const vector = createReadwiseVectorSpec(book, context.services.clock);
+      const vector = createReadwiseVectorSpec({ book, ...clockOption(context.services) });
       const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
       const report = await context.runReport('readwise', ref, vector);
       return report.ok
@@ -491,7 +513,7 @@ export async function runLinkedInIngest(
   ref: string,
   options: { pasteText: string; url?: string; services?: Partial<PipelineServices> },
 ): Promise<IngestSummary> {
-  return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec({ ...options, ...(options.services?.clock ? { clock: options.services.clock } : {}) }), undefined, options.services ?? {});
+  return buildIngestSummary('linkedin', ref, createLinkedInVectorSpec({ ...options, ...clockOption(options.services ?? {}) }), undefined, options.services ?? {});
 }
 
 function youtubeConfigFromResolved(config?: ResolvedConfig): ResolvedYoutubeConfig {
@@ -508,7 +530,7 @@ export async function runYouTubeIngest(
     ...youtubeConfig.ytdlp,
     debugTranscript: youtubeConfig.youtube.debugTranscript,
   });
-  const vector = composeVector(createYouTubeVectorSpec(client, services.clock));
+  const vector = composeVector(createYouTubeVectorSpec({ client, ...clockOption(services) }));
   if (options.context) {
     return options.context.runVector('youtube', ref, vector);
   }
@@ -532,7 +554,7 @@ export async function runYouTubePlaylistIngest(
     client,
     ...(context.services.clock ? { clock: context.services.clock } : {}),
     async runVideo(videoId) {
-      const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec(client, context.services.clock)));
+      const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec({ client, ...clockOption(context.services) })));
       if (!report.ok) {
         return report;
       }
@@ -832,38 +854,59 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
     sourceId: 'web',
     registration: WebSourceRegistration,
     usage: INGEST_USAGE.web,
-    run: ({ positionals, options, context }) => context.runVector('web', requireRef(options, positionals, 'url', INGEST_USAGE.web), composeVector(createWebVectorSpec(undefined, context.services.clock))),
+    run: ({ positionals, options, context }) => runSingleVector(
+      context,
+      'web',
+      requireRef(options, positionals, 'url', INGEST_USAGE.web),
+      factoryContext => composeVector(createWebVectorSpec(clockOption(factoryContext))),
+    ),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'pdf',
     registration: PdfSourceRegistration,
     usage: INGEST_USAGE.pdf,
-    run: ({ positionals, options, context }) => context.runVector('pdf', requireRef(options, positionals, 'file', INGEST_USAGE.pdf), composeVector(createPdfVectorSpec(undefined, context.services.clock))),
+    run: ({ positionals, options, context }) => runSingleVector(
+      context,
+      'pdf',
+      requireRef(options, positionals, 'file', INGEST_USAGE.pdf),
+      factoryContext => composeVector(createPdfVectorSpec(clockOption(factoryContext))),
+    ),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'voice',
     registration: VoiceSourceRegistration,
     usage: INGEST_USAGE.voice,
-    run: ({ positionals, options, context }) => context.runVector('voice', requireRef(options, positionals, 'file', INGEST_USAGE.voice), createVoiceVectorSpec({ ...(context.services.clock ? { clock: context.services.clock } : {}) })),
+    run: ({ positionals, options, context }) => runSingleVector(
+      context,
+      'voice',
+      requireRef(options, positionals, 'file', INGEST_USAGE.voice),
+      factoryContext => createVoiceVectorSpec(clockOption(factoryContext)),
+    ),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'meeting',
     registration: MeetingSourceRegistration,
     usage: INGEST_USAGE.meeting,
-    run: ({ positionals, options, context }) => context.runVector('meeting', requireRef(options, positionals, 'file', INGEST_USAGE.meeting), createMeetingVectorSpec({ ...(context.services.clock ? { clock: context.services.clock } : {}) })),
+    run: ({ positionals, options, context }) => runSingleVector(
+      context,
+      'meeting',
+      requireRef(options, positionals, 'file', INGEST_USAGE.meeting),
+      factoryContext => createMeetingVectorSpec(clockOption(factoryContext)),
+    ),
     print: printSingleIngestSummary,
   },
   {
     sourceId: 'rss',
     registration: RssSourceRegistration,
     usage: INGEST_USAGE.rss,
-    run: ({ positionals, options, context }) => context.runVector(
+    run: ({ positionals, options, context }) => runSingleVector(
+      context,
       'rss',
       requireRef(options, positionals, 'feed', INGEST_USAGE.rss),
-      composeVector(createRssVectorSpec(undefined, context.services.clock)),
+      factoryContext => composeVector(createRssVectorSpec(clockOption(factoryContext))),
       optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : undefined,
     ),
     print: printSingleIngestSummary,
@@ -872,10 +915,11 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
     sourceId: 'podcast',
     registration: PodcastSourceRegistration,
     usage: INGEST_USAGE.podcast,
-    run: ({ positionals, options, context }) => context.runVector(
+    run: ({ positionals, options, context }) => runSingleVector(
+      context,
       'podcast',
       requireRef(options, positionals, 'feed', INGEST_USAGE.podcast),
-      createPodcastVectorSpec({ ...(context.services.clock ? { clock: context.services.clock } : {}) }),
+      factoryContext => createPodcastVectorSpec(clockOption(factoryContext)),
       {
         ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
         ...(optionBool(options, 'panel') ? { panel: true } : {}),
@@ -931,8 +975,12 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
       if (!pasteText) {
         throw new Error(`Usage: ${INGEST_USAGE.linkedin}`);
       }
-      const linkedInOptions = { ...(url ? { pasteText, url } : { pasteText }), ...(context.services.clock ? { clock: context.services.clock } : {}) };
-      return context.runVector('linkedin', url ?? 'stdin', createLinkedInVectorSpec(linkedInOptions));
+      return runSingleVector(
+        context,
+        'linkedin',
+        url ?? 'stdin',
+        factoryContext => createLinkedInVectorSpec({ ...(url ? { pasteText, url } : { pasteText }), ...clockOption(factoryContext) }),
+      );
     },
     print: printSingleIngestSummary,
   },

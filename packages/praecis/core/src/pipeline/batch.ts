@@ -24,6 +24,13 @@ export interface BatchRunInput<TItem, TValue> {
   runItem(item: TItem): Promise<Result<TValue>>;
 }
 
+type SettledBatchItem<TItem, TValue> = {
+  readonly index: number;
+  readonly item: TItem;
+  readonly result: Result<TValue>;
+  readonly failedAt?: string;
+};
+
 export interface BatchRunResult<TItem, TValue> {
   readonly outcome: BatchOutcome;
   readonly total: number;
@@ -82,25 +89,33 @@ export async function runBatch<TItem, TValue extends { readonly report: RunRepor
   const failures: BatchItemFailure<TItem>[] = [];
   const concurrency = Math.max(1, Math.floor(input.concurrency ?? 1));
 
-  async function runOne(item: TItem, index: number): Promise<{ readonly index: number; readonly item: TItem; readonly result: Result<TValue> }> {
+  async function runOne(item: TItem, index: number): Promise<SettledBatchItem<TItem, TValue>> {
     try {
-      return { index, item, result: await input.runItem(item) };
+      const result = await input.runItem(item);
+      return result.ok
+        ? { index, item, result }
+        : { index, item, result, failedAt: input.clock.now().toISOString() };
     } catch (error) {
-      return { index, item, result: { ok: false, error: error instanceof Error ? error : new Error(String(error)) } };
+      return {
+        index,
+        item,
+        result: { ok: false, error: error instanceof Error ? error : new Error(String(error)) },
+        failedAt: input.clock.now().toISOString(),
+      };
     }
   }
 
-  const settled: Array<{ readonly index: number; readonly item: TItem; readonly result: Result<TValue> }> = [];
+  const settled: Array<SettledBatchItem<TItem, TValue>> = [];
   for (let index = 0; index < input.items.length; index += concurrency) {
     const slice = input.items.slice(index, index + concurrency);
     settled.push(...await Promise.all(slice.map((item, offset) => runOne(item, index + offset))));
   }
 
-  for (const { item, result } of settled.sort((a, b) => a.index - b.index)) {
+  for (const { item, result, failedAt } of settled.sort((a, b) => a.index - b.index)) {
     if (result.ok) {
       successes.push({ item, value: result.value });
     } else {
-      failures.push({ item, message: result.error.message, timestamp: input.clock.now().toISOString() });
+      failures.push({ item, message: result.error.message, timestamp: failedAt ?? input.clock.now().toISOString() });
     }
   }
 

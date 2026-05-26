@@ -494,7 +494,13 @@ export const EmailSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createEmailVectorSpec(thread: EmailThread, clock?: Clock) {
+export interface EmailVectorOptions {
+  readonly thread: EmailThread;
+  readonly clock?: Clock;
+}
+
+export function createEmailVectorSpec(options: EmailVectorOptions) {
+  const { thread, clock } = options;
   return composeVector({
     sourceId: 'email',
     sensitivity: 'confidential',
@@ -563,7 +569,7 @@ export async function runEmailBatchWithContext(
     items: threads,
     clock: context.clock ?? { now: () => new Date() },
     async runItem(thread) {
-      const vector = createEmailVectorSpec(thread, context.clock);
+      const vector = createEmailVectorSpec({ thread, ...(context.clock ? { clock: context.clock } : {}) });
       const threadRef = thread.messages.map(message => message.filePath).join(', ');
       const runEmailThread = async () => {
         const run = await context.runVector(vector, { ref: threadRef });
@@ -650,6 +656,44 @@ export interface ReparentEmailThreadOptions {
   readonly skipTransaction?: boolean;
 }
 
+interface MetadataCarrier {
+  readonly metadata?: Record<string, unknown>;
+}
+
+export function readStringArrayMetadata(node: MetadataCarrier | null | undefined, key: string): readonly string[] {
+  const value = node?.metadata?.[key];
+  return Array.isArray(value) && value.every(item => typeof item === 'string') ? value : [];
+}
+
+export function readArrayMetadata(node: MetadataCarrier | null | undefined, key: string): readonly unknown[] {
+  const value = node?.metadata?.[key];
+  return Array.isArray(value) ? value : [];
+}
+
+export function mergeEmailResourceMetadata(
+  rootNode: MetadataCarrier | null | undefined,
+  provisionalNode: MetadataCarrier | null | undefined,
+  thread: EmailThread,
+): Record<string, unknown> {
+  const finalThreadId = thread.threadId;
+  const provisionalId = provisionalThreadId(thread.messages[0]?.messageId ?? thread.rootMessageId);
+  return {
+    canonicalId: finalThreadId,
+    sourceType: 'email',
+    dedupKeys: Array.from(new Set([
+      ...readStringArrayMetadata(rootNode, 'dedupKeys'),
+      ...readStringArrayMetadata(provisionalNode, 'dedupKeys'),
+      finalThreadId,
+      provisionalId,
+    ])),
+    provenances: [
+      ...readArrayMetadata(rootNode, 'provenances'),
+      ...readArrayMetadata(provisionalNode, 'provenances'),
+    ],
+    ...emailThreadResourceMetadata(thread),
+  };
+}
+
 export async function reparentEmailThread(
   store: GraphStore,
   thread: EmailThread,
@@ -671,26 +715,10 @@ export async function reparentEmailThread(
     if (!rootNodeResult.ok) return rootNodeResult;
     const rootNode = rootNodeResult.value;
 
-    const mergedDedupKeys = Array.from(new Set([
-      ...(rootNode?.metadata && Array.isArray((rootNode.metadata as Record<string, unknown>)['dedupKeys']) ? (rootNode.metadata as Record<string, unknown>)['dedupKeys'] as string[] : []),
-      ...(provisionalNode?.metadata && Array.isArray((provisionalNode.metadata as Record<string, unknown>)['dedupKeys']) ? (provisionalNode.metadata as Record<string, unknown>)['dedupKeys'] as string[] : []),
-      finalThreadId,
-      provisionalId,
-    ]));
-
     await store.upsertNode('Resource', finalThreadId, {
       label: thread.subject,
-      metadata: {
-        canonicalId: finalThreadId,
-        sourceType: 'email',
-        dedupKeys: mergedDedupKeys,
-          provenances: [
-            ...(rootNode?.metadata && Array.isArray((rootNode.metadata as Record<string, unknown>)['provenances']) ? (rootNode.metadata as Record<string, unknown>)['provenances'] as unknown[] : []),
-            ...(provisionalNode?.metadata && Array.isArray((provisionalNode.metadata as Record<string, unknown>)['provenances']) ? (provisionalNode.metadata as Record<string, unknown>)['provenances'] as unknown[] : []),
-          ],
-          ...emailThreadResourceMetadata(thread),
-        },
-      });
+      metadata: mergeEmailResourceMetadata(rootNode, provisionalNode, thread),
+    });
 
     const existingEdges = await store.getEdges({ subject: provisionalId, predicate: 'resourceHasExcerpt' });
     if (!existingEdges.ok) return existingEdges;

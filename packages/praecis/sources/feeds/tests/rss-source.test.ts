@@ -4,6 +4,12 @@
 import { describe, expect, it } from 'vitest';
 import { composeVector } from '@aidha/praecis-core';
 import { RssIngestor, RssTextDecodeStrategy, createRssVectorSpec } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 const feedXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -129,9 +135,9 @@ describe('RssTextDecodeStrategy', () => {
 describe('createRssVectorSpec', () => {
   it('uses the injected clock for provenance timestamps', async () => {
     const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
-    const vector = composeVector(createRssVectorSpec(makeFetch(), fixedClock));
-    const first = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' });
-    const second = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' });
+    const vector = composeVector(createRssVectorSpec({ fetchFn: makeFetch(), clock: fixedClock }));
+    const first = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
+    const second = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
@@ -142,8 +148,8 @@ describe('createRssVectorSpec', () => {
   });
 
   it('builds a composed rss vector that fetches full text when needed', async () => {
-    const vector = composeVector(createRssVectorSpec(makeFetch()));
-    const result = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' });
+    const vector = composeVector(createRssVectorSpec({ fetchFn: makeFetch() }));
+    const result = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;

@@ -145,11 +145,16 @@ export const WebSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createWebVectorSpec(fetchFn?: WebFetchFn, clock?: Clock) {
+export interface WebVectorOptions {
+  readonly fetchFn?: WebFetchFn;
+  readonly clock?: Clock;
+}
+
+export function createWebVectorSpec(options: WebVectorOptions = {}) {
   return {
     sourceId: 'web',
     sensitivity: 'public' as const,
-    ingestor: new WebIngestor({ ...(fetchFn ? { fetchFn } : {}), ...(clock ? { clock } : {}) }),
+    ingestor: new WebIngestor({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
     decode: [new WebTextDecodeStrategy()],
     context: new NoOpContextProvider(),
     chunking: 'token-window' as const,

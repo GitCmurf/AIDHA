@@ -13,6 +13,12 @@ import {
   PdfTextDecodeStrategy,
   createPdfVectorSpec,
 } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 function makeTempPdf(contents: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'aidha-pdf-'));
@@ -114,9 +120,9 @@ describe('createPdfVectorSpec', () => {
     const file = makeTempPdf('Clocked page');
     const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
     try {
-      const vector = composeVector(createPdfVectorSpec(undefined, fixedClock));
-      const first = await vector.ingestAndDecode({ ref: file });
-      const second = await vector.ingestAndDecode({ ref: file });
+      const vector = composeVector(createPdfVectorSpec({ clock: fixedClock }));
+      const first = await vector.ingestAndDecode({ ref: file }, runtimeContext);
+      const second = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
       expect(first.ok).toBe(true);
       expect(second.ok).toBe(true);
@@ -134,7 +140,7 @@ describe('createPdfVectorSpec', () => {
     const file = makeTempPdf('Alpha\fBeta');
     try {
       const vector = composeVector(createPdfVectorSpec());
-      const result = await vector.ingestAndDecode({ ref: file });
+      const result = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw result.error;

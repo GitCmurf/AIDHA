@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createLinkedInVectorSpec } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 describe('LinkedIn paste pipeline', () => {
   it('uses the injected clock for provenance timestamps', async () => {
@@ -10,8 +16,8 @@ describe('LinkedIn paste pipeline', () => {
       clock: fixedClock,
     });
 
-    const first = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' });
-    const second = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' });
+    const first = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' }, runtimeContext);
+    const second = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' }, runtimeContext);
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     if (!first.ok) throw first.error;
@@ -26,7 +32,7 @@ describe('LinkedIn paste pipeline', () => {
       url: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/',
     });
 
-    const result = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' });
+    const result = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
 

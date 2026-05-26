@@ -4,6 +4,12 @@
 import { describe, expect, it } from 'vitest';
 import { composeVector } from '@aidha/praecis-core';
 import { WebIngestor, WebTextDecodeStrategy, createWebVectorSpec, buildWebResourceId } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 function makeFetch(html: string, url = 'https://Example.com/article?utm_source=rss') {
   return async () => ({
@@ -80,8 +86,8 @@ describe('WebTextDecodeStrategy', () => {
 
 describe('createWebVectorSpec', () => {
   it('builds a composed vector that works end-to-end', async () => {
-    const vector = composeVector(createWebVectorSpec(makeFetch('<title>Vector title</title><p>Body</p>')));
-    const result = await vector.ingestAndDecode({ ref: 'https://example.com/article?utm_source=rss' });
+    const vector = composeVector(createWebVectorSpec({ fetchFn: makeFetch('<title>Vector title</title><p>Body</p>') }));
+    const result = await vector.ingestAndDecode({ ref: 'https://example.com/article?utm_source=rss' }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
@@ -90,11 +96,11 @@ describe('createWebVectorSpec', () => {
   });
 
   it('keeps the primary web id fetch-independent when a request redirects', async () => {
-    const vector = composeVector(createWebVectorSpec(makeFetch(
+    const vector = composeVector(createWebVectorSpec({ fetchFn: makeFetch(
       '<title>Redirect</title><p>Redirected body text with enough detail.</p>',
       'https://cdn.example.com/final',
-    )));
-    const result = await vector.ingestAndDecode({ ref: 'https://example.com/original?utm_source=test' });
+    ) }));
+    const result = await vector.ingestAndDecode({ ref: 'https://example.com/original?utm_source=test' }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;

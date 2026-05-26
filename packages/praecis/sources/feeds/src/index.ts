@@ -208,11 +208,16 @@ export const RssSourceRegistration: SourceRegistration = {
   validateActiveSourceConfig: (value: unknown) => value,
 };
 
-export function createRssVectorSpec(fetchFn?: WebFetchFn, clock?: Clock) {
+export interface RssVectorOptions {
+  readonly fetchFn?: WebFetchFn;
+  readonly clock?: Clock;
+}
+
+export function createRssVectorSpec(options: RssVectorOptions = {}) {
   return {
     sourceId: 'rss',
     sensitivity: 'public' as const,
-    ingestor: new RssIngestor({ ...(fetchFn ? { fetchFn } : {}), ...(clock ? { clock } : {}) }),
+    ingestor: new RssIngestor({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}), ...(options.clock ? { clock: options.clock } : {}) }),
     decode: [new RssTextDecodeStrategy()],
     context: new RssContextProvider(),
     chunking: 'token-window' as const,

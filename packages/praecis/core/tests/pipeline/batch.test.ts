@@ -121,4 +121,28 @@ describe('runBatch', () => {
     expect(result.successes.map(success => success.item)).toEqual(['slow', 'fast']);
     expect(result.successes.map(success => success.value.report.canonicalId)).toEqual(['test:slow', 'test:fast']);
   });
+
+  it('records failure timestamps when the item fails, not when results are collated', async () => {
+    const times = [
+      '2026-05-25T12:00:00.000Z',
+      '2026-05-25T12:00:01.000Z',
+      '2026-05-25T12:00:02.000Z',
+      '2026-05-25T12:00:03.000Z',
+    ];
+    const clock = {
+      now: () => new Date(times.shift() ?? '2026-05-25T12:00:04.000Z'),
+    };
+
+    const result = await runBatch({
+      items: ['a'],
+      clock,
+      async runItem() {
+        return { ok: false, error: new Error('captured') };
+      },
+    });
+
+    expect(result.startedAt).toBe('2026-05-25T12:00:00.000Z');
+    expect(result.failures).toEqual([{ item: 'a', message: 'captured', timestamp: '2026-05-25T12:00:01.000Z' }]);
+    expect(result.completedAt).toBe('2026-05-25T12:00:02.000Z');
+  });
 });

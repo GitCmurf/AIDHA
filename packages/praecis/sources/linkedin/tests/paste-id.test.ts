@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createLinkedInVectorSpec } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 describe('LinkedIn paste bridge identity', () => {
   it('derives canonical ids from activity urn urls when present', async () => {
@@ -8,7 +14,7 @@ describe('LinkedIn paste bridge identity', () => {
       url: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/',
     });
 
-    const result = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' });
+    const result = await vector.ingestAndDecode({ ref: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
 
@@ -27,7 +33,7 @@ describe('LinkedIn paste bridge identity', () => {
       pasteText: 'Plain paste with no URL',
     });
 
-    const result = await vector.ingestAndDecode({ ref: 'stdin' });
+    const result = await vector.ingestAndDecode({ ref: 'stdin' }, runtimeContext);
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
 

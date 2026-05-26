@@ -1,8 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { reparentEmailThread, type EmailThread } from '../src/index.js';
+import { mergeEmailResourceMetadata, reparentEmailThread, type EmailThread } from '../src/index.js';
 
 describe('thread reparenting', () => {
+  it('merges final and provisional resource metadata without inline graph casts', () => {
+    const thread: EmailThread = {
+      threadId: 'email:thread:msg-a',
+      rootMessageId: 'msg-a',
+      subject: 'Project status',
+      participants: ['Alice', 'Bob'],
+      messages: [{
+        filePath: 'root.eml',
+        messageId: 'msg-c',
+        threadId: 'email:thread:msg-a',
+        rootMessageId: 'msg-a',
+        subject: 'Project status',
+        from: 'Alice',
+        to: ['Bob'],
+        cc: [],
+        bodyText: 'Root body',
+        references: ['msg-a'],
+        attachments: [],
+      }],
+    };
+
+    const metadata = mergeEmailResourceMetadata(
+      { metadata: { dedupKeys: ['email:thread:msg-a'], provenances: [{ sourceType: 'email', ingestedAt: 'first' }] } },
+      { metadata: { dedupKeys: ['email:thread:msg-c'], provenances: [{ sourceType: 'email', ingestedAt: 'second' }] } },
+      thread,
+    );
+
+    expect(metadata['canonicalId']).toBe('email:thread:msg-a');
+    expect(metadata['sourceType']).toBe('email');
+    expect(metadata['dedupKeys']).toEqual(['email:thread:msg-a', 'email:thread:msg-c']);
+    expect(metadata['provenances']).toEqual([
+      { sourceType: 'email', ingestedAt: 'first' },
+      { sourceType: 'email', ingestedAt: 'second' },
+    ]);
+    expect(metadata['subject']).toBe('Project status');
+  });
+
   it('moves provisional leaf-thread excerpts under the final root thread id', async () => {
     const store = new InMemoryStore();
     await store.upsertNode('Resource', 'email:thread:msg-c', {

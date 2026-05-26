@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createPodcastVectorSpec, PodcastIngestor } from '../src/index.js';
+import type { ResolvedConfig } from '@aidha/config';
+
+const runtimeContext = {
+  config: {} as ResolvedConfig,
+  clock: { now: () => new Date('2026-05-25T12:34:56.000Z') },
+};
 
 const feedXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -119,7 +125,7 @@ describe('createPodcastVectorSpec', () => {
       mockTranscriber: { transcriptText: 'solo episode transcript alpha beta gamma delta epsilon zeta eta theta' },
     });
 
-    const result = await vector.ingestAndDecode({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } });
+    const result = await vector.ingestAndDecode({ ref: 'https://pod.example.com/feed.xml', metadata: { episodeGuid: 'episode-1' } }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
@@ -138,7 +144,7 @@ describe('createPodcastVectorSpec', () => {
     const result = await vector.ingestAndDecode({
       ref: 'https://pod.example.com/feed.xml',
       metadata: { episodeGuid: 'episode-2', panel: true },
-    });
+    }, runtimeContext);
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
