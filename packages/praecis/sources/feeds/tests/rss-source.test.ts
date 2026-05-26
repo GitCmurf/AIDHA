@@ -2,7 +2,6 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { describe, expect, it } from 'vitest';
-import { composeVector } from '@aidha/praecis-core';
 import { RssIngestor, RssTextDecodeStrategy, createRssVectorSpec } from '../src/index.js';
 import type { ResolvedConfig } from '@aidha/config';
 
@@ -134,7 +133,7 @@ describe('RssTextDecodeStrategy', () => {
 
 describe('createRssVectorSpec', () => {
   it('uses the injected clock for provenance timestamps', async () => {
-    const vector = composeVector(createRssVectorSpec({ fetchFn: makeFetch() }));
+    const vector = createRssVectorSpec({ fetchFn: makeFetch() });
     const first = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
     const second = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
 
@@ -147,7 +146,7 @@ describe('createRssVectorSpec', () => {
   });
 
   it('builds a composed rss vector that fetches full text when needed', async () => {
-    const vector = composeVector(createRssVectorSpec({ fetchFn: makeFetch() }));
+    const vector = createRssVectorSpec({ fetchFn: makeFetch() });
     const result = await vector.ingestAndDecode({ ref: 'https://example.com/feed.xml' }, runtimeContext);
 
     expect(result.ok).toBe(true);

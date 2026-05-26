@@ -13,11 +13,12 @@ import type {
   RawSource,
   ExtractionContext,
   VectorRuntimeContext,
+  ComposedVector,
 } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import { HttpWebFetcher, type WebFetchFn } from '@aidha/praecis-acquire-webfetch';
-import { urlCanonical } from '@aidha/praecis-core';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
+import { composeVector, createRawSource, emptySourceConfigRegistration, urlCanonical } from '@aidha/praecis-core';
+import type { ResolvedConfig } from '@aidha/config';
 
 export interface RssItem {
   readonly guid?: string;
@@ -90,9 +91,9 @@ function feedContext(feedTitle: string, item: RssItem): ExtractionContext {
   };
 }
 
-class RssContextProvider implements IContextProvider {
-  async build(raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
-    const payload = raw.payload as RssFeedPayload | undefined;
+class RssContextProvider implements IContextProvider<RssFeedPayload> {
+  async build(raw: RawSource<RssFeedPayload>, _config: ResolvedConfig): Promise<ExtractionContext> {
+    const payload = raw.payload;
     if (!payload) {
       return {};
     }
@@ -108,7 +109,7 @@ export class RssIngestor implements IIngestor<RssFeedPayload> {
     this.fetcher = new HttpWebFetcher(options.fetchFn);
   }
 
-  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: RssFeedPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<RssFeedPayload>>> {
     const feedResult = await this.fetcher.fetch({ url: input.ref });
     if (!feedResult.ok) return feedResult;
 
@@ -150,16 +151,13 @@ export class RssIngestor implements IIngestor<RssFeedPayload> {
 
     return {
       ok: true,
-      value: {
+      value: createRawSource({
         canonicalId,
         dedupKeys: Array.from(dedupKeys),
         sourceType: 'rss',
         sensitivity: 'public',
-        provenance: {
-          sourceUri: input.ref,
-          ingestedAt: runtimeContext.clock.now().toISOString(),
-          sourceType: 'rss',
-        },
+        sourceUri: input.ref,
+        clock: runtimeContext.clock,
         resourceMetadata: {
           title: item.title,
           feedTitle,
@@ -171,19 +169,19 @@ export class RssIngestor implements IIngestor<RssFeedPayload> {
         },
         payload,
         label: item.title,
-      },
+      }),
     };
   }
 }
 
-export class RssTextDecodeStrategy implements IDecodeStrategy {
+export class RssTextDecodeStrategy implements IDecodeStrategy<RssFeedPayload> {
   readonly name = 'text-extract:rss';
 
-  async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
+  async decode(input: DecodeInput<RssFeedPayload>): Promise<Result<DecodeOutput>> {
     if (input.raw.sourceType !== 'rss') {
       return { ok: false, error: new Error(`RssTextDecodeStrategy expected sourceType=rss, got ${input.raw.sourceType}`) };
     }
-    const payload = input.raw.payload as RssFeedPayload | undefined;
+    const payload = input.raw.payload;
     if (!payload) {
       return { ok: false, error: new Error('RssTextDecodeStrategy expected RssFeedPayload') };
     }
@@ -199,17 +197,14 @@ export class RssTextDecodeStrategy implements IDecodeStrategy {
   }
 }
 
-export const RssSourceRegistration: SourceRegistration = {
-  sourceId: 'rss',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const RssSourceRegistration = emptySourceConfigRegistration('rss');
 
 export interface RssVectorOptions {
   readonly fetchFn?: WebFetchFn;
 }
 
-export function createRssVectorSpec(options: RssVectorOptions = {}) {
-  return {
+export function createRssVectorSpec(options: RssVectorOptions = {}): ComposedVector<RssFeedPayload> {
+  return composeVector({
     sourceId: 'rss',
     sensitivity: 'public' as const,
     ingestor: new RssIngestor({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}) }),
@@ -217,7 +212,7 @@ export function createRssVectorSpec(options: RssVectorOptions = {}) {
     context: new RssContextProvider(),
     chunking: 'token-window' as const,
     registration: RssSourceRegistration,
-  };
+  });
 }
 
 export * from './podcast.js';

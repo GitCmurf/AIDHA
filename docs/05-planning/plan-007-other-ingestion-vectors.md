@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-007
 owner: Ingestion Engineering Lead
 status: In Review
-version: "2.19"
+version: "2.20"
 last_updated: 2026-05-26
 title: Other Ingestion Vectors
 type: PLAN
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Ingestion Engineering Lead
 > **Approvers:** GPT (adversarial), Gemini (adversarial), Self-review
 > **Status:** In Review
-> **Version:** 2.19
+> **Version:** 2.20
 > **Last Updated:** 2026-05-26
 > **Type:** PLAN
 
@@ -66,6 +66,7 @@ docops_version: "2.0"
 | 2.17    | 2026-05-26 | AI     | Remediated the r8 correctness and determinism findings: CLI `runReport` now returns `Result<RunReport>` so batch adapters cannot accidentally fail fast; all source provenance timestamps use the injected runtime clock; the core batch runner is report-driven, catches thrown item failures, and has an opt-in concurrency seam; informal batch `details` duplication is removed; and unified CLI partial-playlist/email behavior is covered by regressions. | Claude Opus peer review, Codex adversarial self-review | In Review | — |
 | 2.18    | 2026-05-26 | AI     | Completed the final refinement pass: composed vectors now receive an explicit runtime context so decode strategies use the real resolved config; source vector factories use object-style options; generic single-vector CLI dispatch centralizes vector construction; batch failure timestamps are captured at item-failure time; and email thread reparenting uses typed metadata merge helpers. | Codex adversarial self-review | In Review | — |
 | 2.19    | 2026-05-26 | AI     | Closed the runtime-ownership polish: acquisition now receives the same explicit runtime context as decode, source provenance timestamps are stamped from `PipelineServices.clock`, vector factories no longer accept provenance clocks, and the legacy register/run runtime primitive was deleted so production code and regression tests share configured `runVector` semantics. | Codex adversarial self-review | In Review | — |
+| 2.20    | 2026-05-26 | AI     | Added the source-contract taste pass: `RawSource`, `IIngestor`, decode strategies, context providers, vector specs, and composed vectors now carry typed payloads; source factories all return `ComposedVector`; source envelope construction centralizes provenance/resource-metadata hygiene; non-configurable sources reject source-private config typos; and generic CLI single-vector manifests share one helper path. | Codex adversarial self-review | In Review | — |
 
 ## Objective
 
@@ -229,7 +230,7 @@ contract is a baseline dependency, not work re-derived by this plan.
 
 ### Current Remediation State
 
-Version 2.19 resolves the implementation and product-surface neutrality blockers
+Version 2.20 resolves the implementation and product-surface neutrality blockers
 found across the 2026-05-25 peer-review rounds. `packages/praecis/core` owns the
 shared runtime, extractor, prompt routing, token budget, reference extraction,
 purge path, dedup/link logic, Resource metadata persistence, classification, and
@@ -253,6 +254,8 @@ runner's `outcome`/`completed`/`failed`/`errors`, `reference-telemetry`,
 aggregate classification/metadata, and injected-clock timestamp contract. Readwise and
 email use the same partial-failure contract as YouTube: failed items are visible
 in JSON and human output, while successfully ingested items remain available.
+Single-vector source manifests share the same CLI helper path, so adding a new
+non-batch vector no longer means copying dispatch/summary boilerplate.
 The separate
 `aidha-youtube` command remains for advanced YouTube-only operations such as
 transcript diagnosis, dossier export, review queues, eval-matrix tooling, and
@@ -471,7 +474,7 @@ export interface ExtractionContext {
 }
 
 // raw-source.ts — Acquire output (handles + metadata, not text).
-export interface RawSource {
+export interface RawSource<TPayload = unknown> {
   canonicalId: string;          // e.g. "web:https://example.com/a"
   /** Additional deterministic identities used by the dedup resolver before insert. */
   dedupKeys?: string[];         // e.g. RSS guid, web canonical URL, DOI, content hash
@@ -479,7 +482,7 @@ export interface RawSource {
   sensitivity: 'public' | 'personal' | 'confidential';
   provenance: ProvenanceInput;  // sourceUri, ingestedAt, pipelineVersion, sourceType
   /** Opaque payload the decode chain understands (file path, html, api rows…). */
-  payload: unknown;
+  payload: TPayload;
   /** Human-readable Resource label. */
   label: string;
   /** Source-specific Resource metadata persisted by the shared spine. */
@@ -683,7 +686,7 @@ export interface IIngestor<TPayload = unknown> {
   acquire(
     input: IngestInput,
     runtimeContext: VectorRuntimeContext,
-  ): Promise<Result<RawSource & { payload: TPayload }>>;
+  ): Promise<Result<RawSource<TPayload>>>;
 }
 
 export interface VectorRuntimeContext {
@@ -696,8 +699,8 @@ export interface VectorRuntimeContext {
 // strategy sees the segments produced so far. Both always carry the shared context
 // so a strategy can read source metadata (e.g. diarize needs the audio handle that
 // transcribe also used).
-export interface DecodeInput {
-  readonly raw: RawSource;              // always present: identity, payload, sourceType
+export interface DecodeInput<TPayload = unknown> {
+  readonly raw: RawSource<TPayload>;    // always present: identity, payload, sourceType
   /** undefined for the first strategy in the chain; the upstream output otherwise. */
   readonly upstream?: readonly MediaSegment[];
   readonly config: ResolvedConfig;     // backend selection, budgets
@@ -718,9 +721,9 @@ export interface DecodeOutput {
 
 // IDecodeStrategy — Decode axis. Composable, ordered. The pipeline folds the chain:
 //   out = chain.reduce(acc => strategy.decode({ raw, upstream: acc.segments, config }))
-export interface IDecodeStrategy {
+export interface IDecodeStrategy<TPayload = unknown> {
   readonly name: string;                // 'text-extract' | 'transcribe' | 'diarize' | 'ocr' | 'passthrough'
-  decode(input: DecodeInput): Promise<Result<DecodeOutput>>;
+  decode(input: DecodeInput<TPayload>): Promise<Result<DecodeOutput>>;
 }
 
 // IChunker — shared spine stage, selected by vector policy/context hints.
@@ -775,31 +778,31 @@ export interface IWebFetcher {
 }
 
 // IContextProvider — Contextualize axis.
-export interface IContextProvider {
-  build(raw: RawSource, userConfig: ResolvedConfig): Promise<ExtractionContext>;
+export interface IContextProvider<TPayload = unknown> {
+  build(raw: RawSource<TPayload>, userConfig: ResolvedConfig): Promise<ExtractionContext>;
 }
 
 // composeVector — wires the four axes into a runnable vector + SourceRegistration.
 export function composeVector(spec: VectorSpec): ComposedVector;
 
-export interface VectorSpec {
+export interface VectorSpec<TPayload = unknown> {
   sourceId: string;
   sensitivity: 'public' | 'personal' | 'confidential';
-  ingestor: IIngestor;
-  decode: IDecodeStrategy[];            // ordered chain
-  context: IContextProvider;
+  ingestor: IIngestor<TPayload>;
+  decode: IDecodeStrategy<TPayload>[];  // ordered chain
+  context: IContextProvider<TPayload>;
   chunking: IChunker | 'token-window' | 'section' | 'conversation' | 'highlight';
   registration: SourceRegistration;     // from @aidha/config (AIDHA-PLAN-005)
 }
 
 // ComposedVector — the validated, runnable result the pipeline consumes.
-export interface ComposedVector {
+export interface ComposedVector<TPayload = unknown> {
   readonly sourceId: string;
-  readonly sensitivity: VectorSpec['sensitivity'];
-  readonly ingestor: IIngestor;
+  readonly sensitivity: VectorSpec<TPayload>['sensitivity'];
+  readonly ingestor: IIngestor<TPayload>;
   /** Frozen, validated decode chain. */
-  readonly decode: readonly IDecodeStrategy[];
-  readonly context: IContextProvider;
+  readonly decode: readonly IDecodeStrategy<TPayload>[];
+  readonly context: IContextProvider<TPayload>;
   readonly chunking: IChunker;
   readonly registration: SourceRegistration;
   /** Convenience: run ingestor + decode chain, flattening each step's DecodeOutput
@@ -807,7 +810,7 @@ export interface ComposedVector {
   ingestAndDecode(
     input: IngestInput,
     runtimeContext: VectorRuntimeContext,
-  ): Promise<Result<{ raw: RawSource; segments: MediaSegment[]; warnings: DecodeWarning[] }>>;
+  ): Promise<Result<{ raw: RawSource<TPayload>; segments: MediaSegment[]; warnings: DecodeWarning[] }>>;
 }
 
 // ── The run half ────────────────────────────────────────────────────────────
@@ -863,6 +866,12 @@ export → classify(optional)`, with idempotency keyed on `canonicalId` and cach
 keyed on content hashes (Section 7.5). `chunking` is explicit because several vectors need different
 policies (Readwise highlights should not be re-windowed; slide PDFs need section-ish
 chunks; meetings need conversation-aware speaker turns).
+
+Source ingestors construct `RawSource<TPayload>` through the shared source-envelope
+helper rather than hand-assembling durable metadata. The helper owns injected-clock
+provenance stamping, JSON-safe Resource metadata validation, and reserved metadata
+key stripping (`canonicalId`, `sourceType`, `dedupKeys`, `provenances`, `label`), so
+future vectors cannot accidentally overwrite spine-owned Resource fields.
 
 Classification is a shared optional spine port, not a YouTube-only side effect.
 When `extensions.taxonomy` is present in resolved config, the configured service
@@ -1245,6 +1254,11 @@ appear under `sources.<id>` and `profiles.*.source_overrides.<id>` per PLAN-005 
 Examples: `sources.voice.transcribe.backend`, `sources.readwise.token`,
 `sources.web.fetcher`. Secrets (`readwise.token`) use `${VAR}` interpolation and are
 redacted by default.
+
+Sources without source-private configuration use an explicit empty registration
+validator that accepts only absent/empty config and rejects unknown keys. That makes
+personal config typos fail during resolution instead of silently running with a
+mistyped setting.
 
 ### 7.5 Determinism & Caching
 

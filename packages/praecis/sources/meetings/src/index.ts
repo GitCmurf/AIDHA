@@ -4,8 +4,8 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
-import { composeVector, diarizeStrategy, transcribeStrategy } from '@aidha/praecis-core';
+import type { ResolvedConfig } from '@aidha/config';
+import { composeVector, createRawSource, diarizeStrategy, emptySourceConfigRegistration, transcribeStrategy } from '@aidha/praecis-core';
 import type {
   AudioRef,
   ExtractionContext,
@@ -14,6 +14,7 @@ import type {
   IngestInput,
   RawSource,
   Result,
+  ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
@@ -38,8 +39,8 @@ function normalizeBytes(value: Uint8Array | ArrayBuffer): Uint8Array {
   return value instanceof Uint8Array ? value : new Uint8Array(value);
 }
 
-class MeetingContextProvider implements IContextProvider {
-  async build(raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
+class MeetingContextProvider implements IContextProvider<AudioRef> {
+  async build(raw: RawSource<AudioRef>, _config: ResolvedConfig): Promise<ExtractionContext> {
     return {
       sourceSummary: raw.label,
       chunkingHints: ['conversation'],
@@ -56,7 +57,7 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
 
   constructor(private readonly options: MeetingIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: AudioRef }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<AudioRef>>> {
     try {
       const fileBytes = await (this.options.readFileFn ?? readFile)(input.ref);
       const bytes = normalizeBytes(fileBytes as Uint8Array | ArrayBuffer);
@@ -69,16 +70,13 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
 
       return {
         ok: true,
-        value: {
+        value: createRawSource({
           canonicalId: `meeting:${sha256}`,
           dedupKeys: [`content-sha256:${sha256}`, input.ref],
           sourceType: 'meeting',
           sensitivity: 'confidential',
-          provenance: {
-            sourceUri: input.ref,
-            ingestedAt: runtimeContext.clock.now().toISOString(),
-            sourceType: 'meeting',
-          },
+          sourceUri: input.ref,
+          clock: runtimeContext.clock,
           resourceMetadata: {
             title: label,
             filePath: input.ref,
@@ -87,7 +85,7 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
           },
           payload: audio,
           label,
-        },
+        }),
       };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
@@ -95,10 +93,7 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
   }
 }
 
-export const MeetingSourceRegistration: SourceRegistration = {
-  sourceId: 'meeting',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const MeetingSourceRegistration = emptySourceConfigRegistration('meeting');
 
 export function createMeetingVectorSpec(options: {
   readonly readFileFn?: typeof readFile;
@@ -106,7 +101,7 @@ export function createMeetingVectorSpec(options: {
   readonly diarizer?: IDiarizer;
   readonly mockTranscriber?: MockTranscriberConfig;
   readonly mockDiarizer?: MockDiarizerConfig;
-} = {}) {
+} = {}): ComposedVector<AudioRef> {
   const transcriber =
     options.transcriber ??
     new MockTranscriber(options.mockTranscriber ?? { transcriptText: 'meeting transcript sample' });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composeVector, createDefaultPipelineServices, createIngestionRuntimeFromServices } from '@aidha/praecis-core';
+import { createDefaultPipelineServices, createIngestionRuntimeFromServices } from '@aidha/praecis-core';
 import { createRssVectorSpec } from '@aidha/praecis-source-feeds';
 import { createReadwiseVectorSpec } from '@aidha/praecis-source-readwise';
 
@@ -18,12 +18,12 @@ describe('cross-vector dedup integration', () => {
   it('merges RSS and Readwise when both resolve to the same web canonical id', async () => {
     const services = createDefaultPipelineServices({ allowHeuristicFallback: true });
     const runtime = createIngestionRuntimeFromServices(services);
-    const rssVector = composeVector(createRssVectorSpec({ fetchFn: async url => {
+    const rssVector = createRssVectorSpec({ fetchFn: async url => {
       if (url === 'https://blog.example.com/feed.xml') {
         return makeFetchResponse(url, '<?xml version="1.0"?><rss><channel><item><guid>item-1</guid><title>Article</title><link>https://example.com/article?utm_source=rss</link><description>Summary text for the feed item.</description></item></channel></rss>');
       }
       return makeFetchResponse(url, '<html><body><article><p>Shared article has a specific claim for export.</p></article></body></html>');
-    } }));
+    } });
     const readwiseVector = createReadwiseVectorSpec({
       book: {
         user_book_id: 7,

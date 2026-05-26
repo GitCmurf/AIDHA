@@ -26,9 +26,9 @@ import type {
   Clock,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, normalizeText, runBatch } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, createRawSource, emptySourceConfigRegistration, normalizeText, runBatch } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
+import type { ResolvedConfig } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
 
 interface EmailAddressValue {
@@ -419,10 +419,10 @@ function emailThreadResourceMetadata(thread: EmailThread): Record<string, unknow
   };
 }
 
-class EmailContextProvider implements IContextProvider {
+class EmailContextProvider implements IContextProvider<EmailThreadPayload> {
   constructor(private readonly thread: EmailThread) {}
 
-  async build(_raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
+  async build(_raw: RawSource<EmailThreadPayload>, _config: ResolvedConfig): Promise<ExtractionContext> {
     return {
       sourceSummary: normalizeText(this.thread.subject),
       chunkingHints: ['highlight'],
@@ -435,10 +435,10 @@ class EmailIngestor implements IIngestor<EmailThreadPayload> {
 
   constructor(private readonly thread: EmailThread) {}
 
-  async acquire(_input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: EmailThreadPayload }>> {
+  async acquire(_input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<EmailThreadPayload>>> {
     return {
       ok: true,
-      value: {
+      value: createRawSource({
         canonicalId: this.thread.threadId,
         dedupKeys: [
           this.thread.threadId,
@@ -447,11 +447,8 @@ class EmailIngestor implements IIngestor<EmailThreadPayload> {
         ],
         sourceType: 'email',
         sensitivity: 'confidential',
-        provenance: {
-          sourceUri: this.thread.messages[0]?.filePath,
-          ingestedAt: runtimeContext.clock.now().toISOString(),
-          sourceType: 'email',
-        },
+        sourceUri: this.thread.messages[0]?.filePath,
+        clock: runtimeContext.clock,
         resourceMetadata: emailThreadResourceMetadata(this.thread),
         payload: {
           thread: this.thread,
@@ -459,18 +456,18 @@ class EmailIngestor implements IIngestor<EmailThreadPayload> {
           mimeType: 'message/rfc822',
         },
         label: this.thread.subject,
-      },
+      }),
     };
   }
 }
 
-class EmailDecodeStrategy implements IDecodeStrategy {
+class EmailDecodeStrategy implements IDecodeStrategy<EmailThreadPayload> {
   readonly name = 'text-extract:email';
 
   constructor(private readonly thread: EmailThread) {}
 
-  async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
-    const payload = input.raw.payload as EmailThreadPayload | undefined;
+  async decode(input: DecodeInput<EmailThreadPayload>): Promise<Result<DecodeOutput>> {
+    const payload = input.raw.payload;
     if (!payload || payload.thread.threadId !== this.thread.threadId) {
       return { ok: false, error: new Error('Email decode expected a matching thread payload') };
     }
@@ -490,16 +487,13 @@ class EmailDecodeStrategy implements IDecodeStrategy {
   }
 }
 
-export const EmailSourceRegistration: SourceRegistration = {
-  sourceId: 'email',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const EmailSourceRegistration = emptySourceConfigRegistration('email');
 
 export interface EmailVectorOptions {
   readonly thread: EmailThread;
 }
 
-export function createEmailVectorSpec(options: EmailVectorOptions) {
+export function createEmailVectorSpec(options: EmailVectorOptions): ComposedVector<EmailThreadPayload> {
   const { thread } = options;
   return composeVector({
     sourceId: 'email',

@@ -16,10 +16,11 @@ import type {
   MediaSegment,
   RawSource,
   Result,
+  ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { composeVector, urlCanonical } from '@aidha/praecis-core';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
+import { composeVector, createRawSource, emptySourceConfigRegistration, urlCanonical } from '@aidha/praecis-core';
+import type { ResolvedConfig } from '@aidha/config';
 
 export interface ReadwiseHighlight {
   readonly id: number;
@@ -164,10 +165,10 @@ function toHighlightSegments(book: ReadwiseBook): MediaSegment[] {
   });
 }
 
-class ReadwiseContextProvider implements IContextProvider {
+class ReadwiseContextProvider implements IContextProvider<ReadwiseHighlightPayload> {
   constructor(private readonly book: ReadwiseBook) {}
 
-  async build(_raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
+  async build(_raw: RawSource<ReadwiseHighlightPayload>, _config: ResolvedConfig): Promise<ExtractionContext> {
     return {
       sourceSummary: sourceSummary(this.book),
       topicsOfInterest: clean(this.book.category) ? [clean(this.book.category)!] : undefined,
@@ -176,16 +177,16 @@ class ReadwiseContextProvider implements IContextProvider {
   }
 }
 
-class ReadwiseHighlightDecodeStrategy implements IDecodeStrategy {
+class ReadwiseHighlightDecodeStrategy implements IDecodeStrategy<ReadwiseHighlightPayload> {
   readonly name = 'passthrough:readwise';
 
   constructor(private readonly book: ReadwiseBook) {}
 
-  async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
+  async decode(input: DecodeInput<ReadwiseHighlightPayload>): Promise<Result<DecodeOutput>> {
     if (input.raw.sourceType !== 'readwise') {
       return { ok: false, error: new Error(`Readwise decode expected sourceType=readwise, got ${input.raw.sourceType}`) };
     }
-    const payload = input.raw.payload as ReadwiseHighlightPayload | undefined;
+    const payload = input.raw.payload;
     if (!payload || payload.canonicalId !== bookKey(this.book)) {
       return { ok: false, error: new Error('Readwise decode expected matching book payload') };
     }
@@ -221,11 +222,11 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
 
   constructor(private readonly options: ReadwiseVectorOptions) {}
 
-  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: ReadwiseHighlightPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<ReadwiseHighlightPayload>>> {
     const canonicalId = bookKey(this.options.book);
     return {
       ok: true,
-      value: {
+      value: createRawSource({
         canonicalId,
         dedupKeys: [
           canonicalId,
@@ -236,11 +237,8 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
         ],
         sourceType: 'readwise',
         sensitivity: 'personal',
-        provenance: {
-          sourceUri: bookSourceUri(this.options.book),
-          ingestedAt: runtimeContext.clock.now().toISOString(),
-          sourceType: 'readwise',
-        },
+        sourceUri: bookSourceUri(this.options.book),
+        clock: runtimeContext.clock,
         resourceMetadata: {
           title: this.options.book.title,
           ...(clean(this.options.book.author) ? { author: clean(this.options.book.author) } : {}),
@@ -256,21 +254,18 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
           dedupKey: `readwise:book:${this.options.book.user_book_id}`,
         },
         label: this.options.book.title,
-      },
+      }),
     };
   }
 }
 
-export const ReadwiseSourceRegistration: SourceRegistration = {
-  sourceId: 'readwise',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const ReadwiseSourceRegistration = emptySourceConfigRegistration('readwise');
 
 export interface ReadwiseVectorSpecOptions {
   readonly book: ReadwiseBook;
 }
 
-export function createReadwiseVectorSpec(options: ReadwiseVectorSpecOptions) {
+export function createReadwiseVectorSpec(options: ReadwiseVectorSpecOptions): ComposedVector<ReadwiseHighlightPayload> {
   const { book } = options;
   return composeVector({
     sourceId: 'readwise',

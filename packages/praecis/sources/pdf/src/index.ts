@@ -19,11 +19,12 @@ import type {
   ChunkInput,
   Chunk,
   VectorRuntimeContext,
+  ComposedVector,
 } from '@aidha/praecis-core';
-import { SectionChunker, TokenWindowChunker } from '@aidha/praecis-core';
+import { composeVector, createRawSource, emptySourceConfigRegistration, SectionChunker, TokenWindowChunker } from '@aidha/praecis-core';
 import { extractTextFromPdfText } from '@aidha/praecis-decode-text';
 import { ocrBlocksToResult, type OcrBlock } from '@aidha/praecis-decode-ocr';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
+import type { ResolvedConfig } from '@aidha/config';
 
 export interface PdfPagePayload {
   readonly pageNumber: number;
@@ -127,9 +128,9 @@ function pageSegmentsFromOcr(payload: PdfDocumentPayload, upstream: readonly Med
   return segments;
 }
 
-class PdfContextProvider implements IContextProvider {
-  async build(raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
-    const payload = raw.payload as PdfDocumentPayload | undefined;
+class PdfContextProvider implements IContextProvider<PdfDocumentPayload> {
+  async build(raw: RawSource<PdfDocumentPayload>, _config: ResolvedConfig): Promise<ExtractionContext> {
+    const payload = raw.payload;
     if (!payload) return {};
     const kind = classifyPdfDocument(payload);
     return {
@@ -157,7 +158,7 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
 
   constructor(private readonly options: PdfIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: PdfDocumentPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<PdfDocumentPayload>>> {
     try {
       const fileBytes = await (this.options.readFileFn ?? readFile)(input.ref);
       const bytes = fileBytes instanceof Uint8Array ? fileBytes : new Uint8Array(fileBytes as ArrayBuffer);
@@ -176,16 +177,13 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
 
       return {
         ok: true,
-        value: {
+        value: createRawSource({
           canonicalId: `pdf:${sha256}`,
           dedupKeys: [sha256, input.ref],
           sourceType: 'pdf',
           sensitivity: 'personal',
-          provenance: {
-            sourceUri: input.ref,
-            ingestedAt: runtimeContext.clock.now().toISOString(),
-            sourceType: 'pdf',
-          },
+          sourceUri: input.ref,
+          clock: runtimeContext.clock,
           resourceMetadata: {
             title,
             filePath: input.ref,
@@ -195,7 +193,7 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
           },
           payload,
           label: title,
-        },
+        }),
       };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
@@ -203,14 +201,14 @@ export class PdfIngestor implements IIngestor<PdfDocumentPayload> {
   }
 }
 
-export class PdfTextDecodeStrategy implements IDecodeStrategy {
+export class PdfTextDecodeStrategy implements IDecodeStrategy<PdfDocumentPayload> {
   readonly name = 'text-extract:pdf';
 
-  async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
+  async decode(input: DecodeInput<PdfDocumentPayload>): Promise<Result<DecodeOutput>> {
     if (input.raw.sourceType !== 'pdf') {
       return { ok: false, error: new Error(`PdfTextDecodeStrategy expected sourceType=pdf, got ${input.raw.sourceType}`) };
     }
-    const payload = input.raw.payload as PdfDocumentPayload | undefined;
+    const payload = input.raw.payload;
     if (!payload) {
       return { ok: false, error: new Error('PdfTextDecodeStrategy expected PdfDocumentPayload') };
     }
@@ -226,14 +224,14 @@ export class PdfTextDecodeStrategy implements IDecodeStrategy {
   }
 }
 
-export class PdfOcrDecodeStrategy implements IDecodeStrategy {
+export class PdfOcrDecodeStrategy implements IDecodeStrategy<PdfDocumentPayload> {
   readonly name = 'ocr:pdf';
 
-  async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
+  async decode(input: DecodeInput<PdfDocumentPayload>): Promise<Result<DecodeOutput>> {
     if (input.raw.sourceType !== 'pdf') {
       return { ok: false, error: new Error(`PdfOcrDecodeStrategy expected sourceType=pdf, got ${input.raw.sourceType}`) };
     }
-    const payload = input.raw.payload as PdfDocumentPayload | undefined;
+    const payload = input.raw.payload;
     if (!payload) {
       return { ok: false, error: new Error('PdfOcrDecodeStrategy expected PdfDocumentPayload') };
     }
@@ -249,17 +247,14 @@ export class PdfOcrDecodeStrategy implements IDecodeStrategy {
   }
 }
 
-export const PdfSourceRegistration: SourceRegistration = {
-  sourceId: 'pdf',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const PdfSourceRegistration = emptySourceConfigRegistration('pdf');
 
 export interface PdfVectorOptions {
   readonly readFileFn?: typeof readFile;
 }
 
-export function createPdfVectorSpec(options: PdfVectorOptions = {}) {
-  return {
+export function createPdfVectorSpec(options: PdfVectorOptions = {}): ComposedVector<PdfDocumentPayload> {
+  return composeVector({
     sourceId: 'pdf',
     sensitivity: 'personal' as const,
     ingestor: new PdfIngestor({ ...(options.readFileFn ? { readFileFn: options.readFileFn } : {}) }),
@@ -267,7 +262,7 @@ export function createPdfVectorSpec(options: PdfVectorOptions = {}) {
     context: new PdfContextProvider(),
     chunking: new PdfAdaptiveChunker(),
     registration: PdfSourceRegistration,
-  };
+  });
 }
 
 export function classifyPdfPayload(payload: PdfDocumentPayload): PdfDocumentKind {

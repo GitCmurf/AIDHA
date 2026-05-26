@@ -19,13 +19,14 @@ import type {
   RawSource,
   Result,
   TimecodedSegment,
+  ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { normalizeText, urlCanonical, composeVector, transcribeStrategy, TokenWindowChunker, ConversationChunker } from '@aidha/praecis-core';
+import { normalizeText, urlCanonical, composeVector, createRawSource, emptySourceConfigRegistration, transcribeStrategy, TokenWindowChunker, ConversationChunker } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
 import { MockDiarizer, type MockDiarizerConfig } from '@aidha/praecis-decode-diarize';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
+import type { ResolvedConfig } from '@aidha/config';
 
 export interface PodcastFetchResponse {
   readonly ok: boolean;
@@ -173,9 +174,9 @@ async function fetchBytes(fetchFn: PodcastFetchFn, url: string): Promise<Uint8Ar
   return normalizeBytes(await response.arrayBuffer());
 }
 
-class PodcastContextProvider implements IContextProvider {
-  async build(raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
-    const payload = raw.payload as PodcastPayload | undefined;
+class PodcastContextProvider implements IContextProvider<PodcastPayload> {
+  async build(raw: RawSource<PodcastPayload>, _config: ResolvedConfig): Promise<ExtractionContext> {
+    const payload = raw.payload;
     if (!payload) {
       return {};
     }
@@ -200,13 +201,13 @@ class PodcastChunker implements IChunker {
   }
 }
 
-class PodcastDiarizeStrategy implements IDecodeStrategy {
+class PodcastDiarizeStrategy implements IDecodeStrategy<PodcastPayload> {
   readonly name = 'diarize:podcast';
 
   constructor(private readonly diarizer: IDiarizer) {}
 
-  async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
-    const payload = input.raw.payload as PodcastPayload | undefined;
+  async decode(input: DecodeInput<PodcastPayload>): Promise<Result<DecodeOutput>> {
+    const payload = input.raw.payload;
     if (!payload?.panel) {
       return {
         ok: true,
@@ -268,7 +269,7 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
 
   constructor(private readonly options: PodcastIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: PodcastPayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<PodcastPayload>>> {
     try {
       const fetchFn = this.options.fetchFn ?? globalThis.fetch.bind(globalThis);
       const feedResponse = await fetchFn(input.ref, { redirect: 'follow' });
@@ -318,16 +319,13 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
 
       return {
         ok: true,
-        value: {
+        value: createRawSource({
           canonicalId,
           dedupKeys: Array.from(dedupKeys),
           sourceType: 'podcast',
           sensitivity: 'public',
-          provenance: {
-            sourceUri: enclosureUrl,
-            ingestedAt: runtimeContext.clock.now().toISOString(),
-            sourceType: 'podcast',
-          },
+          sourceUri: enclosureUrl,
+          clock: runtimeContext.clock,
           resourceMetadata: {
             title: item.title,
             episodeTitle: item.title,
@@ -354,7 +352,7 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
             panel,
           },
           label: item.title,
-        },
+        }),
       };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
@@ -362,12 +360,9 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
   }
 }
 
-export const PodcastSourceRegistration: SourceRegistration = {
-  sourceId: 'podcast',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const PodcastSourceRegistration = emptySourceConfigRegistration('podcast');
 
-export function createPodcastVectorSpec(options: PodcastVectorOptions = {}) {
+export function createPodcastVectorSpec(options: PodcastVectorOptions = {}): ComposedVector<PodcastPayload> {
   const transcriber = options.transcriber ?? new MockTranscriber(options.mockTranscriber ?? { transcriptText: 'podcast transcript sample' });
   const diarizer = options.diarizer ?? new MockDiarizer(options.mockDiarizer ?? {});
   const vectorOptions = { ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}) };

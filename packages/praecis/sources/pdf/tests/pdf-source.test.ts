@@ -6,7 +6,6 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { composeVector } from '@aidha/praecis-core';
 import {
   PdfIngestor,
   PdfOcrDecodeStrategy,
@@ -119,7 +118,7 @@ describe('createPdfVectorSpec', () => {
   it('uses the injected clock for provenance timestamps', async () => {
     const file = makeTempPdf('Clocked page');
     try {
-      const vector = composeVector(createPdfVectorSpec());
+      const vector = createPdfVectorSpec();
       const first = await vector.ingestAndDecode({ ref: file }, runtimeContext);
       const second = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
@@ -138,7 +137,7 @@ describe('createPdfVectorSpec', () => {
   it('builds a composed pdf vector that decodes page text', async () => {
     const file = makeTempPdf('Alpha\fBeta');
     try {
-      const vector = composeVector(createPdfVectorSpec());
+      const vector = createPdfVectorSpec();
       const result = await vector.ingestAndDecode({ ref: file }, runtimeContext);
 
       expect(result.ok).toBe(true);

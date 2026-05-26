@@ -16,3 +16,6 @@ export { DedupResolver } from './dedup-resolver.js';
 
 export type { DedupLinkResult } from './dedup-link.js';
 export { applyDedupResolution } from './dedup-link.js';
+
+export type { SourceEnvelopeInput } from './source-envelope.js';
+export { createRawSource, emptySourceConfigRegistration } from './source-envelope.js';

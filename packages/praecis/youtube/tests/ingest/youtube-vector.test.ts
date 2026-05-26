@@ -4,7 +4,6 @@
 import { describe, it, expect } from 'vitest';
 import { MockYouTubeClient } from '../../src/client/mock.js';
 import { createYouTubeVectorSpec } from '../../src/ingest/youtube-vector.js';
-import { composeVector } from '@aidha/praecis-core';
 import type { ResolvedConfig } from '@aidha/config';
 
 const runtimeContext = {
@@ -15,8 +14,7 @@ const runtimeContext = {
 describe('composeVector + YouTubeIngestor + TranscriptDecodeStrategy integration', () => {
   it('ingestAndDecode returns ok with non-empty segments containing timecode locators', async () => {
     const mockClient = new MockYouTubeClient();
-    const spec = createYouTubeVectorSpec({ client: mockClient });
-    const vector = composeVector(spec);
+    const vector = createYouTubeVectorSpec({ client: mockClient });
 
     const result = await vector.ingestAndDecode({ ref: 'test-video' }, runtimeContext);
 

@@ -2,7 +2,6 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { describe, expect, it } from 'vitest';
-import { composeVector } from '@aidha/praecis-core';
 import { WebIngestor, WebTextDecodeStrategy, createWebVectorSpec, buildWebResourceId } from '../src/index.js';
 import type { ResolvedConfig } from '@aidha/config';
 
@@ -85,7 +84,7 @@ describe('WebTextDecodeStrategy', () => {
 
 describe('createWebVectorSpec', () => {
   it('builds a composed vector that works end-to-end', async () => {
-    const vector = composeVector(createWebVectorSpec({ fetchFn: makeFetch('<title>Vector title</title><p>Body</p>') }));
+    const vector = createWebVectorSpec({ fetchFn: makeFetch('<title>Vector title</title><p>Body</p>') });
     const result = await vector.ingestAndDecode({ ref: 'https://example.com/article?utm_source=rss' }, runtimeContext);
 
     expect(result.ok).toBe(true);
@@ -95,10 +94,10 @@ describe('createWebVectorSpec', () => {
   });
 
   it('keeps the primary web id fetch-independent when a request redirects', async () => {
-    const vector = composeVector(createWebVectorSpec({ fetchFn: makeFetch(
+    const vector = createWebVectorSpec({ fetchFn: makeFetch(
       '<title>Redirect</title><p>Redirected body text with enough detail.</p>',
       'https://cdn.example.com/final',
-    ) }));
+    ) });
     const result = await vector.ingestAndDecode({ ref: 'https://example.com/original?utm_source=test' }, runtimeContext);
 
     expect(result.ok).toBe(true);

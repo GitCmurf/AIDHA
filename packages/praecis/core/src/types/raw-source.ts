@@ -4,7 +4,7 @@
 /**
  * Acquire output — the raw resource package handed to the Decode chain.
  */
-export interface RawSource {
+export interface RawSource<TPayload = unknown> {
   canonicalId: string;      // e.g. "web:https://example.com/a"
   /** Additional deterministic identities used by the dedup resolver. */
   dedupKeys?: string[];     // e.g. ["web:https://canonical.com/a", "doi:10.1234/xyz"]
@@ -17,7 +17,7 @@ export interface RawSource {
     sourceType: string;
   };
   /** Opaque payload the decode chain understands (file path, html, api rows…). */
-  payload: unknown;
+  payload: TPayload;
   /** Source-specific Resource metadata persisted by the shared spine. */
   resourceMetadata?: Record<string, unknown>;
   /** Human-readable Resource label. */

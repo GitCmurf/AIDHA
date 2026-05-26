@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
+import { createRawSource } from '@aidha/praecis-core';
 import type { IIngestor, IngestInput, VectorRuntimeContext } from '@aidha/praecis-core';
 import type { RawSource } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
@@ -33,7 +34,7 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
   async acquire(
     input: IngestInput,
     runtimeContext: VectorRuntimeContext,
-  ): Promise<Result<RawSource & { payload: YouTubeVideoPayload }>> {
+  ): Promise<Result<RawSource<YouTubeVideoPayload>>> {
     const videoId = input.ref;
 
     const videoResult = await this.client.fetchVideo(videoId);
@@ -57,16 +58,13 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       transcript,
     };
 
-    const raw: RawSource & { payload: YouTubeVideoPayload } = {
+    const raw = createRawSource({
       canonicalId: `youtube-${videoId}`,
       dedupKeys: [videoId],
       sourceType: 'youtube',
       sensitivity: 'public',
-      provenance: {
-        sourceUri: `https://www.youtube.com/watch?v=${videoId}`,
-        ingestedAt: runtimeContext.clock.now().toISOString(),
-        sourceType: 'youtube',
-      },
+      sourceUri: `https://www.youtube.com/watch?v=${videoId}`,
+      clock: runtimeContext.clock,
       resourceMetadata: {
         videoId: video.id,
         channelId: video.channelId,
@@ -81,7 +79,7 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       },
       label: video.title,
       payload,
-    };
+    });
 
     return { ok: true, value: raw };
   }

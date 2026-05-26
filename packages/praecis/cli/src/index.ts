@@ -59,7 +59,7 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type BatchOutcome, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type Result, type RunReport } from '@aidha/praecis-core';
+import { createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type BatchOutcome, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type Result, type RunReport } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
@@ -377,11 +377,11 @@ function runSingleVector(
 }
 
 export async function runWebIngest(ref: string, fetchFn?: WebFetchFn, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('web', ref, composeVector(createWebVectorSpec({ ...(fetchFn ? { fetchFn } : {}) })), undefined, services);
+  return buildIngestSummary('web', ref, createWebVectorSpec({ ...(fetchFn ? { fetchFn } : {}) }), undefined, services);
 }
 
 export async function runPdfIngest(ref: string, readFileFn?: typeof readFile, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
-  return buildIngestSummary('pdf', ref, composeVector(createPdfVectorSpec({ ...(readFileFn ? { readFileFn } : {}) })), undefined, services);
+  return buildIngestSummary('pdf', ref, createPdfVectorSpec({ ...(readFileFn ? { readFileFn } : {}) }), undefined, services);
 }
 
 export async function runVoiceIngest(ref: string, services: Partial<PipelineServices> = {}): Promise<IngestSummary> {
@@ -397,7 +397,7 @@ export async function runRssIngest(
   options: { fetchFn?: WebFetchFn; itemGuid?: string; services?: Partial<PipelineServices> } = {},
 ): Promise<IngestSummary> {
   const metadata = options.itemGuid ? { itemGuid: options.itemGuid } : undefined;
-  return buildIngestSummary('rss', ref, composeVector(createRssVectorSpec({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}) })), metadata, options.services ?? {});
+  return buildIngestSummary('rss', ref, createRssVectorSpec({ ...(options.fetchFn ? { fetchFn: options.fetchFn } : {}) }), metadata, options.services ?? {});
 }
 
 export async function runPodcastIngest(
@@ -518,7 +518,7 @@ export async function runYouTubeIngest(
     ...youtubeConfig.ytdlp,
     debugTranscript: youtubeConfig.youtube.debugTranscript,
   });
-  const vector = composeVector(createYouTubeVectorSpec({ client }));
+  const vector = createYouTubeVectorSpec({ client });
   if (options.context) {
     return options.context.runVector('youtube', ref, vector);
   }
@@ -542,7 +542,7 @@ export async function runYouTubePlaylistIngest(
     client,
     ...(context.services.clock ? { clock: context.services.clock } : {}),
     async runVideo(videoId) {
-      const report = await context.runReport('youtube', videoId, composeVector(createYouTubeVectorSpec({ client })));
+      const report = await context.runReport('youtube', videoId, createYouTubeVectorSpec({ client }));
       if (!report.ok) {
         return report;
       }
@@ -783,6 +783,29 @@ function requireRef(options: CliOptions, positionals: readonly string[], key: st
   return ref;
 }
 
+function singleVectorManifest(args: {
+  readonly sourceId: SourceId;
+  readonly registration: SourceRegistration;
+  readonly usage: string;
+  readonly refOption: string;
+  buildVector(): ComposedVector;
+  metadata?(options: CliOptions): Record<string, unknown> | undefined;
+}): SourceIngestManifest<IngestSummary> {
+  return {
+    sourceId: args.sourceId,
+    registration: args.registration,
+    usage: args.usage,
+    run: ({ positionals, options, context }) => runSingleVector(
+      context,
+      args.sourceId,
+      requireRef(options, positionals, args.refOption, args.usage),
+      args.buildVector(),
+      args.metadata?.(options),
+    ),
+    print: printSingleIngestSummary,
+  };
+}
+
 const INGEST_USAGE: Record<SourceId, string> = {
   youtube: 'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--json]',
   web: 'aidha ingest web --url <url> [--json]',
@@ -838,83 +861,53 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
       return isSingleIngestSummary(summary) ? printSingleIngestSummary(summary) : [`Ingested ${summary.sourceId}`];
     },
   },
-  {
+  singleVectorManifest({
     sourceId: 'web',
     registration: WebSourceRegistration,
     usage: INGEST_USAGE.web,
-    run: ({ positionals, options, context }) => runSingleVector(
-      context,
-      'web',
-      requireRef(options, positionals, 'url', INGEST_USAGE.web),
-      composeVector(createWebVectorSpec()),
-    ),
-    print: printSingleIngestSummary,
-  },
-  {
+    refOption: 'url',
+    buildVector: () => createWebVectorSpec(),
+  }),
+  singleVectorManifest({
     sourceId: 'pdf',
     registration: PdfSourceRegistration,
     usage: INGEST_USAGE.pdf,
-    run: ({ positionals, options, context }) => runSingleVector(
-      context,
-      'pdf',
-      requireRef(options, positionals, 'file', INGEST_USAGE.pdf),
-      composeVector(createPdfVectorSpec()),
-    ),
-    print: printSingleIngestSummary,
-  },
-  {
+    refOption: 'file',
+    buildVector: () => createPdfVectorSpec(),
+  }),
+  singleVectorManifest({
     sourceId: 'voice',
     registration: VoiceSourceRegistration,
     usage: INGEST_USAGE.voice,
-    run: ({ positionals, options, context }) => runSingleVector(
-      context,
-      'voice',
-      requireRef(options, positionals, 'file', INGEST_USAGE.voice),
-      createVoiceVectorSpec(),
-    ),
-    print: printSingleIngestSummary,
-  },
-  {
+    refOption: 'file',
+    buildVector: () => createVoiceVectorSpec(),
+  }),
+  singleVectorManifest({
     sourceId: 'meeting',
     registration: MeetingSourceRegistration,
     usage: INGEST_USAGE.meeting,
-    run: ({ positionals, options, context }) => runSingleVector(
-      context,
-      'meeting',
-      requireRef(options, positionals, 'file', INGEST_USAGE.meeting),
-      createMeetingVectorSpec(),
-    ),
-    print: printSingleIngestSummary,
-  },
-  {
+    refOption: 'file',
+    buildVector: () => createMeetingVectorSpec(),
+  }),
+  singleVectorManifest({
     sourceId: 'rss',
     registration: RssSourceRegistration,
     usage: INGEST_USAGE.rss,
-    run: ({ positionals, options, context }) => runSingleVector(
-      context,
-      'rss',
-      requireRef(options, positionals, 'feed', INGEST_USAGE.rss),
-      composeVector(createRssVectorSpec()),
-      optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : undefined,
-    ),
-    print: printSingleIngestSummary,
-  },
-  {
+    refOption: 'feed',
+    buildVector: () => createRssVectorSpec(),
+    metadata: options => optionString(options, 'item-guid') ? { itemGuid: optionString(options, 'item-guid') as string } : undefined,
+  }),
+  singleVectorManifest({
     sourceId: 'podcast',
     registration: PodcastSourceRegistration,
     usage: INGEST_USAGE.podcast,
-    run: ({ positionals, options, context }) => runSingleVector(
-      context,
-      'podcast',
-      requireRef(options, positionals, 'feed', INGEST_USAGE.podcast),
-      createPodcastVectorSpec(),
-      {
-        ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
-        ...(optionBool(options, 'panel') ? { panel: true } : {}),
-      },
-    ),
-    print: printSingleIngestSummary,
-  },
+    refOption: 'feed',
+    buildVector: () => createPodcastVectorSpec(),
+    metadata: options => ({
+      ...(optionString(options, 'episode') ? { episodeGuid: optionString(options, 'episode') as string } : {}),
+      ...(optionBool(options, 'panel') ? { panel: true } : {}),
+    }),
+  }),
   {
     sourceId: 'readwise',
     registration: ReadwiseSourceRegistration,

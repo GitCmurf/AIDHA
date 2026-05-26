@@ -1,6 +1,5 @@
 import type { GraphStore } from '@aidha/graph-backend';
 import {
-  composeVector,
   createIngestionRuntime,
   type ConfiguredIngestionRuntime,
   type LlmClient,
@@ -62,7 +61,7 @@ async function ingestYouTubeVideoWithRuntime(
   videoId: string,
   options: IngestVideoOptions = {},
 ): Promise<Result<YouTubeVideoIngestResult>> {
-  const run = await runtime.runVector(composeVector(createYouTubeVectorSpec({ client: input.client })), { ref: videoId });
+  const run = await runtime.runVector(createYouTubeVectorSpec({ client: input.client }), { ref: videoId });
   if (!run.ok) return run;
 
   if (options.refreshTranscript) {

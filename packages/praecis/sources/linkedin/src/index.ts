@@ -16,10 +16,11 @@ import type {
   MediaSegment,
   RawSource,
   Result,
+  ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { composeVector, normalizeText } from '@aidha/praecis-core';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
+import { composeVector, createRawSource, emptySourceConfigRegistration, normalizeText } from '@aidha/praecis-core';
+import type { ResolvedConfig } from '@aidha/config';
 
 export interface LinkedInPastePayload {
   readonly pasteText: string;
@@ -110,10 +111,10 @@ class LinkedInHighlightChunker implements IChunker {
   }
 }
 
-class LinkedInContextProvider implements IContextProvider {
+class LinkedInContextProvider implements IContextProvider<LinkedInPastePayload> {
   constructor(private readonly options: LinkedInVectorOptions) {}
 
-  async build(_raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
+  async build(_raw: RawSource<LinkedInPastePayload>, _config: ResolvedConfig): Promise<ExtractionContext> {
     const summary = normalizeText(this.options.pasteText).slice(0, 240);
     return {
       sourceSummary: summary || undefined,
@@ -127,7 +128,7 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
 
   constructor(private readonly options: LinkedInVectorOptions) {}
 
-  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: LinkedInPastePayload }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<LinkedInPastePayload>>> {
     const canonicalId = canonicalIdFor(this.options.pasteText, this.options.url);
     const activityUrn = activityUrnFromUrl(this.options.url);
     const url = clean(this.options.url);
@@ -135,7 +136,7 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
 
     return {
       ok: true,
-      value: {
+      value: createRawSource({
         canonicalId,
         dedupKeys: [
           canonicalId,
@@ -146,11 +147,8 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
         ],
         sourceType: 'linkedin',
         sensitivity: 'personal',
-        provenance: {
-          sourceUri: sourceUriFor(this.options.url),
-          ingestedAt: runtimeContext.clock.now().toISOString(),
-          sourceType: 'linkedin',
-        },
+        sourceUri: sourceUriFor(this.options.url),
+        clock: runtimeContext.clock,
         resourceMetadata: {
           ...(activityUrn ? { activityUrn } : {}),
           ...(url ? { url } : {}),
@@ -163,21 +161,21 @@ class LinkedInIngestor implements IIngestor<LinkedInPastePayload> {
           activityUrn,
         },
         label: 'LinkedIn paste',
-      },
+      }),
     };
   }
 }
 
-class LinkedInPassthroughDecodeStrategy implements IDecodeStrategy {
+class LinkedInPassthroughDecodeStrategy implements IDecodeStrategy<LinkedInPastePayload> {
   readonly name = 'passthrough:linkedin';
 
   constructor(private readonly options: LinkedInVectorOptions) {}
 
-  async decode(input: DecodeInput): Promise<Result<DecodeOutput>> {
+  async decode(input: DecodeInput<LinkedInPastePayload>): Promise<Result<DecodeOutput>> {
     if (input.raw.sourceType !== 'linkedin') {
       return { ok: false, error: new Error(`LinkedIn decode expected sourceType=linkedin, got ${input.raw.sourceType}`) };
     }
-    const payload = input.raw.payload as LinkedInPastePayload | undefined;
+    const payload = input.raw.payload;
     if (!payload || payload.pasteText !== this.options.pasteText) {
       return { ok: false, error: new Error('LinkedIn decode expected matching pasted text payload') };
     }
@@ -204,12 +202,9 @@ class LinkedInPassthroughDecodeStrategy implements IDecodeStrategy {
   }
 }
 
-export const LinkedInSourceRegistration: SourceRegistration = {
-  sourceId: 'linkedin',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const LinkedInSourceRegistration = emptySourceConfigRegistration('linkedin');
 
-export function createLinkedInVectorSpec(options: LinkedInVectorOptions) {
+export function createLinkedInVectorSpec(options: LinkedInVectorOptions): ComposedVector<LinkedInPastePayload> {
   return composeVector({
     sourceId: 'linkedin',
     sensitivity: 'personal',

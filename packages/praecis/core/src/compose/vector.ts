@@ -45,26 +45,26 @@ class DefaultChunker implements IChunker {
 // VectorSpec + ComposedVector
 // ---------------------------------------------------------------------------
 
-export interface VectorSpec {
+export interface VectorSpec<TPayload = unknown> {
   readonly sourceId: string;
   readonly sensitivity: Sensitivity;
-  readonly ingestor: IIngestor;
-  readonly decode: IDecodeStrategy[];
-  readonly context: IContextProvider;
+  readonly ingestor: IIngestor<TPayload>;
+  readonly decode: IDecodeStrategy<TPayload>[];
+  readonly context: IContextProvider<TPayload>;
   readonly chunking: IChunker | 'token-window' | 'section' | 'conversation' | 'highlight';
   readonly registration: SourceRegistration;
 }
 
-export interface ComposedVector {
+export interface ComposedVector<TPayload = unknown> {
   readonly sourceId: string;
-  readonly sensitivity: VectorSpec['sensitivity'];
-  readonly ingestor: IIngestor;
-  readonly decode: readonly IDecodeStrategy[];
-  readonly context: IContextProvider;
+  readonly sensitivity: VectorSpec<TPayload>['sensitivity'];
+  readonly ingestor: IIngestor<TPayload>;
+  readonly decode: readonly IDecodeStrategy<TPayload>[];
+  readonly context: IContextProvider<TPayload>;
   readonly chunking: IChunker;
   readonly registration: SourceRegistration;
   ingestAndDecode(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<{
-    raw: RawSource;
+    raw: RawSource<TPayload>;
     segments: MediaSegment[];
     warnings: DecodeWarning[];
   }>>;
@@ -74,7 +74,7 @@ export interface ComposedVector {
 // composeVector
 // ---------------------------------------------------------------------------
 
-export function composeVector(spec: VectorSpec): ComposedVector {
+export function composeVector<TPayload = unknown>(spec: VectorSpec<TPayload>): ComposedVector<TPayload> {
   if (spec.decode.length === 0) {
     throw new Error('VectorSpec.decode must have at least one strategy');
   }
@@ -96,7 +96,7 @@ export function composeVector(spec: VectorSpec): ComposedVector {
   const frozenDecode = Object.freeze([...spec.decode]);
 
   async function ingestAndDecode(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<{
-    raw: RawSource;
+    raw: RawSource<TPayload>;
     segments: MediaSegment[];
     warnings: DecodeWarning[];
   }>> {
@@ -105,7 +105,7 @@ export function composeVector(spec: VectorSpec): ComposedVector {
       return acquireResult;
     }
 
-    const raw = acquireResult.value as RawSource;
+    const raw = acquireResult.value;
 
     // Fold the decode chain, accumulating segments and warnings
     let currentSegments: readonly MediaSegment[] = [];
@@ -216,7 +216,7 @@ function mapResult<T, U>(result: Result<T>, fn: (value: T) => U): Result<U> {
 // Adapter functions
 // ---------------------------------------------------------------------------
 
-export function transcribeStrategy(transcriber: ITranscriber): IDecodeStrategy {
+export function transcribeStrategy<TPayload = AudioRef>(transcriber: ITranscriber): IDecodeStrategy<TPayload> {
   return {
     name: `transcribe:${transcriber.backend}`,
     async decode(input): Promise<Result<DecodeOutput>> {
@@ -231,7 +231,7 @@ export function transcribeStrategy(transcriber: ITranscriber): IDecodeStrategy {
   };
 }
 
-export function diarizeStrategy(diarizer: IDiarizer): IDecodeStrategy {
+export function diarizeStrategy<TPayload = AudioRef>(diarizer: IDiarizer): IDecodeStrategy<TPayload> {
   return {
     name: `diarize:${diarizer.backend}`,
     async decode(input): Promise<Result<DecodeOutput>> {

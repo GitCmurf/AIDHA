@@ -4,8 +4,8 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
-import { composeVector, transcribeStrategy } from '@aidha/praecis-core';
+import type { ResolvedConfig } from '@aidha/config';
+import { composeVector, createRawSource, emptySourceConfigRegistration, transcribeStrategy } from '@aidha/praecis-core';
 import type {
   AudioRef,
   ExtractionContext,
@@ -14,6 +14,7 @@ import type {
   IngestInput,
   RawSource,
   Result,
+  ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
@@ -37,8 +38,8 @@ function normalizeBytes(value: Uint8Array | ArrayBuffer): Uint8Array {
   return value instanceof Uint8Array ? value : new Uint8Array(value);
 }
 
-class VoiceContextProvider implements IContextProvider {
-  async build(raw: RawSource, _config: ResolvedConfig): Promise<ExtractionContext> {
+class VoiceContextProvider implements IContextProvider<AudioRef> {
+  async build(raw: RawSource<AudioRef>, _config: ResolvedConfig): Promise<ExtractionContext> {
     return {
       sourceSummary: raw.label,
       chunkingHints: ['conversation'],
@@ -55,7 +56,7 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
 
   constructor(private readonly options: VoiceIngestorOptions = {}) {}
 
-  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: AudioRef }>> {
+  async acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<AudioRef>>> {
     try {
       const fileBytes = await (this.options.readFileFn ?? readFile)(input.ref);
       const bytes = normalizeBytes(fileBytes as Uint8Array | ArrayBuffer);
@@ -68,16 +69,13 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
 
       return {
         ok: true,
-        value: {
+        value: createRawSource({
           canonicalId: `voice:${sha256}`,
           dedupKeys: [`content-sha256:${sha256}`, input.ref],
           sourceType: 'voice',
           sensitivity: 'personal',
-          provenance: {
-            sourceUri: input.ref,
-            ingestedAt: runtimeContext.clock.now().toISOString(),
-            sourceType: 'voice',
-          },
+          sourceUri: input.ref,
+          clock: runtimeContext.clock,
           resourceMetadata: {
             title: label,
             filePath: input.ref,
@@ -86,7 +84,7 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
           },
           payload: audio,
           label,
-        },
+        }),
       };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
@@ -94,16 +92,13 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
   }
 }
 
-export const VoiceSourceRegistration: SourceRegistration = {
-  sourceId: 'voice',
-  validateActiveSourceConfig: (value: unknown) => value,
-};
+export const VoiceSourceRegistration = emptySourceConfigRegistration('voice');
 
 export function createVoiceVectorSpec(options: {
   readonly readFileFn?: typeof readFile;
   readonly transcriber?: ITranscriber;
   readonly mockTranscriber?: MockTranscriberConfig;
-} = {}) {
+} = {}): ComposedVector<AudioRef> {
   const transcriber =
     options.transcriber ??
     new MockTranscriber(options.mockTranscriber ?? {});

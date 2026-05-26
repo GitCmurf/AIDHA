@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { composeVector } from '@aidha/praecis-core';
 import { classifyPdfPayload, createPdfVectorSpec } from '../src/index.js';
 import type { ResolvedConfig } from '@aidha/config';
 
@@ -35,7 +34,7 @@ describe('PDF slide-vs-paper routing', () => {
   });
 
   it('sets slide context hints and uses section chunking for deck-like PDFs', async () => {
-    const vector = composeVector(createPdfVectorSpec({ readFileFn: async () => Buffer.from('Slide one\n- A\n- B\fSlide two\n- C\n- D', 'utf8') }));
+    const vector = createPdfVectorSpec({ readFileFn: async () => Buffer.from('Slide one\n- A\n- B\fSlide two\n- C\n- D', 'utf8') });
     const decoded = await vector.ingestAndDecode({ ref: '/tmp/slides.pdf' }, runtimeContext);
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) throw decoded.error;
@@ -52,7 +51,7 @@ describe('PDF slide-vs-paper routing', () => {
 
   it('sets prose context hints and uses token-window chunking for paper-like PDFs', async () => {
     const dense = 'This paper contains enough dense prose to be grouped by token windows rather than page sections. '.repeat(80);
-    const vector = composeVector(createPdfVectorSpec({ readFileFn: async () => Buffer.from(`${dense}\f${dense}`, 'utf8') }));
+    const vector = createPdfVectorSpec({ readFileFn: async () => Buffer.from(`${dense}\f${dense}`, 'utf8') });
     const decoded = await vector.ingestAndDecode({ ref: '/tmp/paper.pdf' }, runtimeContext);
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) throw decoded.error;

@@ -193,6 +193,16 @@ describe('aidha cli phase-1 surface', () => {
     ]);
   });
 
+  it('rejects source-private config typos for sources without source config', () => {
+    const sourceIdsWithPrivateConfig = new Set(['youtube']);
+    for (const manifest of SOURCE_MANIFESTS) {
+      if (sourceIdsWithPrivateConfig.has(manifest.sourceId)) continue;
+      expect(() => manifest.registration.validateActiveSourceConfig({ typo: true })).toThrow(
+        `${manifest.sourceId} source config does not accept source-private keys`,
+      );
+    }
+  });
+
   it('prints help from the source manifest registry instead of a parallel usage list', async () => {
     const logs: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {

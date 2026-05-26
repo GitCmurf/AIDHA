@@ -166,18 +166,18 @@ export interface VectorRuntimeContext {
 
 export interface IIngestor<TPayload = unknown> {
   readonly sourceId: string;
-  acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource & { payload: TPayload }>>;
+  acquire(input: IngestInput, runtimeContext: VectorRuntimeContext): Promise<Result<RawSource<TPayload>>>;
 }
 
-export interface DecodeInput {
-  readonly raw: RawSource;
+export interface DecodeInput<TPayload = unknown> {
+  readonly raw: RawSource<TPayload>;
   readonly upstream?: readonly MediaSegment[];
   readonly config: ResolvedConfig;
 }
 
-export interface IDecodeStrategy {
+export interface IDecodeStrategy<TPayload = unknown> {
   readonly name: string;
-  decode(input: DecodeInput): Promise<Result<DecodeOutput>>;
+  decode(input: DecodeInput<TPayload>): Promise<Result<DecodeOutput>>;
 }
 
 export interface IChunker {
@@ -228,8 +228,8 @@ export interface IWebFetcher {
   fetch(input: WebFetchInput): Promise<Result<{ url: string; canonicalUrl: string; inputCanonicalUrl: string; title: string; html: string }>>;
 }
 
-export interface IContextProvider {
-  build(raw: RawSource, userConfig: ResolvedConfig): Promise<ExtractionContext>;
+export interface IContextProvider<TPayload = unknown> {
+  build(raw: RawSource<TPayload>, userConfig: ResolvedConfig): Promise<ExtractionContext>;
 }
 
 export interface PipelineServices {
