@@ -568,7 +568,12 @@ export class GraphBackedTaxonomyRegistry implements TaxonomyRegistry {
     const resource = await this.store.getNode(nodeId);
     if (!resource.ok) return resource;
     if (!resource.value) return { ok: true, value: undefined };
-    const metadata = withoutTaxonomyAssignment({ ...(resource.value.metadata ?? {}) }, nodeId, tagId);
+    let metadata: Record<string, unknown>;
+    try {
+      metadata = withoutTaxonomyAssignment({ ...(resource.value.metadata ?? {}) }, nodeId, tagId);
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
     const updated = await this.store.upsertNode(
       resource.value.type,
       resource.value.id,

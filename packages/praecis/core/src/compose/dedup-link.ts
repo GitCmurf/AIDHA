@@ -18,14 +18,24 @@ function uniqueStrings(values: readonly string[] = []): string[] {
   return Array.from(new Set(values.filter((value): value is string => typeof value === 'string' && value.length > 0)));
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  const parts = keys.map(k => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`);
+  return `{${parts.join(',')}}`;
+}
+
 function uniqueProvenances(existing: readonly unknown[] = [], incoming: readonly unknown[] = []): unknown[] {
   const seen = new Set<string>();
   const merged: unknown[] = [];
 
   for (const provenance of [...existing, ...incoming]) {
-    const key = provenance !== null && typeof provenance === 'object'
-      ? JSON.stringify(provenance, Object.keys(provenance as Record<string, unknown>).sort())
-      : JSON.stringify(provenance);
+    const key = stableStringify(provenance);
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(provenance);
@@ -57,6 +67,8 @@ function isJsonSafe(value: unknown): boolean {
   if (valueType === 'number') return Number.isFinite(value);
   if (Array.isArray(value)) return value.every(isJsonSafe);
   if (valueType !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
   return Object.values(value as Record<string, unknown>).every(isJsonSafe);
 }
 
@@ -78,7 +90,7 @@ function uniqueConflicts(conflicts: readonly MetadataConflict[]): MetadataConfli
   const seen = new Set<string>();
   const unique: MetadataConflict[] = [];
   for (const conflict of conflicts) {
-    const key = JSON.stringify(conflict);
+    const key = stableStringify(conflict);
     if (seen.has(key)) continue;
     seen.add(key);
     unique.push(conflict);

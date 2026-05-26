@@ -44,7 +44,7 @@ export interface RssIngestorOptions {
 function parseTag(xml: string, tag: string): string | undefined {
   const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i'));
   if (!match?.[1]) return undefined;
-  return match[1].trim();
+  return match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim();
 }
 
 function parseItemBlock(xml: string): RssItem {

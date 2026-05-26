@@ -1055,6 +1055,9 @@ export function makeStableLabel(seed: string): string {
 }
 
 async function readStdinText(): Promise<string> {
+  if (process.stdin.isTTY) {
+    return '';
+  }
   return new Promise<string>((resolve, reject) => {
     const chunks: string[] = [];
     process.stdin.setEncoding('utf8');

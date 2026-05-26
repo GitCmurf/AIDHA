@@ -93,12 +93,12 @@ function normalizeBytes(value: Uint8Array | ArrayBuffer): Uint8Array {
 function parseTag(xml: string, tag: string): string | undefined {
   const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i'));
   if (!match?.[1]) return undefined;
-  return match[1].trim();
+  return match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim();
 }
 
 function parseAttribute(block: string, attribute: string): string | undefined {
-  const match = block.match(new RegExp(`${attribute}="([^"]+)"`, 'i'));
-  return match?.[1]?.trim();
+  const match = block.match(new RegExp(`${attribute}=(?:"([^"]+)"|'([^']+)')`, 'i'));
+  return (match?.[1] ?? match?.[2])?.trim();
 }
 
 function parsePodcastItem(xml: string): PodcastItem {
@@ -141,12 +141,12 @@ function mediaTypeFromEnclosure(item: PodcastItem, enclosureUrl: string): string
   if (item.enclosureType && item.enclosureType.trim().length > 0) {
     return item.enclosureType.trim();
   }
-  const lower = enclosureUrl.toLowerCase();
-  if (lower.endsWith('.mp3')) return 'audio/mpeg';
-  if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'audio/mp4';
-  if (lower.endsWith('.wav')) return 'audio/wav';
-  if (lower.endsWith('.aac')) return 'audio/aac';
-  if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
+  const pathname = enclosureUrl.split('?')[0]?.split('#')[0]?.toLowerCase() ?? '';
+  if (pathname.endsWith('.mp3')) return 'audio/mpeg';
+  if (pathname.endsWith('.m4a') || pathname.endsWith('.mp4')) return 'audio/mp4';
+  if (pathname.endsWith('.wav')) return 'audio/wav';
+  if (pathname.endsWith('.aac')) return 'audio/aac';
+  if (pathname.endsWith('.ogg') || pathname.endsWith('.oga')) return 'audio/ogg';
   return 'audio/mpeg';
 }
 
@@ -225,18 +225,23 @@ class PodcastDiarizeStrategy implements IDecodeStrategy<PodcastPayload> {
       };
     }
 
-    const timecodedSegments: TimecodedSegment[] = input.upstream.map(segment => {
-      if (segment.locator.kind !== 'timecode') {
-        throw new Error(`PodcastDiarizeStrategy expected timecode segments, got ${segment.locator.kind}`);
-      }
-      return {
-        id: segment.id,
-        startSec: segment.locator.startSec,
-        endSec: segment.locator.endSec,
-        text: segment.text ?? '',
-        speaker: segment.locator.speaker,
-      };
-    });
+    let timecodedSegments: TimecodedSegment[];
+    try {
+      timecodedSegments = input.upstream.map(segment => {
+        if (segment.locator.kind !== 'timecode') {
+          throw new Error(`PodcastDiarizeStrategy expected timecode segments, got ${segment.locator.kind}`);
+        }
+        return {
+          id: segment.id,
+          startSec: segment.locator.startSec,
+          endSec: segment.locator.endSec,
+          text: segment.text ?? '',
+          speaker: segment.locator.speaker,
+        };
+      });
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
 
     const audio: AudioRef = { uri: payload.uri, mimeType: payload.mimeType };
     const diarized = await this.diarizer.diarize(audio, timecodedSegments);

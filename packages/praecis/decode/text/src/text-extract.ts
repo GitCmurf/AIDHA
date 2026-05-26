@@ -32,11 +32,11 @@ const BLOCK_TAGS = new Set([
 function decodeHtmlEntities(value: string): string {
   return value
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
+    .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, '&');
 }
 
 function segmentId(sourceId: string | undefined, index: number, text: string): string {
@@ -53,7 +53,7 @@ function pushSegment(
   sourceId?: string,
   label?: string,
 ): number {
-  const normalized = normalizeText(decodeHtmlEntities(text));
+  const normalized = normalizeText(text);
   if (normalized.length === 0) {
     return startOffset;
   }
@@ -71,10 +71,10 @@ function pushSegment(
 
 function stripDangerousBlocks(html: string): string {
   return html
-    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, ' ')
-    .replace(/<!--[\s\S]*?-->/g, ' ');
+    .replace(/<script\b[\s\S]*?<\/script(?:\s[^>]*)?>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style(?:\s[^>]*)?>/gi, ' ')
+    .replace(/<noscript\b[\s\S]*?<\/noscript(?:\s[^>]*)?>/gi, ' ')
+    .replace(/<!--[\s\S]*?--!?>/g, ' ');
 }
 
 function tokenize(html: string): string[] {
@@ -104,7 +104,7 @@ function extractBlocksFromHtml(html: string): Array<{ text: string; label?: stri
   let seenTextInCurrentBlock = false;
 
   const flush = () => {
-    const normalized = normalizeText(decodeHtmlEntities(current));
+    const normalized = normalizeText(current);
     if (normalized.length > 0) {
       blocks.push({ text: normalized, ...(currentLabel ? { label: currentLabel } : {}) });
     }

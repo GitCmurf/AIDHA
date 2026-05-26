@@ -232,6 +232,8 @@ export function stripEmailReply(text: string): string {
     if (trimmed.startsWith('>')) {
       inQuotedReply = true;
       continue;
+    } else if (trimmed.length > 0) {
+      inQuotedReply = false;
     }
     if (/^(From|Sent|To|Subject):\s+/i.test(trimmed) && inQuotedReply) {
       break;

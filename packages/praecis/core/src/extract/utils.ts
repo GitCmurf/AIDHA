@@ -197,7 +197,10 @@ export function truncateText(text: string, maxLength: number): string {
 const URL_REGEX = /https?:\/\/[^\s>\]]+/g;
 
 function normalizeUrl(url: string): string {
-  let trimmed = url.replace(/[.,!?]+$/, '');
+  let trimmed = url;
+  while (trimmed.length > 0 && /[.,!?]/.test(trimmed[trimmed.length - 1]!)) {
+    trimmed = trimmed.slice(0, -1);
+  }
   let openCount = (trimmed.match(/\(/g) ?? []).length;
   let closeCount = (trimmed.match(/\)/g) ?? []).length;
   while (closeCount > openCount && trimmed.endsWith(')')) {

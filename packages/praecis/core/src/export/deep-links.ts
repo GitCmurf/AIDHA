@@ -31,7 +31,12 @@ function extractYouTubeId(resourceUri: string): string | null {
 }
 
 function isYouTube(resourceUri: string): boolean {
-  return resourceUri.includes('youtu.be') || resourceUri.includes('youtube.com');
+  try {
+    const url = new URL(resourceUri);
+    return url.hostname === 'youtu.be' || url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com';
+  } catch {
+    return false;
+  }
 }
 
 export function renderDeepLink(resourceUri: string, locator: Locator): string | null {

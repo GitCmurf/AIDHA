@@ -220,7 +220,12 @@ export function transcribeStrategy<TPayload = AudioRef>(transcriber: ITranscribe
   return {
     name: `transcribe:${transcriber.backend}`,
     async decode(input): Promise<Result<DecodeOutput>> {
-      const audio = audioRefFromPayload(input.raw.payload);
+      let audio: AudioRef;
+      try {
+        audio = audioRefFromPayload(input.raw.payload);
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      }
       const opts = transcribeOptsFrom(input.config);
       const result = await transcriber.transcribe(audio, opts);
       return mapResult(result, segs => ({

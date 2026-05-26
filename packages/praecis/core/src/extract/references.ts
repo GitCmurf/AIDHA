@@ -55,7 +55,7 @@ export class ReferenceExtractionPipeline implements IReferenceExtractor {
 
     const referenceIds = new Map<string, string>();
     for (const url of urls) {
-      const referenceId = hashId('reference', [url, resourceId]);
+      const referenceId = hashId('reference', [url]);
       const data: NodeDataInput = {
         label: url,
         content: url,
