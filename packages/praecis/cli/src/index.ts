@@ -1054,7 +1054,7 @@ export function makeStableLabel(seed: string): string {
   return stableId(seed);
 }
 
-async function readStdinText(): Promise<string> {
+function readStdinText(): Promise<string> {
   if (process.stdin.isTTY) {
     return '';
   }

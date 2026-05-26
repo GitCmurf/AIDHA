@@ -71,10 +71,10 @@ function pushSegment(
 
 function stripDangerousBlocks(html: string): string {
   return html
-    .replace(/<script\b[\s\S]*?<\/script(?:\s[^>]*)?>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style(?:\s[^>]*)?>/gi, ' ')
-    .replace(/<noscript\b[\s\S]*?<\/noscript(?:\s[^>]*)?>/gi, ' ')
-    .replace(/<!--[\s\S]*?--!?>/g, ' ');
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<noscript\b[\s\S]*?<\/noscript\s*>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ');
 }
 
 function tokenize(html: string): string[] {
