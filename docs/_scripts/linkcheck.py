@@ -57,6 +57,10 @@ def check_url(url: str) -> Dict[str, Any]:
     return result
 
 
+def is_failure(result: Dict[str, Any]) -> bool:
+    return result.get("status") == "fail"
+
+
 def clean_url(url: str) -> str:
     """Removes trailing markdown artifacts and punctuation while keeping balanced parens."""
     # Iteratively strip from the right if the character is clearly a markdown artifact or sentence punctuation.
@@ -123,7 +127,7 @@ def main() -> int:
             )
             continue
         res = check_url(url)
-        if res["status"] != "ok":
+        if is_failure(res):
             failures += 1
         results.append(res)
     REPORT.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
