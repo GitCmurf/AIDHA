@@ -24,6 +24,7 @@ SKIP_EXACT_URLS = {
     "https://github.com/GitCmurf/AIDHA/blob/main/packages/aidha-config/schema/config.schema.json",
 }
 TIMEOUT = 5
+_NON_FAILURE_STATUSES = {"ok", "skipped"}
 
 
 def check_url(url: str) -> Dict[str, Any]:
@@ -55,6 +56,10 @@ def check_url(url: str) -> Dict[str, Any]:
         "error": error,
     }
     return result
+
+
+def is_failure(result: Dict[str, Any]) -> bool:
+    return result.get("status") not in _NON_FAILURE_STATUSES
 
 
 def clean_url(url: str) -> str:
@@ -123,7 +128,7 @@ def main() -> int:
             )
             continue
         res = check_url(url)
-        if res["status"] != "ok":
+        if is_failure(res):
             failures += 1
         results.append(res)
     REPORT.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
