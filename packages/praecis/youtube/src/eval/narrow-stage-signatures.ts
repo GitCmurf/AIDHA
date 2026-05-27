@@ -225,12 +225,14 @@ export function buildVideoScoreInputSignature(input: {
 export function buildRefineStageInputSignature(input: {
   extractionStageInputSignature: string;
   refinedTargets: NarrowShortlistTarget[];
+  shortlistTargets: NarrowShortlistTarget[];
   teacherAwareHints: Record<string, SelfImproveHintInput>;
 }): string {
   return hashId("narrow-refine-stage", [
     input.extractionStageInputSignature,
     JSON.stringify({
       refinedTargets: input.refinedTargets,
+      shortlistTargets: input.shortlistTargets,
       teacherAwareHints: input.teacherAwareHints,
     }),
   ]);

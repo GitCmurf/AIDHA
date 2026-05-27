@@ -52,6 +52,25 @@ describe('JSON-LD export', () => {
       expect(result).not.toHaveProperty('metadata');
     });
 
+    it('prevents metadata from overwriting reserved fields and predicates', () => {
+      const result = nodeToJsonLd({
+        ...testNode,
+        metadata: {
+          '@id': 'malicious-id',
+          '@type': 'MaliciousType',
+          'label': 'New Label',
+          'relatedTo': 'malicious-link', // predicate collision
+          'createdAt': '2000-01-01T00:00:00.000Z',
+        },
+      });
+
+      expect(result['@id']).toBe('urn:aidha:node:node-1');
+      expect(result['@type']).toBe('Knowledge');
+      expect(result.label).toBe('Test Knowledge');
+      expect(result.createdAt).toBe('2025-01-01T00:00:00.000Z');
+      expect(result['relatedTo']).toBeUndefined();
+    });
+
     it('omits undefined content', () => {
       const nodeWithoutContent = { ...testNode, content: undefined };
       const result = nodeToJsonLd(nodeWithoutContent);

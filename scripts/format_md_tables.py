@@ -44,19 +44,28 @@ def is_delimiter_row(cells: list[str]) -> bool:
     return all(DELIM_CELL_RE.match(c or "") for c in cells)
 
 
+def get_min_delim_width(template: str) -> int:
+    left = template.startswith(":")
+    right = template.endswith(":")
+    if left and right:
+        return 5  # :---:
+    if left or right:
+        return 4  # :--- or ---:
+    return 3  # ---
+
+
 def render_delimiter_cell(width: int, template: str) -> str:
-    width = max(3, width)
     left = template.startswith(":")
     right = template.endswith(":")
     if left and right:
         # :---:
-        return ":" + ("-" * max(1, width - 2)) + ":"
+        return ":" + ("-" * (width - 2)) + ":"
     if left:
         # :---
-        return ":" + ("-" * max(2, width - 1))
+        return ":" + ("-" * (width - 1))
     if right:
         # ---:
-        return ("-" * max(2, width - 1)) + ":"
+        return ("-" * (width - 1)) + ":"
     return "-" * width
 
 
@@ -110,7 +119,7 @@ def find_tables(lines: list[str]) -> list[Table]:
 
 
 def format_table(t: Table) -> list[str]:
-    widths = [0] * len(t.rows[0])
+    widths = [get_min_delim_width(t.delim[idx]) for idx in range(len(t.rows[0]))]
     for r in t.rows:
         for idx, cell in enumerate(r):
             widths[idx] = max(widths[idx], len(cell))

@@ -69,9 +69,14 @@ packages/praecis/youtube/custom/dir/
 specs/**/PLAN.auto.md
 specs/**/TASKS.auto.md
 
+# Clawpatch
+.clawpatch/
+
 # Local tooling state
 .qodo/cache/
 .qodo/sessions/
+.meminit/cache/
+.claude/
 
 # Temporary files and directories
 temp-*

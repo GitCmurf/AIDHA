@@ -100,6 +100,7 @@ describe("narrow refine stage", () => {
     const inputSignature = buildRefineStageInputSignature({
       extractionStageInputSignature: "extract-v1",
       refinedTargets,
+      shortlistTargets: refinedTargets,
       teacherAwareHints: {},
     });
     const cachedFinalCell = cell({ modelId: "cached-model" });
@@ -141,5 +142,65 @@ describe("narrow refine stage", () => {
     expect(result.execution).toBe("resumed");
     expect(result.finalHarnessCells).toEqual([cachedFinalCell]);
     expect(logger.info).toHaveBeenCalledWith("[resume-from] stage=refine");
+  });
+
+  it("invalidates cache when unrefined shortlist targets change", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "narrow-refine-stage-invalidate-"));
+    const logger = testLogger();
+
+    const target1 = {
+      videoId: "video-1",
+      modelId: "model-1",
+      promptConfigId: "baseline" as const,
+      chunkMode: "large-request" as const,
+      candidateId: "harness/model-1/raw/baseline/large-request",
+    };
+    const target2 = {
+      videoId: "video-1",
+      modelId: "model-2",
+      promptConfigId: "baseline" as const,
+      chunkMode: "large-request" as const,
+      candidateId: "harness/model-2/raw/baseline/large-request",
+    };
+    const target3 = {
+      videoId: "video-1",
+      modelId: "model-3",
+      promptConfigId: "baseline" as const,
+      chunkMode: "large-request" as const,
+      candidateId: "harness/model-3/raw/baseline/large-request",
+    };
+
+    const runStage = (shortlistTargets: any[]) => createNarrowRefineStage({
+      corpus: [],
+      models: [],
+      stage2Variants: [],
+      runMode: "fast-triage",
+      outputDir,
+      transcriptDir: "transcripts",
+      clientFactory: () => ({}) as any,
+      maxConcurrency: 1,
+      timeoutMs: 1000,
+      enablePromptRouting: false,
+      remainingRefinedSelfImproveCells: () => 1, // Only first target is refined
+      budgetSkips: [],
+      logger,
+    }).run({
+      extractionStageInputSignature: "extract-v1",
+      shortlistTargets,
+      initialHarnessCells: shortlistTargets.map(t => cell({ modelId: t.modelId })),
+      teacherAwareHints: {},
+    });
+
+    // Run 1: [target1, target2] -> refined=[target1]
+    const result1 = await runStage([target1, target2]);
+    expect(result1.execution).toBe("recomputed");
+    expect(result1.finalHarnessCells.map(c => c.modelId)).toContain("model-2");
+
+    // Run 2: [target1, target3] -> refined=[target1]
+    // Even though refinedTargets is still [target1], shortlistTargets changed.
+    const result2 = await runStage([target1, target3]);
+    expect(result2.execution).toBe("recomputed");
+    expect(result2.finalHarnessCells.map(c => c.modelId)).toContain("model-3");
+    expect(result2.finalHarnessCells.map(c => c.modelId)).not.toContain("model-2");
   });
 });

@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, chmodSync } from 'node:fs';
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025-2026 Colin Farmer (GitCmurf)
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, chmodSync, symlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -10,6 +13,7 @@ import {
   ConfigValidationError,
   ConfigVersionError,
 } from '../src/loader.js';
+import { resolveConfig } from '../src/resolver.js';
 
 // ── Test fixtures ────────────────────────────────────────────────────────────
 
@@ -152,6 +156,66 @@ profiles:
     await expect(loadConfig({ cwd: tmpDir })).rejects.toThrow(ConfigValidationError);
   });
 
+  it('should throw ConfigValidationError for structural errors before interpolation', async () => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+profiles:
+  default:
+    env:
+      dotenv_files:
+        - .env
+    unknown_section: bad
+`);
+    try {
+      await loadConfig({ cwd: tmpDir, env: {} });
+      expect.unreachable('Should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ConfigValidationError);
+      const errors = (e as ConfigValidationError).errors;
+      expect(errors.some(
+        (err) => err.path.includes('default') && err.message.includes('additional'),
+      )).toBe(true);
+    }
+  });
+
+  it.each([
+    ['llm', 'llm: []', '/profiles/default/llm'],
+    ['source_overrides', 'source_overrides: []', '/profiles/default/source_overrides'],
+  ])('should throw ConfigValidationError for malformed nested profile %s sections', async (_label, snippet, expectedPath) => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+profiles:
+  default:
+    db: ./out/test.sqlite
+    ${snippet}
+`);
+
+    try {
+      await loadConfig({ cwd: tmpDir, env: {} });
+      expect.unreachable('Should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ConfigValidationError);
+      const errors = (e as ConfigValidationError).errors;
+      expect(errors.some((err) => err.path === expectedPath && err.message.includes('must be object'))).toBe(true);
+    }
+  });
+
+  it.each([
+    ['base_dir', 'base_dir: 42'],
+    ['env', 'env: []'],
+    ['profiles', 'profiles: 1'],
+  ])('should throw ConfigValidationError for malformed top-level %s types', async (_label, snippet) => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+${snippet}
+`);
+
+    await expect(loadConfig({ cwd: tmpDir, env: {} })).rejects.toThrow(ConfigValidationError);
+  });
+
   it('should throw ConfigVersionError for unsupported version', async () => {
     writeConfig(`
 config_version: 999
@@ -169,7 +233,7 @@ profiles:
     expect(result.configPath).toBe(filePath);
   });
 
-  it('should interpolate ${VAR} references', async () => {
+  it('should NOT interpolate ${VAR} references eagerly', async () => {
     writeConfig(`
 config_version: 1
 default_profile: default
@@ -182,10 +246,30 @@ profiles:
       cwd: tmpDir,
       env: { TEST_API_KEY: 'sk-test-key' },
     });
-    expect(result.config!.profiles['default']?.llm?.api_key).toBe('sk-test-key');
+    // loadConfig now returns raw uninterpolated config
+    expect(result.config!.profiles['default']?.llm?.api_key).toBe('${TEST_API_KEY}');
   });
 
-  it('should interpolate literal escapes from double-quoted YAML scalars', async () => {
+  it('should resolve ${VAR} when passed through resolveConfig', async () => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+profiles:
+  default:
+    llm:
+      api_key: \${TEST_API_KEY}
+`);
+    try {
+      vi.stubEnv('TEST_API_KEY', 'sk-test-key');
+      const loadResult = await loadConfig({ cwd: tmpDir });
+      const resolved = resolveConfig({ rawConfig: loadResult.config });
+      expect(resolved.llm.apiKey).toBe('sk-test-key');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('should interpolate literal escapes from double-quoted YAML scalars in resolveConfig', async () => {
     writeConfig(
       [
         'config_version: 1',
@@ -197,12 +281,10 @@ profiles:
       ].join('\n'),
     );
 
-    const result = await loadConfig({
-      cwd: tmpDir,
-      env: { TEST_API_KEY: 'sk-test-key' },
-    });
+    const loadResult = await loadConfig({ cwd: tmpDir });
+    const resolved = resolveConfig({ rawConfig: loadResult.config });
 
-    expect(result.config!.profiles['default']?.llm?.api_key).toBe('${TEST_API_KEY}');
+    expect(resolved.llm.apiKey).toBe('${TEST_API_KEY}');
   });
 
   it('should respect caller env for XDG discovery in loadConfig', async () => {
@@ -257,7 +339,7 @@ profiles:
 // ── Dotenv loading ───────────────────────────────────────────────────────────
 
 describe('loadConfig — dotenv', () => {
-  it('should load .env files and use values in interpolation', async () => {
+  it('should load .env files and use values in resolveConfig', async () => {
     writeConfig(`
 config_version: 1
 default_profile: default
@@ -274,8 +356,39 @@ profiles:
 
     const env: Record<string, string | undefined> = {};
     const result = await loadConfig({ cwd: tmpDir, env });
-    expect(result.config!.profiles['default']?.llm?.api_key).toBe('dotenv-value');
     expect(result.dotenvEnv['FROM_DOTENV']).toBe('dotenv-value');
+
+    // We must stub the env for resolveConfig since it uses process.env
+    try {
+      vi.stubEnv('FROM_DOTENV', 'dotenv-value');
+      const resolved = resolveConfig({ rawConfig: result.config });
+      expect(resolved.llm.apiKey).toBe('dotenv-value');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('should throw ConfigValidationError for malformed dotenv_files entries', async () => {
+    writeConfig(`
+config_version: 1
+default_profile: default
+env:
+  dotenv_files:
+    - .env.test
+    - 123
+profiles:
+  default: {}
+`);
+
+    await expect(loadConfig({ cwd: tmpDir, env: {} })).rejects.toMatchObject({
+      name: 'ConfigValidationError',
+      errors: [
+        {
+          path: '/env/dotenv_files/1',
+          message: expect.stringContaining('string'),
+        },
+      ],
+    });
   });
 
   it('should return empty dotenvEnv when no dotenv files configured', async () => {
@@ -304,6 +417,42 @@ profiles:
     expect(result.warnings.some((w) => w.includes('nonexistent.env'))).toBe(true);
   });
 
+  it('should skip dotenv files reached through a symlinked directory', async () => {
+    const externalRoot = mkdtempSync(join(tmpdir(), 'aidha-dotenv-external-'));
+    const externalDir = join(externalRoot, 'outside');
+    const linkedDir = join(tmpDir, 'linked');
+
+    try {
+      mkdirSync(externalDir, { recursive: true });
+      writeFileSync(join(externalDir, 'secret.env'), 'TRAVERSAL=value\n', 'utf-8');
+
+      try {
+        symlinkSync(externalDir, linkedDir, 'dir');
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException)?.code;
+        if (['EPERM', 'EACCES', 'ENOSYS', 'EINVAL'].includes(code || '')) return;
+        throw err;
+      }
+
+      writeConfig(`
+config_version: 1
+default_profile: default
+env:
+  dotenv_files:
+    - linked/secret.env
+profiles:
+  default: {}
+`);
+
+      const result = await loadConfig({ cwd: tmpDir, env: {} });
+
+      expect(result.dotenvEnv['TRAVERSAL']).toBeUndefined();
+      expect(result.warnings.some((w) => w.includes('resolves outside the config base directory'))).toBe(true);
+    } finally {
+      rmSync(externalRoot, { recursive: true, force: true });
+    }
+  });
+
   it('should error on missing dotenv file when dotenv_required is true', async () => {
     writeConfig(`
 config_version: 1
@@ -315,12 +464,21 @@ env:
 profiles:
   default: {}
 `);
-    await expect(loadConfig({ cwd: tmpDir, env: {} })).rejects.toThrow(
-      /not found/,
-    );
+    try {
+      await loadConfig({ cwd: tmpDir, env: {} });
+      throw new Error('Expected loadConfig to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigValidationError);
+      expect((error as ConfigValidationError).filePath).toBe(join(tmpDir, '.aidha', 'config.yaml'));
+      expect((error as ConfigValidationError).errors).toHaveLength(1);
+      expect((error as ConfigValidationError).errors[0]).toMatchObject({
+        path: '/env/dotenv_files',
+      });
+      expect((error as ConfigValidationError).errors[0].message).toContain('Dotenv file not found:');
+    }
   });
 
-  it('should not override existing env vars by default', async () => {
+  it('should not override existing env vars by default in resolveConfig', async () => {
     writeConfig(`
 config_version: 1
 default_profile: default
@@ -334,12 +492,17 @@ profiles:
 `);
     writeFileSync(join(tmpDir, '.env.test'), 'EXISTING_VAR=from-dotenv\n');
 
-    const env: Record<string, string | undefined> = { EXISTING_VAR: 'from-shell' };
-    const result = await loadConfig({ cwd: tmpDir, env });
-    expect(result.config!.profiles['default']?.llm?.api_key).toBe('from-shell');
+    try {
+      vi.stubEnv('EXISTING_VAR', 'from-shell');
+      const result = await loadConfig({ cwd: tmpDir });
+      const resolved = resolveConfig({ rawConfig: result.config });
+      expect(resolved.llm.apiKey).toBe('from-shell');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
-  it('should override existing env vars when override_existing is true', async () => {
+  it('should override existing env vars when override_existing is true in resolveConfig', async () => {
     writeConfig(`
 config_version: 1
 default_profile: default
@@ -354,9 +517,15 @@ profiles:
 `);
     writeFileSync(join(tmpDir, '.env.test'), 'OVERRIDE_VAR=from-dotenv\n');
 
-    const env: Record<string, string | undefined> = { OVERRIDE_VAR: 'from-shell' };
-    const result = await loadConfig({ cwd: tmpDir, env });
-    expect(result.config!.profiles['default']?.llm?.api_key).toBe('from-dotenv');
+    try {
+      vi.stubEnv('OVERRIDE_VAR', 'from-shell');
+      // loadConfig with syncProcessEnv: true will update process.env
+      const result = await loadConfig({ cwd: tmpDir, syncProcessEnv: true });
+      const resolved = resolveConfig({ rawConfig: result.config });
+      expect(resolved.llm.apiKey).toBe('from-dotenv');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should sync dotenv values into process.env when syncProcessEnv is true', async () => {
@@ -379,7 +548,6 @@ profiles:
     try {
       const env: Record<string, string | undefined> = { CUSTOM_ENV: 'caller-value' };
       const result = await loadConfig({ cwd: tmpDir, env, syncProcessEnv: true });
-      expect(result.config!.profiles['default']?.llm?.api_key).toBe('from-dotenv');
       expect(result.dotenvEnv['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
       expect(process.env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
       expect(env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
@@ -412,7 +580,6 @@ profiles:
     try {
       const env: Record<string, string | undefined> = { CUSTOM_ENV: 'caller-value' };
       const result = await loadConfig({ cwd: tmpDir, env, syncProcessEnv: true });
-      expect(result.config!.profiles['default']?.llm?.api_key).toBe('from-dotenv');
       expect(result.dotenvEnv['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
       expect(env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
       expect(process.env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-dotenv');
@@ -448,7 +615,6 @@ profiles:
         AIDHA_SYNC_DOTENV_VAR: 'from-caller-env',
       };
       const result = await loadConfig({ cwd: tmpDir, env, syncProcessEnv: true });
-      expect(result.config!.profiles['default']?.llm?.api_key).toBe('from-caller-env');
       expect(result.dotenvEnv['AIDHA_SYNC_DOTENV_VAR']).toBeUndefined();
       expect(env['AIDHA_SYNC_DOTENV_VAR']).toBe('from-caller-env');
       expect(process.env['AIDHA_SYNC_DOTENV_VAR']).toBe('stale-shell-value');

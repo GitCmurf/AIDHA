@@ -5,9 +5,11 @@ import { describe, it, expect } from 'vitest';
 import {
   GraphNode,
   CreateNodeInput,
+  UpdateNodeInput,
   GraphEdge,
   CreateEdgeInput,
   Knowledge,
+  CreateKnowledgeInput,
   NodeType,
   Predicate,
   SourceType,
@@ -75,6 +77,44 @@ describe('CreateNodeInput schema', () => {
     const result = CreateNodeInput.safeParse(input);
     expect(result.success).toBe(true);
   });
+
+  it('rejects schemaVersion', () => {
+    const input = {
+      id: 'node-1',
+      type: 'Knowledge' as const,
+      label: 'Test',
+      schemaVersion: 1,
+    };
+    const result = CreateNodeInput.safeParse(input);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('UpdateNodeInput schema', () => {
+  it('allows partial updates', () => {
+    const input = {
+      label: 'New Label',
+    };
+    const result = UpdateNodeInput.safeParse(input);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects schemaVersion', () => {
+    const input = {
+      label: 'New Label',
+      schemaVersion: 1,
+    };
+    const result = UpdateNodeInput.safeParse(input);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects timestamps', () => {
+    const input = {
+      createdAt: '2025-01-01T00:00:00.000Z',
+    };
+    const result = UpdateNodeInput.safeParse(input);
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('GraphEdge schema', () => {
@@ -130,6 +170,19 @@ describe('Knowledge schema', () => {
       metadata: { ...validKnowledge.metadata, confidence: 1.5 },
     };
     const result = Knowledge.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('CreateKnowledgeInput schema', () => {
+  it('rejects schemaVersion', () => {
+    const input = {
+      id: 'knowledge-1',
+      type: 'Knowledge' as const,
+      label: 'Test Knowledge',
+      schemaVersion: 1,
+    };
+    const result = CreateKnowledgeInput.safeParse(input);
     expect(result.success).toBe(false);
   });
 });

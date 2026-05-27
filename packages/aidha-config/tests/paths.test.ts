@@ -120,13 +120,18 @@ describe('resolvePathValues', () => {
     expect(config.profiles.default.export.source_prefix).toBe('youtube'); // not a path
   });
 
-  it('should not rewrite bare command names in path fields', () => {
+  it('should not touch source-private nested objects', () => {
     const config = {
-      sources: {
-        youtube: {
-          ytdlp: {
-            bin: 'yt-dlp',
-            cookies_file: './cookies.txt',
+      profiles: {
+        default: {
+          db: './out/test.sqlite',
+          source_overrides: {
+            youtube: {
+              ytdlp: {
+                bin: 'yt-dlp',
+                cookies_file: './cookies.txt',
+              },
+            },
           },
         },
       },
@@ -134,9 +139,9 @@ describe('resolvePathValues', () => {
 
     resolvePathValues(config, baseDir);
 
-    expect(config.sources.youtube.ytdlp.bin).toBe('yt-dlp'); // bare command
-    expect(config.sources.youtube.ytdlp.cookies_file).toBe(
-      resolve(baseDir, './cookies.txt'),
+    expect(config.profiles.default.db).toBe(resolve(baseDir, './out/test.sqlite'));
+    expect(config.profiles.default.source_overrides.youtube.ytdlp.cookies_file).toBe(
+      './cookies.txt',
     );
   });
 

@@ -115,13 +115,25 @@ export interface YtDlpPreflightReport {
   probe: YtDlpPreflightProbe;
 }
 
-function parseRuntimeExecutable(configured: string): string {
+export function parseRuntimeExecutable(configured: string): string {
   const first = configured.split(',')[0]?.trim() ?? '';
   if (!first) return 'node';
-  const pathCandidate = first.split(':')[1]?.trim();
-  if (pathCandidate) return pathCandidate;
+  // If it's a label:executable pair, separate them.
+  // Be careful with Windows drive letters (e.g., node:C:\path\node.exe)
+  const match = first.match(/^([^:]+):(.+)$/);
+  if (match) {
+    const label = match[1]!;
+    const executable = match[2]!;
+    // If label looks like a drive letter (single char), it's probably NOT a label
+    if (label.length === 1 && /^[A-Za-z]$/.test(label)) {
+      return first;
+    }
+    return executable.trim();
+  }
   return first;
 }
+
+
 
 async function checkExecutable(executable: string): Promise<boolean> {
   try {
@@ -151,9 +163,9 @@ async function readVersion(executable: string): Promise<string | undefined> {
 export function parseConfiguredRuntimes(configured: string): YtDlpPreflightRuntime[] {
   const parts = configured
     .split(',')
-    .map(part => part.trim())
+    .map((part) => part.trim())
     .filter(Boolean);
-  const entries = parts.map(part => {
+  const entries = parts.map((part) => {
     const trimmed = part.trim();
     const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(trimmed);
     if (windowsAbsolute) {
@@ -163,15 +175,35 @@ export function parseConfiguredRuntimes(configured: string): YtDlpPreflightRunti
         available: false,
       };
     }
-    const splitIndex = trimmed.indexOf(':');
-    const label = splitIndex === -1 ? trimmed : trimmed.slice(0, splitIndex).trim() || trimmed;
-    const executable = splitIndex === -1 ? label : trimmed.slice(splitIndex + 1).trim() || label;
+
+    const match = trimmed.match(/^([^:]+):(.+)$/);
+    if (match) {
+      const labelCandidate = match[1]!;
+      const executableCandidate = match[2]!;
+
+      // Check if the label candidate is actually a drive letter
+      if (labelCandidate.length === 1 && /^[A-Za-z]$/.test(labelCandidate)) {
+        return {
+          label: trimmed,
+          executable: trimmed,
+          available: false,
+        };
+      }
+
+      return {
+        label: labelCandidate.trim(),
+        executable: executableCandidate.trim(),
+        available: false,
+      };
+    }
+
     return {
-      label,
-      executable,
+      label: trimmed,
+      executable: trimmed,
       available: false,
     };
   });
+
 
   for (const common of ['node', 'deno', 'bun']) {
     if (!entries.some(entry => entry.label === common || entry.executable === common)) {
@@ -372,6 +404,43 @@ function transcriptCoverageScore(segments: Transcript['segments']): number {
   if (!last) return 0;
   const end = last.start + last.duration;
   return (end * 1_000) + segments.length;
+}
+
+export async function fetchPlaylistWithYtDlp(
+  playlistId: string,
+  rtConfig?: YtDlpRuntimeConfig,
+): Promise<Result<{ videoIds: string[] }>> {
+  const cfg = rtConfig ?? ytDlpDefaultConfig();
+  const url = `https://www.youtube.com/playlist?list=${playlistId}`;
+  const args = [
+    '--flat-playlist',
+    '--print',
+    'id',
+    '--no-progress',
+    '--ignore-errors',
+    url,
+  ];
+
+  try {
+    if (cfg.debugTranscript) {
+      resolveLogger(cfg).debug(`[playlist] yt-dlp: ${cfg.bin} ${args.join(' ')}`);
+    }
+
+    const { stdout } = await execFileAsync(cfg.bin, args, {
+      timeout: cfg.timeoutMs,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    const videoIds = stdout.split('\n').map(id => id.trim()).filter(Boolean);
+    if (videoIds.length === 0) {
+      return { ok: false, error: new Error(`No videos found in playlist ${playlistId}`) };
+    }
+
+    return { ok: true, value: { videoIds } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: new Error(`Failed to fetch playlist with yt-dlp: ${message}`) };
+  }
 }
 
 export async function fetchTranscriptWithYtDlp(

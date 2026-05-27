@@ -79,8 +79,9 @@ export type Knowledge = z.infer<typeof Knowledge>;
  * Input schema for creating knowledge entities.
  */
 export const CreateKnowledgeInput = Knowledge.omit({
+  schemaVersion: true,
   createdAt: true,
   updatedAt: true,
-});
+}).strict();
 
 export type CreateKnowledgeInput = z.infer<typeof CreateKnowledgeInput>;

@@ -107,6 +107,20 @@ export interface AidhaConfig {
   extensions?: Record<string, unknown>;
 }
 
+/**
+ * A looser version of AidhaConfig used before semantic resolution.
+ * This represents the raw object after structural validation but
+ * before type coercion and tier merging.
+ */
+export type UnresolvedAidhaConfig = Record<string, unknown> & {
+  config_version: number;
+  default_profile: string;
+  profiles: Record<string, unknown>;
+  sources?: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
+  base_dir?: string;
+};
+
 // ── Source Registration ──────────────────────────────────────────────────────
 
 /**
@@ -191,31 +205,28 @@ export interface ResolvedConfig {
   };
 }
 
-// ── Writer Types ─────────────────────────────────────────────────────────────
+// ── Logging ─────────────────────────────────────────────────────────────────
 
-/** Options for writing a config file safely. */
-export interface WriteConfigOptions {
-  /** How many .bak files to retain (default: 3). */
-  maxBackups?: number;
-  /** If true, perform a dry-run and return the diff without writing. */
-  dryRun?: boolean;
-  /** Optional comment header to prepend to the file. */
-  header?: string;
-  /** If true, allow overwriting even if the file changed since it was read. */
-  force?: boolean;
-  /** If true, allow writing to a symlink target (not recommended). */
-  allowSymlink?: boolean;
-}
+/** Structured configuration log event. */
+export type ConfigLogEvent =
+  | {
+      type: 'config.load.summary';
+      configPath: string | null;
+      profile: string;
+      sourceId?: string;
+      dotenvVarCount: number;
+      warningCount: number;
+      cliOverrideKeys: string[];
+    }
+  | {
+      type: 'config.load.warning';
+      code: string;
+      message: string;
+      configPath?: string;
+    };
 
-/** Result of a config write operation. */
-export interface WriteResult {
-  /** Path to the backup file created (if any). */
-  backupPath?: string;
-  /** Whether the file was actually modified. */
-  modified: boolean;
-  /** Human-readable diff (if dryRun). */
-  diff?: string;
-}
+/** Callback for processing structured config events. */
+export type ConfigLogSink = (event: ConfigLogEvent) => void;
 
 // ── Utility Types ────────────────────────────────────────────────────────────
 

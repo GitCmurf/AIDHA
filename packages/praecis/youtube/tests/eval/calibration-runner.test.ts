@@ -16,7 +16,7 @@ const makeScore = (override: Partial<ClaimSetScore> = {}): ClaimSetScore => ({
   hallucinations: [],
   redundancies: [],
   gapAreas: [],
-  judgeMeta: { judgeModelId: "mock-judge", judgePromptVersion: "v1" },
+  judgeMeta: { judgeModelId: "mock-judge", judgePromptVersion: "v2" },
   ...override,
 });
 
@@ -51,11 +51,11 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: makeLlmClient(),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
-    expect(result.promptVersion).toBe("v1");
+    expect(result.promptVersion).toBe("v2");
     expect(result.judgeModelId).toBe("mock-judge");
     expect(result.goldSetVideoIds).toEqual(["synthetic-lecture-1"]);
     expect(result.agreementThreshold).toBe(0.7);
@@ -69,7 +69,7 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: makeLlmClient(),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -91,7 +91,7 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: makeLlmClient(lowScore),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -112,7 +112,7 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: makeLlmClient(),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -147,7 +147,7 @@ describe("runCalibration", () => {
       },
       judgeClient: mixedClient,
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -207,7 +207,7 @@ describe("runCalibration", () => {
       },
       judgeClient: mixedClient,
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -224,7 +224,7 @@ describe("runCalibration", () => {
       transcripts: {},
       judgeClient: makeLlmClient(),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -256,7 +256,7 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: client,
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     await runCalibration(opts);
@@ -273,7 +273,7 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: makeLlmClient({ completeness: 7.5 }),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -289,7 +289,7 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: failingClient,
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -303,7 +303,7 @@ describe("runCalibration", () => {
       transcripts: {},
       judgeClient: makeLlmClient(),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     const result = await runCalibration(opts);
@@ -320,7 +320,7 @@ describe("runCalibration", () => {
       transcripts,
       judgeClient: makeLlmClient(),
       judgeModelId: "mock-judge",
-      promptVersion: "v1",
+      promptVersion: "v2",
       agreementThreshold: 0.7,
     };
     await expect(runCalibration(opts)).rejects.toThrow("goldenEntries must not be empty");

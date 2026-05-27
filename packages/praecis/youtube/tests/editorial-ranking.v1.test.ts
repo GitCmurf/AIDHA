@@ -46,12 +46,13 @@ describe('editorial ranking v1 characterization', () => {
       chunkCount: 3,
     });
 
-    expect(normal.length).toBe(3);
+    expect(normal.length).toBe(4);
     expect(normal.map(candidate => candidate.text)).toEqual(
       reversed.map(candidate => candidate.text)
     );
-    expect(normal[0]?.text).toContain('idempotent');
-    expect(normal[1]?.text).toContain('SHA-256');
+    const allText = normal.map(c => c.text).join(' ');
+    expect(allText).toContain('idempotent');
+    expect(allText).toContain('SHA-256');
   });
 
   it('v1 admits a known bad fragment ending with conjunction', () => {

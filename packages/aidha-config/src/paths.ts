@@ -11,7 +11,7 @@
  */
 
 import { resolve, dirname, sep } from 'node:path';
-import { loadSchema } from './schema.js';
+import { PATH_PATTERNS, RUNTIME_PATH_PATTERNS } from './schema.generated.js';
 
 /**
  * Compute `base_dir_prelim` from the config file path.
@@ -50,16 +50,6 @@ export function computeFinalBaseDir(
 }
 
 /**
- * Collect the dot-notation paths of all schema properties annotated
- * with `x-aidha-path: true`. Results are cached after first call.
- */
-let _pathKeys: string[] | undefined;
-
-export function getPathAnnotatedKeys(): string[] {
-  return getPathPatterns().map((segments) => segments.join('.'));
-}
-
-/**
  * Determine whether a value should be treated as a filesystem path
  * or a bare command name (suitable for PATH resolution).
  *
@@ -89,10 +79,8 @@ export function resolvePathValue(value: string, baseDir: string): string {
 /**
  * Recursively resolve all path-like values in a config object.
  *
- * For dynamic structures (profiles and sources), we can't rely solely on
- * schema JSON-pointer paths because profile/source names are dynamic keys.
- * Instead, we walk the config object and check property names against the
- * known path-annotated leaf names extracted from the schema's $defs.
+ * Consumes both PATH_PATTERNS (on-disk) and RUNTIME_PATH_PATTERNS (runtime)
+ * from schema.generated.ts to identify which fields should be resolved as paths.
  *
  * @param config  - The parsed config object (mutated in-place for performance).
  * @param baseDir - The resolved base directory.
@@ -102,8 +90,6 @@ export function resolvePathValues<T extends Record<string, unknown>>(
   config: T,
   baseDir: string,
 ): T {
-  const pathPatterns = getPathPatterns();
-
   function walk(obj: unknown, currentPath: string[]): void {
     if (obj === null || typeof obj !== 'object') return;
 
@@ -122,7 +108,12 @@ export function resolvePathValues<T extends Record<string, unknown>>(
       if (nextPath.length === 1 && nextPath[0] === 'base_dir') {
         continue;
       }
-      if (typeof value === 'string' && pathPatterns.some((pattern) => matchesPathPattern(pattern, nextPath))) {
+
+      const isMatch =
+        PATH_PATTERNS.some((p) => matchesPathPattern(p, nextPath)) ||
+        RUNTIME_PATH_PATTERNS.some((p) => matchesPathPattern(p, nextPath));
+
+      if (typeof value === 'string' && isMatch) {
         record[key] = resolvePathValue(value, baseDir);
       } else if (typeof value === 'object' && value !== null) {
         walk(value, nextPath);
@@ -134,64 +125,7 @@ export function resolvePathValues<T extends Record<string, unknown>>(
   return config;
 }
 
-/**
- * Extract full schema-qualified path patterns for fields annotated with
- * `x-aidha-path: true`.
- *
- * Uses `*` for dynamic object keys coming from `additionalProperties`.
- */
-type PathPattern = string[];
-let _pathPatterns: PathPattern[] | undefined;
-
-function getPathPatterns(): PathPattern[] {
-  if (_pathPatterns) return _pathPatterns;
-
-  const schema = loadSchema();
-  const defs =
-    schema !== null &&
-    typeof schema === 'object' &&
-    (schema as Record<string, unknown>)['$defs'] !== null &&
-    typeof (schema as Record<string, unknown>)['$defs'] === 'object'
-      ? ((schema as Record<string, unknown>)['$defs'] as Record<string, unknown>)
-      : {};
-  const patterns: PathPattern[] = [];
-
-  function deref(obj: unknown): unknown {
-    if (obj === null || typeof obj !== 'object') return;
-    const record = obj as Record<string, unknown>;
-    const ref = record['$ref'];
-    if (typeof ref !== 'string' || !ref.startsWith('#/$defs/')) return obj;
-    const defName = ref.slice('#/$defs/'.length);
-    return defs[defName];
-  }
-
-  function walk(obj: unknown, path: string[]): void {
-    const dereferenced = deref(obj);
-    if (dereferenced === null || typeof dereferenced !== 'object') return;
-    const record = dereferenced as Record<string, unknown>;
-
-    if (record['x-aidha-path'] === true && path.length > 0) {
-      patterns.push(path);
-    }
-
-    if (typeof record['properties'] === 'object' && record['properties'] !== null) {
-      for (const [key, val] of Object.entries(record['properties'] as Record<string, unknown>)) {
-        walk(val, [...path, key]);
-      }
-    }
-
-    const additionalProperties = record['additionalProperties'];
-    if (additionalProperties !== null && typeof additionalProperties === 'object') {
-      walk(additionalProperties, [...path, '*']);
-    }
-  }
-
-  walk(schema, []);
-  _pathPatterns = patterns;
-  return patterns;
-}
-
-function matchesPathPattern(pattern: PathPattern, actualPath: string[]): boolean {
+function matchesPathPattern(pattern: string[], actualPath: string[]): boolean {
   if (pattern.length !== actualPath.length) return false;
   for (let idx = 0; idx < pattern.length; idx += 1) {
     if (pattern[idx] !== '*' && pattern[idx] !== actualPath[idx]) {

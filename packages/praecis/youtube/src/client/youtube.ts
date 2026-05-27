@@ -14,7 +14,7 @@ import {
   parseTranscriptVtt,
   parseTranscriptXml,
 } from './transcript.js';
-import { fetchTranscriptWithYtDlp } from './yt-dlp.js';
+import { fetchTranscriptWithYtDlp, fetchPlaylistWithYtDlp } from './yt-dlp.js';
 import type { YtDlpRuntimeConfig } from './yt-dlp.js';
 import { consoleLogger, resolveLogger, type Logger } from '../utils/logger.js';
 
@@ -79,13 +79,15 @@ function buildTranscriptHeaders(ytCfg: YouTubeClientConfig, videoId?: string): R
       ...(authHeader ? { Authorization: authHeader } : {}),
     };
   }
+  const encodedId = encodeURIComponent(videoId);
   return {
     ...consentHeaders(ytCfg),
-    Referer: `https://www.youtube.com/watch?v=${videoId}`,
+    Referer: `https://www.youtube.com/watch?v=${encodedId}`,
     Origin: 'https://www.youtube.com',
     ...(authHeader ? { Authorization: authHeader } : {}),
   };
 }
+
 
 function getCookieValue(cookie: string, name: string): string | undefined {
   const match = cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
@@ -162,7 +164,9 @@ async function fetchOEmbed(videoId: string): Promise<Result<{
   thumbnail_url: string;
 }>> {
   try {
-    const url = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    const encodedId = encodeURIComponent(videoId);
+    const watchUrl = encodeURIComponent(`https://www.youtube.com/watch?v=${encodedId}`);
+    const url = `https://www.youtube.com/oembed?url=${watchUrl}&format=json`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -289,7 +293,8 @@ async function fetchCaptionTracksFromTimedText(
   ytCfg: YouTubeClientConfig,
 ): Promise<Result<CaptionTrack[]>> {
   try {
-    const listUrl = `https://www.youtube.com/api/timedtext?type=list&v=${videoId}`;
+    const encodedId = encodeURIComponent(videoId);
+    const listUrl = `https://www.youtube.com/api/timedtext?type=list&v=${encodedId}`;
     const response = await fetch(listUrl, { headers: buildTranscriptHeaders(ytCfg, videoId) });
     if (!response.ok) {
       return { ok: false, error: new Error(`Timedtext list failed: ${response.status}`) };
@@ -683,7 +688,8 @@ async function fetchTranscriptFromGetTranscript(
   ytCfg: YouTubeClientConfig,
 ): Promise<Result<TranscriptSegment[]>> {
   try {
-    const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    const encodedId = encodeURIComponent(videoId);
+    const response = await fetch(`https://www.youtube.com/watch?v=${encodedId}`, {
       headers: consentHeaders(ytCfg),
     });
     if (!response.ok) {
@@ -726,7 +732,7 @@ async function fetchTranscriptFromGetTranscript(
           'Content-Type': 'application/json',
           Accept: 'application/json',
           ...DEFAULT_HEADERS,
-          Referer: `https://www.youtube.com/watch?v=${videoId}`,
+          Referer: `https://www.youtube.com/watch?v=${encodedId}`,
           Origin: origin,
           'X-Origin': origin,
           'X-Goog-AuthUser': '0',
@@ -833,7 +839,8 @@ async function fetchCaptionTracksFromHtml(
   ytCfg: YouTubeClientConfig,
 ): Promise<Result<CaptionTrack[]>> {
   try {
-    const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    const encodedId = encodeURIComponent(videoId);
+    const response = await fetch(`https://www.youtube.com/watch?v=${encodedId}`, {
       headers: consentHeaders(ytCfg),
     });
     if (!response.ok) {
@@ -914,15 +921,21 @@ export class RealYouTubeClient implements YouTubeClient {
   }
 
   /**
-   * Fetch playlist - not supported without Data API key.
+   * Fetch playlist using yt-dlp.
    */
   async fetchPlaylist(playlistId: string): Promise<Result<Playlist>> {
+    const result = await fetchPlaylistWithYtDlp(playlistId, this.ytDlpCfg);
+    if (!result.ok) return result;
+
     return {
-      ok: false,
-      error: new Error(
-        `Playlist fetching requires YouTube Data API key. ` +
-        `Consider providing video IDs directly instead.`
-      ),
+      ok: true,
+      value: {
+        id: playlistId,
+        title: `Playlist ${playlistId}`,
+        channelId: 'unknown',
+        channelName: 'Unknown Channel',
+        videoIds: result.value.videoIds,
+      },
     };
   }
 
@@ -965,80 +978,87 @@ export class RealYouTubeClient implements YouTubeClient {
     const videoId = parseVideoId(videoIdOrUrl);
 
     try {
-      // Get caption tracks via Innertube API
-      const tracksResult = await fetchCaptionTracks(videoId, this.ytCfg);
-      if (!tracksResult.ok) {
-        return { ok: false, error: tracksResult.error };
-      }
+      let lastError: Error | null = null;
+      let tracks: CaptionTrack[] = [];
 
-      const tracks = tracksResult.value;
+      // Try to get caption tracks
+      const tracksResult = await fetchCaptionTracks(videoId, this.ytCfg);
+      if (tracksResult.ok) {
+        tracks = tracksResult.value;
+      } else {
+        lastError = tracksResult.error;
+        if (this.ytCfg.debugTranscript) {
+          resolveLogger(this.ytCfg).debug(`[transcript] fetchCaptionTracks failed: ${lastError.message}`);
+        }
+      }
 
       // Find English track (prefer non-ASR, fallback to first)
-      const englishTracks = tracks.filter(t => t.languageCode.startsWith('en'));
-      const englishTrack =
-        englishTracks.find(t => t.kind !== 'asr') ??
-        englishTracks[0] ??
-        tracks[0];
-      if (!englishTrack) {
-        return { ok: false, error: new Error(`No caption track found for ${videoId}`) };
-      }
-
-      const transcriptUrls = buildTranscriptUrls(englishTrack.baseUrl);
-      if (this.ytCfg.debugTranscript) {
-        resolveLogger(this.ytCfg).debug(`[transcript] track url: ${maskTranscriptUrl(transcriptUrls[0] ?? '')}`);
-      }
+      const englishTracks = tracks.filter((t) => t.languageCode.startsWith('en'));
+      const englishTrack = englishTracks.find((t) => t.kind !== 'asr') ?? englishTracks[0] ?? tracks[0];
 
       let segments: TranscriptSegment[] = [];
       let lastPayload = '';
       let lastStatus = 0;
       let lastContentType: string | null = null;
+      let detectedLanguage = englishTrack?.languageCode;
 
-      for (const candidate of transcriptUrls) {
-        const result = await fetchTranscriptSegments(candidate, videoId, this.ytCfg);
-        segments = result.segments;
-        lastPayload = result.payload;
-        lastStatus = result.status;
-        lastContentType = result.contentType;
-        if (segments.length > 0) break;
+      if (englishTrack) {
+        const transcriptUrls = buildTranscriptUrls(englishTrack.baseUrl);
         if (this.ytCfg.debugTranscript) {
-          const preview = result.payload.slice(0, 120).replace(/\s+/g, ' ');
           resolveLogger(this.ytCfg).debug(
-            `[transcript] attempt fmt=${result.fmt ?? 'default'} status=${result.status} ` +
-            `length=${result.payload.length} content-type=${result.contentType ?? ''} ` +
-            `content-length=${result.contentLength ?? ''} url=${maskTranscriptUrl(result.finalUrl ?? '')} preview=${preview}`
+            `[transcript] track url: ${maskTranscriptUrl(transcriptUrls[0] ?? '')}`,
           );
         }
-      }
 
-      if (segments.length === 0) {
-        const directTrack = await tryDirectTimedText(
-          videoId,
-          englishTrack.languageCode,
-          this.ytCfg,
-          englishTrack.kind,
-        );
-        if (directTrack) {
-          const directUrls = buildTranscriptUrls(directTrack.baseUrl);
-          for (const candidate of directUrls) {
-            const result = await fetchTranscriptSegments(candidate, videoId, this.ytCfg);
-            segments = result.segments;
-            lastPayload = result.payload;
-            lastStatus = result.status;
-            lastContentType = result.contentType;
-            if (segments.length > 0) break;
-            if (this.ytCfg.debugTranscript) {
-              const preview = result.payload.slice(0, 120).replace(/\s+/g, ' ');
-              resolveLogger(this.ytCfg).debug(
-                `[transcript] direct fmt=${result.fmt ?? 'default'} status=${result.status} ` +
+        for (const candidate of transcriptUrls) {
+          const result = await fetchTranscriptSegments(candidate, videoId, this.ytCfg);
+          segments = result.segments;
+          lastPayload = result.payload;
+          lastStatus = result.status;
+          lastContentType = result.contentType;
+          if (segments.length > 0) break;
+          if (this.ytCfg.debugTranscript) {
+            const preview = result.payload.slice(0, 120).replace(/\s+/g, ' ');
+            resolveLogger(this.ytCfg).debug(
+              `[transcript] attempt fmt=${result.fmt ?? 'default'} status=${result.status} ` +
                 `length=${result.payload.length} content-type=${result.contentType ?? ''} ` +
-                `content-length=${result.contentLength ?? ''} url=${maskTranscriptUrl(result.finalUrl ?? '')} preview=${preview}`
-              );
+                `content-length=${result.contentLength ?? ''} url=${maskTranscriptUrl(
+                  result.finalUrl ?? '',
+                )} preview=${preview}`,
+            );
+          }
+        }
+
+        if (segments.length === 0) {
+          const directTrack = await tryDirectTimedText(
+            videoId,
+            englishTrack.languageCode,
+            this.ytCfg,
+            englishTrack.kind,
+          );
+          if (directTrack) {
+            const directUrls = buildTranscriptUrls(directTrack.baseUrl);
+            for (const candidate of directUrls) {
+              const result = await fetchTranscriptSegments(candidate, videoId, this.ytCfg);
+              segments = result.segments;
+              lastPayload = result.payload;
+              lastStatus = result.status;
+              lastContentType = result.contentType;
+              if (segments.length > 0) break;
+              if (this.ytCfg.debugTranscript) {
+                const preview = result.payload.slice(0, 120).replace(/\s+/g, ' ');
+                resolveLogger(this.ytCfg).debug(
+                  `[transcript] direct fmt=${result.fmt ?? 'default'} status=${result.status} ` +
+                    `length=${result.payload.length} content-type=${result.contentType ?? ''} ` +
+                    `content-length=${result.contentLength ?? ''} url=${maskTranscriptUrl(
+                      result.finalUrl ?? '',
+                    )} preview=${preview}`,
+                );
+              }
             }
           }
         }
       }
-
-      let lastError: Error | null = null;
 
       if (segments.length === 0) {
         const transcriptResult = await fetchTranscriptFromGetTranscript(videoId, this.ytCfg);
@@ -1047,7 +1067,9 @@ export class RealYouTubeClient implements YouTubeClient {
         } else {
           lastError = transcriptResult.error;
           if (this.ytCfg.debugTranscript) {
-            resolveLogger(this.ytCfg).debug(`[transcript] get_transcript error: ${transcriptResult.error.message}`);
+            resolveLogger(this.ytCfg).debug(
+              `[transcript] get_transcript error: ${transcriptResult.error.message}`,
+            );
           }
         }
       }
@@ -1056,6 +1078,7 @@ export class RealYouTubeClient implements YouTubeClient {
         const ytdlpResult = await fetchTranscriptWithYtDlp(videoId, this.ytDlpCfg);
         if (ytdlpResult.ok) {
           segments = ytdlpResult.value.segments;
+          detectedLanguage = ytdlpResult.value.language;
         } else {
           lastError = ytdlpResult.error;
           if (this.ytCfg.debugTranscript) {
@@ -1069,20 +1092,23 @@ export class RealYouTubeClient implements YouTubeClient {
         resolveLogger(this.ytCfg).debug(`[transcript] body preview: ${preview}`);
         resolveLogger(this.ytCfg).debug(
           `[transcript] transcript status=${lastStatus} ` +
-          `length=${lastPayload.length} content-type=${lastContentType ?? ''}`
+            `length=${lastPayload.length} content-type=${lastContentType ?? ''}`,
         );
       }
 
       if (segments.length === 0) {
         const suffix = lastError ? ` (${lastError.message})` : '';
-        return { ok: false, error: new Error(`No transcript segments found for ${videoId}${suffix}`) };
+        return {
+          ok: false,
+          error: new Error(`No transcript segments found for ${videoId}${suffix}`),
+        };
       }
 
-      const fullText = segments.map(s => s.text).join(' ');
+      const fullText = segments.map((s) => s.text).join(' ');
 
       const transcript: Transcript = {
         videoId,
-        language: englishTrack.languageCode,
+        language: detectedLanguage ?? 'unknown',
         segments,
         fullText,
       };
@@ -1092,6 +1118,7 @@ export class RealYouTubeClient implements YouTubeClient {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
+
 
   /**
    * Fetch video with transcript together.

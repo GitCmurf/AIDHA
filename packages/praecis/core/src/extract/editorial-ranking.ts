@@ -244,7 +244,11 @@ function excerptOverlapRatio(a: ClaimCandidate, b: ClaimCandidate): number {
 
 function shouldMergeCandidates(a: ClaimCandidate, b: ClaimCandidate, overlapThreshold: number): boolean {
   if (normalizeKey(a.text) === normalizeKey(b.text)) return true;
-  return excerptOverlapRatio(a, b) >= overlapThreshold;
+  // Require high excerpt overlap AND at least moderate text similarity to avoid dropping distinct claims from the same excerpt.
+  if (excerptOverlapRatio(a, b) >= overlapThreshold) {
+    return tokenOverlapRatio(a.text, b.text) >= 0.4;
+  }
+  return false;
 }
 
 function dedupeCandidates(

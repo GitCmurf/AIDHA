@@ -18,6 +18,17 @@ describe("narrow judge prompt and scoring", () => {
     expect(prompt.user).toContain("Teacher claims are supplemental");
   });
 
+  it("includes critical instruction to copy candidate text exactly", () => {
+    const prompt = buildNarrowJudgePrompt(
+      "Transcript",
+      [],
+      [],
+      [],
+      { videoId: "v1", title: "Video", channelName: "Channel" }
+    );
+    expect(prompt.user).toContain("MUST copy the candidate text EXACTLY");
+  });
+
   it("truncates very long transcript context in the prompt", () => {
     const prompt = buildNarrowJudgePrompt(
       "alpha ".repeat(20000),

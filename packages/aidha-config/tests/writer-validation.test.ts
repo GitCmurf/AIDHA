@@ -3,9 +3,28 @@ import { mutateConfig } from '../src/writer.js';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import type { SourceRegistration } from '../src/types.js';
 
 describe('Writer Validation Errors', () => {
     const tmpFile = join(tmpdir(), `aidha-config-validation-${Date.now()}.yaml`);
+    const youtubeRegistration: SourceRegistration = {
+      sourceId: 'youtube',
+      metadata: {
+        scalarCoercions: {
+          'ytdlp.timeout_ms': 'number',
+        },
+      },
+      validateActiveSourceConfig(value: unknown) {
+        if (!value || typeof value !== 'object') {
+          throw new Error('activeSourceConfig must be an object');
+        }
+        const sourceConfig = value as { ytdlp?: { timeout_ms?: number } };
+        if ((sourceConfig.ytdlp?.timeout_ms ?? 0) < 0) {
+          throw new Error('ytdlp.timeout_ms must be greater than or equal to 0');
+        }
+        return value;
+      },
+    };
 
     const setupConfig = () => {
         const yaml = `
@@ -13,8 +32,8 @@ config_version: 1
 default_profile: default
 profiles:
   default:
-    ytdlp:
-      keep_files: true
+    editor:
+      editor_llm: true
 `;
         writeFileSync(tmpFile, yaml, 'utf-8');
     };
@@ -42,7 +61,7 @@ profiles:
         try {
              mutateConfig({
                 filePath: tmpFile,
-                keyPath: 'profiles.default.ytdlp.keep_files',
+                keyPath: 'profiles.default.editor.editor_llm',
                 value: 'maybe'
              });
              throw new Error('Should have thrown');
@@ -63,5 +82,15 @@ profiles:
         expect(result.written).toBe(false);
         expect(result.validationErrors.length).toBeGreaterThan(0);
         expect(result.validationErrors[0].message).toContain('Invalid numeric value');
+    });
+
+    it('should reject invalid source overrides using source registrations', () => {
+        setupConfig();
+        expect(() => mutateConfig({
+            filePath: tmpFile,
+            keyPath: 'profiles.default.source_overrides.youtube.ytdlp.timeout_ms',
+            value: '-1',
+            sourceRegistrations: [youtubeRegistration],
+        })).toThrow(/validation failed/i);
     });
 });

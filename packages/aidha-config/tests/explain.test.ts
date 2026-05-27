@@ -171,6 +171,59 @@ describe('resolveKeyProvenance', () => {
     expect(result.value).toBe('https://example.local/v1');
   });
 
+  it('normalizes validation and labels for camelCase core and source keys', () => {
+    const sourceRegistration: SourceRegistration = {
+      sourceId: 'youtube',
+      metadata: {
+        pathFields: ['ytdlp.cookies_file'],
+        secretFields: ['youtube.innertube_api_key'], // pragma: allowlist secret
+        explainLabels: {
+          'youtube.innertube_api_key': 'YouTube Innertube API key', // pragma: allowlist secret
+        },
+      },
+      validateActiveSourceConfig: value => value,
+    };
+
+    const resolvedConfig = resolveConfig({
+      baseDir: process.cwd(),
+      sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
+    });
+
+    const coreOutput = formatProvenance(
+      resolveKeyProvenance({
+        key: 'baseDir',
+        resolvedConfig,
+      }).provenance,
+      resolvedConfig.baseDir,
+    );
+    expect(coreOutput).toContain('[core validated]');
+
+    const sourceResult = resolveKeyProvenance({
+      key: 'activeSourceConfig.youtube.innertubeApiKey',
+      resolvedConfig: {
+        ...resolvedConfig,
+        activeSourceConfig: {
+          youtube: {
+            innertubeApiKey: 'secret-key', // pragma: allowlist secret
+          },
+        },
+      },
+      sourceId: 'youtube',
+      sourceRegistrations: [sourceRegistration],
+    });
+
+    const sourceOutput = formatProvenance(
+      sourceResult.provenance,
+      sourceResult.value,
+      [sourceRegistration],
+    );
+
+    expect(sourceOutput).toContain('[source validated]');
+    expect(sourceOutput).toContain('YouTube Innertube API key');
+    expect(sourceOutput).toContain('********');
+  });
+
   it('reports hardcoded origin for core config values', () => {
     const resolvedConfig = resolveConfig({
       baseDir: process.cwd(),

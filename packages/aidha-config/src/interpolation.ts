@@ -11,6 +11,7 @@
  */
 
 import { validateLength } from './validation.js';
+import { COERCION_MAP } from './schema.generated.js';
 
 /** Maximum recursive expansion depth to prevent runaway loops. */
 const MAX_DEPTH = 10;
@@ -130,15 +131,17 @@ function readInterpolationToken(value: string, start: number): InterpolationToke
  * @param env    - The environment map (defaults to `process.env`).
  * @param _seen  - Internal: tracks visited vars for cycle detection.
  * @param _depth - Internal: current recursion depth.
+ * @param tolerant - If true, return original token for unset variables instead of throwing.
  * @returns The string with all references expanded.
  * @throws {InterpolationCycleError} If a circular reference is detected.
- * @throws {UnsetVariableError} If a variable is unset with no fallback.
+ * @throws {UnsetVariableError} If a variable is unset with no fallback (and tolerant is false).
  */
 export function interpolateString(
   value: string,
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
   _seen: Set<string> = new Set(),
   _depth = 0,
+  tolerant = false,
 ): string {
   if (_depth > MAX_DEPTH) {
     throw new InterpolationDepthError(MAX_DEPTH);
@@ -180,6 +183,9 @@ export function interpolateString(
       resolved = token.fallback.split('\\}').join('}');
     } else if (envValue === '') {
       resolved = envValue;
+    } else if (tolerant) {
+      output += token.raw;
+      continue;
     } else {
       throw new UnsetVariableError(varName);
     }
@@ -187,7 +193,7 @@ export function interpolateString(
     if (resolved.includes('${')) {
       const nextSeen = new Set(_seen);
       nextSeen.add(varName);
-      output += interpolateString(resolved, env, nextSeen, _depth + 1);
+      output += interpolateString(resolved, env, nextSeen, _depth + 1, tolerant);
     } else {
       output += resolved;
     }
@@ -203,17 +209,32 @@ export function interpolateString(
  *
  * @param obj - The object/array/value to interpolate.
  * @param env - The environment map.
+ * @param options - Options for interpolation (root path for coercion, tolerant mode).
  * @returns A new object with all string values interpolated.
  */
 export function interpolateDeep<T>(
   obj: T,
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+  options: { rootPath?: string; tolerant?: boolean } = {},
 ): T {
   const stack = new WeakSet<object>();
+  const { rootPath = '', tolerant = false } = options;
 
-  function walk(value: unknown, path: string): unknown {
+  function walk(value: unknown, path: string, schemaPath: string): unknown {
     if (typeof value === 'string') {
-      return interpolateString(value, env);
+      const interpolated = interpolateString(value, env, new Set(), 0, tolerant);
+
+      const type = COERCION_MAP[schemaPath];
+      if (type === 'integer' || type === 'number') {
+        const n = Number(interpolated);
+        if (interpolated.trim() !== '' && !Number.isNaN(n)) return n;
+      } else if (type === 'boolean') {
+        const lower = interpolated.toLowerCase().trim();
+        if (['true', '1', 'yes', 'on'].includes(lower)) return true;
+        if (['false', '0', 'no', 'off'].includes(lower)) return false;
+      }
+
+      return interpolated;
     }
     if (Array.isArray(value)) {
       // Arrays can be self-referential; include them in cycle detection.
@@ -222,7 +243,7 @@ export function interpolateDeep<T>(
       }
       stack.add(value);
       try {
-        return value.map((item, idx) => walk(item, `${path}[${idx}]`));
+        return value.map((item, idx) => walk(item, `${path}[${idx}]`, `${schemaPath}.*`));
       } finally {
         stack.delete(value);
       }
@@ -236,7 +257,28 @@ export function interpolateDeep<T>(
       try {
         const result: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-          result[k] = walk(v, `${path}.${k}`);
+          let nextSchemaPath = schemaPath ? `${schemaPath}.${k}` : k;
+
+          // Normalize schema path for dynamic keys
+          const parts = nextSchemaPath.split('.');
+          let changed = false;
+          if ((parts[0] === 'profiles' || parts[0] === 'sources') && parts.length > 1) {
+            parts[1] = '*';
+            changed = true;
+          }
+          if (parts.indexOf('source_overrides') !== -1) {
+            const idx = parts.indexOf('source_overrides');
+            if (parts.length > idx + 1) {
+              parts[idx + 1] = '*';
+              changed = true;
+            }
+          }
+
+          if (changed) {
+            nextSchemaPath = parts.join('.');
+          }
+
+          result[k] = walk(v, `${path}.${k}`, nextSchemaPath);
         }
         return result;
       } finally {
@@ -246,5 +288,5 @@ export function interpolateDeep<T>(
     return value;
   }
 
-  return walk(obj, '$') as T;
+  return walk(obj, '$', rootPath) as T;
 }

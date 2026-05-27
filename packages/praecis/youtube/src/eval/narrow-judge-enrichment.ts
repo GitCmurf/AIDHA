@@ -58,7 +58,10 @@ export async function enrichCandidateReportWithJudges(
 
   for (const judgeModelId of judgeModelIds) {
     const judgeClient = judgeClients.get(judgeModelId);
-    if (!judgeClient) continue;
+    if (!judgeClient) {
+      judgeErrors.push(`${judgeModelId}: No client configured for this judge model`);
+      continue;
+    }
     logger.info(
       `[judge ${judgeModelId}] candidate=${candidate.candidateId} video=${candidate.videoId} claims=${candidate.claims.length}`
     );

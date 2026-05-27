@@ -185,3 +185,38 @@ describe('Source registration drives resolver', () => {
     expect(validated.auth.token).toBe('');
   });
 });
+
+describe('SourceRegistration metadata contract', () => {
+  it('should have metadata.pathFields as an array of dot-notation paths', () => {
+    const meta = MOCK_SOURCE_REGISTRATION.metadata;
+    expect(Array.isArray(meta?.pathFields)).toBe(true);
+    for (const field of meta?.pathFields ?? []) {
+      expect(typeof field).toBe('string');
+      expect(field.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('should have metadata.secretFields as an array of dot-notation paths', () => {
+    const meta = MOCK_SOURCE_REGISTRATION.metadata;
+    expect(Array.isArray(meta?.secretFields)).toBe(true);
+    expect(meta?.secretFields).toContain('auth.token');
+  });
+
+  it('should have metadata.scalarCoercions mapping to number|boolean|string', () => {
+    const meta = MOCK_SOURCE_REGISTRATION.metadata;
+    expect(meta?.scalarCoercions).toBeDefined();
+    const validTypes = new Set(['number', 'boolean', 'string']);
+    for (const [, coercionType] of Object.entries(meta?.scalarCoercions ?? {})) {
+      expect(validTypes.has(coercionType)).toBe(true);
+    }
+  });
+
+  it('should have metadata.explainLabels mapping paths to human strings', () => {
+    const meta = MOCK_SOURCE_REGISTRATION.metadata;
+    expect(meta?.explainLabels).toBeDefined();
+    for (const [, label] of Object.entries(meta?.explainLabels ?? {})) {
+      expect(typeof label).toBe('string');
+      expect(label.length).toBeGreaterThan(0);
+    }
+  });
+});
