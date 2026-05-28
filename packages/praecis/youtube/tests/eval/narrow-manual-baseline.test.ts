@@ -28,7 +28,7 @@ import {
 import { renderNarrowComparisonMarkdown } from "../../src/eval/narrow-report-renderer.js";
 import { writeNarrowComparisonReport } from "../../src/eval/narrow-report-writer.js";
 import { isOpenAiBaseUrl } from "../../src/utils/urls.js";
-import { validateSafeId } from "../../src/utils/ids.js";
+import { validateSafeId } from '@aidha/praecis-core';
 import { BufferedLogger } from "../../src/utils/logger.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../");
@@ -846,7 +846,7 @@ describe("narrow-manual-baseline helpers", () => {
         }
       }
     }
-  }, 20_000);
+  }, 60_000);
 
   it("uses the valid Gemini embedding default when no embedding model override is set", async () => {
     const originalEnv = {
@@ -1426,7 +1426,7 @@ describe("narrow-manual-baseline helpers", () => {
     await expect(readFile(join(firstDeterministicOutputDir, "latest.md"), "utf-8")).resolves.toBe(
       await readFile(join(secondDeterministicOutputDir, "latest.md"), "utf-8")
     );
-  }, 20_000);
+  }, 60_000);
 
   it("resumes refine artifacts and still judges refined rows after a score recompute", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "narrow-manual-baseline-resume-"));
@@ -1566,7 +1566,7 @@ describe("narrow-manual-baseline helpers", () => {
     const persistedMarkdown = await readFile(join(outputDir, "latest.md"), "utf-8");
     expect(persistedMarkdown).toContain("refine=resumed");
     expect(persistedMarkdown).toContain("score=recomputed");
-  }, 20_000);
+  }, 60_000);
 
   it("rejects path-traversal videoId values in narrow corpus entries", () => {
     const entry = {

@@ -18,22 +18,21 @@ import {
   createGeminiClientFromConfig,
   createLlmClientFromConfig,
   detectModelCapabilities,
+  sanitizeFilename,
+  validateSafeId,
   type ModelCapabilities,
   type LlmCompletionRequest
-} from "./extract/llm-client.js";
+} from "@aidha/praecis-core";
 import { optionString, optionBool, optionNumber, sanitizeErrorMessage, type CliOptions } from "./cli.js";
 import { CorpusSchema, type CorpusEntry } from "./eval/corpus-schema.js";
 import {
   NarrowCorpusSchema,
   runNarrowManualBaselineComparison,
   writeNarrowComparisonReport,
-  NarrowRunMode,
-  } from "./eval/narrow-manual-baseline.js";
-  import { RequestRateLimiterRegistry, wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
-  import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
-
-import { validateSafeId } from "./utils/ids.js";
-import { sanitizeFilename } from "./utils/ids.js";
+  type NarrowRunMode,
+} from "./eval/narrow-manual-baseline.js";
+import { RequestRateLimiterRegistry, wrapClientWithRateLimit } from "./eval/request-rate-limiter.js";
+import { getNarrowEvalModelProfile } from "./eval/narrow-eval-profiles.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider Configuration

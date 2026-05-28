@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-003
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-05-09
-version: '1.18'
+last_updated: 2026-05-25
+version: '1.22'
 title: YouTube Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.18
-> **Last Updated:** 2026-05-09
+> **Version:** 1.22
+> **Last Updated:** 2026-05-25
 > **Type:** RUNBOOK
 
 ## Version History
@@ -49,6 +49,10 @@ docops_version: '2.0'
 | 1.16    | 2026-02-15 | AI     | Document config file setup for ingestion runs | — | Draft | — |
 | 1.17    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 | 1.18    | 2026-05-09 | AI     | Document optional speaker metadata propagation for excerpts, prompts, and exports. | — | Draft | AIDHA-TASK-008 |
+| 1.19    | 2026-05-25 | AI     | Document the shared production ingest path and persisted YouTube Resource metadata contract. | — | Draft | AIDHA-PLAN-007 |
+| 1.20    | 2026-05-25 | AI     | Document taxonomy classification status and metadata conflict reporting. | — | Draft | AIDHA-PLAN-007 |
+| 1.21    | 2026-05-25 | AI     | Document config-seeded taxonomy classification. | — | Draft | AIDHA-PLAN-007 |
+| 1.22    | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence and vector-equal runtime semantics. | — | Draft | AIDHA-PLAN-007 |
 
 ## Purpose
 
@@ -80,6 +84,44 @@ auditing steps.
    ```bash
    pnpm -C packages/praecis/youtube cli ingest video <url>
    ```
+
+   The CLI runs through the same `ingestYouTubeVideo()` production runtime used by
+   claim extraction and golden snapshot tests. Successful runs persist YouTube
+   Resource metadata through the shared spine, including `channelName`,
+   `description`, `duration`, `transcriptStatus`, and transcript language, so
+   dossier exports and status commands do not depend on test-only augmentation.
+   Transcript acquisition failures return an error and do not create a stub
+   Resource.
+
+   Configure taxonomy tags under `extensions.taxonomy` to enable automatic
+   Resource classification in production CLI runs:
+
+   ```yaml
+   extensions:
+     taxonomy:
+       categories:
+         - id: cat-learning
+           name: Learning
+       topics:
+         - id: topic-programming
+           name: Programming
+           categoryId: cat-learning
+       tags:
+         - id: tag-tutorial
+           name: tutorial
+           aliases: [walkthrough]
+           topicIds: [topic-programming]
+   ```
+
+   When taxonomy is configured, `tagsMatched` counts matching configured tags and
+   `tagsAssigned` counts durable net-new assignments persisted on Resource
+   metadata as `taxonomyAssignments`. Fresh CLI reruns read those assignments from
+   the graph store instead of rebuilding them from a throwaway registry. Without
+   taxonomy, the shared runtime reports classification as disabled. YouTube uses
+   the same classification and assignment persistence path as every other vector;
+   only acquisition and YouTube-specific exports live in the YouTube package.
+   Resource metadata conflicts are counted in the run report and warned once so
+   operators can investigate disagreeing source metadata.
 
 - **Check ingestion status**
 

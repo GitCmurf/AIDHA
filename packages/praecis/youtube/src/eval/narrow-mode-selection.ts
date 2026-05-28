@@ -1,8 +1,8 @@
-import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import type { ExtractionPromptPackId } from '@aidha/praecis-core';
 import {
   PASS1_PROMPT_CONFIG_IDS,
   type Pass1PromptConfigId,
-} from "../extract/prompts/pass1-claim-mining-v2.js";
+} from '@aidha/praecis-core';
 import type { ExtractorVariantId } from "./extractor-variants.js";
 import { getNarrowEvalChunkModes, type NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
 import type {

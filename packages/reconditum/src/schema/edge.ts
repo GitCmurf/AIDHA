@@ -29,6 +29,8 @@ export const Predicate = z.enum([
   'projectServesGoal',
   'projectInArea',
   'taskDependsOn',
+  'alsoSeenVia',     // same canonical Resource observed through another vector/provenance
+  'corroboratedBy',  // distinct canonical Resources judged equivalent or strongly related
 ]);
 
 export type Predicate = z.infer<typeof Predicate>;

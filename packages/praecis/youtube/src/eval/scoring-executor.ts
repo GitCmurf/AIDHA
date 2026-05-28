@@ -1,5 +1,5 @@
-import type { LlmClient, LlmTokenUsage } from "../extract/llm-client.js";
-import type { ClaimCandidate } from "../extract/types.js";
+import type { LlmClient, LlmTokenUsage } from '@aidha/praecis-core';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { Result } from "../pipeline/types.js";
 import { ClaimSetScoreSchema, type ClaimSetScore } from "./scoring-rubric.js";
 import { buildJudgePrompt, JUDGE_PROMPT_VERSION } from "./prompts/judge-claim-quality.js";

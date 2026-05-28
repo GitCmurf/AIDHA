@@ -4,8 +4,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from '../src/extract/types.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import type { ClaimCandidate, ClaimExtractionInput, ClaimExtractor } from '@aidha/praecis-core';
 
 type FixtureSegment = {
   id: string;
@@ -136,7 +136,7 @@ async function extractFingerprint(fixture: GoldenFixture): Promise<{ claimIds: s
       graphStore: store,
       extractor: new FixtureClaimExtractor(),
     });
-    const result = await pipeline.extractClaimsForVideo(fixture.videoId, { maxClaims: 15 });
+    const result = await pipeline.extractClaimsForVideo(`youtube-${fixture.videoId}`, { maxClaims: 15 });
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
 
@@ -195,7 +195,7 @@ describe('golden YouTube transcript fixtures', () => {
           graphStore: store,
           extractor: new FixtureClaimExtractor(),
         });
-        const extraction = await pipeline.extractClaimsForVideo(fixture.videoId, { maxClaims: 15 });
+        const extraction = await pipeline.extractClaimsForVideo(`youtube-${fixture.videoId}`, { maxClaims: 15 });
         expect(extraction.ok).toBe(true);
         if (!extraction.ok) throw extraction.error;
 

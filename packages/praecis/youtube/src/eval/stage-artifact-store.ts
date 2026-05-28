@@ -9,10 +9,10 @@ import type {
   NarrowStageId,
 } from "./narrow-report-types.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
-import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
-import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import type { Pass1PromptConfigId } from '@aidha/praecis-core';
+import type { ExtractionPromptPackId } from '@aidha/praecis-core';
 import { writeJsonAtomic } from "../utils/io.js";
-import { sanitizeFilename } from "../utils/ids.js";
+import { sanitizeFilename } from '@aidha/praecis-core';
 
 export interface NarrowShortlistTarget {
   videoId: string;

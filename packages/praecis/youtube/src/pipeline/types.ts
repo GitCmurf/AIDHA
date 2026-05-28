@@ -2,6 +2,7 @@
  * Pipeline types.
  */
 import type { IngestionJob } from '../schema/index.js';
+import type { ClassificationResult, RunReport } from '@aidha/praecis-core';
 
 /**
  * Result wrapper.
@@ -20,11 +21,22 @@ export interface IngestionResult {
   /** Number of videos processed */
   videosProcessed: number;
 
-  /** Number of tags assigned */
-  tagsAssigned: number;
+  /** Taxonomy classification status and counts */
+  classification: ClassificationResult;
 
   /** Node IDs created */
   nodeIds: string[];
+
+  /** Successful per-video ingestion results */
+  videos: YouTubeVideoIngestResult[];
+}
+
+export interface YouTubeVideoIngestResult {
+  readonly videoId: string;
+  readonly nodeId: string;
+  readonly classification: ClassificationResult;
+  readonly created: boolean;
+  readonly report: RunReport;
 }
 
 /**

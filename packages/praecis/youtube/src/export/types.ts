@@ -1,10 +1,15 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025-2026 Colin Farmer (GitCmurf)
+
+export type ClaimState = 'draft' | 'accepted' | 'rejected';
+
 export interface DossierClaim {
   id: string;
   text: string;
-  state: 'draft' | 'accepted' | 'rejected';
+  state: ClaimState;
   timestampSeconds: number;
-  timestampLabel: string;
-  timestampUrl: string;
+  label: string;
+  deepLink: string;
   excerptText: string;
   excerptId?: string;
   speaker?: string;
@@ -15,11 +20,6 @@ export interface DossierClaim {
   evidenceType?: string;
   confidence?: number;
   method?: string;
-  /**
-   * The maximum token overlap ratio between this claim and its source excerpts.
-   * Values closer to 1.0 indicate near-exact transcript copies ("echoes").
-   * Values closer to 0.0 indicate synthesized/rewritten assertions.
-   */
   echoOverlapRatio?: number;
 }
 

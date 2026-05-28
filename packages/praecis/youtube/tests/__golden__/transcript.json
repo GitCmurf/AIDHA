@@ -1,0 +1,16 @@
+{
+  "videoId": "test-video",
+  "resourceId": "youtube-test-video",
+  "title": "Test Video",
+  "url": "https://www.youtube.com/watch?v=test-video",
+  "segments": [
+    {
+      "id": "youtube-test-video:excerpt:8e5bf3eb487e6439",
+      "start": 0,
+      "end": 10,
+      "duration": 10,
+      "text": "Hello and welcome to this tutorial. Today we will learn about TypeScript. Docs: https://example.com/docs",
+      "speaker": "Host"
+    }
+  ]
+}

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ClaimCandidate } from '../src/extract/types.js';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 describe('runtime schema validation', () => {
   it('accepts valid claim with all fields', () => {

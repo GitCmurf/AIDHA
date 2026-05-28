@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { MockYouTubeClient } from '../src/client/mock.js';
 import type { Result } from '../src/pipeline/types.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import type { LlmClient, LlmCompletionRequest } from '../src/extract/llm-client.js';
-import { LlmClaimExtractor } from '../src/extract/llm-claims.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import type { LlmClient, LlmCompletionRequest } from '@aidha/praecis-core';
+import { LlmClaimExtractor } from '@aidha/praecis-core';
 import { diagnoseTranscript, diagnoseExtraction } from '../src/diagnose/index.js';
 
 class StubLlmClient implements LlmClient {
@@ -169,7 +169,7 @@ describe('diagnostics', () => {
       editorMinWindows: 2,
     });
     const pipeline = new ClaimExtractionPipeline({ graphStore: store, extractor });
-    const extraction = await pipeline.extractClaimsForVideo('editor-video', { maxClaims: 10 });
+    const extraction = await pipeline.extractClaimsForVideo('youtube-editor-video', { maxClaims: 10 });
     expect(extraction.ok).toBe(true);
     if (!extraction.ok) return;
 

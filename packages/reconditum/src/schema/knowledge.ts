@@ -14,7 +14,17 @@ import { GraphNode, NodeMetadata } from './node.js';
  */
 export const SourceType = z.enum([
   'youtube',    // YouTube video/transcript
-  'article',    // Web article
+  'web',        // Web page (crawled/fetched)
+  'pdf',        // PDF document
+  'document',   // Office/plain-text document
+  'rss',        // RSS/Atom feed item
+  'podcast',    // Podcast episode
+  'voice',      // Voice memo / dictation
+  'meeting',    // Meeting recording / transcript
+  'readwise',   // Readwise highlight
+  'email',      // Email message
+  'linkedin',   // LinkedIn post / profile
+  'article',    // Web article (legacy alias)
   'book',       // Book/publication
   'note',       // Personal note
   'import',     // Imported from external system
@@ -47,7 +57,7 @@ export type Provenance = z.infer<typeof Provenance>;
  */
 export const KnowledgeMetadata = NodeMetadata.and(
   z.object({
-    provenance: Provenance.optional(),
+    provenances: z.array(Provenance).optional().default([]),
     confidence: z.number().min(0).max(1).optional(),
     tags: z.array(z.string()).optional(),
   })
@@ -60,7 +70,7 @@ export type KnowledgeMetadata = z.infer<typeof KnowledgeMetadata>;
  */
 export const Knowledge = GraphNode.extend({
   type: z.literal('Knowledge'),
-  metadata: KnowledgeMetadata.default({}),
+  metadata: KnowledgeMetadata.default(() => ({ provenances: [] })),
 });
 
 export type Knowledge = z.infer<typeof Knowledge>;

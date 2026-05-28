@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2026-05-18",
-      "version": "1.9",
+      "last_updated": "2026-05-25",
+      "version": "1.11",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -76,8 +76,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-02-23",
-      "version": "0.25",
+      "last_updated": "2026-05-25",
+      "version": "0.34",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -273,8 +273,8 @@
       "document_id": "AIDHA-PRD-002",
       "owner": "Ingestion Product Lead",
       "status": "Draft",
-      "last_updated": "2026-01-24",
-      "version": "0.3",
+      "last_updated": "2026-05-21",
+      "version": "0.4",
       "title": "Ingest to Graph Database",
       "type": "PRD",
       "docops_version": "2.0"
@@ -309,15 +309,99 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-007-web-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-007",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Web Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-006-linkedin-paste.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-006",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "LinkedIn Paste Bridge Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-012-podcast-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-012",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Podcast Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-009-rss-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-009",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "RSS Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "50-runbooks/runbook-003-youtube-ingestion.md",
     "title": null,
     "front_matter": {
       "document_id": "AIDHA-RUNBOOK-003",
       "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2026-05-09",
-      "version": "1.18",
+      "last_updated": "2026-05-25",
+      "version": "1.22",
       "title": "YouTube Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-011-meeting-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-011",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Meeting Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-005-email-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-005",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Email Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
     }
@@ -337,6 +421,48 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-004-readwise-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-004",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Readwise Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-010-voice-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-010",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "Voice Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-008-pdf-ingestion.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-008",
+      "owner": "Ingestion Oncall",
+      "status": "Draft",
+      "last_updated": "2026-05-22",
+      "version": "0.1",
+      "title": "PDF Ingestion Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0"
+    }
+  },
+  {
     "path": "05-planning/plan-004-improve-claims-quality-editorial-ranking.md",
     "title": "Improve Claim Quality and Editorial Ranking (Plan)",
     "front_matter": {
@@ -346,6 +472,20 @@
       "version": "0.6",
       "last_updated": "2026-02-08",
       "title": "Improve Claim Quality and Editorial Ranking",
+      "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/plan-007-other-ingestion-vectors.md",
+    "title": "Other Ingestion Vectors",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-007",
+      "owner": "Ingestion Engineering Lead",
+      "status": "In Review",
+      "version": "2.20",
+      "last_updated": "2026-05-26",
+      "title": "Other Ingestion Vectors",
       "type": "PLAN",
       "docops_version": "2.0"
     }
@@ -403,6 +543,20 @@
       "last_updated": "2026-02-24",
       "title": "DocOps Brownfield Migration Plan",
       "type": "PLAN",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "20-adr/adr-009-multi-vector-ingestion-architecture.md",
+    "title": null,
+    "front_matter": {
+      "document_id": "AIDHA-ADR-009",
+      "owner": "Ingestion Engineering Lead",
+      "status": "Approved",
+      "last_updated": "2026-05-21",
+      "version": "1.0",
+      "title": "Multi-Vector Ingestion Architecture (Four-Axis Composition)",
+      "type": "ADR",
       "docops_version": "2.0"
     }
   },

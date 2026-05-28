@@ -1,5 +1,5 @@
-import type { ClaimCandidate } from "../extract/index.js";
-import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
+import type { Pass1PromptConfigId } from '@aidha/praecis-core';
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import type { GeminiEmbeddingClient } from "./gemini-embedding-client.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";

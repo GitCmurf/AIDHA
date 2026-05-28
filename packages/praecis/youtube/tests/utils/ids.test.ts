@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { hashFile, hashId } from "../../src/utils/ids.js";
+import { hashFile, hashId } from '@aidha/praecis-core';
 
 describe("hashId", () => {
   it("uses a 128-bit digest suffix for deterministic IDs", () => {

@@ -4,11 +4,11 @@ import type { Result } from '../pipeline/types.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
 import type { YtDlpEnvironmentDiagnosis } from '../client/yt-dlp.js';
 import { diagnoseYtDlpEnvironment } from '../client/yt-dlp.js';
-import { loadCachedClaimCandidates } from '../extract/llm-claims.js';
-import { getEffectivePromptVersion } from '../extract/llm-claims.js';
-import { runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics } from '../extract/editorial-ranking.js';
-import type { Pass1PromptConfigId } from '../extract/prompts/pass1-claim-mining-v2.js';
-import type { ExtractionPromptPackId } from '../extract/prompt-routing.js';
+import { loadCachedClaimCandidates } from '@aidha/praecis-core';
+import { getEffectivePromptVersion } from '@aidha/praecis-core';
+import { runEditorPassV1WithDiagnostics, runEditorPassV2WithDiagnostics } from '@aidha/praecis-core';
+import type { Pass1PromptConfigId } from '@aidha/praecis-core';
+import type { ExtractionPromptPackId } from '@aidha/praecis-core';
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === 'number' && !Number.isNaN(value)) return value;

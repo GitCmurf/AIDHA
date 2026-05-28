@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { hashId } from '../src/utils/ids.js';
-import { uniqueSortedStrings } from '../src/extract/utils.js';
+import { hashId } from '@aidha/praecis-core';
+import { uniqueSortedStrings } from '@aidha/praecis-core';
 
 describe('Claim ID Collision', () => {
   it('generates distinct IDs for claims differing only by punctuation', () => {

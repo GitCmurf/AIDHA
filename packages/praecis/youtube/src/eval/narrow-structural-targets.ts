@@ -1,5 +1,5 @@
-import type { ClaimCandidate } from "../extract/index.js";
-import { normalizeKey } from "../extract/utils.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
+import { normalizeKey } from '@aidha/praecis-core';
 
 export interface TranscriptStructureProfile {
   tags: string[];

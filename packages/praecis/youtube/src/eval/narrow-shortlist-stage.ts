@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import type { LlmClient } from "../extract/index.js";
-import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import type { LlmClient } from '@aidha/praecis-core';
+import type { ExtractionPromptPackId } from '@aidha/praecis-core';
 import type { CorpusEntry } from "./corpus-schema.js";
 import type { MatrixCell } from "./matrix-runner.js";
 import { getModel, type EvalModel } from "./model-registry.js";
@@ -13,7 +13,7 @@ import {
   selectShortlistCandidatesForVideo,
 } from "./narrow-mode-selection.js";
 import type { NarrowEvalChunkMode } from "./narrow-eval-profiles.js";
-import type { Pass1PromptConfigId } from "../extract/prompts/pass1-claim-mining-v2.js";
+import type { Pass1PromptConfigId } from '@aidha/praecis-core';
 import type { Logger } from "../utils/logger.js";
 import {
   readNarrowStageArtifact,

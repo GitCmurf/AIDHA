@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
-last_updated: 2026-05-18
-version: "1.9"
+last_updated: 2026-05-25
+version: "1.11"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.9
-> **Last Updated:** 2026-05-18
+> **Version:** 1.11
+> **Last Updated:** 2026-05-25
 > **Type:** GUIDE
 
 ## Version History
@@ -33,6 +33,8 @@ docops_version: "2.0"
 | 1.7     | 2026-05-18 | AI     | Reject source-scoped CLI overrides in config diff       | —         | Draft  | —         |
 | 1.8     | 2026-05-18 | AI     | Clarify interpolation-aware config mutation validation  | —         | Draft  | —         |
 | 1.9     | 2026-05-18 | AI     | Clarify lazy interpolation during config mutation       | —         | Draft  | —         |
+| 1.10    | 2026-05-25 | AI     | Document taxonomy extension seed data for ingestion classification. | — | Draft | AIDHA-PLAN-007 |
+| 1.11    | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence across ingestion vectors. | — | Draft | AIDHA-PLAN-007 |
 
 # AIDHA Configuration Guide
 
@@ -60,6 +62,38 @@ AIDHA searches for a configuration file in the following order:
 5. `~/.config/aidha/config.yaml` (Fallback)
 
 If no file is found, AIDHA runs with safe defaults.
+
+## Taxonomy Classification Seeds
+
+Ingestion classification is enabled by adding taxonomy seed data under the
+`extensions.taxonomy` key. The same shape can appear at the top level, under a
+source's `extensions`, or under a profile's `extensions`; resolution merges them
+as global -> source -> profile, deduping entries by `id`.
+
+```yaml
+extensions:
+  taxonomy:
+    categories:
+      - id: cat-learning
+        name: Learning
+    topics:
+      - id: topic-programming
+        name: Programming
+        categoryId: cat-learning
+    tags:
+      - id: tag-tutorial
+        name: tutorial
+        aliases: [walkthrough]
+        topicIds: [topic-programming]
+```
+
+When configured, the default classifier matches tag names and aliases against the
+ingested Resource text and reports `classification.status: completed`. Matching
+tag assignments persist on the graph Resource metadata as `taxonomyAssignments`,
+so fresh CLI processes read the same assignments and `tagsAssigned` counts only
+durable net-new Resource tags. Without this block, classification is explicitly
+reported as disabled. This contract is shared by every vector; YouTube does not
+use a separate classification path.
 
 ## Configuration Structure
 

@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-02-23
-version: '0.25'
+last_updated: 2026-05-25
+version: '0.34'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.25
-> **Last Updated:** 2026-02-23
+> **Version:** 0.34
+> **Last Updated:** 2026-05-25
 > **Type:** GUIDE
 
 ## Version History
@@ -47,10 +47,42 @@ docops_version: '2.0'
 | 0.23    | 2026-02-09 | AI     | Add claims purge command for clean extraction reruns | — | Draft | — |
 | 0.24    | 2026-02-09 | AI     | Add source-prefixed default export filenames | — | Draft | — |
 | 0.25    | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
+| 0.26    | 2026-05-21 | AI     | Add architecture note referencing multi-vector model (PLAN-007 Phase 0) | — | Draft | — |
+| 0.27    | 2026-05-22 | AI     | Add podcast ingest command and note the shared multi-vector CLI surface. | — | Draft | — |
+| 0.28    | 2026-05-22 | AI     | Add Readwise batch ingest command and note the shared export cursor surface. | — | Draft  | — |
+
+| 0.29    | 2026-05-22 | AI     | Email import. | —         | Draft  | —         |
+| 0.30    | 2026-05-22 | AI     | LinkedIn paste. | —         | Draft  | —         |
+| 0.31    | 2026-05-25 | AI     | Clarify Resource metadata. | — | Draft | AIDHA-PLAN-007 |
+| 0.32    | 2026-05-25 | AI     | Clarify classification status. | — | Draft | AIDHA-PLAN-007 |
+| 0.33    | 2026-05-25 | AI     | Document config-seeded taxonomy. | — | Draft | AIDHA-PLAN-007 |
+| 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
 
 ## Purpose
 
 Outline how to use API keys, run local ingestion via the YouTube CLI, and inspect outputs.
+
+## Architecture Note
+
+This quickstart covers the **YouTube ingestion vector**, which is the Phase 0 reference
+implementation of AIDHA's four-axis ingestion model (**Acquire → Decode → Contextualize →
+Extract**). New vectors are registered by implementing `IIngestor` and `IDecodeStrategy` from
+`@aidha/praecis-core` and wiring them via `composeVector()`. See AIDHA-PRD-002 for the full
+architecture description.
+
+Every ingestor may supply `RawSource.resourceMetadata`; the shared spine persists
+that source-specific metadata on the Resource alongside canonical identity,
+dedup keys, provenance, and label. YouTube CLI ingestion and claim extraction both
+call the same production `ingestYouTubeVideo()` entrypoint, so channel,
+description, duration, and transcript-state metadata seen in dossiers is produced
+by the same path users run locally.
+
+Classification is a shared optional spine step for every vector. Add tags under
+`extensions.taxonomy` in the resolved config to enable the default classifier in
+production CLI runs. Reports distinguish `tagsMatched` from durable net-new
+`tagsAssigned`; assignments persist on Resource metadata as `taxonomyAssignments`
+so fresh CLI reruns do not re-count already tagged Resources. Without taxonomy,
+reports show classification as disabled.
 
 ## Prerequisites
 
@@ -132,8 +164,9 @@ Optional:
      --min-chars 50
    ```
 
-   LLM extraction runs in two passes: chunk-level candidate mining followed by deterministic
-   editor merge/selection. Cache keys include transcript hash + prompt version + model.
+   LLM extraction runs in two passes inside the canonical miner: chunk-level candidate
+   mining followed by deterministic merge/selection. Cache keys include transcript
+   hash + prompt version + model.
 
    Optional rewrite pass (`--editor-llm`): rewrites selected claims for readability while
    keeping numeric values and excerpt-grounded keywords. Rewrite cache keys include transcript
@@ -225,6 +258,32 @@ Optional:
 
    This removes `Claim` nodes for the video and cascades related claim edges.
    It does not delete the `Resource` or `Excerpt` nodes.
+
+## Quickstart (Other Vectors)
+
+The shared `aidha` CLI now exposes the non-YouTube ingestion vectors implemented in
+PLAN-007. Each command runs offline against local fixtures or injected mocks.
+
+```bash
+aidha ingest web --url <url>
+aidha ingest pdf --file <path>
+aidha ingest rss --feed <url> [--item-guid <guid>]
+aidha ingest voice --file <path>
+aidha ingest meeting --file <path>
+aidha ingest podcast --feed <url> [--episode <guid>] [--panel]
+aidha ingest readwise --since <iso8601> [--token <token>]
+aidha ingest email --file <path>
+aidha ingest linkedin --paste <text> [--url <url>]
+```
+
+Use `--json` to emit machine-readable summaries for scripts and regression checks.
+
+The email import path accepts a single `.eml` file or a directory of `.eml`
+messages, reconstructs threads deterministically, and emits per-thread summaries
+with `message` locators.
+
+LinkedIn paste imports accept `--paste` with a value, or `--paste` with no value
+to read from stdin, and optionally attach a provenance-only `--url`.
 
 - **Review drafts in batches**
 

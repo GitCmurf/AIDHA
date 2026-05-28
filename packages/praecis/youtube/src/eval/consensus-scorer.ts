@@ -1,6 +1,6 @@
 import type { ClaimSetScore, ScoreDimension } from "./scoring-rubric.js";
 import { SCORE_DIMENSIONS } from "./scoring-rubric.js";
-import { deduplicateByKey } from "../extract/utils.js";
+import { deduplicateByKey } from '@aidha/praecis-core';
 
 const DEFAULT_CONSENSUS_REASONING = "Consensus of multiple judges";
 

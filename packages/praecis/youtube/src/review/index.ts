@@ -7,8 +7,8 @@ import type { Result } from '../pipeline/types.js';
 import { createTaskFromClaim } from '../tasks/index.js';
 import type { ClaimState } from '../utils/claim-state.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
-import { hashId } from '../utils/ids.js';
-import { formatTimestamp, toNumber } from '../extract/utils.js';
+import { hashId } from '@aidha/praecis-core';
+import { formatTimestamp, toNumber } from '@aidha/praecis-core';
 
 function buildTimestampUrl(baseUrl: string, seconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(seconds));

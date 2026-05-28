@@ -1,4 +1,4 @@
-import type { LlmClient } from "../extract/index.js";
+import type { LlmClient } from '@aidha/praecis-core';
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
 import type { MatrixCell } from "./matrix-runner.js";
 import type { Logger } from "../utils/logger.js";

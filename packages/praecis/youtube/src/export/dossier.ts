@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025-2026 Colin Farmer (GitCmurf)
+
 import type { GraphNode, GraphStore } from '@aidha/graph-backend';
-import type { Result } from '../pipeline/types.js';
+import type { Result } from '@aidha/taxonomy';
 import type {
+  ClaimState,
   DossierClaim,
   VideoDossier,
   PlaylistDossier,
@@ -9,9 +13,17 @@ import type {
   PlaylistTranscriptExport,
   TranscriptSegmentExport,
 } from './types.js';
-import type { ClaimState } from '../utils/claim-state.js';
-import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
-import { getStringMetadata, getNumberMetadata, formatTimestamp, buildTimestampUrl, normalizeText, truncateText, toNumber, uniqueSortedStrings } from '../extract/utils.js';
+import {
+  getNumberMetadata,
+  getStringMetadata,
+  normalizeText,
+  renderDeepLink,
+  renderLabel,
+  toNumber,
+  truncateText,
+  uniqueSortedStrings,
+  type Locator,
+} from '@aidha/praecis-core';
 
 export interface DossierExporterConfig {
   graphStore: GraphStore;
@@ -23,6 +35,56 @@ export interface DossierBuildOptions {
 
 export interface JsonExportOptions {
   pretty?: boolean;
+}
+
+const DEFAULT_CLAIM_STATE: ClaimState = 'accepted';
+
+function normalizeClaimState(value: unknown): ClaimState | null {
+  if (value === 'draft' || value === 'accepted' || value === 'rejected') return value;
+  return null;
+}
+
+function formatTimestamp(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function buildTimestampUrl(baseUrl: string, seconds: number): string {
+  const separator = baseUrl.includes('?') ? '&' : '?';
+  return `${baseUrl}${separator}t=${Math.max(0, Math.floor(seconds))}s`;
+}
+
+function hasNumber(value: Record<string, unknown>, key: string): boolean {
+  return typeof value[key] === 'number' && Number.isFinite(value[key]);
+}
+
+function hasString(value: Record<string, unknown>, key: string): boolean {
+  return typeof value[key] === 'string' && value[key].length > 0;
+}
+
+function isLocator(value: unknown): value is Locator {
+  if (!value || typeof value !== 'object') return false;
+  const locator = value as Record<string, unknown>;
+  switch (locator['kind']) {
+    case 'timecode':
+      return hasNumber(locator, 'startSec') && hasNumber(locator, 'endSec');
+    case 'page':
+      return hasNumber(locator, 'page') && hasNumber(locator, 'charStart') && hasNumber(locator, 'charEnd');
+    case 'dom':
+      return hasString(locator, 'textFragment') && hasNumber(locator, 'charStart') && hasNumber(locator, 'charEnd');
+    case 'message':
+      return hasString(locator, 'messageId') && hasNumber(locator, 'charStart') && hasNumber(locator, 'charEnd');
+    case 'text':
+      return hasNumber(locator, 'charStart') && hasNumber(locator, 'charEnd');
+    case 'external':
+      return hasString(locator, 'system') && hasString(locator, 'externalId');
+    default:
+      return false;
+  }
 }
 
 function sortClaims(claims: DossierClaim[]): DossierClaim[] {
@@ -60,7 +122,7 @@ function renderVideoMarkdown(dossier: VideoDossier): string {
     lines.push('');
     for (const [index, claim] of dossier.claims.entries()) {
       const statePrefix = claim.state === 'accepted' ? '' : `[${claim.state}] `;
-      lines.push(`${index + 1}. [${claim.timestampLabel}](${claim.timestampUrl}) ${statePrefix}${claim.text}`);
+      lines.push(`${index + 1}. [${claim.label}](${claim.deepLink}) ${statePrefix}${claim.text}`);
       lines.push(`   - Excerpt: ${claim.excerptText}`);
       if (claim.speaker) {
         lines.push(`   - Speaker: ${claim.speaker}`);
@@ -141,7 +203,7 @@ function renderPlaylistMarkdown(dossier: PlaylistDossier): string {
       lines.push('');
       for (const [index, claim] of video.claims.entries()) {
         const statePrefix = claim.state === 'accepted' ? '' : `[${claim.state}] `;
-        lines.push(`${index + 1}. [${claim.timestampLabel}](${claim.timestampUrl}) ${statePrefix}${claim.text}`);
+        lines.push(`${index + 1}. [${claim.label}](${claim.deepLink}) ${statePrefix}${claim.text}`);
         lines.push(`   - Excerpt: ${claim.excerptText}`);
         if (claim.speaker) {
           lines.push(`   - Speaker: ${claim.speaker}`);
@@ -232,7 +294,7 @@ export class DossierExporter {
     }
 
     const baseUrl =
-      (resource.metadata?.['url'] as string | undefined) ||
+      getStringMetadata(resource.metadata as Record<string, unknown> | undefined, 'url') ||
       `https://www.youtube.com/watch?v=${videoId}`;
 
     const allowedStates = new Set<ClaimState>(options.states ?? [DEFAULT_CLAIM_STATE]);
@@ -273,13 +335,23 @@ export class DossierExporter {
           .filter((url): url is string => Boolean(url))
       );
 
+      // Try to use a typed Locator from excerpt metadata (set by CP-0d);
+      // fall back to raw start/end timestamps for older excerpts.
+      const locatorRaw = excerpt?.metadata?.['locator'];
+      const locator = isLocator(locatorRaw) ? locatorRaw : undefined;
+
+      const label = locator ? renderLabel(locator) : formatTimestamp(timestampSeconds);
+      const deepLink = locator
+        ? (renderDeepLink(baseUrl, locator) ?? buildTimestampUrl(baseUrl, timestampSeconds))
+        : buildTimestampUrl(baseUrl, timestampSeconds);
+
       claims.push({
         id: claim.id,
         text: normalizeText(claim.content ?? claim.label),
         state,
         timestampSeconds,
-        timestampLabel: formatTimestamp(timestampSeconds),
-        timestampUrl: buildTimestampUrl(baseUrl, timestampSeconds),
+        label,
+        deepLink,
         excerptText: truncateText(excerptText, 220),
         excerptId: excerpt?.id,
         speaker,
@@ -300,7 +372,7 @@ export class DossierExporter {
       resourceId,
       videoId,
       title: resource.label,
-      channelName: resource.metadata?.['channelName'] as string | undefined,
+      channelName: getStringMetadata(resource.metadata as Record<string, unknown> | undefined, 'channelName'),
       url: baseUrl,
       claims: sortedClaims,
       references,
@@ -362,7 +434,7 @@ export class DossierExporter {
     if (!excerptsResult.ok) return excerptsResult;
 
     const baseUrl =
-      (resource.metadata?.['url'] as string | undefined) ||
+      getStringMetadata(resource.metadata as Record<string, unknown> | undefined, 'url') ||
       `https://www.youtube.com/watch?v=${videoId}`;
 
     const segments = sortTranscriptSegments(

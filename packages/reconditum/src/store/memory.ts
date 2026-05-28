@@ -50,6 +50,8 @@ import {
   nodeCursorKey,
   edgeCursorKey,
   applyCursorAndLimit,
+  resourceMatchesIdentity,
+  validateNodeMetadata,
 } from './utils.js';
 
 /**
@@ -157,7 +159,7 @@ export class InMemoryStore implements GraphStore {
   ): Promise<Result<UpsertNodeResult>> {
     try {
       const existing = this.nodes.get(id);
-      const metadata = data.metadata ?? {};
+      const metadata = validateNodeMetadata(type, data.metadata ?? {});
 
       if (!existing) {
         const timestamp = nowIso();
@@ -212,6 +214,20 @@ export class InMemoryStore implements GraphStore {
     try {
       const node = this.nodes.get(id) ?? null;
       return { ok: true, value: node };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async findResourceByIdentity(key: string): Promise<Result<GraphNode | null>> {
+    try {
+      for (const node of this.nodes.values()) {
+        if (node.type !== 'Resource') continue;
+        if (resourceMatchesIdentity(node, key)) {
+          return { ok: true, value: node };
+        }
+      }
+      return { ok: true, value: null };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

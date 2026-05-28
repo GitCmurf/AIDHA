@@ -9,7 +9,7 @@ import {
   normalizeClaimClassification,
   CLAIM_TYPES,
   CLAIM_CLASSIFICATIONS,
-} from '../src/extract/claim-candidate-schema.js';
+} from '@aidha/praecis-core';
 
 describe('normalizeClaimClassification', () => {
   describe('with valid values', () => {

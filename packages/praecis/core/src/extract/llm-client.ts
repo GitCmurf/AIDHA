@@ -1,0 +1,505 @@
+import type { Result } from '@aidha/taxonomy';
+import type { ResolvedConfig } from '@aidha/config';
+import { validateLength } from '@aidha/config';
+
+export interface LlmCompletionRequest {
+  model: string;
+  system: string;
+  user: string;
+  temperature?: number;
+  maxTokens?: number;
+  reasoningEffort?: ResolvedConfig['llm']['reasoningEffort'];
+  /** Model verbosity (only for reasoning models) */
+  verbosity?: ResolvedConfig['llm']['verbosity'];
+  /** Optional response format schema */
+  responseFormat?: { type: 'json_schema'; schema: Record<string, unknown> };
+  /** Optional AbortSignal for request cancellation */
+  signal?: AbortSignal;
+}
+
+export interface LlmTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export type LlmCompletionResult = Result<string> & { usage?: LlmTokenUsage };
+
+export interface LlmClient {
+  generate(request: LlmCompletionRequest): Promise<LlmCompletionResult>;
+}
+
+export interface OpenAiCompatibleConfig {
+  baseUrl: string;
+  apiKey?: string;
+  timeoutMs?: number;
+  modelCapabilities?: ModelCapabilities;
+}
+
+export interface GeminiApiConfig {
+  baseUrl: string;
+  apiKey?: string;
+  timeoutMs?: number;
+}
+
+/**
+ * Model capability flags for feature gating.
+ * Prevents brittle string matching against model names.
+ */
+export interface ModelCapabilities {
+  supportsReasoningEffort: boolean;
+  supportsVerbosity: boolean;
+  supportsStructuredOutput: boolean;
+  usesMaxCompletionTokens: boolean;
+  defaultMaxTokens: number;
+}
+
+/**
+ * Default max tokens for unknown models.
+ * Calculated as: ~12 claims × ~100 chars/claim × ~2 tokens/char ÷ 1.2 compression ≈ 2000.
+ * Rounded to 2048 for power-of-2 alignment.
+ */
+const DEFAULT_MAX_TOKENS_FOR_UNKNOWN_MODELS = 2048;
+
+/**
+ * Default model capabilities for unknown models.
+ * Assumes limited capabilities for safety, but provides sufficient maxTokens
+ * for claim extraction responses (5-12 claims with multiple fields).
+ */
+export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
+  supportsReasoningEffort: false,
+  supportsVerbosity: false,
+  supportsStructuredOutput: false,
+  usesMaxCompletionTokens: false,
+  defaultMaxTokens: DEFAULT_MAX_TOKENS_FOR_UNKNOWN_MODELS,
+};
+
+/**
+ * Detects model capabilities from model identifier.
+ * Uses string matching as a fallback for unconfigured models.
+ *
+ * For production, this should be replaced with a model registry.
+ */
+export function detectModelCapabilities(model: string): ModelCapabilities {
+  const normalized = model.toLowerCase().trim();
+
+  // GPT-5 family - has all advanced features
+  // Note: 4096 tokens for claim extraction (5-12 richly populated claims), higher than typical default
+  if (normalized.startsWith('gpt-5')) {
+    return {
+      supportsReasoningEffort: true,
+      supportsVerbosity: true,
+      supportsStructuredOutput: true,
+      usesMaxCompletionTokens: true,
+      defaultMaxTokens: 4096,
+    };
+  }
+
+  // GPT-4o and later - support structured output
+  if (normalized.startsWith('gpt-4o')) {
+    return {
+      supportsReasoningEffort: false,
+      supportsVerbosity: false,
+      supportsStructuredOutput: true,
+      usesMaxCompletionTokens: false,
+      defaultMaxTokens: 4096,
+    };
+  }
+
+  // GPT-4 family - no advanced features
+  if (normalized.startsWith('gpt-4')) {
+    return {
+      supportsReasoningEffort: false,
+      supportsVerbosity: false,
+      supportsStructuredOutput: false,
+      usesMaxCompletionTokens: false,
+      defaultMaxTokens: 4096,
+    };
+  }
+
+  // OpenAI o-series (o1, o3, etc.) - reasoning models
+  if (/^o\d/.test(normalized)) {
+    return {
+      supportsReasoningEffort: true,
+      supportsVerbosity: false,
+      supportsStructuredOutput: true,
+      usesMaxCompletionTokens: true,
+      defaultMaxTokens: 4096,
+    };
+  }
+
+  // Default for unknown models
+  return DEFAULT_MODEL_CAPABILITIES;
+}
+
+function handleAbortOrError(
+  error: unknown,
+  combinedSignal: AbortSignal | undefined,
+  clientTimeoutSignal: AbortSignal | undefined,
+  requestSignal: AbortSignal | undefined,
+  clientLabel: string,
+  timeoutMs: number
+): Result<string> {
+  if (combinedSignal?.aborted) {
+    if (clientTimeoutSignal?.aborted) {
+      return { ok: false, error: new Error(`${clientLabel} client timeout after ${timeoutMs}ms`) };
+    }
+    if (requestSignal?.aborted) {
+      return { ok: false, error: new Error(`${clientLabel} request aborted by upstream timeout or cancellation`) };
+    }
+  }
+  return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+}
+
+function normalizeTokenUsage(input: unknown, output: unknown, total?: unknown): LlmTokenUsage | undefined {
+  const inputTokens = typeof input === 'number' && Number.isInteger(input) && input >= 0 ? input : undefined;
+  const outputTokens = typeof output === 'number' && Number.isInteger(output) && output >= 0 ? output : undefined;
+  if (inputTokens === undefined || outputTokens === undefined) return undefined;
+  const computedTotal = inputTokens + outputTokens;
+  const totalTokens = typeof total === 'number' && Number.isInteger(total) && total >= computedTotal
+    ? total
+    : computedTotal;
+  return { inputTokens, outputTokens, totalTokens };
+}
+
+/** Maximum base URL length to prevent potential ReDoS attacks. */
+const MAX_URL_LENGTH = 2048;
+
+export function normalizeBaseUrl(baseUrl: string): string {
+  // Use validateLength from @aidha/config to avoid duplication
+  validateLength(baseUrl, MAX_URL_LENGTH, 'Base URL');
+  let end = baseUrl.length;
+  while (end > 0 && baseUrl[end - 1] === '/') {
+    end -= 1;
+  }
+  return baseUrl.slice(0, end);
+}
+
+/** Maximum number of model capabilities to cache (LRU eviction). */
+const MAX_CAPABILITIES_CACHE_SIZE = 100;
+
+/** Cached capabilities with timestamp for LRU eviction. */
+interface CachedCapabilities {
+  capabilities: ModelCapabilities;
+  lastAccess: number;
+}
+
+export class OpenAiCompatibleClient implements LlmClient {
+  private baseUrl: string;
+  private apiKey?: string;
+  private timeoutMs: number;
+  private modelCapabilities: ModelCapabilities;
+  private modelCapabilitiesConfigured: boolean;
+  /** Instance cache for model capabilities to avoid repeated detection (LRU-bounded). */
+  private capabilitiesCache = new Map<string, CachedCapabilities>();
+
+  constructor(config: OpenAiCompatibleConfig) {
+    this.baseUrl = normalizeBaseUrl(config.baseUrl);
+    this.apiKey = config.apiKey;
+    this.timeoutMs = config.timeoutMs ?? 60_000;
+    this.modelCapabilitiesConfigured = config.modelCapabilities !== undefined;
+    this.modelCapabilities = config.modelCapabilities ?? DEFAULT_MODEL_CAPABILITIES;
+  }
+
+  /**
+   * Gets cached capabilities for a model, detecting and caching if not already cached.
+   * Uses LRU eviction to bound cache size.
+   */
+  private getCapabilitiesForModel(model: string): ModelCapabilities {
+    const now = Date.now();
+    const cached = this.capabilitiesCache.get(model);
+
+    if (cached) {
+      this.capabilitiesCache.delete(model);
+      this.capabilitiesCache.set(model, { capabilities: cached.capabilities, lastAccess: now });
+      return cached.capabilities;
+    }
+
+    const capabilities = detectModelCapabilities(model);
+    this.capabilitiesCache.set(model, { capabilities, lastAccess: now });
+
+    // Evict oldest entry if cache exceeds maximum size
+    if (this.capabilitiesCache.size > MAX_CAPABILITIES_CACHE_SIZE) {
+      const oldest = this.capabilitiesCache.keys().next().value;
+      if (oldest) this.capabilitiesCache.delete(oldest);
+    }
+
+    return capabilities;
+  }
+
+  /**
+   * Sets the model capabilities for feature gating.
+   * Allows dynamic capability configuration after construction.
+   */
+  setModelCapabilities(capabilities: ModelCapabilities): void {
+    this.modelCapabilitiesConfigured = true;
+    this.modelCapabilities = capabilities;
+  }
+
+  /**
+   * Gets the current model capabilities.
+   */
+  getModelCapabilities(): ModelCapabilities {
+    return this.modelCapabilities;
+  }
+
+  async generate(request: LlmCompletionRequest): Promise<LlmCompletionResult> {
+    const signals: AbortSignal[] = [];
+    const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
+    if (clientTimeoutSignal) {
+      signals.push(clientTimeoutSignal);
+    }
+    if (request.signal) {
+      signals.push(request.signal);
+    }
+
+    const combinedSignal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
+
+    try {
+      const body: Record<string, unknown> = {
+        model: request.model,
+        messages: [
+          { role: 'system', content: request.system },
+          { role: 'user', content: request.user },
+        ],
+      };
+
+      // If capabilities are explicitly configured, they override per-request detection.
+      // This enforces a single-model-per-client behavior for capability gating.
+      // Otherwise, detect capabilities dynamically based on the requested model.
+      const modelCapabilities = this.modelCapabilitiesConfigured
+        ? this.modelCapabilities
+        : this.getCapabilitiesForModel(request.model);
+
+      if (modelCapabilities.supportsReasoningEffort && request.reasoningEffort) {
+        body['reasoning_effort'] = request.reasoningEffort;
+      }
+      if (modelCapabilities.supportsVerbosity && request.verbosity) {
+        body['verbosity'] = request.verbosity;
+      }
+
+      // Traditional parameters
+      if (request.temperature !== undefined) {
+        body['temperature'] = request.temperature;
+      } else if (!modelCapabilities.supportsReasoningEffort) {
+        // Only set default temperature for non-reasoning models
+        body['temperature'] = 0.2;
+      }
+
+      const tokenLimit = request.maxTokens ?? modelCapabilities.defaultMaxTokens;
+      if (modelCapabilities.usesMaxCompletionTokens) {
+        body['max_completion_tokens'] = tokenLimit;
+      } else {
+        body['max_tokens'] = tokenLimit;
+      }
+
+      // OpenAI-compatible structured output
+      // Only add for models that support it to avoid breaking other providers
+      if (request.responseFormat && modelCapabilities.supportsStructuredOutput) {
+        body['response_format'] = {
+          type: 'json_schema',
+          json_schema: { name: 'response', schema: request.responseFormat.schema },
+        };
+      }
+
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify(body),
+        signal: combinedSignal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        return { ok: false, error: new Error(`LLM request failed (${response.status}): ${text.slice(0, 500)}`) };
+      }
+
+      const json = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          input_tokens?: number;
+          output_tokens?: number;
+        };
+      };
+      const content = json.choices?.[0]?.message?.content;
+      if (typeof content !== 'string' || content.length === 0) {
+        return { ok: false, error: new Error('LLM response missing message content') };
+      }
+      return {
+        ok: true,
+        value: content,
+        usage: normalizeTokenUsage(
+          json.usage?.prompt_tokens ?? json.usage?.input_tokens,
+          json.usage?.completion_tokens ?? json.usage?.output_tokens,
+          json.usage?.total_tokens
+        ),
+      };
+    } catch (error) {
+      return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'LLM', this.timeoutMs);
+    }
+  }
+}
+
+export class GeminiApiClient implements LlmClient {
+  private baseUrl: string;
+  private apiKey?: string;
+  private timeoutMs: number;
+
+  constructor(config: GeminiApiConfig) {
+    this.baseUrl = normalizeBaseUrl(config.baseUrl);
+    this.apiKey = config.apiKey;
+    this.timeoutMs = config.timeoutMs ?? 60_000;
+  }
+
+  async generate(request: LlmCompletionRequest): Promise<LlmCompletionResult> {
+    const signals: AbortSignal[] = [];
+    const clientTimeoutSignal = this.timeoutMs > 0 ? AbortSignal.timeout(this.timeoutMs) : undefined;
+    if (clientTimeoutSignal) {
+      signals.push(clientTimeoutSignal);
+    }
+    if (request.signal) {
+      signals.push(request.signal);
+    }
+
+    const combinedSignal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
+
+    try {
+      const generationConfig: Record<string, unknown> = {};
+      if (request.temperature !== undefined) {
+        generationConfig["temperature"] = request.temperature;
+      } else {
+        generationConfig["temperature"] = 0.2;
+      }
+      generationConfig["maxOutputTokens"] = request.maxTokens ?? 4096;
+
+      if (request.responseFormat) {
+        generationConfig["responseMimeType"] = "application/json";
+        generationConfig["responseJsonSchema"] = request.responseFormat.schema;
+      }
+
+      const body: Record<string, unknown> = {
+        system_instruction: {
+          parts: [{ text: request.system }],
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: request.user }],
+          },
+        ],
+        generationConfig,
+      };
+
+      const response = await fetch(
+        `${this.baseUrl}/models/${encodeURIComponent(request.model)}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(this.apiKey ? { "x-goog-api-key": this.apiKey } : {}),
+          },
+          body: JSON.stringify(body),
+          signal: combinedSignal,
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        return { ok: false, error: new Error(`Gemini request failed (${response.status}): ${text.slice(0, 500)}`) };
+      }
+
+      const json = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        };
+      };
+
+      const content = json.candidates?.[0]?.content?.parts
+        ?.map(part => part.text ?? "")
+        .filter(Boolean)
+        .join("");
+
+      if (typeof content !== "string" || content.length === 0) {
+        return { ok: false, error: new Error("Gemini response missing text content") };
+      }
+
+      return {
+        ok: true,
+        value: content,
+        usage: normalizeTokenUsage(
+          json.usageMetadata?.promptTokenCount,
+          json.usageMetadata?.candidatesTokenCount,
+          json.usageMetadata?.totalTokenCount
+        ),
+      };
+    } catch (error) {
+      return handleAbortOrError(error, combinedSignal, clientTimeoutSignal, request.signal, 'Gemini', this.timeoutMs);
+    }
+  }
+}
+
+/** Resolved LLM config shape (matches ResolvedConfig.llm). */
+export interface LlmResolvedConfig {
+  model: string;
+  apiKey: string;
+  baseUrl: string;
+  timeoutMs: number;
+  cacheDir: string;
+  modelCapabilities?: ModelCapabilities;
+}
+
+/**
+ * Create an LLM client from resolved config values.
+ */
+export function createLlmClientFromConfig(cfg: LlmResolvedConfig): Result<LlmClient> {
+  if (!cfg.baseUrl) {
+    return { ok: false, error: new Error('llm.base_url is not configured') };
+  }
+  try {
+    return {
+      ok: true,
+      value: new OpenAiCompatibleClient({
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey || undefined,
+        timeoutMs: cfg.timeoutMs ?? 60_000,
+        modelCapabilities: cfg.modelCapabilities,
+      }),
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
+}
+
+/**
+ * Create a Gemini API client from resolved config values.
+ */
+export function createGeminiClientFromConfig(cfg: LlmResolvedConfig): Result<LlmClient> {
+  if (!cfg.baseUrl) {
+    return { ok: false, error: new Error("llm.base_url is not configured") };
+  }
+  try {
+    return {
+      ok: true,
+      value: new GeminiApiClient({
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey || undefined,
+        timeoutMs: cfg.timeoutMs ?? 60_000,
+      }),
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
+}

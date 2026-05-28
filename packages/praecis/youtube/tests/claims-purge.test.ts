@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { purgeClaimsForVideo } from '../src/extract/purge.js';
+import { purgeClaimsForVideo } from '@aidha/praecis-core';
 
 class TransactionalPurgeStore extends InMemoryStore {
   private inTx = false;
@@ -83,7 +83,7 @@ describe('purgeClaimsForVideo', () => {
     });
     await store.upsertEdge('claim-purge-1', 'claimDerivedFrom', 'excerpt-purge-1', {});
 
-    const result = await purgeClaimsForVideo(store, 'purge-video');
+    const result = await purgeClaimsForVideo(store, 'youtube-purge-video');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.deletedClaims).toBe(1);
@@ -134,7 +134,7 @@ describe('purgeClaimsForVideo', () => {
     await store.upsertEdge('claim-purge-1', 'claimDerivedFrom', 'excerpt-purge-1', {});
 
     store.enforceTransactionalReads();
-    const result = await purgeClaimsForVideo(store, 'purge-video');
+    const result = await purgeClaimsForVideo(store, 'youtube-purge-video');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.deletedClaims).toBe(1);
@@ -163,12 +163,12 @@ describe('purgeClaimsForVideo', () => {
       metadata: { videoId: 'purge-video' },
     });
 
-    const first = await purgeClaimsForVideo(store, 'purge-video');
+    const first = await purgeClaimsForVideo(store, 'youtube-purge-video');
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.value.deletedClaims).toBe(0);
 
-    const second = await purgeClaimsForVideo(store, 'purge-video');
+    const second = await purgeClaimsForVideo(store, 'youtube-purge-video');
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.value.deletedClaims).toBe(0);

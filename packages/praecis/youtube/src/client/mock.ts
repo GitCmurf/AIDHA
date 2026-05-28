@@ -28,6 +28,15 @@ const MOCK_PLAYLISTS: Record<string, Playlist> = {
     description: 'A playlist with no videos',
     publishedAt: '2025-01-01T00:00:00.000Z',
   },
+  'partial-playlist': {
+    id: 'partial-playlist',
+    title: 'Partial Playlist',
+    channelId: 'UC-test',
+    channelName: 'Test Channel',
+    videoIds: ['test-video', 'missing-video'],
+    description: 'A playlist with one unavailable video',
+    publishedAt: '2025-01-01T00:00:00.000Z',
+  },
 };
 
 const MOCK_VIDEOS: Record<string, Video> = {
@@ -49,6 +58,15 @@ const MOCK_VIDEOS: Record<string, Video> = {
     duration: 600,
     publishedAt: '2025-01-02T00:00:00.000Z',
     description: 'Another test video',
+  },
+  'no-transcript-video': {
+    id: 'no-transcript-video',
+    title: 'No Transcript Video',
+    channelId: 'UC-test',
+    channelName: 'Test Channel',
+    duration: 120,
+    publishedAt: '2025-01-03T00:00:00.000Z',
+    description: 'A video with no available transcript',
   },
 };
 

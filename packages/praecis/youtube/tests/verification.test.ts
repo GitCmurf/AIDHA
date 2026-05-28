@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { GENERIC_TERMS, GENERIC_TERMS_MAX } from '../src/extract/keyphrases.js';
+import { GENERIC_TERMS, GENERIC_TERMS_MAX } from '@aidha/praecis-core';
 import {
   TieredVerifier,
   calculateTokenOverlap,
   calculateNGramOverlap,
   extractKeyPhrases,
-} from '../src/extract/verification.js';
+} from '@aidha/praecis-core';
 
 describe('verification', () => {
   describe('calculateTokenOverlap', () => {

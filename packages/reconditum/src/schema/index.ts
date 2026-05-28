@@ -32,3 +32,11 @@ export {
   Knowledge,
   CreateKnowledgeInput,
 } from './knowledge.js';
+
+export {
+  LocatorSchema,
+  TaxonomyAssignmentMetadataSchema,
+  ResourceMetadataSchema,
+  ExcerptMetadataSchema,
+  ClaimMetadataSchema,
+} from './domain-metadata.js';

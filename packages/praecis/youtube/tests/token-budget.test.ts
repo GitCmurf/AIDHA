@@ -13,7 +13,7 @@ import {
   formatTokenCount,
   estimateCost,
   createTokenBudgetSummary,
-} from '../src/extract/token-budget.js';
+} from '@aidha/praecis-core';
 
 describe('token-budget', () => {
   describe('estimateTokens', () => {

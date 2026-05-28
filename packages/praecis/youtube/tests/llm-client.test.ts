@@ -2,7 +2,7 @@
  * LLM client tests
  */
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { GeminiApiClient, OpenAiCompatibleClient } from '../src/extract/llm-client.js';
+import { GeminiApiClient, OpenAiCompatibleClient } from '@aidha/praecis-core';
 
 describe('OpenAiCompatibleClient', () => {
   afterEach(() => {

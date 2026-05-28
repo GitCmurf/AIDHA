@@ -2,7 +2,7 @@ import type { GraphNode, GraphStore } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
 import { DEFAULT_CLAIM_STATE, normalizeClaimState } from '../utils/claim-state.js';
 import type { ClaimState } from '../utils/claim-state.js';
-import { buildTimestampUrl, formatTimestamp, toNumber } from '../extract/utils.js';
+import { buildTimestampUrl, formatTimestamp, toNumber } from '@aidha/praecis-core';
 
 /**
  * Normalizes text for token-based similarity computation.

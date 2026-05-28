@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { expandContractions, hasNumericalDifference, hasSubjectOrPredicateChange } from '../src/extract/editorial-ranking.js';
-import { splitSentences } from '../src/extract/utils.js';
+import { expandContractions, hasNumericalDifference, hasSubjectOrPredicateChange } from '@aidha/praecis-core';
+import { splitSentences } from '@aidha/praecis-core';
 
 describe('Regression Fixes Round 22', () => {
   describe('hasNumericalDifference (Regression 6)', () => {

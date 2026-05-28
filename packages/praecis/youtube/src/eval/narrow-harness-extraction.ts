@@ -1,9 +1,9 @@
-import type { LlmClient } from "../extract/index.js";
-import type { ExtractionPromptPackId } from "../extract/prompt-routing.js";
+import type { LlmClient } from '@aidha/praecis-core';
+import type { ExtractionPromptPackId } from '@aidha/praecis-core';
 import {
   promptVersionForConfig,
   type Pass1PromptConfigId,
-} from "../extract/prompts/pass1-claim-mining-v2.js";
+} from '@aidha/praecis-core';
 import type { CorpusEntry } from "./corpus-schema.js";
 import type { EvalModel } from "./model-registry.js";
 import type { ExtractorVariantId } from "./extractor-variants.js";

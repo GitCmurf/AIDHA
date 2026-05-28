@@ -1,4 +1,4 @@
-import type { ClaimCandidate } from "../../extract/types.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { FlattenedGoldenClaimNode } from "../golden-annotation-utils.js";
 import type { VideoContext } from "../matrix-runner.js";
 import { nk, sanitizePromptInput, truncateTranscript, MAX_TRANSCRIPT_PROMPT_CHARS } from "./judge-utils.js";

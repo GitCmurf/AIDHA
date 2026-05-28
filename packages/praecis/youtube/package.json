@@ -35,6 +35,7 @@
   "dependencies": {
     "@aidha/config": "workspace:*",
     "@aidha/graph-backend": "workspace:*",
+    "@aidha/praecis-core": "workspace:*",
     "@aidha/taxonomy": "workspace:*",
     "compromise": "^14.15.0",
     "js-yaml": "^4.1.1",

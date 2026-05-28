@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { comparePasses } from "../../src/eval/self-improve-comparison.js";
 import type { NarrowJudgeFindings } from "../../src/eval/narrow-judge.js";
 import type { FlattenedGoldenClaimNode } from "../../src/eval/golden-annotation-utils.js";
-import type { ClaimCandidate } from "../../src/extract/types.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 describe("self-improve comparison", () => {
   const flattenedGold: FlattenedGoldenClaimNode[] = [

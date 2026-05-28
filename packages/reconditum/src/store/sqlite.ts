@@ -41,6 +41,8 @@ import {
   edgeCursorKey,
   applyCursorAndLimit,
   stableStringify,
+  resourceMatchesIdentity,
+  validateNodeMetadata,
 } from './utils.js';
 
 type StatementSync = {
@@ -397,7 +399,7 @@ export class SQLiteStore implements GraphStore {
       const existingResult = await this.getNode(id);
       if (!existingResult.ok) return existingResult;
       const existing = existingResult.value;
-      const metadata = data.metadata ?? {};
+      const metadata = validateNodeMetadata(type, data.metadata ?? {});
 
       if (!existing) {
         const timestamp = nowIso();
@@ -638,6 +640,17 @@ export class SQLiteStore implements GraphStore {
       const sorted = sortEdges(edges, options.sort);
       const paged = applyCursorAndLimit(sorted, options.cursor, options.limit, edgeCursorKey);
       return { ok: true, value: paged };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    }
+  }
+
+  async findResourceByIdentity(key: string): Promise<Result<import('../schema/index.js').GraphNode | null>> {
+    try {
+      const result = await this.queryNodes({ type: 'Resource' });
+      if (!result.ok) return result;
+      const match = result.value.items.find(node => resourceMatchesIdentity(node, key)) ?? null;
+      return { ok: true, value: match };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     }

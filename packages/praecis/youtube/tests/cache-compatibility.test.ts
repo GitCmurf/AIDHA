@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import type { ClaimCandidate } from '../src/extract/types.js';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 // V1 cache payload (before evidenceType was added)
 const V1_CACHE_PAYLOAD = {

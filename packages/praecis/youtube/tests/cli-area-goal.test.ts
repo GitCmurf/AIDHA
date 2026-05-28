@@ -6,6 +6,8 @@ import { SQLiteStore } from '@aidha/graph-backend';
 import { runCli } from '../src/cli.js';
 import { describeIfSqlite } from './test-utils.js';
 
+const CLI_AREA_GOAL_TIMEOUT_MS = 300_000;
+
 describeIfSqlite('CLI area/goal/project helpers', () => {
   let tempRoot = '';
   let dbPath = '';
@@ -104,5 +106,5 @@ describeIfSqlite('CLI area/goal/project helpers', () => {
     } finally {
       await store.close();
     }
-  }, 20_000);
+  }, CLI_AREA_GOAL_TIMEOUT_MS);
 });

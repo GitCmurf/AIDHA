@@ -15,7 +15,7 @@ import {
   isGrammaticallyComplete,
   extractKeywords,
   hasBoilerplatePOSPattern,
-} from '../src/extract/nlp-utils.js';
+} from '@aidha/praecis-core';
 
 describe('extractSVOTriples', () => {
   it('extracts simple SVO triple', () => {

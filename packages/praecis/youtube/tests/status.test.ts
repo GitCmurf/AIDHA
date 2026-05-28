@@ -5,20 +5,20 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { IngestionPipeline } from '../src/pipeline/ingest.js';
+import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
 import { getIngestionStatus } from '../src/pipeline/status.js';
 
 describe('getIngestionStatus', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
   let youtubeClient: MockYouTubeClient;
-  let pipeline: IngestionPipeline;
+  let pipeline: RuntimeIngestionHarness;
 
   beforeEach(async () => {
     graphStore = new InMemoryStore();
     taxonomyRegistry = new InMemoryRegistry();
     youtubeClient = new MockYouTubeClient();
-    pipeline = new IngestionPipeline({
+    pipeline = new RuntimeIngestionHarness({
       graphStore,
       taxonomyRegistry,
       youtubeClient,
@@ -42,7 +42,7 @@ describe('getIngestionStatus', () => {
     expect(status.value.resourceId).toBe('youtube-test-video');
     expect(status.value.excerptCount).toBeGreaterThan(0);
     expect(status.value.transcriptStatus).toBe('available');
-    expect(status.value.claimCount).toBe(0);
-    expect(status.value.referenceCount).toBe(0);
+    expect(status.value.claimCount).toBe(1);
+    expect(status.value.referenceCount).toBeGreaterThan(0);
   });
 });

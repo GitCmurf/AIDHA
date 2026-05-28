@@ -25,6 +25,7 @@ export {
   KnowledgeMetadata,
   Knowledge,
   CreateKnowledgeInput,
+  TaxonomyAssignmentMetadataSchema,
   type LevelGraphTriple,
 } from './schema/index.js';
 

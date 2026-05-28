@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { runCalibration, type CalibrationRunOptions } from "../../src/eval/calibration-runner.js";
 import { CalibrationRecordSchema } from "../../src/eval/calibration-schema.js";
 import type { GoldenAnnotationEntry } from "../../src/eval/golden-annotation-schema.js";
-import type { LlmClient } from "../../src/extract/llm-client.js";
+import type { LlmClient } from '@aidha/praecis-core';
 import type { ClaimSetScore } from "../../src/eval/scoring-rubric.js";
 
 const makeScore = (override: Partial<ClaimSetScore> = {}): ClaimSetScore => ({

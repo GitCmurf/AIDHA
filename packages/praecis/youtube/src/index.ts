@@ -18,76 +18,18 @@ export {
   CreateJobInput,
 } from './schema/index.js';
 
+// Config exports
+export * from './config/index.js';
+
 // Client exports
 export type { YouTubeClient } from './client/index.js';
 export { MockYouTubeClient, RealYouTubeClient } from './client/index.js';
 
+// Source-neutral ingest adapter
+export { createYouTubeVectorSpec, ingestYouTubePlaylist, ingestYouTubeVideo, runYouTubePlaylistIngestion } from './ingest/index.js';
 
-// Pipeline exports
-export type { PipelineConfig, IngestionResult } from './pipeline/index.js';
-export { IngestionPipeline } from './pipeline/index.js';
-
-// Extraction exports
-export type {
-  ClaimCandidate,
-  ClaimExtractionInput,
-  ClaimExtractionResult,
-  ReferenceExtractionResult,
-  PurgeClaimsResult,
-  EditorialDiagnostics,
-  EditorialDropReason,
-  EditorialPassV1Options,
-  EditorialPassV2Options,
-  CachedClaimsLoadOptions,
-  CachedClaimsLoadResult,
-  FragmentRules,
-  CoverageSummary,
-  VerificationResult,
-  VerificationConfig,
-  VerificationTier,
-  CircuitBreakerConfig,
-} from './extract/index.js';
-export type { LlmClient, LlmCompletionRequest } from './extract/index.js';
-export {
-  ClaimExtractionPipeline,
-  HeuristicClaimExtractor,
-  purgeClaimsForVideo,
-  LlmClaimExtractor,
-  loadCachedClaimCandidates,
-  runEditorPassV1,
-  runEditorPassV1WithDiagnostics,
-  runEditorPassV2,
-  runEditorPassV2WithDiagnostics,
-  countFragments,
-  countBoilerplate,
-  timelineCoverage,
-  dropCounts,
-  OpenAiCompatibleClient,
-  ReferenceExtractionPipeline,
-  TieredVerifier,
-  calculateTokenOverlap,
-  calculateNGramOverlap,
-  extractKeyPhrases,
-  CircuitBreaker,
-  CircuitBreakerState,
-  CircuitBreakerOpenError,
-  ClaimCandidateSchema,
-  CLAIM_TYPES,
-  CLAIM_CLASSIFICATIONS,
-  CLAIM_STATES,
-  CLAIM_METHODS,
-  validateClaimCandidate,
-  isValidClaimCandidate,
-  normalizeClaimType,
-  normalizeClaimClassification,
-  extractSVOTriples,
-  extractDiscourseMarkers,
-  hasPOSPattern,
-  getPOSPattern,
-  isGrammaticallyComplete,
-  extractKeywords,
-  hasBoilerplatePOSPattern,
-} from './extract/index.js';
+// Pipeline status exports
+export type { PipelineConfig, IngestionResult, YouTubeVideoIngestResult } from './pipeline/index.js';
 
 // Export (Markdown dossier)
 export type {

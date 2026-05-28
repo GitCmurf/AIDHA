@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildJudgePrompt } from "../../src/eval/prompts/judge-claim-quality";
-import type { ClaimCandidate } from "../../src/extract/types";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 describe("Judge Prompt Template", () => {
   const mockTranscript = "This is a test transcript.";

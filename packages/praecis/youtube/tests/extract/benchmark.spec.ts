@@ -6,12 +6,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ClaimCandidate } from '../../src/extract/types.js';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import {
   countFragments,
   countBoilerplate,
   type FragmentRules,
-} from '../../src/extract/editorial-metrics.js';
+} from '@aidha/praecis-core';
 
 describe('extraction benchmark harness', () => {
   interface BenchmarkMetrics {

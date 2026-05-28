@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { LlmClient } from "../extract/index.js";
+import type { LlmClient } from '@aidha/praecis-core';
 import { getModel, type EvalModel } from "./model-registry.js";
 import type { CorpusEntry } from "./corpus-schema.js";
 import type { MatrixCell } from "./matrix-runner.js";

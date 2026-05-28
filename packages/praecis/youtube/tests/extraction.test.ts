@@ -5,10 +5,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
-import { IngestionPipeline } from '../src/pipeline/ingest.js';
-import { ClaimExtractionPipeline } from '../src/extract/claims.js';
-import { ReferenceExtractionPipeline } from '../src/extract/references.js';
-import type { ClaimCandidate } from '../src/extract/types.js';
+import { RuntimeIngestionHarness } from './helpers/runtime-ingestion.js';
+import { ClaimExtractionPipeline } from '@aidha/praecis-core';
+import { ReferenceExtractionPipeline } from '@aidha/praecis-core';
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import { BufferedLogger } from '../src/utils/logger.js';
 
 class ConcurrentResourceMetadataStore extends InMemoryStore {
@@ -88,7 +88,7 @@ class TransactionalClaimWriteFailureStore extends InMemoryStore {
   ): ReturnType<InMemoryStore['upsertEdge']> {
     if (predicate === 'claimDerivedFrom') {
       this.claimEdgeWrites += 1;
-      if (this.claimEdgeWrites === 2) {
+      if (this.claimEdgeWrites === 3) {
         return { ok: false, error: new Error('forced edge failure') };
       }
     }
@@ -100,13 +100,13 @@ describe('Extraction pipelines', () => {
   let graphStore: InMemoryStore;
   let taxonomyRegistry: InMemoryRegistry;
   let youtubeClient: MockYouTubeClient;
-  let ingestion: IngestionPipeline;
+  let ingestion: RuntimeIngestionHarness;
 
   beforeEach(async () => {
     graphStore = new InMemoryStore();
     taxonomyRegistry = new InMemoryRegistry();
     youtubeClient = new MockYouTubeClient();
-    ingestion = new IngestionPipeline({
+    ingestion = new RuntimeIngestionHarness({
       graphStore,
       taxonomyRegistry,
       youtubeClient,
@@ -122,7 +122,7 @@ describe('Extraction pipelines', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    const result = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.claimsCreated).toBeGreaterThan(0);
@@ -142,15 +142,15 @@ describe('Extraction pipelines', () => {
     await ingestion.ingestPlaylist('test-playlist');
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore });
-    const claimResult = await claimPipeline.extractClaimsForVideo('test-video');
+    const claimResult = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(claimResult.ok).toBe(true);
     if (!claimResult.ok) return;
 
     const refPipeline = new ReferenceExtractionPipeline({ graphStore });
-    const result = await refPipeline.extractReferencesForVideo('test-video');
+    const result = await refPipeline.extractReferencesForVideo('youtube-test-video');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.referencesCreated).toBeGreaterThan(0);
+    expect(result.value.referencesCreated + result.value.referencesNoop).toBeGreaterThan(0);
 
     const refs = await graphStore.queryNodes({ type: 'Reference' });
     expect(refs.ok).toBe(true);
@@ -166,7 +166,7 @@ describe('Extraction pipelines', () => {
 
   it('preserves concurrent resource metadata while writing claim run stats', async () => {
     const concurrentStore = new ConcurrentResourceMetadataStore();
-    const concurrentIngestion = new IngestionPipeline({
+    const concurrentIngestion = new RuntimeIngestionHarness({
       graphStore: concurrentStore,
       taxonomyRegistry,
       youtubeClient,
@@ -174,7 +174,7 @@ describe('Extraction pipelines', () => {
 
     await concurrentIngestion.ingestPlaylist('test-playlist');
     const claimPipeline = new ClaimExtractionPipeline({ graphStore: concurrentStore });
-    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    const result = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -189,15 +189,15 @@ describe('Extraction pipelines', () => {
 
   it('writes claim run stats inside a transaction when supported', async () => {
     const transactionalStore = new TransactionalResourceRunStatsStore();
-    const transactionalIngestion = new IngestionPipeline({
+    const transactionalIngestion = new RuntimeIngestionHarness({
       graphStore: transactionalStore,
       taxonomyRegistry,
       youtubeClient,
     });
 
-    await transactionalIngestion.ingestPlaylist('test-playlist');
+    await transactionalIngestion.ingestVideo('test-video');
     const claimPipeline = new ClaimExtractionPipeline({ graphStore: transactionalStore });
-    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    const result = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(result.ok).toBe(true);
     expect(transactionalStore.transactionalWriteVerified).toBe(true);
 
@@ -221,7 +221,7 @@ describe('Extraction pipelines', () => {
     };
 
     const claimPipeline = new ClaimExtractionPipeline({ graphStore, extractor, logger });
-    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    const result = await claimPipeline.extractClaimsForVideo('youtube-test-video');
 
     expect(result.ok).toBe(true);
     expect(logger.entries).toEqual([
@@ -240,13 +240,13 @@ describe('Extraction pipelines', () => {
 
   it('rolls back claim writes when transactional extraction fails', async () => {
     const transactionalStore = new TransactionalClaimWriteFailureStore();
-    const transactionalIngestion = new IngestionPipeline({
+    const transactionalIngestion = new RuntimeIngestionHarness({
       graphStore: transactionalStore,
       taxonomyRegistry,
       youtubeClient,
     });
 
-    await transactionalIngestion.ingestPlaylist('test-playlist');
+    await transactionalIngestion.ingestVideo('test-video');
 
     const excerptResult = await transactionalStore.queryNodes({
       type: 'Excerpt',
@@ -254,7 +254,7 @@ describe('Extraction pipelines', () => {
     });
     expect(excerptResult.ok).toBe(true);
     if (!excerptResult.ok) return;
-    expect(excerptResult.value.items.length).toBeGreaterThanOrEqual(2);
+    expect(excerptResult.value.items.length).toBeGreaterThanOrEqual(1);
 
     const extractor = {
       async extractClaims() {
@@ -267,7 +267,7 @@ describe('Extraction pipelines', () => {
           },
           {
             text: 'Second transactional claim',
-            excerptIds: [excerptResult.value.items[1].id],
+            excerptIds: [excerptResult.value.items[0].id],
             confidence: 0.8,
             method: 'heuristic' as const,
           },
@@ -279,7 +279,7 @@ describe('Extraction pipelines', () => {
       graphStore: transactionalStore,
       extractor,
     });
-    const result = await claimPipeline.extractClaimsForVideo('test-video');
+    const result = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain('forced edge failure');
@@ -287,12 +287,14 @@ describe('Extraction pipelines', () => {
     const claims = await transactionalStore.queryNodes({ type: 'Claim' });
     expect(claims.ok).toBe(true);
     if (!claims.ok) return;
-    expect(claims.value.items).toHaveLength(0);
+    // 1 claim from initial ingestion, 0 from the rolled-back manual extraction
+    expect(claims.value.items).toHaveLength(1);
 
     const edges = await transactionalStore.getEdges({ predicate: 'claimDerivedFrom' });
     expect(edges.ok).toBe(true);
     if (!edges.ok) return;
-    expect(edges.value.items).toHaveLength(0);
+    // 1 edge from initial ingestion, 0 from the rolled-back manual extraction
+    expect(edges.value.items).toHaveLength(1);
 
     const resource = await transactionalStore.getNode('youtube-test-video');
     expect(resource.ok).toBe(true);

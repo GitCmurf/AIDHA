@@ -1,4 +1,4 @@
-import type { ClaimCandidate } from "../../extract/types.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 import type { VideoContext } from "../matrix-runner.js";
 import { nk, sanitizePromptInput, truncateTranscript } from "./judge-utils.js";
 

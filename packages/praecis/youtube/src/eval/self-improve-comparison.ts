@@ -1,7 +1,7 @@
 import type { NarrowDerivedJudgeScores, NarrowJudgeFindings } from "./narrow-judge.js";
 import { deriveNarrowJudgeScores } from "./narrow-judge.js";
 import type { FlattenedGoldenClaimNode } from "./golden-annotation-utils.js";
-import type { ClaimCandidate } from "../extract/types.js";
+import type { ClaimCandidate } from '@aidha/praecis-core';
 
 export interface PassComparisonResult {
   pass1: NarrowDerivedJudgeScores;
