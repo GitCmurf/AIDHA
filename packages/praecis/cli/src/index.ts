@@ -435,7 +435,7 @@ export async function runReadwiseIngest(
   const runBooks = async (context: IngestExecutionContext) => runBatch({
     items: books,
     clock: context.services.clock ?? { now: () => new Date() },
-    async runItem(book) {
+    async runItem(book: ReadwiseBook) {
       const vector = createReadwiseVectorSpec({ book });
       const ref = book.readwise_url ?? `readwise:book:${book.user_book_id}`;
       const report = await context.runReport('readwise', ref, vector);
@@ -457,7 +457,7 @@ export async function runReadwiseIngest(
     }
   }
   const summaries = batch.successes.map(success => success.value);
-  const errors = batch.failures.map(failure => ({
+  const errors = batch.failures.map((failure: any) => ({
     item: failure.item.readwise_url ?? `readwise:book:${failure.item.user_book_id}`,
     message: failure.message,
     timestamp: failure.timestamp,
@@ -489,7 +489,7 @@ export async function runEmailIngest(
     return runEmailBatchWithContext(ref, readFile, {
       store: context.services.store,
       ...(context.services.clock ? { clock: context.services.clock } : {}),
-      async runVector(vector, input) {
+      async runVector(vector: ComposedVector, input: { ref: string; metadata?: Record<string, unknown> }) {
         return context.runReport('email', input.ref, vector, input.metadata);
       },
     });
@@ -541,7 +541,7 @@ export async function runYouTubePlaylistIngest(
     playlistId,
     client,
     ...(context.services.clock ? { clock: context.services.clock } : {}),
-    async runVideo(videoId) {
+    async runVideo(videoId: string) {
       const report = await context.runReport('youtube', videoId, createYouTubeVectorSpec({ client }));
       if (!report.ok) {
         return report;
@@ -575,15 +575,15 @@ export async function runYouTubePlaylistIngest(
     throw result.error;
   }
   const playlist = result.value;
-  summaries = playlist.videos.map(video => summaryFromRunReport('youtube', video.videoId, video.report));
-  const errors = playlist.job.errors.map(error => ({
+  summaries = playlist.videos.map((video: any) => summaryFromRunReport('youtube', video.videoId, video.report));
+  const errors = playlist.job.errors.map((error: any) => ({
     item: error.videoId,
     message: error.message,
     timestamp: error.timestamp,
   }));
   const warnings = [
     ...aggregateWarnings(summaries),
-    ...errors.map(error => `${error.item}: ${error.message}`),
+    ...errors.map((error: any) => `${error.item}: ${error.message}`),
   ];
   return {
     sourceId: 'youtube',
@@ -1056,7 +1056,7 @@ export function makeStableLabel(seed: string): string {
 
 function readStdinText(): Promise<string> {
   if (process.stdin.isTTY) {
-    return '';
+    return Promise.resolve('');
   }
   return new Promise<string>((resolve, reject) => {
     const chunks: string[] = [];
