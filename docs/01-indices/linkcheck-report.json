@@ -1,98 +1,140 @@
 [
   {
     "url": "http://localhost:11434/v1",
-    "checked_at": "2026-03-06T03:57:19Z",
+    "checked_at": "2026-05-28T00:33:28Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_localhost"
   },
   {
     "url": "https://api.openai.com/v1",
-    "checked_at": "2026-03-06T03:57:19Z",
+    "checked_at": "2026-05-28T00:33:28Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_known_endpoint"
   },
   {
+    "url": "https://blog.example.com/feed.xml",
+    "checked_at": "2026-05-28T00:33:28Z",
+    "status": "skipped",
+    "http_status": null,
+    "error": "skipped_unstable_host"
+  },
+  {
     "url": "https://cla-assistant.io/",
-    "checked_at": "2026-03-06T03:57:20Z",
+    "checked_at": "2026-05-28T00:33:29Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
+    "url": "https://example.com/a",
+    "checked_at": "2026-05-28T00:33:29Z",
+    "status": "skipped",
+    "http_status": null,
+    "error": "skipped_unstable_host"
+  },
+  {
+    "url": "https://example.com/article",
+    "checked_at": "2026-05-28T00:33:29Z",
+    "status": "skipped",
+    "http_status": null,
+    "error": "skipped_unstable_host"
+  },
+  {
+    "url": "https://example.com/feed.xml",
+    "checked_at": "2026-05-28T00:33:29Z",
+    "status": "skipped",
+    "http_status": null,
+    "error": "skipped_unstable_host"
+  },
+  {
+    "url": "https://example.com/podcast.xml",
+    "checked_at": "2026-05-28T00:33:29Z",
+    "status": "skipped",
+    "http_status": null,
+    "error": "skipped_unstable_host"
+  },
+  {
     "url": "https://github.com/GitCmurf",
-    "checked_at": "2026-03-06T03:57:20Z",
+    "checked_at": "2026-05-28T00:33:30Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
     "url": "https://github.com/GitCmurf/AIDHA",
-    "checked_at": "2026-03-06T03:57:21Z",
+    "checked_at": "2026-05-28T00:33:30Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
     "url": "https://github.com/GitCmurf/AIDHA.git",
-    "checked_at": "2026-03-06T03:57:22Z",
+    "checked_at": "2026-05-28T00:33:31Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
     "url": "https://github.com/GitCmurf/AIDHA/blob/main/packages/aidha-config/schema/config.schema.json",
-    "checked_at": "2026-03-06T03:57:22Z",
+    "checked_at": "2026-05-28T00:33:31Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_known_endpoint"
   },
   {
     "url": "https://github.com/LIAAD/yake",
-    "checked_at": "2026-03-06T03:57:23Z",
+    "checked_at": "2026-05-28T00:33:32Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
     "url": "https://github.com/spencermountain/compromise",
-    "checked_at": "2026-03-06T03:57:23Z",
+    "checked_at": "2026-05-28T00:33:32Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
     "url": "https://github.com/winkjs/wink-nlp",
-    "checked_at": "2026-03-06T03:57:24Z",
+    "checked_at": "2026-05-28T00:33:33Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
     "url": "https://img.shields.io/badge/License-Apache_2.0-blue.svg",
-    "checked_at": "2026-03-06T03:57:25Z",
+    "checked_at": "2026-05-28T00:33:33Z",
+    "status": "ok",
+    "http_status": 200,
+    "error": null
+  },
+  {
+    "url": "https://www.linkedin.com/feed/update/urn:li:activity:1234567890/",
+    "checked_at": "2026-05-28T00:33:34Z",
     "status": "ok",
     "http_status": 200,
     "error": null
   },
   {
     "url": "https://www.youtube.com/watch?v=UepWRYgBpv0",
-    "checked_at": "2026-03-06T03:57:25Z",
+    "checked_at": "2026-05-28T00:33:34Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_unstable_host"
   },
   {
     "url": "https://www.youtube.com/watch?v=h_1zlead9ZU",
-    "checked_at": "2026-03-06T03:57:25Z",
+    "checked_at": "2026-05-28T00:33:34Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_unstable_host"
   },
   {
-    "url": "https://youtu.be/f4cdu-QiKHo",
-    "checked_at": "2026-03-06T03:57:25Z",
+    "url": "https://youtu.be/",
+    "checked_at": "2026-05-28T00:33:34Z",
     "status": "skipped",
     "http_status": null,
     "error": "skipped_unstable_host"

@@ -390,6 +390,7 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
       client,
       config: runtimeConfig,
       ...(useMock ? { llm: createMockExtractionLlm() } : {}),
+      refreshTranscript: optionBool(options, 'refresh-transcript'),
     }, videoId);
   };
 
