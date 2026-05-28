@@ -457,7 +457,7 @@ export async function runReadwiseIngest(
     }
   }
   const summaries = batch.successes.map(success => success.value);
-  const errors = batch.failures.map((failure: any) => ({
+  const errors = batch.failures.map((failure: { item: ReadwiseBook; message: string; timestamp: string }) => ({
     item: failure.item.readwise_url ?? `readwise:book:${failure.item.user_book_id}`,
     message: failure.message,
     timestamp: failure.timestamp,
@@ -575,15 +575,15 @@ export async function runYouTubePlaylistIngest(
     throw result.error;
   }
   const playlist = result.value;
-  summaries = playlist.videos.map((video: any) => summaryFromRunReport('youtube', video.videoId, video.report));
-  const errors = playlist.job.errors.map((error: any) => ({
+  summaries = playlist.videos.map((video: { videoId: string; report: RunReport }) => summaryFromRunReport('youtube', video.videoId, video.report));
+  const errors = playlist.job.errors.map((error: { videoId: string; message: string; timestamp: string }) => ({
     item: error.videoId,
     message: error.message,
     timestamp: error.timestamp,
   }));
   const warnings = [
     ...aggregateWarnings(summaries),
-    ...errors.map((error: any) => `${error.item}: ${error.message}`),
+    ...errors.map((error: { item: string; message: string }) => `${error.item}: ${error.message}`),
   ];
   return {
     sourceId: 'youtube',
