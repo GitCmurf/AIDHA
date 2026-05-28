@@ -88,7 +88,7 @@ class TransactionalClaimWriteFailureStore extends InMemoryStore {
   ): ReturnType<InMemoryStore['upsertEdge']> {
     if (predicate === 'claimDerivedFrom') {
       this.claimEdgeWrites += 1;
-      if (this.claimEdgeWrites === 2) {
+      if (this.claimEdgeWrites === 3) {
         return { ok: false, error: new Error('forced edge failure') };
       }
     }
@@ -195,7 +195,7 @@ describe('Extraction pipelines', () => {
       youtubeClient,
     });
 
-    await transactionalIngestion.ingestPlaylist('test-playlist');
+    await transactionalIngestion.ingestVideo('test-video');
     const claimPipeline = new ClaimExtractionPipeline({ graphStore: transactionalStore });
     const result = await claimPipeline.extractClaimsForVideo('youtube-test-video');
     expect(result.ok).toBe(true);
@@ -246,7 +246,7 @@ describe('Extraction pipelines', () => {
       youtubeClient,
     });
 
-    await transactionalIngestion.ingestPlaylist('test-playlist');
+    await transactionalIngestion.ingestVideo('test-video');
 
     const excerptResult = await transactionalStore.queryNodes({
       type: 'Excerpt',
@@ -287,12 +287,14 @@ describe('Extraction pipelines', () => {
     const claims = await transactionalStore.queryNodes({ type: 'Claim' });
     expect(claims.ok).toBe(true);
     if (!claims.ok) return;
-    expect(claims.value.items).toHaveLength(0);
+    // 1 claim from initial ingestion, 0 from the rolled-back manual extraction
+    expect(claims.value.items).toHaveLength(1);
 
     const edges = await transactionalStore.getEdges({ predicate: 'claimDerivedFrom' });
     expect(edges.ok).toBe(true);
     if (!edges.ok) return;
-    expect(edges.value.items).toHaveLength(0);
+    // 1 edge from initial ingestion, 0 from the rolled-back manual extraction
+    expect(edges.value.items).toHaveLength(1);
 
     const resource = await transactionalStore.getNode('youtube-test-video');
     expect(resource.ok).toBe(true);

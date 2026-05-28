@@ -42,7 +42,7 @@ describe('getIngestionStatus', () => {
     expect(status.value.resourceId).toBe('youtube-test-video');
     expect(status.value.excerptCount).toBeGreaterThan(0);
     expect(status.value.transcriptStatus).toBe('available');
-    expect(status.value.claimCount).toBe(0);
+    expect(status.value.claimCount).toBe(1);
     expect(status.value.referenceCount).toBeGreaterThan(0);
   });
 });
