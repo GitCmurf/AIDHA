@@ -390,8 +390,9 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
       client,
       config: runtimeConfig,
       ...(useMock ? { llm: createMockExtractionLlm() } : {}),
-      refreshTranscript: optionBool(options, 'refresh-transcript'),
-    }, videoId);
+    }, videoId, {
+      refreshTranscript: optionBool(options, 'refresh-transcript')
+    });
   };
 
   if (mode === 'playlist') {
@@ -401,7 +402,9 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
       client,
       config: runtimeConfig,
       ...(useMock ? { llm: createMockExtractionLlm() } : {}),
-    }, playlistId);
+    }, playlistId, {
+      refreshTranscript: optionBool(options, 'refresh-transcript')
+    });
     if (!result.ok) {
       console.error(result.error.message);
       await store.close();

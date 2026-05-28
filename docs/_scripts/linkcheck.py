@@ -16,7 +16,7 @@ DOCS = pathlib.Path(__file__).resolve().parents[2] / "docs"
 REPORT = DOCS / "01-indices" / "linkcheck-report.json"
 URL_PATTERN = re.compile(r"https?://[\w\-._~:/?#\[\]@!$&'()*+,;=%]+", re.IGNORECASE)
 SKIP_HOST_PATTERN = re.compile(
-    r"^https?://(?:www\.)?(youtube\.com|youtu\.be|example\.com)|https?://blog\.example\.com/", re.IGNORECASE
+    r"^https?://(?:www\.)?(?:youtube\.com|youtu\.be|example\.com)/|https?://blog\.example\.com/", re.IGNORECASE
 )
 SKIP_EXACT_URLS = {
     # Service endpoints and schema IDs can be valid yet unavailable/rate-limited in CI.
