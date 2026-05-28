@@ -18,7 +18,7 @@
     "test": "node scripts/check-test-scripts.mjs && pnpm -r test:ci",
     "test:full": "pnpm -r --if-present test:full",
     "build": "pnpm -r build",
-    "build:deps": "pnpm --filter @aidha/config --filter @aidha/graph-backend --filter @aidha/taxonomy --filter @aidha/praecis-core build",
+    "build:deps": "pnpm --filter @aidha/config --filter @aidha/graph-backend --filter @aidha/taxonomy --filter @aidha/praecis-core --filter \"@aidha/praecis-decode-*\" build",
     "docs:serve": "./scripts/python -m mkdocs serve",
     "docs:catalog": "./scripts/python docs/_scripts/gen_catalog.py",
     "docs:linkcheck": "./scripts/python docs/_scripts/linkcheck.py",
