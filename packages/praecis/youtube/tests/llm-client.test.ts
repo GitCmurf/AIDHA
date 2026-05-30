@@ -137,6 +137,45 @@ describe('OpenAiCompatibleClient', () => {
     if (result.ok) return;
     expect(result.error.message).toContain('client timeout');
   });
+
+  describe('generate', () => {
+    it('uses max_completion_tokens for GPT-5 family models', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+        const body = JSON.parse(String(init?.body));
+        expect(body.model).toBe('gpt-5-mini');
+        expect(body.max_completion_tokens).toBe(4096);
+        expect(body).not.toHaveProperty('max_tokens');
+        return new Response(JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: 'ok',
+              },
+            },
+          ],
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      });
+
+      const client = new OpenAiCompatibleClient({
+        baseUrl: 'https://api.example.com',
+        apiKey: 'test-key', // pragma: allowlist secret
+      });
+
+      const result = await client.generate({
+        model: 'gpt-5-mini',
+        system: 'system',
+        user: 'user',
+      });
+
+      expect(result).toEqual({ ok: true, value: 'ok' });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 describe('GeminiApiClient', () => {

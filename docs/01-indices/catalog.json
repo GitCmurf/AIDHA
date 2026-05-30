@@ -687,11 +687,6 @@
     }
   },
   {
-    "path": "02-strategy/strategy-002-vision-20260522-r1-owner-response.md",
-    "title": "STRATEGY: AIDHA Product Vision",
-    "front_matter": {}
-  },
-  {
     "path": "02-strategy/strategy-001-minimum-vertical-slice.md",
     "title": "Strategy: Minimum End-to-End Vertical Slice",
     "front_matter": {
