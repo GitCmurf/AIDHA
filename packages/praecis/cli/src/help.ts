@@ -11,7 +11,7 @@ Usage:
   aidha project reentry --project <id> [--json] [--markdown] [--out <path>]
 
 Notes:
-  - Ingest commands run offline against local fixtures, injected mocks, or --mock where supported.
+  - Ingest commands run offline against local fixtures, injected mocks, --mock, or --mock-llm where supported.
   - config explain uses the shared source registration set.
 `;
 }

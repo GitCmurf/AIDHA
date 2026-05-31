@@ -197,17 +197,20 @@ function createMockExtractionLlm(): LlmClient {
   return {
     async generate(request) {
       const excerptId = /"id":\s*"([^"]+)"/.exec(request.user)?.[1] ?? 'mock-excerpt';
+      const textMatch = /"text":\s*"([^"]+)"/.exec(request.user);
+      const sourceText = textMatch?.[1]?.replace(/\\n/g, ' ') ?? 'fixture evidence';
+      const prefix = sourceText.split(/\s+/).filter(Boolean).slice(0, 8).join(' ') || 'The fixture';
       return {
         ok: true,
         value: JSON.stringify({
           claims: [{
-            text: 'The mock YouTube fixture contains a claim-worthy point for review.',
+            text: `${prefix} supports a reviewable activation claim.`,
             excerptIds: [excerptId],
             confidence: 0.84,
             type: 'fact',
             classification: 'fact',
             evidenceType: 'direct',
-            why: 'Deterministic mock extraction keeps generic CLI tests offline.',
+            why: 'Deterministic mock extraction keeps generic CLI and acceptance tests offline.',
           }],
         }),
       };
@@ -736,7 +739,16 @@ async function withIngestExecutionContextForManifest<T>(
   work: (context: IngestExecutionContext) => Promise<T>,
 ): Promise<T> {
   const services = await resolveRuntimeServicesForSource(manifest.sourceId, options);
-  const preparedServices = manifest.prepareServices?.({ positionals, options, services }) ?? services;
+  const baseServices = optionBool(options, 'mock-llm')
+      ? {
+        ...services,
+        ...(services.config
+          ? { config: { ...services.config, llm: { ...services.config.llm, model: 'mock-acceptance-llm' } } }
+          : {}),
+        llm: createMockExtractionLlm(),
+      }
+    : services;
+  const preparedServices = manifest.prepareServices?.({ positionals, options, services: baseServices }) ?? baseServices;
   const execution = await createIngestExecutionContext(preparedServices);
   try {
     return await work(execution.context);

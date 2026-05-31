@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.6"
+version: "0.7"
 last_updated: 2026-05-31
 title: Viable Prototype Agent Workplan
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.6
+> **Version:** 0.7
 > **Last Updated:** 2026-05-31
 > **Type:** TASK
 
@@ -34,6 +34,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | 0.4     | 2026-05-31 | AI     | Final review pass: split routing metadata by grain (T010-03-01) and distinguish routing review status from editorial `state`; disambiguate the two review axes in `review next` (T010-01-04); fix stale WP3→WP4 anchor; consolidate `RationaleTrace` metadata field list and add schema-version policy note (T010-04-01); add claim-state vs routing-status note to verified anchors. | - | Draft | AIDHA-PLAN-008 |
 | 0.5     | 2026-05-31 | AI     | Tighten the routing-metadata default: add `taxonomyVersion` to `TagAssignment`, but represent claim-grain routing review as distinct `routingReviewStatus`/`routingReviewReason` Claim metadata validated in `domain-metadata.ts`; remove residual wording that implied a tag-assignment `reviewStatus`. | - | Draft | AIDHA-PLAN-008 |
 | 0.6     | 2026-05-31 | AI     | Reconcile with the implemented activation tranche: record generic query/task/review/re-entry helpers, the deterministic acceptance packet, the ratified strategy revision, and the remaining ingest-backed demo and trace-model work; make trace review statuses, IDs, edge usage, and command semantics decision-complete. | - | Draft | AIDHA-PLAN-008 |
+| 0.7     | 2026-05-31 | AI     | Record the ingest-backed acceptance update: the viable prototype packet now runs generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -72,12 +73,11 @@ subsequent agents:
 - Routing metadata follows the grain decision: `taxonomyVersion` is on `TagAssignment`; Claim
   metadata carries `routingReviewStatus`, `routingReviewReason`, and `reviewPriority`.
 - `scripts/acceptance/viable-prototype-activation.mjs` writes a deterministic no-network packet
-  under `docs/55-testing/acceptance-run-<date>/`.
+  under `docs/55-testing/acceptance-run-<date>/` after running generic PDF and LinkedIn ingests with
+  `--mock-llm`.
 
 Remaining gaps before this plan is closed:
 
-- The acceptance script currently seeds a clean graph directly. It proves the activation loop, but
-  not yet ingest-backed capture through two generic `aidha ingest` vectors with a mock model.
 - The YouTube activation surface has not yet been fully retired as wrappers over the shared generic
   helpers.
 - WP4 `RationaleTrace` graph support and trace-review commands remain unimplemented.

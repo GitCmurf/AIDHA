@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-008
 owner: Product
 status: Draft
-version: "0.6"
+version: "0.7"
 last_updated: 2026-05-31
 title: Viable Prototype Sprint Plan
 type: PLAN
@@ -18,7 +18,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.6
+> **Version:** 0.7
 > **Last Updated:** 2026-05-31
 > **Type:** PLAN
 
@@ -34,6 +34,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 | 0.4     | 2026-05-31 | AI     | Final review pass: split routing-metadata decision by grain (taxonomyVersion per-assignment vs claim-grain review status) after the one-Claim-many-TagAssignments cardinality argument; distinguish routing review status from the existing editorial `state`; fix stale Sprint 3→4 cross-references from the renumber; remove residual `method` from Gap 3; align Sprint 0 demo-packet path; consolidate the `RationaleTrace` metadata field list and add the schema-version policy note. | - | Draft | AIDHA-TASK-010 |
 | 0.5     | 2026-05-31 | AI     | Tighten the routing-metadata split into an implementation default: `taxonomyVersion` remains per-assignment on `TagAssignment`, while claim-level routing review uses distinct `routingReviewStatus`/`routingReviewReason` Claim metadata validated in `domain-metadata.ts`; update Sprint 3 acceptance to remove residual taxonomy-contract ambiguity. | - | Draft | AIDHA-TASK-010 |
 | 0.6     | 2026-05-31 | AI     | Reconcile the sprint plan with the implemented activation tranche: generic activation helpers and CLI commands, strategy ratification, routing metadata, deterministic acceptance evidence, and the remaining ingest-backed demo, YouTube wrapper retirement, trace model, and pilot gates. | - | Draft | AIDHA-TASK-010 |
+| 0.7     | 2026-05-31 | AI     | Update the sprint status after the acceptance packet became ingest-backed through generic PDF and LinkedIn ingests using deterministic `--mock-llm` extraction. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -89,13 +90,11 @@ Implementation evidence reviewed:
 The working tree now contains the first generic activation tranche. `@aidha/praecis-core` exposes
 shared activation helpers, `@aidha/praecis-cli` exposes generic `query`, `task`, `review`, and
 `project reentry` commands, routing metadata has been typed at the agreed grains, and the strategy
-positions have been ratified in AIDHA-STRATEGY-002. A deterministic acceptance packet is generated
-under `docs/55-testing/acceptance-run-<date>/`.
+positions have been ratified in AIDHA-STRATEGY-002. The deterministic acceptance packet now runs
+generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry.
 
-The plan remains open because the acceptance harness still seeds graph facts directly rather than
-driving two generic ingest vectors with a mock model, YouTube activation wrappers still need
-retirement or convergence, Sprint 4 `RationaleTrace` support is not implemented, and the Sprint 6
-pilot has not been run.
+The plan remains open because YouTube activation wrappers still need retirement or convergence,
+Sprint 4 `RationaleTrace` support is not implemented, and the Sprint 6 pilot has not been run.
 
 ### Strengths
 

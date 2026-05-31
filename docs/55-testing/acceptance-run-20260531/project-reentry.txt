@@ -4,16 +4,16 @@
 - Continue: Implement the activation loop
 
 ## Open Tasks
-- Implement the activation loop (task-368a74e954901af2)
+- Implement the activation loop (task-be48c62b539ade04)
 
 ## Relevant Claims
-- AIDHA should turn prior knowledge into concrete next actions. [web fragment]
+- Activation planning converts captured knowledge into concrete next supports a reviewable activation claim. [text 0-153]
 
 ## Review Items
-- routing: AIDHA should turn prior knowledge into concrete next actions.
+- editorial+routing: Activation planning converts captured knowledge into concrete next supports a reviewable activation claim.
 
 ## Blockers
 - None
 
 ## Provenance
-- claim-web-activation -> Activation article (web fragment)
+- claim:f4f79a97976eb9ff -> LinkedIn paste (text 0-153)

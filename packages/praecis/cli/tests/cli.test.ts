@@ -264,6 +264,47 @@ describe('aidha cli phase-1 surface', () => {
     }
   }, 60_000);
 
+  it('injects a deterministic mock LLM for generic ingest commands', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-mock-llm-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    const pdfPath = join(dir, 'fixture.pdf');
+    await writeFile(pdfPath, Buffer.from('Activation fixture evidence\fProject re-entry evidence'));
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'pdf', '--file', pdfPath, '--mock-llm', '--json', '--config', configPath]);
+      expect(code).toBe(0);
+      const summary = JSON.parse(logs.join('\n')) as {
+        sourceId: string;
+        claimsExtracted: number;
+        claims: Array<{ model?: string; text: string }>;
+      };
+      expect(summary.sourceId).toBe('pdf');
+      expect(summary.claimsExtracted).toBeGreaterThan(0);
+      expect(summary.claims[0]?.model).toBe('mock-acceptance-llm');
+      expect(summary.claims[0]?.text).toContain('Activation fixture evidence');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it('ingests youtube playlists through the same generic command surface', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-youtube-playlist-'));
     const dbPath = join(dir, 'aidha.sqlite');

@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-05-31
-version: '0.35'
+version: '0.36'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.35
+> **Version:** 0.36
 > **Last Updated:** 2026-05-31
 > **Type:** GUIDE
 
@@ -58,6 +58,7 @@ docops_version: '2.0'
 | 0.33    | 2026-05-25 | AI     | Document config-seeded taxonomy. | — | Draft | AIDHA-PLAN-007 |
 | 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
 | 0.35    | 2026-05-31 | AI     | Add generic activation commands. | — | Draft | AIDHA-TASK-010 |
+| 0.36    | 2026-05-31 | AI     | Document `--mock-llm` ingest. | — | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -103,6 +104,10 @@ aidha project reentry --project <project-id> --markdown --out out/project-reentr
 Use `--config <path>` when running against a non-default local profile. Query results include locator
 data for source-specific provenance; task and project re-entry output follows the same provenance
 chain so a created task can be traced back to its supporting source.
+
+For no-network acceptance runs, pass `--mock-llm` to generic ingest commands that need claim
+extraction. This injects the deterministic local test double used by
+`scripts/acceptance/viable-prototype-activation.mjs`.
 
 ## Prerequisites
 

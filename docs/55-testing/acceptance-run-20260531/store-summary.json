@@ -1,16 +1,21 @@
 {
   "schemaVersion": 1,
-  "nodeCount": 8,
-  "edgeCount": 4,
+  "nodeCount": 9,
+  "edgeCount": 7,
+  "resourceSourceTypes": [
+    "linkedin",
+    "pdf"
+  ],
   "nodeTypes": {
     "Claim": 2,
-    "Excerpt": 2,
+    "Excerpt": 3,
     "Project": 1,
     "Resource": 2,
     "Task": 1
   },
   "edgePredicates": {
     "claimDerivedFrom": 2,
+    "resourceHasExcerpt": 3,
     "taskMotivatedBy": 1,
     "taskPartOfProject": 1
   }
