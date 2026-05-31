@@ -937,6 +937,107 @@ describe('aidha cli phase-1 surface', () => {
     }
   }, 60_000);
 
+  it.runIf(SQLiteStore.isAvailable())('protects the offline activation loop through generic CLI commands', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-activation-gate-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    const pdfPath = join(dir, 'activation.pdf');
+    await writeFile(pdfPath, Buffer.from([
+      'Project re-entry needs task provenance back to claims and sources.',
+      'Activation evidence should be reusable without reopening the original document.',
+    ].join('\f')));
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    extraction:',
+        '      max_claims: 4',
+        '      chunk_minutes: 5',
+        '      max_chunks: 4',
+        '      prompt_version: activation-gate-v1',
+        '    editor:',
+        '      version: v2',
+        '      min_words: 1',
+        '      min_chars: 1',
+        '      min_windows: 1',
+      ].join('\n'),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    try {
+      expect(await runCli(['ingest', 'pdf', '--file', pdfPath, '--mock-llm', '--json', '--config', configPath])).toBe(0);
+      const pdfSummary = JSON.parse(logs.splice(0).join('\n')) as { resourceId: string; claimIds: string[] };
+      expect(await runCli([
+        'ingest',
+        'linkedin',
+        '--paste',
+        'Activation planning converts captured knowledge into concrete next actions.',
+        '--url',
+        'https://linkedin.example.test/posts/activation-gate',
+        '--mock-llm',
+        '--json',
+        '--config',
+        configPath,
+      ])).toBe(0);
+      const linkedInSummary = JSON.parse(logs.splice(0).join('\n')) as { resourceId: string; claimIds: string[] };
+
+      expect(await runCli(['query', 'activation', '--include-drafts', '--json', '--config', configPath])).toBe(0);
+      const hits = JSON.parse(logs.splice(0).join('\n')) as Array<{ claimId: string; sourceType: string }>;
+      expect(new Set(hits.map(hit => hit.sourceType))).toEqual(new Set(['linkedin', 'pdf']));
+
+      expect(await runCli([
+        'task',
+        'create',
+        '--from-claim',
+        hits[0]!.claimId,
+        '--title',
+        'Implement activation gate',
+        '--project',
+        'project-activation-gate',
+        '--json',
+        '--config',
+        configPath,
+      ])).toBe(0);
+      const task = JSON.parse(logs.splice(0).join('\n')) as { taskId: string };
+      expect(await runCli(['task', 'show', task.taskId, '--json', '--config', configPath])).toBe(0);
+      const taskContext = JSON.parse(logs.splice(0).join('\n')) as { claims: Array<{ claimId: string; resourceId?: string; excerptId?: string }> };
+      expect(taskContext.claims[0]?.claimId).toBe(hits[0]!.claimId);
+      expect(taskContext.claims[0]?.resourceId).toBeTruthy();
+      expect(taskContext.claims[0]?.excerptId).toBeTruthy();
+
+      expect(await runCli(['project', 'reentry', '--project', 'project-activation-gate', '--json', '--config', configPath])).toBe(0);
+      const dossier = JSON.parse(logs.splice(0).join('\n')) as { tasks: unknown[]; claims: Array<{ claimId: string }> };
+      expect(dossier.tasks).toHaveLength(1);
+      expect(dossier.claims.map(claim => claim.claimId)).toContain(hits[0]!.claimId);
+
+      const store = SQLiteStore.open(dbPath);
+      try {
+        const snapshot = await store.exportSnapshot({ scope: 'full' });
+        expect(snapshot.ok).toBe(true);
+        if (!snapshot.ok) throw snapshot.error;
+        const resources = snapshot.value.nodes.filter(node => node.type === 'Resource');
+        expect(resources.map(node => node.metadata?.sourceType).sort()).toEqual(['linkedin', 'pdf']);
+        expect(new Set(resources.map(node => node.id))).toEqual(new Set([pdfSummary.resourceId, linkedInSummary.resourceId]));
+        const claims = snapshot.value.nodes.filter(node => node.type === 'Claim');
+        for (const claim of claims) {
+          expect(snapshot.value.edges.some(edge => edge.subject === claim.id && edge.predicate === 'claimDerivedFrom')).toBe(true);
+        }
+        expect(snapshot.value.edges.some(edge => edge.subject === task.taskId && edge.predicate === 'taskMotivatedBy')).toBe(true);
+      } finally {
+        await store.close();
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 90_000);
+
   it('explains config provenance for source registrations', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-config-'));
     const configPath = join(dir, 'config.yaml');
