@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.2"
+version: "0.5"
 last_updated: 2026-05-31
 title: Viable Prototype Agent Workplan
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.5
 > **Last Updated:** 2026-05-31
 > **Type:** TASK
 
@@ -30,6 +30,9 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1     | 2026-05-30 | AI     | Initial agent-executable task plan for the viable prototype sprints. | - | Draft | AIDHA-PLAN-008 |
 | 0.2     | 2026-05-31 | AI     | Codebase-verified revision: anchor WP1 on the existing `Locator` union and FTS contract; reconcile WP3 routing metadata with the existing `TagAssignment` schema; remove the WP2→WP3 forward dependency (blockers via `taskDependsOn`); concretise the offline demo harness (named vectors, mock LLM, reuse existing acceptance scaffolding); commit demo artifact paths; note inbox-project default. | - | Draft | AIDHA-PLAN-008 |
+| 0.3     | 2026-05-31 | AI     | Apply proposed responses to peer-debate questions: generic CLI supersession, `TagAssignment` routing metadata, early strategy ratification, separate trace work package, and a pilot viability bar. | - | Draft | AIDHA-PLAN-008 |
+| 0.4     | 2026-05-31 | AI     | Final review pass: split routing metadata by grain (T010-03-01) and distinguish routing review status from editorial `state`; disambiguate the two review axes in `review next` (T010-01-04); fix stale WP3→WP4 anchor; consolidate `RationaleTrace` metadata field list and add schema-version policy note (T010-04-01); add claim-state vs routing-status note to verified anchors. | - | Draft | AIDHA-PLAN-008 |
+| 0.5     | 2026-05-31 | AI     | Tighten the routing-metadata default: add `taxonomyVersion` to `TagAssignment`, but represent claim-grain routing review as distinct `routingReviewStatus`/`routingReviewReason` Claim metadata validated in `domain-metadata.ts`; remove residual wording that implied a tag-assignment `reviewStatus`. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -63,7 +66,12 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - Graph predicates already exist: `claimDerivedFrom`, `resourceHasExcerpt`, `taskMotivatedBy`,
   `taskPartOfProject`, plus `taskDependsOn`, `projectServesGoal`, `projectInArea`, `alsoSeenVia`,
   `corroboratedBy` (`packages/reconditum/src/schema/edge.ts`). No `RationaleTrace`/`SuggestedLink`/
-  `Gap` NodeTypes exist yet — those are net-new in WP3.
+  `Gap` NodeTypes exist yet — those are net-new in WP4.
+- Claim editorial state (`draft | accepted | rejected`) already exists durably in
+  `packages/reconditum/src/schema/domain-metadata.ts` (`state`) and is read by the YouTube review
+  queue. This is distinct from the claim-grain routing review metadata proposed in WP3
+  (`routingReviewStatus`, `routingReviewReason`) — see the routing-metadata decision in
+  AIDHA-PLAN-008 for the grain distinction.
 - `TagAssignment` (`packages/phyla/src/schema/assignment.ts`) already carries `confidence`, `source`,
   `assignedBy`, `assignedAt`, `notes`. WP3 adds a delta, not a greenfield schema.
 - The generic `@aidha/praecis-cli` today implements only `ingest` and `config explain`. All other
@@ -71,8 +79,9 @@ capture source -> extract claims -> route/review -> query project context -> cre
   YouTube CLI (`packages/praecis/youtube/src/cli.ts`).
 - The only existing offline acceptance harness is YouTube-only
   (`scripts/acceptance/llm-offline-acceptance.mjs`, `scripts/acceptance/mock-openai-server.mjs`).
-- Open architectural decisions are catalogued in the "Judgement Calls For Peer Debate" section of
-  AIDHA-PLAN-008; resolve the relevant one before starting the work package it affects.
+- Open architectural decisions are resolved as proposed defaults in the "Proposed Decisions For
+  Review" section of AIDHA-PLAN-008; follow those defaults unless a maintainer changes the plan or a
+  linked ADR.
 
 ## Work Package 0: Baseline And Demo Harness
 
@@ -142,6 +151,36 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - [ ] The command does not require network access.
 - [ ] The packet includes JSON summaries and human-readable notes.
 - [ ] Rerunning the command shows stable IDs and stable ordering for unchanged fixtures.
+
+## Work Package 0A: Strategy Ratification
+
+### T010-0A-01: Promote Resolved Vision Positions
+
+**Status:** Open
+
+**Goal:** Make the strategy thesis governed before generic activation implementation depends on it.
+
+**Steps:**
+
+1. Promote the owner-response positions from the WIP strategy draft into AIDHA-STRATEGY-002 or a new
+   governed strategy successor.
+2. Preserve the original open-question history, but mark the resolved responses as strategic
+   positions rather than live blockers.
+3. Ratify the prototype claims that drive this workplan:
+   - activation loop over further ingestion breadth;
+   - project re-entry as the central viability test;
+   - provisional routing with selective human review;
+   - agentic traces as inspectable, non-authoritative graph data;
+   - consequence/reversibility as the AI autonomy boundary.
+4. Update cross-references in AIDHA-PLAN-008 and this task if the strategy document ID or title
+   changes.
+5. Run scoped DocOps checks and `pnpm docs:build`.
+
+**Acceptance criteria:**
+
+- [ ] Governed strategy no longer has unresolved placeholders for the answered questions.
+- [ ] AIDHA-PLAN-008 references governed strategy, not only the WIP owner-response draft.
+- [ ] Sprint 1 implementation branches can cite a ratified strategy thesis.
 
 ## Work Package 1: Generic Activation CLI
 
@@ -261,20 +300,25 @@ capture source -> extract claims -> route/review -> query project context -> cre
 
 **Status:** Open
 
-**Goal:** Surface draft/provisional material across source types.
+**Goal:** Surface material needing attention across source types, along two distinct axes:
+editorial-state Claims (`draft`, per `domain-metadata.ts` `state`) and Claims whose routing is
+unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim can be editorially
+`accepted` with routing still unreviewed, or `draft` with routing confirmed.
 
 **Steps:**
 
-1. Add failing tests for draft claims and provisional classifications.
+1. Add failing tests for (a) draft-editorial-state claims and (b) claims with unreviewed routing,
+   asserting the two axes are reported distinctly (a claim may appear for one, the other, or both).
 2. Implement `aidha review next [--project <id>] [--source <id>] [--limit <n>] [--json]`.
-3. Sort by review priority when available, then by state, updated time, and stable ID.
+3. Sort by review priority when available, then by editorial state, updated time, and stable ID.
 4. Include enough context to decide whether to accept, edit, reject, or route in a future command.
+   Label which axis surfaced each item.
 5. Do not implement a large TUI in this work package.
 
 **Acceptance criteria:**
 
 - [ ] Review output works across source types.
-- [ ] Draft and provisional items are visibly distinct.
+- [ ] Editorial state and routing-review status are reported as distinct axes, not one merged flag.
 - [ ] Output includes provenance and classification metadata.
 
 ## Work Package 2: Project Re-entry Dossier
@@ -293,7 +337,7 @@ capture source -> extract claims -> route/review -> query project context -> cre
    - at least two Resources from different source types;
    - one Task motivated by a Claim;
    - one blocker represented as a Task with an unmet `taskDependsOn` edge (derivable from current
-     graph state — **do not** depend on the agentic-trace/gap model from T010-03-03; that ordering
+     graph state — **do not** depend on the agentic-trace/gap model from T010-04-01; that ordering
      was a forward dependency and is removed here).
 2. Define `ProjectReentryDossier` with:
    - project summary;
@@ -304,7 +348,7 @@ capture source -> extract claims -> route/review -> query project context -> cre
    - blockers (unmet `taskDependsOn`);
    - suggested next actions;
    - provenance index.
-   Leave a clearly-labelled, optional slot for agentic *gaps* that T010-03-03 populates later, but the
+   Leave a clearly-labelled, optional slot for agentic *gaps* that T010-04-01 populates later, but the
    dossier must be useful with that slot empty.
 3. Keep the model independent of Markdown rendering.
 4. Add deterministic sorting rules to the model builder.
@@ -332,7 +376,9 @@ capture source -> extract claims -> route/review -> query project context -> cre
    - empty project.
 2. Implement the command in `@aidha/praecis-cli`.
 3. Render concise text by default.
-4. Render Markdown suitable for saving in `out/` when `--markdown` or `--out` is provided.
+4. Render Markdown suitable for saving to a caller-provided path when `--markdown` or `--out` is
+   provided; the demo harness remains responsible for placing evidence under the
+   `docs/55-testing/acceptance-run-<date>/` convention.
 5. Include source provenance and next-action section.
 
 **Acceptance criteria:**
@@ -365,7 +411,7 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - [ ] Quickstart docs show the activation loop, not only ingestion.
 - [ ] `pnpm docs:build` passes.
 
-## Work Package 3: Routing, Review Priority, And Agentic Traces
+## Work Package 3: Routing And Review Priority
 
 ### T010-03-01: Add Routing Metadata Contract
 
@@ -377,27 +423,30 @@ capture source -> extract claims -> route/review -> query project context -> cre
 
 1. Start from the **existing `TagAssignment` schema** (`packages/phyla/src/schema/assignment.ts`),
    which already provides `confidence`, `source` (`manual | automatic | imported | inferred`),
-   `assignedBy`, `assignedAt`, and `notes`. Add schema tests only for the genuinely new fields:
-   - taxonomy version;
-   - review status;
-   - review reason.
-   Do **not** add a `method` field that duplicates `source`. If routing method must be distinguished
-   from `source`, define that distinction explicitly and justify it in the PR; otherwise reuse
-   `source`.
-2. Decide where the new fields live: extending the durable `@aidha/phyla` `TagAssignment` contract
-   (forces a graph-schema-version bump and contract tests for all consumers) vs. storing routing/
-   review state in `Claim`/`Resource` node metadata (lower ceremony, weaker typing). This is a
-   flagged judgement call in AIDHA-PLAN-008 — resolve it before implementing. Prefer a typed
-   structured field over opaque strings in `notes`.
+   `assignedBy`, `assignedAt`, and `notes`. Do **not** add a `method` field that duplicates `source`.
+2. Place the new fields **by grain** (AIDHA-PLAN-008 routing-metadata decision):
+   - `taxonomyVersion` is per-(claim,tag) → add as an optional field on `TagAssignment`; add
+     `@aidha/phyla` schema tests.
+   - **Routing review status/reason** is claim-grain by default. Add separate optional Claim metadata
+     fields `routingReviewStatus` and `routingReviewReason` in
+     `packages/reconditum/src/schema/domain-metadata.ts`. Keep them **distinct from the Claim's
+     editorial `state`** (`draft | accepted | rejected`) already in that file; do not overload one
+     field for editorial lifecycle and routing confirmation. If a maintainer instead chooses
+     per-assignment routing review, require a linked ADR because `aidha review next` must then define
+     how many assignment-level decisions aggregate into one claim-level queue item.
+   - A graph schema bump is only required if this work introduces new NodeTypes or Predicates
+     (it should not).
 3. Update `KeywordTaxonomyClassifier` or introduce a small routing classifier that writes the new
    metadata.
-4. Ensure old assignments without the new fields remain valid (additive, optional fields).
+4. Ensure old assignments and claims without the new fields remain valid (additive, optional fields).
 
 **Acceptance criteria:**
 
 - [ ] Routing metadata is typed and validated.
-- [ ] Provisional and human-reviewed assignments can be distinguished.
-- [ ] Classifier tests cover confidence and method.
+- [ ] Routing review status is distinguishable from a Claim's editorial `state` (no overloaded field).
+- [ ] Provisional and human-reviewed routing can be distinguished at the grain `review next` consumes.
+- [ ] Classifier tests cover confidence, source, and taxonomy version; routing/review tests cover
+  `routingReviewStatus` and `routingReviewReason` on Claim metadata.
 
 ### T010-03-02: Compute Review Priority
 
@@ -426,7 +475,9 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - [ ] Reason codes are visible in JSON output.
 - [ ] Priority computation is deterministic and testable offline.
 
-### T010-03-03: Add Minimal Agentic Trace Graph Support
+## Work Package 4: Agentic Trace Model
+
+### T010-04-01: Add Minimal Agentic Trace Graph Support
 
 **Status:** Open
 
@@ -435,18 +486,29 @@ capture source -> extract claims -> route/review -> query project context -> cre
 **Steps:**
 
 1. Add graph contract tests for the minimal trace model.
-2. Prefer the smallest useful schema change:
-   - NodeTypes such as `RationaleTrace`, `SuggestedLink`, and `Gap`, or one `RationaleTrace` node
-     type with typed metadata;
-   - predicates such as `suggestedByAgent`, `supports`, `blocks`, `requires`, or existing
-     predicates with explicit provisional metadata if a narrower change is sufficient.
-3. Record for each trace:
-   - agent/model;
-   - prompt version;
-   - input context;
-   - confidence;
-   - affected nodes/edges;
-   - review status.
+2. Prefer the smallest useful schema change: one `RationaleTrace` NodeType with typed metadata. Use a
+   single canonical metadata field list (do not maintain two overlapping lists):
+   - `traceKind`: `suggested_link | gap | sufficiency_prompt`;
+   - `affectedNodeIds`;
+   - optional `proposedPredicate` (when present, must validate against the existing `Predicate`
+     enum in `packages/reconditum/src/schema/edge.ts`);
+   - `rationale`;
+   - `confidence`;
+   - `agentModel`;
+   - `promptVersion`;
+   - `inputContext`;
+   - `traceReviewStatus`.
+   Use existing `relatedTo` edges from trace node to affected nodes only if traversal tests need
+   them. Do not add `SuggestedLink`, `Gap`, `supports`, `blocks`, `requires`, or `suggestedByAgent`
+   as first-pass graph schema concepts unless a failing test demonstrates that the single-node model
+   is insufficient. (`review_priority` is intentionally not a `traceKind`: review priority is
+   computed and stored in WP3; a trace records an agent's *suggestion*, not the authoritative
+   priority.)
+3. Confirm the graph schema-version policy for adding a NodeType. Precedent: the `alsoSeenVia` /
+   `corroboratedBy` predicates were added in PLAN-007 without bumping
+   `CURRENT_GRAPH_SCHEMA_VERSION` (still `1`), so additive enum extensions have been treated as
+   non-breaking. Follow that precedent unless a persisted consumer must distinguish stores with vs.
+   without `RationaleTrace`; if so, bump the version and note the migration in the PR.
 4. Add helper functions to create and list traces.
 5. Do not auto-promote traces into durable human-approved edges.
 
@@ -457,7 +519,7 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - [ ] Contract tests protect any new NodeType or Predicate.
 - [ ] Re-entry dossiers can include provisional traces under a clearly labelled section.
 
-### T010-03-04: Add Trace Review Commands
+### T010-04-02: Add Trace Review Commands
 
 **Status:** Open
 
@@ -480,9 +542,9 @@ capture source -> extract claims -> route/review -> query project context -> cre
   trace.
 - [ ] Rejection does not delete source claims, tasks, or Resources.
 
-## Work Package 4: Viability Quality Gates
+## Work Package 5: Viability Quality Gates
 
-### T010-04-01: Add Offline Activation Acceptance Test
+### T010-05-01: Add Offline Activation Acceptance Test
 
 **Status:** Open
 
@@ -510,7 +572,7 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - [ ] The test fails on broken provenance.
 - [ ] The test fails on unstable ordering where deterministic output is required.
 
-### T010-04-02: Add Demonstration Packet Checks
+### T010-05-02: Add Demonstration Packet Checks
 
 **Status:** Open
 
@@ -534,16 +596,15 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - [ ] The packet proves capture -> route -> query -> task -> re-entry.
 - [ ] The command exits non-zero when a required artifact is missing.
 
-### T010-04-03: Reconcile Strategy And User Docs
+### T010-05-03: Reconcile Product And User Docs
 
 **Status:** Open
 
-**Goal:** Align governed docs with the refined strategy and implemented product surface.
+**Goal:** Align user-facing docs with the ratified strategy and implemented product surface.
 
 **Steps:**
 
-1. Promote the resolved owner-response positions for AIDHA-STRATEGY-002 into a governed strategy
-   revision or a new governed strategy document.
+1. Confirm T010-0A-01 has promoted or superseded the WIP owner-response strategy positions.
 2. Update the product docs to reflect the prototype thesis:
    - trusted capture;
    - provisional routing;
@@ -557,13 +618,13 @@ capture source -> extract claims -> route/review -> query project context -> cre
 
 **Acceptance criteria:**
 
-- [ ] The strategy no longer contains unanswered open-question placeholders for resolved issues.
+- [ ] Governed product docs link to the ratified strategy.
 - [ ] Quickstart docs demonstrate the activation loop.
 - [ ] WIP strategy content is either promoted or clearly superseded.
 
-## Work Package 5: Pilot And Release Baseline
+## Work Package 6: Pilot And Release Baseline
 
-### T010-05-01: Run A Personal-Use Pilot
+### T010-06-01: Run A Personal-Use Pilot
 
 **Status:** Open
 
@@ -583,14 +644,21 @@ capture source -> extract claims -> route/review -> query project context -> cre
    - whether existing Claims avoided re-research;
    - whether the dossier surfaced a useful source;
    - what was missing or noisy.
+6. Apply the pilot viability bar from AIDHA-PLAN-008:
+   - at least one project yields a plausible next action without manually reopening original sources
+     first;
+   - at least one Task traces to Claim -> Excerpt -> Resource;
+   - at least one prior source, claim, or task is surfaced that would otherwise have required
+     re-derivation;
+   - noisy or unhelpful outputs are recorded, not hidden.
 
 **Acceptance criteria:**
 
 - [ ] At least one project re-entry attempt is documented.
 - [ ] At least one Task links to a Claim and source provenance.
-- [ ] The pilot produces a go/no-go recommendation for a prototype baseline tag.
+- [ ] The pilot produces a go/no-go recommendation against the pre-registered viability bar.
 
-### T010-05-02: Cut A Viable Prototype Baseline
+### T010-06-02: Cut A Viable Prototype Baseline
 
 **Status:** Open
 
