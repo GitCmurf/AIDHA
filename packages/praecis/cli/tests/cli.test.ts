@@ -824,6 +824,7 @@ describe('aidha cli phase-1 surface', () => {
         tagId: 'tag-1',
         confidence: 0.7,
         source: 'automatic',
+        taxonomyVersion: expect.any(String),
         assignedAt: '2026-05-25T12:34:56.000Z',
         assignedBy: 'praecis-keyword-classifier',
       }]);

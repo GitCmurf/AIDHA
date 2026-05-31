@@ -1,0 +1,75 @@
+[
+  {
+    "args": [
+      "query",
+      "activation",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "[\n  {\n    \"claimId\": \"claim-web-activation\",\n    \"claimText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n    \"claimState\": \"accepted\",\n    \"resourceId\": \"res-web-activation\",\n    \"resourceTitle\": \"Activation article\",\n    \"sourceType\": \"web\",\n    \"excerptId\": \"exc-web-activation\",\n    \"excerptText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n    \"locator\": {\n      \"charEnd\": 33,\n      \"charStart\": 18,\n      \"kind\": \"dom\",\n      \"textFragment\": \"prior knowledge\"\n    },\n    \"locatorDisplay\": {\n      \"label\": \"web fragment\"\n    },\n    \"score\": 4,\n    \"routingReviewStatus\": \"unreviewed\"\n  }\n]",
+    "stderr": "(node:<pid>) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)"
+  },
+  {
+    "args": [
+      "review",
+      "next",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "[\n  {\n    \"claimId\": \"claim-web-activation\",\n    \"claimText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n    \"claimState\": \"accepted\",\n    \"resourceId\": \"res-web-activation\",\n    \"resourceTitle\": \"Activation article\",\n    \"sourceType\": \"web\",\n    \"excerptId\": \"exc-web-activation\",\n    \"excerptText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n    \"locator\": {\n      \"charEnd\": 33,\n      \"charStart\": 18,\n      \"kind\": \"dom\",\n      \"textFragment\": \"prior knowledge\"\n    },\n    \"locatorDisplay\": {\n      \"label\": \"web fragment\"\n    },\n    \"score\": 55,\n    \"routingReviewStatus\": \"unreviewed\",\n    \"reviewPriority\": {\n      \"score\": 55,\n      \"reasons\": [\n        \"low_confidence\",\n        \"action_implying\",\n        \"missing_routing_reason\"\n      ],\n      \"summary\": \"low_confidence, action_implying, missing_routing_reason\"\n    },\n    \"reviewAxes\": [\n      \"routing\"\n    ]\n  },\n  {\n    \"claimId\": \"claim-pdf-provenance\",\n    \"claimText\": \"Project re-entry needs task provenance back to claims and sources.\",\n    \"claimState\": \"draft\",\n    \"resourceId\": \"res-pdf-provenance\",\n    \"resourceTitle\": \"Prototype planning PDF\",\n    \"sourceType\": \"pdf\",\n    \"excerptId\": \"exc-pdf-provenance\",\n    \"excerptText\": \"Project re-entry needs task provenance back to claims and sources.\",\n    \"locator\": {\n      \"charEnd\": 64,\n      \"charStart\": 0,\n      \"kind\": \"page\",\n      \"page\": 3\n    },\n    \"locatorDisplay\": {\n      \"label\": \"page 3\"\n    },\n    \"score\": 0,\n    \"routingReviewStatus\": \"confirmed\",\n    \"reviewPriority\": {\n      \"score\": 0,\n      \"reasons\": [],\n      \"summary\": \"routine review\"\n    },\n    \"reviewAxes\": [\n      \"editorial\"\n    ]\n  }\n]",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "task",
+      "create",
+      "--from-claim",
+      "claim-web-activation",
+      "--title",
+      "Implement the activation loop",
+      "--project",
+      "project-viable-prototype",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "{\n  \"taskId\": \"task-368a74e954901af2\",\n  \"projectId\": \"project-viable-prototype\",\n  \"createdProject\": true,\n  \"createdTask\": true\n}",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "task",
+      "show",
+      "task-368a74e954901af2",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "{\n  \"task\": {\n    \"schemaVersion\": 1,\n    \"id\": \"task-368a74e954901af2\",\n    \"type\": \"Task\",\n    \"label\": \"Implement the activation loop\",\n    \"content\": \"Implement the activation loop\",\n    \"metadata\": {\n      \"projectId\": \"project-viable-prototype\",\n      \"sourceClaimId\": \"claim-web-activation\",\n      \"status\": \"open\"\n    },\n    \"createdAt\": \"<timestamp>\",\n    \"updatedAt\": \"<timestamp>\"\n  },\n  \"project\": {\n    \"schemaVersion\": 1,\n    \"id\": \"project-viable-prototype\",\n    \"type\": \"Project\",\n    \"label\": \"project-viable-prototype\",\n    \"metadata\": {\n      \"default\": false,\n      \"slug\": \"project-viable-prototype\"\n    },\n    \"createdAt\": \"<timestamp>\",\n    \"updatedAt\": \"<timestamp>\"\n  },\n  \"claims\": [\n    {\n      \"claimId\": \"claim-web-activation\",\n      \"claimText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n      \"resourceId\": \"res-web-activation\",\n      \"resourceTitle\": \"Activation article\",\n      \"excerptId\": \"exc-web-activation\",\n      \"excerptText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n      \"locator\": {\n        \"charEnd\": 33,\n        \"charStart\": 18,\n        \"kind\": \"dom\",\n        \"textFragment\": \"prior knowledge\"\n      },\n      \"locatorDisplay\": {\n        \"label\": \"web fragment\"\n      }\n    }\n  ],\n  \"tags\": []\n}",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "project",
+      "reentry",
+      "--project",
+      "project-viable-prototype",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "{\n  \"project\": {\n    \"id\": \"project-viable-prototype\",\n    \"label\": \"project-viable-prototype\"\n  },\n  \"claims\": [\n    {\n      \"claimId\": \"claim-web-activation\",\n      \"claimText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n      \"claimState\": \"accepted\",\n      \"resourceId\": \"res-web-activation\",\n      \"resourceTitle\": \"Activation article\",\n      \"excerptId\": \"exc-web-activation\",\n      \"excerptText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n      \"locator\": {\n        \"charEnd\": 33,\n        \"charStart\": 18,\n        \"kind\": \"dom\",\n        \"textFragment\": \"prior knowledge\"\n      },\n      \"locatorDisplay\": {\n        \"label\": \"web fragment\"\n      },\n      \"score\": 1,\n      \"routingReviewStatus\": \"unreviewed\"\n    }\n  ],\n  \"tasks\": [\n    {\n      \"task\": {\n        \"schemaVersion\": 1,\n        \"id\": \"task-368a74e954901af2\",\n        \"type\": \"Task\",\n        \"label\": \"Implement the activation loop\",\n        \"content\": \"Implement the activation loop\",\n        \"metadata\": {\n          \"projectId\": \"project-viable-prototype\",\n          \"sourceClaimId\": \"claim-web-activation\",\n          \"status\": \"open\"\n        },\n        \"createdAt\": \"<timestamp>\",\n        \"updatedAt\": \"<timestamp>\"\n      },\n      \"project\": {\n        \"schemaVersion\": 1,\n        \"id\": \"project-viable-prototype\",\n        \"type\": \"Project\",\n        \"label\": \"project-viable-prototype\",\n        \"metadata\": {\n          \"default\": false,\n          \"slug\": \"project-viable-prototype\"\n        },\n        \"createdAt\": \"<timestamp>\",\n        \"updatedAt\": \"<timestamp>\"\n      },\n      \"claims\": [\n        {\n          \"claimId\": \"claim-web-activation\",\n          \"claimText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n          \"resourceId\": \"res-web-activation\",\n          \"resourceTitle\": \"Activation article\",\n          \"excerptId\": \"exc-web-activation\",\n          \"excerptText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n          \"locator\": {\n            \"charEnd\": 33,\n            \"charStart\": 18,\n            \"kind\": \"dom\",\n            \"textFragment\": \"prior knowledge\"\n          },\n          \"locatorDisplay\": {\n            \"label\": \"web fragment\"\n          }\n        }\n      ],\n      \"tags\": []\n    }\n  ],\n  \"blockers\": [],\n  \"reviewItems\": [\n    {\n      \"claimId\": \"claim-web-activation\",\n      \"claimText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n      \"claimState\": \"accepted\",\n      \"resourceId\": \"res-web-activation\",\n      \"resourceTitle\": \"Activation article\",\n      \"sourceType\": \"web\",\n      \"excerptId\": \"exc-web-activation\",\n      \"excerptText\": \"AIDHA should turn prior knowledge into concrete next actions.\",\n      \"locator\": {\n        \"charEnd\": 33,\n        \"charStart\": 18,\n        \"kind\": \"dom\",\n        \"textFragment\": \"prior knowledge\"\n      },\n      \"locatorDisplay\": {\n        \"label\": \"web fragment\"\n      },\n      \"score\": 55,\n      \"routingReviewStatus\": \"unreviewed\",\n      \"reviewPriority\": {\n        \"score\": 55,\n        \"reasons\": [\n          \"low_confidence\",\n          \"action_implying\",\n          \"missing_routing_reason\"\n        ],\n        \"summary\": \"low_confidence, action_implying, missing_routing_reason\"\n      },\n      \"reviewAxes\": [\n        \"routing\"\n      ]\n    }\n  ],\n  \"suggestedNextActions\": [\n    \"Continue: Implement the activation loop\"\n  ],\n  \"provenance\": [\n    {\n      \"claimId\": \"claim-web-activation\",\n      \"excerptId\": \"exc-web-activation\",\n      \"resourceId\": \"res-web-activation\",\n      \"resourceTitle\": \"Activation article\",\n      \"locator\": {\n        \"label\": \"web fragment\"\n      }\n    }\n  ]\n}",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "project",
+      "reentry",
+      "--project",
+      "project-viable-prototype",
+      "--markdown",
+      "--out",
+      "docs/55-testing/acceptance-run-20260531/project-reentry.txt"
+    ],
+    "code": 0,
+    "stdout": "Wrote re-entry dossier: docs/55-testing/acceptance-run-20260531/project-reentry.txt",
+    "stderr": ""
+  }
+]

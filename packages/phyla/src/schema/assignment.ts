@@ -36,6 +36,9 @@ export const TagAssignment = z.object({
   /** How the tag was assigned */
   source: AssignmentSource.default('manual'),
 
+  /** Taxonomy version or content hash used to produce this assignment */
+  taxonomyVersion: z.string().min(1).optional(),
+
   /** Optional notes about the assignment */
   notes: z.string().optional(),
 

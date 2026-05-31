@@ -184,6 +184,23 @@ describe('ClaimMetadataSchema', () => {
     expect(result.data.confidence).toBe(0.85);
   });
 
+  it('validates claim-grain routing review metadata', () => {
+    const result = ClaimMetadataSchema.safeParse({
+      state: 'accepted',
+      routingReviewStatus: 'unreviewed',
+      routingReviewReason: 'Low confidence automatic routing.',
+      reviewPriority: {
+        score: 30,
+        reasons: ['low_confidence'],
+        summary: 'low_confidence',
+      },
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.routingReviewStatus).toBe('unreviewed');
+    expect(result.data.reviewPriority?.reasons).toEqual(['low_confidence']);
+  });
+
   it('rejects invalid state', () => {
     const result = ClaimMetadataSchema.safeParse({ state: 'unknown-state' });
     expect(result.success).toBe(false);

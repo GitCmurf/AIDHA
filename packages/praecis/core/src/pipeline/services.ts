@@ -664,6 +664,10 @@ export class KeywordTaxonomyClassifier implements IClassifier {
     const existingAssignments = await this.registry.getAssignments(request.resourceId);
     if (!existingAssignments.ok) return existingAssignments;
     const existingTagIds = new Set(existingAssignments.value.map(assignment => assignment.tagId));
+    const taxonomyVersion = createHash('sha256')
+      .update(tags.value.map(tag => `${tag.id}:${tag.name}:${tag.aliases.join(',')}`).sort().join('|'))
+      .digest('hex')
+      .slice(0, 16);
 
     let tagsMatched = 0;
     let tagsAssigned = 0;
@@ -678,6 +682,7 @@ export class KeywordTaxonomyClassifier implements IClassifier {
         tagId: tag.id,
         confidence: 0.7,
         source: 'automatic',
+        taxonomyVersion,
         assignedBy: 'praecis-keyword-classifier',
       });
       if (!assigned.ok) return assigned;

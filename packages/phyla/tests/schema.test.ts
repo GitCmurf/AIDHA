@@ -105,6 +105,16 @@ describe('TagAssignment schema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts taxonomyVersion on assignments', () => {
+    const result = TagAssignment.safeParse({
+      ...validAssignment,
+      taxonomyVersion: 'taxonomy-abc123',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.taxonomyVersion).toBe('taxonomy-abc123');
+  });
+
   it('rejects confidence > 1', () => {
     const invalid = { ...validAssignment, confidence: 1.5 };
     const result = TagAssignment.safeParse(invalid);

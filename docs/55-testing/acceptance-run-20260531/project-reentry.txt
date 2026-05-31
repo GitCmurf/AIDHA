@@ -1,0 +1,19 @@
+# Project Re-entry: project-viable-prototype
+
+## Suggested Next Actions
+- Continue: Implement the activation loop
+
+## Open Tasks
+- Implement the activation loop (task-368a74e954901af2)
+
+## Relevant Claims
+- AIDHA should turn prior knowledge into concrete next actions. [web fragment]
+
+## Review Items
+- routing: AIDHA should turn prior knowledge into concrete next actions.
+
+## Blockers
+- None
+
+## Provenance
+- claim-web-activation -> Activation article (web fragment)

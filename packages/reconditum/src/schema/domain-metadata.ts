@@ -64,6 +64,7 @@ export const TaxonomyAssignmentMetadataSchema = z.object({
   tagId: z.string(),
   confidence: z.number().min(0).max(1),
   source: z.enum(['manual', 'automatic', 'imported', 'inferred']),
+  taxonomyVersion: z.string().min(1).optional(),
   assignedAt: z.string().datetime(),
   assignedBy: z.string().optional(),
   notes: z.string().optional(),
@@ -103,6 +104,13 @@ export type ExcerptMetadataSchema = z.infer<typeof ExcerptMetadataSchema>;
 export const ClaimMetadataSchema = z.object({
   resourceId: z.string().optional(),
   state: z.enum(['draft', 'accepted', 'rejected']).optional(),
+  routingReviewStatus: z.enum(['unreviewed', 'confirmed', 'needs_revision', 'rejected']).optional(),
+  routingReviewReason: z.string().optional(),
+  reviewPriority: z.object({
+    score: z.number(),
+    reasons: z.array(z.string()),
+    summary: z.string(),
+  }).optional(),
   confidence: z.number().min(0).max(1).optional(),
   type: z.string().optional(),
   classification: z.string().optional(),

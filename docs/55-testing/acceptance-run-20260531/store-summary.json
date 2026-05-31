@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "nodeCount": 8,
+  "edgeCount": 4,
+  "nodeTypes": {
+    "Claim": 2,
+    "Excerpt": 2,
+    "Project": 1,
+    "Resource": 2,
+    "Task": 1
+  },
+  "edgePredicates": {
+    "claimDerivedFrom": 2,
+    "taskMotivatedBy": 1,
+    "taskPartOfProject": 1
+  }
+}

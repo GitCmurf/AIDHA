@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-008
 owner: Product
 status: Draft
-version: "0.5"
+version: "0.6"
 last_updated: 2026-05-31
 title: Viable Prototype Sprint Plan
 type: PLAN
@@ -18,7 +18,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.5
+> **Version:** 0.6
 > **Last Updated:** 2026-05-31
 > **Type:** PLAN
 
@@ -33,6 +33,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 | 0.3     | 2026-05-31 | AI     | Convert peer-debate questions into proposed decisions: generic CLI supersession, routing metadata in `TagAssignment`, early strategy ratification, separate agentic-trace sprint, and a pre-registered pilot viability bar. | - | Draft | AIDHA-TASK-010 |
 | 0.4     | 2026-05-31 | AI     | Final review pass: split routing-metadata decision by grain (taxonomyVersion per-assignment vs claim-grain review status) after the one-Claim-many-TagAssignments cardinality argument; distinguish routing review status from the existing editorial `state`; fix stale Sprint 3→4 cross-references from the renumber; remove residual `method` from Gap 3; align Sprint 0 demo-packet path; consolidate the `RationaleTrace` metadata field list and add the schema-version policy note. | - | Draft | AIDHA-TASK-010 |
 | 0.5     | 2026-05-31 | AI     | Tighten the routing-metadata split into an implementation default: `taxonomyVersion` remains per-assignment on `TagAssignment`, while claim-level routing review uses distinct `routingReviewStatus`/`routingReviewReason` Claim metadata validated in `domain-metadata.ts`; update Sprint 3 acceptance to remove residual taxonomy-contract ambiguity. | - | Draft | AIDHA-TASK-010 |
+| 0.6     | 2026-05-31 | AI     | Reconcile the sprint plan with the implemented activation tranche: generic activation helpers and CLI commands, strategy ratification, routing metadata, deterministic acceptance evidence, and the remaining ingest-backed demo, YouTube wrapper retirement, trace model, and pilot gates. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -83,6 +84,19 @@ Implementation evidence reviewed:
 
 ## Current Assessment
 
+### Post-Tranche Note (2026-05-31)
+
+The working tree now contains the first generic activation tranche. `@aidha/praecis-core` exposes
+shared activation helpers, `@aidha/praecis-cli` exposes generic `query`, `task`, `review`, and
+`project reentry` commands, routing metadata has been typed at the agreed grains, and the strategy
+positions have been ratified in AIDHA-STRATEGY-002. A deterministic acceptance packet is generated
+under `docs/55-testing/acceptance-run-<date>/`.
+
+The plan remains open because the acceptance harness still seeds graph facts directly rather than
+driving two generic ingest vectors with a mock model, YouTube activation wrappers still need
+retirement or convergence, Sprint 4 `RationaleTrace` support is not implemented, and the Sprint 6
+pilot has not been run.
+
 ### Strengths
 
 - The original YouTube MVP is effectively complete and heavily tested.
@@ -96,9 +110,10 @@ Implementation evidence reviewed:
 
 ### Gaps That Block A Genuinely Viable MVP
 
-1. **Activation is not yet the generic product surface.** The generic `aidha` CLI can ingest across
-   vectors, but review, query, task creation, project context, and dossier/re-entry flows still sit
-   mostly in the YouTube package or are incomplete at the generic layer.
+1. **Activation is now partially generic, but not yet ingest-proven end to end.** The generic `aidha`
+   CLI can ingest across vectors and now exposes query, review, task, and project re-entry commands,
+   but the acceptance path still seeds graph facts directly and the YouTube activation wrappers need
+   convergence or retirement.
 2. **The operational graph is under-surfaced.** Node and predicate support exists for Project, Goal,
    Area, Task, and task provenance, but the user cannot yet rely on one cross-vector flow to answer:
    "What did I already know, what did I decide, and what should I do next?"
@@ -109,12 +124,14 @@ Implementation evidence reviewed:
    `source` field rather than a new `method` field — see Proposed Decisions For Review.)
 4. **Agentic traces are not yet first-class.** The strategy calls for inspectable suggested links,
    gaps, and rationale traces that are distinct from human-approved structure.
-5. **Demonstrability is weaker than implementation breadth.** The repo has many working components,
-   but no single demonstration-class script proves capture -> route -> re-entry -> task -> export
-   on a clean local store.
-6. **Planning and strategy drift need reconciliation.** AIDHA-PLAN-007 and current code moved beyond
-   the older YouTube-only docs; the owner-response draft for AIDHA-STRATEGY-002 has not yet been
-   promoted into a governed strategy revision.
+5. **Demonstrability is improving but still not at the final bar.** A deterministic activation
+   packet now proves query -> review -> task -> re-entry on a clean local store; the remaining bar is
+   capture -> route -> re-entry -> task -> export through two generic ingest vectors with a mock
+   model.
+6. **Planning and strategy drift are reduced, but docs must keep following implementation.**
+   AIDHA-STRATEGY-002 now records the ratified prototype positions; quickstarts and runbooks still
+   need to shift from the YouTube-only mental model to the generic activation surface where parity
+   exists.
 
 ## Viable MVP Definition
 
@@ -305,14 +322,17 @@ isolated contract review, tests, and docs.
   predicates.
 - Record suggested links, possible gaps, and rationale text as provisional graph data in typed trace
   metadata (`traceKind`, affected node IDs, proposed predicate if any, rationale, confidence,
-  `traceReviewStatus`).
+  `traceReviewStatus`). Use `open | rejected | promoted` for the first trace-review status enum.
 - Keep traces distinct from approved predicates such as `taskMotivatedBy`, `taskDependsOn`, and
   `claimDerivedFrom`.
-- Use existing `relatedTo` edges from the trace node to affected nodes only when traversal needs it;
+- Use deterministic trace IDs derived from kind, affected node IDs, proposed predicate, and rationale
+  context so reruns can converge on the same provisional suggestion.
+- Use existing `relatedTo` edges from the trace node to affected nodes for traversal while keeping
+  affected node IDs in metadata for validation and export;
   do not add `SuggestedLink`, `Gap`, `supports`, `blocks`, or `requires` as first-pass graph schema
   concepts unless a failing test proves metadata plus `relatedTo` is insufficient.
-- Add generic CLI commands to list, inspect, and reject traces; defer promotion unless the approved
-  edge semantics are explicit and tested.
+- Add generic CLI commands to list, inspect, and reject traces. Defer promotion to a follow-up task
+  unless the approved edge semantics are explicit and tested.
 - Allow the project re-entry dossier to include a clearly labelled provisional trace section.
 
 **Acceptance:**
@@ -441,7 +461,7 @@ changes the decision in this plan or a linked ADR.
 | Decision | Proposed response | Implementation consequence |
 | -------- | ----------------- | -------------------------- |
 | Generic CLI vs. YouTube CLI | Make `@aidha/praecis-cli` the canonical user and agent surface for activation. Keep YouTube-specific activation commands only as temporary wrappers until generic parity exists. | New `query`, `task`, `review`, `project reentry`, and export work lands in generic CLI/shared core. Do not add new YouTube-only activation behavior. Once parity is demonstrated, either remove YouTube wrappers or mark them as deprecated aliases. |
-| Routing metadata location | `taxonomyVersion` is per-(claim,tag) and belongs on `TagAssignment` because it records which taxonomy produced that placement. Routing review is claim-grain: a Claim has many `TagAssignment`s, so a per-assignment routing-review field gives no clean answer to "is this claim's routing reviewed?", which is the grain `aidha review next` consumes. Reuse existing `source`, `confidence`, `assignedBy`, `assignedAt`, `notes`; do not add a duplicate `method` field. | Default implementation: add optional `taxonomyVersion` to `TagAssignment` (`@aidha/phyla`), and add optional Claim metadata fields `routingReviewStatus` and `routingReviewReason` validated in `packages/reconditum/src/schema/domain-metadata.ts`. Keep these separate from the existing editorial `state` (`draft | accepted | rejected`). If a maintainer wants per-assignment review later, require an ADR because `review next` would need explicit aggregation semantics. A graph schema bump is only needed if new NodeTypes/Predicates are introduced. |
+| Routing metadata location | `taxonomyVersion` is per-(claim,tag) and belongs on `TagAssignment` because it records which taxonomy produced that placement. Routing review is claim-grain: a Claim has many `TagAssignment`s, so assignment-level routing review gives no clean answer to "is this claim's routing reviewed?", which is the grain `aidha review next` consumes. Reuse existing `source`, `confidence`, `assignedBy`, `assignedAt`, and `notes`; do not add a duplicate `method` field. | Default implementation: add optional `taxonomyVersion` to `TagAssignment` (`@aidha/phyla`), and add optional Claim metadata fields `routingReviewStatus` and `routingReviewReason` validated in `domain-metadata.ts`. Keep these separate from the existing editorial `state`. If a maintainer wants per-assignment review later, require an ADR because `review next` would need explicit aggregation semantics. A graph schema bump is only needed if new NodeTypes/Predicates are introduced. |
 | Strategy reconciliation timing | Promote the resolved owner-response positions in parallel with Sprint 0, before Sprint 1 implementation branches are treated as ready for review. | Add Sprint 0A. Sprint 5 keeps quickstart/runbook reconciliation, but the strategic thesis must be governed before activation code relies on it. |
 | Agentic trace scope | Split agentic traces out of routing/review-priority work. Sprint 3 handles routing and review priority; Sprint 4 handles trace graph semantics. Start with one `RationaleTrace` node model, not a family of trace node/predicate types. | Durable graph-contract changes for traces receive isolated tests and review. The re-entry dossier ships first using current graph blockers (`taskDependsOn`) and later gains a provisional trace section. |
 | Pilot go/no-go bar | Treat the two-project pilot as directional product evidence, not a statistical claim. Pre-register a minimum viability bar before running it. | The prototype baseline can be tagged only if at least one pilot project yields a justified next action without reopening the original sources, at least one created/open task traces to Claim -> Excerpt -> Resource provenance, and the release note records both useful and noisy outputs. |

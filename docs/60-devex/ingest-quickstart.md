@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-05-25
-version: '0.34'
+last_updated: 2026-05-31
+version: '0.35'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.34
-> **Last Updated:** 2026-05-25
+> **Version:** 0.35
+> **Last Updated:** 2026-05-31
 > **Type:** GUIDE
 
 ## Version History
@@ -57,6 +57,7 @@ docops_version: '2.0'
 | 0.32    | 2026-05-25 | AI     | Clarify classification status. | — | Draft | AIDHA-PLAN-007 |
 | 0.33    | 2026-05-25 | AI     | Document config-seeded taxonomy. | — | Draft | AIDHA-PLAN-007 |
 | 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
+| 0.35    | 2026-05-31 | AI     | Add generic activation commands. | — | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -83,6 +84,25 @@ production CLI runs. Reports distinguish `tagsMatched` from durable net-new
 `tagsAssigned`; assignments persist on Resource metadata as `taxonomyAssignments`
 so fresh CLI reruns do not re-count already tagged Resources. Without taxonomy,
 reports show classification as disabled.
+
+## Generic Activation Commands
+
+The generic `aidha` CLI is now the preferred surface for source-neutral activation after material is
+in the configured graph store. These commands operate across source types and preserve provenance
+through Claim -> Excerpt -> Resource links.
+
+```bash
+aidha query "activation loop" --json
+aidha query "activation loop" --include-drafts
+aidha review next --limit 10 --json
+aidha task create --from-claim <claim-id> --title "Follow up" --project <project-id>
+aidha task show <task-id> --json
+aidha project reentry --project <project-id> --markdown --out out/project-reentry.md
+```
+
+Use `--config <path>` when running against a non-default local profile. Query results include locator
+data for source-specific provenance; task and project re-entry output follows the same provenance
+chain so a created task can be traced back to its supporting source.
 
 ## Prerequisites
 

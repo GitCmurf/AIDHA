@@ -3,8 +3,8 @@ document_id: AIDHA-STRATEGY-002
 type: STRATEGY
 title: "AIDHA Product Vision"
 status: Draft
-version: "0.2"
-last_updated: "2026-02-07"
+version: "0.3"
+last_updated: "2026-05-31"
 owner: CMF
 docops_version: "2.0"
 ---
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** CMF
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-02-07
+> **Version:** 0.3
+> **Last Updated:** 2026-05-31
 > **Type:** STRATEGY
 
 ## Version History
@@ -25,6 +25,7 @@ docops_version: "2.0"
 | :------ | :--------- | :----- | :----------------------------------------------------------------- | :-------- | :----- | :-------- |
 | 0.1     | 2026-02-07 | CMF    | Initial seed: name explanation, MVP scope, maturity aspiration     | —         | Draft  | —         |
 | 0.2     | 2026-02-07 | AI     | Expand: full vision structure, principles, architecture, questions | —         | Draft  | —         |
+| 0.3     | 2026-05-31 | AI     | Promote owner-response positions for activation-first prototype, project re-entry, provisional routing, and agentic trace boundaries | — | Draft | AIDHA-PLAN-008 |
 
 ---
 
@@ -446,7 +447,48 @@ Explicit boundaries prevent scope creep and keep the project focused.
 
 ---
 
-## 13. Strategic Open Questions
+## 13. Ratified Prototype Positions
+
+The questions previously listed in this section are no longer blockers to prototype engineering.
+They are ratified as strategic positions for the viable prototype and will be tested empirically by
+AIDHA-PLAN-008 and AIDHA-TASK-010.
+
+AIDHA's current prototype thesis is:
+
+> AIDHA is a provenance-preserving cognitive continuity system that reduces the activation energy
+> required to move from captured knowledge to directed execution.
+
+For the viable prototype, daily use means two linked modes: low-friction capture of potentially
+useful material, followed by deliberate project re-entry sessions that answer what the user already
+knows, what was planned, what remains blocked, and what next action is justified.
+
+The generic CLI remains the canonical near-term interface. A richer interface becomes necessary when
+review and re-entry workloads exceed what concise command output can support, but the current
+engineering investment should prove the activation loop before building a UI.
+
+The capture/curate boundary is machine-assisted inbox-zero, not auto-approval. AIDHA may route,
+prioritise, and summarise provisionally, but human review remains required before machine-generated
+structure is treated as authoritative.
+
+SQLite remains the MVP store. Migration to a dedicated graph database is deferred until graph size,
+query depth, or traversal latency creates a measured bottleneck that the storage-agnostic GraphStore
+contract cannot absorb.
+
+Schema evolution is additive while the project is pre-alpha. Additive enum/metadata extensions stay
+on the current graph schema version unless a persisted consumer must distinguish stores with and
+without the new capability. Breaking persisted-shape changes require a migration note and tests.
+
+Prompt versions, model IDs, input context, and generated traces must be recorded where machine output
+can influence user decisions. Regression evaluation remains fixture-first and no-network by default.
+
+Agent autonomy is bounded by consequence and reversibility. Agents may suggest links, gaps,
+priorities, and next actions; they must not silently mutate approved graph topology or commit the
+user to external action.
+
+The viable prototype succeeds when it can demonstrate cross-source capture, route/review, query,
+claim-to-task creation, task provenance, and project re-entry without re-opening original sources.
+
+### Historical Question Resolution
 
 The following questions are unresolved and materially affect the product vision. They are
 grouped by theme and ordered by urgency within each group. Each question includes a brief
@@ -466,7 +508,7 @@ describe the daily workflow. Understanding the trigger-action-reward loop (what 
 user to open AIDHA, what they do, and what they gain) is essential for interface design and
 feature prioritisation.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: daily use combines low-friction capture with deliberate project re-entry.
 
 **Q2. When does CLI become insufficient, and what should replace it first?**
 
@@ -475,7 +517,7 @@ specify the trigger for moving to Stage 2. Is it a particular task (e.g., review
 claims), a particular frustration (e.g., lack of visual graph overview), or a particular
 user count threshold? The answer shapes the next engineering investment.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: the generic CLI remains canonical until activation workload proves a UI need.
 
 **Q3. How should AIDHA handle the "capture vs. curate" tension?**
 
@@ -485,7 +527,7 @@ of the same cognitive overwhelm AIDHA is designed to reduce. What is the accepta
 of uncurated-to-curated content, and should the system auto-accept claims above a confidence
 threshold?
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: machine-assisted routing and prioritisation are provisional; human review remains authoritative.
 
 ---
 
@@ -498,7 +540,7 @@ _Rationale:_ SQLite is correct for MVP (AIDHA-ADR-002), but the storage-agnostic
 traversal depth would trigger this decision? The answer affects whether to invest in the
 GraphStore abstraction or lean into SQLite-specific optimisations.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: SQLite remains the MVP store until measured graph workload requires migration.
 
 **Q5. How will schema evolution be managed as the graph model matures?**
 
@@ -507,7 +549,7 @@ As new node types (e.g., Goal, Area) and edge types are added, what migration st
 applies? Does the system need versioned schemas, migration scripts, or a more flexible
 property-graph approach? This affects data durability and upgrade confidence.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: additive pre-alpha schema evolution is allowed; breaking persisted changes require migration notes and tests.
 
 **Q6. What is the prompt versioning and regression strategy?**
 
@@ -516,7 +558,7 @@ Changing a prompt can change extraction output for the same input. How are promp
 tracked, how are regressions detected (e.g., evaluation harness against golden fixtures),
 and when is a prompt change considered "breaking"?
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: prompt/model/input context must be recorded where machine output affects decisions.
 
 ---
 
@@ -530,7 +572,7 @@ without explicit human initiation (e.g., auto-extracting claims from a newly ing
 resource)? Should AI ever modify an existing node's properties? The answer defines the
 trust model for the entire system.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: agents may suggest and prioritise, but must not silently approve graph topology or external action.
 
 **Q8. How should AI extraction quality be evaluated beyond fixture tests?**
 
@@ -539,7 +581,7 @@ determinism but not quality. How should claim relevance, accuracy, and completen
 measured? Is there a human-in-the-loop evaluation cadence (e.g., monthly sample review)?
 This affects whether the system can confidently adopt new models or prompts.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: routing/review should support project re-entry and next-action selection before ontology expansion.
 
 ---
 
@@ -552,7 +594,7 @@ have an Obsidian vault. Is AIDHA complementary (feeding structured claims into O
 via export) or competitive (replacing the vault)? The answer affects export format
 priorities and whether bidirectional sync is ever on the roadmap.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: the prototype tests re-entry through provenance-backed tasks and cross-source prior claims.
 
 **Q10. Is AIDHA ever multi-user, even in a limited form?**
 
@@ -561,7 +603,7 @@ dossier with a collaborator, or importing someone else's exported graph? "Sharin
 export" is already in scope; the question is how far that extends before it becomes
 multi-user collaboration.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: local-first operation, deterministic exports, and no-network CI remain non-negotiable.
 
 ---
 
@@ -574,7 +616,7 @@ observable behaviour indicates that a user retrieved prior work instead of re-de
 CLI history analysis? A "previously captured" indicator in search results? Without a
 measurable proxy, the value proposition remains aspirational.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: "re-find beats re-think" is measured by justified next actions and avoided source re-opening in pilot evidence.
 
 **Q12. What is the sustainability model for this project?**
 
@@ -584,4 +626,4 @@ it), open-source with community contributions, or potentially a product? The ans
 documentation depth, API stability commitments, and whether the codebase needs to be
 legible to outside contributors.
 
-> **Owner response:** <!-- REPLACE WITH ANSWER -->
+> **Owner response:** Resolved by Section 13: AIDHA remains personal infrastructure first, with open-source maintainability supported by DocOps.

@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.5"
+version: "0.6"
 last_updated: 2026-05-31
 title: Viable Prototype Agent Workplan
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.5
+> **Version:** 0.6
 > **Last Updated:** 2026-05-31
 > **Type:** TASK
 
@@ -33,6 +33,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | 0.3     | 2026-05-31 | AI     | Apply proposed responses to peer-debate questions: generic CLI supersession, `TagAssignment` routing metadata, early strategy ratification, separate trace work package, and a pilot viability bar. | - | Draft | AIDHA-PLAN-008 |
 | 0.4     | 2026-05-31 | AI     | Final review pass: split routing metadata by grain (T010-03-01) and distinguish routing review status from editorial `state`; disambiguate the two review axes in `review next` (T010-01-04); fix stale WP3→WP4 anchor; consolidate `RationaleTrace` metadata field list and add schema-version policy note (T010-04-01); add claim-state vs routing-status note to verified anchors. | - | Draft | AIDHA-PLAN-008 |
 | 0.5     | 2026-05-31 | AI     | Tighten the routing-metadata default: add `taxonomyVersion` to `TagAssignment`, but represent claim-grain routing review as distinct `routingReviewStatus`/`routingReviewReason` Claim metadata validated in `domain-metadata.ts`; remove residual wording that implied a tag-assignment `reviewStatus`. | - | Draft | AIDHA-PLAN-008 |
+| 0.6     | 2026-05-31 | AI     | Reconcile with the implemented activation tranche: record generic query/task/review/re-entry helpers, the deterministic acceptance packet, the ratified strategy revision, and the remaining ingest-backed demo and trace-model work; make trace review statuses, IDs, edge usage, and command semantics decision-complete. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -57,6 +58,30 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - Do not pursue compatibility shims unless they reduce implementation risk; this repo is pre-alpha.
 - Update docs and validation evidence in the same PR as behavior changes.
 - Record exact commands run in the PR and in this task when a work package is closed.
+
+## Current Implementation Status (2026-05-31)
+
+The first activation tranche has landed in the working tree and should be treated as the baseline for
+subsequent agents:
+
+- AIDHA-STRATEGY-002 now ratifies the prototype positions that drive this plan.
+- `@aidha/praecis-core` has shared activation helpers for cross-source claim query, task creation,
+  task context, review queue construction, project re-entry dossiers, and locator display.
+- `@aidha/praecis-cli` exposes the generic activation commands `aidha query`, `aidha task create`,
+  `aidha task show`, `aidha review next`, and `aidha project reentry`.
+- Routing metadata follows the grain decision: `taxonomyVersion` is on `TagAssignment`; Claim
+  metadata carries `routingReviewStatus`, `routingReviewReason`, and `reviewPriority`.
+- `scripts/acceptance/viable-prototype-activation.mjs` writes a deterministic no-network packet
+  under `docs/55-testing/acceptance-run-<date>/`.
+
+Remaining gaps before this plan is closed:
+
+- The acceptance script currently seeds a clean graph directly. It proves the activation loop, but
+  not yet ingest-backed capture through two generic `aidha ingest` vectors with a mock model.
+- The YouTube activation surface has not yet been fully retired as wrappers over the shared generic
+  helpers.
+- WP4 `RationaleTrace` graph support and trace-review commands remain unimplemented.
+- WP6 still needs a real two-project pilot before any viable-prototype baseline tag.
 
 **Verified codebase anchors (confirmed 2026-05-31, re-verify before relying on them):**
 
@@ -489,7 +514,8 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 2. Prefer the smallest useful schema change: one `RationaleTrace` NodeType with typed metadata. Use a
    single canonical metadata field list (do not maintain two overlapping lists):
    - `traceKind`: `suggested_link | gap | sufficiency_prompt`;
-   - `affectedNodeIds`;
+   - `affectedNodeIds` as stable graph node IDs; validate that every referenced node exists before a
+     trace is written;
    - optional `proposedPredicate` (when present, must validate against the existing `Predicate`
      enum in `packages/reconditum/src/schema/edge.ts`);
    - `rationale`;
@@ -497,19 +523,25 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
    - `agentModel`;
    - `promptVersion`;
    - `inputContext`;
-   - `traceReviewStatus`.
-   Use existing `relatedTo` edges from trace node to affected nodes only if traversal tests need
-   them. Do not add `SuggestedLink`, `Gap`, `supports`, `blocks`, `requires`, or `suggestedByAgent`
-   as first-pass graph schema concepts unless a failing test demonstrates that the single-node model
-   is insufficient. (`review_priority` is intentionally not a `traceKind`: review priority is
-   computed and stored in WP3; a trace records an agent's *suggestion*, not the authoritative
-   priority.)
+   - `traceReviewStatus`: `open | rejected | promoted`.
+   Generate deterministic trace IDs from `traceKind`, sorted `affectedNodeIds`, `proposedPredicate`
+   when present, and a stable hash of the rationale/input context. Use existing `relatedTo` edges
+   from the trace node to each affected node so traversal is cheap, but keep the authoritative target
+   list in metadata for export and validation. Do not add `SuggestedLink`, `Gap`, `supports`,
+   `blocks`, `requires`, or `suggestedByAgent` as first-pass graph schema concepts unless a failing
+   test demonstrates that the single-node model is insufficient. (`review_priority` is intentionally
+   not a `traceKind`: review priority is computed and stored in WP3; a trace records an agent's
+   *suggestion*, not the authoritative priority.)
 3. Confirm the graph schema-version policy for adding a NodeType. Precedent: the `alsoSeenVia` /
    `corroboratedBy` predicates were added in PLAN-007 without bumping
    `CURRENT_GRAPH_SCHEMA_VERSION` (still `1`), so additive enum extensions have been treated as
    non-breaking. Follow that precedent unless a persisted consumer must distinguish stores with vs.
    without `RationaleTrace`; if so, bump the version and note the migration in the PR.
-4. Add helper functions to create and list traces.
+4. Add helper functions to create and list traces. Minimum helper surface:
+   - `createRationaleTrace(store, input)`;
+   - `getRationaleTrace(store, traceId)`;
+   - `listRationaleTraces(store, filters)`;
+   - `rejectRationaleTrace(store, traceId, reason)`.
 5. Do not auto-promote traces into durable human-approved edges.
 
 **Acceptance criteria:**
@@ -530,16 +562,22 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 1. Add CLI tests for:
    - `aidha trace list [--project <id>] [--json]`;
    - `aidha trace show <traceId> [--json]`;
-   - `aidha trace reject <traceId>`;
-   - optional `aidha trace promote <traceId>` if the promotion semantics are clear.
+   - `aidha trace reject <traceId> [--reason <text>] [--json]`.
 2. Implement list/show/reject first.
-3. Only implement promotion when the target approved edge semantics are explicit and tested.
+3. Do not implement `trace promote` in this work package. Promotion requires explicit approved-edge
+   semantics per `traceKind` and should be a follow-up with tests that create the durable target edge
+   while preserving the original trace.
+4. `trace list` defaults to `traceReviewStatus=open`, supports `--all`, and sorts by confidence
+   descending then stable ID.
+5. `trace reject` updates `traceReviewStatus=rejected` and records an optional rejection reason; it
+   must not delete the trace node, affected nodes, source claims, tasks, or Resources.
 
 **Acceptance criteria:**
 
 - [ ] Users can inspect and reject provisional traces.
-- [ ] Promotion, if implemented, creates explicit durable graph edges and preserves the original
-  trace.
+- [ ] Rejected traces remain auditable.
+- [ ] Promotion remains deferred unless a separate implementation task defines explicit durable-edge
+  semantics.
 - [ ] Rejection does not delete source claims, tasks, or Resources.
 
 ## Work Package 5: Viability Quality Gates

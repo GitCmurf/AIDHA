@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { SQLiteStore } from '@aidha/graph-backend';
 import {
@@ -59,7 +59,25 @@ import {
   createLinkedInVectorSpec,
   LinkedInSourceRegistration,
 } from '@aidha/praecis-source-linkedin';
-import { createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type BatchOutcome, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type Result, type RunReport } from '@aidha/praecis-core';
+import {
+  buildProjectReentryDossier,
+  createActivationTaskFromClaim,
+  createConfiguredPipelineServices,
+  createIngestionRuntimeFromServices,
+  formatTaskContext,
+  getActivationReviewQueue,
+  getActivationTaskContext,
+  renderProjectReentryMarkdown,
+  runBatch,
+  searchActivationClaims,
+  type BatchOutcome,
+  type ClassificationResult,
+  type ComposedVector,
+  type LlmClient,
+  type PipelineServices,
+  type Result,
+  type RunReport,
+} from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
@@ -728,6 +746,59 @@ async function withIngestExecutionContextForManifest<T>(
   }
 }
 
+async function withActivationStore<T>(
+  options: CliOptions,
+  work: (store: SQLiteStore) => Promise<T>,
+): Promise<T> {
+  const configOpts: { configPath?: string; profile?: string } = {};
+  const configPath = optionString(options, 'config');
+  const profile = optionString(options, 'profile');
+  if (configPath) configOpts.configPath = configPath;
+  if (profile) configOpts.profile = profile;
+  const configResult = await resolveAidhaConfig(configOpts);
+  if (!configResult.ok) throw configResult.error;
+  await mkdir(dirname(configResult.config.db), { recursive: true });
+  const store = SQLiteStore.open(configResult.config.db);
+  try {
+    return await work(store);
+  } finally {
+    await store.close();
+  }
+}
+
+function optionNumber(options: CliOptions, key: string): number | undefined {
+  const value = optionString(options, key);
+  if (!value) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function printClaimHits(hits: Awaited<ReturnType<typeof searchActivationClaims>> extends Result<infer T> ? T : never): void {
+  if (hits.length === 0) {
+    console.log('No claims found.');
+    return;
+  }
+  for (const hit of hits) {
+    const loc = hit.locatorDisplay ? ` [${hit.locatorDisplay.label}]` : '';
+    console.log(`${hit.claimId}${loc}: ${hit.claimText}`);
+    console.log(`  Source: ${hit.resourceTitle} (${hit.resourceId})`);
+  }
+}
+
+function printReviewItems(items: Awaited<ReturnType<typeof getActivationReviewQueue>> extends Result<infer T> ? T : never): void {
+  if (items.length === 0) {
+    console.log('No review items.');
+    return;
+  }
+  for (const item of items) {
+    const axes = item.reviewAxes.join('+');
+    const priority = item.reviewPriority ? ` priority=${item.reviewPriority.score}` : '';
+    console.log(`${item.claimId} [${axes}]${priority}: ${item.claimText}`);
+    console.log(`  State: ${item.claimState}; Routing: ${item.routingReviewStatus ?? 'unreviewed'}`);
+    console.log(`  Source: ${item.resourceTitle} (${item.resourceId})`);
+  }
+}
+
 function printSingleIngestSummary(summary: IngestSummary): readonly string[] {
   return [
     `Ingested ${summary.sourceId} ${summary.ref}`,
@@ -1037,6 +1108,115 @@ export async function runCli(argv: string[]): Promise<number> {
         for (const line of manifest.print(summary)) {
           console.log(line);
         }
+      }
+      return 0;
+    }
+
+    if (command === 'query') {
+      const query = positionals.slice(1).join(' ').trim();
+      if (!query) {
+        console.error('Usage: query <text...> [--project <id>] [--source <id>] [--limit <n>] [--include-drafts] [--json]');
+        return 1;
+      }
+      const searchOptions: Parameters<typeof searchActivationClaims>[1] = {
+        query,
+        states: optionBool(options, 'include-drafts') ? ['accepted', 'draft'] : ['accepted'],
+      };
+      const queryProject = optionString(options, 'project');
+      const querySource = optionString(options, 'source');
+      const queryLimit = optionNumber(options, 'limit');
+      if (queryProject) searchOptions.projectId = queryProject;
+      if (querySource) searchOptions.source = querySource;
+      if (queryLimit) searchOptions.limit = queryLimit;
+      const result = await withActivationStore(options, store => searchActivationClaims(store, searchOptions));
+      if (!result.ok) throw result.error;
+      if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
+      else printClaimHits(result.value);
+      return 0;
+    }
+
+    if (command === 'task') {
+      const action = positionals[1];
+      if (action === 'create') {
+        const claimId = optionString(options, 'from-claim');
+        const title = optionString(options, 'title');
+        if (!claimId || !title) {
+          console.error('Usage: task create --from-claim <claimId> --title <title> [--project <id>] [--json]');
+          return 1;
+        }
+        const createInput: Parameters<typeof createActivationTaskFromClaim>[1] = {
+          claimId,
+          title,
+        };
+        const createProject = optionString(options, 'project');
+        if (createProject) createInput.projectId = createProject;
+        const result = await withActivationStore(options, store => createActivationTaskFromClaim(store, createInput));
+        if (!result.ok) throw result.error;
+        if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
+        else {
+          console.log(`Created task: ${result.value.taskId}`);
+          console.log(`Project: ${result.value.projectId}`);
+        }
+        return 0;
+      }
+      if (action === 'show') {
+        const taskId = positionals[2];
+        if (!taskId) {
+          console.error('Usage: task show <taskId> [--json]');
+          return 1;
+        }
+        const result = await withActivationStore(options, store => getActivationTaskContext(store, taskId));
+        if (!result.ok) throw result.error;
+        if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
+        else console.log(formatTaskContext(result.value));
+        return 0;
+      }
+      console.error('Usage: task <create|show> ...');
+      return 1;
+    }
+
+    if (command === 'review' && positionals[1] === 'next') {
+      const reviewOptions: Parameters<typeof getActivationReviewQueue>[1] = {};
+      const reviewProject = optionString(options, 'project');
+      const reviewSource = optionString(options, 'source');
+      const reviewLimit = optionNumber(options, 'limit');
+      if (reviewProject) reviewOptions.projectId = reviewProject;
+      if (reviewSource) reviewOptions.source = reviewSource;
+      if (reviewLimit) reviewOptions.limit = reviewLimit;
+      const result = await withActivationStore(options, store => getActivationReviewQueue(store, reviewOptions));
+      if (!result.ok) throw result.error;
+      if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
+      else printReviewItems(result.value);
+      return 0;
+    }
+
+    if (command === 'project' && positionals[1] === 'reentry') {
+      const projectId = optionString(options, 'project') ?? positionals[2];
+      if (!projectId) {
+        console.error('Usage: project reentry --project <id> [--json] [--markdown] [--out <path>]');
+        return 1;
+      }
+      const result = await withActivationStore(options, store => buildProjectReentryDossier(store, projectId));
+      if (!result.ok) throw result.error;
+      if (optionBool(options, 'json')) {
+        console.log(JSON.stringify(result.value, null, 2));
+      } else if (optionBool(options, 'markdown') || optionString(options, 'out')) {
+        const markdown = renderProjectReentryMarkdown(result.value);
+        const out = optionString(options, 'out');
+        if (out) {
+          await mkdir(dirname(out), { recursive: true });
+          await writeFile(out, markdown, 'utf-8');
+          console.log(`Wrote re-entry dossier: ${out}`);
+        } else {
+          console.log(markdown);
+        }
+      } else {
+        console.log(`Project: ${result.value.project.label} (${result.value.project.id})`);
+        console.log('Next actions:');
+        for (const action of result.value.suggestedNextActions) console.log(`- ${action}`);
+        console.log(`Tasks: ${result.value.tasks.length}`);
+        console.log(`Claims: ${result.value.claims.length}`);
+        console.log(`Review items: ${result.value.reviewItems.length}`);
       }
       return 0;
     }
