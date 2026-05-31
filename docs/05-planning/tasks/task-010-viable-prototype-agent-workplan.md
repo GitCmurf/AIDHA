@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.1"
-last_updated: 2026-05-30
+version: "0.2"
+last_updated: 2026-05-31
 title: Viable Prototype Agent Workplan
 type: TASK
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-05-30
+> **Version:** 0.2
+> **Last Updated:** 2026-05-31
 > **Type:** TASK
 
 # Task: Viable Prototype Agent Workplan
@@ -29,6 +29,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1     | 2026-05-30 | AI     | Initial agent-executable task plan for the viable prototype sprints. | - | Draft | AIDHA-PLAN-008 |
+| 0.2     | 2026-05-31 | AI     | Codebase-verified revision: anchor WP1 on the existing `Locator` union and FTS contract; reconcile WP3 routing metadata with the existing `TagAssignment` schema; remove the WP2→WP3 forward dependency (blockers via `taskDependsOn`); concretise the offline demo harness (named vectors, mock LLM, reuse existing acceptance scaffolding); commit demo artifact paths; note inbox-project default. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -53,6 +54,25 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - Do not pursue compatibility shims unless they reduce implementation risk; this repo is pre-alpha.
 - Update docs and validation evidence in the same PR as behavior changes.
 - Record exact commands run in the PR and in this task when a work package is closed.
+
+**Verified codebase anchors (confirmed 2026-05-31, re-verify before relying on them):**
+
+- Provenance addressing already uses the `Locator` discriminated union in
+  `packages/praecis/core/src/types/locator.ts` (`timecode | page | dom | message | text | external`).
+  Build generic display on it; do not reinvent it.
+- Graph predicates already exist: `claimDerivedFrom`, `resourceHasExcerpt`, `taskMotivatedBy`,
+  `taskPartOfProject`, plus `taskDependsOn`, `projectServesGoal`, `projectInArea`, `alsoSeenVia`,
+  `corroboratedBy` (`packages/reconditum/src/schema/edge.ts`). No `RationaleTrace`/`SuggestedLink`/
+  `Gap` NodeTypes exist yet — those are net-new in WP3.
+- `TagAssignment` (`packages/phyla/src/schema/assignment.ts`) already carries `confidence`, `source`,
+  `assignedBy`, `assignedAt`, `notes`. WP3 adds a delta, not a greenfield schema.
+- The generic `@aidha/praecis-cli` today implements only `ingest` and `config explain`. All other
+  activation commands (`query`, `task`, `review`, `project`, `export dossier`) currently live in the
+  YouTube CLI (`packages/praecis/youtube/src/cli.ts`).
+- The only existing offline acceptance harness is YouTube-only
+  (`scripts/acceptance/llm-offline-acceptance.mjs`, `scripts/acceptance/mock-openai-server.mjs`).
+- Open architectural decisions are catalogued in the "Judgement Calls For Peer Debate" section of
+  AIDHA-PLAN-008; resolve the relevant one before starting the work package it affects.
 
 ## Work Package 0: Baseline And Demo Harness
 
@@ -95,13 +115,23 @@ capture source -> extract claims -> route/review -> query project context -> cre
 
 **Steps:**
 
-1. Add a script under `scripts/acceptance/` or `scripts/demo/` that:
+1. Add a script under `scripts/acceptance/` (align with the existing acceptance harness; do not start
+   a parallel `scripts/demo/` tree) that:
    - creates a fresh temporary SQLite store;
-   - runs at least two no-network ingests through `@aidha/praecis-cli`;
+   - runs at least two no-network ingests through `@aidha/praecis-cli`, using two
+     offline-deterministic vectors (e.g. a local-file `pdf` and a local-file `web`/`text`); avoid any
+     vector whose acquire step needs network or live credentials;
+   - injects a mock model client for claim extraction (reuse the pattern in
+     `scripts/acceptance/llm-offline-acceptance.mjs` / `scripts/acceptance/mock-openai-server.mjs` —
+     "no-network" ingest still requires an LLM for claim extraction, so a mock is mandatory, not
+     optional);
    - captures JSON output;
    - exports or prints Resource, Excerpt, Claim, and provenance identifiers;
-   - writes outputs to a stable demo directory.
-2. Use deterministic fixture data, clocks, and IDs where practical.
+   - writes outputs to a stable demo directory under `docs/55-testing/` (follow the existing
+     `docs/55-testing/acceptance-run-<date>/` convention).
+2. Use deterministic fixture data, clocks, and IDs where practical. Establish the injectable-clock or
+   timestamp-redaction mechanism here, since `GraphNode.createdAt`/`updatedAt` carry real timestamps
+   and every downstream golden fixture (WP2) depends on this being solved once.
 3. Fail the script if expected claims, excerpt links, or source metadata are missing.
 4. Add a focused test for the script entrypoint or its reusable helpers.
 5. Document the command and expected artifacts in `docs/55-testing/`.
@@ -137,12 +167,17 @@ capture source -> extract claims -> route/review -> query project context -> cre
 2. Define a small `ActivationContext` or equivalent output model containing:
    - claim ID/text/state;
    - source/resource summary;
-   - excerpt locator;
+   - excerpt locator typed as the existing `Locator` union (not bare timestamp fields);
    - task links;
    - project links;
    - classification/review metadata.
 3. Implement read helpers against the GraphStore contract, not a SQLite-only path.
 4. Add SQLite parity coverage where the helper depends on traversal or FTS behavior.
+5. Add a `Locator`-to-display projection helper so each locator kind renders a correct human label
+   and (where applicable) deep link. This is the seam that lets the same helper serve YouTube
+   (`timecode`), PDF (`page`), and web (`dom`) provenance. The YouTube CLI's existing
+   timestamp-coupled `ClaimSearchHit`/`TaskClaimContext` must be migrated onto this projection in
+   T010-01-02/03 rather than left as a second implementation.
 
 **Acceptance criteria:**
 
@@ -150,6 +185,8 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - [ ] Helpers follow provenance links from Claim to Excerpt to Resource.
 - [ ] Helpers work against in-memory and SQLite stores where relevant.
 - [ ] No source package imports are introduced into `praecis/core`.
+- [ ] Provenance is carried as the `Locator` union; no command-layer code reads bare `timestampUrl`/
+  `timestampSeconds` fields outside the YouTube `timecode` projection.
 
 ### T010-01-02: Add Generic `aidha query`
 
@@ -166,7 +203,10 @@ capture source -> extract claims -> route/review -> query project context -> cre
    - project filter;
    - no-result behavior.
 2. Implement `aidha query <text>` in `packages/praecis/cli/src/index.ts`.
-3. Use the shared activation query helpers from T010-01-01.
+3. Use the shared activation query helpers from T010-01-01. Ranking is deterministic lexical/FTS via
+   the `GraphStore` `supportsFts()`/`searchText()` contract (mirror
+   `packages/praecis/youtube/src/retrieve/query.ts`); fall back to a deterministic lexical scan when
+   FTS is unavailable. No embeddings/semantic search (would break no-network + determinism).
 4. Include provenance fields in JSON output:
    - claim ID;
    - resource ID;
@@ -202,8 +242,13 @@ capture source -> extract claims -> route/review -> query project context -> cre
 3. Use existing graph predicates:
    - `taskMotivatedBy` for Task -> Claim;
    - `taskPartOfProject` for Task -> Project.
-4. Add deterministic task ID generation.
-5. Reuse or migrate proven logic from the YouTube CLI rather than duplicating behavior.
+4. Add deterministic task ID generation. Reuse the existing inbox convention
+   (`DEFAULT_INBOX_PROJECT_ID = 'project-inbox'` in `packages/praecis/youtube/src/tasks/index.ts`)
+   as the default project when `--project` is omitted, so generic and YouTube task creation converge
+   on one model.
+5. Migrate the proven YouTube task logic (`packages/praecis/youtube/src/tasks/index.ts`) into a
+   shared `praecis-core`/`praecis-cli` helper and have the YouTube CLI consume it; do not leave a
+   duplicate task path. Two task-creation implementations is a failure of this task.
 
 **Acceptance criteria:**
 
@@ -247,16 +292,20 @@ capture source -> extract claims -> route/review -> query project context -> cre
    - at least two Claims;
    - at least two Resources from different source types;
    - one Task motivated by a Claim;
-   - one blocker/gap represented by the minimal graph model chosen in T010-03-03.
+   - one blocker represented as a Task with an unmet `taskDependsOn` edge (derivable from current
+     graph state — **do not** depend on the agentic-trace/gap model from T010-03-03; that ordering
+     was a forward dependency and is removed here).
 2. Define `ProjectReentryDossier` with:
    - project summary;
    - relevant claims;
    - supporting sources;
    - open tasks;
    - review items;
-   - gaps/blockers;
+   - blockers (unmet `taskDependsOn`);
    - suggested next actions;
    - provenance index.
+   Leave a clearly-labelled, optional slot for agentic *gaps* that T010-03-03 populates later, but the
+   dossier must be useful with that slot empty.
 3. Keep the model independent of Markdown rendering.
 4. Add deterministic sorting rules to the model builder.
 
@@ -326,19 +375,23 @@ capture source -> extract claims -> route/review -> query project context -> cre
 
 **Steps:**
 
-1. Add schema tests for classification/routing metadata that includes:
+1. Start from the **existing `TagAssignment` schema** (`packages/phyla/src/schema/assignment.ts`),
+   which already provides `confidence`, `source` (`manual | automatic | imported | inferred`),
+   `assignedBy`, `assignedAt`, and `notes`. Add schema tests only for the genuinely new fields:
    - taxonomy version;
-   - method;
-   - confidence;
-   - assigned by;
-   - assigned at;
    - review status;
    - review reason.
-2. Decide whether this metadata belongs in `TagAssignment.notes`, a structured assignment extension,
-   or Resource/Claim metadata. Prefer a typed structured field over opaque strings.
+   Do **not** add a `method` field that duplicates `source`. If routing method must be distinguished
+   from `source`, define that distinction explicitly and justify it in the PR; otherwise reuse
+   `source`.
+2. Decide where the new fields live: extending the durable `@aidha/phyla` `TagAssignment` contract
+   (forces a graph-schema-version bump and contract tests for all consumers) vs. storing routing/
+   review state in `Claim`/`Resource` node metadata (lower ceremony, weaker typing). This is a
+   flagged judgement call in AIDHA-PLAN-008 — resolve it before implementing. Prefer a typed
+   structured field over opaque strings in `notes`.
 3. Update `KeywordTaxonomyClassifier` or introduce a small routing classifier that writes the new
    metadata.
-4. Ensure old unclassified Resources remain valid.
+4. Ensure old assignments without the new fields remain valid (additive, optional fields).
 
 **Acceptance criteria:**
 

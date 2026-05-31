@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-008
 owner: Product
 status: Draft
-version: "0.1"
-last_updated: 2026-05-30
+version: "0.2"
+last_updated: 2026-05-31
 title: Viable Prototype Sprint Plan
 type: PLAN
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-05-30
+> **Version:** 0.2
+> **Last Updated:** 2026-05-31
 > **Type:** PLAN
 
 # Viable Prototype Sprint Plan
@@ -29,6 +29,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1     | 2026-05-30 | AI     | Initial plan derived from strategy, planning, and codebase review. | - | Draft | AIDHA-TASK-010 |
+| 0.2     | 2026-05-31 | AI     | Critical revision after codebase verification: name existing `Locator` union and migration semantics; reconcile routing metadata with the existing `TagAssignment` schema; resolve the Sprint 2→3 forward dependency (blockers-now vs gaps-later); specify deterministic query semantics; concretise the offline demo harness (named vectors + mock LLM); add a Judgement Calls section for peer debate. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -143,11 +144,19 @@ features, lock a small demonstration path that future work must keep green.
 
 **Scope:**
 
-- Define a fixture-backed viable-prototype scenario using at least two source types.
+- Define a fixture-backed viable-prototype scenario using at least two source types. Name the two
+  offline-deterministic vectors explicitly (e.g. a local-file `pdf` and a local-file `web`/`text`
+  ingest); avoid vectors whose acquisition step requires network or live API credentials.
+- Note the claim-extraction dependency: "no-network" ingest still requires an LLM for claim
+  extraction, so the harness must inject a mock model client (extend the pattern in
+  `scripts/acceptance/llm-offline-acceptance.mjs` / `scripts/acceptance/mock-openai-server.mjs`
+  rather than duplicating it). The current offline harness is YouTube-only; this sprint generalises
+  it to the generic `@aidha/praecis-cli` path.
 - Build a local acceptance command that creates a fresh store, runs ingestion, captures outputs, and
   writes a demo evidence directory.
-- Record which user-facing flows are generic today and which still depend on YouTube-specific CLI
-  commands.
+- Record which user-facing flows are generic today (`ingest`, `config explain`) and which still
+  depend on the YouTube-specific CLI (`query`, `related`, `review`, `task`, `area`, `goal`,
+  `project`, `export dossier`). This gap inventory is the factual basis for Sprints 1–3.
 - Add a short testing note under `docs/55-testing/` after the script exists.
 
 **Acceptance:**
@@ -166,17 +175,30 @@ review, task creation, and context restoration regardless of source type.
 **Scope:**
 
 - Add generic graph query helpers in `@aidha/praecis-core` or `@aidha/praecis-cli`.
-- Add generic `aidha query` with JSON and readable text output.
-- Add generic `aidha task create --from-claim` and `aidha task show`.
+- Project all provenance display from the existing `Locator` discriminated union in
+  `@aidha/praecis-core` (`packages/praecis/core/src/types/locator.ts`: `timecode | page | dom |
+  message | text | external`). Do **not** introduce a new locator abstraction — the timestamp-coupled
+  fields in the YouTube `ClaimSearchHit`/`TaskClaimContext` (`videoId`, `timestampSeconds`,
+  `timestampUrl`) must be replaced by a `Locator`-aware display projection so non-timecode vectors
+  (PDF page, web fragment, email message) render correctly.
+- Add generic `aidha query` with JSON and readable text output. Ranking is **deterministic lexical /
+  FTS** built on the existing `GraphStore` `supportsFts()` / `searchText()` contract (mirroring
+  `packages/praecis/youtube/src/retrieve/query.ts`). Embedding/semantic search is explicitly out of
+  scope (see Explicit Non-Priorities) to preserve the no-network and determinism guarantees.
+- Add generic `aidha task create --from-claim` and `aidha task show`. Reuse the existing inbox
+  convention (`DEFAULT_INBOX_PROJECT_ID = 'project-inbox'`) for the default project.
 - Add generic `aidha review next` for draft/provisional claims.
 - Keep output deterministic and machine-readable.
 
 **Acceptance:**
 
-- The generic CLI can query claims ingested from more than one vector.
+- The generic CLI can query claims ingested from more than one vector, with locator-correct
+  provenance for at least one non-timecode vector.
 - A task can be created from any Claim node, not just YouTube claims.
 - Task context follows `taskMotivatedBy`, `claimDerivedFrom`, and `resourceHasExcerpt` links.
-- YouTube-specific activation code is reused or migrated rather than duplicated.
+- The YouTube CLI's query/task surface is refactored to consume the shared `praecis-core` helpers
+  rather than retaining a parallel timestamp-coupled implementation. Two divergent query paths is a
+  failure of this sprint, not an acceptable interim state.
 
 ### Sprint 2: Project Re-entry Dossier
 
@@ -189,8 +211,13 @@ continuity and makes the product more than an ingestion engine.
 
 - Define a typed `ProjectReentryDossier` model.
 - Add `aidha project reentry --project <id>` with `--json` and `--markdown` output.
-- Include project metadata, related claims, supporting sources, open tasks, blockers/gaps, review
+- Include project metadata, related claims, supporting sources, open tasks, **blockers**, review
   items, and suggested next actions.
+- Scope blockers to what is derivable from current graph state — open tasks with an unmet
+  `taskDependsOn` edge. Do **not** depend on the agentic-trace/gap model from Sprint 3; that model is
+  defined later and the dossier must ship a useful "where was I?" answer without it. Agentic *gaps*
+  (missing-knowledge suggestions) are layered into the dossier in Sprint 3 under a clearly labelled
+  provisional section. This removes the forward dependency that the prior draft created.
 - Support deterministic sorting by accepted status, review priority, recency, and provenance.
 
 **Acceptance:**
@@ -208,8 +235,14 @@ must become visible, provisional, and useful for prioritising human attention.
 
 **Scope:**
 
-- Extend classification metadata with taxonomy version, method, confidence, assigned-by, assigned-at,
-  review status, and review reason.
+- Extend classification metadata, treating it as a **delta over the existing `TagAssignment`
+  schema** (`packages/phyla/src/schema/assignment.ts`), which already carries `confidence`, `source`
+  (`manual | automatic | imported | inferred`), `assignedBy`, `assignedAt`, and `notes`. The genuinely
+  new fields are taxonomy version, review status, and review reason. Reuse `source` for provenance
+  rather than adding an overlapping `method` field unless a concrete need distinguishes them; if a
+  distinction is required, define it explicitly against `source` to avoid two competing provenance
+  fields. See the Judgement Calls section on where this metadata should live (phyla durable contract
+  vs. Claim/Resource node metadata).
 - Add review-priority computation for low confidence, active project relevance, conflicts, missing
   explanation, and action implication.
 - Add minimal graph support for agentic traces: suggested links, gaps, and rationales must be
@@ -272,6 +305,9 @@ Do not spend the next sprints on these unless a sprint acceptance gate proves th
 activation loop:
 
 - More ingestion vectors beyond the already implemented PLAN-007 set.
+- Embedding/vector/semantic retrieval. Generic query stays deterministic lexical/FTS for the
+  prototype; semantic search would break the no-network and reproducibility guarantees and is
+  deferred until after the activation loop is demonstrated.
 - Browser extension, OS share targets, or tab-group capture.
 - Full graph visualisation or a broad web UI.
 - Dedicated graph database migration.
@@ -307,7 +343,7 @@ For demonstration-class quality, each implemented sprint must also provide:
 | Risk | Control |
 | ---- | ------- |
 | Continuing to build ingestion breadth instead of product value | Defer new vectors until the activation loop is demonstrated. |
-| Re-entry dossier becomes another large report, not an action aid | Keep the output constrained to claims, sources, open tasks, blockers/gaps, and next actions. |
+| Re-entry dossier becomes another large report, not an action aid | Keep the output constrained to claims, sources, open tasks, blockers (unmet `taskDependsOn`), optional agentic gaps, and next actions. |
 | Agentic traces pollute human-approved graph structure | Store provisional traces distinctly and require explicit promotion. |
 | Generic CLI duplicates YouTube logic | Extract reusable graph/query/task helpers and retire duplicate paths where possible. |
 | Taxonomy work expands into ontology design | Start with routing metadata and review priority only. |
@@ -326,3 +362,46 @@ When choosing between competing features, prefer the one that most directly impr
 
 Features that mainly improve architectural elegance, ingestion breadth, ontology completeness, or UI
 polish should wait until the activation loop is demonstrably useful.
+
+## Judgement Calls For Peer Debate
+
+These are deliberate, non-obvious decisions where a different choice is defensible. They are flagged
+for review rather than silently resolved, because each trades off long-term codebase health against
+prototype speed.
+
+1. **Generic CLI: supersede vs. coexist with the YouTube CLI.** The plan assumes activation commands
+   migrate into `@aidha/praecis-cli` and the YouTube CLI is refactored to consume shared core. The
+   clean-break alternative is to retire the YouTube-specific `query`/`task`/`review`/`project`
+   commands entirely once the generic path reaches parity, leaving YouTube as ingestion-only. Given
+   the stated preference for clean breaks over compatibility shims in a pre-alpha repo, this is worth
+   an explicit decision now rather than accreting two surfaces. **Recommendation to debate:** plan
+   for supersession, keep the YouTube commands only as long as the generic path lacks parity.
+
+2. **Routing metadata location: extend the phyla durable contract vs. node metadata.** Adding
+   review-status/reason/taxonomy-version to `TagAssignment` changes a durable, versioned graph
+   contract (`@aidha/phyla`) and forces a schema-version bump and contract tests for every consumer.
+   Storing routing/review state in `Claim`/`Resource` node metadata is lower-ceremony but weaker
+   typing and harder to query. The right call depends on whether routing state is considered part of
+   the durable taxonomy contract or transient workflow state. This should be settled before Sprint 3
+   starts.
+
+3. **Strategy reconciliation is sequenced last (Sprint 4 / T010-04-03) but informs Sprints 0–3.**
+   Sprints 0–3 build product against the *un-promoted* owner-response draft for AIDHA-STRATEGY-002.
+   If promotion shifts any position (routing model, re-entry definition, agentic-trace policy),
+   earlier sprints risk rework. **Recommendation to debate:** promote the resolved strategy positions
+   early (parallel to Sprint 0) so implementation builds against a ratified thesis, leaving only doc
+   cross-linking and quickstart updates for Sprint 4.
+
+4. **Sprint 3 carries three large concerns** (routing metadata, review-priority computation, and a
+   new agentic-trace graph model with its own NodeTypes/Predicates and review commands). The
+   companion task plan already splits this into four work packages, but as a single sprint it is the
+   heaviest in the sequence and the only one introducing durable graph-contract changes. Consider
+   promoting the agentic-trace model to its own sprint so contract changes get isolated review.
+
+5. **Pilot go/no-go bar is not pre-registered, and n=2 projects is illustrative, not statistical.**
+   Sprint 5 measures "time-to-next-action" and "research avoided" but defines no threshold for
+   declaring the loop viable. A pre-registered, falsifiable bar (e.g. "at least one of the two
+   projects yields a justified next action without re-opening the original sources, and the dossier
+   surfaces at least one source the user would otherwise have re-derived") would make the milestone
+   honest. The two-project sample is a directional signal about the thesis, not evidence of general
+   utility; the release note should frame it as such.
