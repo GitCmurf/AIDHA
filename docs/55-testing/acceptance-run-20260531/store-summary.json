@@ -6,6 +6,26 @@
     "linkedin",
     "pdf"
   ],
+  "stableNodeIds": [
+    "claim:654b51e975ee513e",
+    "claim:f4f79a97976eb9ff",
+    "linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa",
+    "linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa:excerpt:fafc663e74b77930",
+    "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927",
+    "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:0609602efda0f5e7",
+    "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:f3ec140d078c0278",
+    "project-viable-prototype",
+    "task-be48c62b539ade04"
+  ],
+  "stableEdgeIds": [
+    "claim:654b51e975ee513e|claimDerivedFrom|pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:0609602efda0f5e7",
+    "claim:f4f79a97976eb9ff|claimDerivedFrom|linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa:excerpt:fafc663e74b77930",
+    "linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa|resourceHasExcerpt|linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa:excerpt:fafc663e74b77930",
+    "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927|resourceHasExcerpt|pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:0609602efda0f5e7",
+    "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927|resourceHasExcerpt|pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:f3ec140d078c0278",
+    "task-be48c62b539ade04|taskMotivatedBy|claim:f4f79a97976eb9ff",
+    "task-be48c62b539ade04|taskPartOfProject|project-viable-prototype"
+  ],
   "nodeTypes": {
     "Claim": 2,
     "Excerpt": 3,
