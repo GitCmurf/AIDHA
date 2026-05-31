@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.7"
+version: "0.8"
 last_updated: 2026-05-31
 title: Viable Prototype Agent Workplan
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.7
+> **Version:** 0.8
 > **Last Updated:** 2026-05-31
 > **Type:** TASK
 
@@ -35,6 +35,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | 0.5     | 2026-05-31 | AI     | Tighten the routing-metadata default: add `taxonomyVersion` to `TagAssignment`, but represent claim-grain routing review as distinct `routingReviewStatus`/`routingReviewReason` Claim metadata validated in `domain-metadata.ts`; remove residual wording that implied a tag-assignment `reviewStatus`. | - | Draft | AIDHA-PLAN-008 |
 | 0.6     | 2026-05-31 | AI     | Reconcile with the implemented activation tranche: record generic query/task/review/re-entry helpers, the deterministic acceptance packet, the ratified strategy revision, and the remaining ingest-backed demo and trace-model work; make trace review statuses, IDs, edge usage, and command semantics decision-complete. | - | Draft | AIDHA-PLAN-008 |
 | 0.7     | 2026-05-31 | AI     | Record the ingest-backed acceptance update: the viable prototype packet now runs generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry. | - | Draft | AIDHA-PLAN-008 |
+| 0.8     | 2026-05-31 | AI     | Record implementation of the minimal `RationaleTrace` graph model, trace list/show/reject commands, and provisional trace re-entry dossier section. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -75,12 +76,14 @@ subsequent agents:
 - `scripts/acceptance/viable-prototype-activation.mjs` writes a deterministic no-network packet
   under `docs/55-testing/acceptance-run-<date>/` after running generic PDF and LinkedIn ingests with
   `--mock-llm`.
+- WP4 now has a minimal `RationaleTrace` node model, core helpers, trace list/show/reject commands,
+  and a provisional trace section in project re-entry dossiers.
 
 Remaining gaps before this plan is closed:
 
 - The YouTube activation surface has not yet been fully retired as wrappers over the shared generic
   helpers.
-- WP4 `RationaleTrace` graph support and trace-review commands remain unimplemented.
+- Trace promotion remains intentionally deferred until approved-edge semantics are specified.
 - WP6 still needs a real two-project pilot before any viable-prototype baseline tag.
 
 **Verified codebase anchors (confirmed 2026-05-31, re-verify before relying on them):**
@@ -112,7 +115,7 @@ Remaining gaps before this plan is closed:
 
 ### T010-00-01: Capture The Current Capability Baseline
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Establish the factual baseline before changing behavior.
 
@@ -143,7 +146,7 @@ Remaining gaps before this plan is closed:
 
 ### T010-00-02: Build A Deterministic Viable-Prototype Demo Script
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Produce one command that proves the current or next activation loop on a clean local store.
 

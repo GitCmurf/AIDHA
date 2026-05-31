@@ -24,6 +24,7 @@ export const NodeType = z.enum([
   'Project',
   'Task',
   'TopicTag',
+  'RationaleTrace',
 ]);
 
 export type NodeType = z.infer<typeof NodeType>;

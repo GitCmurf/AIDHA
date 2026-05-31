@@ -9,6 +9,7 @@
  * and mirrors the Locator discriminated union from plan-007 §3.4.
  */
 import { z } from 'zod';
+import { Predicate } from './edge.js';
 import { SourceType, Provenance } from './knowledge.js';
 
 // ---------------------------------------------------------------------------
@@ -132,3 +133,22 @@ export const ReferenceMetadataSchema = z.object({
 }).passthrough();
 
 export type ReferenceMetadataSchema = z.infer<typeof ReferenceMetadataSchema>;
+
+// ---------------------------------------------------------------------------
+// RationaleTraceMetadataSchema — validates provisional agentic trace metadata
+// ---------------------------------------------------------------------------
+
+export const RationaleTraceMetadataSchema = z.object({
+  traceKind: z.enum(['suggested_link', 'gap', 'sufficiency_prompt']),
+  affectedNodeIds: z.array(z.string().min(1)).min(1),
+  proposedPredicate: Predicate.optional(),
+  rationale: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  agentModel: z.string().min(1),
+  promptVersion: z.string().min(1),
+  inputContext: z.unknown(),
+  traceReviewStatus: z.enum(['open', 'rejected', 'promoted']),
+  rejectionReason: z.string().optional(),
+}).passthrough();
+
+export type RationaleTraceMetadataSchema = z.infer<typeof RationaleTraceMetadataSchema>;

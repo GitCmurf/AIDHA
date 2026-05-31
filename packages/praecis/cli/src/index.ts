@@ -67,6 +67,9 @@ import {
   formatTaskContext,
   getActivationReviewQueue,
   getActivationTaskContext,
+  getRationaleTrace,
+  listRationaleTraces,
+  rejectRationaleTrace,
   renderProjectReentryMarkdown,
   runBatch,
   searchActivationClaims,
@@ -1200,6 +1203,62 @@ export async function runCli(argv: string[]): Promise<number> {
       if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
       else printReviewItems(result.value);
       return 0;
+    }
+
+    if (command === 'trace') {
+      const action = positionals[1];
+      if (action === 'list') {
+        const traceOptions: Parameters<typeof listRationaleTraces>[1] = {
+          includeRejected: optionBool(options, 'all'),
+        };
+        const traceProject = optionString(options, 'project');
+        if (traceProject) traceOptions.projectId = traceProject;
+        const result = await withActivationStore(options, store => listRationaleTraces(store, traceOptions));
+        if (!result.ok) throw result.error;
+        if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
+        else if (result.value.length === 0) console.log('No traces found.');
+        else {
+          for (const trace of result.value) {
+            console.log(`${trace.id} [${trace.metadata.traceKind}/${trace.metadata.traceReviewStatus}]: ${trace.metadata.rationale}`);
+          }
+        }
+        return 0;
+      }
+      if (action === 'show') {
+        const traceId = positionals[2];
+        if (!traceId) {
+          console.error('Usage: trace show <traceId> [--json]');
+          return 1;
+        }
+        const result = await withActivationStore(options, store => getRationaleTrace(store, traceId));
+        if (!result.ok) throw result.error;
+        if (!result.value) {
+          console.error(`RationaleTrace not found: ${traceId}`);
+          return 1;
+        }
+        if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
+        else {
+          console.log(`${result.value.id}: ${result.value.metadata.rationale}`);
+          console.log(`Status: ${result.value.metadata.traceReviewStatus}`);
+          console.log(`Affected: ${result.value.metadata.affectedNodeIds.join(', ')}`);
+        }
+        return 0;
+      }
+      if (action === 'reject') {
+        const traceId = positionals[2];
+        if (!traceId) {
+          console.error('Usage: trace reject <traceId> [--reason <text>] [--json]');
+          return 1;
+        }
+        const reason = optionString(options, 'reason');
+        const result = await withActivationStore(options, store => rejectRationaleTrace(store, traceId, reason));
+        if (!result.ok) throw result.error;
+        if (optionBool(options, 'json')) console.log(JSON.stringify(result.value, null, 2));
+        else console.log(`Rejected trace: ${result.value.id}`);
+        return 0;
+      }
+      console.error('Usage: trace <list|show|reject> ...');
+      return 1;
     }
 
     if (command === 'project' && positionals[1] === 'reentry') {

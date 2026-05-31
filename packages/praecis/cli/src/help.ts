@@ -8,6 +8,9 @@ Usage:
   aidha task create --from-claim <claimId> --title <title> [--project <id>] [--json]
   aidha task show <taskId> [--json]
   aidha review next [--project <id>] [--source <id>] [--limit <n>] [--json]
+  aidha trace list [--project <id>] [--all] [--json]
+  aidha trace show <traceId> [--json]
+  aidha trace reject <traceId> [--reason <text>] [--json]
   aidha project reentry --project <id> [--json] [--markdown] [--out <path>]
 
 Notes:

@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-05-31
-version: '0.36'
+version: '0.37'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.36
+> **Version:** 0.37
 > **Last Updated:** 2026-05-31
 > **Type:** GUIDE
 
@@ -59,6 +59,7 @@ docops_version: '2.0'
 | 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
 | 0.35    | 2026-05-31 | AI     | Add generic activation commands. | — | Draft | AIDHA-TASK-010 |
 | 0.36    | 2026-05-31 | AI     | Document `--mock-llm` ingest. | — | Draft | AIDHA-TASK-010 |
+| 0.37    | 2026-05-31 | AI     | Add trace review commands. | — | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -98,6 +99,9 @@ aidha query "activation loop" --include-drafts
 aidha review next --limit 10 --json
 aidha task create --from-claim <claim-id> --title "Follow up" --project <project-id>
 aidha task show <task-id> --json
+aidha trace list --json
+aidha trace show <trace-id> --json
+aidha trace reject <trace-id> --reason "Not actionable yet"
 aidha project reentry --project <project-id> --markdown --out out/project-reentry.md
 ```
 

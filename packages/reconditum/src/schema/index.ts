@@ -39,4 +39,5 @@ export {
   ResourceMetadataSchema,
   ExcerptMetadataSchema,
   ClaimMetadataSchema,
+  RationaleTraceMetadataSchema,
 } from './domain-metadata.js';

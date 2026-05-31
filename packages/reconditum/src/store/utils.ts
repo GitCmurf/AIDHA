@@ -6,6 +6,7 @@ import {
   ClaimMetadataSchema,
   ExcerptMetadataSchema,
   ReferenceMetadataSchema,
+  RationaleTraceMetadataSchema,
   ResourceMetadataSchema,
 } from '../schema/domain-metadata.js';
 import type { NodeSortField, EdgeSortField, SortOption } from './types.js';
@@ -47,6 +48,7 @@ export function validateNodeMetadata(type: NodeType, metadata: Record<string, un
     : type === 'Excerpt' ? ExcerptMetadataSchema.safeParse(metadata)
     : type === 'Claim' ? ClaimMetadataSchema.safeParse(metadata)
     : type === 'Reference' ? ReferenceMetadataSchema.safeParse(metadata)
+    : type === 'RationaleTrace' ? RationaleTraceMetadataSchema.safeParse(metadata)
     : { success: true as const, data: metadata };
 
   if (!result.success) {

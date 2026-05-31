@@ -99,8 +99,47 @@ export interface ProjectReentryDossier {
   tasks: TaskContext[];
   blockers: Array<{ taskId: string; taskLabel: string; blockedByTaskId: string; blockedByTaskLabel: string }>;
   reviewItems: ReviewQueueItem[];
+  traces: RationaleTrace[];
   suggestedNextActions: string[];
   provenance: Array<{ claimId: string; excerptId?: string; resourceId: string; resourceTitle: string; locator?: LocatorDisplay }>;
+}
+
+export type TraceKind = 'suggested_link' | 'gap' | 'sufficiency_prompt';
+export type TraceReviewStatus = 'open' | 'rejected' | 'promoted';
+
+export interface RationaleTraceMetadata {
+  traceKind: TraceKind;
+  affectedNodeIds: string[];
+  proposedPredicate?: Predicate;
+  rationale: string;
+  confidence: number;
+  agentModel: string;
+  promptVersion: string;
+  inputContext: unknown;
+  traceReviewStatus: TraceReviewStatus;
+  rejectionReason?: string;
+}
+
+export interface RationaleTrace {
+  id: string;
+  label: string;
+  metadata: RationaleTraceMetadata;
+}
+
+export interface CreateRationaleTraceInput {
+  traceKind: TraceKind;
+  affectedNodeIds: readonly string[];
+  proposedPredicate?: string;
+  rationale: string;
+  confidence: number;
+  agentModel: string;
+  promptVersion: string;
+  inputContext: unknown;
+}
+
+export interface ListRationaleTraceOptions {
+  projectId?: string;
+  includeRejected?: boolean;
 }
 
 interface FtsCapableStore extends GraphStore {
@@ -524,6 +563,131 @@ export async function getActivationReviewQueue(store: GraphStore, options: Revie
   return ok(items.slice(0, options.limit ?? items.length));
 }
 
+function traceFromNode(node: GraphNode): RationaleTrace {
+  return {
+    id: node.id,
+    label: node.label,
+    metadata: node.metadata as unknown as RationaleTraceMetadata,
+  };
+}
+
+function sortedUnique(values: readonly string[]): string[] {
+  return Array.from(new Set(values.filter(value => value.trim().length > 0))).sort();
+}
+
+export async function createRationaleTrace(
+  store: GraphStore,
+  input: CreateRationaleTraceInput,
+): Promise<Result<RationaleTrace>> {
+  const affectedNodeIds = sortedUnique(input.affectedNodeIds);
+  if (affectedNodeIds.length === 0) return { ok: false, error: new Error('RationaleTrace requires at least one affected node') };
+  for (const nodeId of affectedNodeIds) {
+    const node = await store.getNode(nodeId);
+    if (!node.ok) return node;
+    if (!node.value) return { ok: false, error: new Error(`Affected node not found: ${nodeId}`) };
+  }
+  const proposedPredicate = input.proposedPredicate;
+  if (proposedPredicate && !isPredicate(proposedPredicate)) {
+    return { ok: false, error: new Error(`Invalid proposed predicate: ${proposedPredicate}`) };
+  }
+  const validatedPredicate = proposedPredicate as Predicate | undefined;
+  const metadata: RationaleTraceMetadata = {
+    traceKind: input.traceKind,
+    affectedNodeIds,
+    ...(validatedPredicate ? { proposedPredicate: validatedPredicate } : {}),
+    rationale: input.rationale,
+    confidence: input.confidence,
+    agentModel: input.agentModel,
+    promptVersion: input.promptVersion,
+    inputContext: input.inputContext,
+    traceReviewStatus: 'open',
+  };
+  const traceId = stableHash('trace', [
+    input.traceKind,
+    affectedNodeIds.join('|'),
+    validatedPredicate ?? '',
+    input.rationale,
+    JSON.stringify(input.inputContext),
+  ]);
+  const upsert = await store.upsertNode('RationaleTrace', traceId, {
+    label: `${input.traceKind}: ${input.rationale.slice(0, 80)}`,
+    content: input.rationale,
+    metadata: metadata as unknown as Record<string, unknown>,
+  }, { detectNoop: true });
+  if (!upsert.ok) return upsert;
+  for (const nodeId of affectedNodeIds) {
+    const edge = await store.upsertEdge(traceId, 'relatedTo', nodeId, { metadata: { provisional: true } }, { detectNoop: true });
+    if (!edge.ok) return edge;
+  }
+  return ok(traceFromNode(upsert.value.node));
+}
+
+export async function getRationaleTrace(store: GraphStore, traceId: string): Promise<Result<RationaleTrace | null>> {
+  const node = await store.getNode(traceId);
+  if (!node.ok) return node;
+  if (!node.value || node.value.type !== 'RationaleTrace') return ok(null);
+  return ok(traceFromNode(node.value));
+}
+
+async function projectTraceNodeIds(store: GraphStore, projectId: string): Promise<Result<Set<string>>> {
+  const ids = new Set<string>([projectId]);
+  const taskEdges = await store.getEdges({ predicate: 'taskPartOfProject', object: projectId });
+  if (!taskEdges.ok) return taskEdges;
+  for (const edge of taskEdges.value.items) ids.add(edge.subject);
+  const motivated = await store.getEdges({ predicate: 'taskMotivatedBy' });
+  if (!motivated.ok) return motivated;
+  for (const edge of motivated.value.items) {
+    if (ids.has(edge.subject)) ids.add(edge.object);
+  }
+  return ok(ids);
+}
+
+export async function listRationaleTraces(
+  store: GraphStore,
+  options: ListRationaleTraceOptions = {},
+): Promise<Result<RationaleTrace[]>> {
+  const nodes = await allNodes(store, 'RationaleTrace');
+  if (!nodes.ok) return nodes;
+  const projectNodeIds = options.projectId ? await projectTraceNodeIds(store, options.projectId) : ok(null);
+  if (!projectNodeIds.ok) return projectNodeIds;
+  const traces = nodes.value
+    .map(traceFromNode)
+    .filter(trace => options.includeRejected || trace.metadata.traceReviewStatus === 'open')
+    .filter(trace => {
+      if (!projectNodeIds.value) return true;
+      return trace.metadata.affectedNodeIds.some(nodeId => projectNodeIds.value?.has(nodeId));
+    })
+    .sort((a, b) => {
+      if (a.metadata.confidence !== b.metadata.confidence) return b.metadata.confidence - a.metadata.confidence;
+      return a.id.localeCompare(b.id);
+    });
+  return ok(traces);
+}
+
+export async function rejectRationaleTrace(
+  store: GraphStore,
+  traceId: string,
+  reason?: string,
+): Promise<Result<RationaleTrace>> {
+  const existing = await store.getNode(traceId);
+  if (!existing.ok) return existing;
+  if (!existing.value || existing.value.type !== 'RationaleTrace') {
+    return { ok: false, error: new Error(`RationaleTrace not found: ${traceId}`) };
+  }
+  const metadata = {
+    ...(existing.value.metadata as Record<string, unknown>),
+    traceReviewStatus: 'rejected',
+    ...(reason ? { rejectionReason: reason } : {}),
+  };
+  const upsert = await store.upsertNode('RationaleTrace', traceId, {
+    label: existing.value.label,
+    content: existing.value.content,
+    metadata,
+  }, { detectNoop: true });
+  if (!upsert.ok) return upsert;
+  return ok(traceFromNode(upsert.value.node));
+}
+
 export async function buildProjectReentryDossier(store: GraphStore, projectId: string): Promise<Result<ProjectReentryDossier>> {
   const project = await store.getNode(projectId);
   if (!project.ok) return project;
@@ -558,6 +722,8 @@ export async function buildProjectReentryDossier(store: GraphStore, projectId: s
   }
   const reviewItems = await getActivationReviewQueue(store, { projectId, limit: 10 });
   if (!reviewItems.ok) return reviewItems;
+  const traces = await listRationaleTraces(store, { projectId });
+  if (!traces.ok) return traces;
   const dependencyEdges = await store.getEdges({ predicate: 'taskDependsOn' });
   if (!dependencyEdges.ok) return dependencyEdges;
   const taskMap = new Map(tasks.map(task => [task.task.id, task.task]));
@@ -589,6 +755,7 @@ export async function buildProjectReentryDossier(store: GraphStore, projectId: s
     tasks,
     blockers,
     reviewItems: reviewItems.value,
+    traces: traces.value,
     suggestedNextActions,
     provenance,
   });
@@ -606,6 +773,9 @@ export function renderProjectReentryMarkdown(dossier: ProjectReentryDossier): st
   }
   lines.push('', '## Review Items');
   for (const item of dossier.reviewItems) lines.push(`- ${item.reviewAxes.join('+')}: ${item.claimText}`);
+  lines.push('', '## Provisional Traces');
+  if (dossier.traces.length === 0) lines.push('- None');
+  for (const trace of dossier.traces) lines.push(`- ${trace.metadata.traceKind}: ${trace.metadata.rationale} (${trace.id})`);
   lines.push('', '## Blockers');
   if (dossier.blockers.length === 0) lines.push('- None');
   for (const blocker of dossier.blockers) lines.push(`- ${blocker.taskLabel} depends on ${blocker.blockedByTaskLabel}`);

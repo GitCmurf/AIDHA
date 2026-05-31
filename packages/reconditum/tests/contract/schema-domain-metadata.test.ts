@@ -8,6 +8,7 @@ import {
   ResourceMetadataSchema,
   ExcerptMetadataSchema,
   ClaimMetadataSchema,
+  RationaleTraceMetadataSchema,
   TaxonomyAssignmentMetadataSchema,
 } from '../../src/schema/index.js';
 
@@ -220,5 +221,41 @@ describe('ClaimMetadataSchema', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect((result.data as Record<string, unknown>)['customField']).toBe('value');
+  });
+});
+
+describe('RationaleTraceMetadataSchema', () => {
+  it('validates a minimal suggested-link trace', () => {
+    const result = RationaleTraceMetadataSchema.safeParse({
+      traceKind: 'suggested_link',
+      affectedNodeIds: ['claim-1', 'task-1'],
+      proposedPredicate: 'taskMotivatedBy',
+      rationale: 'The task appears to follow from the claim.',
+      confidence: 0.72,
+      agentModel: 'mock-acceptance-llm',
+      promptVersion: 'trace-v1',
+      inputContext: { projectId: 'project-1' },
+      traceReviewStatus: 'open',
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.proposedPredicate).toBe('taskMotivatedBy');
+  });
+
+  it('rejects invalid trace predicates and review states', () => {
+    const result = RationaleTraceMetadataSchema.safeParse({
+      traceKind: 'gap',
+      affectedNodeIds: ['claim-1'],
+      proposedPredicate: 'inventedPredicate',
+      rationale: 'Missing evidence.',
+      confidence: 0.5,
+      agentModel: 'mock-acceptance-llm',
+      promptVersion: 'trace-v1',
+      inputContext: {},
+      traceReviewStatus: 'pending',
+    });
+
+    expect(result.success).toBe(false);
   });
 });

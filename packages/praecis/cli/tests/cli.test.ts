@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import type { ComposedVector, IngestInput, LlmClient, PipelineServices, RunReport } from '@aidha/praecis-core';
+import { createRationaleTrace, type ComposedVector, type IngestInput, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
 import { InMemoryStore, SQLiteStore } from '@aidha/graph-backend';
 import { MockYouTubeClient } from '@aidha/ingestion-youtube';
 import {
@@ -869,6 +869,69 @@ describe('aidha cli phase-1 surface', () => {
         assignedAt: '2026-05-25T12:34:56.000Z',
         assignedBy: 'praecis-keyword-classifier',
       }]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it.runIf(SQLiteStore.isAvailable())('lists, shows, and rejects rationale traces through the CLI', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-traces-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+      ].join('\n'),
+    );
+    const store = SQLiteStore.open(dbPath);
+    let traceId = '';
+    try {
+      await store.upsertNode('Claim', 'claim-trace', {
+        label: 'Trace claim',
+        content: 'Trace claim',
+        metadata: { state: 'draft' },
+      });
+      const trace = await createRationaleTrace(store, {
+        traceKind: 'gap',
+        affectedNodeIds: ['claim-trace'],
+        rationale: 'Need a stronger source before acting.',
+        confidence: 0.65,
+        agentModel: 'mock-agent',
+        promptVersion: 'trace-v1',
+        inputContext: { projectId: 'project-alpha' },
+      });
+      expect(trace.ok).toBe(true);
+      if (!trace.ok) throw trace.error;
+      traceId = trace.value.id;
+    } finally {
+      await store.close();
+    }
+
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+    try {
+      expect(await runCli(['trace', 'list', '--json', '--config', configPath])).toBe(0);
+      const listed = JSON.parse(logs.splice(0).join('\n')) as Array<{ id: string }>;
+      expect(listed.map(item => item.id)).toEqual([traceId]);
+
+      expect(await runCli(['trace', 'show', traceId, '--json', '--config', configPath])).toBe(0);
+      const shown = JSON.parse(logs.splice(0).join('\n')) as { id: string };
+      expect(shown.id).toBe(traceId);
+
+      expect(await runCli(['trace', 'reject', traceId, '--reason', 'Not actionable', '--json', '--config', configPath])).toBe(0);
+      const rejected = JSON.parse(logs.splice(0).join('\n')) as { metadata: { traceReviewStatus: string; rejectionReason: string } };
+      expect(rejected.metadata.traceReviewStatus).toBe('rejected');
+      expect(rejected.metadata.rejectionReason).toBe('Not actionable');
+
+      expect(await runCli(['trace', 'list', '--json', '--config', configPath])).toBe(0);
+      expect(JSON.parse(logs.splice(0).join('\n'))).toEqual([]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

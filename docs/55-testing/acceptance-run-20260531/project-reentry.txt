@@ -12,6 +12,9 @@
 ## Review Items
 - editorial+routing: Activation planning converts captured knowledge into concrete next supports a reviewable activation claim.
 
+## Provisional Traces
+- None
+
 ## Blockers
 - None
 

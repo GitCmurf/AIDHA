@@ -3,9 +3,13 @@ import { InMemoryStore } from '@aidha/graph-backend';
 import {
   buildProjectReentryDossier,
   createActivationTaskFromClaim,
+  createRationaleTrace,
   getActivationReviewQueue,
   getActivationTaskContext,
+  getRationaleTrace,
+  listRationaleTraces,
   renderProjectReentryMarkdown,
+  rejectRationaleTrace,
   searchActivationClaims,
 } from '../../src/activation/index.js';
 
@@ -107,5 +111,81 @@ describe('activation helpers', () => {
     expect(dossier.value.tasks).toHaveLength(1);
     expect(dossier.value.claims[0]?.claimId).toBe('claim-web');
     expect(renderProjectReentryMarkdown(dossier.value)).toContain('Project Re-entry: project-alpha');
+  });
+
+  it('creates, lists, and rejects provisional rationale traces', async () => {
+    const store = await fixtureStore();
+    const createdTask = await createActivationTaskFromClaim(store, {
+      claimId: 'claim-web',
+      title: 'Implement activation loop',
+      projectId: 'project-alpha',
+    });
+    expect(createdTask.ok).toBe(true);
+    if (!createdTask.ok) throw createdTask.error;
+
+    const trace = await createRationaleTrace(store, {
+      traceKind: 'suggested_link',
+      affectedNodeIds: ['claim-web', createdTask.value.taskId],
+      proposedPredicate: 'taskMotivatedBy',
+      rationale: 'The task appears to implement the activation claim.',
+      confidence: 0.8,
+      agentModel: 'mock-agent',
+      promptVersion: 'trace-v1',
+      inputContext: { projectId: 'project-alpha' },
+    });
+    expect(trace.ok).toBe(true);
+    if (!trace.ok) throw trace.error;
+
+    const listed = await listRationaleTraces(store, { projectId: 'project-alpha' });
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) throw listed.error;
+    expect(listed.value.map(item => item.id)).toEqual([trace.value.id]);
+
+    const dossier = await buildProjectReentryDossier(store, 'project-alpha');
+    expect(dossier.ok).toBe(true);
+    if (!dossier.ok) throw dossier.error;
+    expect(renderProjectReentryMarkdown(dossier.value)).toContain('Provisional Traces');
+
+    const rejected = await rejectRationaleTrace(store, trace.value.id, 'Not useful yet');
+    expect(rejected.ok).toBe(true);
+    if (!rejected.ok) throw rejected.error;
+    expect(rejected.value.metadata.traceReviewStatus).toBe('rejected');
+
+    const hidden = await listRationaleTraces(store, { projectId: 'project-alpha' });
+    expect(hidden.ok).toBe(true);
+    if (!hidden.ok) throw hidden.error;
+    expect(hidden.value).toEqual([]);
+
+    const stored = await getRationaleTrace(store, trace.value.id);
+    expect(stored.ok).toBe(true);
+    if (!stored.ok) throw stored.error;
+    expect(stored.value?.metadata.rejectionReason).toBe('Not useful yet');
+  });
+
+  it('rejects traces with missing affected nodes or invalid predicates', async () => {
+    const store = await fixtureStore();
+
+    const missing = await createRationaleTrace(store, {
+      traceKind: 'gap',
+      affectedNodeIds: ['missing-claim'],
+      rationale: 'Missing source evidence.',
+      confidence: 0.4,
+      agentModel: 'mock-agent',
+      promptVersion: 'trace-v1',
+      inputContext: {},
+    });
+    expect(missing.ok).toBe(false);
+
+    const invalidPredicate = await createRationaleTrace(store, {
+      traceKind: 'suggested_link',
+      affectedNodeIds: ['claim-web'],
+      proposedPredicate: 'inventedPredicate',
+      rationale: 'Invented edge.',
+      confidence: 0.4,
+      agentModel: 'mock-agent',
+      promptVersion: 'trace-v1',
+      inputContext: {},
+    });
+    expect(invalidPredicate.ok).toBe(false);
   });
 });

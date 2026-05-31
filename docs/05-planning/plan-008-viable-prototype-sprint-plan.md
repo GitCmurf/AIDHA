@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-008
 owner: Product
 status: Draft
-version: "0.7"
+version: "0.8"
 last_updated: 2026-05-31
 title: Viable Prototype Sprint Plan
 type: PLAN
@@ -18,7 +18,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.7
+> **Version:** 0.8
 > **Last Updated:** 2026-05-31
 > **Type:** PLAN
 
@@ -35,6 +35,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 | 0.5     | 2026-05-31 | AI     | Tighten the routing-metadata split into an implementation default: `taxonomyVersion` remains per-assignment on `TagAssignment`, while claim-level routing review uses distinct `routingReviewStatus`/`routingReviewReason` Claim metadata validated in `domain-metadata.ts`; update Sprint 3 acceptance to remove residual taxonomy-contract ambiguity. | - | Draft | AIDHA-TASK-010 |
 | 0.6     | 2026-05-31 | AI     | Reconcile the sprint plan with the implemented activation tranche: generic activation helpers and CLI commands, strategy ratification, routing metadata, deterministic acceptance evidence, and the remaining ingest-backed demo, YouTube wrapper retirement, trace model, and pilot gates. | - | Draft | AIDHA-TASK-010 |
 | 0.7     | 2026-05-31 | AI     | Update the sprint status after the acceptance packet became ingest-backed through generic PDF and LinkedIn ingests using deterministic `--mock-llm` extraction. | - | Draft | AIDHA-TASK-010 |
+| 0.8     | 2026-05-31 | AI     | Record implementation of Sprint 4 minimal agentic traces: `RationaleTrace`, trace CLI list/show/reject, and provisional re-entry dossier output. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -91,10 +92,11 @@ The working tree now contains the first generic activation tranche. `@aidha/prae
 shared activation helpers, `@aidha/praecis-cli` exposes generic `query`, `task`, `review`, and
 `project reentry` commands, routing metadata has been typed at the agreed grains, and the strategy
 positions have been ratified in AIDHA-STRATEGY-002. The deterministic acceptance packet now runs
-generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry.
+generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry. Sprint
+4 now has a minimal `RationaleTrace` model and generic trace list/show/reject commands.
 
 The plan remains open because YouTube activation wrappers still need retirement or convergence,
-Sprint 4 `RationaleTrace` support is not implemented, and the Sprint 6 pilot has not been run.
+trace promotion remains deferred, and the Sprint 6 pilot has not been run.
 
 ### Strengths
 
