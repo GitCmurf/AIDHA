@@ -491,6 +491,35 @@
     }
   },
   {
+    "path": "05-planning/plan-008-viable-prototype-sprint-plan.md",
+    "title": "Viable Prototype Sprint Plan",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-008",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-05-30",
+      "title": "Viable Prototype Sprint Plan",
+      "type": "PLAN",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "keywords": [
+        "prototype",
+        "mvp",
+        "activation",
+        "re-entry",
+        "planning"
+      ],
+      "related_ids": [
+        "AIDHA-STRATEGY-002",
+        "AIDHA-STRAT-001",
+        "AIDHA-PLAN-002",
+        "AIDHA-PLAN-007",
+        "AIDHA-TASK-010"
+      ]
+    }
+  },
+  {
     "path": "05-planning/plan-005-user-configuration-profiles.md",
     "title": "User Configuration Profiles",
     "front_matter": {
@@ -789,15 +818,15 @@
   },
   {
     "path": "55-testing/eval-matrix/editorial-ablation-v1.md",
-    "title": "Editorial Ablation v1 — raw vs editorial-pass-v1",
+    "title": "Editorial Ablation v1 - raw vs editorial-pass-v1",
     "front_matter": {
-      "document_id": "AIDHA-EVAL-ABLATION-001",
+      "document_id": "AIDHA-TESTING-004",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "1.1",
-      "last_updated": "2026-05-15",
-      "title": "Editorial Ablation v1 — raw vs editorial-pass-v1 Delta Comparison",
-      "type": "EVAL",
+      "version": "1.2",
+      "last_updated": "2026-05-30",
+      "title": "Editorial Ablation v1 - raw vs editorial-pass-v1 Delta Comparison",
+      "type": "TESTING",
       "docops_version": "2.0"
     }
   },
@@ -819,11 +848,11 @@
     "path": "55-testing/eval-matrix/manual-baseline-no-harness.md",
     "title": "Manual Baseline (No Harness)",
     "front_matter": {
-      "document_id": "AIDHA-EVAL-MANUAL-BASELINE",
+      "document_id": "AIDHA-TESTING-003",
       "owner": "Ingestion Engineering Lead",
       "status": "Draft",
-      "version": "0.2",
-      "last_updated": "2026-03-15",
+      "version": "0.3",
+      "last_updated": "2026-05-30",
       "title": "Manual Baseline (No Harness)",
       "type": "TESTING",
       "docops_version": "2.0"
@@ -908,6 +937,33 @@
       "title": "Public Repository Readiness — Task List & Strategy",
       "type": "TASK",
       "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/tasks/task-010-viable-prototype-agent-workplan.md",
+    "title": "Task: Viable Prototype Agent Workplan",
+    "front_matter": {
+      "document_id": "AIDHA-TASK-010",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-05-30",
+      "title": "Viable Prototype Agent Workplan",
+      "type": "TASK",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "keywords": [
+        "prototype",
+        "mvp",
+        "agent-ready",
+        "activation",
+        "re-entry"
+      ],
+      "related_ids": [
+        "AIDHA-PLAN-008",
+        "AIDHA-STRATEGY-002",
+        "AIDHA-PLAN-007"
+      ]
     }
   },
   {

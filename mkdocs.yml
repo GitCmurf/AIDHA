@@ -34,6 +34,8 @@ nav:
   - Planning:
       - Engineering Tech Debt Backlog: 05-planning/tasks/task-007-tech-debt-backlog.md
       - Next Sprint Improvements: 05-planning/tasks/task-008-next-sprint-improvements.md
+      - Viable Prototype Sprint Plan: 05-planning/plan-008-viable-prototype-sprint-plan.md
+      - Viable Prototype Agent Workplan: 05-planning/tasks/task-010-viable-prototype-agent-workplan.md
   - DevEx & Tooling:
       - Initial Tools Roadmap: 60-devex/initial-tools-roadmap.md
       - Repository Structure: 60-devex/repo-structure.md

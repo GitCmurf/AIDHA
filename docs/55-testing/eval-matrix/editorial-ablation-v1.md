@@ -1,24 +1,24 @@
 ---
-document_id: AIDHA-EVAL-ABLATION-001
+document_id: AIDHA-TESTING-004
 owner: Ingestion Engineering Lead
 status: Draft
-version: "1.1"
-last_updated: 2026-05-15
-title: Editorial Ablation v1 — raw vs editorial-pass-v1 Delta Comparison
-type: EVAL
+version: "1.2"
+last_updated: 2026-05-30
+title: Editorial Ablation v1 - raw vs editorial-pass-v1 Delta Comparison
+type: TESTING
 docops_version: "2.0"
 ---
 
 <!-- markdownlint-disable MD013 -->
 
-> **Document ID:** AIDHA-EVAL-ABLATION-001
+> **Document ID:** AIDHA-TESTING-004
 > **Owner:** Ingestion Engineering Lead
 > **Status:** Draft
-> **Version:** 1.1
-> **Last Updated:** 2026-05-15
-> **Type:** EVAL
+> **Version:** 1.2
+> **Last Updated:** 2026-05-30
+> **Type:** TESTING
 
-# Editorial Ablation v1 — raw vs editorial-pass-v1
+# Editorial Ablation v1 - raw vs editorial-pass-v1
 
 ## Version History
 
@@ -26,6 +26,7 @@ docops_version: "2.0"
 | ------- | ---- | ------ | -------------- | ------ |
 | 1.0 | 2026-05-14 | AI-assisted | Initial write-up with methodology and expected delta patterns. | Draft |
 | 1.1 | 2026-05-15 | Codex | Aligned variant-delta comparisons to shared `judgeModelId` values so partial judge failures do not skew the metric. | Draft |
+| 1.2 | 2026-05-30 | AI | Align document ID and type with repository DocOps schema. | Draft |
 
 ## Purpose
 

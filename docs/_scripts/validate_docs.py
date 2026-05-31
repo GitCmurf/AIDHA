@@ -36,6 +36,17 @@ VERSION_HIST_RE = re.compile(r"^##\s+Version History\s*$", re.MULTILINE)
 TABLE_RE = re.compile(r"^\|\s*Version\s*\|", re.MULTILINE)
 
 
+def should_validate(p: pathlib.Path) -> bool:
+    if p.suffix.lower() != ".md":
+        return False
+    if p.name.startswith("WIP-"):
+        return False
+    rel = p.relative_to(DOCS)
+    if "_templates" in rel.parts:
+        return False
+    return True
+
+
 def validate_md(md_path: pathlib.Path) -> Tuple[bool, str]:
     text = md_path.read_text(encoding="utf-8", errors="ignore")
     if not YAML_RE.match(text):
@@ -62,8 +73,8 @@ def validate_catalog() -> Tuple[bool, str]:
 def main() -> int:
     failures = []
     for md in DOCS.rglob("*.md"):
-        # Skip nav/templates readmes that may intentionally differ
-        if any(p in {"_templates"} for p in md.parts):
+        # Skip temporary drafts and templates that are outside governed DocOps scope.
+        if not should_validate(md):
             continue
         ok, msg = validate_md(md)
         if not ok:

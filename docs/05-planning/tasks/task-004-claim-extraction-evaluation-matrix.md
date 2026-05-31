@@ -414,7 +414,7 @@ All open items are now complete as of 2026-05-14. No remaining work.
 
 ### Task 1.7: Capture independent manual baseline (no harness)
 
-- [x] **Task**: Create [`docs/55-testing/eval-matrix/manual-baseline-no-harness.md`] describing a manual procedure to extract claims directly via external UIs (Gemini web and/or ChatGPT UI) from a small subset of transcripts. *(Procedure doc and fixture directory exist; see AIDHA-EVAL-MANUAL-BASELINE v0.2.)*
+- [x] **Task**: Create [`docs/55-testing/eval-matrix/manual-baseline-no-harness.md`] describing a manual procedure to extract claims directly via external UIs (Gemini web and/or ChatGPT UI) from a small subset of transcripts. *(Procedure doc and fixture directory exist; see AIDHA-TESTING-003 v0.3.)*
 - [x] **Task**: Populate [`packages/praecis/youtube/tests/fixtures/eval-matrix/manual-baseline/`] with committed prompt template files and captured prompt/response snapshots for at least:
   - 2 videos (or 1 video with 2 distant segments: early and late)
   - 2 different external UIs/models (e.g., Gemini web and ChatGPT)

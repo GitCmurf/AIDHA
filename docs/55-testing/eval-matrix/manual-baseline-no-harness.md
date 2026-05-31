@@ -1,9 +1,9 @@
 ---
-document_id: AIDHA-EVAL-MANUAL-BASELINE
+document_id: AIDHA-TESTING-003
 owner: Ingestion Engineering Lead
 status: Draft
-version: "0.2"
-last_updated: 2026-03-15
+version: "0.3"
+last_updated: 2026-05-30
 title: Manual Baseline (No Harness)
 type: TESTING
 docops_version: "2.0"
@@ -12,12 +12,12 @@ docops_version: "2.0"
 <!-- markdownlint-disable MD013 MD031 -->
 <!-- MEMINIT_METADATA_BLOCK -->
 
-> **Document ID:** AIDHA-EVAL-MANUAL-BASELINE
+> **Document ID:** AIDHA-TESTING-003
 > **Owner:** Ingestion Engineering Lead
-> **Approvers:** —
+> **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-03-15
+> **Version:** 0.3
+> **Last Updated:** 2026-05-30
 > **Type:** TESTING
 
 # Manual Baseline (No Harness)
@@ -28,6 +28,7 @@ docops_version: "2.0"
 | ------- | ---------- | ----------- | --------------------------------------------------------------- | --------- | ------ | --------------------- |
 | 0.1     | 2026-03-09 | AI-assisted | Initial documentation                                           | —         | Draft  | AIDHA-TASK-004        |
 | 0.2     | 2026-03-15 | AI-assisted | Clarify canonical JSON gold hierarchy format                    | —         | Draft  | AIDHA-TASK-004        |
+| 0.3     | 2026-05-30 | AI          | Align document ID with repository DocOps schema                 | —         | Draft  | AIDHA-TESTING-003     |
 
 This document describes the procedure to extract claims directly via external UIs (Gemini web, ChatGPT) from transcripts, bypassing the AIDHA extraction harness.
 
