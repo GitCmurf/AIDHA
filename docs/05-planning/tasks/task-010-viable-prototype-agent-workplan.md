@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.10"
+version: "0.11"
 last_updated: 2026-06-01
 title: Viable Prototype Agent Workplan
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.10
+> **Version:** 0.11
 > **Last Updated:** 2026-06-01
 > **Type:** TASK
 
@@ -38,6 +38,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | 0.8     | 2026-05-31 | AI     | Record implementation of the minimal `RationaleTrace` graph model, trace list/show/reject commands, and provisional trace re-entry dossier section. | - | Draft | AIDHA-PLAN-008 |
 | 0.9     | 2026-06-01 | AI     | Record viable-prototype hardening: acceptance rerun evidence, YouTube task wrapper convergence on shared activation helpers, and the governed pilot evidence template. | - | Draft | AIDHA-PLAN-008 |
 | 0.10    | 2026-06-01 | AI     | Record pilot-readiness gates: generic JSON-LD export, acceptance packet JSON-LD evidence, and generic activation quickstart/runbook reconciliation. | - | Draft | AIDHA-PLAN-008 |
+| 0.11    | 2026-06-01 | AI     | Close stale owner-independent work-package ledger items and leave only pilot/baseline decisions open. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -93,6 +94,10 @@ Remaining gaps before this plan is closed:
 - Trace promotion remains intentionally deferred until approved-edge semantics are specified.
 - WP6 still needs a real two-project pilot before any viable-prototype baseline tag.
 
+Owner-independent implementation work through WP5 is now closed. The remaining open work requires
+human selection of a dormant project, an active project, and source material for a real pilot, then a
+go/no-go decision against AIDHA-TESTING-006.
+
 **Verified codebase anchors (confirmed 2026-06-01, re-verify before relying on them):**
 
 - Provenance addressing already uses the `Locator` discriminated union in
@@ -147,9 +152,9 @@ Remaining gaps before this plan is closed:
 
 **Acceptance criteria:**
 
-- [ ] Current activation gaps are listed with package/file references.
-- [ ] Test and docs-build results are recorded.
-- [ ] No implementation work starts from stale assumptions.
+- [x] Current activation gaps are listed with package/file references.
+- [x] Test and docs-build results are recorded.
+- [x] No implementation work starts from stale assumptions.
 
 ### T010-00-02: Build A Deterministic Viable-Prototype Demo Script
 
@@ -182,10 +187,10 @@ Remaining gaps before this plan is closed:
 
 **Acceptance criteria:**
 
-- [ ] One local command creates a fresh demonstration packet.
-- [ ] The command does not require network access.
-- [ ] The packet includes JSON summaries and human-readable notes.
-- [ ] Rerunning the command shows stable IDs and stable ordering for unchanged fixtures.
+- [x] One local command creates a fresh demonstration packet.
+- [x] The command does not require network access.
+- [x] The packet includes JSON summaries and human-readable notes.
+- [x] Rerunning the command shows stable IDs and stable ordering for unchanged fixtures.
 
 ## Work Package 0A: Strategy Ratification
 
@@ -221,7 +226,7 @@ Remaining gaps before this plan is closed:
 
 ### T010-01-01: Define Shared Activation Query Types
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Create a typed boundary for graph reads used by query, task, and re-entry commands.
 
@@ -255,16 +260,16 @@ Remaining gaps before this plan is closed:
 
 **Acceptance criteria:**
 
-- [ ] Activation query helpers return deterministic, sorted results.
-- [ ] Helpers follow provenance links from Claim to Excerpt to Resource.
-- [ ] Helpers work against in-memory and SQLite stores where relevant.
-- [ ] No source package imports are introduced into `praecis/core`.
-- [ ] Provenance is carried as the `Locator` union; no command-layer code reads bare `timestampUrl`/
+- [x] Activation query helpers return deterministic, sorted results.
+- [x] Helpers follow provenance links from Claim to Excerpt to Resource.
+- [x] Helpers work against in-memory and SQLite stores where relevant.
+- [x] No source package imports are introduced into `praecis/core`.
+- [x] Provenance is carried as the `Locator` union; no command-layer code reads bare `timestampUrl`/
   `timestampSeconds` fields outside the YouTube `timecode` projection.
 
 ### T010-01-02: Add Generic `aidha query`
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Query claims across all ingested source types from the generic CLI.
 
@@ -292,14 +297,14 @@ Remaining gaps before this plan is closed:
 
 **Acceptance criteria:**
 
-- [ ] Query works for claims created by more than one source vector.
-- [ ] `--json` output is stable and agent-readable.
-- [ ] Text output includes enough provenance to inspect the source.
-- [ ] Existing ingest/config commands continue to pass their tests.
+- [x] Query works for claims created by more than one source vector.
+- [x] `--json` output is stable and agent-readable.
+- [x] Text output includes enough provenance to inspect the source.
+- [x] Existing ingest/config commands continue to pass their tests.
 
 ### T010-01-03: Add Generic `aidha task create` And `aidha task show`
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Create and inspect Tasks from Claims through the generic CLI.
 
@@ -326,14 +331,14 @@ Remaining gaps before this plan is closed:
 
 **Acceptance criteria:**
 
-- [ ] Task creation is source-agnostic.
-- [ ] `task show` traces the Task back to Claim, Excerpt, and Resource.
-- [ ] JSON and text output are both tested.
-- [ ] Existing YouTube task tests are either preserved or superseded with generic tests.
+- [x] Task creation is source-agnostic.
+- [x] `task show` traces the Task back to Claim, Excerpt, and Resource.
+- [x] JSON and text output are both tested.
+- [x] Existing YouTube task tests are either preserved or superseded with generic tests.
 
 ### T010-01-04: Add Generic `aidha review next`
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Surface material needing attention across source types, along two distinct axes:
 editorial-state Claims (`draft`, per `domain-metadata.ts` `state`) and Claims whose routing is
@@ -352,15 +357,15 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] Review output works across source types.
-- [ ] Editorial state and routing-review status are reported as distinct axes, not one merged flag.
-- [ ] Output includes provenance and classification metadata.
+- [x] Review output works across source types.
+- [x] Editorial state and routing-review status are reported as distinct axes, not one merged flag.
+- [x] Output includes provenance and classification metadata.
 
 ## Work Package 2: Project Re-entry Dossier
 
 ### T010-02-01: Define `ProjectReentryDossier`
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Define the data model before rendering.
 
@@ -390,14 +395,14 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] The model can be generated from a fixture graph.
-- [ ] Every listed claim has source provenance.
-- [ ] Every listed task shows its motivating Claim when present.
-- [ ] The model is stable across reruns.
+- [x] The model can be generated from a fixture graph.
+- [x] Every listed claim has source provenance.
+- [x] Every listed task shows its motivating Claim when present.
+- [x] The model is stable across reruns.
 
 ### T010-02-02: Add `aidha project reentry`
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Provide the first user-facing "where was I?" command.
 
@@ -418,14 +423,14 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] The command answers what the user already knows about a project.
-- [ ] The command lists open tasks and their evidence.
-- [ ] Markdown and JSON output are deterministic.
-- [ ] The demo harness can call this command.
+- [x] The command answers what the user already knows about a project.
+- [x] The command lists open tasks and their evidence.
+- [x] Markdown and JSON output are deterministic.
+- [x] The demo harness can call this command.
 
 ### T010-02-03: Add Re-entry Dossier Export Evidence
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Make the new behavior demonstrable and reviewable.
 
@@ -442,15 +447,15 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] Golden output changes are intentional and reviewed.
-- [ ] Quickstart docs show the activation loop, not only ingestion.
-- [ ] `pnpm docs:build` passes.
+- [x] Golden output changes are intentional and reviewed.
+- [x] Quickstart docs show the activation loop, not only ingestion.
+- [x] `pnpm docs:build` passes.
 
 ## Work Package 3: Routing And Review Priority
 
 ### T010-03-01: Add Routing Metadata Contract
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Make provisional classification inspectable.
 
@@ -477,15 +482,15 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] Routing metadata is typed and validated.
-- [ ] Routing review status is distinguishable from a Claim's editorial `state` (no overloaded field).
-- [ ] Provisional and human-reviewed routing can be distinguished at the grain `review next` consumes.
-- [ ] Classifier tests cover confidence, source, and taxonomy version; routing/review tests cover
+- [x] Routing metadata is typed and validated.
+- [x] Routing review status is distinguishable from a Claim's editorial `state` (no overloaded field).
+- [x] Provisional and human-reviewed routing can be distinguished at the grain `review next` consumes.
+- [x] Classifier tests cover confidence, source, and taxonomy version; routing/review tests cover
   `routingReviewStatus` and `routingReviewReason` on Claim metadata.
 
 ### T010-03-02: Compute Review Priority
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Reserve user attention for high-leverage review.
 
@@ -506,15 +511,15 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] Low-confidence or action-implying items sort above low-value backlog.
-- [ ] Reason codes are visible in JSON output.
-- [ ] Priority computation is deterministic and testable offline.
+- [x] Low-confidence or action-implying items sort above low-value backlog.
+- [x] Reason codes are visible in JSON output.
+- [x] Priority computation is deterministic and testable offline.
 
 ## Work Package 4: Agentic Trace Model
 
 ### T010-04-01: Add Minimal Agentic Trace Graph Support
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Store suggested links and gaps without confusing them with human-approved graph structure.
 
@@ -556,14 +561,14 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] Agentic traces are inspectable as graph data.
-- [ ] Trace metadata distinguishes machine-suggested from human-approved structure.
-- [ ] Contract tests protect any new NodeType or Predicate.
-- [ ] Re-entry dossiers can include provisional traces under a clearly labelled section.
+- [x] Agentic traces are inspectable as graph data.
+- [x] Trace metadata distinguishes machine-suggested from human-approved structure.
+- [x] Contract tests protect any new NodeType or Predicate.
+- [x] Re-entry dossiers can include provisional traces under a clearly labelled section.
 
 ### T010-04-02: Add Trace Review Commands
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Make provisional traces manageable without a UI.
 
@@ -584,11 +589,11 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] Users can inspect and reject provisional traces.
-- [ ] Rejected traces remain auditable.
-- [ ] Promotion remains deferred unless a separate implementation task defines explicit durable-edge
+- [x] Users can inspect and reject provisional traces.
+- [x] Rejected traces remain auditable.
+- [x] Promotion remains deferred unless a separate implementation task defines explicit durable-edge
   semantics.
-- [ ] Rejection does not delete source claims, tasks, or Resources.
+- [x] Rejection does not delete source claims, tasks, or Resources.
 
 ## Work Package 5: Viability Quality Gates
 
@@ -772,11 +777,11 @@ the reason full package coverage was not necessary.
 
 This task is done when:
 
-- [ ] A no-network demo proves multi-source capture and cross-source activation.
-- [ ] Generic CLI supports query, task create/show, review next, and project re-entry.
-- [ ] Project re-entry dossier is deterministic and includes provenance-backed tasks.
-- [ ] Routing metadata distinguishes provisional machine placement from human-reviewed state.
-- [ ] Agentic traces are inspectable and not silently promoted to approved graph structure.
-- [ ] Strategy and user docs are reconciled with the implemented prototype.
+- [x] A no-network demo proves multi-source capture and cross-source activation.
+- [x] Generic CLI supports query, task create/show, review next, and project re-entry.
+- [x] Project re-entry dossier is deterministic and includes provenance-backed tasks.
+- [x] Routing metadata distinguishes provisional machine placement from human-reviewed state.
+- [x] Agentic traces are inspectable and not silently promoted to approved graph structure.
+- [x] Strategy and user docs are reconciled with the implemented prototype.
 - [ ] A pilot run provides evidence that the tool reduces re-derivation or identifies why it does
   not yet do so.

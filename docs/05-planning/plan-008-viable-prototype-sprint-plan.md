@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-008
 owner: Product
 status: Draft
-version: "0.10"
+version: "0.11"
 last_updated: 2026-06-01
 title: Viable Prototype Sprint Plan
 type: PLAN
@@ -18,7 +18,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.10
+> **Version:** 0.11
 > **Last Updated:** 2026-06-01
 > **Type:** PLAN
 
@@ -38,6 +38,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 | 0.8     | 2026-05-31 | AI     | Record implementation of Sprint 4 minimal agentic traces: `RationaleTrace`, trace CLI list/show/reject, and provisional re-entry dossier output. | - | Draft | AIDHA-TASK-010 |
 | 0.9     | 2026-06-01 | AI     | Record viable-prototype hardening: acceptance rerun evidence, YouTube task wrapper convergence on shared activation helpers, and the pilot evidence template. | - | Draft | AIDHA-TASK-010 |
 | 0.10    | 2026-06-01 | AI     | Record pilot-readiness gates: generic JSON-LD export, acceptance packet JSON-LD evidence, and generic activation quickstart/runbook reconciliation. | - | Draft | AIDHA-TASK-010 |
+| 0.11    | 2026-06-01 | AI     | Clarify that owner-independent pilot-readiness work is closed and Sprint 6 is the remaining decision gate. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -99,9 +100,10 @@ query, review, task, re-entry, and graph export. Sprint 4 now has a minimal `Rat
 and generic trace list/show/reject commands. The packet also records deterministic fresh-store rerun
 evidence, and YouTube claim-backed task commands now delegate to the shared activation helpers.
 
-The plan remains open because trace promotion remains deferred and the Sprint 6 pilot has not been
-run. AIDHA-TESTING-006 now provides the evidence template for that pilot, and the quickstart/runbook
-surface now points users from capture into generic activation.
+The owner-independent pilot-readiness work is now closed. The plan remains open because trace
+promotion remains intentionally deferred and the Sprint 6 pilot has not been run. AIDHA-TESTING-006
+provides the evidence template for that pilot, and the quickstart/runbook surface now points users
+from capture into generic activation.
 
 ### Strengths
 
@@ -366,6 +368,8 @@ between source vectors, graph semantics, and user-facing guarantees.
 ### Sprint 6: Personal-Use Pilot And Release Baseline
 
 **Goal:** Run the prototype against a realistic personal workflow and decide whether it is viable.
+
+**Status:** Open; requires owner/user selection of real project/source material.
 
 **Why now:** The product thesis must be tested against re-entry and action conversion, not only
 pipeline correctness.
