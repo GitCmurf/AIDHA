@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
+import { createActivationTaskFromClaim } from '@aidha/praecis-core';
 import {
   createTaskFromClaim,
   createTaskStandalone,
@@ -49,6 +50,42 @@ describe('Task workflow', () => {
     expect(edges.ok).toBe(true);
     if (!edges.ok) return;
     expect(edges.value.items.some(edge => edge.object === 'claim-1')).toBe(true);
+  });
+
+  it('uses the shared activation helper for claim-backed tasks', async () => {
+    const youtubeStore = new InMemoryStore();
+    const genericStore = new InMemoryStore();
+    try {
+      for (const targetStore of [youtubeStore, genericStore]) {
+        await targetStore.upsertNode('Claim', 'claim-shared', {
+          label: 'Route task activation through shared helpers',
+          metadata: { resourceId: 'youtube-test', videoId: 'test' },
+        });
+      }
+
+      const input = {
+        claimId: 'claim-shared',
+        title: 'Unify task activation',
+        projectId: 'inbox',
+        tags: ['activation'],
+      };
+      const youtubeResult = await createTaskFromClaim(youtubeStore, input);
+      const genericResult = await createActivationTaskFromClaim(genericStore, input);
+      expect(youtubeResult.ok).toBe(true);
+      expect(genericResult.ok).toBe(true);
+      if (!youtubeResult.ok || !genericResult.ok) return;
+
+      expect(youtubeResult.value).toEqual(genericResult.value);
+      const youtubeTask = await youtubeStore.getNode(youtubeResult.value.taskId);
+      const genericTask = await genericStore.getNode(genericResult.value.taskId);
+      expect(youtubeTask.ok).toBe(true);
+      expect(genericTask.ok).toBe(true);
+      if (!youtubeTask.ok || !genericTask.ok) return;
+      expect(youtubeTask.value?.metadata).toEqual(genericTask.value?.metadata);
+    } finally {
+      await youtubeStore.close();
+      await genericStore.close();
+    }
   });
 
   it('returns task context with claim excerpt details', async () => {

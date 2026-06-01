@@ -50,4 +50,7 @@ Commands:
 Defaults:
   --db ./out/aidha.sqlite
   --out ./out/dossier-youtube-<id>.md
+
+Activation:
+  aidha task create/show is the canonical generic task surface; aidha-youtube task is retained for YouTube-specific workflows.
 `;

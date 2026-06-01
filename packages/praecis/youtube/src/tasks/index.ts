@@ -1,9 +1,13 @@
 import type { GraphNode, GraphStore, NodeDataInput } from '@aidha/graph-backend';
 import type { Result } from '../pipeline/types.js';
-import { hashId } from '@aidha/praecis-core';
-import { buildTimestampUrl, formatTimestamp, toNumber } from '@aidha/praecis-core';
+import {
+  createActivationTaskFromClaim,
+  DEFAULT_INBOX_PROJECT_ID,
+  getActivationTaskContext,
+  hashId,
+} from '@aidha/praecis-core';
 
-export const DEFAULT_INBOX_PROJECT_ID = 'project-inbox';
+export { DEFAULT_INBOX_PROJECT_ID } from '@aidha/praecis-core';
 
 export interface TaskCreateInput {
   claimId: string;
@@ -52,13 +56,6 @@ function normalizeProjectId(projectId?: string): string {
 function normalizeTagId(tag: string): string {
   const slug = tag.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return slug.length > 0 ? `tag-${slug}` : hashId('tag', [tag]);
-}
-
-function truncate(text: string | undefined, max = 220): string | undefined {
-  if (!text) return undefined;
-  const trimmed = text.replace(/\s+/g, ' ').trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 1)}…`;
 }
 
 async function ensureProject(store: GraphStore, projectId: string): Promise<Result<{ node: GraphNode; created: boolean }>> {
@@ -110,76 +107,7 @@ export async function createTaskFromClaim(
   store: GraphStore,
   input: TaskCreateInput
 ): Promise<Result<TaskCreateResult>> {
-  const claimResult = await store.getNode(input.claimId);
-  if (!claimResult.ok) return claimResult;
-  if (!claimResult.value) {
-    return { ok: false, error: new Error(`Claim not found: ${input.claimId}`) };
-  }
-  if (claimResult.value.type !== 'Claim') {
-    return { ok: false, error: new Error(`Node is not a Claim: ${input.claimId}`) };
-  }
-
-  const projectId = normalizeProjectId(input.projectId);
-  const projectResult = await ensureProject(store, projectId);
-  if (!projectResult.ok) return projectResult;
-
-  const title = input.title?.trim().length ? input.title.trim() : claimResult.value.label;
-  const taskId = hashId('task', [projectId, input.claimId, title]);
-
-  const taskData: NodeDataInput = {
-    label: title,
-    content: title,
-    metadata: {
-      projectId,
-      sourceClaimId: input.claimId,
-      status: 'open',
-    },
-  };
-  const taskUpsert = await store.upsertNode('Task', taskId, taskData, { detectNoop: true });
-  if (!taskUpsert.ok) return taskUpsert;
-
-  const edge1 = await store.upsertEdge(
-    taskId,
-    'taskMotivatedBy',
-    input.claimId,
-    { metadata: {} },
-    { detectNoop: true }
-  );
-  if (!edge1.ok) return edge1;
-
-  const edge2 = await store.upsertEdge(
-    taskId,
-    'taskPartOfProject',
-    projectId,
-    { metadata: {} },
-    { detectNoop: true }
-  );
-  if (!edge2.ok) return edge2;
-
-  const tags = input.tags ?? [];
-  for (const tag of tags) {
-    if (!tag.trim()) continue;
-    const tagResult = await ensureTag(store, tag);
-    if (!tagResult.ok) return tagResult;
-    const edge = await store.upsertEdge(
-      taskId,
-      'aboutTag',
-      tagResult.value.id,
-      { metadata: {} },
-      { detectNoop: true }
-    );
-    if (!edge.ok) return edge;
-  }
-
-  return {
-    ok: true,
-    value: {
-      taskId,
-      projectId,
-      createdProject: projectResult.value.created,
-      createdTask: taskUpsert.value.created,
-    },
-  };
+  return createActivationTaskFromClaim(store, input);
 }
 
 export async function createTaskStandalone(
@@ -242,87 +170,29 @@ export async function createTaskStandalone(
 }
 
 export async function getTaskContext(store: GraphStore, taskId: string): Promise<Result<TaskContext>> {
-  const taskResult = await store.getNode(taskId);
-  if (!taskResult.ok) return taskResult;
-  if (!taskResult.value) {
-    return { ok: false, error: new Error(`Task not found: ${taskId}`) };
-  }
-
-  const projectEdge = await store.getEdges({ predicate: 'taskPartOfProject', subject: taskId });
-  if (!projectEdge.ok) return projectEdge;
-  const projectId = projectEdge.value.items[0]?.object;
-  const projectResult: Result<GraphNode | null> = projectId
-    ? await store.getNode(projectId)
-    : { ok: true, value: null };
-  if (!projectResult.ok) return projectResult;
-
-  const tagEdges = await store.getEdges({ predicate: 'aboutTag', subject: taskId });
-  if (!tagEdges.ok) return tagEdges;
-  const tags: GraphNode[] = [];
-  for (const edge of tagEdges.value.items) {
-    const tagResult = await store.getNode(edge.object);
-    if (!tagResult.ok) return tagResult;
-    if (tagResult.value) tags.push(tagResult.value);
-  }
-
-  const claimEdges = await store.getEdges({ predicate: 'taskMotivatedBy', subject: taskId });
-  if (!claimEdges.ok) return claimEdges;
-
-  const claims: TaskClaimContext[] = [];
-  for (const edge of claimEdges.value.items) {
-    const claimResult = await store.getNode(edge.object);
-    if (!claimResult.ok) return claimResult;
-    if (!claimResult.value) continue;
-    const claim = claimResult.value;
-
-    const excerptEdges = await store.getEdges({ predicate: 'claimDerivedFrom', subject: claim.id });
-    if (!excerptEdges.ok) return excerptEdges;
-    const excerpts: GraphNode[] = [];
-    for (const excerptEdge of excerptEdges.value.items) {
-      const excerptResult = await store.getNode(excerptEdge.object);
-      if (!excerptResult.ok) return excerptResult;
-      if (excerptResult.value) excerpts.push(excerptResult.value);
-    }
-    const excerpt = excerpts.sort((a, b) => {
-      const aStart = toNumber(a.metadata?.['start'], 0);
-      const bStart = toNumber(b.metadata?.['start'], 0);
-      if (aStart !== bStart) return aStart - bStart;
-      return a.id.localeCompare(b.id);
-    })[0];
-
-    const resourceId = claim.metadata?.['resourceId'] as string | undefined;
-    const resourceResult: Result<GraphNode | null> = resourceId
-      ? await store.getNode(resourceId)
-      : { ok: true, value: null };
-    if (!resourceResult.ok) return resourceResult;
-    const resource = resourceResult.value ?? undefined;
-
-    const startSeconds = excerpt ? toNumber(excerpt.metadata?.['start'], 0) : undefined;
-    const baseUrl = (resource?.metadata?.['url'] as string | undefined) ??
-      (resourceId ? `https://www.youtube.com/watch?v=${resourceId.replace('youtube-', '')}` : '');
-    const timestampUrl = baseUrl && typeof startSeconds === 'number'
-      ? buildTimestampUrl(baseUrl, startSeconds)
-      : undefined;
-
-    claims.push({
-      claimId: claim.id,
-      claimText: (claim.content ?? claim.label).trim(),
-      excerptText: truncate(excerpt?.content),
-      timestampSeconds: startSeconds,
-      timestampLabel: typeof startSeconds === 'number' ? formatTimestamp(startSeconds) : undefined,
-      timestampUrl,
-      resourceTitle: resource?.label,
-      resourceUrl: baseUrl || undefined,
-    });
-  }
+  const context = await getActivationTaskContext(store, taskId);
+  if (!context.ok) return context;
+  const claims: TaskClaimContext[] = context.value.claims.map(claim => {
+    const timecode = claim.locator?.kind === 'timecode' ? claim.locator : undefined;
+    return {
+      claimId: claim.claimId,
+      claimText: claim.claimText,
+      excerptText: claim.excerptText,
+      timestampSeconds: timecode?.startSec,
+      timestampLabel: timecode ? claim.locatorDisplay?.label : undefined,
+      timestampUrl: timecode ? claim.locatorDisplay?.url : undefined,
+      resourceTitle: claim.resourceTitle,
+      resourceUrl: claim.locatorDisplay?.url,
+    };
+  });
 
   return {
     ok: true,
     value: {
-      task: taskResult.value,
-      project: projectResult.value ?? undefined,
+      task: context.value.task,
+      project: context.value.project,
       claims,
-      tags,
+      tags: context.value.tags,
     },
   };
 }
