@@ -239,6 +239,33 @@
     }
   },
   {
+    "path": "55-testing/testing-006-viable-prototype-pilot-evidence-template.md",
+    "title": "Testing: Viable Prototype Pilot Evidence Template",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-006",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-06-01",
+      "title": "Viable Prototype Pilot Evidence Template",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "keywords": [
+        "prototype",
+        "pilot",
+        "activation",
+        "re-entry",
+        "evidence"
+      ],
+      "related_ids": [
+        "AIDHA-PLAN-008",
+        "AIDHA-TASK-010",
+        "AIDHA-TESTING-005"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-001-mvp-tests.md",
     "title": "MVP Test Suite Map and Hardening Coverage",
     "front_matter": {
@@ -497,8 +524,8 @@
       "document_id": "AIDHA-PLAN-008",
       "owner": "Product",
       "status": "Draft",
-      "version": "0.8",
-      "last_updated": "2026-05-31",
+      "version": "0.9",
+      "last_updated": "2026-06-01",
       "title": "Viable Prototype Sprint Plan",
       "type": "PLAN",
       "docops_version": "2.0",
@@ -970,8 +997,8 @@
       "document_id": "AIDHA-TASK-010",
       "owner": "Product",
       "status": "Draft",
-      "version": "0.8",
-      "last_updated": "2026-05-31",
+      "version": "0.9",
+      "last_updated": "2026-06-01",
       "title": "Viable Prototype Agent Workplan",
       "type": "TASK",
       "docops_version": "2.0",

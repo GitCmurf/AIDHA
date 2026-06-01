@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-008
 owner: Product
 status: Draft
-version: "0.8"
-last_updated: 2026-05-31
+version: "0.9"
+last_updated: 2026-06-01
 title: Viable Prototype Sprint Plan
 type: PLAN
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.8
-> **Last Updated:** 2026-05-31
+> **Version:** 0.9
+> **Last Updated:** 2026-06-01
 > **Type:** PLAN
 
 # Viable Prototype Sprint Plan
@@ -36,6 +36,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 | 0.6     | 2026-05-31 | AI     | Reconcile the sprint plan with the implemented activation tranche: generic activation helpers and CLI commands, strategy ratification, routing metadata, deterministic acceptance evidence, and the remaining ingest-backed demo, YouTube wrapper retirement, trace model, and pilot gates. | - | Draft | AIDHA-TASK-010 |
 | 0.7     | 2026-05-31 | AI     | Update the sprint status after the acceptance packet became ingest-backed through generic PDF and LinkedIn ingests using deterministic `--mock-llm` extraction. | - | Draft | AIDHA-TASK-010 |
 | 0.8     | 2026-05-31 | AI     | Record implementation of Sprint 4 minimal agentic traces: `RationaleTrace`, trace CLI list/show/reject, and provisional re-entry dossier output. | - | Draft | AIDHA-TASK-010 |
+| 0.9     | 2026-06-01 | AI     | Record viable-prototype hardening: acceptance rerun evidence, YouTube task wrapper convergence on shared activation helpers, and the pilot evidence template. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -86,17 +87,19 @@ Implementation evidence reviewed:
 
 ## Current Assessment
 
-### Post-Tranche Note (2026-05-31)
+### Post-Tranche Note (2026-06-01)
 
 The working tree now contains the first generic activation tranche. `@aidha/praecis-core` exposes
 shared activation helpers, `@aidha/praecis-cli` exposes generic `query`, `task`, `review`, and
 `project reentry` commands, routing metadata has been typed at the agreed grains, and the strategy
 positions have been ratified in AIDHA-STRATEGY-002. The deterministic acceptance packet now runs
 generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry. Sprint
-4 now has a minimal `RationaleTrace` model and generic trace list/show/reject commands.
+4 now has a minimal `RationaleTrace` model and generic trace list/show/reject commands. The packet
+also records deterministic fresh-store rerun evidence, and YouTube claim-backed task commands now
+delegate to the shared activation helpers.
 
-The plan remains open because YouTube activation wrappers still need retirement or convergence,
-trace promotion remains deferred, and the Sprint 6 pilot has not been run.
+The plan remains open because trace promotion remains deferred and the Sprint 6 pilot has not been
+run. AIDHA-TESTING-006 now provides the evidence template for that pilot.
 
 ### Strengths
 
@@ -111,10 +114,10 @@ trace promotion remains deferred, and the Sprint 6 pilot has not been run.
 
 ### Gaps That Block A Genuinely Viable MVP
 
-1. **Activation is now partially generic, but not yet ingest-proven end to end.** The generic `aidha`
-   CLI can ingest across vectors and now exposes query, review, task, and project re-entry commands,
-   but the acceptance path still seeds graph facts directly and the YouTube activation wrappers need
-   convergence or retirement.
+1. **Activation is now generic enough for a real pilot, but not yet proven in personal use.** The
+   generic `aidha` CLI can ingest across vectors and now exposes query, review, task, and project
+   re-entry commands. The acceptance path runs generic PDF and LinkedIn ingests with a mock LLM and
+   deterministic rerun evidence, but the two-project real-use pilot has not yet been run.
 2. **The operational graph is under-surfaced.** Node and predicate support exists for Project, Goal,
    Area, Task, and task provenance, but the user cannot yet rely on one cross-vector flow to answer:
    "What did I already know, what did I decide, and what should I do next?"
@@ -126,9 +129,9 @@ trace promotion remains deferred, and the Sprint 6 pilot has not been run.
 4. **Agentic traces are not yet first-class.** The strategy calls for inspectable suggested links,
    gaps, and rationale traces that are distinct from human-approved structure.
 5. **Demonstrability is improving but still not at the final bar.** A deterministic activation
-   packet now proves query -> review -> task -> re-entry on a clean local store; the remaining bar is
-   capture -> route -> re-entry -> task -> export through two generic ingest vectors with a mock
-   model.
+   packet now proves capture -> query -> review -> task -> re-entry through two generic ingest
+   vectors with a mock model; the remaining bar is real pilot evidence that this reduces
+   re-derivation in at least one workflow.
 6. **Planning and strategy drift are reduced, but docs must keep following implementation.**
    AIDHA-STRATEGY-002 now records the ratified prototype positions; quickstarts and runbooks still
    need to shift from the YouTube-only mental model to the generic activation surface where parity
@@ -466,6 +469,8 @@ changes the decision in this plan or a linked ADR.
 | Strategy reconciliation timing | Promote the resolved owner-response positions in parallel with Sprint 0, before Sprint 1 implementation branches are treated as ready for review. | Add Sprint 0A. Sprint 5 keeps quickstart/runbook reconciliation, but the strategic thesis must be governed before activation code relies on it. |
 | Agentic trace scope | Split agentic traces out of routing/review-priority work. Sprint 3 handles routing and review priority; Sprint 4 handles trace graph semantics. Start with one `RationaleTrace` node model, not a family of trace node/predicate types. | Durable graph-contract changes for traces receive isolated tests and review. The re-entry dossier ships first using current graph blockers (`taskDependsOn`) and later gains a provisional trace section. |
 | Pilot go/no-go bar | Treat the two-project pilot as directional product evidence, not a statistical claim. Pre-register a minimum viability bar before running it. | The prototype baseline can be tagged only if at least one pilot project yields a justified next action without reopening the original sources, at least one created/open task traces to Claim -> Excerpt -> Resource provenance, and the release note records both useful and noisy outputs. |
+
+Use AIDHA-TESTING-006 as the governed evidence template for the two-project pilot.
 
 ### Pilot Viability Bar
 

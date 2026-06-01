@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.8"
-last_updated: 2026-05-31
+version: "0.9"
+last_updated: 2026-06-01
 title: Viable Prototype Agent Workplan
 type: TASK
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.8
-> **Last Updated:** 2026-05-31
+> **Version:** 0.9
+> **Last Updated:** 2026-06-01
 > **Type:** TASK
 
 # Task: Viable Prototype Agent Workplan
@@ -36,6 +36,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | 0.6     | 2026-05-31 | AI     | Reconcile with the implemented activation tranche: record generic query/task/review/re-entry helpers, the deterministic acceptance packet, the ratified strategy revision, and the remaining ingest-backed demo and trace-model work; make trace review statuses, IDs, edge usage, and command semantics decision-complete. | - | Draft | AIDHA-PLAN-008 |
 | 0.7     | 2026-05-31 | AI     | Record the ingest-backed acceptance update: the viable prototype packet now runs generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry. | - | Draft | AIDHA-PLAN-008 |
 | 0.8     | 2026-05-31 | AI     | Record implementation of the minimal `RationaleTrace` graph model, trace list/show/reject commands, and provisional trace re-entry dossier section. | - | Draft | AIDHA-PLAN-008 |
+| 0.9     | 2026-06-01 | AI     | Record viable-prototype hardening: acceptance rerun evidence, YouTube task wrapper convergence on shared activation helpers, and the governed pilot evidence template. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -61,7 +62,7 @@ capture source -> extract claims -> route/review -> query project context -> cre
 - Update docs and validation evidence in the same PR as behavior changes.
 - Record exact commands run in the PR and in this task when a work package is closed.
 
-## Current Implementation Status (2026-05-31)
+## Current Implementation Status (2026-06-01)
 
 The first activation tranche has landed in the working tree and should be treated as the baseline for
 subsequent agents:
@@ -75,14 +76,15 @@ subsequent agents:
   metadata carries `routingReviewStatus`, `routingReviewReason`, and `reviewPriority`.
 - `scripts/acceptance/viable-prototype-activation.mjs` writes a deterministic no-network packet
   under `docs/55-testing/acceptance-run-<date>/` after running generic PDF and LinkedIn ingests with
-  `--mock-llm`.
+  `--mock-llm`; the packet now validates committed artifacts and records fresh-store rerun evidence.
 - WP4 now has a minimal `RationaleTrace` node model, core helpers, trace list/show/reject commands,
   and a provisional trace section in project re-entry dossiers.
+- YouTube claim-backed task commands delegate to the shared activation helpers while the generic
+  `aidha task` command remains the canonical activation surface.
+- AIDHA-TESTING-006 provides the governed evidence template for the two-project pilot.
 
 Remaining gaps before this plan is closed:
 
-- The YouTube activation surface has not yet been fully retired as wrappers over the shared generic
-  helpers.
 - Trace promotion remains intentionally deferred until approved-edge semantics are specified.
 - WP6 still needs a real two-project pilot before any viable-prototype baseline tag.
 
@@ -664,6 +666,28 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 - [ ] WIP strategy content is either promoted or clearly superseded.
 
 ## Work Package 6: Pilot And Release Baseline
+
+### T010-06-00: Prepare Pilot Evidence Template
+
+**Status:** Implemented
+
+**Goal:** Make the two-project pilot executable and auditable before it is run.
+
+**Steps:**
+
+1. Add a governed testing template under `docs/55-testing/`.
+2. Capture the dormant-project and active-project evidence fields needed by the AIDHA-PLAN-008
+   viability bar.
+3. Include command transcript, re-entry dossier, task provenance, noise/missing-evidence, and
+   go/no-go sections.
+4. Link the template from AIDHA-PLAN-008 and this task.
+5. Run scoped DocOps checks and `pnpm docs:build`.
+
+**Acceptance criteria:**
+
+- [x] AIDHA-TESTING-006 exists as a governed pilot evidence template.
+- [x] The template records both useful activation evidence and noisy or missing outputs.
+- [x] The template maps directly to the pre-registered pilot viability bar.
 
 ### T010-06-01: Run A Personal-Use Pilot
 
