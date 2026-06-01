@@ -331,6 +331,7 @@ describe('runEmailBatch', () => {
       source: 'automatic',
       assignedAt: '2026-05-25T12:34:56.000Z',
       assignedBy: 'praecis-keyword-classifier',
+      taxonomyVersion: expect.any(String),
     }]);
     await store.close();
   });
