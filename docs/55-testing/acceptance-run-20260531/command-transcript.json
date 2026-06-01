@@ -100,5 +100,17 @@
     "code": 0,
     "stdout": "Wrote re-entry dossier: docs/55-testing/acceptance-run-20260531/project-reentry.txt",
     "stderr": ""
+  },
+  {
+    "args": [
+      "export",
+      "graph",
+      "--jsonld",
+      "--out",
+      "docs/55-testing/acceptance-run-20260531/graph-export.jsonld"
+    ],
+    "code": 0,
+    "stdout": "Wrote JSON-LD graph export: docs/55-testing/acceptance-run-20260531/graph-export.jsonld",
+    "stderr": ""
   }
 ]

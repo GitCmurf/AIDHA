@@ -1,0 +1,242 @@
+{
+  "@context": {
+    "@vocab": "https://aidha.dev/graph/",
+    "schema": "https://schema.org/",
+    "id": "@id",
+    "type": "@type",
+    "label": "schema:name",
+    "content": "schema:description",
+    "createdAt": {
+      "@id": "schema:dateCreated",
+      "@type": "schema:DateTime"
+    },
+    "updatedAt": {
+      "@id": "schema:dateModified",
+      "@type": "schema:DateTime"
+    },
+    "relatedTo": {
+      "@type": "@id"
+    },
+    "partOf": {
+      "@type": "@id"
+    },
+    "references": {
+      "@type": "@id"
+    },
+    "derivedFrom": {
+      "@type": "@id"
+    },
+    "createdBy": {
+      "@type": "@id"
+    },
+    "taggedWith": {
+      "@type": "@id"
+    },
+    "supersedes": {
+      "@type": "@id"
+    },
+    "resourceHasExcerpt": {
+      "@type": "@id"
+    },
+    "claimDerivedFrom": {
+      "@type": "@id"
+    },
+    "claimMentionsReference": {
+      "@type": "@id"
+    },
+    "aboutTag": {
+      "@type": "@id"
+    },
+    "taskMotivatedBy": {
+      "@type": "@id"
+    },
+    "taskPartOfProject": {
+      "@type": "@id"
+    },
+    "projectServesGoal": {
+      "@type": "@id"
+    },
+    "projectInArea": {
+      "@type": "@id"
+    },
+    "taskDependsOn": {
+      "@type": "@id"
+    },
+    "schemaVersion": "https://aidha.dev/graph/schemaVersion"
+  },
+  "schemaVersion": 1,
+  "@graph": [
+    {
+      "@id": "urn:aidha:node:claim:654b51e975ee513e",
+      "@type": "Claim",
+      "schemaVersion": 1,
+      "label": "Project re-entry needs task provenance back to claims supports a reviewable acti",
+      "content": "Project re-entry needs task provenance back to claims supports a reviewable activation claim.",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "chunkIndex": 0,
+      "classification": "fact",
+      "confidence": 0.84,
+      "echoOverlapRatio": 0.6153846153846154,
+      "evidenceType": "direct",
+      "method": "llm",
+      "model": "mock-acceptance-llm",
+      "promptVersion": "acceptance-v1:pack:generic-hierarchy:generic-hierarchy-v2",
+      "resourceId": "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927",
+      "state": "draft",
+      "why": "Deterministic mock extraction keeps generic CLI and acceptance tests offline.",
+      "claimDerivedFrom": "urn:aidha:node:pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:0609602efda0f5e7"
+    },
+    {
+      "@id": "urn:aidha:node:claim:f4f79a97976eb9ff",
+      "@type": "Claim",
+      "schemaVersion": 1,
+      "label": "Activation planning converts captured knowledge into concrete next supports a re",
+      "content": "Activation planning converts captured knowledge into concrete next supports a reviewable activation claim.",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "chunkIndex": 0,
+      "classification": "fact",
+      "confidence": 0.84,
+      "echoOverlapRatio": 0.3333333333333333,
+      "evidenceType": "direct",
+      "method": "llm",
+      "model": "mock-acceptance-llm",
+      "promptVersion": "acceptance-v1:pack:generic-hierarchy:generic-hierarchy-v2",
+      "resourceId": "linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa",
+      "state": "draft",
+      "why": "Deterministic mock extraction keeps generic CLI and acceptance tests offline.",
+      "claimDerivedFrom": "urn:aidha:node:linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa:excerpt:fafc663e74b77930"
+    },
+    {
+      "@id": "urn:aidha:node:linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa",
+      "@type": "Resource",
+      "schemaVersion": 1,
+      "label": "LinkedIn paste",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "canonicalId": "linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa",
+      "contentHash": "<content-hash>",
+      "dedupKeys": [
+        "linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa",
+        "https://linkedin.example.test/posts/activation-prototype"
+      ],
+      "paragraphCount": 1,
+      "provenances": [
+        {
+          "ingestedAt": "<timestamp>",
+          "sourceType": "linkedin",
+          "sourceUri": "https://linkedin.example.test/posts/activation-prototype"
+        }
+      ],
+      "sourceType": "linkedin",
+      "url": "https://linkedin.example.test/posts/activation-prototype",
+      "resourceHasExcerpt": "urn:aidha:node:linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa:excerpt:fafc663e74b77930"
+    },
+    {
+      "@id": "urn:aidha:node:linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa:excerpt:fafc663e74b77930",
+      "@type": "Excerpt",
+      "schemaVersion": 1,
+      "label": "<stable-excerpt-id>",
+      "content": "Activation planning converts captured knowledge into concrete next actions. Project re-entry should keep task provenance tied back to claims and sources.",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "locator": {
+        "charEnd": 153,
+        "charStart": 0,
+        "kind": "text"
+      },
+      "resourceId": "linkedin:e19d6850ec3d024531a07ac4839feeb884712a55182944bd1300eb70a7e844aa",
+      "sequence": 0
+    },
+    {
+      "@id": "urn:aidha:node:pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927",
+      "@type": "Resource",
+      "schemaVersion": 1,
+      "label": "fixture-prototype.pdf",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "canonicalId": "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927",
+      "dedupKeys": [
+        "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927",
+        "<content-hash>",
+        "docs/55-testing/acceptance-run-20260531/fixture-prototype.pdf"
+      ],
+      "documentKind": "slides",
+      "filePath": "docs/55-testing/acceptance-run-20260531/fixture-prototype.pdf",
+      "pageCount": 2,
+      "provenances": [
+        {
+          "ingestedAt": "<timestamp>",
+          "sourceType": "pdf",
+          "sourceUri": "docs/55-testing/acceptance-run-20260531/fixture-prototype.pdf"
+        }
+      ],
+      "sha256": "<content-hash>",
+      "sourceType": "pdf",
+      "title": "fixture-prototype.pdf",
+      "resourceHasExcerpt": [
+        "urn:aidha:node:pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:0609602efda0f5e7",
+        "urn:aidha:node:pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:f3ec140d078c0278"
+      ]
+    },
+    {
+      "@id": "urn:aidha:node:pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:0609602efda0f5e7",
+      "@type": "Excerpt",
+      "schemaVersion": 1,
+      "label": "<stable-excerpt-id>",
+      "content": "Project re-entry needs task provenance back to claims and sources.",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "locator": {
+        "charEnd": 66,
+        "charStart": 0,
+        "kind": "page",
+        "page": 1
+      },
+      "resourceId": "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927",
+      "sequence": 0
+    },
+    {
+      "@id": "urn:aidha:node:pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927:excerpt:f3ec140d078c0278",
+      "@type": "Excerpt",
+      "schemaVersion": 1,
+      "label": "<stable-excerpt-id>",
+      "content": "Activation evidence should be reusable without reopening the original document.",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "locator": {
+        "charEnd": 79,
+        "charStart": 0,
+        "kind": "page",
+        "page": 2
+      },
+      "resourceId": "pdf:5fa7369815d9fd5d3f2f7551d190092c3e148f409ea3aee219dab32c77eec927",
+      "sequence": 1
+    },
+    {
+      "@id": "urn:aidha:node:project-viable-prototype",
+      "@type": "Project",
+      "schemaVersion": 1,
+      "label": "project-viable-prototype",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "default": false,
+      "slug": "project-viable-prototype"
+    },
+    {
+      "@id": "urn:aidha:node:task-be48c62b539ade04",
+      "@type": "Task",
+      "schemaVersion": 1,
+      "label": "Implement the activation loop",
+      "content": "Implement the activation loop",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "projectId": "project-viable-prototype",
+      "sourceClaimId": "claim:f4f79a97976eb9ff",
+      "status": "open",
+      "taskMotivatedBy": "urn:aidha:node:claim:f4f79a97976eb9ff",
+      "taskPartOfProject": "urn:aidha:node:project-viable-prototype"
+    }
+  ]
+}

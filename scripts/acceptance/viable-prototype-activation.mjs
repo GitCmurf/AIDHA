@@ -102,6 +102,9 @@ async function runScenario({ writeArtifacts }) {
   const workDir = await mkdtemp(join(tmpdir(), 'aidha-viable-prototype-'));
   const dbPath = join(workDir, 'activation.sqlite');
   const configPath = join(workDir, 'aidha.config.yaml');
+  const graphExportOut = writeArtifacts
+    ? join(packetRelativeDir, 'graph-export.jsonld')
+    : join(workDir, 'graph-export.jsonld');
   await writeConfig(configPath, dbPath);
 
   const transcript = [];
@@ -155,6 +158,16 @@ async function runScenario({ writeArtifacts }) {
     '--out',
     join(packetRelativeDir, 'project-reentry.txt'),
   ], configPath));
+  transcript.push(await capture([
+    'export',
+    'graph',
+    '--jsonld',
+    '--out',
+    graphExportOut,
+  ], configPath));
+  if (writeArtifacts) {
+    await normalizeJsonLdArtifact(join(packetDir, 'graph-export.jsonld'));
+  }
 
   for (const entry of transcript) {
     if (entry.code !== 0) {
@@ -169,6 +182,8 @@ async function runScenario({ writeArtifacts }) {
     const summary = summarizeSnapshot(snapshot.value);
     validateSummary(summary);
     if (writeArtifacts) {
+      const jsonLd = await readJsonArtifact(join(packetDir, 'graph-export.jsonld'));
+      validateJsonLdExport(jsonLd, summary);
       await writeFile(join(packetDir, 'command-transcript.json'), `${JSON.stringify(transcript, null, 2)}\n`, 'utf-8');
       await writeFile(join(packetDir, 'store-summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf-8');
     }
@@ -200,6 +215,43 @@ function summarizeSnapshot(snapshot) {
       return acc;
     }, {}),
   };
+}
+
+async function readJsonArtifact(path) {
+  return JSON.parse(await readFile(path, 'utf-8'));
+}
+
+async function normalizeJsonLdArtifact(path) {
+  const jsonLd = JSON.parse(redactVolatileOutput(await readFile(path, 'utf-8')));
+  for (const node of jsonLd['@graph'] ?? []) {
+    if (typeof node.contentHash === 'string') node.contentHash = '<content-hash>';
+    if (typeof node.sha256 === 'string') node.sha256 = '<content-hash>';
+    if (typeof node.label === 'string' && /^[a-f0-9]{16,64}$/.test(node.label)) {
+      node.label = '<stable-excerpt-id>';
+    }
+    if (Array.isArray(node.dedupKeys)) {
+      node.dedupKeys = node.dedupKeys.map(value =>
+        typeof value === 'string' && /^[a-f0-9]{16,64}$/.test(value) ? '<content-hash>' : value
+      );
+    }
+  }
+  await writeFile(path, `${JSON.stringify(jsonLd, null, 2)}\n`, 'utf-8');
+}
+
+function validateJsonLdExport(jsonLd, summary) {
+  if (!jsonLd || typeof jsonLd !== 'object') throw new Error('JSON-LD export must be an object');
+  if (!Array.isArray(jsonLd['@graph'])) throw new Error('JSON-LD export must contain an @graph array');
+  if (jsonLd['@graph'].length !== summary.nodeCount) {
+    throw new Error(`JSON-LD node count mismatch: expected ${summary.nodeCount}, got ${jsonLd['@graph'].length}`);
+  }
+  const nodeIds = new Set(jsonLd['@graph'].map(node => node['@id']));
+  for (const stableNodeId of summary.stableNodeIds) {
+    if (!nodeIds.has(`urn:aidha:node:${stableNodeId}`)) {
+      throw new Error(`JSON-LD export is missing node ${stableNodeId}`);
+    }
+  }
+  const taskNode = jsonLd['@graph'].find(node => node['@type'] === 'Task' && node.taskMotivatedBy);
+  if (!taskNode) throw new Error('JSON-LD export must include Task provenance');
 }
 
 function validateSummary(summary) {
@@ -236,6 +288,7 @@ async function validateArtifacts() {
     'command-transcript.json',
     'store-summary.json',
     'rerun-summary.json',
+    'graph-export.jsonld',
     'project-reentry.txt',
     'fixture-prototype.pdf',
   ];
@@ -268,7 +321,7 @@ const testingDocContent = [
   'document_id: AIDHA-TESTING-005',
   'owner: Product',
   'status: Draft',
-  'version: "0.3"',
+  'version: "0.4"',
   `last_updated: ${runDateIso}`,
   'title: Viable Prototype Activation Acceptance Run',
   'type: TESTING',
@@ -283,7 +336,7 @@ const testingDocContent = [
   '> **Owner:** Product',
   '> **Approvers:** -',
   '> **Status:** Draft',
-  '> **Version:** 0.3',
+  '> **Version:** 0.4',
   `> **Last Updated:** ${runDateIso}`,
   '> **Type:** TESTING',
   '',
@@ -296,6 +349,7 @@ const testingDocContent = [
   `| 0.1     | ${runDateIso} | AI     | Record deterministic activation acceptance packet for TASK-010 viable tranche. | - | Draft | AIDHA-TASK-010 |`,
   `| 0.2     | ${runDateIso} | AI     | Update packet evidence to use generic PDF and LinkedIn ingests with deterministic \`--mock-llm\` extraction. | - | Draft | AIDHA-TASK-010 |`,
   `| 0.3     | ${runDateIso} | AI     | Add packet artifact validation and rerun summary evidence. | - | Draft | AIDHA-TASK-010 |`,
+  `| 0.4     | ${runDateIso} | AI     | Add generic JSON-LD graph export evidence to the viable prototype packet. | - | Draft | AIDHA-TASK-010 |`,
   '',
   'This packet proves a no-network activation loop against a fresh local SQLite graph populated by two generic CLI ingests.',
   '',
@@ -303,6 +357,7 @@ const testingDocContent = [
   '- Review surfaces distinct editorial and routing axes.',
   '- Task creation links Task -> Claim.',
   '- Task show and project re-entry trace Claim -> Excerpt -> Resource provenance.',
+  '- JSON-LD export preserves the same graph evidence in an interoperable artifact.',
   '',
   '## Acceptance Artifacts',
   '',
@@ -311,6 +366,7 @@ const testingDocContent = [
   `- PDF fixture: \`${pdfFixtureRelativePath}\``,
   `- Store summary: \`${join(packetRelativeDir, 'store-summary.json')}\``,
   `- Rerun summary: \`${join(packetRelativeDir, 'rerun-summary.json')}\``,
+  `- JSON-LD graph export: \`${join(packetRelativeDir, 'graph-export.jsonld')}\``,
   `- Re-entry dossier: \`${join(packetRelativeDir, 'project-reentry.txt')}\``,
   '',
 ].join('\n');
