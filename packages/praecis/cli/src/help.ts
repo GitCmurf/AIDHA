@@ -12,6 +12,7 @@ Usage:
   aidha trace show <traceId> [--json]
   aidha trace reject <traceId> [--reason <text>] [--json]
   aidha project reentry --project <id> [--json] [--markdown] [--out <path>]
+  aidha export graph --jsonld [--out <path>]
 
 Notes:
   - Ingest commands run offline against local fixtures, injected mocks, --mock, or --mock-llm where supported.

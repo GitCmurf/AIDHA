@@ -1017,6 +1017,22 @@ describe('aidha cli phase-1 surface', () => {
       expect(dossier.tasks).toHaveLength(1);
       expect(dossier.claims.map(claim => claim.claimId)).toContain(hits[0]!.claimId);
 
+      expect(await runCli(['export', 'graph', '--jsonld', '--config', configPath])).toBe(0);
+      const jsonLd = JSON.parse(logs.splice(0).join('\n')) as {
+        schemaVersion: string;
+        '@graph': Array<{ '@id': string; '@type': string; taskMotivatedBy?: string | string[] }>;
+      };
+      expect(jsonLd.schemaVersion).toBeTruthy();
+      const taskJsonLd = jsonLd['@graph'].find(node => node['@id'] === `urn:aidha:node:${task.taskId}`);
+      expect(taskJsonLd?.['@type']).toBe('Task');
+      expect(taskJsonLd?.taskMotivatedBy).toBe(`urn:aidha:node:${hits[0]!.claimId}`);
+
+      const jsonLdPath = join(dir, 'graph.jsonld');
+      expect(await runCli(['export', 'graph', '--jsonld', '--out', jsonLdPath, '--config', configPath])).toBe(0);
+      expect(logs.splice(0).join('\n')).toContain(`Wrote JSON-LD graph export: ${jsonLdPath}`);
+      const writtenJsonLd = JSON.parse(await readFile(jsonLdPath, 'utf-8')) as { '@graph': Array<{ '@id': string }> };
+      expect(writtenJsonLd['@graph'].map(node => node['@id'])).toContain(`urn:aidha:node:${task.taskId}`);
+
       const store = SQLiteStore.open(dbPath);
       try {
         const snapshot = await store.exportSnapshot({ scope: 'full' });

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { SQLiteStore } from '@aidha/graph-backend';
+import { serializeJsonLd, SQLiteStore, toJsonLd } from '@aidha/graph-backend';
 import {
   formatProvenance,
   loadConfig,
@@ -1288,6 +1288,32 @@ export async function runCli(argv: string[]): Promise<number> {
         console.log(`Tasks: ${result.value.tasks.length}`);
         console.log(`Claims: ${result.value.claims.length}`);
         console.log(`Review items: ${result.value.reviewItems.length}`);
+      }
+      return 0;
+    }
+
+    if (command === 'export') {
+      const mode = positionals[1];
+      if (mode !== 'graph' || !optionBool(options, 'jsonld')) {
+        console.error('Usage: export graph --jsonld [--out <path>]');
+        return 1;
+      }
+      const result = await withActivationStore(options, async store => {
+        const snapshot = await store.exportSnapshot({ scope: 'full' });
+        if (!snapshot.ok) return snapshot;
+        return {
+          ok: true,
+          value: serializeJsonLd(toJsonLd(snapshot.value.nodes, snapshot.value.edges)),
+        } as const;
+      });
+      if (!result.ok) throw result.error;
+      const out = optionString(options, 'out');
+      if (out) {
+        await mkdir(dirname(out), { recursive: true });
+        await writeFile(out, `${result.value}\n`, 'utf-8');
+        console.log(`Wrote JSON-LD graph export: ${out}`);
+      } else {
+        console.log(result.value);
       }
       return 0;
     }
