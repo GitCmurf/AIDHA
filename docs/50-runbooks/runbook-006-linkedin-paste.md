@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-006
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-05-22
-version: '0.1'
+last_updated: 2026-06-01
+version: '0.2'
 title: LinkedIn Paste Bridge Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-05-22
+> **Version:** 0.2
+> **Last Updated:** 2026-06-01
 > **Type:** RUNBOOK
 
 ## Version History
@@ -23,6 +23,7 @@ docops_version: '2.0'
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1     | 2026-05-22 | AI     | Seed LinkedIn paste-bridge runbook for the PLAN-007 LinkedIn vector. | — | Draft | — |
+| 0.2     | 2026-06-01 | AI     | Add the generic activation handoff after LinkedIn paste ingestion. | — | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -60,3 +61,18 @@ authenticated fetching or scraping.
 
   `--url` is provenance only. No fetching happens in this plan, and the command
   should remain usable even when the pasted text is the only available source.
+
+- **Hand off to activation**
+
+  After ingest, use the generic activation commands rather than a source-specific
+  workflow:
+
+  ```bash
+  aidha query "activation planning" --include-drafts --json
+  aidha task create --from-claim <claim-id> --title "Follow up" --project <project-id> --json
+  aidha project reentry --project <project-id> --markdown --out out/project-reentry.md
+  aidha export graph --jsonld --out out/graph.jsonld
+  ```
+
+  `aidha task show <task-id> --json` should trace the Task back to Claim,
+  Excerpt, and Resource evidence before the result is used in a pilot packet.

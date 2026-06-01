@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-008
 owner: Product
 status: Draft
-version: "0.9"
+version: "0.10"
 last_updated: 2026-06-01
 title: Viable Prototype Sprint Plan
 type: PLAN
@@ -18,7 +18,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.9
+> **Version:** 0.10
 > **Last Updated:** 2026-06-01
 > **Type:** PLAN
 
@@ -37,6 +37,7 @@ related_ids: [AIDHA-STRATEGY-002, AIDHA-STRAT-001, AIDHA-PLAN-002, AIDHA-PLAN-00
 | 0.7     | 2026-05-31 | AI     | Update the sprint status after the acceptance packet became ingest-backed through generic PDF and LinkedIn ingests using deterministic `--mock-llm` extraction. | - | Draft | AIDHA-TASK-010 |
 | 0.8     | 2026-05-31 | AI     | Record implementation of Sprint 4 minimal agentic traces: `RationaleTrace`, trace CLI list/show/reject, and provisional re-entry dossier output. | - | Draft | AIDHA-TASK-010 |
 | 0.9     | 2026-06-01 | AI     | Record viable-prototype hardening: acceptance rerun evidence, YouTube task wrapper convergence on shared activation helpers, and the pilot evidence template. | - | Draft | AIDHA-TASK-010 |
+| 0.10    | 2026-06-01 | AI     | Record pilot-readiness gates: generic JSON-LD export, acceptance packet JSON-LD evidence, and generic activation quickstart/runbook reconciliation. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -90,16 +91,17 @@ Implementation evidence reviewed:
 ### Post-Tranche Note (2026-06-01)
 
 The working tree now contains the first generic activation tranche. `@aidha/praecis-core` exposes
-shared activation helpers, `@aidha/praecis-cli` exposes generic `query`, `task`, `review`, and
-`project reentry` commands, routing metadata has been typed at the agreed grains, and the strategy
-positions have been ratified in AIDHA-STRATEGY-002. The deterministic acceptance packet now runs
-generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry. Sprint
-4 now has a minimal `RationaleTrace` model and generic trace list/show/reject commands. The packet
-also records deterministic fresh-store rerun evidence, and YouTube claim-backed task commands now
-delegate to the shared activation helpers.
+shared activation helpers, `@aidha/praecis-cli` exposes generic `query`, `task`, `review`,
+`project reentry`, trace review, and JSON-LD graph export commands, routing metadata has been typed
+at the agreed grains, and the strategy positions have been ratified in AIDHA-STRATEGY-002. The
+deterministic acceptance packet now runs generic PDF and LinkedIn ingests with `--mock-llm` before
+query, review, task, re-entry, and graph export. Sprint 4 now has a minimal `RationaleTrace` model
+and generic trace list/show/reject commands. The packet also records deterministic fresh-store rerun
+evidence, and YouTube claim-backed task commands now delegate to the shared activation helpers.
 
 The plan remains open because trace promotion remains deferred and the Sprint 6 pilot has not been
-run. AIDHA-TESTING-006 now provides the evidence template for that pilot.
+run. AIDHA-TESTING-006 now provides the evidence template for that pilot, and the quickstart/runbook
+surface now points users from capture into generic activation.
 
 ### Strengths
 
@@ -118,24 +120,13 @@ run. AIDHA-TESTING-006 now provides the evidence template for that pilot.
    generic `aidha` CLI can ingest across vectors and now exposes query, review, task, and project
    re-entry commands. The acceptance path runs generic PDF and LinkedIn ingests with a mock LLM and
    deterministic rerun evidence, but the two-project real-use pilot has not yet been run.
-2. **The operational graph is under-surfaced.** Node and predicate support exists for Project, Goal,
-   Area, Task, and task provenance, but the user cannot yet rely on one cross-vector flow to answer:
-   "What did I already know, what did I decide, and what should I do next?"
-3. **Routing remains too shallow for the refined strategy.** Keyword taxonomy assignment exists
-   (with `confidence`, `source`, `assignedBy`, `assignedAt`), but the prototype needs visible
-   provisional placement, taxonomy version, a claim-level routing review status distinct from the
-   claim's editorial state, and reasons for review priority. (Provenance reuses the existing
-   `source` field rather than a new `method` field — see Proposed Decisions For Review.)
-4. **Agentic traces are not yet first-class.** The strategy calls for inspectable suggested links,
-   gaps, and rationale traces that are distinct from human-approved structure.
-5. **Demonstrability is improving but still not at the final bar.** A deterministic activation
-   packet now proves capture -> query -> review -> task -> re-entry through two generic ingest
-   vectors with a mock model; the remaining bar is real pilot evidence that this reduces
-   re-derivation in at least one workflow.
-6. **Planning and strategy drift are reduced, but docs must keep following implementation.**
-   AIDHA-STRATEGY-002 now records the ratified prototype positions; quickstarts and runbooks still
-   need to shift from the YouTube-only mental model to the generic activation surface where parity
-   exists.
+2. **Trace promotion remains intentionally deferred.** Agentic traces are inspectable and
+   rejectable, but no trace is promoted into human-approved graph structure until durable-edge
+   semantics are specified and tested.
+3. **Baseline tagging still needs product evidence.** A deterministic acceptance packet now proves
+   capture -> query -> review -> task -> re-entry -> graph export through two generic ingest vectors
+   with a mock model; the remaining bar is real pilot evidence that this reduces re-derivation in at
+   least one workflow.
 
 ## Viable MVP Definition
 
@@ -348,6 +339,8 @@ isolated contract review, tests, and docs.
 - Any new NodeType or Predicate is protected by graph contract tests.
 
 ### Sprint 5: Quality Gates For Viability
+
+**Status:** Implemented as of 2026-06-01.
 
 **Goal:** Protect the activation loop with tests, evals, and docs.
 

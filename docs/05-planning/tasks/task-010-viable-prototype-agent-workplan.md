@@ -2,7 +2,7 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.9"
+version: "0.10"
 last_updated: 2026-06-01
 title: Viable Prototype Agent Workplan
 type: TASK
@@ -18,7 +18,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.9
+> **Version:** 0.10
 > **Last Updated:** 2026-06-01
 > **Type:** TASK
 
@@ -37,6 +37,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | 0.7     | 2026-05-31 | AI     | Record the ingest-backed acceptance update: the viable prototype packet now runs generic PDF and LinkedIn ingests with `--mock-llm` before query, review, task, and re-entry. | - | Draft | AIDHA-PLAN-008 |
 | 0.8     | 2026-05-31 | AI     | Record implementation of the minimal `RationaleTrace` graph model, trace list/show/reject commands, and provisional trace re-entry dossier section. | - | Draft | AIDHA-PLAN-008 |
 | 0.9     | 2026-06-01 | AI     | Record viable-prototype hardening: acceptance rerun evidence, YouTube task wrapper convergence on shared activation helpers, and the governed pilot evidence template. | - | Draft | AIDHA-PLAN-008 |
+| 0.10    | 2026-06-01 | AI     | Record pilot-readiness gates: generic JSON-LD export, acceptance packet JSON-LD evidence, and generic activation quickstart/runbook reconciliation. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -71,24 +72,28 @@ subsequent agents:
 - `@aidha/praecis-core` has shared activation helpers for cross-source claim query, task creation,
   task context, review queue construction, project re-entry dossiers, and locator display.
 - `@aidha/praecis-cli` exposes the generic activation commands `aidha query`, `aidha task create`,
-  `aidha task show`, `aidha review next`, and `aidha project reentry`.
+  `aidha task show`, `aidha review next`, `aidha project reentry`, and
+  `aidha export graph --jsonld`.
 - Routing metadata follows the grain decision: `taxonomyVersion` is on `TagAssignment`; Claim
   metadata carries `routingReviewStatus`, `routingReviewReason`, and `reviewPriority`.
 - `scripts/acceptance/viable-prototype-activation.mjs` writes a deterministic no-network packet
   under `docs/55-testing/acceptance-run-<date>/` after running generic PDF and LinkedIn ingests with
-  `--mock-llm`; the packet now validates committed artifacts and records fresh-store rerun evidence.
+  `--mock-llm`; the packet now validates committed artifacts, records fresh-store rerun evidence,
+  and includes a normalized JSON-LD graph export.
 - WP4 now has a minimal `RationaleTrace` node model, core helpers, trace list/show/reject commands,
   and a provisional trace section in project re-entry dossiers.
 - YouTube claim-backed task commands delegate to the shared activation helpers while the generic
   `aidha task` command remains the canonical activation surface.
 - AIDHA-TESTING-006 provides the governed evidence template for the two-project pilot.
+- `docs/60-devex/ingest-quickstart.md`, `runbook-006-linkedin-paste.md`, and
+  `runbook-008-pdf-ingestion.md` now point users from capture into the generic activation loop.
 
 Remaining gaps before this plan is closed:
 
 - Trace promotion remains intentionally deferred until approved-edge semantics are specified.
 - WP6 still needs a real two-project pilot before any viable-prototype baseline tag.
 
-**Verified codebase anchors (confirmed 2026-05-31, re-verify before relying on them):**
+**Verified codebase anchors (confirmed 2026-06-01, re-verify before relying on them):**
 
 - Provenance addressing already uses the `Locator` discriminated union in
   `packages/praecis/core/src/types/locator.ts` (`timecode | page | dom | message | text | external`).
@@ -104,11 +109,11 @@ Remaining gaps before this plan is closed:
   AIDHA-PLAN-008 for the grain distinction.
 - `TagAssignment` (`packages/phyla/src/schema/assignment.ts`) already carries `confidence`, `source`,
   `assignedBy`, `assignedAt`, `notes`. WP3 adds a delta, not a greenfield schema.
-- The generic `@aidha/praecis-cli` today implements only `ingest` and `config explain`. All other
-  activation commands (`query`, `task`, `review`, `project`, `export dossier`) currently live in the
-  YouTube CLI (`packages/praecis/youtube/src/cli.ts`).
-- The only existing offline acceptance harness is YouTube-only
-  (`scripts/acceptance/llm-offline-acceptance.mjs`, `scripts/acceptance/mock-openai-server.mjs`).
+- The generic `@aidha/praecis-cli` implements ingest, config explain, query, task create/show,
+  review next, trace list/show/reject, project re-entry, and JSON-LD graph export.
+- The viable-prototype offline acceptance harness is
+  `scripts/acceptance/viable-prototype-activation.mjs`; the older YouTube harness remains useful for
+  YouTube-specific LLM acceptance.
 - Open architectural decisions are resolved as proposed defaults in the "Proposed Decisions For
   Review" section of AIDHA-PLAN-008; follow those defaults unless a maintainer changes the plan or a
   linked ADR.
@@ -186,7 +191,7 @@ Remaining gaps before this plan is closed:
 
 ### T010-0A-01: Promote Resolved Vision Positions
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Make the strategy thesis governed before generic activation implementation depends on it.
 
@@ -208,9 +213,9 @@ Remaining gaps before this plan is closed:
 
 **Acceptance criteria:**
 
-- [ ] Governed strategy no longer has unresolved placeholders for the answered questions.
-- [ ] AIDHA-PLAN-008 references governed strategy, not only the WIP owner-response draft.
-- [ ] Sprint 1 implementation branches can cite a ratified strategy thesis.
+- [x] Governed strategy no longer has unresolved placeholders for the answered questions.
+- [x] AIDHA-PLAN-008 references governed strategy, not only the WIP owner-response draft.
+- [x] Sprint 1 implementation branches can cite a ratified strategy thesis.
 
 ## Work Package 1: Generic Activation CLI
 
@@ -589,7 +594,7 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 ### T010-05-01: Add Offline Activation Acceptance Test
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Protect the activation loop in CI.
 
@@ -611,13 +616,13 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] The activation path is covered by a single no-network integration test.
-- [ ] The test fails on broken provenance.
-- [ ] The test fails on unstable ordering where deterministic output is required.
+- [x] The activation path is covered by a single no-network integration test.
+- [x] The test fails on broken provenance.
+- [x] The test fails on unstable ordering where deterministic output is required.
 
 ### T010-05-02: Add Demonstration Packet Checks
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Make manual demos less fragile.
 
@@ -635,13 +640,13 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] The packet can be reviewed without reading test code.
-- [ ] The packet proves capture -> route -> query -> task -> re-entry.
-- [ ] The command exits non-zero when a required artifact is missing.
+- [x] The packet can be reviewed without reading test code.
+- [x] The packet proves capture -> route -> query -> task -> re-entry.
+- [x] The command exits non-zero when a required artifact is missing.
 
 ### T010-05-03: Reconcile Product And User Docs
 
-**Status:** Open
+**Status:** Implemented
 
 **Goal:** Align user-facing docs with the ratified strategy and implemented product surface.
 
@@ -661,9 +666,9 @@ unreviewed (the WP3 `routingReviewStatus`). These are independent — a Claim ca
 
 **Acceptance criteria:**
 
-- [ ] Governed product docs link to the ratified strategy.
-- [ ] Quickstart docs demonstrate the activation loop.
-- [ ] WIP strategy content is either promoted or clearly superseded.
+- [x] Governed product docs link to the ratified strategy.
+- [x] Quickstart docs demonstrate the activation loop.
+- [x] WIP strategy content is either promoted or clearly superseded.
 
 ## Work Package 6: Pilot And Release Baseline
 

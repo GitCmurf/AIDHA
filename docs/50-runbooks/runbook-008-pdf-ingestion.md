@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-008
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-05-22
-version: '0.1'
+last_updated: 2026-06-01
+version: '0.2'
 title: PDF Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-05-22
+> **Version:** 0.2
+> **Last Updated:** 2026-06-01
 > **Type:** RUNBOOK
 
 ## Version History
@@ -23,6 +23,7 @@ docops_version: '2.0'
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1     | 2026-05-22 | AI     | Seed PDF-ingestion runbook for the PLAN-007 PDF vector. | — | Draft | — |
+| 0.2     | 2026-06-01 | AI     | Add the generic activation handoff after PDF ingestion. | — | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -56,6 +57,18 @@ the shared runtime.
   present on excerpts.
 - Keep sensitive local documents off cloud routes unless policy explicitly allows
   that tier.
+- Hand the captured claims to the generic activation loop:
+
+  ```bash
+  aidha query "project re-entry" --include-drafts --json
+  aidha task create --from-claim <claim-id> --title "Follow up" --project <project-id> --json
+  aidha task show <task-id> --json
+  aidha project reentry --project <project-id> --markdown --out out/project-reentry.md
+  aidha export graph --jsonld --out out/graph.jsonld
+  ```
+
+  The task output should preserve Claim -> Excerpt -> Resource provenance before
+  the claim is used as pilot evidence.
 - Validate locally with:
 
   ```bash

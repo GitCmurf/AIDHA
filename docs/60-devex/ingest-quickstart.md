@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-05-31
-version: '0.37'
+last_updated: 2026-06-01
+version: '0.38'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.37
-> **Last Updated:** 2026-05-31
+> **Version:** 0.38
+> **Last Updated:** 2026-06-01
 > **Type:** GUIDE
 
 ## Version History
@@ -60,16 +60,20 @@ docops_version: '2.0'
 | 0.35    | 2026-05-31 | AI     | Add generic activation commands. | — | Draft | AIDHA-TASK-010 |
 | 0.36    | 2026-05-31 | AI     | Document `--mock-llm` ingest. | — | Draft | AIDHA-TASK-010 |
 | 0.37    | 2026-05-31 | AI     | Add trace review commands. | — | Draft | AIDHA-TASK-010 |
+| 0.38    | 2026-06-01 | AI     | Generic activation quickstart. | — | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
-Outline how to use API keys, run local ingestion via the YouTube CLI, and inspect outputs.
+Run local ingestion through the generic `aidha` CLI, activate captured claims into tasks and project
+re-entry, and export graph evidence. The YouTube CLI remains useful for YouTube-specific diagnostics,
+but the generic CLI is the canonical pilot surface where parity exists.
 
 ## Architecture Note
 
-This quickstart covers the **YouTube ingestion vector**, which is the Phase 0 reference
-implementation of AIDHA's four-axis ingestion model (**Acquire → Decode → Contextualize →
-Extract**). New vectors are registered by implementing `IIngestor` and `IDecodeStrategy` from
+This quickstart uses the generic activation surface across source vectors. The YouTube ingestion
+vector remains the Phase 0 reference implementation of AIDHA's four-axis ingestion model
+(**Acquire → Decode → Contextualize → Extract**). New vectors are registered by implementing
+`IIngestor` and `IDecodeStrategy` from
 `@aidha/praecis-core` and wiring them via `composeVector()`. See AIDHA-PRD-002 for the full
 architecture description.
 
@@ -103,6 +107,7 @@ aidha trace list --json
 aidha trace show <trace-id> --json
 aidha trace reject <trace-id> --reason "Not actionable yet"
 aidha project reentry --project <project-id> --markdown --out out/project-reentry.md
+aidha export graph --jsonld --out out/graph.jsonld
 ```
 
 Use `--config <path>` when running against a non-default local profile. Query results include locator
@@ -112,6 +117,60 @@ chain so a created task can be traced back to its supporting source.
 For no-network acceptance runs, pass `--mock-llm` to generic ingest commands that need claim
 extraction. This injects the deterministic local test double used by
 `scripts/acceptance/viable-prototype-activation.mjs`.
+
+## Quickstart: Generic Activation Loop
+
+This is the recommended pilot-readiness path. It uses local files and pasted text, keeps extraction
+offline with `--mock-llm`, and produces task and graph-export evidence that can be inspected without
+opening the source material again.
+
+1. **Ingest heterogeneous local sources**
+
+   ```bash
+   aidha ingest pdf --file ./docs/55-testing/acceptance-run-20260531/fixture-prototype.pdf \
+     --mock-llm \
+     --json
+
+   aidha ingest linkedin \
+     --paste "Activation planning converts captured knowledge into concrete next actions." \
+     --url https://linkedin.example.test/posts/activation-prototype \
+     --mock-llm \
+     --json
+   ```
+
+2. **Find prior claims across source types**
+
+   ```bash
+   aidha query "activation planning" --include-drafts --json
+   aidha review next --json
+   ```
+
+3. **Create and inspect a provenance-backed task**
+
+   ```bash
+   aidha task create \
+     --from-claim <claim-id> \
+     --title "Follow up on this claim" \
+     --project project-viable-prototype \
+     --json
+
+   aidha task show <task-id> --json
+   ```
+
+4. **Re-enter the project and export graph evidence**
+
+   ```bash
+   aidha project reentry \
+     --project project-viable-prototype \
+     --markdown \
+     --out out/project-reentry.md
+
+   aidha export graph --jsonld --out out/graph.jsonld
+   ```
+
+The maintained no-network evidence packet for this loop is AIDHA-TESTING-005 under
+`docs/55-testing/acceptance-run-20260531/`. Use AIDHA-TESTING-006 when running the real two-project
+pilot.
 
 ## Prerequisites
 
