@@ -2,14 +2,14 @@
 document_id: AIDHA-TESTING-006
 owner: Product
 status: Draft
-version: "0.1"
-last_updated: 2026-06-01
+version: "0.2"
+last_updated: 2026-06-02
 title: Viable Prototype Pilot Evidence Template
 type: TESTING
 docops_version: "2.0"
 area: CORE
 keywords: [prototype, pilot, activation, re-entry, evidence]
-related_ids: [AIDHA-PLAN-008, AIDHA-TASK-010, AIDHA-TESTING-005]
+related_ids: [AIDHA-PLAN-008, AIDHA-TASK-010, AIDHA-TESTING-005, AIDHA-RUNBOOK-013]
 ---
 
 <!-- markdownlint-disable MD013 -->
@@ -18,8 +18,8 @@ related_ids: [AIDHA-PLAN-008, AIDHA-TASK-010, AIDHA-TESTING-005]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-06-01
+> **Version:** 0.2
+> **Last Updated:** 2026-06-02
 > **Type:** TESTING
 
 # Testing: Viable Prototype Pilot Evidence Template
@@ -28,6 +28,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-TASK-010, AIDHA-TESTING-005]
 
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
+| 0.2     | 2026-06-02 | AI     | Link pilot evidence capture to the private pilot safety boundary. | - | Draft | AIDHA-RUNBOOK-013 |
 | 0.1     | 2026-06-01 | AI     | Add reusable evidence template for the two-project viable-prototype pilot. | - | Draft | AIDHA-TASK-010 |
 
 ## Purpose
@@ -36,9 +37,10 @@ Use this template for the first real two-project viable-prototype pilot. The pil
 evidence, not a benchmark: it should show whether AIDHA helps a user re-enter real work from prior
 claims and sources without manually reconstructing context first.
 
-Copy this document to `docs/55-testing/pilot-run-YYYYMMDD/` for the actual run and replace bracketed
-placeholders with observed evidence. Keep the raw command transcript, generated re-entry dossiers,
-and any JSON summaries beside the copied document.
+For private real-source pilots, copy this document to private storage governed by AIDHA-RUNBOOK-013,
+then replace bracketed placeholders with observed evidence. Keep raw command transcripts, generated
+re-entry dossiers, graph exports, store summaries, screenshots, and JSON summaries private unless a
+separate public summary has been sanitized.
 
 ## Pilot Setup
 

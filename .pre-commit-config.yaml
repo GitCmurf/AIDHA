@@ -16,6 +16,11 @@ repos:
           - "pnpm-lock.yaml|^\\.meminit/cache/|(^|/)\\.meminit\\.lock$"
   - repo: local
     hooks:
+      - id: public-safety-paths
+        name: Public safety tracked path guard
+        entry: node scripts/check-public-safety.mjs
+        language: system
+        pass_filenames: false
       - id: docs-catalog
         name: Generate docs catalog
         entry: python docs/_scripts/gen_catalog.py

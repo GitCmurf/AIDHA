@@ -245,8 +245,8 @@
       "document_id": "AIDHA-TESTING-006",
       "owner": "Product",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-06-01",
+      "version": "0.2",
+      "last_updated": "2026-06-02",
       "title": "Viable Prototype Pilot Evidence Template",
       "type": "TESTING",
       "docops_version": "2.0",
@@ -261,7 +261,8 @@
       "related_ids": [
         "AIDHA-PLAN-008",
         "AIDHA-TASK-010",
-        "AIDHA-TESTING-005"
+        "AIDHA-TESTING-005",
+        "AIDHA-RUNBOOK-013"
       ]
     }
   },
@@ -487,6 +488,34 @@
       "title": "PDF Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "50-runbooks/runbook-013-private-pilot-safety.md",
+    "title": "Runbook: Private Pilot Safety Operations",
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-013",
+      "owner": "Product",
+      "status": "Draft",
+      "last_updated": "2026-06-02",
+      "version": "0.1",
+      "title": "Private Pilot Safety Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "keywords": [
+        "pilot",
+        "security",
+        "public",
+        "privacy",
+        "acceptance"
+      ],
+      "related_ids": [
+        "AIDHA-PLAN-008",
+        "AIDHA-TASK-010",
+        "AIDHA-TESTING-005",
+        "AIDHA-TESTING-006"
+      ]
     }
   },
   {
