@@ -38,6 +38,27 @@ export function youtubeDefaultConfig(): YouTubeClientConfig {
   };
 }
 
+function describeUnknownError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause;
+  if (cause instanceof Error && cause.message) {
+    return `${error.message} (cause: ${cause.message})`;
+  }
+  if (cause && typeof cause === 'object') {
+    const record = cause as Record<string, unknown>;
+    const code = typeof record['code'] === 'string' ? record['code'] : undefined;
+    const message = typeof record['message'] === 'string' ? record['message'] : undefined;
+    if (code && message) return `${error.message} (cause: ${code}: ${message})`;
+    if (code) return `${error.message} (cause: ${code})`;
+    if (message) return `${error.message} (cause: ${message})`;
+  }
+  return error.message;
+}
+
+function networkFailure(label: string, error: unknown): Error {
+  return new Error(`${label}: ${describeUnknownError(error)}`);
+}
+
 /** Build a YouTubeClientConfig from process.env (legacy/fallback). */
 export function youtubeConfigFromEnv(): YouTubeClientConfig {
   return {
@@ -182,7 +203,7 @@ async function fetchOEmbed(videoId: string): Promise<Result<{
 
     return { ok: true, value: data };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube oEmbed fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -319,7 +340,7 @@ async function fetchCaptionTracksFromTimedText(
     }
     return { ok: true, value: tracks };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube timedtext track-list fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -492,7 +513,12 @@ async function fetchTranscriptSegments(
   contentLength: string | null;
   fmt: string | null;
 }> {
-  const response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
+  } catch (error) {
+    throw networkFailure(`youtube transcript segment fetch failed for ${videoId} (${maskTranscriptUrl(url)})`, error);
+  }
   const payload = await response.text();
   const fmt = new URL(url).searchParams.get('fmt');
   const segments =
@@ -770,7 +796,7 @@ async function fetchTranscriptFromGetTranscript(
 
     return { ok: true, value: segments };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube get_transcript fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -830,7 +856,7 @@ async function fetchCaptionTracksFromInnertube(
       })),
     };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube Innertube caption-track fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -881,7 +907,7 @@ async function fetchCaptionTracksFromHtml(
 
     return { ok: false, error: new Error(`No captions available for ${videoId}`) };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube video-page caption-track fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -967,7 +993,7 @@ export class RealYouTubeClient implements YouTubeClient {
 
       return { ok: true, value: video };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return { ok: false, error: networkFailure(`youtube video metadata fetch failed for ${videoId}`, error) };
     }
   }
 
@@ -979,6 +1005,7 @@ export class RealYouTubeClient implements YouTubeClient {
 
     try {
       let lastError: Error | null = null;
+      const errors: Error[] = [];
       let tracks: CaptionTrack[] = [];
 
       // Try to get caption tracks
@@ -987,6 +1014,7 @@ export class RealYouTubeClient implements YouTubeClient {
         tracks = tracksResult.value;
       } else {
         lastError = tracksResult.error;
+        errors.push(tracksResult.error);
         if (this.ytCfg.debugTranscript) {
           resolveLogger(this.ytCfg).debug(`[transcript] fetchCaptionTracks failed: ${lastError.message}`);
         }
@@ -1066,6 +1094,7 @@ export class RealYouTubeClient implements YouTubeClient {
           segments = transcriptResult.value;
         } else {
           lastError = transcriptResult.error;
+          errors.push(transcriptResult.error);
           if (this.ytCfg.debugTranscript) {
             resolveLogger(this.ytCfg).debug(
               `[transcript] get_transcript error: ${transcriptResult.error.message}`,
@@ -1081,6 +1110,7 @@ export class RealYouTubeClient implements YouTubeClient {
           detectedLanguage = ytdlpResult.value.language;
         } else {
           lastError = ytdlpResult.error;
+          errors.push(ytdlpResult.error);
           if (this.ytCfg.debugTranscript) {
             resolveLogger(this.ytCfg).debug(`[transcript] yt-dlp error: ${ytdlpResult.error.message}`);
           }
@@ -1097,7 +1127,10 @@ export class RealYouTubeClient implements YouTubeClient {
       }
 
       if (segments.length === 0) {
-        const suffix = lastError ? ` (${lastError.message})` : '';
+        const uniqueMessages = Array.from(new Set(errors.map(error => error.message)));
+        const suffix = uniqueMessages.length > 0
+          ? ` (${uniqueMessages.join('; ')})`
+          : lastError ? ` (${lastError.message})` : '';
         return {
           ok: false,
           error: new Error(`No transcript segments found for ${videoId}${suffix}`),
@@ -1115,7 +1148,7 @@ export class RealYouTubeClient implements YouTubeClient {
 
       return { ok: true, value: transcript };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return { ok: false, error: networkFailure(`youtube transcript fetch failed for ${videoId}`, error) };
     }
   }
 

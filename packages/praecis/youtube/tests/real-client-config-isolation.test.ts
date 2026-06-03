@@ -40,4 +40,37 @@ describe('RealYouTubeClient config isolation', () => {
     expect(cookiesSeen[0]).toContain('cookie-A');
     expect(cookiesSeen[0]).not.toContain('cookie-B');
   });
+
+  it('adds operation context to video metadata network failures', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
+
+    const client = new RealYouTubeClient({ debugTranscript: false });
+    const result = await client.fetchVideo('video-one');
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('youtube oEmbed fetch failed for video-one');
+    expect(result.error.message).toContain('fetch failed');
+  });
+
+  it('adds operation context to transcript network failures', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
+
+    const noYtDlp = {
+      bin: '/definitely/missing/yt-dlp',
+      jsRuntimes: 'node',
+      remoteComponents: '',
+      timeoutMs: 1,
+      keepFiles: false,
+      debugTranscript: false,
+    };
+    const client = new RealYouTubeClient({ debugTranscript: false }, noYtDlp);
+    const result = await client.fetchTranscript('video-one');
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('No transcript segments found for video-one');
+    expect(result.error.message).toContain('youtube timedtext track-list fetch failed for video-one');
+    expect(result.error.message).toContain('fetch failed');
+  });
 });
