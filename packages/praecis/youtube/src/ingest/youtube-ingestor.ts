@@ -44,7 +44,10 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
     const video: Video = videoResult.value;
 
     const transcriptResult = await this.client.fetchTranscript(videoId);
-    const transcript: Transcript | null = transcriptResult.ok ? transcriptResult.value : null;
+    if (!transcriptResult.ok) {
+      return { ok: false, error: transcriptResult.error };
+    }
+    const transcript: Transcript = transcriptResult.value;
 
     const payload: YouTubeVideoPayload = {
       videoId: video.id,

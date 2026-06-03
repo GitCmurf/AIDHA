@@ -1257,7 +1257,7 @@ sources:
 
     expect(code).toBe(0);
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('gpt-5-mini'));
-    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Hardcoded'));
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('validated'));
   });
 
     it('explain resolves source-owned core defaults when --source is provided', async () => {

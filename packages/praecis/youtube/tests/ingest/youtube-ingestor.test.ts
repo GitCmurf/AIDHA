@@ -69,12 +69,12 @@ describe('YouTubeIngestor', () => {
     expect(payload.transcript?.segments).toHaveLength(2);
   });
 
-  it('sets transcript to null when transcript is not available', async () => {
+  it('returns an acquisition error when transcript is not available', async () => {
     // no-transcript-video exists in MOCK_VIDEOS but has no entry in MOCK_TRANSCRIPTS
     const result = await ingestor.acquire({ ref: 'no-transcript-video' }, runtimeContext);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.payload.transcript).toBeNull();
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('Transcript not found');
   });
 
   it('returns error when video is not found', async () => {
