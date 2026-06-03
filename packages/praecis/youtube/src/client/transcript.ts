@@ -90,7 +90,7 @@ function removeRollingPrefix(previousText: string, currentText: string): string 
   return currentText;
 }
 
-function collapseRollingVttSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
+function collapseRollingTranscriptSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
   const collapsed: TranscriptSegment[] = [];
 
   for (const segment of segments) {
@@ -101,6 +101,7 @@ function collapseRollingVttSegments(segments: TranscriptSegment[]): TranscriptSe
       : cleanedText;
 
     if (!text) continue;
+    if (previous && previous.text.toLowerCase() === text.toLowerCase()) continue;
     collapsed.push({ ...segment, text });
   }
 
@@ -191,7 +192,7 @@ export function parseTranscriptJson(payload: string): TranscriptSegment[] {
     if (segment) segments.push(segment);
   }
 
-  return segments;
+  return collapseRollingTranscriptSegments(segments);
 }
 
 function parseVttTimestamp(value: string): number | null {
@@ -249,7 +250,7 @@ export function parseTranscriptVtt(payload: string): TranscriptSegment[] {
     index += 1;
   }
 
-  return collapseRollingVttSegments(segments);
+  return collapseRollingTranscriptSegments(segments);
 }
 
 function parseTimecode(value: string): number | null {

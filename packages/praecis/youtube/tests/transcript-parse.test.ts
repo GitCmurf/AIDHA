@@ -114,6 +114,51 @@ describe('transcript parsing', () => {
     expect(segments[0]).toEqual({ start: 1.5, duration: 2, text: 'Warning: Hello world' });
   });
 
+  it('normalizes rolling JSON3 transcript events', () => {
+    const payload = JSON.stringify({
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 1000,
+          segs: [{ utf8: "And in today's video, I'm going to show you how you can" }],
+        },
+        {
+          tStartMs: 1000,
+          dDurationMs: 1000,
+          segs: [{ utf8: "video, I'm going to show you how you can set this up in 5 minutes." }],
+        },
+        {
+          tStartMs: 2000,
+          dDurationMs: 1000,
+          segs: [{ utf8: 'set this up in 5 minutes.' }],
+        },
+      ],
+    });
+
+    const segments = parseTranscriptJson(payload);
+    expect(segments.map(segment => segment.text)).toEqual([
+      "And in today's video, I'm going to show you how you can",
+      'set this up in 5 minutes.',
+    ]);
+  });
+
+  it('collapses repeated token runs inside JSON3 transcript events', () => {
+    const payload = JSON.stringify({
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 1000,
+          segs: [{
+            utf8: 'All right, it is creating pages now it is creating pages now and you can see progress.',
+          }],
+        },
+      ],
+    });
+
+    const segments = parseTranscriptJson(payload);
+    expect(segments[0]?.text).toBe('All right, it is creating pages now and you can see progress.');
+  });
+
   it('handles XSSI-prefixed JSON responses', () => {
     const payload = `)]}'\n${JSON.stringify({
       events: [
