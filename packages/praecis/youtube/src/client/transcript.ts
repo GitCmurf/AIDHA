@@ -11,6 +11,10 @@ function normalizeTranscriptText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function stripInlineCueTimestamps(value: string): string {
+  return value.replace(/<\d{1,2}:\d{2}:\d{2}\.\d{3}>/g, ' ');
+}
+
 function stripMarkupTags(value: string): string {
   let result = '';
   let i = 0;
@@ -32,12 +36,83 @@ function stripMarkupTags(value: string): string {
   return result;
 }
 
+function cleanCueText(value: string): string {
+  return normalizeTranscriptText(
+    stripMarkupTags(stripInlineCueTimestamps(decodeXmlEntities(value))),
+  );
+}
+
+function tokensEqual(left: string[], right: string[], leftStart: number, rightStart: number, length: number): boolean {
+  for (let index = 0; index < length; index += 1) {
+    if (left[leftStart + index]?.toLowerCase() !== right[rightStart + index]?.toLowerCase()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function collapseAdjacentRepeatedTokenRuns(text: string): string {
+  let tokens = normalizeTranscriptText(text).split(' ').filter(Boolean);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (let start = 0; start < tokens.length; start += 1) {
+      const maxRunLength = Math.floor((tokens.length - start) / 2);
+      for (let runLength = maxRunLength; runLength >= 3; runLength -= 1) {
+        if (tokensEqual(tokens, tokens, start, start + runLength, runLength)) {
+          tokens = [
+            ...tokens.slice(0, start + runLength),
+            ...tokens.slice(start + (runLength * 2)),
+          ];
+          changed = true;
+          break;
+        }
+      }
+      if (changed) break;
+    }
+  }
+
+  return tokens.join(' ');
+}
+
+function removeRollingPrefix(previousText: string, currentText: string): string {
+  const previousTokens = normalizeTranscriptText(previousText).split(' ').filter(Boolean);
+  const currentTokens = normalizeTranscriptText(currentText).split(' ').filter(Boolean);
+  const maxOverlap = Math.min(previousTokens.length, currentTokens.length - 1);
+
+  for (let overlap = maxOverlap; overlap >= 3; overlap -= 1) {
+    if (tokensEqual(previousTokens, currentTokens, previousTokens.length - overlap, 0, overlap)) {
+      return currentTokens.slice(overlap).join(' ');
+    }
+  }
+
+  return currentText;
+}
+
+function collapseRollingVttSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
+  const collapsed: TranscriptSegment[] = [];
+
+  for (const segment of segments) {
+    const previous = collapsed.at(-1);
+    const cleanedText = collapseAdjacentRepeatedTokenRuns(segment.text);
+    const text = previous
+      ? normalizeTranscriptText(removeRollingPrefix(previous.text, cleanedText))
+      : cleanedText;
+
+    if (!text) continue;
+    collapsed.push({ ...segment, text });
+  }
+
+  return collapsed;
+}
+
 function parseVttVoiceTag(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
   const match = text.match(/^<v\s+([^>]+)>([\s\S]*?)(?:<\/v>)?$/u);
   if (!match) return null;
 
   const speaker = normalizeTranscriptText(match[1] ?? '');
-  const body = normalizeTranscriptText(stripMarkupTags(match[2] ?? ''));
+  const body = cleanCueText(match[2] ?? '');
   if (!speaker || !body) return null;
   return { speaker, text: body };
 }
@@ -58,7 +133,7 @@ function buildTranscriptSegment(input: {
   return {
     start: input.start,
     duration: input.duration,
-    ...(parsed ?? { text: stripMarkupTags(normalized) }),
+    ...(parsed ?? { text: cleanCueText(normalized) }),
   };
 }
 
@@ -174,7 +249,7 @@ export function parseTranscriptVtt(payload: string): TranscriptSegment[] {
     index += 1;
   }
 
-  return segments;
+  return collapseRollingVttSegments(segments);
 }
 
 function parseTimecode(value: string): number | null {

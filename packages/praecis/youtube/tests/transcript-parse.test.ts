@@ -143,6 +143,41 @@ describe('transcript parsing', () => {
     expect(segments[1]?.text).toBe('Second line');
   });
 
+  it('strips inline YouTube cue timestamps from VTT text', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.500',
+      'So, let<00:00:01.200> us<00:00:01.400> begin <c>now</c>',
+    ].join('\n');
+
+    const segments = parseTranscriptVtt(payload);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.text).toBe('So, let us begin now');
+  });
+
+  it('collapses rolling YouTube VTT duplicate text', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'let us do a quick breakdown let us do a quick breakdown',
+      '',
+      '00:00:02.000 --> 00:00:03.000',
+      'let us do a quick breakdown and then continue',
+      '',
+      '00:00:03.000 --> 00:00:04.000',
+      'and then continue with the setup',
+    ].join('\n');
+
+    const segments = parseTranscriptVtt(payload);
+    expect(segments.map(segment => segment.text)).toEqual([
+      'let us do a quick breakdown',
+      'and then continue',
+      'with the setup',
+    ]);
+  });
+
   it('extracts WebVTT voice tags as speakers', () => {
     const payload = [
       'WEBVTT',
