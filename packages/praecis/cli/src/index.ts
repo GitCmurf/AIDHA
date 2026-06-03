@@ -640,6 +640,9 @@ export async function resolveAidhaConfig(
       rawConfig: loadResult.config,
       baseDir: loadResult.baseDir,
       sourceRegistrations: SOURCE_REGISTRATIONS,
+      env: loadResult.dotenvEnv,
+      dotenvVarCount: Object.keys(loadResult.dotenvEnv).length,
+      warningCount: loadResult.warnings.length,
     };
     if (opts.profile) {
       resolveOptions.profileName = opts.profile;

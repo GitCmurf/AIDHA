@@ -264,6 +264,38 @@ describe('aidha cli phase-1 surface', () => {
     }
   }, 60_000);
 
+  it('resolves dotenv-loaded secrets through the generic CLI config path', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-dotenv-'));
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(join(dir, '.env.test'), 'AIDHA_OPENAI_API_KEY=from-dotenv\n');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'env:',
+        '  dotenv_files:',
+        '    - .env.test',
+        'profiles:',
+        '  default:',
+        '    llm:',
+        '      model: gpt-5-mini',
+        '      base_url: https://api.openai.com/v1',
+        '      api_key: ${AIDHA_OPENAI_API_KEY}',
+      ].join('\n'),
+    );
+
+    try {
+      const resolved = await resolveAidhaConfig({ configPath, source: 'youtube' });
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+      expect(resolved.config.llm.apiKey).toBe('from-dotenv');
+      expect(Object.keys(resolved.loadResult.dotenvEnv)).toContain('AIDHA_OPENAI_API_KEY');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('injects a deterministic mock LLM for generic ingest commands', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-mock-llm-'));
     const dbPath = join(dir, 'aidha.sqlite');
