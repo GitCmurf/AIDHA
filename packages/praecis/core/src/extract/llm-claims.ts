@@ -297,7 +297,7 @@ const DEFAULT_TRANSPORT_RETRY_BASE_DELAY_MS = 750;
  * Bump this when the default generic hierarchy prompt text changes.
  * Generic-pack cache entries must not reuse results from older prompt wording.
  */
-const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v2';
+const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v3';
 
 /**
  * Optimal input token size per chunk for extraction quality.
