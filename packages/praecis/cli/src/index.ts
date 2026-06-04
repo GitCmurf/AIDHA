@@ -105,16 +105,30 @@ export interface IngestSummary {
     readonly classification?: string;
     readonly domain?: unknown;
     readonly confidence?: number;
-    readonly why?: unknown;
+    readonly supportSummary?: unknown;
+    readonly rationale?: unknown;
     readonly evidenceType?: unknown;
     readonly evidence: Array<{
       readonly excerptId: string;
       readonly locator: Locator;
+      readonly sourceRef: string;
       readonly snippet: string;
     }>;
     readonly method?: unknown;
     readonly model?: unknown;
     readonly promptVersion?: unknown;
+  }>;
+  readonly sourceSynopsis: Array<{
+    readonly text: string;
+    readonly kind: string;
+    readonly evidenceRefs: Array<{
+      readonly excerptId: string;
+      readonly locator: Locator;
+      readonly sourceRef: string;
+    }>;
+    readonly attribution?: string;
+    readonly rationale?: unknown;
+    readonly entities?: readonly string[];
   }>;
   readonly resourceId: string;
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
@@ -335,8 +349,81 @@ function snippetForEvidence(text: unknown, maxLength = 280): string {
   return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
+function sourceRefForLocator(sourceId: SourceId, ref: string, locator: Locator): string {
+  if (sourceId === 'youtube' && locator.kind === 'timecode') {
+    const start = Math.max(0, Math.floor(locator.startSec));
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(ref)}&t=${start}s`;
+  }
+  return `${sourceId}:${ref}`;
+}
+
+function isBoxTickingSupport(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  return /^(?:direct|the speaker|the host|the presenter|the demonstrator|the transcript)\b/i.test(value.trim());
+}
+
+function synopsisKindForClaim(claim: RunReport['claims'][number]): string {
+  const raw = `${claim.type ?? claim.classification ?? ''}`.toLowerCase();
+  switch (raw) {
+    case 'instruction':
+      return 'workflow';
+    case 'mechanism':
+      return 'mechanism';
+    case 'warning':
+      return 'limitation';
+    case 'opinion':
+      return 'tradeoff';
+    case 'decision':
+      return 'recommendation';
+    case 'insight':
+      return 'pattern';
+    case 'example':
+    case 'fact':
+    case 'summary':
+    default:
+      return 'context';
+  }
+}
+
+function attributionForClaim(text: string): string | undefined {
+  if (/\bKarpathy\b/i.test(text)) return 'Andrej Karpathy';
+  if (/^(?:this video|the video)\b/i.test(text)) return 'source';
+  return undefined;
+}
+
+function entitiesForClaim(text: string): readonly string[] | undefined {
+  const entities = Array.from(new Set(text.match(/\b[A-Z][A-Za-z0-9]*(?:\s+[A-Z][A-Za-z0-9]*){0,3}\b/g) ?? []))
+    .filter(entity => !/^(?:The|This|When|Using|As|April)$/.test(entity))
+    .slice(0, 8);
+  return entities.length > 0 ? entities : undefined;
+}
+
 function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport): IngestSummary {
   const chunkById = new Map(result.chunks.map(chunk => [chunk.id, chunk]));
+  const claimEvidence = (claim: RunReport['claims'][number]) => claim.excerptIds.flatMap(excerptId => {
+    const chunk = chunkById.get(excerptId);
+    if (!chunk) return [];
+    const sourceRef = sourceRefForLocator(sourceId, ref, chunk.locator);
+    return {
+      excerptId,
+      locator: chunk.locator,
+      sourceRef,
+      snippet: snippetForEvidence(chunk.text),
+    };
+  }).filter(evidence => evidence.snippet.length > 0);
+  const sourceSynopsis = result.claims.map(claim => {
+    const evidence = claimEvidence(claim);
+    const attribution = attributionForClaim(claim.text);
+    const entities = entitiesForClaim(claim.text);
+    return {
+      text: claim.text,
+      kind: synopsisKindForClaim(claim),
+      evidenceRefs: evidence.map(({ excerptId, locator, sourceRef }) => ({ excerptId, locator, sourceRef })),
+      ...(attribution ? { attribution } : {}),
+      ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
+      ...(entities ? { entities } : {}),
+    };
+  }).filter(bullet => bullet.evidenceRefs.length > 0);
   return {
     sourceId,
     ref,
@@ -353,23 +440,18 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
       ...(claim.classification ? { classification: claim.classification } : {}),
       ...(claim.metadata?.['domain'] ? { domain: claim.metadata['domain'] } : {}),
       ...(claim.confidence !== undefined ? { confidence: claim.confidence } : {}),
-      ...(claim.metadata?.['why'] ? { why: claim.metadata['why'] } : {}),
+      ...(claim.metadata?.['supportSummary'] ? { supportSummary: claim.metadata['supportSummary'] } : {}),
+      ...(!claim.metadata?.['supportSummary'] && claim.metadata?.['why'] && !isBoxTickingSupport(claim.metadata['why'])
+        ? { supportSummary: claim.metadata['why'] }
+        : {}),
+      ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
       ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
-      evidence: claim.excerptIds.flatMap(excerptId => {
-        const chunk = chunkById.get(excerptId);
-        if (!chunk) return [];
-        const snippet = snippetForEvidence(chunk.text);
-        if (!snippet) return [];
-        return {
-          excerptId,
-          locator: chunk.locator,
-          snippet,
-        };
-      }),
+      evidence: claimEvidence(claim),
       method: claim.metadata?.['method'],
       model: claim.metadata?.['model'],
       promptVersion: claim.metadata?.['promptVersion'],
     })),
+    sourceSynopsis,
     dedupAction: result.dedupAction,
     policyRoute: result.policyRoute,
     classification: result.classification,
@@ -571,11 +653,18 @@ function youtubeConfigFromResolved(config?: ResolvedConfig): ResolvedYoutubeConf
 
 export async function runYouTubeIngest(
   ref: string,
-  options: { client?: YouTubeClient; services?: Partial<PipelineServices>; context?: IngestExecutionContext } = {},
+  options: { client?: YouTubeClient; services?: Partial<PipelineServices>; context?: IngestExecutionContext; refreshTranscript?: boolean } = {},
 ): Promise<IngestSummary> {
   const services = options.context?.services ?? options.services ?? {};
   const youtubeConfig = youtubeConfigFromResolved(services.config);
-  const client = options.client ?? new RealYouTubeClient(youtubeConfig.youtube, {
+  const transcriptCache = {
+    ...youtubeConfig.youtube.transcriptCache,
+    ...(typeof options.refreshTranscript === 'boolean' ? { refresh: options.refreshTranscript } : {}),
+  };
+  const client = options.client ?? new RealYouTubeClient({
+    ...youtubeConfig.youtube,
+    transcriptCache,
+  }, {
     ...youtubeConfig.ytdlp,
     debugTranscript: youtubeConfig.youtube.debugTranscript,
   });
@@ -588,11 +677,18 @@ export async function runYouTubeIngest(
 
 export async function runYouTubePlaylistIngest(
   playlistRef: string,
-  options: { client?: YouTubeClient; services?: Partial<PipelineServices>; context?: IngestExecutionContext } = {},
+  options: { client?: YouTubeClient; services?: Partial<PipelineServices>; context?: IngestExecutionContext; refreshTranscript?: boolean } = {},
 ): Promise<YouTubeBatchSummary> {
   const services = options.context?.services ?? options.services ?? {};
   const youtubeConfig = youtubeConfigFromResolved(services.config);
-  const client = options.client ?? new RealYouTubeClient(youtubeConfig.youtube, {
+  const transcriptCache = {
+    ...youtubeConfig.youtube.transcriptCache,
+    ...(typeof options.refreshTranscript === 'boolean' ? { refresh: options.refreshTranscript } : {}),
+  };
+  const client = options.client ?? new RealYouTubeClient({
+    ...youtubeConfig.youtube,
+    transcriptCache,
+  }, {
     ...youtubeConfig.ytdlp,
     debugTranscript: youtubeConfig.youtube.debugTranscript,
   });
@@ -933,7 +1029,7 @@ function singleVectorManifest(args: {
 }
 
 const INGEST_USAGE: Record<SourceId, string> = {
-  youtube: 'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--json]',
+  youtube: 'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--refresh-transcript] [--json]',
   web: 'aidha ingest web --url <url> [--json]',
   pdf: 'aidha ingest pdf --file <path> [--json]',
   voice: 'aidha ingest voice --file <path> [--json]',
@@ -967,13 +1063,21 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
       const client = mock ? new MockYouTubeClient() : undefined;
       const playlist = optionString(options, 'playlist');
       if (playlist) {
-        return runYouTubePlaylistIngest(playlist, { ...(client ? { client } : {}), context });
+        return runYouTubePlaylistIngest(playlist, {
+          ...(client ? { client } : {}),
+          refreshTranscript: optionBool(options, 'refresh-transcript'),
+          context,
+        });
       }
       const ref = optionString(options, 'url') ?? positionals[2];
       if (!ref) {
         throw new Error(`Usage: ${INGEST_USAGE.youtube}`);
       }
-      return runYouTubeIngest(parseYouTubeVideoId(ref), { ...(client ? { client } : {}), context });
+      return runYouTubeIngest(parseYouTubeVideoId(ref), {
+        ...(client ? { client } : {}),
+        refreshTranscript: optionBool(options, 'refresh-transcript'),
+        context,
+      });
     },
     print(summary) {
       if (isYouTubeBatchSummary(summary)) {

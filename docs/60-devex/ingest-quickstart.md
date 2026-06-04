@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-06-01
-version: '0.38'
+last_updated: 2026-06-04
+version: '0.39'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.38
-> **Last Updated:** 2026-06-01
+> **Version:** 0.39
+> **Last Updated:** 2026-06-04
 > **Type:** GUIDE
 
 ## Version History
@@ -61,6 +61,7 @@ docops_version: '2.0'
 | 0.36    | 2026-05-31 | AI     | Document `--mock-llm` ingest. | — | Draft | AIDHA-TASK-010 |
 | 0.37    | 2026-05-31 | AI     | Add trace review commands. | — | Draft | AIDHA-TASK-010 |
 | 0.38    | 2026-06-01 | AI     | Generic activation quickstart. | — | Draft | AIDHA-TASK-010 |
+| 0.39    | 2026-06-04 | AI     | Document transcript cache. | — | Draft | AIDHA-TASK-010 |
 
 ## Purpose
 
@@ -255,6 +256,14 @@ Optional:
    LLM extraction runs in two passes inside the canonical miner: chunk-level candidate
    mining followed by deterministic merge/selection. Cache keys include transcript
    hash + prompt version + model.
+
+   YouTube transcript acquisition has its own normalized local cache at
+   `./out/cache/youtube-transcripts`, so repeated ingestion of the same video does not
+   need to re-fetch captions from YouTube. Use `--refresh-transcript` on the generic
+   `aidha ingest youtube` command or the YouTube-specific ingest command when you need
+   to bypass and rewrite that transcript cache. Configure the cache under
+   `source_overrides.youtube.youtube.transcript_cache` when the default path is not
+   suitable.
 
    Optional rewrite pass (`--editor-llm`): rewrites selected claims for readability while
    keeping numeric values and excerpt-grounded keywords. Rewrite cache keys include transcript

@@ -79,7 +79,8 @@ function fakeLlm(): LlmClient {
             domain: 'CLI Fixture',
             startSeconds: 0,
             evidenceType: 'direct',
-            why: 'Synthesized by the canonical extractor test double.',
+            supportSummary: 'The fixture excerpt contains the terms used in the synthesized claim.',
+            rationale: 'The claim is useful because it preserves a reviewable point from the source.',
           }],
         }),
       };
@@ -129,9 +130,10 @@ function expectDraftClaims(summary: {
     classification?: unknown;
     domain?: unknown;
     confidence?: unknown;
-    why?: unknown;
+    supportSummary?: unknown;
+    rationale?: unknown;
     evidenceType?: unknown;
-    evidence: readonly { excerptId: string; snippet: string; locator?: unknown }[];
+    evidence: readonly { excerptId: string; snippet: string; locator?: unknown; sourceRef?: string }[];
     method?: unknown;
     model?: unknown;
     promptVersion?: unknown;
@@ -148,11 +150,14 @@ function expectDraftClaims(summary: {
   expect(summary.claims.every(claim => claim.classification === undefined || typeof claim.classification === 'string')).toBe(true);
   expect(summary.claims.every(claim => claim.domain === undefined || typeof claim.domain === 'string')).toBe(true);
   expect(summary.claims.every(claim => claim.confidence === undefined || typeof claim.confidence === 'number')).toBe(true);
-  expect(summary.claims.every(claim => claim.why === undefined || typeof claim.why === 'string')).toBe(true);
+  expect(summary.claims.every(claim => !('why' in claim))).toBe(true);
+  expect(summary.claims.every(claim => claim.supportSummary === undefined || typeof claim.supportSummary === 'string')).toBe(true);
+  expect(summary.claims.every(claim => claim.rationale === undefined || typeof claim.rationale === 'string')).toBe(true);
   expect(summary.claims.every(claim => claim.evidenceType === undefined || typeof claim.evidenceType === 'string')).toBe(true);
   if (requireEvidence) {
     expect(summary.claims.every(claim => claim.evidence.length === claim.excerptIds.length)).toBe(true);
     expect(summary.claims.every(claim => claim.evidence.every(evidence => evidence.snippet.length > 0))).toBe(true);
+    expect(summary.claims.every(claim => claim.evidence.every(evidence => typeof evidence.sourceRef === 'string' && evidence.sourceRef.length > 0))).toBe(true);
   }
 }
 
@@ -205,7 +210,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(new Set(usageLines).size).toBe(SOURCE_MANIFESTS.length);
     expect(new Set(registrationIds).size).toBe(SOURCE_MANIFESTS.length);
     expect(SOURCE_MANIFESTS.map(manifest => manifest.usage)).toEqual([
-      'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--json]',
+      'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--refresh-transcript] [--json]',
       'aidha ingest web --url <url> [--json]',
       'aidha ingest pdf --file <path> [--json]',
       'aidha ingest voice --file <path> [--json]',
@@ -255,6 +260,10 @@ describe('aidha cli phase-1 surface', () => {
     expectDraftClaims(summary);
     expect(summary.claims.every(claim => claim.evidence.length === claim.excerptIds.length)).toBe(true);
     expect(summary.claims.every(claim => claim.evidence.every(evidence => evidence.locator?.kind === 'timecode'))).toBe(true);
+    expect(summary.sourceSynopsis.length).toBe(summary.claimsExtracted);
+    expect(summary.sourceSynopsis.every(bullet => bullet.kind === 'context')).toBe(true);
+    expect(summary.sourceSynopsis.every(bullet => bullet.evidenceRefs.length > 0)).toBe(true);
+    expect(summary.sourceSynopsis.every(bullet => !('why' in bullet))).toBe(true);
   });
 
   it('exposes youtube on the generic aidha ingest command surface', async () => {

@@ -38,6 +38,11 @@ export interface YoutubeClientConfig {
   cookie: string;
   innertubeApiKey: string;
   debugTranscript: boolean;
+  transcriptCache: {
+    enabled: boolean;
+    dir: string;
+    refresh?: boolean;
+  };
 }
 
 export interface ResolvedYoutubeConfig {
@@ -60,6 +65,10 @@ const YOUTUBE_SOURCE_DEFAULTS: Record<string, unknown> = {
     cookie: '',
     innertube_api_key: '',
     debug_transcript: false,
+    transcript_cache: {
+      enabled: true,
+      dir: './out/cache/youtube-transcripts',
+    },
   },
   extraction: {
     chunk_minutes: 5,
@@ -77,6 +86,8 @@ const YOUTUBE_SOURCE_SCALAR_COERCIONS: Readonly<Record<string, 'number' | 'boole
   'youtube.cookie': 'string',
   'youtube.innertube_api_key': 'string', // pragma: allowlist secret
   'youtube.debug_transcript': 'boolean',
+  'youtube.transcript_cache.enabled': 'boolean',
+  'youtube.transcript_cache.dir': 'string',
 };
 
 // ── Validation / Narrowing ───────────────────────────────────────────────────
@@ -278,13 +289,24 @@ function narrowYoutube(raw: unknown): YoutubeClientConfig {
       cookie: '',
       innertubeApiKey: '',
       debugTranscript: false,
+      transcriptCache: {
+        enabled: true,
+        dir: './out/cache/youtube-transcripts',
+      },
     };
   }
   const obj = raw as Record<string, unknown>;
+  const transcriptCache = isPlainObject(obj['transcript_cache'])
+    ? obj['transcript_cache'] as Record<string, unknown>
+    : {};
   return {
     cookie: toString(obj['cookie'], ''),
     innertubeApiKey: toString(obj['innertube_api_key'], ''),
     debugTranscript: toBoolean(obj['debug_transcript'], false),
+    transcriptCache: {
+      enabled: toBoolean(transcriptCache['enabled'], true),
+      dir: toString(transcriptCache['dir'], './out/cache/youtube-transcripts'),
+    },
   };
 }
 
@@ -300,6 +322,7 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
       'ytdlp.timeout_ms': 'number',
       'ytdlp.keep_files': 'boolean',
       'youtube.debug_transcript': 'boolean',
+      'youtube.transcript_cache.enabled': 'boolean',
     },
     explainLabels: {
       'ytdlp.bin': 'Path to yt-dlp binary',
@@ -307,6 +330,7 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
       'ytdlp.timeout_ms': 'yt-dlp process timeout in milliseconds',
       'youtube.cookie': 'YouTube authentication cookie', // pragma: allowlist secret
       'youtube.innertube_api_key': 'YouTube Innertube API key', // pragma: allowlist secret
+      'youtube.transcript_cache.dir': 'Directory for normalized YouTube transcript cache files',
     },
   },
 
@@ -336,6 +360,14 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
         path: 'youtube',
         message: `Expected an object, got ${Array.isArray(youtube) ? 'array' : typeof youtube}`,
       });
+    } else if (isPlainObject(youtube)) {
+      const transcriptCache = youtube['transcript_cache'];
+      if (transcriptCache !== undefined && transcriptCache !== null && !isPlainObject(transcriptCache)) {
+        issues.push({
+          path: 'youtube.transcript_cache',
+          message: `Expected an object, got ${Array.isArray(transcriptCache) ? 'array' : typeof transcriptCache}`,
+        });
+      }
     }
 
     if (issues.length > 0) {
@@ -370,6 +402,16 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
         ...value.ytdlp,
         bin: resolvePathValue(value.ytdlp.bin, baseDir),
         cookiesFile: cookiesFile === '' ? '' : resolve(baseDir, cookiesFile),
+      },
+      youtube: {
+        ...value.youtube,
+        transcriptCache: {
+          ...(value.youtube.transcriptCache ?? { enabled: true, dir: './out/cache/youtube-transcripts' }),
+          dir: resolvePathValue(
+            value.youtube.transcriptCache?.dir ?? './out/cache/youtube-transcripts',
+            baseDir,
+          ),
+        },
       },
     };
   },
@@ -406,6 +448,21 @@ export function resolveRawYoutubeActiveSourceConfigPaths(
     }
 
     resolved['ytdlp'] = ytdlpConfig;
+  }
+
+  const youtube = resolved['youtube'];
+  if (youtube !== null && typeof youtube === 'object' && !Array.isArray(youtube)) {
+    const youtubeConfig = clonePlainObject(youtube as Record<string, unknown>);
+    const transcriptCache = youtubeConfig['transcript_cache'];
+    if (transcriptCache !== null && typeof transcriptCache === 'object' && !Array.isArray(transcriptCache)) {
+      const cacheConfig = clonePlainObject(transcriptCache as Record<string, unknown>);
+      const dir = cacheConfig['dir'];
+      if (typeof dir === 'string') {
+        cacheConfig['dir'] = resolvePathValue(dir, baseDir);
+      }
+      youtubeConfig['transcript_cache'] = cacheConfig;
+    }
+    resolved['youtube'] = youtubeConfig;
   }
 
   return resolved;

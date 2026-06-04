@@ -44,7 +44,8 @@ const POSITIVE_EXEMPLARS = `
       "classification": "fact",
       "domain": "Protein Kinetics",
       "confidence": 0.9,
-      "why": "Multiple RCTs demonstrate dose-response relationship between protein intake and MPS, with no observed plateau at 25-30g when using slow-digesting protein sources.",
+      "supportSummary": "Multiple RCTs are cited as showing a dose-response relationship between protein intake and MPS.",
+      "rationale": "The useful implication is that a fixed 25-30g per-meal protein ceiling is too low when the protein source is slow-digesting.",
       "evidenceType": "RCTs"
     },
     {
@@ -55,7 +56,8 @@ const POSITIVE_EXEMPLARS = `
       "classification": "fact",
       "domain": "Protein Kinetics",
       "confidence": 0.85,
-      "why": "Meta-analysis of multiple studies shows no significant interaction between protein timing and muscle hypertrophy when total daily protein intake is adequate.",
+      "supportSummary": "A meta-analysis is cited as finding no significant timing interaction when daily intake is adequate.",
+      "rationale": "The recommendation depends on total daily protein being sufficient; timing precision is less important under that condition.",
       "evidenceType": "Meta-analysis"
     },
     {
@@ -66,7 +68,8 @@ const POSITIVE_EXEMPLARS = `
       "classification": "fact",
       "domain": "Bioenergetics",
       "confidence": 0.8,
-      "why": "Metabolic ward studies controlling for calories and protein demonstrate equivalent fat loss between diets, with keto's effectiveness mediated by spontaneous reduction in caloric intake.",
+      "supportSummary": "Metabolic ward studies are cited as controlling for calories and protein while showing equivalent fat loss.",
+      "rationale": "Keto's practical effect is attributed to spontaneous caloric restriction rather than a unique fat-loss mechanism.",
       "evidenceType": "Metabolic Ward"
     },
     {
@@ -77,7 +80,8 @@ const POSITIVE_EXEMPLARS = `
       "classification": "fact",
       "domain": "Lipidology",
       "confidence": 0.75,
-      "why": "The MFGM in cream prevents lipid absorption disruption, while churning process physically removes this membrane in butter production, changing its physiological effect.",
+      "supportSummary": "The source distinguishes cream from butter by whether Milk Fat Globule Membrane remains present.",
+      "rationale": "Removing MFGM during churning changes the lipid-delivery mechanism, explaining why butter and cream can differ physiologically.",
       "evidenceType": "Mechanistic explanation"
     },
     {
@@ -88,7 +92,8 @@ const POSITIVE_EXEMPLARS = `
       "classification": "insight",
       "domain": "Knowledge Systems",
       "confidence": 0.82,
-      "why": "The source contrasts link-following through markdown indexes with semantic-search RAG, which depends on embeddings, a vector database, and chunk similarity.",
+      "supportSummary": "The source directly contrasts markdown index/link traversal with embedding-based semantic-search RAG.",
+      "rationale": "Explicit links preserve author- or agent-created relationships that similarity search may only approximate.",
       "evidenceType": "Transcript explanation"
     },
     {
@@ -99,7 +104,8 @@ const POSITIVE_EXEMPLARS = `
       "classification": "warning",
       "domain": "Knowledge Systems",
       "confidence": 0.78,
-      "why": "The source explicitly limits the recommendation to hundreds of pages with good indexes and recommends traditional RAG-like systems for millions of documents.",
+      "supportSummary": "The source limits the markdown-wiki recommendation to smaller corpora and contrasts it with million-document systems.",
+      "rationale": "At enterprise scale, file crawling and token usage become the bottleneck, so vector or knowledge-graph infrastructure is likely more appropriate.",
       "evidenceType": "Transcript recommendation"
     }
   ]
@@ -382,7 +388,8 @@ export function buildUserPrompt(
       classification: `string (one of: ${CLASSIFICATIONS})`,
       domain: `string (physiological domain, e.g., ${DOMAINS})`,
       confidence: 'number (0-1, based on evidence strength)',
-      why: 'string (brief explanation of evidence basis)',
+      supportSummary: 'string (brief source-grounding summary; never generic phrases like "direct report")',
+      rationale: 'string (only when a recommendation, mechanism, tradeoff, or decision needs its useful reason)',
       evidenceType: `string (type of evidence: ${EVIDENCE_TYPES})`,
     }],
   };
@@ -413,6 +420,8 @@ export function buildUserPrompt(
     '- Write canonical claim text directly; do NOT start claims with "the speaker claims", "the speaker says", "the speaker suggests", or similar attribution wrappers',
     '- Each claim MUST include domain and classification fields',
     '- Each claim SHOULD include evidenceType when evidence is mentioned',
+    '- Use supportSummary for concrete source support; do NOT write box-ticking phrases like "Direct report" or "The speaker describes"',
+    '- Use rationale only for substantive recommendation reasons, mechanisms, tradeoffs, or decision logic',
     '- If a recommendation appears, include the reason, condition, comparison, or limitation that makes it useful',
     '- If the source explains a workflow, preserve concrete components, sequence, mechanism, and tradeoffs',
     '- If you find a generic claim, replace it with a more specific one from the same text',

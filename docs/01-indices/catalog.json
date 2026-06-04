@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2026-05-25",
-      "version": "1.11",
+      "last_updated": "2026-06-04",
+      "version": "1.12",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -76,8 +76,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-06-01",
-      "version": "0.38",
+      "last_updated": "2026-06-04",
+      "version": "0.39",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"

@@ -17,6 +17,11 @@ import {
 import { fetchTranscriptWithYtDlp, fetchPlaylistWithYtDlp } from './yt-dlp.js';
 import type { YtDlpRuntimeConfig } from './yt-dlp.js';
 import { consoleLogger, resolveLogger, type Logger } from '../utils/logger.js';
+import {
+  readTranscriptCache,
+  writeTranscriptCache,
+  type TranscriptCacheConfig,
+} from './transcript-cache.js';
 
 // ── Runtime Config ───────────────────────────────────────────────────────────
 
@@ -26,6 +31,7 @@ export interface YouTubeClientConfig {
   innertubeApiKey?: string;
   debugTranscript: boolean;
   logger?: Logger;
+  transcriptCache?: TranscriptCacheConfig;
 }
 
 /** Default client config (no environment-variable lookup). */
@@ -35,6 +41,10 @@ export function youtubeDefaultConfig(): YouTubeClientConfig {
     innertubeApiKey: undefined,
     debugTranscript: false,
     logger: consoleLogger,
+    transcriptCache: {
+      enabled: true,
+      dir: './out/cache/youtube-transcripts',
+    },
   };
 }
 
@@ -69,6 +79,11 @@ export function youtubeConfigFromEnv(): YouTubeClientConfig {
     innertubeApiKey: process.env['YOUTUBE_INNERTUBE_API_KEY'],
     debugTranscript: process.env['AIDHA_DEBUG_TRANSCRIPT'] === '1',
     logger: consoleLogger,
+    transcriptCache: {
+      enabled: process.env['AIDHA_YOUTUBE_TRANSCRIPT_CACHE'] !== '0',
+      dir: process.env['AIDHA_YOUTUBE_TRANSCRIPT_CACHE_DIR'] ?? './out/cache/youtube-transcripts',
+      refresh: process.env['AIDHA_REFRESH_TRANSCRIPT'] === '1',
+    },
   };
 }
 
@@ -1004,6 +1019,14 @@ export class RealYouTubeClient implements YouTubeClient {
     const videoId = parseVideoId(videoIdOrUrl);
 
     try {
+      const cached = await readTranscriptCache(this.ytCfg.transcriptCache, videoId);
+      if (cached) {
+        if (this.ytCfg.debugTranscript) {
+          resolveLogger(this.ytCfg).debug(`[transcript] cache hit for ${videoId}`);
+        }
+        return { ok: true, value: cached };
+      }
+
       let lastError: Error | null = null;
       const errors: Error[] = [];
       let tracks: CaptionTrack[] = [];
@@ -1145,6 +1168,15 @@ export class RealYouTubeClient implements YouTubeClient {
         segments,
         fullText,
       };
+
+      try {
+        await writeTranscriptCache(this.ytCfg.transcriptCache, transcript);
+      } catch (error) {
+        if (this.ytCfg.debugTranscript) {
+          const message = error instanceof Error ? error.message : String(error);
+          resolveLogger(this.ytCfg).debug(`[transcript] cache write failed for ${videoId}: ${message}`);
+        }
+      }
 
       return { ok: true, value: transcript };
     } catch (error) {

@@ -10,6 +10,8 @@ export interface ClaimCandidate {
   classification?: string;
   domain?: string;
   why?: string;
+  supportSummary?: string;
+  rationale?: string;
   evidenceType?: string;
   method?: 'heuristic' | 'heuristic-fallback' | 'llm';
   chunkIndex?: number;

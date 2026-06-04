@@ -377,9 +377,16 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
   };
 
   const useMock = optionBool(options, 'mock');
+  const refreshTranscript = optionBool(options, 'refresh-transcript');
   const client = useMock
     ? new MockYouTubeClient()
-    : new RealYouTubeClient(youtubeConfig.youtube, ytDlpConfig);
+    : new RealYouTubeClient({
+      ...youtubeConfig.youtube,
+      transcriptCache: {
+        ...youtubeConfig.youtube.transcriptCache,
+        ...(refreshTranscript ? { refresh: true } : {}),
+      },
+    }, ytDlpConfig);
   const runtimeConfig = useMock && !config.llm.model
     ? { ...config, llm: { ...config.llm, model: 'mock-youtube-llm' } }
     : config;
@@ -391,7 +398,7 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
       config: runtimeConfig,
       ...(useMock ? { llm: createMockExtractionLlm() } : {}),
     }, videoId, {
-      refreshTranscript: optionBool(options, 'refresh-transcript')
+      refreshTranscript,
     });
   };
 
@@ -403,7 +410,7 @@ async function runIngest(positionals: string[], options: CliOptions, config: Res
       config: runtimeConfig,
       ...(useMock ? { llm: createMockExtractionLlm() } : {}),
     }, playlistId, {
-      refreshTranscript: optionBool(options, 'refresh-transcript')
+      refreshTranscript,
     });
     if (!result.ok) {
       console.error(result.error.message);

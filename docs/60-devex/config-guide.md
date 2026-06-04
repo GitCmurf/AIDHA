@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
-last_updated: 2026-05-25
-version: "1.11"
+last_updated: 2026-06-04
+version: "1.12"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.11
-> **Last Updated:** 2026-05-25
+> **Version:** 1.12
+> **Last Updated:** 2026-06-04
 > **Type:** GUIDE
 
 ## Version History
@@ -35,6 +35,7 @@ docops_version: "2.0"
 | 1.9     | 2026-05-18 | AI     | Clarify lazy interpolation during config mutation       | —         | Draft  | —         |
 | 1.10    | 2026-05-25 | AI     | Document taxonomy extension seed data for ingestion classification. | — | Draft | AIDHA-PLAN-007 |
 | 1.11    | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence across ingestion vectors. | — | Draft | AIDHA-PLAN-007 |
+| 1.12    | 2026-06-04 | AI     | Document YouTube transcript cache configuration. | — | Draft | AIDHA-TASK-010 |
 
 # AIDHA Configuration Guide
 
@@ -111,8 +112,16 @@ profiles:
       youtube:
         youtube:
           debug_transcript: true
+          transcript_cache:
+            enabled: true
+            dir: ./out/cache/youtube-transcripts
     # Optional: add other profile-level overrides here.
 ```
+
+`youtube.transcript_cache` stores normalized transcript JSON under an ignored local
+cache directory. It avoids repeated YouTube/`yt-dlp` caption fetches during private
+pilot iteration. Use `aidha ingest youtube --refresh-transcript ...` when you need
+to bypass and rewrite the cached transcript for a video.
 
 ## Profiles
 

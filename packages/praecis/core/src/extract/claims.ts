@@ -525,6 +525,8 @@ export class ClaimExtractionPipeline {
         if (claim.domain) metadata['domain'] = claim.domain;
         if (claim.evidenceType) metadata['evidenceType'] = claim.evidenceType;
         if (claim.why) metadata['why'] = claim.why;
+        if (claim.supportSummary) metadata['supportSummary'] = claim.supportSummary;
+        if (claim.rationale) metadata['rationale'] = claim.rationale;
         if (claim.model) metadata['model'] = claim.model;
         if (claim.promptVersion) metadata['promptVersion'] = claim.promptVersion;
         if (typeof claim.echoOverlapRatio === 'number') metadata['echoOverlapRatio'] = claim.echoOverlapRatio;

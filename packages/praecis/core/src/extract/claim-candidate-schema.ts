@@ -60,6 +60,8 @@ export const ClaimCandidateSchema = z.object({
   classification: z.enum(CLAIM_CLASSIFICATIONS).optional(),
   domain: z.string().optional(),
   why: z.string().optional(),
+  supportSummary: z.string().optional(),
+  rationale: z.string().optional(),
   evidenceType: z.string().optional(),
   method: z.enum(CLAIM_METHODS).optional(),
   chunkIndex: z.number().int().nonnegative().optional(),
