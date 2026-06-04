@@ -68,6 +68,76 @@ describe('editorial ranking v2', () => {
     );
   });
 
+  it('prefers direct canonical claims over reported-speech wrappers', () => {
+    const candidates: ClaimCandidate[] = [
+      {
+        text: 'The speaker claims that Claude Code can organize raw source files into a markdown wiki.',
+        excerptIds: ['e-reported'],
+        startSeconds: 10,
+        chunkIndex: 0,
+        confidence: 0.95,
+        domain: 'Knowledge Systems',
+        classification: 'fact',
+        evidenceType: 'direct',
+      },
+      {
+        text: 'Claude Code can organize raw source files into a markdown wiki with indexes, logs, and backlinks.',
+        excerptIds: ['e-direct'],
+        startSeconds: 20,
+        chunkIndex: 0,
+        confidence: 0.8,
+        domain: 'Knowledge Systems',
+        classification: 'fact',
+        evidenceType: 'direct',
+      },
+    ];
+
+    const selected = runEditorPassV2(candidates, {
+      maxClaims: 1,
+      chunkCount: 1,
+      minWindows: 1,
+    });
+
+    expect(selected.map(candidate => candidate.text)).toEqual([
+      'Claude Code can organize raw source files into a markdown wiki with indexes, logs, and backlinks.',
+    ]);
+  });
+
+  it('prefers recommendations with rationale over thin recommendations', () => {
+    const candidates: ClaimCandidate[] = [
+      {
+        text: 'The speaker recommends using a traditional RAG pipeline with current models.',
+        excerptIds: ['e-thin'],
+        startSeconds: 10,
+        chunkIndex: 0,
+        confidence: 0.9,
+        domain: 'Knowledge Systems',
+        classification: 'instruction',
+        evidenceType: 'direct',
+      },
+      {
+        text: 'Traditional RAG is preferable for million-document enterprise corpora because markdown wiki crawling makes token cost scale poorly.',
+        excerptIds: ['e-rationale'],
+        startSeconds: 20,
+        chunkIndex: 0,
+        confidence: 0.75,
+        domain: 'Knowledge Systems',
+        classification: 'warning',
+        evidenceType: 'direct',
+      },
+    ];
+
+    const selected = runEditorPassV2(candidates, {
+      maxClaims: 1,
+      chunkCount: 1,
+      minWindows: 1,
+    });
+
+    expect(selected.map(candidate => candidate.text)).toEqual([
+      'Traditional RAG is preferable for million-document enterprise corpora because markdown wiki crawling makes token cost scale poorly.',
+    ]);
+  });
+
   it('deduplicates equivalent negated claims despite punctuation differences', () => {
     const candidates: ClaimCandidate[] = [
       {

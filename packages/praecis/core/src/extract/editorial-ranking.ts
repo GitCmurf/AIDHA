@@ -175,6 +175,17 @@ function isLowValue(text: string): boolean {
   return BOILERPLATE_PATTERNS.some(pattern => pattern.test(text));
 }
 
+function hasReportedSpeechWrapper(text: string): boolean {
+  return /^\s*(?:the\s+)?(?:speaker|host|presenter|narrator|video|transcript)\s+(?:claims?|says?|states?|suggests?|recommends?|argues?|reports?|mentions?)\b/i
+    .test(text);
+}
+
+function isThinRecommendation(text: string): boolean {
+  if (!/\b(?:recommend(?:s|ed|ing)?|should|use|prefer|avoid)\b/i.test(text)) return false;
+  return !/\b(?:because|since|so that|in order to|when|if|unless|whereas|compared with|rather than|due to|at least|for now|scale|cost|token|limitation|trade-?off)\b/i
+    .test(text);
+}
+
 function isTooShortV1(text: string): boolean {
   const trimmed = text.trim();
   const words = trimmed.split(/\s+/).filter(Boolean).length;
@@ -596,6 +607,12 @@ function scoreCandidateV2(
 
   if (isLowValue(text)) {
     score -= options.boilerplatePenalty;
+  }
+  if (hasReportedSpeechWrapper(text)) {
+    score -= 0.35;
+  }
+  if (isThinRecommendation(text)) {
+    score -= 0.25;
   }
   if (isTooShortV2(text, options.minWords, options.minChars)) {
     score -= options.fragmentPenalty;

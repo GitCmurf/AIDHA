@@ -5,7 +5,7 @@
  * Based on Gemini baseline success showing domain-labeled, evidence-backed claims.
  */
 
-import { escapeTripleQuoted, sanitizeForPrompt } from '../prompt-safety.js';
+import { escapeTripleQuoted, sanitizeForPrompt, sanitizeTranscriptForPrompt } from '../prompt-safety.js';
 import { CLAIM_CLASSIFICATIONS, CLAIM_TYPES } from '../claim-candidate-schema.js';
 import type { ExtractionPromptPackId } from '../prompt-routing.js';
 
@@ -79,6 +79,28 @@ const POSITIVE_EXEMPLARS = `
       "confidence": 0.75,
       "why": "The MFGM in cream prevents lipid absorption disruption, while churning process physically removes this membrane in butter production, changing its physiological effect.",
       "evidenceType": "Mechanistic explanation"
+    },
+    {
+      "text": "A markdown wiki built from raw source files can answer questions by reading index files and following explicit links, rather than using embedding similarity over chunks.",
+      "excerptIds": ["ex5"],
+      "startSeconds": 960,
+      "type": "mechanism",
+      "classification": "insight",
+      "domain": "Knowledge Systems",
+      "confidence": 0.82,
+      "why": "The source contrasts link-following through markdown indexes with semantic-search RAG, which depends on embeddings, a vector database, and chunk similarity.",
+      "evidenceType": "Transcript explanation"
+    },
+    {
+      "text": "For very large enterprise corpora, the markdown-wiki approach becomes less suitable because file crawling and token usage scale poorly compared with traditional RAG or knowledge-graph systems.",
+      "excerptIds": ["ex6"],
+      "startSeconds": 1020,
+      "type": "recommendation",
+      "classification": "warning",
+      "domain": "Knowledge Systems",
+      "confidence": 0.78,
+      "why": "The source explicitly limits the recommendation to hundreds of pages with good indexes and recommends traditional RAG-like systems for millions of documents.",
+      "evidenceType": "Transcript recommendation"
     }
   ]
 }
@@ -115,6 +137,14 @@ Negative 5 - Pronoun-only claim:
 Negative 6 - Outro boilerplate:
 "Thanks for watching, and please like and subscribe for more content."
 - REJECT: Outro CTA, not domain content
+
+Negative 7 - Reported-speech wrapper:
+"The speaker claims that Claude Code can organize files into a wiki."
+- REJECT: Attribution belongs in provenance; canonical claims should state the proposition directly.
+
+Negative 8 - Thin recommendation:
+"The speaker recommends using traditional RAG with current models."
+- REJECT: Recommendation without the transcript-supported rationale, condition, or limitation.
 
 === END NEGATIVE EXAMPLES ===
 `;
@@ -262,6 +292,9 @@ export function buildSystemPrompt(
     ...buildPackSpecificSystemGuidance(packId),
     '',
     'Target Claim Style:',
+    '- Direct canonical claims, not reported speech; do not write "the speaker claims/says/suggests" unless attribution is the point',
+    '- Recommendations include their transcript-supported rationale, condition, or limitation when available',
+    '- Technical workflow claims preserve setup structure, mechanism, tradeoff, and "so what" implications',
     '- Specific numbers and units (e.g., "1.6g/kg", "24-72 hours", "RCTs")',
     '- Technical terminology preserved exactly (e.g., "MPS", "MFGM", "isotopic tracing")',
     '- Clear domain labels (e.g., "Protein Kinetics", "Bioenergetics")',
@@ -354,11 +387,14 @@ export function buildUserPrompt(
     }],
   };
 
-  // Sanitize all excerpts before including in prompt
-  const sanitizedExcerpts = excerpts.map(excerpt => ({
-    ...excerpt,
-    text: sanitizeForPrompt(excerpt.text, 1000),
-  }));
+  const sanitizedExcerpts = excerpts.map(excerpt => {
+    const sanitized = sanitizeTranscriptForPrompt(excerpt.text, 1000);
+    return {
+      ...excerpt,
+      text: sanitized.text,
+      ...(sanitized.suspicious ? { promptSafetyFlag: 'suspicious-prompt-like-text-preserved' } : {}),
+    };
+  });
 
   return [
     `VIDEO_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(input.resourceLabel, 200))}"""`,
@@ -374,8 +410,11 @@ export function buildUserPrompt(
     '',
     'REQUIREMENTS:',
     '- Each claim MUST be a complete, standalone sentence',
+    '- Write canonical claim text directly; do NOT start claims with "the speaker claims", "the speaker says", "the speaker suggests", or similar attribution wrappers',
     '- Each claim MUST include domain and classification fields',
     '- Each claim SHOULD include evidenceType when evidence is mentioned',
+    '- If a recommendation appears, include the reason, condition, comparison, or limitation that makes it useful',
+    '- If the source explains a workflow, preserve concrete components, sequence, mechanism, and tradeoffs',
     '- If you find a generic claim, replace it with a more specific one from the same text',
     '- Reject intro/outro phrases like "welcome to", "thanks for watching", "subscribe"',
     '- Reject sponsor content (e.g., "use code [CODE]", "[SPONSOR] discount", "[PRODUCT] link in description")',

@@ -101,6 +101,17 @@ export interface IngestSummary {
   readonly claims: Array<{
     readonly text: string;
     readonly excerptIds: readonly string[];
+    readonly type?: string;
+    readonly classification?: string;
+    readonly domain?: unknown;
+    readonly confidence?: number;
+    readonly why?: unknown;
+    readonly evidenceType?: unknown;
+    readonly evidence: Array<{
+      readonly excerptId: string;
+      readonly locator: Locator;
+      readonly snippet: string;
+    }>;
     readonly method?: unknown;
     readonly model?: unknown;
     readonly promptVersion?: unknown;
@@ -212,6 +223,7 @@ function createMockExtractionLlm(): LlmClient {
             confidence: 0.84,
             type: 'fact',
             classification: 'fact',
+            domain: 'CLI Fixture',
             evidenceType: 'direct',
             why: 'Deterministic mock extraction keeps generic CLI and acceptance tests offline.',
           }],
@@ -316,7 +328,15 @@ function aggregateReferences(summaries: readonly { readonly references: RunRepor
   };
 }
 
+function snippetForEvidence(text: unknown, maxLength = 280): string {
+  if (typeof text !== 'string') return '';
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport): IngestSummary {
+  const chunkById = new Map(result.chunks.map(chunk => [chunk.id, chunk]));
   return {
     sourceId,
     ref,
@@ -329,6 +349,23 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
     claims: result.claims.map(claim => ({
       text: claim.text,
       excerptIds: claim.excerptIds,
+      ...(claim.type ? { type: claim.type } : {}),
+      ...(claim.classification ? { classification: claim.classification } : {}),
+      ...(claim.metadata?.['domain'] ? { domain: claim.metadata['domain'] } : {}),
+      ...(claim.confidence !== undefined ? { confidence: claim.confidence } : {}),
+      ...(claim.metadata?.['why'] ? { why: claim.metadata['why'] } : {}),
+      ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
+      evidence: claim.excerptIds.flatMap(excerptId => {
+        const chunk = chunkById.get(excerptId);
+        if (!chunk) return [];
+        const snippet = snippetForEvidence(chunk.text);
+        if (!snippet) return [];
+        return {
+          excerptId,
+          locator: chunk.locator,
+          snippet,
+        };
+      }),
       method: claim.metadata?.['method'],
       model: claim.metadata?.['model'],
       promptVersion: claim.metadata?.['promptVersion'],

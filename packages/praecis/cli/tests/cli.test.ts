@@ -76,6 +76,7 @@ function fakeLlm(): LlmClient {
             confidence: 0.84,
             type: 'fact',
             classification: 'fact',
+            domain: 'CLI Fixture',
             startSeconds: 0,
             evidenceType: 'direct',
             why: 'Synthesized by the canonical extractor test double.',
@@ -121,14 +122,38 @@ function makeFetchResponse(url: string, html: string) {
 function expectDraftClaims(summary: {
   claimsExtracted: number;
   claimIds: readonly string[];
-  claims: readonly { text: string; method?: unknown; model?: unknown; promptVersion?: unknown }[];
-}) {
+  claims: readonly {
+    text: string;
+    excerptIds: readonly string[];
+    type?: unknown;
+    classification?: unknown;
+    domain?: unknown;
+    confidence?: unknown;
+    why?: unknown;
+    evidenceType?: unknown;
+    evidence: readonly { excerptId: string; snippet: string; locator?: unknown }[];
+    method?: unknown;
+    model?: unknown;
+    promptVersion?: unknown;
+  }[];
+}, options: { requireEvidence?: boolean } = {}) {
+  const requireEvidence = options.requireEvidence ?? true;
   expect(summary.claimsExtracted).toBeGreaterThan(0);
   expect(summary.claimIds.length).toBe(summary.claimsExtracted);
   expect(summary.claims.length).toBe(summary.claimsExtracted);
   expect(summary.claims.every(claim => claim.method === 'llm')).toBe(true);
   expect(summary.claims.every(claim => claim.model === 'test-model')).toBe(true);
   expect(summary.claims.every(claim => claim.promptVersion)).toBe(true);
+  expect(summary.claims.every(claim => claim.type === undefined || typeof claim.type === 'string')).toBe(true);
+  expect(summary.claims.every(claim => claim.classification === undefined || typeof claim.classification === 'string')).toBe(true);
+  expect(summary.claims.every(claim => claim.domain === undefined || typeof claim.domain === 'string')).toBe(true);
+  expect(summary.claims.every(claim => claim.confidence === undefined || typeof claim.confidence === 'number')).toBe(true);
+  expect(summary.claims.every(claim => claim.why === undefined || typeof claim.why === 'string')).toBe(true);
+  expect(summary.claims.every(claim => claim.evidenceType === undefined || typeof claim.evidenceType === 'string')).toBe(true);
+  if (requireEvidence) {
+    expect(summary.claims.every(claim => claim.evidence.length === claim.excerptIds.length)).toBe(true);
+    expect(summary.claims.every(claim => claim.evidence.every(evidence => evidence.snippet.length > 0))).toBe(true);
+  }
 }
 
 function reportFor(sourceId: string, ref: string): RunReport {
@@ -228,6 +253,8 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.segmentCount).toBeGreaterThan(0);
     expect(summary.segments[0]?.locator.kind).toBe('timecode');
     expectDraftClaims(summary);
+    expect(summary.claims.every(claim => claim.evidence.length === claim.excerptIds.length)).toBe(true);
+    expect(summary.claims.every(claim => claim.evidence.every(evidence => evidence.locator?.kind === 'timecode'))).toBe(true);
   });
 
   it('exposes youtube on the generic aidha ingest command surface', async () => {
@@ -775,7 +802,7 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.warnings).toEqual([]);
     expect(summary.summaries[0]?.canonicalId).toBe('email:thread:msg-a');
     expect(summary.summaries[0]?.segmentCount).toBe(2);
-    expectDraftClaims(summary.summaries[0]!);
+    expectDraftClaims(summary.summaries[0]!, { requireEvidence: false });
   }, 60_000);
 
   it('surfaces partial email failures through the unified CLI context adapter', async () => {

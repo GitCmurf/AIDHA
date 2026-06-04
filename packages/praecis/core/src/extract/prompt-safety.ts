@@ -51,3 +51,21 @@ export function sanitizeForPrompt(text: string, maxLength: number): string {
   }
   return Array.from(sanitized).slice(0, maxLength).join('');
 }
+
+/**
+ * Sanitizes transcript excerpts for fenced data analysis without destructively
+ * redacting content that may itself be the subject of extraction.
+ */
+export function sanitizeTranscriptForPrompt(text: string, maxLength: number): { text: string; suspicious: boolean } {
+  const normalized = text.normalize('NFKC');
+  const escaped = normalized
+    .replace(/```/g, '\'\'\'')
+    .replaceAll('"""', "'''");
+  const suspicious = /ignore\s+(all\s+)?(instructions?|commands?|above|preceding)/i.test(normalized)
+    || /(override|bypass|disregard)\s+(instructions?|constraints?|rules?)/i.test(normalized)
+    || /\b(new\s+task|you\s+are\s+now|act\s+as|from\s+now\s+on)\b/i.test(normalized);
+  return {
+    text: Array.from(escaped).slice(0, maxLength).join(''),
+    suspicious,
+  };
+}

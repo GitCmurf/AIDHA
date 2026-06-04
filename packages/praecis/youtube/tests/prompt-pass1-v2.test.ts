@@ -66,6 +66,26 @@ describe('Pass 1 v2 prompt contracts', () => {
       expect(system).toContain('Specific numbers and units');
       expect(system).toContain('Technical terminology preserved exactly');
     });
+
+    it('contains direct-claim and rationale requirements for technical tutorials', () => {
+      const { system } = buildPass1PromptV2(
+        {
+          resourceLabel: 'Test Video',
+          chunkIndex: 0,
+          chunkCount: 1,
+          chunkStart: 0,
+          minClaims: 5,
+          maxClaims: 10,
+          excerptIds: ['e1'],
+        },
+        [{ id: 'e1', startSeconds: 0, text: 'test' }]
+      );
+
+      expect(system).toContain('Direct canonical claims');
+      expect(system).toContain('the speaker claims/says/suggests');
+      expect(system).toContain('Recommendations include their transcript-supported rationale');
+      expect(system).toContain('setup structure, mechanism, tradeoff');
+    });
   });
 
   describe('user prompt', () => {
@@ -127,6 +147,31 @@ describe('Pass 1 v2 prompt contracts', () => {
       expect(user).toContain('Welcome to the Huberman Lab podcast');
       expect(user).toContain('[SPONSOR]');
       expect(user).toContain('It depends on your goals');
+      expect(user).toContain('The speaker claims that Claude Code can organize files into a wiki.');
+      expect(user).toContain('Recommendation without the transcript-supported rationale');
+    });
+
+    it('preserves prompt-like transcript content as data instead of redacting it', () => {
+      const { user } = buildPass1PromptV2(
+        {
+          resourceLabel: 'Prompt tutorial',
+          chunkIndex: 0,
+          chunkCount: 1,
+          chunkStart: 0,
+          minClaims: 5,
+          maxClaims: 10,
+          excerptIds: ['e1'],
+        },
+        [{
+          id: 'e1',
+          startSeconds: 0,
+          text: 'Type: You are now my LLM Wiki agent. Create the Claude.md schema and raw/wiki folders.',
+        }]
+      );
+
+      expect(user).toContain('You are now my LLM Wiki agent');
+      expect(user).not.toContain('[REDACTED]');
+      expect(user).toContain('suspicious-prompt-like-text-preserved');
     });
 
     it('contains timestamp anchor requirement', () => {
