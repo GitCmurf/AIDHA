@@ -37,17 +37,22 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
   ): Promise<Result<RawSource<YouTubeVideoPayload>>> {
     const videoId = input.ref;
 
-    const videoResult = await this.client.fetchVideo(videoId);
-    if (!videoResult.ok) {
-      return { ok: false, error: videoResult.error };
-    }
-    const video: Video = videoResult.value;
-
     const transcriptResult = await this.client.fetchTranscript(videoId);
     if (!transcriptResult.ok) {
       return { ok: false, error: transcriptResult.error };
     }
     const transcript: Transcript = transcriptResult.value;
+
+    const videoResult = await this.client.fetchVideo(videoId);
+    const videoMetadataError = videoResult.ok ? undefined : videoResult.error.message;
+    const video: Video = videoResult.ok ? videoResult.value : {
+      id: videoId,
+      title: `YouTube video ${videoId}`,
+      channelId: 'unknown',
+      channelName: 'Unknown Channel',
+      duration: 0,
+      publishedAt: new Date(0).toISOString(),
+    };
 
     const payload: YouTubeVideoPayload = {
       videoId: video.id,
@@ -79,6 +84,7 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
         thumbnailUrl: video.thumbnailUrl,
         transcriptStatus: transcript ? 'available' : 'missing',
         ...(transcript?.language ? { transcriptLanguage: transcript.language } : {}),
+        ...(videoMetadataError ? { videoMetadataStatus: 'unavailable', videoMetadataError } : {}),
       },
       label: video.title,
       payload,
