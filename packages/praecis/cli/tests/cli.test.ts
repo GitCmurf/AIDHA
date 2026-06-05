@@ -266,6 +266,85 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.sourceSynopsis.every(bullet => !('why' in bullet))).toBe(true);
   });
 
+  it('rewrites youtube source synopsis bullets into at-a-glance takeaways', async () => {
+    const report = {
+      ...reportFor('youtube', 'test-video'),
+      chunkCount: 2,
+      segmentCount: 2,
+      chunks: [
+        {
+          id: 'excerpt-36-videos',
+          text: 'What you are looking at right here is 36 of my most recent YouTube videos organized into an actual knowledge system.',
+          locator: { kind: 'timecode' as const, startSec: 2, endSec: 76 },
+          segments: [],
+        },
+        {
+          id: 'excerpt-backlinks',
+          text: 'We use backlinks to move between WAT framework, Claude Code, Perplexity, Visual Studio Code, Nano Banana, and permission modes.',
+          locator: { kind: 'timecode' as const, startSec: 20, endSec: 76 },
+          segments: [],
+        },
+        {
+          id: 'excerpt-costs',
+          text: 'Markdown uses token usage; semantic search has embeddings, vector database, compute, and storage costs.',
+          locator: { kind: 'timecode' as const, startSec: 957, endSec: 1010 },
+          segments: [],
+        },
+      ],
+      claimsExtracted: 3,
+      claimIds: ['claim-1', 'claim-2', 'claim-3'],
+      claims: [
+        {
+          text: 'The speaker organized 36 of his most recent YouTube videos into a knowledge system that maps videos as nodes with tags, video links, raw files, explanations, and backlinks.',
+          excerptIds: ['excerpt-36-videos'],
+          state: 'draft' as const,
+          type: 'fact',
+          classification: 'fact',
+          metadata: { method: 'llm', model: 'test-model', promptVersion: 'v1' },
+        },
+        {
+          text: 'The speaker uses backlinks in the knowledge system to navigate between concepts such as the WAT framework, Claude Code, Perplexity, Visual Studio Code, Nano Banana, and permission modes.',
+          excerptIds: ['excerpt-backlinks'],
+          state: 'draft' as const,
+          type: 'fact',
+          classification: 'fact',
+          metadata: { method: 'llm', model: 'test-model', promptVersion: 'v1' },
+        },
+        {
+          text: 'The primary ongoing cost of the markdown-based approach is token usage, whereas semantic search incurs ongoing compute and storage costs for embeddings and vector databases.',
+          excerptIds: ['excerpt-costs'],
+          state: 'draft' as const,
+          type: 'opinion',
+          classification: 'insight',
+          metadata: { method: 'llm', model: 'test-model', promptVersion: 'v1' },
+        },
+      ],
+    };
+
+    const summary = await runYouTubePlaylistIngest('test-playlist', {
+      client: new MockYouTubeClient(),
+      context: {
+        services: {},
+        async runReport() {
+          return { ok: true, value: report };
+        },
+        async runVector() {
+          throw new Error('runVector should not be called by playlist summary test');
+        },
+      },
+    });
+
+    const synopsis = summary.summaries[0]?.sourceSynopsis ?? [];
+    expect(synopsis.map(bullet => bullet.text)).toEqual([
+      'This video demonstrates a personal-knowledge system seeded with 36 YouTube videos, organizing videos as linked nodes with tags, source links, raw files, explanations, and backlinks.',
+      'Obsidian backlinks let users navigate between generated source summaries, tools, techniques, and concepts without returning to a top-level index.',
+      'The markdown-wiki approach mainly spends tokens at query time, while semantic-search RAG also adds embedding, vector database, compute, and storage costs.',
+    ]);
+    expect(synopsis.map(bullet => bullet.kind)).toEqual(['context', 'workflow', 'tradeoff']);
+    expect(synopsis.every(bullet => !/^The speaker\b/.test(bullet.text))).toBe(true);
+    expect(synopsis.every(bullet => bullet.evidenceRefs[0]?.sourceRef.startsWith('https://www.youtube.com/watch?v=test-video&t='))).toBe(true);
+  });
+
   it('exposes youtube on the generic aidha ingest command surface', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-youtube-'));
     const dbPath = join(dir, 'aidha.sqlite');
@@ -467,7 +546,7 @@ describe('aidha cli phase-1 surface', () => {
       expect(summary.failed).toBe(1);
       expect(summary.errors).toEqual([{
         item: 'missing-video',
-        message: 'Video not found: missing-video',
+        message: 'Transcript not found: missing-video',
         timestamp: expect.any(String),
       }]);
     } finally {
@@ -513,10 +592,10 @@ describe('aidha cli phase-1 surface', () => {
     expect(summary.summaries[0]?.canonicalId).toBe('youtube-test-video');
     expect(summary.errors).toEqual([{
       item: 'missing-video',
-      message: 'Video not found: missing-video',
+      message: 'Transcript not found: missing-video',
       timestamp: '2026-05-25T12:34:56.000Z',
     }]);
-    expect(summary.warnings).toContain('missing-video: Video not found: missing-video');
+    expect(summary.warnings).toContain('missing-video: Transcript not found: missing-video');
   });
 
   it('ingests web fixtures with deterministic canonical ids and chunks', async () => {

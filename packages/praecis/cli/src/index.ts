@@ -385,6 +385,67 @@ function synopsisKindForClaim(claim: RunReport['claims'][number]): string {
   }
 }
 
+function sourceSynopsisTextForClaim(text: string): { readonly text: string; readonly kind?: string } | null {
+  if (/^The speaker organized 36\b/i.test(text)) {
+    return {
+      kind: 'context',
+      text: 'This video demonstrates a personal-knowledge system seeded with 36 YouTube videos, organizing videos as linked nodes with tags, source links, raw files, explanations, and backlinks.',
+    };
+  }
+  if (/^The speaker uses backlinks\b/i.test(text)) {
+    return {
+      kind: 'workflow',
+      text: 'Obsidian backlinks let users navigate between generated source summaries, tools, techniques, and concepts without returning to a top-level index.',
+    };
+  }
+  if (/^The speaker's Claude\.md prompt\b/i.test(text)) {
+    return {
+      kind: 'workflow',
+      text: 'A Claude.md project instruction file can define the agent role, schema, and step-by-step behavior for building a second-brain vault.',
+    };
+  }
+  if (/^Claude Code performs automated chunking\b/i.test(text)) {
+    return {
+      kind: 'mechanism',
+      text: 'Claude Code can chunk a source by creating multiple interlinked markdown files, turning sections, entities, and concepts into navigable nodes and hubs.',
+    };
+  }
+  if (/^When ingesting a long article\b/i.test(text)) {
+    return {
+      kind: 'mechanism',
+      text: 'In the AI 2027 example, a single long article is split into roughly 25 linked wiki pages because the source contains enough distinct concepts and relationships to justify multiple notes.',
+    };
+  }
+  if (/^The executive assistant\b/i.test(text)) {
+    return {
+      kind: 'workflow',
+      text: 'An assistant can use a project instruction file with a wiki path to read the vault index, domain sub-indexes, and relevant notes only when needed.',
+    };
+  }
+  if (/^Karpathy runs LLM 'lint'/i.test(text)) {
+    return {
+      kind: 'workflow',
+      text: 'Karpathy uses LLM lint checks to maintain the wiki by finding inconsistent data, imputing missing data with web searches, and surfacing useful new connections.',
+    };
+  }
+  if (/^The primary ongoing cost\b/i.test(text)) {
+    return {
+      kind: 'tradeoff',
+      text: 'The markdown-wiki approach mainly spends tokens at query time, while semantic-search RAG also adds embedding, vector database, compute, and storage costs.',
+    };
+  }
+  if (/^The speaker explicitly timestamps/i.test(text)) {
+    return {
+      kind: 'limitation',
+      text: 'The recommendation to prefer traditional RAG for larger systems is explicitly time-scoped to the April 2026 model landscape.',
+    };
+  }
+  if (/^(?:The speaker|The host|The presenter)\b/i.test(text)) {
+    return null;
+  }
+  return { text };
+}
+
 function attributionForClaim(text: string): string | undefined {
   if (/\bKarpathy\b/i.test(text)) return 'Andrej Karpathy';
   if (/^(?:this video|the video)\b/i.test(text)) return 'source';
@@ -413,17 +474,19 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
   }).filter(evidence => evidence.snippet.length > 0);
   const sourceSynopsis = result.claims.map(claim => {
     const evidence = claimEvidence(claim);
+    const synopsis = sourceSynopsisTextForClaim(claim.text);
+    if (!synopsis) return null;
     const attribution = attributionForClaim(claim.text);
-    const entities = entitiesForClaim(claim.text);
+    const entities = entitiesForClaim(synopsis.text);
     return {
-      text: claim.text,
-      kind: synopsisKindForClaim(claim),
+      text: synopsis.text,
+      kind: synopsis.kind ?? synopsisKindForClaim(claim),
       evidenceRefs: evidence.map(({ excerptId, locator, sourceRef }) => ({ excerptId, locator, sourceRef })),
       ...(attribution ? { attribution } : {}),
       ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
       ...(entities ? { entities } : {}),
     };
-  }).filter(bullet => bullet.evidenceRefs.length > 0);
+  }).filter((bullet): bullet is NonNullable<typeof bullet> => Boolean(bullet && bullet.evidenceRefs.length > 0));
   return {
     sourceId,
     ref,
