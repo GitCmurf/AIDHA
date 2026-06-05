@@ -2,8 +2,8 @@
 document_id: AIDHA-TASK-010
 owner: Product
 status: Draft
-version: "0.11"
-last_updated: 2026-06-01
+version: "0.12"
+last_updated: 2026-06-05
 title: Viable Prototype Agent Workplan
 type: TASK
 docops_version: "2.0"
@@ -18,8 +18,8 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 > **Owner:** Product
 > **Approvers:** -
 > **Status:** Draft
-> **Version:** 0.11
-> **Last Updated:** 2026-06-01
+> **Version:** 0.12
+> **Last Updated:** 2026-06-05
 > **Type:** TASK
 
 # Task: Viable Prototype Agent Workplan
@@ -39,6 +39,7 @@ related_ids: [AIDHA-PLAN-008, AIDHA-STRATEGY-002, AIDHA-PLAN-007]
 | 0.9     | 2026-06-01 | AI     | Record viable-prototype hardening: acceptance rerun evidence, YouTube task wrapper convergence on shared activation helpers, and the governed pilot evidence template. | - | Draft | AIDHA-PLAN-008 |
 | 0.10    | 2026-06-01 | AI     | Record pilot-readiness gates: generic JSON-LD export, acceptance packet JSON-LD evidence, and generic activation quickstart/runbook reconciliation. | - | Draft | AIDHA-PLAN-008 |
 | 0.11    | 2026-06-01 | AI     | Close stale owner-independent work-package ledger items and leave only pilot/baseline decisions open. | - | Draft | AIDHA-PLAN-008 |
+| 0.12    | 2026-06-05 | AI     | Fix stale verified anchor: `RationaleTrace` is implemented; only trace promotion remains deferred. | - | Draft | AIDHA-PLAN-008 |
 
 ## Purpose
 
@@ -98,15 +99,15 @@ Owner-independent implementation work through WP5 is now closed. The remaining o
 human selection of a dormant project, an active project, and source material for a real pilot, then a
 go/no-go decision against AIDHA-TESTING-006.
 
-**Verified codebase anchors (confirmed 2026-06-01, re-verify before relying on them):**
+**Verified codebase anchors (confirmed 2026-06-05, re-verify before relying on them):**
 
 - Provenance addressing already uses the `Locator` discriminated union in
   `packages/praecis/core/src/types/locator.ts` (`timecode | page | dom | message | text | external`).
   Build generic display on it; do not reinvent it.
 - Graph predicates already exist: `claimDerivedFrom`, `resourceHasExcerpt`, `taskMotivatedBy`,
   `taskPartOfProject`, plus `taskDependsOn`, `projectServesGoal`, `projectInArea`, `alsoSeenVia`,
-  `corroboratedBy` (`packages/reconditum/src/schema/edge.ts`). No `RationaleTrace`/`SuggestedLink`/
-  `Gap` NodeTypes exist yet — those are net-new in WP4.
+  `corroboratedBy` (`packages/reconditum/src/schema/edge.ts`). `RationaleTrace` is implemented;
+  `SuggestedLink`/`Gap` NodeTypes and trace promotion remain deferred.
 - Claim editorial state (`draft | accepted | rejected`) already exists durably in
   `packages/reconditum/src/schema/domain-metadata.ts` (`state`) and is read by the YouTube review
   queue. This is distinct from the claim-grain routing review metadata proposed in WP3

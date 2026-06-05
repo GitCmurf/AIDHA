@@ -1116,7 +1116,7 @@ const runNarrowManualBaseline = async (
       config.llm,
       {
         timeoutMs: getNarrowEvalModelProfile(modelId).requestTimeoutMs,
-        maxRequestsPerMinute: modelId === "gpt-5.4" || modelId === "gpt-5.5"
+        maxRequestsPerMinute: modelId === "gpt-5.5" || modelId.startsWith("gpt-5.4")
           ? parsedOpts.maxRpmGpt54
           : modelId === "gemini-3.1-flash-lite-preview" || modelId === "gemini-3.5-flash"
             ? parsedOpts.maxRpmGeminiFlashLite
