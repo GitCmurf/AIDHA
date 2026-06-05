@@ -168,12 +168,18 @@ const CONSTRAINTS = [
   'CRITICAL: Claims must be auditable and evidence-based.',
   'Constraint: Preserve all technical terms, numbers, and units exactly.',
   'Constraint: Do not include claims that are purely opinion without domain grounding.',
+  'Constraint: Do not turn a tag list, backlink list, or tool list into a claim unless the source asserts a relationship, workflow, or tradeoff.',
 ].join('\n');
 
 /**
  * Domain categories for claim classification.
  */
 const DOMAINS = [
+  'Knowledge Systems',
+  'Software Engineering',
+  'AI Tooling',
+  'Information Retrieval',
+  'Personal Knowledge Management',
   'Protein Kinetics',
   'Bioenergetics',
   'Lipidology',
@@ -303,7 +309,7 @@ export function buildSystemPrompt(
     '- Technical workflow claims preserve setup structure, mechanism, tradeoff, and "so what" implications',
     '- Specific numbers and units (e.g., "1.6g/kg", "24-72 hours", "RCTs")',
     '- Technical terminology preserved exactly (e.g., "MPS", "MFGM", "isotopic tracing")',
-    '- Clear domain labels (e.g., "Protein Kinetics", "Bioenergetics")',
+    '- Clear domain labels matched to the source topic (e.g., "Knowledge Systems", "AI Tooling", "Protein Kinetics", "Bioenergetics")',
     '- Evidence basis when mentioned (e.g., "Meta-analysis", "RCTs")',
     '- Causal or mechanistic clarity when applicable',
   ].join('\n');
@@ -386,7 +392,7 @@ export function buildUserPrompt(
       startSeconds: 'number (timestamp in seconds)',
       type: `string (one of: ${CLAIM_TYPES})`,
       classification: `string (one of: ${CLASSIFICATIONS})`,
-      domain: `string (physiological domain, e.g., ${DOMAINS})`,
+      domain: `string (specific topical domain, e.g., ${DOMAINS})`,
       confidence: 'number (0-1, based on evidence strength)',
       supportSummary: 'string (brief source-grounding summary; never generic phrases like "direct report")',
       rationale: 'string (only when a recommendation, mechanism, tradeoff, or decision needs its useful reason)',
@@ -418,6 +424,9 @@ export function buildUserPrompt(
     'REQUIREMENTS:',
     '- Each claim MUST be a complete, standalone sentence',
     '- Write canonical claim text directly; do NOT start claims with "the speaker claims", "the speaker says", "the speaker suggests", or similar attribution wrappers',
+    '- Preserve attribution inside the claim only when the identity matters materially, e.g. "Karpathy reported..."',
+    '- Do not write "Claude Code\'s Karpathy prompt"; prefer "Karpathy\'s Claude Code prompt" when the source describes a prompt written for use with Claude Code',
+    '- Do not promote backlink/tag/tool lists into claims unless the source explains what the relationship means or why it matters',
     '- Each claim MUST include domain and classification fields',
     '- Each claim SHOULD include evidenceType when evidence is mentioned',
     '- Use supportSummary for concrete source support; do NOT write box-ticking phrases like "Direct report" or "The speaker describes"',

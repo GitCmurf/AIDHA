@@ -175,6 +175,7 @@ function reportFor(sourceId: string, ref: string): RunReport {
     claimsExtracted: 0,
     claimIds: [],
     claims: [],
+    sourceSynopsis: [],
     dedupAction: 'create',
     policyRoute: 'disabled',
     cacheHits: 0,
@@ -260,13 +261,15 @@ describe('aidha cli phase-1 surface', () => {
     expectDraftClaims(summary);
     expect(summary.claims.every(claim => claim.evidence.length === claim.excerptIds.length)).toBe(true);
     expect(summary.claims.every(claim => claim.evidence.every(evidence => evidence.locator?.kind === 'timecode'))).toBe(true);
-    expect(summary.sourceSynopsis.length).toBe(summary.claimsExtracted);
+    expect(summary.sourceSynopsis.length).toBeGreaterThan(0);
+    expect(summary.sourceSynopsis.length).toBeLessThanOrEqual(summary.claimsExtracted);
     expect(summary.sourceSynopsis.every(bullet => bullet.kind === 'context')).toBe(true);
     expect(summary.sourceSynopsis.every(bullet => bullet.evidenceRefs.length > 0)).toBe(true);
+    expect(summary.sourceSynopsis.every(bullet => bullet.evidenceRefs.every(ref => ref.localTranscriptRef.length > 0))).toBe(true);
     expect(summary.sourceSynopsis.every(bullet => !('why' in bullet))).toBe(true);
   });
 
-  it('rewrites youtube source synopsis bullets into at-a-glance takeaways', async () => {
+  it('surfaces core youtube source synopsis with local transcript refs first', async () => {
     const report = {
       ...reportFor('youtube', 'test-video'),
       chunkCount: 2,
@@ -289,6 +292,29 @@ describe('aidha cli phase-1 surface', () => {
           text: 'Markdown uses token usage; semantic search has embeddings, vector database, compute, and storage costs.',
           locator: { kind: 'timecode' as const, startSec: 957, endSec: 1010 },
           segments: [],
+        },
+      ],
+      sourceSynopsis: [
+        {
+          text: 'This source demonstrates a personal-knowledge system seeded with 36 YouTube videos.',
+          kind: 'context' as const,
+          evidenceRefs: [{
+            excerptId: 'excerpt-36-videos',
+            locator: { kind: 'timecode' as const, startSec: 2, endSec: 76 },
+            localTranscriptRef: 'youtube:test-video#excerpt-36-videos@2-76s',
+            sourceRef: 'https://www.youtube.com/watch?v=test-video&t=2s',
+          }],
+        },
+        {
+          text: 'The markdown-wiki approach mainly spends tokens at query time, while semantic-search RAG also adds embedding, vector database, compute, and storage costs.',
+          kind: 'tradeoff' as const,
+          evidenceRefs: [{
+            excerptId: 'excerpt-costs',
+            locator: { kind: 'timecode' as const, startSec: 957, endSec: 1010 },
+            localTranscriptRef: 'youtube:test-video#excerpt-costs@957-1010s',
+            sourceRef: 'https://www.youtube.com/watch?v=test-video&t=957s',
+          }],
+          rationale: 'The transcript contrasts token usage with embedding, vector database, compute, and storage costs.',
         },
       ],
       claimsExtracted: 3,
@@ -336,12 +362,15 @@ describe('aidha cli phase-1 surface', () => {
 
     const synopsis = summary.summaries[0]?.sourceSynopsis ?? [];
     expect(synopsis.map(bullet => bullet.text)).toEqual([
-      'This video demonstrates a personal-knowledge system seeded with 36 YouTube videos, organizing videos as linked nodes with tags, source links, raw files, explanations, and backlinks.',
-      'Obsidian backlinks let users navigate between generated source summaries, tools, techniques, and concepts without returning to a top-level index.',
+      'This source demonstrates a personal-knowledge system seeded with 36 YouTube videos.',
       'The markdown-wiki approach mainly spends tokens at query time, while semantic-search RAG also adds embedding, vector database, compute, and storage costs.',
     ]);
-    expect(synopsis.map(bullet => bullet.kind)).toEqual(['context', 'workflow', 'tradeoff']);
+    expect(synopsis.map(bullet => bullet.kind)).toEqual(['context', 'tradeoff']);
     expect(synopsis.every(bullet => !/^The speaker\b/.test(bullet.text))).toBe(true);
+    expect(synopsis.map(bullet => bullet.evidenceRefs[0]?.localTranscriptRef)).toEqual([
+      'youtube:test-video#excerpt-36-videos@2-76s',
+      'youtube:test-video#excerpt-costs@957-1010s',
+    ]);
     expect(synopsis.every(bullet => bullet.evidenceRefs[0]?.sourceRef.startsWith('https://www.youtube.com/watch?v=test-video&t='))).toBe(true);
   });
 

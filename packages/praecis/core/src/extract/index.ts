@@ -81,6 +81,8 @@ export {
   GENERIC_TERMS_MAX,
   STOPWORDS,
 } from './keyphrases.js';
+export { buildSourceSynopsis } from './source-synopsis.js';
+export type { BuildSourceSynopsisInput } from './source-synopsis.js';
 export {
   buildPass1PromptV2,
   buildSystemPrompt,

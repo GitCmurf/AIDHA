@@ -124,7 +124,8 @@ export interface IngestSummary {
     readonly evidenceRefs: Array<{
       readonly excerptId: string;
       readonly locator: Locator;
-      readonly sourceRef: string;
+      readonly localTranscriptRef: string;
+      readonly sourceRef?: string;
     }>;
     readonly attribution?: string;
     readonly rationale?: unknown;
@@ -362,103 +363,6 @@ function isBoxTickingSupport(value: unknown): boolean {
   return /^(?:direct|the speaker|the host|the presenter|the demonstrator|the transcript)\b/i.test(value.trim());
 }
 
-function synopsisKindForClaim(claim: RunReport['claims'][number]): string {
-  const raw = `${claim.type ?? claim.classification ?? ''}`.toLowerCase();
-  switch (raw) {
-    case 'instruction':
-      return 'workflow';
-    case 'mechanism':
-      return 'mechanism';
-    case 'warning':
-      return 'limitation';
-    case 'opinion':
-      return 'tradeoff';
-    case 'decision':
-      return 'recommendation';
-    case 'insight':
-      return 'pattern';
-    case 'example':
-    case 'fact':
-    case 'summary':
-    default:
-      return 'context';
-  }
-}
-
-function sourceSynopsisTextForClaim(text: string): { readonly text: string; readonly kind?: string } | null {
-  if (/^The speaker organized 36\b/i.test(text)) {
-    return {
-      kind: 'context',
-      text: 'This video demonstrates a personal-knowledge system seeded with 36 YouTube videos, organizing videos as linked nodes with tags, source links, raw files, explanations, and backlinks.',
-    };
-  }
-  if (/^The speaker uses backlinks\b/i.test(text)) {
-    return {
-      kind: 'workflow',
-      text: 'Obsidian backlinks let users navigate between generated source summaries, tools, techniques, and concepts without returning to a top-level index.',
-    };
-  }
-  if (/^The speaker's Claude\.md prompt\b/i.test(text)) {
-    return {
-      kind: 'workflow',
-      text: 'A Claude.md project instruction file can define the agent role, schema, and step-by-step behavior for building a second-brain vault.',
-    };
-  }
-  if (/^Claude Code performs automated chunking\b/i.test(text)) {
-    return {
-      kind: 'mechanism',
-      text: 'Claude Code can chunk a source by creating multiple interlinked markdown files, turning sections, entities, and concepts into navigable nodes and hubs.',
-    };
-  }
-  if (/^When ingesting a long article\b/i.test(text)) {
-    return {
-      kind: 'mechanism',
-      text: 'In the AI 2027 example, a single long article is split into roughly 25 linked wiki pages because the source contains enough distinct concepts and relationships to justify multiple notes.',
-    };
-  }
-  if (/^The executive assistant\b/i.test(text)) {
-    return {
-      kind: 'workflow',
-      text: 'An assistant can use a project instruction file with a wiki path to read the vault index, domain sub-indexes, and relevant notes only when needed.',
-    };
-  }
-  if (/^Karpathy runs LLM 'lint'/i.test(text)) {
-    return {
-      kind: 'workflow',
-      text: 'Karpathy uses LLM lint checks to maintain the wiki by finding inconsistent data, imputing missing data with web searches, and surfacing useful new connections.',
-    };
-  }
-  if (/^The primary ongoing cost\b/i.test(text)) {
-    return {
-      kind: 'tradeoff',
-      text: 'The markdown-wiki approach mainly spends tokens at query time, while semantic-search RAG also adds embedding, vector database, compute, and storage costs.',
-    };
-  }
-  if (/^The speaker explicitly timestamps/i.test(text)) {
-    return {
-      kind: 'limitation',
-      text: 'The recommendation to prefer traditional RAG for larger systems is explicitly time-scoped to the April 2026 model landscape.',
-    };
-  }
-  if (/^(?:The speaker|The host|The presenter)\b/i.test(text)) {
-    return null;
-  }
-  return { text };
-}
-
-function attributionForClaim(text: string): string | undefined {
-  if (/\bKarpathy\b/i.test(text)) return 'Andrej Karpathy';
-  if (/^(?:this video|the video)\b/i.test(text)) return 'source';
-  return undefined;
-}
-
-function entitiesForClaim(text: string): readonly string[] | undefined {
-  const entities = Array.from(new Set(text.match(/\b[A-Z][A-Za-z0-9]*(?:\s+[A-Z][A-Za-z0-9]*){0,3}\b/g) ?? []))
-    .filter(entity => !/^(?:The|This|When|Using|As|April)$/.test(entity))
-    .slice(0, 8);
-  return entities.length > 0 ? entities : undefined;
-}
-
 function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport): IngestSummary {
   const chunkById = new Map(result.chunks.map(chunk => [chunk.id, chunk]));
   const claimEvidence = (claim: RunReport['claims'][number]) => claim.excerptIds.flatMap(excerptId => {
@@ -472,21 +376,21 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
       snippet: snippetForEvidence(chunk.text),
     };
   }).filter(evidence => evidence.snippet.length > 0);
-  const sourceSynopsis = result.claims.map(claim => {
-    const evidence = claimEvidence(claim);
-    const synopsis = sourceSynopsisTextForClaim(claim.text);
-    if (!synopsis) return null;
-    const attribution = attributionForClaim(claim.text);
-    const entities = entitiesForClaim(synopsis.text);
-    return {
-      text: synopsis.text,
-      kind: synopsis.kind ?? synopsisKindForClaim(claim),
-      evidenceRefs: evidence.map(({ excerptId, locator, sourceRef }) => ({ excerptId, locator, sourceRef })),
-      ...(attribution ? { attribution } : {}),
-      ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
-      ...(entities ? { entities } : {}),
-    };
-  }).filter((bullet): bullet is NonNullable<typeof bullet> => Boolean(bullet && bullet.evidenceRefs.length > 0));
+  const sourceSynopsis = (result.sourceSynopsis ?? []).map(item => ({
+    text: item.text,
+    kind: item.kind,
+    evidenceRefs: item.evidenceRefs.map(evidenceRef => ({
+      excerptId: evidenceRef.excerptId,
+      locator: evidenceRef.locator,
+      localTranscriptRef: evidenceRef.localTranscriptRef,
+      sourceRef: sourceId === 'youtube'
+        ? sourceRefForLocator(sourceId, ref, evidenceRef.locator)
+        : (evidenceRef.sourceRef ?? sourceRefForLocator(sourceId, evidenceRef.excerptId, evidenceRef.locator)),
+    })),
+    ...(item.attribution ? { attribution: item.attribution } : {}),
+    ...(item.rationale ? { rationale: item.rationale } : {}),
+    ...(item.entities ? { entities: item.entities } : {}),
+  })).filter(item => item.evidenceRefs.length > 0);
   return {
     sourceId,
     ref,

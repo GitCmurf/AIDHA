@@ -52,9 +52,21 @@ const MODE_DEFAULTS: Record<NarrowEvalChunkMode, NarrowEvalModelProfile> = {
 
 const MODEL_OVERRIDES: Partial<Record<NarrowEvalChunkMode, Record<string, Partial<NarrowEvalModelProfile>>>> = {
   "small-request": {
+    "gpt-5.4-nano": {
+      targetInputTokens: 3_500,
+      hardMaxInputTokens: 4_500,
+    },
+    "gpt-5.4-mini": {
+      targetInputTokens: 4_500,
+      hardMaxInputTokens: 5_500,
+    },
     "gpt-4o-mini": {
       targetInputTokens: 3_500,
       hardMaxInputTokens: 4_500,
+    },
+    "gemini-3.5-flash": {
+      targetInputTokens: 4_500,
+      hardMaxInputTokens: 5_500,
     },
     "gemini-3.1-flash-lite-preview": {
       targetInputTokens: 4_500,

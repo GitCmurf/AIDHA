@@ -28,7 +28,7 @@ describe('prompt routing', () => {
   });
 
   it('triggers an enumeration retry when list cues are present but no root claim is extracted', () => {
-    const profile = buildTranscriptProfile('There are five slide layouts. The framework includes chart and subtitle slides.');
+    const profile = buildTranscriptProfile('There are five slide layouts and three steps. The framework includes chart and subtitle slides.');
     const retry = determineRetryDecision({
       promptPackId: 'business-framework',
       profile,
@@ -64,6 +64,7 @@ describe('prompt routing', () => {
       listCueCount: 2,
       clinicalCueCount: 2,
       businessCueCount: 2,
+      knowledgeSystemCueCount: 0,
       glossaryTerms: [],
       signals: [],
     };
@@ -91,6 +92,21 @@ describe('prompt routing', () => {
       transcriptText: 'Just some random talk without any specific keywords.',
     });
 
+    expect(decision.promptPackId).toBe('generic-hierarchy');
+    expect(decision.routeSource).toBe('fallback-default');
+  });
+
+  it('does not route knowledge-system transcripts to enumeration for incidental counts and category words', () => {
+    const { decision, profile } = decidePromptPack({
+      title: 'Build a markdown second brain with Claude Code',
+      transcriptText: [
+        'This video organizes 36 YouTube videos into a personal knowledge system.',
+        'The vault has raw and wiki folders, backlinks, tags, categories, and about 25 wiki pages.',
+        'The important tradeoff is markdown index traversal versus semantic-search RAG with embeddings and vector databases.',
+      ].join(' '),
+    });
+
+    expect(profile.listCueCount).toBeLessThan(2);
     expect(decision.promptPackId).toBe('generic-hierarchy');
     expect(decision.routeSource).toBe('fallback-default');
   });

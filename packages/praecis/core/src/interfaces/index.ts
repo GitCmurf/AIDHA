@@ -78,6 +78,22 @@ export interface DraftClaim {
   readonly metadata?: Record<string, unknown>;
 }
 
+export interface SourceSynopsisEvidenceRef {
+  readonly excerptId: string;
+  readonly locator: Locator;
+  readonly localTranscriptRef: string;
+  readonly sourceRef?: string;
+}
+
+export interface SourceSynopsisItem {
+  readonly text: string;
+  readonly kind: 'context' | 'workflow' | 'mechanism' | 'pattern' | 'tradeoff' | 'limitation' | 'recommendation';
+  readonly evidenceRefs: readonly SourceSynopsisEvidenceRef[];
+  readonly attribution?: string;
+  readonly rationale?: string;
+  readonly entities?: readonly string[];
+}
+
 export interface MiningResult {
   readonly claims: readonly DraftClaim[];
   readonly tokenUsage?: number;
@@ -135,6 +151,7 @@ export interface RunReport {
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
   readonly claims: readonly DraftClaim[];
+  readonly sourceSynopsis: readonly SourceSynopsisItem[];
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: LlmRoute;
   readonly cacheHits: number;

@@ -45,16 +45,24 @@ describe("Model Registry", () => {
   });
 
   it("should retrieve an OpenAI model by id", () => {
-    const model = getModel("gpt-5.4");
+    const model = getModel("gpt-5.4-mini");
     expect(model).toBeDefined();
-    expect(model?.id).toBe("gpt-5.4");
+    expect(model?.id).toBe("gpt-5.4-mini");
     expect(model?.provider).toBe("openai");
   });
 
+  it("registers the claim-quality model ladder with pro excluded from routine use", () => {
+    expect(getModel("gpt-5.4-nano")?.tier).toBe("budget");
+    expect(getModel("gpt-5.4-mini")?.tier).toBe("midtier");
+    expect(getModel("gpt-5.5")?.tier).toBe("frontier");
+    expect(getModel("gpt-5.5-pro")?.availability).toBe("experimental");
+    expect(getModel("gpt-5.5-pro")?.notes).toMatch(/oracle-only|deliberate/i);
+  });
+
   it("should retrieve a Google AI Studio model by id", () => {
-    const model = getModel("gemini-3.1-pro-preview");
+    const model = getModel("gemini-3.5-flash");
     expect(model).toBeDefined();
-    expect(model?.id).toBe("gemini-3.1-pro-preview");
+    expect(model?.id).toBe("gemini-3.5-flash");
     expect(model?.provider).toBe("google-aistudio");
   });
 

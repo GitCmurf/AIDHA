@@ -20,6 +20,7 @@ export interface TranscriptProfile {
   listCueCount: number;
   clinicalCueCount: number;
   businessCueCount: number;
+  knowledgeSystemCueCount: number;
   glossaryTerms: string[];
   signals: string[];
 }
@@ -38,13 +39,17 @@ export interface PromptRetryDecision {
 }
 
 const STRUCTURAL_CUES = [
-  "five", "four", "types", "steps", "layouts", "categories", "pillars", "guides",
+  "types", "steps", "layouts", "pillars", "guides",
 ];
 const DOMAIN_CUES = [
   "principles", "framework",
 ];
 
-const ENUMERATION_PATTERN = /\b(?:one|two|three|four|five|\d+)\s+(?:principles?|types?|steps?|layouts?|categories|pillars?)\b/;
+const ENUMERATION_PATTERN = /\b(?:one|two|three|four|five|\d+)\s+(?:principles?|types?|steps?|layouts?|pillars?)\b/;
+const KNOWLEDGE_SYSTEM_CUES = [
+  "obsidian", "claude code", "markdown", "wiki", "backlinks", "second brain",
+  "rag", "embeddings", "vector database", "semantic search", "knowledge system",
+];
 const CLINICAL_CUES = [
   "mg/dl", "nmol/l", "ldl", "apob", "lipoprotein", "cholesterol", "risk factor", "therapy",
   "atherosclerotic", "cardiovascular", "aspirin", "niacin", "sirna", "screening", "genetic",
@@ -115,10 +120,20 @@ export function buildTranscriptProfile(text: string): TranscriptProfile {
     }
   }
 
+  let knowledgeSystemCueCount = 0;
+  for (const cue of KNOWLEDGE_SYSTEM_CUES) {
+    if (getCueRegex(cue).test(normalized)) {
+      knowledgeSystemCueCount += 1;
+      signals.push(`knowledge-system:${cue}`);
+      glossaryTerms.push(cue);
+    }
+  }
+
   return {
     listCueCount,
     clinicalCueCount,
     businessCueCount,
+    knowledgeSystemCueCount,
     glossaryTerms: uniqueTerms(glossaryTerms),
     signals,
   };
@@ -139,6 +154,7 @@ function routeFromTopicDomain(topicDomain: string | undefined): ExtractionPrompt
 function routeFromProfile(profile: TranscriptProfile): ExtractionPromptPackId {
   if (profile.businessCueCount >= 2) return "business-framework";
   if (profile.clinicalCueCount >= 2) return "clinical-risk-management";
+  if (profile.knowledgeSystemCueCount >= 2 && profile.listCueCount < 3) return "generic-hierarchy";
   if (profile.listCueCount >= 2) return "enumeration-framework";
   return "generic-hierarchy";
 }

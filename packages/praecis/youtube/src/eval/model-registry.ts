@@ -25,13 +25,30 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
   // ─────────────────────────────────────────────────────────────────────────────
   // OpenAI (direct API)
   // ─────────────────────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ⚠️ SPECULATIVE/FORWARD-LOOKING ENTRIES
-  // The following GPT-5 model IDs and pricing are placeholders that must be
-  // verified against the OpenAI API before production use. These entries are
-  // included for planning purposes but may cause runtime errors if the API
-  // does not recognize the IDs, and pricing may differ from actual rates.
-  // ─────────────────────────────────────────────────────────────────────────────
+  {
+    id: "gpt-5.5-pro",
+    provider: "openai",
+    clientRoute: "openai-compatible",
+    modelName: "GPT-5.5 Pro",
+    contextWindow: 128000,
+    supportsJsonMode: true,
+    costPer1kTokens: { input: 0, output: 0 },
+    tier: "frontier",
+    availability: "experimental",
+    notes: "Oracle-only; run only by deliberate approval because cost can be 100x+ routine extraction models. Pricing must be configured before live use.",
+  },
+  {
+    id: "gpt-5.5",
+    provider: "openai",
+    clientRoute: "openai-compatible",
+    modelName: "GPT-5.5",
+    contextWindow: 128000,
+    supportsJsonMode: true,
+    costPer1kTokens: { input: 0, output: 0 },
+    tier: "frontier",
+    availability: "stable",
+    notes: "Capability-ceiling diagnostic model; pricing must be configured before live cost reporting.",
+  },
   {
     id: "gpt-5.4",
     provider: "openai",
@@ -42,7 +59,19 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
     costPer1kTokens: { input: 0.005, output: 0.015 },
     tier: "frontier",
     availability: "experimental",
-    notes: "PLACEHOLDER: Verify ID and pricing before use",
+    notes: "Frontier comparison model; pricing must be configured before live cost reporting.",
+  },
+  {
+    id: "gpt-5.4-mini",
+    provider: "openai",
+    clientRoute: "openai-compatible",
+    modelName: "GPT-5.4 Mini",
+    contextWindow: 128000,
+    supportsJsonMode: true,
+    costPer1kTokens: { input: 0, output: 0 },
+    tier: "midtier",
+    availability: "stable",
+    notes: "Default assumed production candidate for claim-quality testing; pricing must be configured before live cost reporting.",
   },
   {
     id: "gpt-5-mini",
@@ -54,7 +83,7 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
     costPer1kTokens: { input: 0.0005, output: 0.0015 },
     tier: "midtier",
     availability: "experimental",
-    notes: "PLACEHOLDER: Verify ID and pricing before use",
+    notes: "Legacy current default; keep for baseline comparison.",
   },
   {
     id: "gpt-4o-mini",
@@ -68,21 +97,33 @@ export const MODEL_REGISTRY: readonly EvalModel[] = [
     availability: "stable",
   },
   {
-    id: "gpt-5-nano",
+    id: "gpt-5.4-nano",
     provider: "openai",
     clientRoute: "openai-compatible",
-    modelName: "GPT-5-nano",
+    modelName: "GPT-5.4 Nano",
     contextWindow: 128000,
     supportsJsonMode: true,
-    costPer1kTokens: { input: 0.00005, output: 0.0002 },
+    costPer1kTokens: { input: 0, output: 0 },
     tier: "budget",
-    availability: "experimental",
-    notes: "PLACEHOLDER: Verify ID and pricing before use",
+    availability: "stable",
+    notes: "Cost-down candidate for claim extraction if quality gates pass; pricing must be configured before live cost reporting.",
   },
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Google AI Studio (native Gemini API client)
   // ─────────────────────────────────────────────────────────────────────────────
+  {
+    id: "gemini-3.5-flash",
+    provider: "google-aistudio",
+    clientRoute: "native",
+    modelName: "Gemini 3.5 Flash",
+    contextWindow: 1000000,
+    supportsJsonMode: true,
+    costPer1kTokens: { input: 0, output: 0 },
+    tier: "midtier",
+    availability: "stable",
+    notes: "Cross-provider production-candidate comparison; pricing must be configured before live cost reporting.",
+  },
   {
     id: "gemini-3.1-pro-preview",
     provider: "google-aistudio",

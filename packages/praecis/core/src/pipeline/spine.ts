@@ -13,6 +13,7 @@ import type { Result } from '@aidha/taxonomy';
 import type { DecodeWarning } from '../types/index.js';
 import type { ResolvedConfig } from '@aidha/config';
 import { createHash } from 'node:crypto';
+import { buildSourceSynopsis } from '../extract/source-synopsis.js';
 
 function stableHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 24);
@@ -172,6 +173,14 @@ export async function runVector(
       claimsExtracted: miningResult.claims.length,
       claimIds: exported.value.claimIds,
       claims: miningResult.claims,
+      sourceSynopsis: buildSourceSynopsis({
+        sourceId: vector.sourceId,
+        canonicalId: raw.canonicalId,
+        sourceUri: raw.provenance.sourceUri,
+        resourceId: exported.value.resourceId,
+        claims: miningResult.claims,
+        chunks: chunkResult.value,
+      }),
       dedupAction: exported.value.dedupAction,
       policyRoute: runtimePolicy.value,
       cacheHits,

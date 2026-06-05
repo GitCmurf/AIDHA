@@ -246,10 +246,7 @@ export function getEffectivePromptVersion(
   promptVersion: string,
   promptPackId: ExtractionPromptPackId = 'generic-hierarchy'
 ): string {
-  if (promptPackId === 'generic-hierarchy') {
-    return `${promptVersion}:pack:${promptPackId}:${GENERIC_HIERARCHY_PROMPT_CACHE_VERSION}`;
-  }
-  return `${promptVersion}:pack:${promptPackId}`;
+  return `${promptVersion}:pack:${promptPackId}:${PROMPT_PACK_CACHE_VERSIONS[promptPackId]}`;
 }
 
 export interface CachedClaimsLoadOptions {
@@ -294,10 +291,17 @@ const DEFAULT_CHUNK_OVERLAP_EXCERPTS = 2;
 const DEFAULT_TRANSPORT_RETRY_MAX_ATTEMPTS = 3;
 const DEFAULT_TRANSPORT_RETRY_BASE_DELAY_MS = 750;
 /**
- * Bump this when the default generic hierarchy prompt text changes.
- * Generic-pack cache entries must not reuse results from older prompt wording.
+ * Bump the relevant entry when prompt wording or post-processing expectations change.
+ * Cache keys include the pack-local version so any pack can be invalidated independently.
  */
-const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v3';
+const PROMPT_PACK_CACHE_VERSIONS: Record<ExtractionPromptPackId, string> = {
+  'generic-hierarchy': 'generic-hierarchy-v4',
+  'enumeration-framework': 'enumeration-framework-v2',
+  'clinical-risk-management': 'clinical-risk-management-v2',
+  'business-framework': 'business-framework-v2',
+  'enumeration-framework-v2': 'enumeration-framework-v3',
+  'clinical-risk-management-v2': 'clinical-risk-management-v3',
+};
 
 /**
  * Optimal input token size per chunk for extraction quality.

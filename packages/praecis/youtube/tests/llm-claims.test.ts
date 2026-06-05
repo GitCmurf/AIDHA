@@ -423,7 +423,7 @@ describe('LLM claim extraction', () => {
     const claim = claims.value.items[0];
     expect(claim?.metadata?.method).toBe('llm');
     expect(claim?.metadata?.model).toBe('test-model');
-    expect(claim?.metadata?.promptVersion).toContain('generic-hierarchy-v3');
+    expect(claim?.metadata?.promptVersion).toContain('generic-hierarchy-v4');
   });
 
   it('does not record valid empty claim sets as circuit-breaker failures', async () => {
@@ -600,7 +600,7 @@ describe('LLM claim extraction', () => {
     expect(afterLlm.ok).toBe(true);
     if (!afterLlm.ok || !afterLlm.value) return;
     expect(afterLlm.value.metadata?.['lastClaimRunModel']).toBe('test-model');
-    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toContain('generic-hierarchy-v3');
+    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toContain('generic-hierarchy-v4');
     expect(afterLlm.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeTypeOf('string');
 
     const heuristicPipeline = new ClaimExtractionPipeline({
@@ -773,7 +773,7 @@ describe('LLM claim extraction', () => {
 
     expect(client.calls).toBe(1);
     expect(first[0]?.text).toBe('Deterministic IDs prevent duplicate knowledge items during repeated ingestion runs.');
-    expect(first[0]?.promptVersion).toContain('generic-hierarchy-v3');
+    expect(first[0]?.promptVersion).toContain('generic-hierarchy-v4');
     expect(second[0]?.text).toBe(first[0]?.text);
 
     await rm(cacheDir, { recursive: true, force: true });

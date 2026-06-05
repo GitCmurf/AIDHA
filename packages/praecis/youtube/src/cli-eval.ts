@@ -900,7 +900,7 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
   const runId = optionString(cleanOptions, "run-id", "");
 
   const explicitJudgeModel = optionString(cleanOptions, "judge-model", "");
-  const judgeDefault = explicitJudgeModel || (mode === "fast-triage" ? "" : "gpt-5.4");
+  const judgeDefault = explicitJudgeModel || (mode === "fast-triage" ? "" : "gpt-5.5");
   const judgeModelsStr = optionString(cleanOptions, "judge-models", judgeDefault);
   const judgeEnabled = hasOption(cleanOptions, "judge")
     ? optionBool(cleanOptions, "judge")
@@ -915,10 +915,10 @@ const parseNarrowEvalOptions = (cleanOptions: CliOptions): NarrowEvalOptions => 
     transcriptDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "transcript-dir", "out/eval-matrix/transcripts")), "--transcript-dir"),
     manualBaselineDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "manual-baseline-dir", "out/eval-matrix/manual-baseline")), "--manual-baseline-dir"),
     outputDir: assertSafeWorkspacePath(resolveRepoRelativePath(optionString(cleanOptions, "output-dir", "out/eval-matrix/reports/narrow-manual-baseline")), "--output-dir"),
-    modelsStr: optionString(cleanOptions, "models", "gemini-3.1-flash-lite-preview"),
+    modelsStr: optionString(cleanOptions, "models", "gpt-5.4-nano,gpt-5.4-mini,gemini-3.5-flash"),
     variantsStr: optionString(cleanOptions, "variants", "raw,editorial-pass-v1,self-improve-v1"),
     judgeModelIds: judgeEnabled ? parseCsvList(judgeModelsStr) : [],
-    fallbackModelId: optionString(cleanOptions, "fallback-model", "gemini-3.1-flash-lite-preview"),
+    fallbackModelId: optionString(cleanOptions, "fallback-model", "gpt-5.4-mini"),
     maxConcurrency: optionNumber(cleanOptions, "max-concurrency", 1),
     timeoutMs: optionNumber(cleanOptions, "timeout-ms", 120000),
     judgeMaxTokens: optionNumber(cleanOptions, "judge-max-tokens", 4000),
@@ -1116,9 +1116,9 @@ const runNarrowManualBaseline = async (
       config.llm,
       {
         timeoutMs: getNarrowEvalModelProfile(modelId).requestTimeoutMs,
-        maxRequestsPerMinute: modelId === "gpt-5.4"
+        maxRequestsPerMinute: modelId === "gpt-5.4" || modelId === "gpt-5.5"
           ? parsedOpts.maxRpmGpt54
-          : modelId === "gemini-3.1-flash-lite-preview"
+          : modelId === "gemini-3.1-flash-lite-preview" || modelId === "gemini-3.5-flash"
             ? parsedOpts.maxRpmGeminiFlashLite
             : undefined,
         rateLimiterRegistry: registry,
