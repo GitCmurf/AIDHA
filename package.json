@@ -16,7 +16,7 @@
     "lint": "pnpm -r lint",
     "gen:types": "pnpm --filter @aidha/config gen:types",
     "security:public-paths": "node scripts/check-public-safety.mjs",
-    "test": "node scripts/check-test-scripts.mjs && pnpm -r test:ci",
+    "test": "node scripts/check-test-scripts.mjs && node --test scripts/aidha.test.mjs && pnpm -r test:ci",
     "test:full": "pnpm -r --if-present test:full",
     "build": "pnpm -r build",
     "build:deps": "pnpm --filter @aidha/config --filter @aidha/graph-backend --filter @aidha/taxonomy --filter @aidha/praecis-core --filter \"@aidha/praecis-decode-*\" --filter \"@aidha/praecis-acquire-*\" build",
