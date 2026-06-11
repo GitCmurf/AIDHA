@@ -32,6 +32,31 @@ describe('transcript cache', () => {
     }
   });
 
+  it('stores actual transcript language in the cache key and payload', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-transcript-cache-'));
+    const frenchTranscript = {
+      ...transcript,
+      videoId: 'cache-video-fr',
+      language: 'fr',
+      segments: [{ start: 0, duration: 5, text: 'Texte de transcription en cache.' }],
+      fullText: 'Texte de transcription en cache.',
+    };
+    try {
+      await writeTranscriptCache({ enabled: true, dir }, frenchTranscript, '2026-06-04T12:00:00.000Z');
+
+      const cached = await readTranscriptCache({ enabled: true, dir }, frenchTranscript.videoId);
+      expect(cached).toEqual(frenchTranscript);
+
+      const files = await readdir(dir);
+      expect(files).toHaveLength(1);
+      const raw = await readFile(join(dir, files[0]!), 'utf8');
+      expect(raw).toContain('"cacheKey": "youtube:cache-video-fr:language=fr:schema=v1"');
+      expect(raw).toContain('"languageKey": "fr"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('ignores refresh requests and malformed cache payloads', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-transcript-cache-'));
     try {

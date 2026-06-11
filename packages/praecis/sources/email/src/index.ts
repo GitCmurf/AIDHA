@@ -134,6 +134,18 @@ export interface EmailThreadSummary {
   readonly claims: readonly {
     readonly text: string;
     readonly excerptIds: readonly string[];
+    readonly type?: unknown;
+    readonly classification?: unknown;
+    readonly domain?: unknown;
+    readonly confidence?: unknown;
+    readonly supportSummary?: unknown;
+    readonly rationale?: unknown;
+    readonly evidenceType?: unknown;
+    readonly qualityStatus?: unknown;
+    readonly qualityReasons?: unknown;
+    readonly qualityScore?: unknown;
+    readonly trusted?: unknown;
+    readonly supportCoverage?: unknown;
     readonly method?: unknown;
     readonly model?: unknown;
     readonly promptVersion?: unknown;
@@ -601,6 +613,18 @@ export async function runEmailBatchWithContext(
         claims: run.value.claims.map(claim => ({
           text: claim.text,
           excerptIds: claim.excerptIds,
+          ...(claim.type ? { type: claim.type } : {}),
+          ...(claim.classification ? { classification: claim.classification } : {}),
+          ...(claim.metadata?.['domain'] ? { domain: claim.metadata['domain'] } : {}),
+          ...(claim.confidence !== undefined ? { confidence: claim.confidence } : {}),
+          ...(claim.metadata?.['supportSummary'] ? { supportSummary: claim.metadata['supportSummary'] } : {}),
+          ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
+          ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
+          ...(claim.metadata?.['qualityStatus'] ? { qualityStatus: claim.metadata['qualityStatus'] } : {}),
+          ...(claim.metadata?.['qualityReasons'] ? { qualityReasons: claim.metadata['qualityReasons'] } : {}),
+          ...(claim.metadata?.['qualityScore'] !== undefined ? { qualityScore: claim.metadata['qualityScore'] } : {}),
+          ...(claim.metadata?.['trusted'] !== undefined ? { trusted: claim.metadata['trusted'] } : {}),
+          ...(claim.metadata?.['supportCoverage'] !== undefined ? { supportCoverage: claim.metadata['supportCoverage'] } : {}),
           method: claim.metadata?.['method'],
           model: claim.metadata?.['model'],
           promptVersion: claim.metadata?.['promptVersion'],

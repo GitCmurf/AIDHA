@@ -153,6 +153,7 @@ describe('OpenAiCompatibleClient', () => {
               },
             },
           ],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
         }), {
           status: 200,
           headers: {
@@ -172,7 +173,9 @@ describe('OpenAiCompatibleClient', () => {
         user: 'user',
       });
 
-      expect(result).toEqual({ ok: true, value: 'ok' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toBe('ok');
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });

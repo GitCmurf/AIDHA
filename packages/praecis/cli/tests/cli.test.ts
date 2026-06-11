@@ -26,6 +26,7 @@ import {
 } from '../src/index.js';
 
 function testConfig(): PipelineServices['config'] {
+  const cacheNonce = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return {
     baseDir: process.cwd(),
     db: ':memory:',
@@ -34,7 +35,7 @@ function testConfig(): PipelineServices['config'] {
       apiKey: '',
       baseUrl: 'http://localhost/v1',
       timeoutMs: 1000,
-      cacheDir: join(tmpdir(), `aidha-cli-claims-${process.pid}`),
+      cacheDir: join(tmpdir(), `aidha-cli-claims-${cacheNonce}`),
       reasoningEffort: 'medium',
       verbosity: 'medium',
       embeddingBatchSize: 20,
@@ -63,24 +64,24 @@ function testConfig(): PipelineServices['config'] {
 function fakeLlm(): LlmClient {
   return {
     async generate(request) {
-      const excerptId = /"id":\s*"([^"]+)"/.exec(request.user)?.[1] ?? 'chunk-0';
-      const textMatch = /"text":\s*"([^"]+)"/.exec(request.user);
-      const sourceText = textMatch?.[1]?.replace(/\\n/g, ' ') ?? 'fixture evidence';
-      const prefix = sourceText.split(/\s+/).filter(Boolean).slice(0, 5).join(' ') || 'The fixture';
+      const block = /(?:TRANSCRIPT_EXCERPTS|EXCERPTS):\s*"""([\s\S]*?)"""/u.exec(request.user)?.[1];
+      const parsed = block ? JSON.parse(block) as Array<{ id: string; text: string }> : [];
+      const excerpt = parsed.find(item => item.text.trim().length > 0) ?? { id: 'chunk-0', text: 'Fixture evidence is present.' };
+      const normalized = excerpt.text.replace(/\s+/gu, ' ').trim();
+      const claimText = /[^.!?]+[.!?]/u.exec(normalized)?.[0]?.trim() || normalized || 'Fixture evidence is present.';
       return {
         ok: true,
         value: JSON.stringify({
           claims: [{
-            text: `${prefix} supports a reviewable synthesized claim.`,
-            excerptIds: [excerptId],
+            text: claimText,
+            excerptIds: [excerpt.id],
             confidence: 0.84,
             type: 'fact',
             classification: 'fact',
             domain: 'CLI Fixture',
             startSeconds: 0,
             evidenceType: 'direct',
-            supportSummary: 'The fixture excerpt contains the terms used in the synthesized claim.',
-            rationale: 'The claim is useful because it preserves a reviewable point from the source.',
+            supportSummary: `The excerpt includes this claim verbatim: "${claimText}"`,
           }],
         }),
       };
@@ -133,6 +134,11 @@ function expectDraftClaims(summary: {
     supportSummary?: unknown;
     rationale?: unknown;
     evidenceType?: unknown;
+    qualityStatus?: unknown;
+    qualityReasons?: unknown;
+    qualityScore?: unknown;
+    trusted?: unknown;
+    supportCoverage?: unknown;
     evidence: readonly { excerptId: string; snippet: string; locator?: unknown; sourceRef?: string }[];
     method?: unknown;
     model?: unknown;
@@ -154,6 +160,11 @@ function expectDraftClaims(summary: {
   expect(summary.claims.every(claim => claim.supportSummary === undefined || typeof claim.supportSummary === 'string')).toBe(true);
   expect(summary.claims.every(claim => claim.rationale === undefined || typeof claim.rationale === 'string')).toBe(true);
   expect(summary.claims.every(claim => claim.evidenceType === undefined || typeof claim.evidenceType === 'string')).toBe(true);
+  expect(summary.claims.every(claim => claim.qualityStatus === 'reviewable' || claim.qualityStatus === 'rejected')).toBe(true);
+  expect(summary.claims.every(claim => Array.isArray(claim.qualityReasons))).toBe(true);
+  expect(summary.claims.every(claim => typeof claim.qualityScore === 'number')).toBe(true);
+  expect(summary.claims.every(claim => claim.trusted === false)).toBe(true);
+  expect(summary.claims.every(claim => typeof claim.supportCoverage === 'number')).toBe(true);
   if (requireEvidence) {
     expect(summary.claims.every(claim => claim.evidence.length === claim.excerptIds.length)).toBe(true);
     expect(summary.claims.every(claim => claim.evidence.every(evidence => evidence.snippet.length > 0))).toBe(true);
@@ -445,7 +456,10 @@ describe('aidha cli phase-1 surface', () => {
     const dbPath = join(dir, 'aidha.sqlite');
     const configPath = join(dir, 'config.yaml');
     const pdfPath = join(dir, 'fixture.pdf');
-    await writeFile(pdfPath, Buffer.from('Activation fixture evidence\fProject re-entry evidence'));
+    await writeFile(pdfPath, Buffer.from([
+      'Activation fixture evidence is ready for review by the project team today.',
+      'Project re-entry evidence is ready for review by the project team today.',
+    ].join('\f')));
     await writeFile(
       configPath,
       [
@@ -475,7 +489,8 @@ describe('aidha cli phase-1 surface', () => {
       expect(summary.sourceId).toBe('pdf');
       expect(summary.claimsExtracted).toBeGreaterThan(0);
       expect(summary.claims[0]?.model).toBe('mock-acceptance-llm');
-      expect(summary.claims[0]?.text).toContain('Activation fixture evidence');
+      expect(summary.claims.some(claim => claim.text === 'Activation fixture evidence is ready for review by the project team today.'
+        || claim.text === 'Project re-entry evidence is ready for review by the project team today.')).toBe(true);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -1119,8 +1134,8 @@ describe('aidha cli phase-1 surface', () => {
     const configPath = join(dir, 'config.yaml');
     const pdfPath = join(dir, 'activation.pdf');
     await writeFile(pdfPath, Buffer.from([
+      'Activation evidence is reusable without reopening the original document.',
       'Project re-entry needs task provenance back to claims and sources.',
-      'Activation evidence should be reusable without reopening the original document.',
     ].join('\f')));
     await writeFile(
       configPath,

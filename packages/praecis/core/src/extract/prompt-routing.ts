@@ -20,7 +20,7 @@ export interface TranscriptProfile {
   listCueCount: number;
   clinicalCueCount: number;
   businessCueCount: number;
-  knowledgeSystemCueCount: number;
+  knowledgeSystemCueCount?: number;
   glossaryTerms: string[];
   signals: string[];
 }
@@ -154,7 +154,7 @@ function routeFromTopicDomain(topicDomain: string | undefined): ExtractionPrompt
 function routeFromProfile(profile: TranscriptProfile): ExtractionPromptPackId {
   if (profile.businessCueCount >= 2) return "business-framework";
   if (profile.clinicalCueCount >= 2) return "clinical-risk-management";
-  if (profile.knowledgeSystemCueCount >= 2 && profile.listCueCount < 3) return "generic-hierarchy";
+  if ((profile.knowledgeSystemCueCount ?? 0) >= 2 && profile.listCueCount < 3) return "generic-hierarchy";
   if (profile.listCueCount >= 2) return "enumeration-framework";
   return "generic-hierarchy";
 }

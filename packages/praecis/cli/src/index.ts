@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { serializeJsonLd, SQLiteStore, toJsonLd } from '@aidha/graph-backend';
 import {
   formatProvenance,
@@ -108,6 +109,11 @@ export interface IngestSummary {
     readonly supportSummary?: unknown;
     readonly rationale?: unknown;
     readonly evidenceType?: unknown;
+    readonly qualityStatus?: unknown;
+    readonly qualityReasons?: unknown;
+    readonly qualityScore?: unknown;
+    readonly trusted?: unknown;
+    readonly supportCoverage?: unknown;
     readonly evidence: Array<{
       readonly excerptId: string;
       readonly locator: Locator;
@@ -222,25 +228,56 @@ function stableId(seed: string): string {
   return createHash('sha256').update(seed).digest('hex').slice(0, 16);
 }
 
+function firstClaimSentence(sourceText: string): string {
+  const normalized = sourceText.replace(/\s+/gu, ' ').trim();
+  const firstSentence = /[^.!?]+[.!?]/u.exec(normalized)?.[0]?.trim();
+  return firstSentence || normalized || 'Fixture evidence is present.';
+}
+
+function mockExcerptFromPrompt(user: string): { readonly id: string; readonly text: string } {
+  const block = /(?:TRANSCRIPT_EXCERPTS|EXCERPTS):\s*"""([\s\S]*?)"""/u.exec(user)?.[1];
+  if (block) {
+    try {
+      const parsed = JSON.parse(block) as unknown;
+      if (Array.isArray(parsed)) {
+        const excerpt = parsed.find(item => {
+          if (!item || typeof item !== 'object') return false;
+          const candidate = item as { id?: unknown; text?: unknown };
+          return typeof candidate.id === 'string'
+            && typeof candidate.text === 'string'
+            && candidate.text.trim().length > 0;
+        }) as { id: string; text: string } | undefined;
+        if (excerpt) return excerpt;
+      }
+    } catch {
+      // Fall through to conservative regex parsing below.
+    }
+  }
+
+  const paired = /"id":\s*"([^"]+)"[\s\S]{0,1000}?"text":\s*"((?:[^"\\]|\\.)*)"/u.exec(user);
+  return {
+    id: paired?.[1] ?? 'mock-excerpt',
+    text: paired?.[2]?.replace(/\\n/g, ' ') ?? 'Fixture evidence is present.',
+  };
+}
+
 function createMockExtractionLlm(): LlmClient {
   return {
     async generate(request) {
-      const excerptId = /"id":\s*"([^"]+)"/.exec(request.user)?.[1] ?? 'mock-excerpt';
-      const textMatch = /"text":\s*"([^"]+)"/.exec(request.user);
-      const sourceText = textMatch?.[1]?.replace(/\\n/g, ' ') ?? 'fixture evidence';
-      const prefix = sourceText.split(/\s+/).filter(Boolean).slice(0, 8).join(' ') || 'The fixture';
+      const excerpt = mockExcerptFromPrompt(request.user);
+      const claimText = firstClaimSentence(excerpt.text);
       return {
         ok: true,
         value: JSON.stringify({
           claims: [{
-            text: `${prefix} supports a reviewable activation claim.`,
-            excerptIds: [excerptId],
+            text: claimText,
+            excerptIds: [excerpt.id],
             confidence: 0.84,
             type: 'fact',
             classification: 'fact',
             domain: 'CLI Fixture',
             evidenceType: 'direct',
-            why: 'Deterministic mock extraction keeps generic CLI and acceptance tests offline.',
+            supportSummary: `The excerpt includes this claim verbatim: "${claimText}"`,
           }],
         }),
       };
@@ -413,6 +450,11 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
         : {}),
       ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
       ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
+      ...(claim.metadata?.['qualityStatus'] ? { qualityStatus: claim.metadata['qualityStatus'] } : {}),
+      ...(claim.metadata?.['qualityReasons'] ? { qualityReasons: claim.metadata['qualityReasons'] } : {}),
+      ...(claim.metadata?.['qualityScore'] !== undefined ? { qualityScore: claim.metadata['qualityScore'] } : {}),
+      ...(claim.metadata?.['trusted'] !== undefined ? { trusted: claim.metadata['trusted'] } : {}),
+      ...(claim.metadata?.['supportCoverage'] !== undefined ? { supportCoverage: claim.metadata['supportCoverage'] } : {}),
       evidence: claimEvidence(claim),
       method: claim.metadata?.['method'],
       model: claim.metadata?.['model'],
@@ -845,11 +887,14 @@ async function withIngestExecutionContextForManifest<T>(
   work: (context: IngestExecutionContext) => Promise<T>,
 ): Promise<T> {
   const services = await resolveRuntimeServicesForSource(manifest.sourceId, options);
+  const mockCacheDir = optionBool(options, 'mock-llm')
+    ? await mkdtemp(join(tmpdir(), 'aidha-mock-claims-'))
+    : undefined;
   const baseServices = optionBool(options, 'mock-llm')
       ? {
         ...services,
         ...(services.config
-          ? { config: { ...services.config, llm: { ...services.config.llm, model: 'mock-acceptance-llm' } } }
+          ? { config: { ...services.config, llm: { ...services.config.llm, model: 'mock-acceptance-llm', ...(mockCacheDir ? { cacheDir: mockCacheDir } : {}) } } }
           : {}),
         llm: createMockExtractionLlm(),
       }
@@ -1017,10 +1062,17 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
       if (!optionBool(options, 'mock')) {
         return services;
       }
+      const cacheDir = join(tmpdir(), `aidha-youtube-mock-claims-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
       return {
         ...services,
-        ...(services.config && !services.config.llm.model
-          ? { config: { ...services.config, llm: { ...services.config.llm, model: 'mock-youtube-llm' } } }
+        ...(services.config
+          ? {
+            config: {
+              ...services.config,
+              llm: { ...services.config.llm, model: 'mock-youtube-llm', cacheDir },
+              editor: { ...services.config.editor, minWords: 1, minChars: 1, minWindows: 1 },
+            },
+          }
           : {}),
         llm: createMockExtractionLlm(),
       };

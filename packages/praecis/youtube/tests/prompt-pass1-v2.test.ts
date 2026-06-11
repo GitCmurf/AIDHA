@@ -47,7 +47,7 @@ describe('Pass 1 v2 prompt contracts', () => {
       expect(system).toContain('mid-sentence cutoffs');
     });
 
-    it('contains specificity requirements', () => {
+    it('contains source-faithfulness requirements', () => {
       const { system } = buildPass1PromptV2(
         {
           resourceLabel: 'Test Video',
@@ -61,10 +61,11 @@ describe('Pass 1 v2 prompt contracts', () => {
         [{ id: 'e1', startSeconds: 0, text: 'test' }]
       );
 
-      expect(system).toContain('Over-index on specificity');
-      expect(system).toContain('niche technical insights');
+      expect(system).toContain('source-faithful propositions');
+      expect(system).toContain('not impressive interpretations');
       expect(system).toContain('Specific numbers and units');
       expect(system).toContain('Technical terminology preserved exactly');
+      expect(system).toContain('Do not import an external academic');
     });
 
     it('contains direct-claim and rationale requirements for technical tutorials', () => {
@@ -123,7 +124,7 @@ describe('Pass 1 v2 prompt contracts', () => {
       );
 
       expect(user).toContain('POSITIVE EXAMPLES');
-      expect(user).toContain('"domain": "Protein Kinetics"');
+      expect(user).toContain('"domain": "Knowledge Systems"');
       expect(user).toContain('"classification": "fact"');
       expect(user).toContain('"evidenceType":');
     });
@@ -259,7 +260,7 @@ describe('Pass 1 v2 prompt contracts', () => {
       expect(user).toContain('Test Video Title');
       expect(user).toContain('Chunk 3/5');
       expect(user).toContain('starting at 120s');
-      expect(user).toContain('Extract 5-12 high-utility claims');
+      expect(user).toContain('Extract 5-12 source-grounded, reviewable claims');
     });
 
     it('includes transcript excerpts in user prompt', () => {

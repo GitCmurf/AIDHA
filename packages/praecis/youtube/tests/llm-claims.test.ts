@@ -423,7 +423,7 @@ describe('LLM claim extraction', () => {
     const claim = claims.value.items[0];
     expect(claim?.metadata?.method).toBe('llm');
     expect(claim?.metadata?.model).toBe('test-model');
-    expect(claim?.metadata?.promptVersion).toContain('generic-hierarchy-v4');
+    expect(claim?.metadata?.promptVersion).toContain('generic-hierarchy-v5');
   });
 
   it('does not record valid empty claim sets as circuit-breaker failures', async () => {
@@ -600,7 +600,7 @@ describe('LLM claim extraction', () => {
     expect(afterLlm.ok).toBe(true);
     if (!afterLlm.ok || !afterLlm.value) return;
     expect(afterLlm.value.metadata?.['lastClaimRunModel']).toBe('test-model');
-    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toContain('generic-hierarchy-v4');
+    expect(afterLlm.value.metadata?.['lastClaimRunPromptVersion']).toContain('generic-hierarchy-v5');
     expect(afterLlm.value.metadata?.['lastClaimRunEditorDiagnostics']).toBeTypeOf('string');
 
     const heuristicPipeline = new ClaimExtractionPipeline({
@@ -773,7 +773,7 @@ describe('LLM claim extraction', () => {
 
     expect(client.calls).toBe(1);
     expect(first[0]?.text).toBe('Deterministic IDs prevent duplicate knowledge items during repeated ingestion runs.');
-    expect(first[0]?.promptVersion).toContain('generic-hierarchy-v4');
+    expect(first[0]?.promptVersion).toContain('generic-hierarchy-v5');
     expect(second[0]?.text).toBe(first[0]?.text);
 
     await rm(cacheDir, { recursive: true, force: true });
@@ -1471,6 +1471,9 @@ describe('LLM claim extraction', () => {
       model: 'test-model',
       promptVersion: 'v1:self-improve-budget',
       cacheDir,
+      chunkStrategy: 'whole-transcript',
+      chunkTargetInputTokens: 20000,
+      chunkHardMaxInputTokens: 20000,
       selfImproveMaxRounds: 1,
       selfImproveMaxInputTokens: 900,
     });
@@ -1543,8 +1546,8 @@ describe('LLM claim extraction', () => {
       { detectNoop: true }
     );
     const excerpts = [
-      { id: 'retry-1', start: 0, text: 'There are five slide layouts used in consulting presentations.' },
-      { id: 'retry-2', start: 30, text: 'Chart slides and table slides are two of the layouts.' },
+      { id: 'retry-1', start: 0, text: 'There are five layouts used in consulting slide presentations.' },
+      { id: 'retry-2', start: 30, text: 'Chart slides communicate numerical comparisons, while table slides organize dense values.' },
     ];
     for (const [index, excerpt] of excerpts.entries()) {
       await store.upsertNode(
@@ -1566,7 +1569,7 @@ describe('LLM claim extraction', () => {
       JSON.stringify({
         claims: [
           {
-            text: 'Chart slides should match the underlying data type and decision context.',
+            text: 'Chart slides communicate numerical comparisons in consulting presentations.',
             excerptIds: ['retry-2'],
             startSeconds: 30,
             type: 'fact',
@@ -1576,13 +1579,13 @@ describe('LLM claim extraction', () => {
       JSON.stringify({
         claims: [
           {
-            text: 'Five slide layouts account for most consulting presentation needs.',
+            text: 'Five layouts account for most consulting slide presentation needs.',
             excerptIds: ['retry-1'],
             startSeconds: 0,
             type: 'insight',
           },
           {
-            text: 'Chart slides and table slides are two of the core layout categories.',
+            text: 'Chart slides communicate numerical comparisons, while table slides organize dense values.',
             excerptIds: ['retry-2'],
             startSeconds: 30,
             type: 'fact',
@@ -1604,7 +1607,7 @@ describe('LLM claim extraction', () => {
     const stats = extractor.getLastRunStats();
 
     expect(client.calls).toBe(2);
-    expect(claims[0]?.text).toContain('Five slide layouts');
+    expect(claims[0]?.text).toContain('Five layouts');
     expect(stats.retryTriggered).toBe(true);
     expect(stats.retryPromptPackId).toBe('enumeration-framework-v2');
     await rm(cacheDir, { recursive: true, force: true });
@@ -1715,7 +1718,7 @@ describe('LLM claim extraction', () => {
     const excerptNodes = [
       {
         id: 'excerpt-1',
-        content: 'There are five slide layouts used in consulting presentations. The first is the title slide.',
+        content: 'There are five layouts used in consulting slide presentations. Chart slides communicate numerical comparisons.',
         metadata: { start: 0 },
       },
     ] as any;
@@ -1724,7 +1727,7 @@ describe('LLM claim extraction', () => {
       JSON.stringify({
         claims: [
           {
-            text: 'Chart slides should match the underlying data type.',
+            text: 'Chart slides communicate numerical comparisons in consulting presentations.',
             excerptIds: ['excerpt-1'],
             startSeconds: 0,
             type: 'fact',

@@ -84,6 +84,18 @@ export {
 export { buildSourceSynopsis } from './source-synopsis.js';
 export type { BuildSourceSynopsisInput } from './source-synopsis.js';
 export {
+  applyClaimQualityAssessment,
+  assessClaimQuality,
+  CLAIM_QUALITY_REASONS,
+  CLAIM_QUALITY_STATUSES,
+} from './claim-quality.js';
+export type {
+  ClaimQualityAssessment,
+  ClaimQualityInput,
+  ClaimQualityReason,
+  ClaimQualityStatus,
+} from './claim-quality.js';
+export {
   buildPass1PromptV2,
   buildSystemPrompt,
   buildUserPrompt,

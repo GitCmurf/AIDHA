@@ -76,6 +76,26 @@ describe('buildSourceSynopsis', () => {
     expect(synopsis).toEqual([]);
   });
 
+  it('does not promote rejected claim-quality candidates into source synopsis bullets', () => {
+    const synopsis = buildSourceSynopsis({
+      sourceId: 'youtube',
+      canonicalId: 'youtube-example123',
+      resourceId: 'youtube-example123',
+      chunks,
+      claims: [
+        claim({
+          text: 'Structuring linked nodes decreases reliance on working memory during retrieval.',
+          metadata: {
+            qualityStatus: 'rejected',
+            qualityReasons: ['domain_drift', 'unsupported_inference'],
+          },
+        }),
+      ],
+    });
+
+    expect(synopsis).toEqual([]);
+  });
+
   it('corrects generic attribution mistakes without hard-coding a specific video', () => {
     const synopsis = buildSourceSynopsis({
       sourceId: 'youtube',

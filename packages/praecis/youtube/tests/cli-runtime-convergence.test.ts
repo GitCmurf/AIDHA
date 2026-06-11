@@ -30,7 +30,7 @@ describe('YouTube CLI runtime convergence', () => {
       expect(code).toBe(0);
       expect(logs).toContain('Ingested playlist partial-playlist: 1 videos');
       expect(logs).toContain('Errors: 1');
-      expect(errors).toContain('missing-video: Video not found: missing-video');
+      expect(errors).toContain('missing-video: Transcript not found: missing-video');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

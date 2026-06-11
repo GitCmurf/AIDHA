@@ -1,5 +1,6 @@
 import type { GraphNode } from '@aidha/graph-backend';
 import type { ClaimState } from '../utils/claim-state.js';
+import type { ClaimQualityReason, ClaimQualityStatus } from './claim-quality.js';
 
 export interface ClaimCandidate {
   text: string;
@@ -19,6 +20,11 @@ export interface ClaimCandidate {
   promptVersion?: string;
   extractorVersion?: string;
   state?: ClaimState;
+  qualityStatus?: ClaimQualityStatus;
+  qualityReasons?: ClaimQualityReason[];
+  qualityScore?: number;
+  trusted?: boolean;
+  supportCoverage?: number;
   /**
    * The maximum token overlap ratio between this claim and its source excerpts.
    * Values closer to 1.0 indicate near-exact transcript copies ("echoes").
@@ -28,8 +34,7 @@ export interface ClaimCandidate {
   echoOverlapRatio?: number;
 }
 
-export interface ClaimExtractionInput {
-  resource: GraphNode;
+interface ClaimExtractionInputBase {
   excerpts: GraphNode[];
   maxClaims?: number;
   /** Optional AbortSignal for cancellation */
@@ -37,6 +42,12 @@ export interface ClaimExtractionInput {
   /** If true, the extractor should collect and return traces if supported */
   collectTraces?: boolean;
 }
+
+export type ClaimExtractionInput = ClaimExtractionInputBase & (
+  | { resource: GraphNode; resourceId?: string }
+  /** Minimal legacy path for callers that cannot provide the full resource node. */
+  | { resource?: undefined; resourceId: string }
+);
 
 export interface ClaimExtractor {
   extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]>;

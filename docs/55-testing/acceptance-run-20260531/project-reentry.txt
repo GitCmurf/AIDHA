@@ -4,13 +4,13 @@
 - Continue: Implement the activation loop
 
 ## Open Tasks
-- Implement the activation loop (task-be48c62b539ade04)
+- Implement the activation loop (task-9d71bd957c7b60ff)
 
 ## Relevant Claims
-- Activation planning converts captured knowledge into concrete next supports a reviewable activation claim. [text 0-153]
+- Activation evidence is reusable without reopening the original document. [page 1]
 
 ## Review Items
-- editorial+routing: Activation planning converts captured knowledge into concrete next supports a reviewable activation claim.
+- editorial+routing: Activation evidence is reusable without reopening the original document.
 
 ## Provisional Traces
 - None
@@ -19,4 +19,4 @@
 - None
 
 ## Provenance
-- claim:f4f79a97976eb9ff -> LinkedIn paste (text 0-153)
+- claim:9afcb77184b7bff8 -> fixture-prototype.pdf (page 1)

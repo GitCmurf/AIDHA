@@ -12,6 +12,8 @@ import {
   CLAIM_CLASSIFICATIONS,
   CLAIM_STATES,
   CLAIM_METHODS,
+  CLAIM_QUALITY_REASONS,
+  CLAIM_QUALITY_STATUSES,
   normalizeClaimType,
   normalizeClaimClassification,
 } from '@aidha/praecis-core';
@@ -36,6 +38,11 @@ describe('ClaimCandidateSchema', () => {
         promptVersion: 'v1.0',
         extractorVersion: '1.0.0',
         state: 'draft',
+        qualityStatus: 'reviewable',
+        qualityReasons: [],
+        qualityScore: 0.82,
+        trusted: false,
+        supportCoverage: 0.41,
         echoOverlapRatio: 0.5,
       };
 
@@ -104,6 +111,23 @@ describe('ClaimCandidateSchema', () => {
         expect(result.success).toBe(true);
       }
     });
+
+    it('validates quality metadata values', () => {
+      for (const qualityStatus of CLAIM_QUALITY_STATUSES) {
+        const claim = {
+          text: `Claim with quality status ${qualityStatus}`,
+          excerptIds: ['excerpt-1'],
+          qualityStatus,
+          qualityReasons: [...CLAIM_QUALITY_REASONS],
+          qualityScore: 1,
+          supportCoverage: 0,
+          trusted: false,
+        };
+
+        const result = ClaimCandidateSchema.safeParse(claim);
+        expect(result.success).toBe(true);
+      }
+    });
   });
 
   describe('missing required fields', () => {
@@ -150,6 +174,46 @@ describe('ClaimCandidateSchema', () => {
 
       const result = ClaimCandidateSchema.safeParse(claim);
       expect(result.success).toBe(false);
+    });
+
+    it('rejects invalid quality metadata values', () => {
+      const invalidClaims = [
+        {
+          text: 'Claim with invalid quality status',
+          excerptIds: ['excerpt-1'],
+          qualityStatus: 'unreviewed',
+        },
+        {
+          text: 'Claim with invalid quality reason',
+          excerptIds: ['excerpt-1'],
+          qualityReasons: ['not_a_reason'],
+        },
+        {
+          text: 'Claim with negative quality score',
+          excerptIds: ['excerpt-1'],
+          qualityScore: -0.01,
+        },
+        {
+          text: 'Claim with too large quality score',
+          excerptIds: ['excerpt-1'],
+          qualityScore: 1.01,
+        },
+        {
+          text: 'Claim with negative support coverage',
+          excerptIds: ['excerpt-1'],
+          supportCoverage: -0.01,
+        },
+        {
+          text: 'Claim with too large support coverage',
+          excerptIds: ['excerpt-1'],
+          supportCoverage: 1.01,
+        },
+      ];
+
+      for (const claim of invalidClaims) {
+        const result = ClaimCandidateSchema.safeParse(claim);
+        expect(result.success).toBe(false);
+      }
     });
   });
 

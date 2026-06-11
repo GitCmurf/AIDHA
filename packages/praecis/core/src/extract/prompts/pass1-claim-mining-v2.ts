@@ -29,63 +29,14 @@ export const PASS1_PROMPT_CONFIG_IDS = ["baseline", "hierarchy-first", "enumerat
 export type Pass1PromptConfigId = typeof PASS1_PROMPT_CONFIG_IDS[number];
 
 /**
- * Few-shot positive exemplars from successful Gemini extractions.
- * These demonstrate the expected "high-resolution" claim style.
+ * Few-shot positive exemplars that demonstrate faithful, source-grounded claim style.
  */
 const POSITIVE_EXEMPLARS = `
 === POSITIVE EXAMPLES ===
 {
   "claims": [
     {
-      "text": "Muscle protein synthesis (MPS) does not plateau at 25-30g; 100g of slow-digesting protein elicits significantly greater MPS than 25g.",
-      "excerptIds": ["ex1"],
-      "startSeconds": 120,
-      "type": "fact",
-      "classification": "fact",
-      "domain": "Protein Kinetics",
-      "confidence": 0.9,
-      "supportSummary": "Multiple RCTs are cited as showing a dose-response relationship between protein intake and MPS.",
-      "rationale": "The useful implication is that a fixed 25-30g per-meal protein ceiling is too low when the protein source is slow-digesting.",
-      "evidenceType": "RCTs"
-    },
-    {
-      "text": "If total daily protein reaches ~1.6g/kg (0.7g/lb), precise timing relative to training is statistically irrelevant to hypertrophy.",
-      "excerptIds": ["ex2"],
-      "startSeconds": 300,
-      "type": "fact",
-      "classification": "fact",
-      "domain": "Protein Kinetics",
-      "confidence": 0.85,
-      "supportSummary": "A meta-analysis is cited as finding no significant timing interaction when daily intake is adequate.",
-      "rationale": "The recommendation depends on total daily protein being sufficient; timing precision is less important under that condition.",
-      "evidenceType": "Meta-analysis"
-    },
-    {
-      "text": "Ketogenic and high-carb diets yield identical fat loss when calories and protein are equated; keto's efficacy stems from spontaneous caloric restriction (400-900 kcal/day deficit).",
-      "excerptIds": ["ex3"],
-      "startSeconds": 450,
-      "type": "fact",
-      "classification": "fact",
-      "domain": "Bioenergetics",
-      "confidence": 0.8,
-      "supportSummary": "Metabolic ward studies are cited as controlling for calories and protein while showing equivalent fat loss.",
-      "rationale": "Keto's practical effect is attributed to spontaneous caloric restriction rather than a unique fat-loss mechanism.",
-      "evidenceType": "Metabolic Ward"
-    },
-    {
-      "text": "Cream is lipid-neutral due to the presence of Milk Fat Globule Membrane (MFGM); churning butter removes MFGM, altering its mechanics and causing butter to elevate LDL cholesterol.",
-      "excerptIds": ["ex4"],
-      "startSeconds": 600,
-      "type": "mechanism",
-      "classification": "fact",
-      "domain": "Lipidology",
-      "confidence": 0.75,
-      "supportSummary": "The source distinguishes cream from butter by whether Milk Fat Globule Membrane remains present.",
-      "rationale": "Removing MFGM during churning changes the lipid-delivery mechanism, explaining why butter and cream can differ physiologically.",
-      "evidenceType": "Mechanistic explanation"
-    },
-    {
-      "text": "A markdown wiki built from raw source files can answer questions by reading index files and following explicit links, rather than using embedding similarity over chunks.",
+      "text": "A markdown wiki built from raw source files can answer questions by reading index files and following explicit links instead of using embedding similarity over chunks.",
       "excerptIds": ["ex5"],
       "startSeconds": 960,
       "type": "mechanism",
@@ -107,6 +58,42 @@ const POSITIVE_EXEMPLARS = `
       "supportSummary": "The source limits the markdown-wiki recommendation to smaller corpora and contrasts it with million-document systems.",
       "rationale": "At enterprise scale, file crawling and token usage become the bottleneck, so vector or knowledge-graph infrastructure is likely more appropriate.",
       "evidenceType": "Transcript recommendation"
+    },
+    {
+      "text": "Karpathy's Claude Code prompt asks the agent to create a second-brain structure from raw source files and maintain index-style wiki files.",
+      "excerptIds": ["ex7"],
+      "startSeconds": 430,
+      "type": "instruction",
+      "classification": "instruction",
+      "domain": "AI Tooling",
+      "confidence": 0.8,
+      "supportSummary": "The source shows the prompt being pasted into Claude Code and describes it as creating the second-brain vault structure.",
+      "rationale": "The useful workflow point is that project instructions define the agent role and the target file organization before ingestion starts.",
+      "evidenceType": "Transcript demonstration"
+    },
+    {
+      "text": "When calories and protein are equated, ketogenic and high-carbohydrate diets can produce similar fat-loss outcomes.",
+      "excerptIds": ["ex8"],
+      "startSeconds": 450,
+      "type": "fact",
+      "classification": "fact",
+      "domain": "Nutrition Science",
+      "confidence": 0.8,
+      "supportSummary": "The source cites controlled diet comparisons where calories and protein are matched.",
+      "rationale": "The claim should stay limited to the controlled comparison rather than implying a universal diet rule.",
+      "evidenceType": "Controlled diet studies"
+    },
+    {
+      "text": "A presentation subtitle should state the slide's message rather than merely name the chart type.",
+      "excerptIds": ["ex9"],
+      "startSeconds": 180,
+      "type": "instruction",
+      "classification": "instruction",
+      "domain": "Presentation Design",
+      "confidence": 0.78,
+      "supportSummary": "The source contrasts descriptive slide labels with message-led subtitles.",
+      "rationale": "Message-led subtitles help the reader understand the decision-relevant takeaway without interpreting the chart unaided.",
+      "evidenceType": "Transcript instruction"
     }
   ]
 }
@@ -159,13 +146,14 @@ Negative 8 - Thin recommendation:
  * Constraint strings for the prompt.
  */
 const CONSTRAINTS = [
-  'CRITICAL: Over-index on specificity and niche technical insights.',
+  'CRITICAL: Extract source-faithful propositions, not impressive interpretations.',
   'CRITICAL: Reject generic advice (e.g. "eat balanced meals", "sleep more").',
   'CRITICAL: Reject intro/outro boilerplate and sponsor CTAs.',
   'CRITICAL: Each claim MUST be a standalone, self-contained assertion.',
   'CRITICAL: Do NOT output sentence fragments or mid-sentence cutoffs.',
   'CRITICAL: Include specific numbers, units, and technical terminology where present.',
   'CRITICAL: Claims must be auditable and evidence-based.',
+  'CRITICAL: Do not import an external academic, clinical, or neuroscience framing unless the source explicitly uses it.',
   'Constraint: Preserve all technical terms, numbers, and units exactly.',
   'Constraint: Do not include claims that are purely opinion without domain grounding.',
   'Constraint: Do not turn a tag list, backlink list, or tool list into a claim unless the source asserts a relationship, workflow, or tradeoff.',
@@ -180,6 +168,7 @@ const DOMAINS = [
   'AI Tooling',
   'Information Retrieval',
   'Personal Knowledge Management',
+  'Presentation Design',
   'Protein Kinetics',
   'Bioenergetics',
   'Lipidology',
@@ -307,9 +296,9 @@ export function buildSystemPrompt(
     '- Direct canonical claims, not reported speech; do not write "the speaker claims/says/suggests" unless attribution is the point',
     '- Recommendations include their transcript-supported rationale, condition, or limitation when available',
     '- Technical workflow claims preserve setup structure, mechanism, tradeoff, and "so what" implications',
-    '- Specific numbers and units (e.g., "1.6g/kg", "24-72 hours", "RCTs")',
-    '- Technical terminology preserved exactly (e.g., "MPS", "MFGM", "isotopic tracing")',
-    '- Clear domain labels matched to the source topic (e.g., "Knowledge Systems", "AI Tooling", "Protein Kinetics", "Bioenergetics")',
+    '- Specific numbers and units when the source provides them',
+    '- Technical terminology preserved exactly as used by the source',
+    '- Clear domain labels matched to the source topic, not imported from unrelated examples',
     '- Evidence basis when mentioned (e.g., "Meta-analysis", "RCTs")',
     '- Causal or mechanistic clarity when applicable',
   ].join('\n');
@@ -412,7 +401,7 @@ export function buildUserPrompt(
   return [
     `VIDEO_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(input.resourceLabel, 200))}"""`,
     `Chunk ${input.chunkIndex + 1}/${input.chunkCount} starting at ${Math.floor(input.chunkStart)}s.`,
-    `Goal: Extract ${input.minClaims}-${input.maxClaims} high-utility claims.`,
+    `Goal: Extract ${input.minClaims}-${input.maxClaims} source-grounded, reviewable claims.`,
     '',
     'SCHEMA:',
     JSON.stringify(schema, null, 2),
@@ -423,11 +412,13 @@ export function buildUserPrompt(
     '',
     'REQUIREMENTS:',
     '- Each claim MUST be a complete, standalone sentence',
+    '- Each claim MUST be entailed by its cited transcript excerpts',
     '- Write canonical claim text directly; do NOT start claims with "the speaker claims", "the speaker says", "the speaker suggests", or similar attribution wrappers',
     '- Preserve attribution inside the claim only when the identity matters materially, e.g. "Karpathy reported..."',
     '- Do not write "Claude Code\'s Karpathy prompt"; prefer "Karpathy\'s Claude Code prompt" when the source describes a prompt written for use with Claude Code',
     '- Do not promote backlink/tag/tool lists into claims unless the source explains what the relationship means or why it matters',
     '- Each claim MUST include domain and classification fields',
+    '- Domain labels MUST be source-topic labels; do not use neuroscience, physiology, cognitive science, or clinical labels unless the source itself is about those topics',
     '- Each claim SHOULD include evidenceType when evidence is mentioned',
     '- Use supportSummary for concrete source support; do NOT write box-ticking phrases like "Direct report" or "The speaker describes"',
     '- Use rationale only for substantive recommendation reasons, mechanisms, tradeoffs, or decision logic',
@@ -437,7 +428,7 @@ export function buildUserPrompt(
     '- Reject intro/outro phrases like "welcome to", "thanks for watching", "subscribe"',
     '- Reject sponsor content (e.g., "use code [CODE]", "[SPONSOR] discount", "[PRODUCT] link in description")',
     '- Reject sentence fragments ending in commas or hanging conjunctions',
-    '- Aim for diverse claims across different physiological domains',
+    '- Aim for diverse claims across the source topic, workflow, mechanisms, tradeoffs, recommendations, and limitations',
     ...buildConfigSpecificUserRequirements(configId),
     ...buildPackSpecificUserRequirements(input.promptPackId),
     '',

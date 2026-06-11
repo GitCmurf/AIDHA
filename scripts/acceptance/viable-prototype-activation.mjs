@@ -29,8 +29,8 @@ const linkedInPaste = [
 
 await mkdir(packetDir, { recursive: true });
 await writeFile(pdfFixturePath, [
+  'Activation evidence is reusable without reopening the original document.',
   'Project re-entry needs task provenance back to claims and sources.',
-  'Activation evidence should be reusable without reopening the original document.',
 ].join('\f'), 'utf-8');
 
 async function pathExists(path) {

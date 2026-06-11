@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ClaimCandidate } from './types.js';
+import { CLAIM_QUALITY_REASONS, CLAIM_QUALITY_STATUSES } from './claim-quality.js';
 
 /**
  * Valid claim type values.
@@ -69,6 +70,11 @@ export const ClaimCandidateSchema = z.object({
   promptVersion: z.string().optional(),
   extractorVersion: z.string().optional(),
   state: z.enum(CLAIM_STATES).optional(),
+  qualityStatus: z.enum(CLAIM_QUALITY_STATUSES).optional(),
+  qualityReasons: z.array(z.enum(CLAIM_QUALITY_REASONS)).optional(),
+  qualityScore: z.number().min(0).max(1).optional(),
+  trusted: z.boolean().optional(),
+  supportCoverage: z.number().min(0).max(1).optional(),
   echoOverlapRatio: z.number().min(0).max(1).optional(),
 });
 

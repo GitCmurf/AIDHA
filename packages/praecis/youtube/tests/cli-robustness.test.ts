@@ -7,6 +7,7 @@ import { runCli } from '../src/cli.js';
 import { optionNumber } from '../src/cli.js';
 import { parseRuntimeExecutable, parseConfiguredRuntimes } from '../src/client/yt-dlp.js';
 import { formatIngestionStatus } from '../src/cli/status.js';
+import { RealYouTubeClient } from '../src/client/youtube.js';
 
 describe('CLI Robustness (Remediation)', () => {
   describe('Argument Parser Arity', () => {
@@ -146,7 +147,8 @@ describe('CLI Robustness (Remediation)', () => {
       global.fetch = mockFetch;
 
       try {
-        await runCli(['ingest', 'video', 'abc&list=PLTEST']);
+        const client = new RealYouTubeClient({ debugTranscript: false });
+        await client.fetchVideo('abc&list=PLTEST');
 
         // Find the oEmbed call
         const oembedCall = mockFetch.mock.calls.find(call => call[0].includes('oembed'));

@@ -40,8 +40,7 @@ function stripReportedSpeechWrapper(text: string): { readonly text: string; read
 
 function correctCommonAttribution(text: string): string {
   return text
-    .replace(/\bClaude Code's Karpathy prompt\b/g, "Karpathy's Claude Code prompt")
-    .replace(/\bClaude Code’s Karpathy prompt\b/g, "Karpathy’s Claude Code prompt");
+    .replace(/\bClaude Code['’]s Karpathy prompt\b/g, "Karpathy's Claude Code prompt");
 }
 
 function hasCategorySoupList(text: string): boolean {
@@ -122,6 +121,8 @@ export function buildSourceSynopsis(input: BuildSourceSynopsisInput): readonly S
   const items: SourceSynopsisItem[] = [];
 
   for (const claim of input.claims) {
+    if (claim.metadata?.['qualityStatus'] === 'rejected') continue;
+
     const synopsis = sourceSynopsisTextForClaim(claim);
     if (!synopsis) continue;
 

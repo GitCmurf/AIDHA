@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-004
 owner: Ingestion Team
 status: Draft
-version: '0.4'
-last_updated: 2026-06-05
+version: '0.5'
+last_updated: 2026-06-11
 title: LLM Claim Extraction Guide
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.4
-> **Last Updated:** 2026-06-05
+> **Version:** 0.5
+> **Last Updated:** 2026-06-11
 > **Type:** GUIDE
 
 # LLM Claim Extraction Guide
@@ -28,6 +28,7 @@ docops_version: '2.0'
 | 0.2     | 2026-02-08 | AI     | Add offline golden fixture workflow and invariant checks | — | Draft | — |
 | 0.3     | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 | 0.4     | 2026-06-05 | AI     | Document source synopsis anchors, prompt routing safeguards, and model-ladder defaults. | — | Draft | — |
+| 0.5     | 2026-06-11 | AI     | Add source-faithful claim contract, quality metadata, and confidence-gate workflow. | — | Draft | AIDHA-PLAN-009 |
 
 ## Purpose
 
@@ -83,6 +84,31 @@ raw claims.
 - Category/tool/tag lists should not become bullets unless the transcript asserts a
   workflow, relationship, tradeoff, or recommendation.
 - Recommendations should preserve the transcript-supported rationale when present.
+- Rejected claim-quality candidates must not be promoted into source synopsis bullets.
+
+## Claim Quality Contract
+
+LLM extraction creates draft candidates, not trusted graph knowledge. Each candidate
+should be source-faithful:
+
+- Claim text must be entailed by its cited source excerpts.
+- Domain labels must match the source topic and must not import unrelated academic,
+  clinical, or neuroscience framing.
+- `supportSummary` must name concrete source support.
+- Recommendations, warnings, scale limits, and tradeoffs must include `rationale`.
+- Reported-speech wrappers, category-soup lists, and weak prose are rejection signals.
+
+The CLI emits these quality fields for each claim:
+
+- `qualityStatus`: `pending | reviewable | accepted | rejected`.
+- `qualityReasons`: deterministic rejection or warning reasons.
+- `qualityScore`: coarse ordering/diagnostic score.
+- `supportCoverage`: lexical support against cited excerpts.
+- `trusted`: always `false` for automatic LLM extraction until a stronger verifier or
+  human review accepts the claim.
+
+Treat `reviewable` as "safe to review", not "true". Treat `rejected` as diagnostic
+evidence for prompt/model improvement, not as graph knowledge.
 
 ## Claim-Quality Model Ladder
 
@@ -93,6 +119,11 @@ Use the narrow eval harness to separate model capability from prompt and pipelin
 - Capability-ceiling diagnostic: `gpt-5.5`.
 - Oracle-only golden-example generation: `gpt-5.5-pro`; do not run it in routine
   evaluation without deliberate cost approval.
+
+For private pilot comparisons, use cached transcripts and compare the same source
+through `gpt-5.4-mini`, `gpt-5.4-nano`, and `gemini-3.5-flash` before changing
+the default production candidate. Escalate to `gpt-5.5` only when the routine
+ladder cannot distinguish prompt faults from model-capability faults.
 
 ## Review and Curation Commands
 

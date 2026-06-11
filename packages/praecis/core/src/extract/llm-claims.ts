@@ -13,6 +13,7 @@ import { detectModelCapabilities } from './llm-client.js';
 import { clamp, normalizeText, toNumber, hasDanglingEnding, isCompleteSentence, startsWithConnector } from './utils.js';
 import { estimateTokens, estimateCost, DEFAULT_COST_PER_1K_TOKENS } from './token-budget.js';
 import { normalizeClaimClassification, normalizeClaimType, CLAIM_TYPES, CLAIM_CLASSIFICATIONS } from './claim-candidate-schema.js';
+import { applyClaimQualityAssessment, assessClaimQuality } from './claim-quality.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { hashId } from '../utils/ids.js';
 import { consoleLogger, type Logger } from '../utils/logger.js';
@@ -55,6 +56,19 @@ const ClaimSchema = z.object({
   rationale: z.string().optional(),
   evidenceType: z.string().optional(),
   method: z.enum(['llm', 'heuristic-fallback']).optional(),
+  qualityStatus: z.enum(['pending', 'reviewable', 'accepted', 'rejected']).optional(),
+  qualityReasons: z.array(z.enum([
+    'missing_support',
+    'unsupported_inference',
+    'domain_drift',
+    'reported_speech',
+    'category_soup',
+    'weak_rationale',
+    'poor_prose',
+  ])).optional(),
+  qualityScore: z.number().min(0).max(1).optional(),
+  trusted: z.boolean().optional(),
+  supportCoverage: z.number().min(0).max(1).optional(),
 });
 
 const ResponseSchema = z.object({
@@ -290,18 +304,37 @@ const DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS = 6000;
 const DEFAULT_CHUNK_OVERLAP_EXCERPTS = 2;
 const DEFAULT_TRANSPORT_RETRY_MAX_ATTEMPTS = 3;
 const DEFAULT_TRANSPORT_RETRY_BASE_DELAY_MS = 750;
+const FALLBACK_RESOURCE_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 /**
  * Bump the relevant entry when prompt wording or post-processing expectations change.
  * Cache keys include the pack-local version so any pack can be invalidated independently.
  */
 const PROMPT_PACK_CACHE_VERSIONS: Record<ExtractionPromptPackId, string> = {
-  'generic-hierarchy': 'generic-hierarchy-v4',
+  'generic-hierarchy': 'generic-hierarchy-v5',
   'enumeration-framework': 'enumeration-framework-v2',
   'clinical-risk-management': 'clinical-risk-management-v2',
   'business-framework': 'business-framework-v2',
   'enumeration-framework-v2': 'enumeration-framework-v3',
   'clinical-risk-management-v2': 'clinical-risk-management-v3',
 };
+
+function fallbackResource(resourceId: string): GraphNode {
+  return {
+    schemaVersion: 1,
+    id: resourceId,
+    type: 'Resource',
+    label: resourceId,
+    metadata: {},
+    createdAt: FALLBACK_RESOURCE_TIMESTAMP,
+    updatedAt: FALLBACK_RESOURCE_TIMESTAMP,
+  };
+}
+
+function resolveExtractionResource(input: ClaimExtractionInput): GraphNode {
+  if (input.resource) return input.resource;
+  if (input.resourceId) return fallbackResource(input.resourceId);
+  throw new Error('LlmClaimExtractor.extractClaims requires either resource or resourceId');
+}
 
 /**
  * Optimal input token size per chunk for extraction quality.
@@ -646,6 +679,11 @@ async function writeCache(path: string, metadata: CacheMetadata, claims: ClaimCa
       rationale: claim.rationale,
       evidenceType: claim.evidenceType,
       method: claim.method,
+      qualityStatus: claim.qualityStatus,
+      qualityReasons: claim.qualityReasons,
+      qualityScore: claim.qualityScore,
+      trusted: claim.trusted,
+      supportCoverage: claim.supportCoverage,
     })),
   };
   await writeFile(path, JSON.stringify(payload), 'utf-8');
@@ -1159,10 +1197,10 @@ export class LlmClaimExtractor implements ClaimExtractor {
     let system: string;
     let user: string;
 
-    if (this.promptVersion.startsWith(PROMPT_V2_VERSION) || promptPackId !== 'generic-hierarchy') {
+    if (this.promptVersion !== 'legacy-v1') {
       const prompt = buildPass1PromptV2(
         {
-          resourceLabel: resource.label,
+          resourceLabel: resource.label ?? resource.id ?? 'Unknown Resource',
           chunkIndex: chunk.index,
           chunkCount,
           chunkStart: chunk.start,
@@ -1182,20 +1220,20 @@ export class LlmClaimExtractor implements ClaimExtractor {
       }));
 
       system = [
-        'You are a senior analyst extracting high-resolution health and physiological assertions.',
+        'You are a senior analyst extracting source-faithful claims.',
         'Return only JSON that matches the provided schema.',
-        'CRITICAL: Over-index on specificity and niche technical insights.',
+        'CRITICAL: Extract source-grounded propositions, not impressive interpretations.',
         'CRITICAL: Reject generic advice (e.g. "eat balanced meals", "sleep more").',
-        'CRITICAL: Aim for diverse claims across different metabolic and physiological domains.',
+        'CRITICAL: Do not import academic or clinical framing unless the source explicitly uses it.',
       ].join(' ');
       user = [
         `VIDEO_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(resource?.label || 'Unknown Video', 200))}"""`,
         `Chunk ${chunk.index + 1}/${chunkCount} starting at ${Math.floor(chunk.start)}s.`,
-        `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} high-utility claims.`,
+        `Goal: Extract ${DEFAULT_MIN_CLAIMS_PER_CHUNK}-${DEFAULT_MAX_CLAIMS_PER_CHUNK} source-grounded, reviewable claims.`,
         `Schema: {"claims":[{"text":string,"excerptIds":[string],"startSeconds":number,"type":string,"classification":"Fact"|"Mechanism"|"Opinion"|"Warning"|"Instruction"|"Insight","domain":string,"confidence":0-1,"supportSummary":string,"rationale":string}]}`,
         `Allowed types: ${CLAIM_TYPES.join(', ')}`,
         'Requirement: If you find a generic claim, replace it with a more specific one from the same text.',
-        'Requirement: Include the physiological Domain (e.g. "Protein Kinetics", "Lipidology") and Classification.',
+        'Requirement: Include a source-topic domain and classification.',
         'Requirement: supportSummary must name concrete source support, not generic phrases like "Direct report".',
         'Requirement: rationale is only for substantive reasons behind recommendations, mechanisms, tradeoffs, or decisions.',
         'IMPORTANT: The following content is delimited by triple quotes (""").',
@@ -1335,7 +1373,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
   async extractClaims(input: ClaimExtractionInput): Promise<ClaimCandidate[]> {
     const maxClaims = input.maxClaims ?? this.maxClaims;
     const excerpts = input.excerpts;
-    const resource = input.resource;
+    const resource = resolveExtractionResource(input);
+    const normalizedInput: ClaimExtractionInput = {
+      ...input,
+      resource,
+    };
     const transcriptText = excerpts.map((excerpt) => normalizeText(excerpt.content ?? '')).join('\n');
     const topicDomain = typeof resource?.metadata?.['topicDomain'] === 'string'
       ? String(resource?.metadata?.['topicDomain'])
@@ -1388,7 +1430,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     };
 
     const firstPass = await this.runExtractionPass({
-      input,
+      input: normalizedInput,
       maxClaims,
       promptPackId: routing.decision.promptPackId,
       profile: routing.profile,
@@ -1404,7 +1446,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
     if (!retryDecision.retry || !retryDecision.retryPromptPackId) {
       this.lastEditorDiagnostics = firstPass.editorDiagnostics;
       this.lastTraces = firstPass.traces;
-      return firstPass.selected;
+      return this.applyQualityGate({
+        resource,
+        excerpts,
+        selected: firstPass.selected,
+      });
     }
 
     this.lastRunStats.retryTriggered = true;
@@ -1412,7 +1458,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
     this.lastRunStats.retryPromptPackId = retryDecision.retryPromptPackId;
 
     const retryPass = await this.runExtractionPass({
-      input,
+      input: normalizedInput,
       maxClaims,
       promptPackId: retryDecision.retryPromptPackId,
       profile: routing.profile,
@@ -1423,12 +1469,20 @@ export class LlmClaimExtractor implements ClaimExtractor {
       this.lastEditorDiagnostics = retryPass.editorDiagnostics;
       this.lastTraces = retryPass.traces;
       this.lastRunStats.promptPackId = retryDecision.retryPromptPackId;
-      return retryPass.selected;
+      return this.applyQualityGate({
+        resource,
+        excerpts,
+        selected: retryPass.selected,
+      });
     }
 
     this.lastEditorDiagnostics = firstPass.editorDiagnostics;
     this.lastTraces = firstPass.traces;
-    return firstPass.selected;
+    return this.applyQualityGate({
+      resource,
+      excerpts,
+      selected: firstPass.selected,
+    });
   }
 
   private async runExtractionPass(input: {
@@ -1444,7 +1498,7 @@ export class LlmClaimExtractor implements ClaimExtractor {
   }> {
     const { input: extractionInput, maxClaims, promptPackId, retryReason } = input;
     const excerpts = extractionInput.excerpts;
-    const resource = extractionInput.resource;
+    const resource = resolveExtractionResource(extractionInput);
     const initialChunks = buildChunks(
       excerpts,
       this.chunkMinutes,
@@ -1874,6 +1928,25 @@ export class LlmClaimExtractor implements ClaimExtractor {
     return current;
   }
 
+  private applyQualityGate(input: {
+    resource: GraphNode;
+    excerpts: GraphNode[];
+    selected: ClaimCandidate[];
+  }): ClaimCandidate[] {
+    const excerptTextById = new Map(input.excerpts.map(excerpt => [excerpt.id, normalizeText(excerpt.content ?? '')]));
+    return input.selected.map(candidate => {
+      const evidenceTexts = candidate.excerptIds
+        .map(excerptId => excerptTextById.get(excerptId))
+        .filter((text): text is string => typeof text === 'string' && text.length > 0);
+      const assessment = assessClaimQuality({
+        candidate,
+        evidenceTexts,
+        resourceLabel: input.resource.label,
+      });
+      return applyClaimQualityAssessment(candidate, assessment);
+    });
+  }
+
   private parseRewriteResponse(content: string): Array<{ index: number; text: string }> | null {
     const jsonBlock = extractJsonBlock(content);
     if (!jsonBlock) return null;
@@ -2237,6 +2310,11 @@ export class LlmClaimExtractor implements ClaimExtractor {
           : candidate.why ? normalizeText(candidate.why) : undefined,
         rationale: candidate.rationale ? normalizeText(candidate.rationale) : undefined,
         evidenceType: candidate.evidenceType,
+        qualityStatus: candidate.qualityStatus,
+        qualityReasons: candidate.qualityReasons,
+        qualityScore: candidate.qualityScore,
+        trusted: candidate.trusted,
+        supportCoverage: candidate.supportCoverage,
         method: 'llm',
         chunkIndex: chunk.index,
         model: this.model,

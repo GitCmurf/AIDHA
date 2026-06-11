@@ -166,7 +166,7 @@ describe('production YouTube runtime ingestion', () => {
         progress: { total: 2, completed: 1, failed: 1 },
         errors: [{
           videoId: 'missing-video',
-          message: 'Video not found: missing-video',
+          message: 'Transcript not found: missing-video',
           timestamp: '2026-05-25T12:34:56.000Z',
         }],
         createdAt: '2026-05-25T12:34:56.000Z',
