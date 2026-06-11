@@ -30,11 +30,11 @@ export interface ClaimQualityInput {
   readonly resourceLabel?: string;
 }
 
-const GENERIC_SUPPORT_PATTERN =
-  /^(?:direct|source|transcript|the speaker|the host|the presenter|the demonstrator)\b/i;
+const BOX_TICKING_SUPPORT_PATTERN =
+  /^(?:direct(?:\s+(?:report|example|quote|support))?|source\s+support|transcript\s+support|evidence\s+supports\s+the\s+claim|the\s+(?:speaker|host|presenter|demonstrator|transcript)\s+(?:describes|states|says|explains|mentions|reports|shows)\.?$)$/i;
 
 const REPORTED_SPEECH_PATTERN =
-  /^\s*(?:the\s+)?(?:speaker|host|presenter|narrator|video|transcript)\s+(?:claims?|says?|states?|suggests?|recommends?|argues?|reports?|mentions?|explains?)\b/i;
+  /^\s*(?:the\s+)?(?:speaker|host|presenter|demonstrator|narrator|video|transcript)\s+(?:claims?|claimed|says?|said|states?|stated|suggests?|suggested|recommends?|recommended|argues?|argued|reports?|reported|mentions?|mentioned|explains?|explained|asserts?|asserted|describes?|described|cites?|cited)\b/i;
 
 const KNOWLEDGE_SYSTEM_PATTERN =
   /\b(?:obsidian|claude code|markdown|wiki|backlinks?|second brain|rag|embedding|vector database|semantic search|knowledge system|vault)\b/i;
@@ -48,6 +48,9 @@ const INFERENCE_VERB_PATTERN =
 const RECOMMENDATION_PATTERN =
   /\b(?:recommend(?:s|ed|ing)?|should|prefer|avoid|more appropriate|better than|rather than)\b/i;
 
+const REASON_BEARING_PATTERN =
+  /\b(?:because|since|due to|so that|therefore|as a result|at scale|compared with|contrasts? with|whereas|instead of|rather than|bottleneck|cost|token usage|current models|for now|limitation|trade-?off)\b/i;
+
 // Below this coverage, a claim needs most of its salient terms present in evidence.
 const LOW_SUPPORT_COVERAGE_THRESHOLD = 0.12;
 // Above this unsupported-token ratio, low-coverage claims are likely inferred.
@@ -59,8 +62,17 @@ const MAX_UNSUPPORTED_RATIO_INFERENCE = 0.5;
 
 function usefulText(value: string | undefined): string | undefined {
   const normalized = value ? normalizeText(value) : '';
-  if (!normalized || GENERIC_SUPPORT_PATTERN.test(normalized)) return undefined;
+  if (!normalized || BOX_TICKING_SUPPORT_PATTERN.test(normalized)) return undefined;
+  const substantiveTokens = tokenize(normalized).filter(token => token.length >= 4);
+  if (substantiveTokens.length < 4) return undefined;
   return normalized;
+}
+
+function hasReasonBearingText(...values: Array<string | undefined>): boolean {
+  return values.some(value => {
+    const normalized = usefulText(value);
+    return normalized ? REASON_BEARING_PATTERN.test(normalized) : false;
+  });
 }
 
 function hasCategorySoupList(text: string): boolean {
@@ -109,6 +121,7 @@ function hasUnsupportedInference(candidate: ClaimCandidate, evidenceText: string
   if (
     supportCoverage < LOW_SUPPORT_COVERAGE_THRESHOLD
     && unsupportedRatio > MAX_UNSUPPORTED_RATIO_LOW_SUPPORT
+    && INFERENCE_VERB_PATTERN.test(text)
   ) return true;
   if (
     supportCoverage < MODERATE_SUPPORT_COVERAGE_THRESHOLD
@@ -141,7 +154,9 @@ export function assessClaimQuality(input: ClaimQualityInput): ClaimQualityAssess
   if (REPORTED_SPEECH_PATTERN.test(text)) addReason(reasons, 'reported_speech');
   if (hasCategorySoupList(text)) addReason(reasons, 'category_soup');
   if (!usefulText(candidate.supportSummary)) addReason(reasons, 'missing_support');
-  if (requiresRationale(candidate) && !usefulText(candidate.rationale)) addReason(reasons, 'weak_rationale');
+  if (requiresRationale(candidate) && !usefulText(candidate.rationale) && !hasReasonBearingText(candidate.supportSummary)) {
+    addReason(reasons, 'weak_rationale');
+  }
   if (hasDomainDrift(candidate, evidenceText)) addReason(reasons, 'domain_drift');
   if (hasUnsupportedInference(candidate, evidenceText, supportCoverage)) addReason(reasons, 'unsupported_inference');
 

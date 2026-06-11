@@ -138,6 +138,12 @@ export interface ClassificationResult {
   readonly warnings: readonly string[];
 }
 
+export interface ClaimQualitySummary {
+  readonly total: number;
+  readonly reviewable: number;
+  readonly rejected: number;
+}
+
 export interface RunReport {
   readonly sourceId: string;
   readonly canonicalId: string;
@@ -151,6 +157,8 @@ export interface RunReport {
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
   readonly claims: readonly DraftClaim[];
+  readonly rejectedClaims: readonly DraftClaim[];
+  readonly qualitySummary: ClaimQualitySummary;
   readonly sourceSynopsis: readonly SourceSynopsisItem[];
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: LlmRoute;

@@ -217,6 +217,46 @@ describe('pipeline spine (via ConfiguredIngestionRuntime.runVector)', () => {
     expect(result.value.claimsExtracted).toBe(2);
   });
 
+  it('keeps rejected candidates as diagnostics without exporting them as claims', async () => {
+    const store = new InMemoryStore();
+    const runtime = createIngestionRuntimeFromServices({
+      ...services,
+      store,
+      cache: new MemoryCache(),
+      miner: {
+        async mine() {
+          return {
+            ok: true as const,
+            value: {
+              claims: [
+                { id: 'claim-reviewable', text: 'Reviewable claim persists.', excerptIds: ['chunk-0'], state: 'draft' as const, metadata: { qualityStatus: 'reviewable' } },
+                { id: 'claim-rejected', text: 'The speaker claims this diagnostic should not persist.', excerptIds: ['chunk-0'], state: 'draft' as const, metadata: { qualityStatus: 'rejected' } },
+              ],
+            },
+          };
+        },
+      },
+      exporter: {
+        async export(miningResult, raw, chunks) {
+          return new GraphPipelineExporter(store).export(miningResult, raw, chunks);
+        },
+      },
+    });
+
+    const result = await runtime.runVector(vec, { ref: 'https://example.com/rejected' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+    expect(result.value.claims.map(claim => claim.id)).toEqual(['claim-reviewable']);
+    expect(result.value.rejectedClaims.map(claim => claim.id)).toEqual(['claim-rejected']);
+    expect(result.value.qualitySummary).toEqual({ total: 2, reviewable: 1, rejected: 1 });
+    expect(result.value.claimIds).toEqual(['claim-reviewable']);
+
+    const rejectedNode = await store.getNode('claim-rejected');
+    expect(rejectedNode.ok).toBe(true);
+    if (!rejectedNode.ok) throw rejectedNode.error;
+    expect(rejectedNode.value).toBeNull();
+  });
+
   it('passes PipelineServices.config into vector decode', async () => {
     const captured: ResolvedConfig[] = [];
     const config = { ...testConfig(), activeSourceConfig: { decodeFlag: true } };

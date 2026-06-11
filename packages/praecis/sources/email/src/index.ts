@@ -131,25 +131,9 @@ export interface EmailThreadSummary {
   readonly chunkCount: number;
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
-  readonly claims: readonly {
-    readonly text: string;
-    readonly excerptIds: readonly string[];
-    readonly type?: unknown;
-    readonly classification?: unknown;
-    readonly domain?: unknown;
-    readonly confidence?: unknown;
-    readonly supportSummary?: unknown;
-    readonly rationale?: unknown;
-    readonly evidenceType?: unknown;
-    readonly qualityStatus?: unknown;
-    readonly qualityReasons?: unknown;
-    readonly qualityScore?: unknown;
-    readonly trusted?: unknown;
-    readonly supportCoverage?: unknown;
-    readonly method?: unknown;
-    readonly model?: unknown;
-    readonly promptVersion?: unknown;
-  }[];
+  readonly qualitySummary: RunReport['qualitySummary'];
+  readonly claims: readonly EmailClaimSummary[];
+  readonly rejectedClaims: readonly EmailClaimSummary[];
   readonly resourceId: string;
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: 'cloud' | 'local' | 'disabled';
@@ -169,6 +153,26 @@ export interface EmailThreadSummary {
     readonly text: string;
     readonly segmentIds: readonly string[];
   }[];
+}
+
+interface EmailClaimSummary {
+    readonly text: string;
+    readonly excerptIds: readonly string[];
+    readonly type?: unknown;
+    readonly classification?: unknown;
+    readonly domain?: unknown;
+    readonly confidence?: unknown;
+    readonly supportSummary?: unknown;
+    readonly rationale?: unknown;
+    readonly evidenceType?: unknown;
+    readonly qualityStatus?: unknown;
+    readonly qualityReasons?: unknown;
+    readonly qualityScore?: unknown;
+    readonly trusted?: unknown;
+    readonly supportCoverage?: unknown;
+    readonly method?: unknown;
+    readonly model?: unknown;
+    readonly promptVersion?: unknown;
 }
 
 export interface EmailIngestOptions {
@@ -545,6 +549,28 @@ function aggregateReferences(summaries: readonly EmailThreadSummary[]): RunRepor
   };
 }
 
+function emailClaimSummary(claim: RunReport['claims'][number]): EmailClaimSummary {
+  return {
+    text: claim.text,
+    excerptIds: claim.excerptIds,
+    ...(claim.type ? { type: claim.type } : {}),
+    ...(claim.classification ? { classification: claim.classification } : {}),
+    ...(claim.metadata?.['domain'] ? { domain: claim.metadata['domain'] } : {}),
+    ...(claim.confidence !== undefined ? { confidence: claim.confidence } : {}),
+    ...(claim.metadata?.['supportSummary'] ? { supportSummary: claim.metadata['supportSummary'] } : {}),
+    ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
+    ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
+    qualityStatus: claim.metadata?.['qualityStatus'] ?? 'reviewable',
+    qualityReasons: claim.metadata?.['qualityReasons'] ?? [],
+    qualityScore: claim.metadata?.['qualityScore'] ?? 0,
+    trusted: claim.metadata?.['trusted'] ?? false,
+    supportCoverage: claim.metadata?.['supportCoverage'] ?? 0,
+    method: claim.metadata?.['method'],
+    model: claim.metadata?.['model'],
+    promptVersion: claim.metadata?.['promptVersion'],
+  };
+}
+
 export async function runEmailBatch(
   ref: string,
   readFileFn: typeof readFile = readFile,
@@ -610,25 +636,9 @@ export async function runEmailBatchWithContext(
         chunkCount: run.value.chunkCount,
         claimsExtracted: run.value.claimsExtracted,
         claimIds: run.value.claimIds,
-        claims: run.value.claims.map(claim => ({
-          text: claim.text,
-          excerptIds: claim.excerptIds,
-          ...(claim.type ? { type: claim.type } : {}),
-          ...(claim.classification ? { classification: claim.classification } : {}),
-          ...(claim.metadata?.['domain'] ? { domain: claim.metadata['domain'] } : {}),
-          ...(claim.confidence !== undefined ? { confidence: claim.confidence } : {}),
-          ...(claim.metadata?.['supportSummary'] ? { supportSummary: claim.metadata['supportSummary'] } : {}),
-          ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
-          ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
-          ...(claim.metadata?.['qualityStatus'] ? { qualityStatus: claim.metadata['qualityStatus'] } : {}),
-          ...(claim.metadata?.['qualityReasons'] ? { qualityReasons: claim.metadata['qualityReasons'] } : {}),
-          ...(claim.metadata?.['qualityScore'] !== undefined ? { qualityScore: claim.metadata['qualityScore'] } : {}),
-          ...(claim.metadata?.['trusted'] !== undefined ? { trusted: claim.metadata['trusted'] } : {}),
-          ...(claim.metadata?.['supportCoverage'] !== undefined ? { supportCoverage: claim.metadata['supportCoverage'] } : {}),
-          method: claim.metadata?.['method'],
-          model: claim.metadata?.['model'],
-          promptVersion: claim.metadata?.['promptVersion'],
-        })),
+        qualitySummary: run.value.qualitySummary,
+        claims: run.value.claims.map(emailClaimSummary),
+        rejectedClaims: run.value.rejectedClaims.map(emailClaimSummary),
         dedupAction: run.value.dedupAction,
         policyRoute: run.value.policyRoute,
         classification: run.value.classification,

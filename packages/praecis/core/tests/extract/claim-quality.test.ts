@@ -78,7 +78,7 @@ describe('assessClaimQuality', () => {
     expect(assessment.qualityReasons).toContain('category_soup');
   });
 
-  it('rejects recommendations without an explicit rationale field', () => {
+  it('accepts recommendations when support carries the reason', () => {
     const assessment = assessClaimQuality({
       candidate: candidate({
         text: 'For larger systems, users should prefer traditional RAG rather than a markdown-wiki file crawl.',
@@ -92,8 +92,7 @@ describe('assessClaimQuality', () => {
       ],
     });
 
-    expect(assessment.qualityStatus).toBe('rejected');
-    expect(assessment.qualityReasons).toContain('weak_rationale');
+    expect(assessment.qualityReasons).not.toContain('weak_rationale');
   });
 
   it('rejects reported-speech wrappers', () => {
@@ -121,6 +120,65 @@ describe('assessClaimQuality', () => {
 
     expect(assessment.qualityStatus).toBe('rejected');
     expect(assessment.qualityReasons).toContain('missing_support');
+  });
+
+  it('keeps concrete presenter support summaries', () => {
+    const assessment = assessClaimQuality({
+      candidate: candidate({
+        text: 'A knowledge system can organize YouTube videos as nodes with tags, source links, raw files, explanations, takeaways, and backlinks.',
+        supportSummary: 'The presenter describes a visualization of 36 videos with nodes that include tags, links, raw files, explanations, and backlinks for tools and techniques.',
+      }),
+      evidenceTexts: [
+        'What you are looking at is 36 of my most recent YouTube videos organized into an actual knowledge system with nodes, tags, links, raw files, explanations, takeaways, and backlinks.',
+      ],
+    });
+
+    expect(assessment.qualityReasons).not.toContain('missing_support');
+  });
+
+  it('rejects past-tense reported-speech wrappers', () => {
+    const assessment = assessClaimQuality({
+      candidate: candidate({
+        text: 'The presenter asserted there is no complicated setup or public GitHub repo to copy.',
+        supportSummary: 'The source contrasts the workflow with complex setup and public repository copying.',
+      }),
+      evidenceTexts: [
+        'There is no complicated setup and no public GitHub repository to copy; the workflow is driven by instructing Claude Code.',
+      ],
+    });
+
+    expect(assessment.qualityStatus).toBe('rejected');
+    expect(assessment.qualityReasons).toContain('reported_speech');
+  });
+
+  it('allows materially important named attribution', () => {
+    const assessment = assessClaimQuality({
+      candidate: candidate({
+        text: 'Karpathy reported that about 100 articles totaling roughly half a million words were enough for the LLM to auto-maintain index files and brief summaries.',
+        supportSummary: 'The source cites Karpathy describing a corpus of about 100 articles and half a million words with LLM-maintained indexes and summaries.',
+        rationale: 'The named attribution matters because the source presents Karpathy as the originator of the demonstrated workflow.',
+      }),
+      evidenceTexts: [
+        'Karpathy said he had around 100 articles and about half a million words, and the LLM auto-maintains index files and brief summaries.',
+      ],
+    });
+
+    expect(assessment.qualityReasons).not.toContain('reported_speech');
+  });
+
+  it('does not treat faithful low-overlap paraphrase as unsupported inference without an inference verb', () => {
+    const assessment = assessClaimQuality({
+      candidate: candidate({
+        text: 'Karpathy used a small markdown corpus with maintained indexes as the basis for a lightweight personal knowledge workflow.',
+        supportSummary: 'The source describes Karpathy using about 100 articles, maintained index files, and markdown summaries for the workflow.',
+        rationale: undefined,
+      }),
+      evidenceTexts: [
+        'Karpathy had around 100 articles and half a million words. The LLM auto-maintained index files and brief summaries of all documents.',
+      ],
+    });
+
+    expect(assessment.qualityReasons).not.toContain('unsupported_inference');
   });
 
   it('rejects short or fragmentary prose', () => {

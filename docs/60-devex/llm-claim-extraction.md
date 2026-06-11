@@ -2,7 +2,7 @@
 document_id: AIDHA-GUIDE-004
 owner: Ingestion Team
 status: Draft
-version: '0.5'
+version: '0.6'
 last_updated: 2026-06-11
 title: LLM Claim Extraction Guide
 type: GUIDE
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.5
+> **Version:** 0.6
 > **Last Updated:** 2026-06-11
 > **Type:** GUIDE
 
@@ -29,6 +29,7 @@ docops_version: '2.0'
 | 0.3     | 2026-02-23 | AI     | Replace placeholder HTTP URLs with non-link tokens for stable linkcheck. | — | Draft | — |
 | 0.4     | 2026-06-05 | AI     | Document source synopsis anchors, prompt routing safeguards, and model-ladder defaults. | — | Draft | — |
 | 0.5     | 2026-06-11 | AI     | Add source-faithful claim contract, quality metadata, and confidence-gate workflow. | — | Draft | AIDHA-PLAN-009 |
+| 0.6     | 2026-06-11 | AI     | Document reviewable/rejected claim split and local evidence refs. | — | Draft | AIDHA-PLAN-009 |
 
 ## Purpose
 
@@ -109,6 +110,29 @@ The CLI emits these quality fields for each claim:
 
 Treat `reviewable` as "safe to review", not "true". Treat `rejected` as diagnostic
 evidence for prompt/model improvement, not as graph knowledge.
+
+### Ingestion JSON Shape
+
+Ingestion summaries split automatic extraction output by graph eligibility:
+
+- `claims`: reviewable candidates only. These are the only candidates eligible for
+  graph persistence, classification routing, and source synopsis construction.
+- `rejectedClaims`: rejected diagnostics retained for prompt/model/debug review.
+  These are not graph knowledge and must not be used as accepted source facts.
+- `qualitySummary`: `{total, reviewable, rejected}` counts all extracted candidates.
+
+Each claim evidence item carries both:
+
+- `localTranscriptRef`: stable local anchor such as
+  `youtube-sboNwYmH3AY#excerpt-id@957-1010`.
+- `sourceRef`: external source URL when available, such as a YouTube timestamp.
+
+Prefer `localTranscriptRef` for immediate audit and private pilot review; use
+`sourceRef` for source re-opening and citation handoff.
+
+When inspecting JSON with `jq`, do not use `// "missing"` to test boolean fields:
+`false // "missing"` returns `"missing"`. Use `has("trusted")` or print
+`.trusted` directly.
 
 ## Claim-Quality Model Ladder
 

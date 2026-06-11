@@ -53,6 +53,10 @@ function parseMiningResult(value: string): MiningResult | null {
   }
 }
 
+function isRejectedClaim(claim: MiningResult['claims'][number]): boolean {
+  return claim.metadata?.['qualityStatus'] === 'rejected';
+}
+
 const NO_REFERENCES = {
   referencesCreated: 0,
   referencesUpdated: 0,
@@ -136,7 +140,14 @@ export async function runVector(
   const costCheck = assertWithinCost(services, tokenUsage, spendUsd);
   if (!costCheck.ok) return costCheck;
 
-  const exported = await services.exporter.export(miningResult, raw, chunkResult.value);
+  const reviewableClaims = miningResult.claims.filter(claim => !isRejectedClaim(claim));
+  const rejectedClaims = miningResult.claims.filter(isRejectedClaim);
+  const reviewableMiningResult: MiningResult = {
+    ...miningResult,
+    claims: reviewableClaims,
+  };
+
+  const exported = await services.exporter.export(reviewableMiningResult, raw, chunkResult.value);
   if (!exported.ok) return exported;
 
   const references = services.referenceExtractor
@@ -150,7 +161,7 @@ export async function runVector(
       resourceId: exported.value.resourceId,
       excerptIds: exported.value.excerptIds,
       claimIds: exported.value.claimIds,
-      claims: miningResult.claims,
+      claims: reviewableClaims,
       chunks: chunkResult.value,
       context,
       config: services.config,
@@ -170,15 +181,21 @@ export async function runVector(
       segments,
       chunks: chunkResult.value,
       excerptIds: exported.value.excerptIds,
-      claimsExtracted: miningResult.claims.length,
+      claimsExtracted: reviewableClaims.length,
       claimIds: exported.value.claimIds,
-      claims: miningResult.claims,
+      claims: reviewableClaims,
+      rejectedClaims,
+      qualitySummary: {
+        total: miningResult.claims.length,
+        reviewable: reviewableClaims.length,
+        rejected: rejectedClaims.length,
+      },
       sourceSynopsis: buildSourceSynopsis({
         sourceId: vector.sourceId,
         canonicalId: raw.canonicalId,
         sourceUri: raw.provenance.sourceUri,
         resourceId: exported.value.resourceId,
-        claims: miningResult.claims,
+        claims: reviewableClaims,
         chunks: chunkResult.value,
       }),
       dedupAction: exported.value.dedupAction,

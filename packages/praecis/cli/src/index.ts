@@ -99,31 +99,9 @@ export interface IngestSummary {
   readonly chunkCount: number;
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
-  readonly claims: Array<{
-    readonly text: string;
-    readonly excerptIds: readonly string[];
-    readonly type?: string;
-    readonly classification?: string;
-    readonly domain?: unknown;
-    readonly confidence?: number;
-    readonly supportSummary?: unknown;
-    readonly rationale?: unknown;
-    readonly evidenceType?: unknown;
-    readonly qualityStatus?: unknown;
-    readonly qualityReasons?: unknown;
-    readonly qualityScore?: unknown;
-    readonly trusted?: unknown;
-    readonly supportCoverage?: unknown;
-    readonly evidence: Array<{
-      readonly excerptId: string;
-      readonly locator: Locator;
-      readonly sourceRef: string;
-      readonly snippet: string;
-    }>;
-    readonly method?: unknown;
-    readonly model?: unknown;
-    readonly promptVersion?: unknown;
-  }>;
+  readonly qualitySummary: RunReport['qualitySummary'];
+  readonly claims: ClaimSummary[];
+  readonly rejectedClaims: ClaimSummary[];
   readonly sourceSynopsis: Array<{
     readonly text: string;
     readonly kind: string;
@@ -156,6 +134,33 @@ export interface IngestSummary {
     readonly text: string;
     readonly segmentIds: readonly string[];
   }>;
+}
+
+interface ClaimSummary {
+  readonly text: string;
+  readonly excerptIds: readonly string[];
+  readonly type?: string;
+  readonly classification?: string;
+  readonly domain?: unknown;
+  readonly confidence?: number;
+  readonly supportSummary?: unknown;
+  readonly rationale?: unknown;
+  readonly evidenceType?: unknown;
+  readonly qualityStatus?: unknown;
+  readonly qualityReasons?: unknown;
+  readonly qualityScore?: unknown;
+  readonly trusted?: unknown;
+  readonly supportCoverage?: unknown;
+  readonly evidence: Array<{
+    readonly excerptId: string;
+    readonly locator: Locator;
+    readonly sourceRef: string;
+    readonly localTranscriptRef: string;
+    readonly snippet: string;
+  }>;
+  readonly method?: unknown;
+  readonly model?: unknown;
+  readonly promptVersion?: unknown;
 }
 
 export type SourceId = IngestSummary['sourceId'];
@@ -395,6 +400,15 @@ function sourceRefForLocator(sourceId: SourceId, ref: string, locator: Locator):
   return `${sourceId}:${ref}`;
 }
 
+function localTranscriptRef(resourceId: string, excerptId: string, locator: Locator): string {
+  if (locator.kind === 'timecode') {
+    const start = Math.max(0, Math.floor(locator.startSec));
+    const end = Math.max(start, Math.ceil(locator.endSec));
+    return `${resourceId}#${excerptId}@${start}-${end}`;
+  }
+  return `${resourceId}#${excerptId}`;
+}
+
 function isBoxTickingSupport(value: unknown): boolean {
   if (typeof value !== 'string') return false;
   return /^(?:direct|the speaker|the host|the presenter|the demonstrator|the transcript)\b/i.test(value.trim());
@@ -402,6 +416,12 @@ function isBoxTickingSupport(value: unknown): boolean {
 
 function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport): IngestSummary {
   const chunkById = new Map(result.chunks.map(chunk => [chunk.id, chunk]));
+  const rejectedClaims = result.rejectedClaims ?? [];
+  const qualitySummary = result.qualitySummary ?? {
+    total: result.claims.length + rejectedClaims.length,
+    reviewable: result.claims.length,
+    rejected: rejectedClaims.length,
+  };
   const claimEvidence = (claim: RunReport['claims'][number]) => claim.excerptIds.flatMap(excerptId => {
     const chunk = chunkById.get(excerptId);
     if (!chunk) return [];
@@ -410,9 +430,33 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
       excerptId,
       locator: chunk.locator,
       sourceRef,
+      localTranscriptRef: localTranscriptRef(result.resourceId, excerptId, chunk.locator),
       snippet: snippetForEvidence(chunk.text),
     };
   }).filter(evidence => evidence.snippet.length > 0);
+  const claimSummary = (claim: RunReport['claims'][number]): ClaimSummary => ({
+    text: claim.text,
+    excerptIds: claim.excerptIds,
+    ...(claim.type ? { type: claim.type } : {}),
+    ...(claim.classification ? { classification: claim.classification } : {}),
+    ...(claim.metadata?.['domain'] ? { domain: claim.metadata['domain'] } : {}),
+    ...(claim.confidence !== undefined ? { confidence: claim.confidence } : {}),
+    ...(claim.metadata?.['supportSummary'] ? { supportSummary: claim.metadata['supportSummary'] } : {}),
+    ...(!claim.metadata?.['supportSummary'] && claim.metadata?.['why'] && !isBoxTickingSupport(claim.metadata['why'])
+      ? { supportSummary: claim.metadata['why'] }
+      : {}),
+    ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
+    ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
+    qualityStatus: claim.metadata?.['qualityStatus'] ?? 'reviewable',
+    qualityReasons: claim.metadata?.['qualityReasons'] ?? [],
+    qualityScore: claim.metadata?.['qualityScore'] ?? 0,
+    trusted: claim.metadata?.['trusted'] ?? false,
+    supportCoverage: claim.metadata?.['supportCoverage'] ?? 0,
+    evidence: claimEvidence(claim),
+    method: claim.metadata?.['method'],
+    model: claim.metadata?.['model'],
+    promptVersion: claim.metadata?.['promptVersion'],
+  });
   const sourceSynopsis = (result.sourceSynopsis ?? []).map(item => ({
     text: item.text,
     kind: item.kind,
@@ -437,29 +481,9 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
     chunkCount: result.chunkCount,
     claimsExtracted: result.claimsExtracted,
     claimIds: result.claimIds,
-    claims: result.claims.map(claim => ({
-      text: claim.text,
-      excerptIds: claim.excerptIds,
-      ...(claim.type ? { type: claim.type } : {}),
-      ...(claim.classification ? { classification: claim.classification } : {}),
-      ...(claim.metadata?.['domain'] ? { domain: claim.metadata['domain'] } : {}),
-      ...(claim.confidence !== undefined ? { confidence: claim.confidence } : {}),
-      ...(claim.metadata?.['supportSummary'] ? { supportSummary: claim.metadata['supportSummary'] } : {}),
-      ...(!claim.metadata?.['supportSummary'] && claim.metadata?.['why'] && !isBoxTickingSupport(claim.metadata['why'])
-        ? { supportSummary: claim.metadata['why'] }
-        : {}),
-      ...(claim.metadata?.['rationale'] ? { rationale: claim.metadata['rationale'] } : {}),
-      ...(claim.metadata?.['evidenceType'] ? { evidenceType: claim.metadata['evidenceType'] } : {}),
-      ...(claim.metadata?.['qualityStatus'] ? { qualityStatus: claim.metadata['qualityStatus'] } : {}),
-      ...(claim.metadata?.['qualityReasons'] ? { qualityReasons: claim.metadata['qualityReasons'] } : {}),
-      ...(claim.metadata?.['qualityScore'] !== undefined ? { qualityScore: claim.metadata['qualityScore'] } : {}),
-      ...(claim.metadata?.['trusted'] !== undefined ? { trusted: claim.metadata['trusted'] } : {}),
-      ...(claim.metadata?.['supportCoverage'] !== undefined ? { supportCoverage: claim.metadata['supportCoverage'] } : {}),
-      evidence: claimEvidence(claim),
-      method: claim.metadata?.['method'],
-      model: claim.metadata?.['model'],
-      promptVersion: claim.metadata?.['promptVersion'],
-    })),
+    qualitySummary,
+    claims: result.claims.map(claimSummary),
+    rejectedClaims: rejectedClaims.map(claimSummary),
     sourceSynopsis,
     dedupAction: result.dedupAction,
     policyRoute: result.policyRoute,

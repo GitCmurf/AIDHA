@@ -59,18 +59,22 @@ function testConfig(): ResolvedConfig {
 function fakeLlm(): LlmClient {
   return {
     async generate(request: LlmCompletionRequest): Promise<Result<string>> {
-      const excerptId = request.user.match(/\bemail:[^\s\]")]+/u)?.[0] ?? 'email:excerpt';
+      const block = /(?:TRANSCRIPT_EXCERPTS|EXCERPTS):\s*"""([\s\S]*?)"""/u.exec(request.user)?.[1];
+      const parsed = block ? JSON.parse(block) as Array<{ id: string; text: string }> : [];
+      const excerpt = parsed.find(item => item.text.trim().length > 0) ?? { id: 'email:excerpt', text: 'The project status update is ready for review.' };
+      const sourceText = excerpt.text.replace(/\s+/gu, ' ').trim().replace(/[.!?]+$/u, '');
       return {
         ok: true,
         value: JSON.stringify({
           claims: [{
-            text: 'The email thread contains a project status update.',
-            excerptIds: [excerptId],
+            text: `The email thread contains the extracted statement "${sourceText}" as source content for review.`,
+            excerptIds: [excerpt.id],
             type: 'claim',
             classification: 'fact',
             domain: 'Work',
             confidence: 0.9,
-            why: 'The message body states project status information.',
+            why: `The message body includes the extracted statement "${sourceText}".`,
+            supportSummary: `The message body includes the extracted statement "${sourceText}" as email-thread evidence.`,
             method: 'llm',
           }],
         }),
@@ -103,6 +107,9 @@ function reportFor(ref: string): RunReport {
     claimsExtracted: 0,
     claimIds: [],
     claims: [],
+    rejectedClaims: [],
+    qualitySummary: { total: 0, reviewable: 0, rejected: 0 },
+    sourceSynopsis: [],
     dedupAction: 'create',
     policyRoute: 'disabled',
     cacheHits: 0,

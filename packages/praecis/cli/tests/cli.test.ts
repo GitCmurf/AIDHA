@@ -68,7 +68,8 @@ function fakeLlm(): LlmClient {
       const parsed = block ? JSON.parse(block) as Array<{ id: string; text: string }> : [];
       const excerpt = parsed.find(item => item.text.trim().length > 0) ?? { id: 'chunk-0', text: 'Fixture evidence is present.' };
       const normalized = excerpt.text.replace(/\s+/gu, ' ').trim();
-      const claimText = /[^.!?]+[.!?]/u.exec(normalized)?.[0]?.trim() || normalized || 'Fixture evidence is present.';
+      const sourceText = (/[^.!?]+[.!?]/u.exec(normalized)?.[0]?.trim() || normalized || 'Fixture evidence is present.').replace(/[.!?]+$/u, '');
+      const claimText = `The fixture source contains the extracted statement "${sourceText}" as source content for review.`;
       return {
         ok: true,
         value: JSON.stringify({
@@ -139,7 +140,7 @@ function expectDraftClaims(summary: {
     qualityScore?: unknown;
     trusted?: unknown;
     supportCoverage?: unknown;
-    evidence: readonly { excerptId: string; snippet: string; locator?: unknown; sourceRef?: string }[];
+    evidence: readonly { excerptId: string; snippet: string; locator?: unknown; sourceRef?: string; localTranscriptRef?: string }[];
     method?: unknown;
     model?: unknown;
     promptVersion?: unknown;
@@ -160,7 +161,7 @@ function expectDraftClaims(summary: {
   expect(summary.claims.every(claim => claim.supportSummary === undefined || typeof claim.supportSummary === 'string')).toBe(true);
   expect(summary.claims.every(claim => claim.rationale === undefined || typeof claim.rationale === 'string')).toBe(true);
   expect(summary.claims.every(claim => claim.evidenceType === undefined || typeof claim.evidenceType === 'string')).toBe(true);
-  expect(summary.claims.every(claim => claim.qualityStatus === 'reviewable' || claim.qualityStatus === 'rejected')).toBe(true);
+  expect(summary.claims.every(claim => claim.qualityStatus === 'reviewable')).toBe(true);
   expect(summary.claims.every(claim => Array.isArray(claim.qualityReasons))).toBe(true);
   expect(summary.claims.every(claim => typeof claim.qualityScore === 'number')).toBe(true);
   expect(summary.claims.every(claim => claim.trusted === false)).toBe(true);
@@ -169,6 +170,7 @@ function expectDraftClaims(summary: {
     expect(summary.claims.every(claim => claim.evidence.length === claim.excerptIds.length)).toBe(true);
     expect(summary.claims.every(claim => claim.evidence.every(evidence => evidence.snippet.length > 0))).toBe(true);
     expect(summary.claims.every(claim => claim.evidence.every(evidence => typeof evidence.sourceRef === 'string' && evidence.sourceRef.length > 0))).toBe(true);
+    expect(summary.claims.every(claim => claim.evidence.every(evidence => typeof evidence.localTranscriptRef === 'string' && evidence.localTranscriptRef.length > 0))).toBe(true);
   }
 }
 
@@ -186,6 +188,8 @@ function reportFor(sourceId: string, ref: string): RunReport {
     claimsExtracted: 0,
     claimIds: [],
     claims: [],
+    rejectedClaims: [],
+    qualitySummary: { total: 0, reviewable: 0, rejected: 0 },
     sourceSynopsis: [],
     dedupAction: 'create',
     policyRoute: 'disabled',
@@ -330,6 +334,7 @@ describe('aidha cli phase-1 surface', () => {
       ],
       claimsExtracted: 3,
       claimIds: ['claim-1', 'claim-2', 'claim-3'],
+      qualitySummary: { total: 4, reviewable: 3, rejected: 1 },
       claims: [
         {
           text: 'The speaker organized 36 of his most recent YouTube videos into a knowledge system that maps videos as nodes with tags, video links, raw files, explanations, and backlinks.',
@@ -354,6 +359,25 @@ describe('aidha cli phase-1 surface', () => {
           type: 'opinion',
           classification: 'insight',
           metadata: { method: 'llm', model: 'test-model', promptVersion: 'v1' },
+        },
+      ],
+      rejectedClaims: [
+        {
+          text: 'The speaker uses backlinks in the knowledge system to navigate between concepts such as the WAT framework, Claude Code, Perplexity, Visual Studio Code, Nano Banana, and permission modes.',
+          excerptIds: ['excerpt-backlinks'],
+          state: 'draft' as const,
+          type: 'fact',
+          classification: 'fact',
+          metadata: {
+            method: 'llm',
+            model: 'test-model',
+            promptVersion: 'v1',
+            qualityStatus: 'rejected',
+            qualityReasons: ['category_soup'],
+            qualityScore: 0.2,
+            trusted: false,
+            supportCoverage: 0.3,
+          },
         },
       ],
     };
@@ -383,6 +407,11 @@ describe('aidha cli phase-1 surface', () => {
       'youtube:test-video#excerpt-costs@957-1010s',
     ]);
     expect(synopsis.every(bullet => bullet.evidenceRefs[0]?.sourceRef.startsWith('https://www.youtube.com/watch?v=test-video&t='))).toBe(true);
+    const videoSummary = summary.summaries[0];
+    expect(videoSummary?.qualitySummary).toEqual({ total: 4, reviewable: 3, rejected: 1 });
+    expect(videoSummary?.claims).toHaveLength(3);
+    expect(videoSummary?.rejectedClaims).toHaveLength(1);
+    expect(videoSummary?.claims.flatMap(claim => claim.evidence).every(evidence => evidence.localTranscriptRef.length > 0)).toBe(true);
   });
 
   it('exposes youtube on the generic aidha ingest command surface', async () => {

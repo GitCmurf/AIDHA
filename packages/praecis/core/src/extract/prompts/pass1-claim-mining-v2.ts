@@ -139,6 +139,14 @@ Negative 8 - Thin recommendation:
 "The speaker recommends using traditional RAG with current models."
 - REJECT: Recommendation without the transcript-supported rationale, condition, or limitation.
 
+Negative 9 - Setup-time hype:
+"The presenter said he can set up the workflow in five minutes."
+- REJECT: Demo pacing or promotional setup claims are rarely useful graph facts unless the source explains what makes the setup fast.
+
+Negative 10 - Box-ticking support:
+supportSummary: "The presenter describes the workflow."
+- REJECT: supportSummary must name the concrete supporting details, tradeoff, condition, or evidence; do not merely restate that someone said it.
+
 === END NEGATIVE EXAMPLES ===
 `;
 
@@ -157,6 +165,7 @@ const CONSTRAINTS = [
   'Constraint: Preserve all technical terms, numbers, and units exactly.',
   'Constraint: Do not include claims that are purely opinion without domain grounding.',
   'Constraint: Do not turn a tag list, backlink list, or tool list into a claim unless the source asserts a relationship, workflow, or tradeoff.',
+  'Constraint: For recommendations, limitations, and tradeoffs, include the source-stated reason in rationale or supportSummary.',
 ].join('\n');
 
 /**
@@ -421,6 +430,7 @@ export function buildUserPrompt(
     '- Domain labels MUST be source-topic labels; do not use neuroscience, physiology, cognitive science, or clinical labels unless the source itself is about those topics',
     '- Each claim SHOULD include evidenceType when evidence is mentioned',
     '- Use supportSummary for concrete source support; do NOT write box-ticking phrases like "Direct report" or "The speaker describes"',
+    '- Do not output demo-pacing claims such as "the workflow takes five minutes" unless the cited excerpt gives a substantive reason why',
     '- Use rationale only for substantive recommendation reasons, mechanisms, tradeoffs, or decision logic',
     '- If a recommendation appears, include the reason, condition, comparison, or limitation that makes it useful',
     '- If the source explains a workflow, preserve concrete components, sequence, mechanism, and tradeoffs',
