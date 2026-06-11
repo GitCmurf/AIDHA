@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+readonly CLI_ENTRYPOINT="${REPO_ROOT}/packages/praecis/cli/dist/cli.js"
+
+if [[ ! -f "${CLI_ENTRYPOINT}" ]]; then
+    echo "AIDHA CLI not built at ${CLI_ENTRYPOINT}" >&2
+    echo "Run: pnpm --filter @aidha/praecis-cli build" >&2
+    exit 1
+fi
+
+exec node "${CLI_ENTRYPOINT}" "$@"

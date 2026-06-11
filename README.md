@@ -38,6 +38,14 @@ npx tsx packages/praecis/youtube/src/cli.ts \
   export dossier video https://www.youtube.com/watch?v=UepWRYgBpv0
 ```
 
+For day-to-day work, use the repo-local helper script so the command is stable across reboots:
+
+```bash
+pnpm --filter @aidha/praecis-cli build
+./scripts/aidha config explain llm.api_key
+./scripts/aidha ingest youtube --url https://www.youtube.com/watch?v=UepWRYgBpv0 --json
+```
+
 ### Sample Output (JSON-LD Dossier)
 
 ```json
@@ -140,6 +148,10 @@ Three packages evolve together (see `docs/60-devex/initial-tools-roadmap.md`):
 For a full command list, run:
 
 - `pnpm -C packages/praecis/youtube cli help`
+
+Or use the helper script from anywhere in the repo:
+
+- `./scripts/aidha help`
 
 Typical flow:
 
