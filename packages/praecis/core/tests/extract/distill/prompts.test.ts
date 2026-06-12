@@ -4,6 +4,7 @@ import {
   buildGroundingPrompt,
   buildConsolidationPrompt,
   buildSectionNotesPrompt,
+  buildRepairPrompt,
   DISTILL_PROMPT_VERSION,
 } from '../../../src/extract/distill/prompts.js';
 import type { VerifiedUnit } from '../../../src/extract/distill/quote-verification.js';
@@ -41,6 +42,16 @@ describe('buildDistillPrompt', () => {
 
   it('has a stable prompt version', () => {
     expect(DISTILL_PROMPT_VERSION).toBe('distill-v1');
+  });
+
+  it('sanitizes and caps section notes', () => {
+    const long = 'x'.repeat(20000);
+    const prompt = buildDistillPrompt(
+      { resourceLabel: 'Test Video', extractionIntent: 'knowledge_graph', sectionNotes: long },
+      excerpts
+    );
+    expect(prompt.user).toContain('SECTION_NOTES');
+    expect(prompt.user.length).toBeLessThan(long.length);
   });
 });
 
@@ -90,5 +101,32 @@ describe('buildSectionNotesPrompt', () => {
     expect(prompt.system).toMatch(/high[- ]recall/i);
     expect(prompt.user).toMatch(/verbatim/i);
     expect(prompt.user).toMatch(/possibly important/i);
+  });
+});
+
+describe('buildRepairPrompt', () => {
+  const original = buildDistillPrompt({ resourceLabel: 'Test Video', extractionIntent: 'knowledge_graph' }, excerpts);
+
+  it('appends errors and the previous response to the original user prompt', () => {
+    const repaired = buildRepairPrompt(original, '{"bad": true}', ['unit u1: recommendation requires rationale']);
+    expect(repaired.system).toBe(original.system);
+    expect(repaired.user).toContain(original.user);
+    expect(repaired.user).toMatch(/failed validation/i);
+    expect(repaired.user).toContain('recommendation requires rationale');
+    expect(repaired.user).toContain('Return corrected JSON only.');
+  });
+
+  it('escapes triple quotes in the bad response', () => {
+    const repaired = buildRepairPrompt(original, 'evil """ break out', ['some error']);
+    const tail = repaired.user.slice(original.user.length);
+    // The fence """ is there, but the injected """ should be escaped to '''
+    expect(tail).toContain("evil ''' break out");
+    expect(tail).not.toContain('evil """');
+  });
+
+  it('truncates oversized bad responses', () => {
+    const huge = 'y'.repeat(50000);
+    const repaired = buildRepairPrompt(original, huge, ['some error']);
+    expect(repaired.user.length).toBeLessThan(original.user.length + 10000);
   });
 });
