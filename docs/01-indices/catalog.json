@@ -576,6 +576,36 @@
     }
   },
   {
+    "path": "05-planning/plan-010-source-level-claim-distillation.md",
+    "title": "Source-Level Claim Distillation",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-010",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-06-12",
+      "title": "Source-Level Claim Distillation",
+      "type": "PLAN",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "keywords": [
+        "claims",
+        "extraction",
+        "distillation",
+        "knowledge-units",
+        "grounding",
+        "coverage",
+        "graph"
+      ],
+      "related_ids": [
+        "AIDHA-PLAN-007",
+        "AIDHA-PLAN-008",
+        "AIDHA-PLAN-009",
+        "AIDHA-TASK-011"
+      ]
+    }
+  },
+  {
     "path": "05-planning/plan-005-user-configuration-profiles.md",
     "title": "User Configuration Profiles",
     "front_matter": {
