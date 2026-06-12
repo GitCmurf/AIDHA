@@ -160,6 +160,9 @@ export {
   normalizeClaimClassification,
 } from './claim-candidate-schema.js';
 
+// Distillation pipeline exports
+export * from './distill/index.js';
+
 // NLP utilities exports
 export {
   extractSVOTriples,
