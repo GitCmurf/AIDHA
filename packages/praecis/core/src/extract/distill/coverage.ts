@@ -60,14 +60,18 @@ export function computeCoverage(
     runStart = undefined;
     runEnd = undefined;
   };
-  for (const excerpt of excerpts) {
-    if (excerpt.startSec === undefined || excerpt.endSec === undefined) continue;
+  const timecoded = excerpts
+    .filter((excerpt): excerpt is CoverageExcerpt & { startSec: number; endSec: number } =>
+      excerpt.startSec !== undefined && excerpt.endSec !== undefined)
+    .slice()
+    .sort((a, b) => a.startSec - b.startSec);
+  for (const excerpt of timecoded) {
     if (citedIds.has(excerpt.id)) {
       flush();
       continue;
     }
     if (runStart === undefined) runStart = excerpt.startSec;
-    runEnd = excerpt.endSec;
+    runEnd = runEnd === undefined ? excerpt.endSec : Math.max(runEnd, excerpt.endSec);
   }
   flush();
 
