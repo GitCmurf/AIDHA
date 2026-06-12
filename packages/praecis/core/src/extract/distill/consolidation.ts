@@ -53,7 +53,7 @@ export function parseConsolidationRelations(raw: string): ParseRelationsResult {
  * are recorded for the graph layer.
  */
 export function applyConsolidation(
-  units: readonly VerifiedUnit[],
+  units: readonly ConsolidatedUnit[],
   relations: readonly UnitRelation[]
 ): ConsolidationResult {
   const diagnostics: string[] = [];
@@ -112,7 +112,7 @@ export function applyConsolidation(
   // ── Phase 2: build merged units grouped by canonical id ──────────────────
 
   // Group input units by canonical id (input order preserved)
-  const groups = new Map<string, VerifiedUnit[]>();
+  const groups = new Map<string, ConsolidatedUnit[]>();
   for (const unit of units) {
     const canonical = find(unit.id);
     const group = groups.get(canonical);
