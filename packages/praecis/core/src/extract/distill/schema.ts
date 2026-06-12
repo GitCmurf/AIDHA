@@ -2,6 +2,7 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { z } from 'zod';
+import { extractJsonObject } from './json.js';
 
 export const DISTILLATION_SCHEMA_VERSION = 1;
 const MAX_PARSE_ERRORS = 10;
@@ -76,16 +77,6 @@ export type ParseDistillationResult =
 function capErrors(errors: readonly string[]): readonly string[] {
   if (errors.length <= MAX_PARSE_ERRORS) return errors;
   return [...errors.slice(0, MAX_PARSE_ERRORS), `(${errors.length - MAX_PARSE_ERRORS} more errors omitted)`];
-}
-
-function extractJsonObject(text: string): string | null {
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenceMatch && typeof fenceMatch[1] === 'string' ? fenceMatch[1] : text;
-  const first = candidate.indexOf('{');
-  if (first === -1) return null; // no brace → "no JSON object" (existing behavior)
-  const last = candidate.lastIndexOf('}');
-  if (last <= first) return candidate.slice(first); // truncated → JSON.parse fails → "not valid JSON"
-  return candidate.slice(first, last + 1);
 }
 
 /**
