@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
+export const MAX_PARSE_ERRORS = 10;
+
+export function capErrors(errors: readonly string[]): readonly string[] {
+  if (errors.length <= MAX_PARSE_ERRORS) return errors;
+  return [...errors.slice(0, MAX_PARSE_ERRORS), `(${errors.length - MAX_PARSE_ERRORS} more errors omitted)`];
+}
+
 /**
  * Extracts the outermost JSON object from an LLM response, tolerating
  * markdown fences and leading/trailing prose. Falls back to the raw tail

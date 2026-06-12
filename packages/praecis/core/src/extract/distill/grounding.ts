@@ -2,7 +2,7 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { z } from 'zod';
-import { extractJsonObject } from './json.js';
+import { capErrors, extractJsonObject } from './json.js';
 import type { VerifiedUnit } from './quote-verification.js';
 
 export const GROUNDING_VERDICTS = ['grounded', 'rewrite', 'ungrounded'] as const;
@@ -41,7 +41,7 @@ export function parseGroundingVerdicts(raw: string): ParseVerdictsResult {
   try {
     const parsed = GroundingResponseSchema.safeParse(JSON.parse(jsonText));
     if (!parsed.success) {
-      return { ok: false, errors: parsed.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`) };
+      return { ok: false, errors: capErrors(parsed.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`)) };
     }
     return { ok: true, value: parsed.data.verdicts };
   } catch (error) {
@@ -67,6 +67,10 @@ export function applyGroundingVerdicts(
       diagnostics.push(`${verdict.unitId}: unknown unit, verdict ignored.`);
       continue;
     }
+    if (verdictByUnitId.has(verdict.unitId)) {
+      diagnostics.push(`Duplicate grounding verdict for unit ${verdict.unitId} ignored.`);
+      continue;
+    }
     verdictByUnitId.set(verdict.unitId, verdict);
   }
 
@@ -85,11 +89,16 @@ export function applyGroundingVerdicts(
       continue;
     }
     if (verdict.verdict === 'rewrite') {
-      kept.push({
-        ...unit,
-        text: verdict.text ?? unit.text,
-        ...(verdict.rationale ? { rationale: verdict.rationale } : unit.rationale ? { rationale: unit.rationale } : {}),
-      });
+      if (!verdict.text) {
+        diagnostics.push(`Rewrite verdict for unit ${unit.id} carried no text; treated as grounded.`);
+        kept.push(unit);
+      } else {
+        kept.push({
+          ...unit,
+          text: verdict.text,
+          ...(verdict.rationale ? { rationale: verdict.rationale } : unit.rationale ? { rationale: unit.rationale } : {}),
+        });
+      }
       continue;
     }
     kept.push(unit);

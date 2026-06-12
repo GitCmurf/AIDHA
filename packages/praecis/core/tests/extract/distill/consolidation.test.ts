@@ -81,4 +81,55 @@ describe('applyConsolidation', () => {
     expect(result.units).toHaveLength(1);
     expect(result.diagnostics.join(' ')).toMatch(/u9/);
   });
+
+  it('applies chain merges order-independently with transitive provenance', () => {
+    const units = [vUnit('u1'), vUnit('u2'), vUnit('u3')];
+    const orderA = applyConsolidation(units, [
+      { type: 'merged_duplicate', sourceUnitId: 'u3', targetUnitId: 'u2' },
+      { type: 'merged_duplicate', sourceUnitId: 'u2', targetUnitId: 'u1' },
+    ]);
+    const orderB = applyConsolidation(units, [
+      { type: 'merged_duplicate', sourceUnitId: 'u2', targetUnitId: 'u1' },
+      { type: 'merged_duplicate', sourceUnitId: 'u3', targetUnitId: 'u2' },
+    ]);
+    for (const result of [orderA, orderB]) {
+      expect(result.units).toHaveLength(1);
+      expect(result.units[0]?.id).toBe('u1');
+      expect([...(result.units[0]?.mergedFromUnitIds ?? [])].sort()).toEqual(['u2', 'u3']);
+      expect(result.units[0]?.evidence.map(ref => ref.excerptId).sort()).toEqual(['ex-u1', 'ex-u2', 'ex-u3']);
+    }
+  });
+
+  it('survives cyclic merge instructions with a diagnostic', () => {
+    const result = applyConsolidation([vUnit('u1'), vUnit('u2')], [
+      { type: 'merged_duplicate', sourceUnitId: 'u2', targetUnitId: 'u1' },
+      { type: 'merged_duplicate', sourceUnitId: 'u1', targetUnitId: 'u2' },
+    ]);
+    expect(result.units).toHaveLength(1);
+    expect(result.diagnostics.length).toBeGreaterThan(0);
+  });
+
+  it('remaps supportsUnitIds that referenced merged-away units', () => {
+    const example = vUnit('u3', { kind: 'example', importance: 'supporting', supportsUnitIds: ['u2'] });
+    const result = applyConsolidation([vUnit('u1'), vUnit('u2'), example], [
+      { type: 'merged_duplicate', sourceUnitId: 'u2', targetUnitId: 'u1' },
+    ]);
+    expect(result.units.find(unit => unit.id === 'u3')?.supportsUnitIds).toEqual(['u1']);
+  });
+
+  it('remaps relation endpoints through merges', () => {
+    const example = vUnit('u3', { kind: 'example', importance: 'supporting' });
+    const result = applyConsolidation([vUnit('u1'), vUnit('u2'), example], [
+      { type: 'merged_duplicate', sourceUnitId: 'u2', targetUnitId: 'u1' },
+      { type: 'example_of', sourceUnitId: 'u3', targetUnitId: 'u2' },
+    ]);
+    expect(result.units.find(unit => unit.id === 'u3')?.supportsUnitIds).toContain('u1');
+    expect(result.recordedRelations).toContainEqual({ type: 'example_of', sourceUnitId: 'u3', targetUnitId: 'u1' });
+  });
+
+  it('rejects unknown relation types with a readable error', () => {
+    const raw = JSON.stringify({ relations: [{ type: 'banana', sourceUnitId: 'u1', targetUnitId: 'u2' }] });
+    const result = parseConsolidationRelations(raw);
+    expect(result.ok).toBe(false);
+  });
 });

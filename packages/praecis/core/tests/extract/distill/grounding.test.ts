@@ -71,4 +71,21 @@ describe('applyGroundingVerdicts', () => {
     expect(result.kept).toHaveLength(1);
     expect(result.diagnostics.join(' ')).toMatch(/u99.*unknown/i);
   });
+
+  it('treats rewrite without text as grounded with a diagnostic', () => {
+    const result = applyGroundingVerdicts([vUnit('u1')], [{ unitId: 'u1', verdict: 'rewrite' }]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.kept[0]?.text).toBe(vUnit('u1').text);
+    expect(result.diagnostics.join(' ')).toMatch(/rewrite.*no text/i);
+  });
+
+  it('keeps the first verdict when duplicates arrive', () => {
+    const result = applyGroundingVerdicts([vUnit('u1')], [
+      { unitId: 'u1', verdict: 'ungrounded' },
+      { unitId: 'u1', verdict: 'grounded' },
+    ]);
+    expect(result.kept).toHaveLength(0);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.diagnostics.join(' ')).toMatch(/duplicate.*u1/i);
+  });
 });

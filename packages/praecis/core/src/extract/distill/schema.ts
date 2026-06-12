@@ -2,10 +2,9 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { z } from 'zod';
-import { extractJsonObject } from './json.js';
+import { capErrors, extractJsonObject } from './json.js';
 
 export const DISTILLATION_SCHEMA_VERSION = 1;
-const MAX_PARSE_ERRORS = 10;
 
 export const SOURCE_TYPES = ['explainer', 'tutorial', 'interview', 'talk', 'demo', 'compilation', 'other'] as const;
 export const SOURCE_COHERENCES = ['single_topic', 'multi_topic', 'mixed', 'unclear'] as const;
@@ -73,11 +72,6 @@ export type SourceDistillation = z.infer<typeof SourceDistillationSchema>;
 export type ParseDistillationResult =
   | { readonly ok: true; readonly value: SourceDistillation }
   | { readonly ok: false; readonly errors: readonly string[] };
-
-function capErrors(errors: readonly string[]): readonly string[] {
-  if (errors.length <= MAX_PARSE_ERRORS) return errors;
-  return [...errors.slice(0, MAX_PARSE_ERRORS), `(${errors.length - MAX_PARSE_ERRORS} more errors omitted)`];
-}
 
 /**
  * Parses and validates an LLM distillation response.
