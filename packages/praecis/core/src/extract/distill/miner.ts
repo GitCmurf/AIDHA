@@ -21,6 +21,7 @@ import {
   buildRepairPrompt,
   buildSectionNotesPrompt,
   DISTILL_PROMPT_VERSION,
+  SECTION_NOTES_PROMPT_CHAR_CAP,
   type ExcerptPayload,
   type PromptOutput,
 } from './prompts.js';
@@ -61,8 +62,10 @@ export class SourceDistillationMiner implements ICandidateMiner {
 
   estimate(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }> {
     const transcriptTokens = request.chunks.reduce((sum, chunk) => sum + estimateTokens(chunk.text), 0);
+    // I2: when Pass 0 section-notes path is active, each section re-sends its slice once (additional transcriptTokens).
     // distill (transcript) + grounding (units + cited excerpts) + consolidation (unit texts)
-    return { ok: true, value: { tokenUsage: Math.ceil(transcriptTokens * 1.8), spendUsd: 0 } };
+    const multiplier = transcriptTokens > this.sectionNotesTokenThreshold ? 2.8 : 1.8;
+    return { ok: true, value: { tokenUsage: Math.ceil(transcriptTokens * multiplier), spendUsd: 0 } };
   }
 
   async mine(request: MiningRequest): Promise<Result<MiningResult>> {
@@ -74,8 +77,35 @@ export class SourceDistillationMiner implements ICandidateMiner {
     if (!model) {
       return { ok: false, error: new Error('[DISTILL] No LLM model configured in request.config.llm.model.') };
     }
+    // C1: empty chunks guard (contract rejection, not fail-closed)
+    if (request.chunks.length === 0) {
+      return { ok: false, error: new Error('SourceDistillationMiner requires at least one chunk') };
+    }
 
-    const llm = request.llm;
+    try {
+      return await this.mineInner(request, model);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Need a minimal failClosed that doesn't require inner state; inline it here.
+      this.logger.warn(`[DISTILL] Unexpected error during distillation: ${message}`);
+      return {
+        ok: true,
+        value: {
+          claims: [],
+          rejectedClaims: [],
+          supportingUnits: [],
+          tokenUsage: 0,
+          distillation: {
+            failedClosed: true,
+            diagnostics: [`Unexpected error during distillation: ${message}`],
+          },
+        },
+      };
+    }
+  }
+
+  private async mineInner(request: MiningRequest, model: string): Promise<Result<MiningResult>> {
+    const llm = request.llm!;
     let totalTokens = 0;
     const diagnostics: string[] = [];
 
@@ -100,6 +130,15 @@ export class SourceDistillationMiner implements ICandidateMiner {
           },
         },
       };
+    };
+
+    /** I1: Check cost ceiling before each LLM call; returns a fail-closed Result if exceeded, else undefined. */
+    const checkCostCeiling = (): Result<MiningResult> | undefined => {
+      const maxTokens = request.costCeiling?.maxTokens;
+      if (maxTokens !== undefined && totalTokens >= maxTokens) {
+        return failClosed([`Cost ceiling reached: ${totalTokens} tokens >= maxTokens ${maxTokens}`]);
+      }
+      return undefined;
     };
 
     // 2. Build ExcerptPayload[] and CoverageExcerpt[] from chunks
@@ -144,6 +183,9 @@ export class SourceDistillationMiner implements ICandidateMiner {
 
       const sectionNotesParts: string[] = [];
       for (let i = 0; i < sections.length; i++) {
+        const ceilResult = checkCostCeiling();
+        if (ceilResult) return ceilResult;
+
         const sectionPrompt = buildSectionNotesPrompt(
           { resourceLabel, sectionIndex: i, sectionCount: sections.length },
           sections[i]!
@@ -156,10 +198,23 @@ export class SourceDistillationMiner implements ICandidateMiner {
         sectionNotesParts.push(sectionResult.value);
       }
       sectionNotes = sectionNotesParts.join('\n\n');
-      diagnostics.push(`Pass 0: ${sections.length} section(s), ~${totalTranscriptTokens} transcript tokens.`);
+      diagnostics.push(`Pass 0: ${sections.length} section(s), ~${totalTranscriptTokens} transcript tokens. Section-notes path active.`);
+
+      // C2: warn if section notes exceed the prompt char cap (tail will be truncated)
+      const len = sectionNotes.length;
+      if (len > SECTION_NOTES_PROMPT_CHAR_CAP) {
+        diagnostics.push(
+          `Section notes length ${len} exceeds prompt cap ${SECTION_NOTES_PROMPT_CHAR_CAP}; tail truncated — consider raising sectionNotesSectionTokens or reducing source size.`
+        );
+      }
     }
 
     // 4. Pass 1: distillation
+    {
+      const ceilResult = checkCostCeiling();
+      if (ceilResult) return ceilResult;
+    }
+
     const distillPrompt: PromptOutput = buildDistillPrompt(
       { resourceLabel, extractionIntent: this.extractionIntent, sectionNotes },
       excerptPayloads
@@ -176,6 +231,10 @@ export class SourceDistillationMiner implements ICandidateMiner {
 
     if (!parsedDistillation.ok) {
       // One repair retry
+      {
+        const ceilResult = checkCostCeiling();
+        if (ceilResult) return ceilResult;
+      }
       const repairPrompt = buildRepairPrompt(distillPrompt, distillResult.value, parsedDistillation.errors);
       const repairResult = await llm.generate({ model, system: repairPrompt.system, user: repairPrompt.user });
       accumulateUsage(repairResult.usage);
@@ -215,6 +274,9 @@ export class SourceDistillationMiner implements ICandidateMiner {
     let groundingDiagnostics: string[] = [];
 
     if (verifiedUnits.length > 0) {
+      const ceilResult = checkCostCeiling();
+      if (ceilResult) return ceilResult;
+
       const groundingPrompt = buildGroundingPrompt(verifiedUnits, excerptTextById);
       const groundingResult = await llm.generate({ model, system: groundingPrompt.system, user: groundingPrompt.user });
       accumulateUsage(groundingResult.usage);
@@ -239,6 +301,9 @@ export class SourceDistillationMiner implements ICandidateMiner {
     let recordedRelations = consolidatedUnits.recordedRelations;
 
     if (keptUnits.length > 1) {
+      const ceilResult = checkCostCeiling();
+      if (ceilResult) return ceilResult;
+
       const consolidationPrompt = buildConsolidationPrompt(keptUnits);
       const consolidationResult = await llm.generate({ model, system: consolidationPrompt.system, user: consolidationPrompt.user });
       accumulateUsage(consolidationResult.usage);
@@ -280,7 +345,8 @@ export class SourceDistillationMiner implements ICandidateMiner {
     });
 
     // 10. Map to MiningResult
-    const distillationSummary: SourceDistillationSummary = {
+    // I3: satisfies provides compile-time link between this mapping and SourceDistillationSummary
+    const distillationSummary = {
       failedClosed: false,
       sourceType: output.distillation.sourceType,
       sourcePurpose: output.distillation.sourcePurpose,
@@ -290,7 +356,7 @@ export class SourceDistillationMiner implements ICandidateMiner {
       unitCountsByKind: output.distillation.unitCountsByKind,
       relations: output.distillation.relations,
       diagnostics: output.distillation.diagnostics,
-    };
+    } satisfies SourceDistillationSummary;
 
     const supportingUnits: SupportingUnitSummary[] = output.supportingUnits.map(su => ({
       id: su.id,

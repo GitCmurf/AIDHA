@@ -6,6 +6,7 @@ import {
   buildSectionNotesPrompt,
   buildRepairPrompt,
   DISTILL_PROMPT_VERSION,
+  SECTION_NOTES_PROMPT_CHAR_CAP,
 } from '../../../src/extract/distill/prompts.js';
 import type { VerifiedUnit } from '../../../src/extract/distill/quote-verification.js';
 
@@ -45,13 +46,21 @@ describe('buildDistillPrompt', () => {
   });
 
   it('sanitizes and caps section notes', () => {
-    const long = 'x'.repeat(20000);
+    // Use 100k chars to exceed the SECTION_NOTES_PROMPT_CHAR_CAP (60k)
+    const long = 'x'.repeat(100_000);
+    const baseline = buildDistillPrompt(
+      { resourceLabel: 'Test Video', extractionIntent: 'knowledge_graph' },
+      excerpts
+    );
     const prompt = buildDistillPrompt(
       { resourceLabel: 'Test Video', extractionIntent: 'knowledge_graph', sectionNotes: long },
       excerpts
     );
     expect(prompt.user).toContain('SECTION_NOTES');
-    expect(prompt.user.length).toBeLessThan(long.length);
+    // Growth over no-notes baseline must be less than ~70k (cap is 60k + overhead)
+    expect(prompt.user.length - baseline.user.length).toBeLessThan(70_000);
+    // Also verify it's actually capped (the cap is SECTION_NOTES_PROMPT_CHAR_CAP)
+    expect(SECTION_NOTES_PROMPT_CHAR_CAP).toBe(60_000);
   });
 });
 

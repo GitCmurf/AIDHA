@@ -153,4 +153,100 @@ describe('SourceDistillationMiner', () => {
     const result = await miner.mine(miningRequest(llm));
     if (result.ok) expect(result.value.tokenUsage).toBe(300); // 2 passes x 150 (single unit skips consolidation)
   });
+
+  // C1: mine() must never reject — honor the Result contract
+  it('returns an error result for empty chunks instead of throwing', async () => {
+    const llm = new FakeLlmClient([]);
+    const miner = new SourceDistillationMiner({ extractionIntent: 'knowledge_graph' });
+    const request = miningRequest(llm);
+    (request as { chunks: Chunk[] }).chunks = [];
+    const result = await miner.mine(request);
+    expect(result.ok).toBe(false);
+  });
+
+  it('fails closed when the LLM client throws instead of returning a Result', async () => {
+    const throwingLlm: LlmClient = {
+      async generate() { throw new Error('socket hang up'); },
+    };
+    const miner = new SourceDistillationMiner({ extractionIntent: 'knowledge_graph' });
+    const result = await miner.mine(miningRequest(throwingLlm));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.claims).toHaveLength(0);
+      expect(result.value.distillation?.failedClosed).toBe(true);
+      expect(result.value.distillation?.diagnostics.join(' ')).toMatch(/socket hang up/);
+    }
+  });
+
+  // I1: cost ceiling enforcement
+  it('fails closed when the cost ceiling is exhausted mid-run', async () => {
+    const llm = new FakeLlmClient([distillResponse([goodUnit]), groundedVerdicts]);
+    const miner = new SourceDistillationMiner({ extractionIntent: 'knowledge_graph' });
+    const request = { ...miningRequest(llm), costCeiling: { maxTokens: 100 } } as unknown as MiningRequest;
+    const result = await miner.mine(request);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.distillation?.failedClosed).toBe(true);
+      expect(result.value.distillation?.diagnostics.join(' ')).toMatch(/cost ceiling/i);
+    }
+  });
+
+  // C2: section notes end-to-end pass
+  it('runs the section-notes pass for long sources and threads notes into distillation', async () => {
+    // 3 chunks of ~1289 tokens each with sectionNotesSectionTokens: 1500 => 3 sections (one per chunk)
+    const longText = (seed: string) => `${seed} unique opening sentence about retrieval systems ${'transcript words '.repeat(300)}`;
+    const chunks = [
+      chunk('ex1', longText('alpha'), 0),
+      chunk('ex2', longText('beta'), 60),
+      chunk('ex3', longText('gamma'), 120),
+    ];
+    const notesResponse = JSON.stringify({ notes: [{ observation: 'alpha idea', snippet: 'transcript words', excerptId: 'ex1' }], entities: ['Alpha'] });
+    const unitForLong = {
+      ...goodUnit,
+      evidence: [{ excerptId: 'ex1', quote: 'alpha unique opening sentence about retrieval systems' }],
+      text: 'Alpha-related canonical idea that is long enough to satisfy the schema.',
+    };
+    // miner with sectionNotesTokenThreshold tiny and sectionTokens sized to produce 3 sections (one per chunk)
+    const longMiner = new SourceDistillationMiner({
+      extractionIntent: 'knowledge_graph',
+      sectionNotesTokenThreshold: 500,
+      sectionNotesSectionTokens: 1500,
+    });
+    // queue: 3 section-notes responses + distill + grounding (single unit skips consolidation)
+    const llm = new FakeLlmClient([notesResponse, notesResponse, notesResponse, distillResponse([unitForLong]), groundedVerdicts]);
+    const request = { ...miningRequest(llm), chunks } as unknown as MiningRequest;
+    const result = await longMiner.mine(request);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.distillation?.failedClosed).toBe(false);
+      expect(result.value.distillation?.diagnostics.join(' ')).toMatch(/section-notes path active/i);
+    }
+    // the distill call (after the section calls) must carry SECTION_NOTES
+    const distillCall = llm.requests.find(r => r.user.includes('SECTION_NOTES'));
+    expect(distillCall).toBeDefined();
+    // 3 sections + distill + grounding = 5 total
+    expect(llm.requests.length).toBe(5);
+  });
+
+  // I2: estimate() accounts for Pass 0
+  it('estimate returns a higher token estimate for sources exceeding the section-notes threshold', () => {
+    // Use a very low threshold so a small fixture triggers it
+    const miner = new SourceDistillationMiner({ extractionIntent: 'knowledge_graph', sectionNotesTokenThreshold: 10 });
+    const shortRequest = miningRequest(new FakeLlmClient([]));
+    const longRequest = {
+      ...shortRequest,
+      chunks: [
+        chunk('ex1', 'The agent reads index files and follows explicit links instead of using embedding similarity over chunks.', 0),
+        chunk('ex2', 'For very large enterprise corpora the markdown approach scales poorly compared with traditional RAG systems.', 60),
+      ],
+    } as unknown as MiningRequest;
+    const shortMiner = new SourceDistillationMiner({ extractionIntent: 'knowledge_graph' });
+    const shortEstimate = shortMiner.estimate(shortRequest);
+    const longEstimate = miner.estimate(longRequest);
+    expect(shortEstimate.ok).toBe(true);
+    expect(longEstimate.ok).toBe(true);
+    if (shortEstimate.ok && longEstimate.ok) {
+      expect(longEstimate.value.tokenUsage).toBeGreaterThan(shortEstimate.value.tokenUsage);
+    }
+  });
 });
