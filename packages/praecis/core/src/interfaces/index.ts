@@ -94,10 +94,41 @@ export interface SourceSynopsisItem {
   readonly entities?: readonly string[];
 }
 
+export interface SupportingUnitSummary {
+  readonly id: string;
+  readonly kind: string;
+  readonly text: string;
+  readonly supportsUnitIds: readonly string[];
+  readonly excerptIds: readonly string[];
+}
+
+export interface SourceDistillationSummary {
+  readonly failedClosed: boolean;
+  readonly sourceType?: string;
+  readonly sourcePurpose?: string;
+  readonly sourceCoherence?: string;
+  readonly theses?: readonly string[];
+  readonly coverage?: {
+    readonly citedExcerptCount: number;
+    readonly excerptsCitedPercent: number;
+    readonly citedTextPercent: number;
+    readonly largestUncitedGapSeconds: number;
+    readonly coreUnitsWithoutVerifiedEvidence: number;
+    readonly weakQuoteCount: number;
+  };
+  readonly unitCountsByKind?: Readonly<Record<string, number>>;
+  readonly relations?: readonly { readonly type: string; readonly sourceUnitId: string; readonly targetUnitId: string }[];
+  readonly diagnostics: readonly string[];
+}
+
 export interface MiningResult {
   readonly claims: readonly DraftClaim[];
   readonly tokenUsage?: number;
   readonly spendUsd?: number;
+  /** Distillation path only; chunk-mining path leaves these undefined. */
+  readonly rejectedClaims?: readonly DraftClaim[];
+  readonly supportingUnits?: readonly SupportingUnitSummary[];
+  readonly distillation?: SourceDistillationSummary;
 }
 
 export interface ExportResult {
@@ -159,6 +190,8 @@ export interface RunReport {
   readonly claims: readonly DraftClaim[];
   readonly rejectedClaims: readonly DraftClaim[];
   readonly qualitySummary: ClaimQualitySummary;
+  readonly supportingUnits?: readonly SupportingUnitSummary[];
+  readonly sourceDistillation?: SourceDistillationSummary;
   readonly sourceSynopsis: readonly SourceSynopsisItem[];
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
   readonly policyRoute: LlmRoute;
