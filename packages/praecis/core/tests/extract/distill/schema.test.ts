@@ -110,4 +110,39 @@ describe('parseSourceDistillation', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors[0]).toMatch(/no JSON object/i);
   });
+
+  it('rejects mismatched schemaVersion', () => {
+    const payload = JSON.parse(validPayload());
+    payload.schemaVersion = 42;
+    const result = parseSourceDistillation(JSON.stringify(payload), excerptIds);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.join(' ')).toMatch(/schemaVersion must be 1/);
+  });
+
+  it('caps the error list with a truncation note', () => {
+    const manyBadUnits = Array.from({ length: 20 }, (_, i) =>
+      validUnit({ id: `u${i + 1}`, kind: 'recommendation' })
+    );
+    const result = parseSourceDistillation(validPayload(manyBadUnits), excerptIds);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.length).toBeLessThanOrEqual(11);
+      expect(result.errors[result.errors.length - 1]).toMatch(/more error/i);
+    }
+  });
+
+  it('reports truncated JSON as invalid JSON', () => {
+    const truncated = '{"schemaVersion":1, "units": [{"id": "u1", "kind": "idea"';
+    const result = parseSourceDistillation(truncated, excerptIds);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toMatch(/not valid JSON/i);
+  });
+
+  it('defaults stance to asserted when omitted', () => {
+    const noStance = validUnit();
+    delete (noStance as Record<string, unknown>)['stance'];
+    const result = parseSourceDistillation(validPayload([noStance]), excerptIds);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.units[0]?.stance).toBe('asserted');
+  });
 });

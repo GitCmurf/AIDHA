@@ -44,6 +44,10 @@ describe('verifyQuote', () => {
     const broad = excerpt.slice(0, Math.ceil(excerpt.length * 0.8));
     expect(verifyQuote(broad, excerpt)).toBe('failed');
   });
+
+  it('returns failed for low-diversity repeated-token quotes', () => {
+    expect(verifyQuote('I think I think I think I think I think', excerpt)).toBe('failed');
+  });
 });
 
 describe('verifyDistillationEvidence', () => {
@@ -75,5 +79,15 @@ describe('verifyDistillationEvidence', () => {
     const result = verifyDistillationEvidence([mixed], excerptTextById);
     expect(result.failedUnitIds).toHaveLength(0);
     expect(result.weakQuoteCount).toBe(1);
+  });
+
+  it('verifies quotes containing timecode artifacts as normalized', () => {
+    expect(verifyQuote('[12:34] reads index files and follows explicit links', excerpt)).toBe('normalized');
+  });
+
+  it('fails evidence whose excerptId is missing from the map', () => {
+    const missing = unit({ id: 'u9', evidence: [{ excerptId: 'ghost', quote: 'reads index files, and follows explicit links' }] });
+    const result = verifyDistillationEvidence([missing], new Map([['ex1', excerpt]]));
+    expect(result.failedUnitIds).toEqual(['u9']);
   });
 });

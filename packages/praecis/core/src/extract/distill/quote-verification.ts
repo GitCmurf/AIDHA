@@ -23,6 +23,7 @@ export interface EvidenceVerificationResult {
 }
 
 const MIN_QUOTE_WORDS = 5;
+const MIN_UNIQUE_QUOTE_TOKENS = 4;
 const MAX_QUOTE_EXCERPT_RATIO = 0.5;
 // A quote token window must cover at least this fraction of quote tokens to count as fuzzy.
 const FUZZY_MIN_TOKEN_COVERAGE = 0.8;
@@ -43,6 +44,8 @@ function tokensOf(value: string): string[] {
 export function verifyQuote(quote: string, excerptText: string): QuoteVerificationStatus {
   const quoteTokens = tokensOf(quote);
   if (quoteTokens.length < MIN_QUOTE_WORDS) return 'failed';
+  const uniqueQuoteTokens = new Set(quoteTokens);
+  if (uniqueQuoteTokens.size < MIN_UNIQUE_QUOTE_TOKENS) return 'failed';
   const excerptTokens = tokensOf(excerptText);
   if (excerptTokens.length === 0) return 'failed';
   if (quoteTokens.length > excerptTokens.length * MAX_QUOTE_EXCERPT_RATIO) return 'failed';
@@ -56,16 +59,15 @@ export function verifyQuote(quote: string, excerptText: string): QuoteVerificati
   // Fuzzy: slide a window of quote-token length across the excerpt and
   // measure unordered token coverage within the best window.
   const windowSize = quoteTokens.length;
-  const quoteTokenSet = new Set(quoteTokens);
   let best = 0;
   for (let start = 0; start + windowSize <= excerptTokens.length; start++) {
     const window = excerptTokens.slice(start, start + windowSize);
     const windowSet = new Set(window);
     let covered = 0;
-    for (const token of quoteTokenSet) {
+    for (const token of uniqueQuoteTokens) {
       if (windowSet.has(token)) covered += 1;
     }
-    best = Math.max(best, covered / quoteTokenSet.size);
+    best = Math.max(best, covered / uniqueQuoteTokens.size);
   }
   return best >= FUZZY_MIN_TOKEN_COVERAGE ? 'fuzzy' : 'failed';
 }

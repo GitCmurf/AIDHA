@@ -4,6 +4,7 @@
 import { z } from 'zod';
 
 export const DISTILLATION_SCHEMA_VERSION = 1;
+const MAX_PARSE_ERRORS = 10;
 
 export const SOURCE_TYPES = ['explainer', 'tutorial', 'interview', 'talk', 'demo', 'compilation', 'other'] as const;
 export const SOURCE_COHERENCES = ['single_topic', 'multi_topic', 'mixed', 'unclear'] as const;
@@ -72,12 +73,18 @@ export type ParseDistillationResult =
   | { readonly ok: true; readonly value: SourceDistillation }
   | { readonly ok: false; readonly errors: readonly string[] };
 
+function capErrors(errors: readonly string[]): readonly string[] {
+  if (errors.length <= MAX_PARSE_ERRORS) return errors;
+  return [...errors.slice(0, MAX_PARSE_ERRORS), `(${errors.length - MAX_PARSE_ERRORS} more errors omitted)`];
+}
+
 function extractJsonObject(text: string): string | null {
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenceMatch && typeof fenceMatch[1] === 'string' ? fenceMatch[1] : text;
   const first = candidate.indexOf('{');
+  if (first === -1) return null; // no brace → "no JSON object" (existing behavior)
   const last = candidate.lastIndexOf('}');
-  if (first === -1 || last === -1 || last <= first) return null;
+  if (last <= first) return candidate.slice(first); // truncated → JSON.parse fails → "not valid JSON"
   return candidate.slice(first, last + 1);
 }
 
@@ -101,9 +108,17 @@ export function parseSourceDistillation(
 
   const parsed = SourceDistillationSchema.safeParse(parsedJson);
   if (!parsed.success) {
+    const zodErrors = parsed.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`);
     return {
       ok: false,
-      errors: parsed.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`),
+      errors: capErrors(zodErrors),
+    };
+  }
+
+  if (parsed.data.schemaVersion !== DISTILLATION_SCHEMA_VERSION) {
+    return {
+      ok: false,
+      errors: [`schemaVersion must be ${DISTILLATION_SCHEMA_VERSION}.`],
     };
   }
 
@@ -126,6 +141,6 @@ export function parseSourceDistillation(
     }
   }
 
-  if (errors.length > 0) return { ok: false, errors };
+  if (errors.length > 0) return { ok: false, errors: capErrors(errors) };
   return { ok: true, value: parsed.data };
 }
