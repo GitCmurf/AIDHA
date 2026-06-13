@@ -27,6 +27,8 @@ import {
   estimateTokens,
   LlmClaimExtractor,
 } from '../extract/index.js';
+import { SourceDistillationMiner } from '../extract/distill/miner.js';
+import type { ExtractionIntent } from '../extract/distill/projection.js';
 import { ReferenceExtractionPipeline } from '../extract/references.js';
 import type {
   Chunk,
@@ -255,6 +257,29 @@ export class CanonicalLlmClaimMiner implements ICandidateMiner {
       },
     };
   }
+}
+
+export interface MinerSelectionOptions {
+  readonly extractionIntent?: ExtractionIntent;
+  readonly allowPartial?: boolean;
+}
+
+/**
+ * Temporary toggle for the AIDHA-PLAN-010 comparison checkpoint.
+ * AIDHA_EXTRACTION_PATH=chunk-mining selects the legacy path; the toggle and
+ * the legacy miners are deleted after the r9 comparison passes (AIDHA-TASK-012 Task 14).
+ */
+export function selectCandidateMiner(
+  env: Record<string, string | undefined>,
+  options: MinerSelectionOptions = {},
+): ICandidateMiner {
+  if (env['AIDHA_EXTRACTION_PATH'] === 'chunk-mining') {
+    return new CanonicalLlmClaimMiner();
+  }
+  return new SourceDistillationMiner({
+    ...(options.extractionIntent ? { extractionIntent: options.extractionIntent } : {}),
+    ...(options.allowPartial !== undefined ? { allowPartial: options.allowPartial } : {}),
+  });
 }
 
 export class HeuristicClaimMiner implements ICandidateMiner {
@@ -716,7 +741,7 @@ export function createDefaultPipelineServices(overrides: Partial<PipelineService
   const allowHeuristicFallback = overrides.allowHeuristicFallback ?? false;
   return {
     store,
-    miner: overrides.miner ?? (llm ? new CanonicalLlmClaimMiner() : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
+    miner: overrides.miner ?? (llm ? selectCandidateMiner(process.env) : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
     exporter: overrides.exporter ?? new GraphPipelineExporter(store),
     ...(overrides.referenceExtractor
       ? { referenceExtractor: overrides.referenceExtractor }

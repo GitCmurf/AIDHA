@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { composeVector } from '../../src/compose/vector.js';
 import { createIngestionRuntimeFromServices } from '../../src/compose/ingestion-runtime.js';
+import { partitionMiningResult } from '../../src/pipeline/spine.js';
 import type {
   IIngestor,
   IDecodeStrategy,
@@ -296,5 +297,95 @@ describe('pipeline spine (via ConfiguredIngestionRuntime.runVector)', () => {
     const runtime = createIngestionRuntimeFromServices(services);
     const result = await runtime.runVector(failVec, { ref: 'x' });
     expect(result.ok).toBe(false);
+  });
+
+  it('passes supportingUnits and sourceDistillation from MiningResult into RunReport', async () => {
+    const store = new InMemoryStore();
+    const supportingUnits = [{ id: 'su-1', kind: 'example' as const, text: 'Supporting context.', supportsUnitIds: ['claim-1'], excerptIds: ['chunk-0'] }];
+    const distillation = {
+      failedClosed: false as const,
+      sourceType: 'tutorial' as const,
+      sourcePurpose: 'Explains a concept.',
+      sourceCoherence: 'single_topic' as const,
+      theses: ['Main thesis.'],
+      coverage: {
+        citedExcerptCount: 1,
+        excerptsCitedPercent: 100,
+        citedTextPercent: 100,
+        largestUncitedGapSeconds: 0,
+        coreUnitsWithoutVerifiedEvidence: 0,
+        weakQuoteCount: 0,
+      },
+      unitCountsByKind: { idea: 1 },
+      relations: [],
+      diagnostics: [],
+    };
+    const runtime = createIngestionRuntimeFromServices({
+      ...services,
+      store,
+      cache: new MemoryCache(),
+      miner: {
+        async mine() {
+          return {
+            ok: true as const,
+            value: {
+              claims: [{ id: 'claim-1', text: 'Distilled claim from source.', excerptIds: ['chunk-0'], state: 'draft' as const }],
+              rejectedClaims: [{ id: 'claim-rejected', text: 'Rejected by distillation.', excerptIds: ['chunk-0'], state: 'draft' as const }],
+              supportingUnits,
+              distillation,
+            },
+          };
+        },
+      },
+      exporter: {
+        async export(miningResult, raw, chunks) {
+          return new GraphPipelineExporter(store).export(miningResult, raw, chunks);
+        },
+      },
+    });
+
+    const result = await runtime.runVector(vec, { ref: 'https://example.com/distilled' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+
+    // claims are pre-partitioned by the miner
+    expect(result.value.claims.map(c => c.id)).toEqual(['claim-1']);
+    expect(result.value.rejectedClaims.map(c => c.id)).toEqual(['claim-rejected']);
+    expect(result.value.qualitySummary).toEqual({ total: 2, reviewable: 1, rejected: 1 });
+
+    // pass-through fields
+    expect(result.value.supportingUnits).toEqual(supportingUnits);
+    expect(result.value.sourceDistillation).toEqual(distillation);
+  });
+});
+
+describe('partitionMiningResult', () => {
+  it('uses pre-partitioned rejectedClaims when present (distillation path)', () => {
+    const reviewable = { id: 'c-1', text: 'Kept.', excerptIds: [], state: 'draft' as const };
+    const rejected = { id: 'c-2', text: 'Rejected.', excerptIds: [], state: 'draft' as const };
+    const result = partitionMiningResult({
+      claims: [reviewable],
+      rejectedClaims: [rejected],
+    });
+    expect(result.reviewableClaims).toEqual([reviewable]);
+    expect(result.rejectedClaims).toEqual([rejected]);
+  });
+
+  it('partitions by qualityStatus metadata when rejectedClaims is undefined (legacy path)', () => {
+    const reviewable = { id: 'c-1', text: 'Kept.', excerptIds: [], state: 'draft' as const, metadata: { qualityStatus: 'reviewable' } };
+    const rejected = { id: 'c-2', text: 'Rejected.', excerptIds: [], state: 'draft' as const, metadata: { qualityStatus: 'rejected' } };
+    const result = partitionMiningResult({
+      claims: [reviewable, rejected],
+      // rejectedClaims intentionally absent
+    });
+    expect(result.reviewableClaims).toEqual([reviewable]);
+    expect(result.rejectedClaims).toEqual([rejected]);
+  });
+
+  it('returns empty rejectedClaims when all claims are reviewable (legacy path, no metadata)', () => {
+    const claim = { id: 'c-1', text: 'Normal claim.', excerptIds: [], state: 'draft' as const };
+    const result = partitionMiningResult({ claims: [claim] });
+    expect(result.reviewableClaims).toEqual([claim]);
+    expect(result.rejectedClaims).toEqual([]);
   });
 });

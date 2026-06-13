@@ -57,6 +57,31 @@ function isRejectedClaim(claim: MiningResult['claims'][number]): boolean {
   return claim.metadata?.['qualityStatus'] === 'rejected';
 }
 
+export interface PartitionedMiningResult {
+  readonly reviewableClaims: readonly MiningResult['claims'][number][];
+  readonly rejectedClaims: readonly MiningResult['claims'][number][];
+}
+
+/**
+ * Partition claims into reviewable and rejected.
+ *
+ * Distillation path: uses the pre-separated `miningResult.rejectedClaims` directly;
+ * `miningResult.claims` are already reviewable-only.
+ *
+ * Legacy chunk-mining path: re-partitions `miningResult.claims` via `isRejectedClaim`
+ * (qualityStatus metadata) when `miningResult.rejectedClaims` is undefined.
+ */
+export function partitionMiningResult(miningResult: MiningResult): PartitionedMiningResult {
+  if (miningResult.rejectedClaims !== undefined) {
+    // Distillation path: claims are already partitioned by the miner
+    return { reviewableClaims: miningResult.claims, rejectedClaims: miningResult.rejectedClaims };
+  }
+  // Legacy path: partition by qualityStatus metadata
+  const reviewableClaims = miningResult.claims.filter(claim => !isRejectedClaim(claim));
+  const rejectedClaims = miningResult.claims.filter(isRejectedClaim);
+  return { reviewableClaims, rejectedClaims };
+}
+
 const NO_REFERENCES = {
   referencesCreated: 0,
   referencesUpdated: 0,
@@ -140,8 +165,7 @@ export async function runVector(
   const costCheck = assertWithinCost(services, tokenUsage, spendUsd);
   if (!costCheck.ok) return costCheck;
 
-  const reviewableClaims = miningResult.claims.filter(claim => !isRejectedClaim(claim));
-  const rejectedClaims = miningResult.claims.filter(isRejectedClaim);
+  const { reviewableClaims, rejectedClaims } = partitionMiningResult(miningResult);
   const reviewableMiningResult: MiningResult = {
     ...miningResult,
     claims: reviewableClaims,
@@ -186,10 +210,12 @@ export async function runVector(
       claims: reviewableClaims,
       rejectedClaims,
       qualitySummary: {
-        total: miningResult.claims.length,
+        total: reviewableClaims.length + rejectedClaims.length,
         reviewable: reviewableClaims.length,
         rejected: rejectedClaims.length,
       },
+      ...(miningResult.supportingUnits ? { supportingUnits: miningResult.supportingUnits } : {}),
+      ...(miningResult.distillation ? { sourceDistillation: miningResult.distillation } : {}),
       sourceSynopsis: buildSourceSynopsis({
         sourceId: vector.sourceId,
         canonicalId: raw.canonicalId,

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { composeVector, createDefaultPipelineServices, createIngestionRuntimeFromServices } from '../../src/index.js';
 import type { IDecodeStrategy, IIngestor, LlmCompletionRequest, RawSource, Result } from '../../src/index.js';
@@ -38,6 +38,7 @@ function makeVector() {
 }
 
 describe('cost ceiling', () => {
+  afterEach(() => { vi.unstubAllEnvs(); });
   it('fails before export and leaves no partial claims when token ceiling is exceeded', async () => {
     const store = new InMemoryStore();
     const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, metadataConflictCount: 0, created: 0, updated: 0, noop: 0 } })) };
@@ -57,6 +58,9 @@ describe('cost ceiling', () => {
   });
 
   it('enforces post-mine ceilings against actual provider token usage', async () => {
+    // Legacy chunk-mining path: SourceDistillationMiner catches the ceiling internally
+    // before returning; this test covers the post-mine cost check on the legacy extractor.
+    vi.stubEnv('AIDHA_EXTRACTION_PATH', 'chunk-mining');
     const store = new InMemoryStore();
     const exporter = { export: vi.fn(async () => ({ ok: true as const, value: { resourceId: 'x', excerptIds: [], claimIds: [], dedupAction: 'create' as const, metadataConflictCount: 0, created: 0, updated: 0, noop: 0 } })) };
     const runtime = createIngestionRuntimeFromServices(createDefaultPipelineServices({
