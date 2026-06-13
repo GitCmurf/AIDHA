@@ -9,7 +9,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
@@ -55,7 +55,11 @@ async function buildGoldenOutputs(): Promise<{
 }
 
 describe('Phase 0 golden snapshot (plan-007)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
   it('dossier markdown matches committed golden file (or writes it when UPDATE_GOLDEN=1)', async () => {
+    vi.stubEnv('AIDHA_EXTRACTION_PATH', 'chunk-mining');
     const { dossierMd } = await buildGoldenOutputs();
     const goldenPath = join(GOLDEN_DIR, 'video-dossier.md');
 

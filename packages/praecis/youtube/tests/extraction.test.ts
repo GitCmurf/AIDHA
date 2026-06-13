@@ -1,7 +1,7 @@
 /**
  * Extraction pipeline tests - WRITTEN FIRST (TDD Red Phase)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
@@ -116,6 +116,7 @@ describe('Extraction pipelines', () => {
   afterEach(async () => {
     await graphStore.close();
     await taxonomyRegistry.close();
+    vi.unstubAllEnvs();
   });
 
   it('extracts claims with provenance edges', async () => {
@@ -239,6 +240,7 @@ describe('Extraction pipelines', () => {
   });
 
   it('rolls back claim writes when transactional extraction fails', async () => {
+    vi.stubEnv('AIDHA_EXTRACTION_PATH', 'chunk-mining');
     const transactionalStore = new TransactionalClaimWriteFailureStore();
     const transactionalIngestion = new RuntimeIngestionHarness({
       graphStore: transactionalStore,

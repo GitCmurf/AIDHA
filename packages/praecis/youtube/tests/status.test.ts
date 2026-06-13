@@ -1,7 +1,7 @@
 /**
  * Ingestion status tests - WRITTEN FIRST (TDD Red Phase)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
 import { MockYouTubeClient } from '../src/client/mock.js';
@@ -28,9 +28,11 @@ describe('getIngestionStatus', () => {
   afterEach(async () => {
     await graphStore.close();
     await taxonomyRegistry.close();
+    vi.unstubAllEnvs();
   });
 
   it('reports transcript status and counts', async () => {
+    vi.stubEnv('AIDHA_EXTRACTION_PATH', 'chunk-mining');
     const ingest = await pipeline.ingestVideo('test-video');
     expect(ingest.ok).toBe(true);
     if (!ingest.ok) return;
