@@ -3,10 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { createRationaleTrace, type ComposedVector, type IngestInput, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
+import { createRationaleTrace, selectCandidateMiner, type ComposedVector, type IngestInput, type LlmClient, type PipelineServices, type RunReport } from '@aidha/praecis-core';
 import { InMemoryStore, SQLiteStore } from '@aidha/graph-backend';
 import { MockYouTubeClient } from '@aidha/ingestion-youtube';
 import {
+  buildVerifiableQuote,
   explainResolvedKey,
   resolveRuntimeServicesForSource,
   resolveAidhaConfig,
@@ -89,9 +90,11 @@ function buildFakeDistillResponse(excerpt: { id: string; text: string }): string
   const normalized = excerpt.text.replace(/\s+/gu, ' ').trim();
   const firstSentence = /[^.!?]+[.!?]/u.exec(normalized)?.[0]?.trim() ?? normalized;
   const unitText = firstSentence.length >= 20 ? firstSentence : (normalized.length >= 20 ? normalized : `${firstSentence} from the source.`);
-  // Build a 5-word verbatim quote from the excerpt
-  const words = excerpt.text.split(/\s+/).filter(w => w.length > 0);
-  const quote = words.slice(0, 5).join(' ');
+  // Use the same quote guard as production: null when excerpt has <10 words; fall back to slice(0,60)
+  const quote = buildVerifiableQuote(excerpt.text);
+  const evidence = quote
+    ? [{ excerptId: excerpt.id, quote }]
+    : [{ excerptId: excerpt.id, quote: excerpt.text.slice(0, 60) || 'fixture evidence present in source' }];
   return JSON.stringify({
     schemaVersion: 1,
     sourceType: 'explainer',
@@ -103,7 +106,7 @@ function buildFakeDistillResponse(excerpt: { id: string; text: string }): string
       stance: 'asserted',
       importance: 'core',
       text: unitText.length >= 20 ? unitText : `${unitText} as source content.`,
-      evidence: [{ excerptId: excerpt.id, quote }],
+      evidence,
     }],
   });
 }
@@ -860,52 +863,51 @@ describe('aidha cli phase-1 surface', () => {
   it('ingests podcast fixtures and diarizes panel episodes', async () => {
     const prevEnv = process.env['AIDHA_EXTRACTION_PATH'];
     process.env['AIDHA_EXTRACTION_PATH'] = 'chunk-mining';
-    const summary = await runPodcastIngest('https://pod.example.com/feed.xml', {
-      episodeGuid: 'episode-2',
-      panel: true,
-      services: services(),
-      fetchFn: async (url) => {
-        if (url === 'https://pod.example.com/feed.xml') {
-          return {
-            ok: true,
-            url,
-            status: 200,
-            async text() {
-              return `<?xml version="1.0"?><rss><channel><title>Example podcast</title><item><title>Panel episode</title><guid>episode-2</guid><link>https://pod.example.com/panel-notes</link><description>Panel summary</description><category>Panel</category><enclosure url="https://cdn.example.com/panel.m4a" type="audio/mp4" /></item></channel></rss>`;
-            },
-            async arrayBuffer() {
-              return new TextEncoder().encode('feed').buffer;
-            },
-          };
-        }
-        if (url === 'https://pod.example.com/panel-notes') {
-          return {
-            ok: true,
-            url,
-            status: 200,
-            async text() {
-              return '<html><body><article><h1>Panel episode</h1><p>Show notes.</p></article></body></html>';
-            },
-            async arrayBuffer() {
-              return new TextEncoder().encode('notes').buffer;
-            },
-          };
-        }
-        return {
-          ok: true,
-          url,
-          status: 200,
-          async text() {
-            return 'panel episode audio alpha beta gamma delta epsilon zeta eta theta';
-          },
-          async arrayBuffer() {
-            return new TextEncoder().encode('panel episode audio alpha beta gamma delta epsilon zeta eta theta').buffer;
-          },
-        };
-      },
-    });
-
     try {
+      const summary = await runPodcastIngest('https://pod.example.com/feed.xml', {
+        episodeGuid: 'episode-2',
+        panel: true,
+        services: services(),
+        fetchFn: async (url) => {
+          if (url === 'https://pod.example.com/feed.xml') {
+            return {
+              ok: true,
+              url,
+              status: 200,
+              async text() {
+                return `<?xml version="1.0"?><rss><channel><title>Example podcast</title><item><title>Panel episode</title><guid>episode-2</guid><link>https://pod.example.com/panel-notes</link><description>Panel summary</description><category>Panel</category><enclosure url="https://cdn.example.com/panel.m4a" type="audio/mp4" /></item></channel></rss>`;
+              },
+              async arrayBuffer() {
+                return new TextEncoder().encode('feed').buffer;
+              },
+            };
+          }
+          if (url === 'https://pod.example.com/panel-notes') {
+            return {
+              ok: true,
+              url,
+              status: 200,
+              async text() {
+                return '<html><body><article><h1>Panel episode</h1><p>Show notes.</p></article></body></html>';
+              },
+              async arrayBuffer() {
+                return new TextEncoder().encode('notes').buffer;
+              },
+            };
+          }
+          return {
+            ok: true,
+            url,
+            status: 200,
+            async text() {
+              return 'panel episode audio alpha beta gamma delta epsilon zeta eta theta';
+            },
+            async arrayBuffer() {
+              return new TextEncoder().encode('panel episode audio alpha beta gamma delta epsilon zeta eta theta').buffer;
+            },
+          };
+        },
+      });
       expect(summary.sourceId).toBe('podcast');
       expect(summary.canonicalId).toBe('podcast:https://cdn.example.com/panel.m4a');
       expect(summary.segmentCount).toBeGreaterThan(0);
@@ -1477,6 +1479,27 @@ describe('aidha cli phase-1 surface', () => {
       await rm(dir, { recursive: true, force: true });
     }
   }, 60_000);
+
+  it('threads --extraction-intent runbook into the distillation prompt', async () => {
+    // Spy on the LLM to assert EXTRACTION_INTENT: runbook appears in a distill prompt.
+    // We pass services.miner built with selectCandidateMiner so the intent is baked in,
+    // and a spy LLM that records every user prompt before delegating to fakeLlm().
+    const capturedPrompts: string[] = [];
+    const base = fakeLlm();
+    const spyLlm: LlmClient = {
+      async generate(request) {
+        capturedPrompts.push(request.user);
+        return base.generate(request);
+      },
+    };
+    const miner = selectCandidateMiner({}, { extractionIntent: 'runbook' });
+    const summary = await runYouTubeIngest('test-video', {
+      client: new MockYouTubeClient(),
+      services: { ...services(), llm: spyLlm, miner },
+    });
+    expect(summary.sourceId).toBe('youtube');
+    expect(capturedPrompts.some(u => u.includes('EXTRACTION_INTENT: runbook'))).toBe(true);
+  });
 
   it('rejects invalid --extraction-intent with a non-zero exit and stderr message', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-bad-intent-'));

@@ -198,6 +198,7 @@ export function buildSectionNotesPrompt(
   }));
 
   const user = [
+    'SECTION_NOTES_PASS',
     `SOURCE_LABEL: """${escapeTripleQuoted(sanitizeForPrompt(input.resourceLabel, 200))}"""`,
     `Section ${input.sectionIndex + 1} of ${input.sectionCount}.`,
     'Capture: candidate important ideas, recommendations and limitations with their reasons,',

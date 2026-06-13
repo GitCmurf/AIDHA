@@ -288,7 +288,7 @@ function mockExcerptFromPrompt(user: string): { readonly id: string; readonly te
  * ensuring quote verification rules are satisfied:
  * - ≥5 words, ≥4 unique tokens, ≤50% of excerpt token count.
  */
-function buildVerifiableQuote(excerptText: string): string | null {
+export function buildVerifiableQuote(excerptText: string): string | null {
   const allWords = excerptText.split(/\s+/).filter(w => w.length > 0);
   if (allWords.length < 10) return null; // can't satisfy ≤50% with ≥5 words
   // Take the first 5 words (exactly ≤50% when excerpt has ≥10 words)
@@ -347,7 +347,7 @@ function isConsolidationPrompt(user: string): boolean {
 }
 
 function isSectionNotesPrompt(user: string): boolean {
-  return user.includes('TRANSCRIPT_EXCERPTS:') && !user.includes('EXTRACTION_INTENT:');
+  return user.includes('SECTION_NOTES_PASS');
 }
 
 function createMockExtractionLlm(): LlmClient {
@@ -1010,17 +1010,17 @@ async function closeRuntimeServices(services: Partial<PipelineServices>): Promis
   await services.store?.close();
 }
 
-function parseMinerOptions(options: CliOptions): MinerSelectionOptions {
+function parseMinerOptions(options: CliOptions): { ok: true; value: MinerSelectionOptions } | { ok: false; error: string } {
   const intent = optionString(options, 'extraction-intent');
   const allowPartial = optionBool(options, 'allow-partial');
   if (intent !== undefined) {
     if (!(EXTRACTION_INTENTS as readonly string[]).includes(intent)) {
-      throw new Error(`Invalid --extraction-intent "${intent}". Valid values: ${EXTRACTION_INTENTS.join(', ')}.`);
+      return { ok: false, error: `Invalid --extraction-intent "${intent}". Valid values: ${EXTRACTION_INTENTS.join(', ')}.` };
     }
     const typedIntent = intent as typeof EXTRACTION_INTENTS[number];
-    return allowPartial ? { extractionIntent: typedIntent, allowPartial: true } : { extractionIntent: typedIntent };
+    return { ok: true, value: allowPartial ? { extractionIntent: typedIntent, allowPartial: true } : { extractionIntent: typedIntent } };
   }
-  return allowPartial ? { allowPartial: true } : {};
+  return { ok: true, value: allowPartial ? { allowPartial: true } : {} };
 }
 
 async function withIngestExecutionContextForManifest<T>(
@@ -1043,8 +1043,9 @@ async function withIngestExecutionContextForManifest<T>(
       }
     : services;
   const preparedServices = manifest.prepareServices?.({ positionals, options, services: baseServices }) ?? baseServices;
-  const minerOptions = parseMinerOptions(options);
-  const execution = await createIngestExecutionContext(preparedServices, minerOptions);
+  const minerResult = parseMinerOptions(options);
+  if (!minerResult.ok) throw new Error(minerResult.error);
+  const execution = await createIngestExecutionContext(preparedServices, minerResult.value);
   try {
     return await work(execution.context);
   } finally {
@@ -1419,9 +1420,9 @@ export async function runCli(argv: string[]): Promise<number> {
         console.error(`Usage: ingest <${SOURCE_MANIFESTS.map(item => item.sourceId).join('|')}> ...`);
         return 1;
       }
-      const intentValue = optionString(options, 'extraction-intent');
-      if (intentValue !== undefined && !(EXTRACTION_INTENTS as readonly string[]).includes(intentValue)) {
-        console.error(`error: Invalid --extraction-intent "${intentValue}". Valid values: ${EXTRACTION_INTENTS.join(', ')}.`);
+      const intentCheck = parseMinerOptions(options);
+      if (!intentCheck.ok) {
+        console.error(`error: ${intentCheck.error}`);
         return 1;
       }
       const summary = await withIngestExecutionContextForManifest(manifest, positionals, options, context => manifest.run({

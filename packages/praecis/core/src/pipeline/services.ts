@@ -741,6 +741,8 @@ export function createDefaultPipelineServices(overrides: Partial<PipelineService
   const allowHeuristicFallback = overrides.allowHeuristicFallback ?? false;
   return {
     store,
+    // When overrides.miner is supplied the caller chose an explicit miner, so minerOptions is intentionally not applied.
+    // Standalone service factories invoked without minerOptions won't receive CLI extraction flags — known limitation tracked under AIDHA-TASK-012.
     miner: overrides.miner ?? (llm ? selectCandidateMiner(process.env, minerOptions) : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
     exporter: overrides.exporter ?? new GraphPipelineExporter(store),
     ...(overrides.referenceExtractor
