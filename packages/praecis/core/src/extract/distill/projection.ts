@@ -12,8 +12,11 @@ export type GraphProjection = typeof GRAPH_PROJECTIONS[number];
 /**
  * Deterministic projection policy per AIDHA-PLAN-010.
  * Deliberately NOT model-emitted: self-graded projection invites rubber-stamping.
- * `source_summary` currently projects like `knowledge_graph`; the synopsis already
- * includes all units, so no special-casing is needed yet (YAGNI).
+ * `source_summary` currently projects like `knowledge_graph` (YAGNI until a
+ * summary-specific consumer exists). Note: in tranche 1, units projected to
+ * `supportingEvidence`/`procedure` reach RunReport.supportingUnits as telemetry
+ * only — the source synopsis is still claims-derived. Consuming supporting units
+ * in the synopsis is deferred to the AIDHA-TASK-012 Task 14 synopsis rewrite.
  */
 export function projectUnit(
   intent: ExtractionIntent,

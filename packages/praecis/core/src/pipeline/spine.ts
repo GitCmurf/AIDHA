@@ -152,11 +152,16 @@ export async function runVector(
     const mined = await services.miner.mine(miningRequest);
     if (!mined.ok) return mined;
     miningResult = mined.value;
-    const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
-    if (cacheSet.ok) {
-      cacheWrites += 1;
-    } else {
-      console.warn(`pipeline cache write failed for ${cacheKey}: ${cacheSet.error.message}`);
+    // Never cache a fail-closed result: distillation fails closed on transient
+    // LLM-transport errors too, and a persistent cache must not memoize a
+    // transient empty result as the permanent answer for this source.
+    if (!miningResult.distillation?.failedClosed) {
+      const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
+      if (cacheSet.ok) {
+        cacheWrites += 1;
+      } else {
+        console.warn(`pipeline cache write failed for ${cacheKey}: ${cacheSet.error.message}`);
+      }
     }
   }
 
