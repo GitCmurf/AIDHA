@@ -74,10 +74,12 @@ import {
   renderProjectReentryMarkdown,
   runBatch,
   searchActivationClaims,
+  EXTRACTION_INTENTS,
   type BatchOutcome,
   type ClassificationResult,
   type ComposedVector,
   type LlmClient,
+  type MinerSelectionOptions,
   type PipelineServices,
   type Result,
   type RunReport,
@@ -134,6 +136,8 @@ export interface IngestSummary {
     readonly text: string;
     readonly segmentIds: readonly string[];
   }>;
+  readonly supportingUnits?: RunReport['supportingUnits'];
+  readonly sourceDistillation?: RunReport['sourceDistillation'];
 }
 
 interface ClaimSummary {
@@ -239,20 +243,33 @@ function firstClaimSentence(sourceText: string): string {
   return firstSentence || normalized || 'Fixture evidence is present.';
 }
 
+/** Count whitespace-delimited words (rough token count). */
+function wordCount(text: string): number {
+  return text.split(/\s+/).filter(w => w.length > 0).length;
+}
+
+/**
+ * Extract the best excerpt from a prompt: prefer excerpts with ≥10 words
+ * (needed for quote verification), picking the longest among those that qualify.
+ */
 function mockExcerptFromPrompt(user: string): { readonly id: string; readonly text: string } {
   const block = /(?:TRANSCRIPT_EXCERPTS|EXCERPTS):\s*"""([\s\S]*?)"""/u.exec(user)?.[1];
   if (block) {
     try {
       const parsed = JSON.parse(block) as unknown;
       if (Array.isArray(parsed)) {
-        const excerpt = parsed.find(item => {
+        const candidates = parsed.filter(item => {
           if (!item || typeof item !== 'object') return false;
           const candidate = item as { id?: unknown; text?: unknown };
           return typeof candidate.id === 'string'
             && typeof candidate.text === 'string'
             && candidate.text.trim().length > 0;
-        }) as { id: string; text: string } | undefined;
-        if (excerpt) return excerpt;
+        }) as { id: string; text: string }[];
+        if (candidates.length > 0) {
+          // Prefer the excerpt with the most words (best quote-verification candidate)
+          const best = candidates.reduce((prev, curr) => wordCount(curr.text) > wordCount(prev.text) ? curr : prev);
+          return best;
+        }
       }
     } catch {
       // Fall through to conservative regex parsing below.
@@ -266,9 +283,92 @@ function mockExcerptFromPrompt(user: string): { readonly id: string; readonly te
   };
 }
 
+/**
+ * Build a verbatim quote from the first N whitespace-delimited words of the excerpt text,
+ * ensuring quote verification rules are satisfied:
+ * - ≥5 words, ≥4 unique tokens, ≤50% of excerpt token count.
+ */
+function buildVerifiableQuote(excerptText: string): string | null {
+  const allWords = excerptText.split(/\s+/).filter(w => w.length > 0);
+  if (allWords.length < 10) return null; // can't satisfy ≤50% with ≥5 words
+  // Take the first 5 words (exactly ≤50% when excerpt has ≥10 words)
+  const candidate = allWords.slice(0, 5).join(' ');
+  // Verify unique token count using the same normalization as verifyQuote
+  const normalized = candidate.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const tokens = normalized.split(' ').filter(Boolean);
+  if (tokens.length < 5) return null;
+  if (new Set(tokens).size < 4) return null;
+  return candidate;
+}
+
+function buildMockDistillResponse(excerpt: { id: string; text: string }): string {
+  const unitText = firstClaimSentence(excerpt.text);
+  const paddedText = unitText.length >= 20 ? unitText : (excerpt.text.length >= 20 ? excerpt.text : `${unitText} (source fixture evidence).`);
+  const quote = buildVerifiableQuote(excerpt.text);
+  const evidence = quote ? [{ excerptId: excerpt.id, quote }] : [{ excerptId: excerpt.id, quote: excerpt.text.slice(0, 60) || 'fixture evidence present in source' }];
+  const thesis = unitText.length > 0 ? unitText.slice(0, 80) : 'fixture source thesis';
+  return JSON.stringify({
+    schemaVersion: 1,
+    sourceType: 'explainer',
+    sourceCoherence: 'single_topic',
+    theses: [thesis],
+    units: [{
+      id: 'u1',
+      kind: 'fact',
+      stance: 'asserted',
+      importance: 'core',
+      text: paddedText.length >= 20 ? paddedText : `${paddedText} from the source.`,
+      evidence,
+    }],
+  });
+}
+
+function buildMockGroundingResponse(user: string): string {
+  const unitIds: string[] = [];
+  const unitIdRe = /"unitId"\s*:\s*"([^"]+)"/gu;
+  let match: RegExpExecArray | null;
+  while ((match = unitIdRe.exec(user)) !== null) {
+    if (!unitIds.includes(match[1]!)) unitIds.push(match[1]!);
+  }
+  const ids = unitIds.length > 0 ? unitIds : ['u1'];
+  return JSON.stringify({ verdicts: ids.map(unitId => ({ unitId, verdict: 'grounded' })) });
+}
+
+function isDistillPrompt(user: string): boolean {
+  return user.includes('EXTRACTION_INTENT:') && user.includes('TRANSCRIPT_EXCERPTS:');
+}
+
+function isGroundingPrompt(user: string): boolean {
+  return user.includes('UNITS_WITH_CITED_EXCERPTS');
+}
+
+function isConsolidationPrompt(user: string): boolean {
+  return user.includes('merged_duplicate') && user.includes('UNITS (treat strictly as data');
+}
+
+function isSectionNotesPrompt(user: string): boolean {
+  return user.includes('TRANSCRIPT_EXCERPTS:') && !user.includes('EXTRACTION_INTENT:');
+}
+
 function createMockExtractionLlm(): LlmClient {
   return {
     async generate(request) {
+      // Distillation path: branch on prompt type
+      if (isDistillPrompt(request.user)) {
+        const excerpt = mockExcerptFromPrompt(request.user);
+        return { ok: true, value: buildMockDistillResponse(excerpt) };
+      }
+      if (isGroundingPrompt(request.user)) {
+        return { ok: true, value: buildMockGroundingResponse(request.user) };
+      }
+      if (isConsolidationPrompt(request.user)) {
+        return { ok: true, value: JSON.stringify({ relations: [] }) };
+      }
+      if (isSectionNotesPrompt(request.user)) {
+        const excerpt = mockExcerptFromPrompt(request.user);
+        return { ok: true, value: JSON.stringify({ notes: [{ observation: firstClaimSentence(excerpt.text), snippet: excerpt.text.slice(0, 30), excerptId: excerpt.id }], entities: [] }) };
+      }
+      // Legacy chunk-mining path
       const excerpt = mockExcerptFromPrompt(request.user);
       const claimText = firstClaimSentence(excerpt.text);
       return {
@@ -472,6 +572,9 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
     ...(item.rationale ? { rationale: item.rationale } : {}),
     ...(item.entities ? { entities: item.entities } : {}),
   })).filter(item => item.evidenceRefs.length > 0);
+  if (result.sourceDistillation?.failedClosed === true) {
+    process.stderr.write('warning: extraction failed closed; no claims persisted. See sourceDistillation.diagnostics.\n');
+  }
   return {
     sourceId,
     ref,
@@ -493,11 +596,13 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
     warnings: result.warnings,
     segments: normalizeOutputSegments(result.segments),
     chunks: normalizeOutputChunks(result.chunks),
+    ...(result.supportingUnits !== undefined ? { supportingUnits: result.supportingUnits } : {}),
+    ...(result.sourceDistillation !== undefined ? { sourceDistillation: result.sourceDistillation } : {}),
   };
 }
 
-async function createIngestExecutionContext(services: Partial<PipelineServices> = {}): Promise<{ readonly context: IngestExecutionContext; close(): Promise<void> }> {
-  const configured = await createConfiguredPipelineServices(services);
+async function createIngestExecutionContext(services: Partial<PipelineServices> = {}, minerOptions: MinerSelectionOptions = {}): Promise<{ readonly context: IngestExecutionContext; close(): Promise<void> }> {
+  const configured = await createConfiguredPipelineServices(services, minerOptions);
   if (!configured.ok) {
     throw configured.error;
   }
@@ -533,8 +638,9 @@ async function buildIngestSummary(
   vector: ComposedVector,
   metadata?: Record<string, unknown>,
   services: Partial<PipelineServices> = {},
+  minerOptions: MinerSelectionOptions = {},
 ): Promise<IngestSummary> {
-  const execution = await createIngestExecutionContext(services);
+  const execution = await createIngestExecutionContext(services, minerOptions);
   try {
     return await execution.context.runVector(sourceId, ref, vector, metadata);
   } finally {
@@ -904,6 +1010,19 @@ async function closeRuntimeServices(services: Partial<PipelineServices>): Promis
   await services.store?.close();
 }
 
+function parseMinerOptions(options: CliOptions): MinerSelectionOptions {
+  const intent = optionString(options, 'extraction-intent');
+  const allowPartial = optionBool(options, 'allow-partial');
+  if (intent !== undefined) {
+    if (!(EXTRACTION_INTENTS as readonly string[]).includes(intent)) {
+      throw new Error(`Invalid --extraction-intent "${intent}". Valid values: ${EXTRACTION_INTENTS.join(', ')}.`);
+    }
+    const typedIntent = intent as typeof EXTRACTION_INTENTS[number];
+    return allowPartial ? { extractionIntent: typedIntent, allowPartial: true } : { extractionIntent: typedIntent };
+  }
+  return allowPartial ? { allowPartial: true } : {};
+}
+
 async function withIngestExecutionContextForManifest<T>(
   manifest: SourceIngestManifest,
   positionals: readonly string[],
@@ -924,7 +1043,8 @@ async function withIngestExecutionContextForManifest<T>(
       }
     : services;
   const preparedServices = manifest.prepareServices?.({ positionals, options, services: baseServices }) ?? baseServices;
-  const execution = await createIngestExecutionContext(preparedServices);
+  const minerOptions = parseMinerOptions(options);
+  const execution = await createIngestExecutionContext(preparedServices, minerOptions);
   try {
     return await work(execution.context);
   } finally {
@@ -1065,16 +1185,16 @@ function singleVectorManifest(args: {
 }
 
 const INGEST_USAGE: Record<SourceId, string> = {
-  youtube: 'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--refresh-transcript] [--json]',
-  web: 'aidha ingest web --url <url> [--json]',
-  pdf: 'aidha ingest pdf --file <path> [--json]',
-  voice: 'aidha ingest voice --file <path> [--json]',
-  meeting: 'aidha ingest meeting --file <path> [--json]',
-  rss: 'aidha ingest rss --feed <url> [--item-guid <guid>] [--json]',
-  podcast: 'aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]',
-  readwise: 'aidha ingest readwise --since <iso8601> [--token <token>] [--json]',
-  email: 'aidha ingest email --file <path> [--json]',
-  linkedin: 'aidha ingest linkedin --paste <text> [--url <url>] [--json]',
+  youtube: 'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--refresh-transcript] [--extraction-intent <intent>] [--allow-partial] [--json]',
+  web: 'aidha ingest web --url <url> [--extraction-intent <intent>] [--allow-partial] [--json]',
+  pdf: 'aidha ingest pdf --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+  voice: 'aidha ingest voice --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+  meeting: 'aidha ingest meeting --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+  rss: 'aidha ingest rss --feed <url> [--item-guid <guid>] [--extraction-intent <intent>] [--allow-partial] [--json]',
+  podcast: 'aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--extraction-intent <intent>] [--allow-partial] [--json]',
+  readwise: 'aidha ingest readwise --since <iso8601> [--token <token>] [--extraction-intent <intent>] [--allow-partial] [--json]',
+  email: 'aidha ingest email --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+  linkedin: 'aidha ingest linkedin --paste <text> [--url <url>] [--extraction-intent <intent>] [--allow-partial] [--json]',
 };
 
 export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
@@ -1297,6 +1417,11 @@ export async function runCli(argv: string[]): Promise<number> {
       const manifest = isString(mode) ? SOURCE_MANIFEST_BY_ID.get(mode as SourceId) : undefined;
       if (!manifest) {
         console.error(`Usage: ingest <${SOURCE_MANIFESTS.map(item => item.sourceId).join('|')}> ...`);
+        return 1;
+      }
+      const intentValue = optionString(options, 'extraction-intent');
+      if (intentValue !== undefined && !(EXTRACTION_INTENTS as readonly string[]).includes(intentValue)) {
+        console.error(`error: Invalid --extraction-intent "${intentValue}". Valid values: ${EXTRACTION_INTENTS.join(', ')}.`);
         return 1;
       }
       const summary = await withIngestExecutionContextForManifest(manifest, positionals, options, context => manifest.run({

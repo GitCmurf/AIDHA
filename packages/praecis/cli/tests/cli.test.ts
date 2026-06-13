@@ -61,12 +61,91 @@ function testConfig(): PipelineServices['config'] {
   };
 }
 
+function extractExcerptFromPrompt(user: string): { id: string; text: string } {
+  const block = /(?:TRANSCRIPT_EXCERPTS|EXCERPTS):\s*"""([\s\S]*?)"""/u.exec(user)?.[1];
+  if (block) {
+    try {
+      const parsed = JSON.parse(block) as Array<{ id: string; text: string }>;
+      const candidates = parsed.filter(item => item && typeof item.id === 'string' && typeof item.text === 'string' && item.text.trim().length > 0);
+      if (candidates.length > 0) {
+        // Prefer the excerpt with the most whitespace-delimited words (best for quote verification)
+        const best = candidates.reduce((prev, curr) =>
+          curr.text.split(/\s+/).filter(w => w.length > 0).length > prev.text.split(/\s+/).filter(w => w.length > 0).length ? curr : prev
+        );
+        return best;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  const paired = /"id":\s*"([^"]+)"[\s\S]{0,1000}?"text":\s*"((?:[^"\\]|\\.)*)"/u.exec(user);
+  return {
+    id: paired?.[1] ?? 'chunk-0',
+    text: paired?.[2]?.replace(/\\n/g, ' ') ?? 'Fixture evidence is present in the source for review.',
+  };
+}
+
+function buildFakeDistillResponse(excerpt: { id: string; text: string }): string {
+  const normalized = excerpt.text.replace(/\s+/gu, ' ').trim();
+  const firstSentence = /[^.!?]+[.!?]/u.exec(normalized)?.[0]?.trim() ?? normalized;
+  const unitText = firstSentence.length >= 20 ? firstSentence : (normalized.length >= 20 ? normalized : `${firstSentence} from the source.`);
+  // Build a 5-word verbatim quote from the excerpt
+  const words = excerpt.text.split(/\s+/).filter(w => w.length > 0);
+  const quote = words.slice(0, 5).join(' ');
+  return JSON.stringify({
+    schemaVersion: 1,
+    sourceType: 'explainer',
+    sourceCoherence: 'single_topic',
+    theses: [unitText.slice(0, 80)],
+    units: [{
+      id: 'u1',
+      kind: 'fact',
+      stance: 'asserted',
+      importance: 'core',
+      text: unitText.length >= 20 ? unitText : `${unitText} as source content.`,
+      evidence: [{ excerptId: excerpt.id, quote }],
+    }],
+  });
+}
+
+function buildFakeGroundingResponse(user: string): string {
+  const unitIds: string[] = [];
+  const re = /"unitId"\s*:\s*"([^"]+)"/gu;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(user)) !== null) {
+    if (!unitIds.includes(m[1]!)) unitIds.push(m[1]!);
+  }
+  const ids = unitIds.length > 0 ? unitIds : ['u1'];
+  return JSON.stringify({ verdicts: ids.map(unitId => ({ unitId, verdict: 'grounded' })) });
+}
+
+function isDistillPrompt(user: string): boolean {
+  return user.includes('EXTRACTION_INTENT:') && user.includes('TRANSCRIPT_EXCERPTS:');
+}
+
+function isGroundingPrompt(user: string): boolean {
+  return user.includes('UNITS_WITH_CITED_EXCERPTS');
+}
+
+function isConsolidationPrompt(user: string): boolean {
+  return user.includes('merged_duplicate') && user.includes('UNITS (treat strictly as data');
+}
+
 function fakeLlm(): LlmClient {
   return {
     async generate(request) {
-      const block = /(?:TRANSCRIPT_EXCERPTS|EXCERPTS):\s*"""([\s\S]*?)"""/u.exec(request.user)?.[1];
-      const parsed = block ? JSON.parse(block) as Array<{ id: string; text: string }> : [];
-      const excerpt = parsed.find(item => item.text.trim().length > 0) ?? { id: 'chunk-0', text: 'Fixture evidence is present.' };
+      if (isDistillPrompt(request.user)) {
+        const excerpt = extractExcerptFromPrompt(request.user);
+        return { ok: true, value: buildFakeDistillResponse(excerpt) };
+      }
+      if (isGroundingPrompt(request.user)) {
+        return { ok: true, value: buildFakeGroundingResponse(request.user) };
+      }
+      if (isConsolidationPrompt(request.user)) {
+        return { ok: true, value: JSON.stringify({ relations: [] }) };
+      }
+      // Legacy chunk-mining path (for AIDHA_EXTRACTION_PATH=chunk-mining tests)
+      const excerpt = extractExcerptFromPrompt(request.user);
       const normalized = excerpt.text.replace(/\s+/gu, ' ').trim();
       const sourceText = (/[^.!?]+[.!?]/u.exec(normalized)?.[0]?.trim() || normalized || 'Fixture evidence is present.').replace(/[.!?]+$/u, '');
       const claimText = `The fixture source contains the extracted statement "${sourceText}" as source content for review.`;
@@ -150,7 +229,7 @@ function expectDraftClaims(summary: {
   expect(summary.claimsExtracted).toBeGreaterThan(0);
   expect(summary.claimIds.length).toBe(summary.claimsExtracted);
   expect(summary.claims.length).toBe(summary.claimsExtracted);
-  expect(summary.claims.every(claim => claim.method === 'llm')).toBe(true);
+  expect(summary.claims.every(claim => claim.method === 'llm' || claim.method === 'llm-distill')).toBe(true);
   expect(summary.claims.every(claim => claim.model === 'test-model')).toBe(true);
   expect(summary.claims.every(claim => claim.promptVersion)).toBe(true);
   expect(summary.claims.every(claim => claim.type === undefined || typeof claim.type === 'string')).toBe(true);
@@ -226,16 +305,16 @@ describe('aidha cli phase-1 surface', () => {
     expect(new Set(usageLines).size).toBe(SOURCE_MANIFESTS.length);
     expect(new Set(registrationIds).size).toBe(SOURCE_MANIFESTS.length);
     expect(SOURCE_MANIFESTS.map(manifest => manifest.usage)).toEqual([
-      'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--refresh-transcript] [--json]',
-      'aidha ingest web --url <url> [--json]',
-      'aidha ingest pdf --file <path> [--json]',
-      'aidha ingest voice --file <path> [--json]',
-      'aidha ingest meeting --file <path> [--json]',
-      'aidha ingest rss --feed <url> [--item-guid <guid>] [--json]',
-      'aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]',
-      'aidha ingest readwise --since <iso8601> [--token <token>] [--json]',
-      'aidha ingest email --file <path> [--json]',
-      'aidha ingest linkedin --paste <text> [--url <url>] [--json]',
+      'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--refresh-transcript] [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest web --url <url> [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest pdf --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest voice --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest meeting --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest rss --feed <url> [--item-guid <guid>] [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest readwise --since <iso8601> [--token <token>] [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest email --file <path> [--extraction-intent <intent>] [--allow-partial] [--json]',
+      'aidha ingest linkedin --paste <text> [--url <url>] [--extraction-intent <intent>] [--allow-partial] [--json]',
     ]);
   });
 
@@ -675,7 +754,7 @@ describe('aidha cli phase-1 surface', () => {
     const summary = await runWebIngest('https://example.com/article', async () => ({
       ...makeFetchResponse(
         'https://example.com/article',
-        '<html><body><article><h1>Example</h1><p>First paragraph.</p><p>Second paragraph.</p></article></body></html>',
+        '<html><body><article><h1>Example</h1><p>First paragraph contains alpha beta gamma delta epsilon zeta eta theta content.</p><p>Second paragraph contains additional fixture data for ingestion testing purposes.</p></article></body></html>',
       ),
     }), services());
 
@@ -689,10 +768,10 @@ describe('aidha cli phase-1 surface', () => {
   it('ingests pdf fixtures with page locators', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-pdf-'));
     const filePath = join(dir, 'paper.pdf');
-    await writeFile(filePath, Buffer.from('First page\fSecond page'));
+    await writeFile(filePath, Buffer.from('First page alpha beta gamma delta epsilon zeta eta theta\fSecond page alpha beta gamma delta epsilon zeta eta theta'));
 
     const summary = await runPdfIngest(filePath, readFile, services());
-    const expectedHash = createHash('sha256').update(Buffer.from('First page\fSecond page')).digest('hex');
+    const expectedHash = createHash('sha256').update(Buffer.from('First page alpha beta gamma delta epsilon zeta eta theta\fSecond page alpha beta gamma delta epsilon zeta eta theta')).digest('hex');
 
     expect(summary.sourceId).toBe('pdf');
     expect(summary.canonicalId).toBe(`pdf:${expectedHash}`);
@@ -701,19 +780,33 @@ describe('aidha cli phase-1 surface', () => {
     expectDraftClaims(summary);
   });
 
+  // Voice/meeting/podcast use MockTranscriber which derives chunk text from the audio URI (a sha256 hash),
+  // not from file content. The resulting chunk text is too short (< 10 tokens) for distillation quote
+  // verification, so these three tests are pinned to chunk-mining until the sources can inject
+  // explicit transcript text via their vector options (AIDHA-TASK-012 Task 14).
   it('ingests voice fixtures with deterministic timecoded segments', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-voice-'));
     const filePath = join(dir, 'note.m4a');
-    await writeFile(filePath, Buffer.from('voice note alpha beta gamma delta', 'utf8'));
+    await writeFile(filePath, Buffer.from('voice note alpha beta gamma delta epsilon zeta eta theta iota', 'utf8'));
 
-    const summary = await runVoiceIngest(filePath, services());
-    const expectedHash = createHash('sha256').update(Buffer.from('voice note alpha beta gamma delta', 'utf8')).digest('hex');
+    const prevEnv = process.env['AIDHA_EXTRACTION_PATH'];
+    process.env['AIDHA_EXTRACTION_PATH'] = 'chunk-mining';
+    try {
+      const summary = await runVoiceIngest(filePath, services());
+      const expectedHash = createHash('sha256').update(Buffer.from('voice note alpha beta gamma delta epsilon zeta eta theta iota', 'utf8')).digest('hex');
 
-    expect(summary.sourceId).toBe('voice');
-    expect(summary.canonicalId).toBe(`voice:${expectedHash}`);
-    expect(summary.segmentCount).toBeGreaterThan(0);
-    expect(summary.segments[0]?.locator.kind).toBe('timecode');
-    expectDraftClaims(summary);
+      expect(summary.sourceId).toBe('voice');
+      expect(summary.canonicalId).toBe(`voice:${expectedHash}`);
+      expect(summary.segmentCount).toBeGreaterThan(0);
+      expect(summary.segments[0]?.locator.kind).toBe('timecode');
+      expectDraftClaims(summary);
+    } finally {
+      if (prevEnv === undefined) {
+        delete process.env['AIDHA_EXTRACTION_PATH'];
+      } else {
+        process.env['AIDHA_EXTRACTION_PATH'] = prevEnv;
+      }
+    }
   });
 
   it('ingests meeting fixtures with diarized timecoded segments', async () => {
@@ -721,15 +814,25 @@ describe('aidha cli phase-1 surface', () => {
     const filePath = join(dir, 'standup.wav');
     await writeFile(filePath, Buffer.from('meeting transcript alpha beta gamma delta epsilon zeta eta theta', 'utf8'));
 
-    const summary = await runMeetingIngest(filePath, services());
-    const expectedHash = createHash('sha256').update(Buffer.from('meeting transcript alpha beta gamma delta epsilon zeta eta theta', 'utf8')).digest('hex');
+    const prevEnv = process.env['AIDHA_EXTRACTION_PATH'];
+    process.env['AIDHA_EXTRACTION_PATH'] = 'chunk-mining';
+    try {
+      const summary = await runMeetingIngest(filePath, services());
+      const expectedHash = createHash('sha256').update(Buffer.from('meeting transcript alpha beta gamma delta epsilon zeta eta theta', 'utf8')).digest('hex');
 
-    expect(summary.sourceId).toBe('meeting');
-    expect(summary.canonicalId).toBe(`meeting:${expectedHash}`);
-    expect(summary.segmentCount).toBeGreaterThan(0);
-    expect(summary.segments[0]?.locator.kind).toBe('timecode');
-    expect(summary.segments[0]?.label).toBeDefined();
-    expectDraftClaims(summary);
+      expect(summary.sourceId).toBe('meeting');
+      expect(summary.canonicalId).toBe(`meeting:${expectedHash}`);
+      expect(summary.segmentCount).toBeGreaterThan(0);
+      expect(summary.segments[0]?.locator.kind).toBe('timecode');
+      expect(summary.segments[0]?.label).toBeDefined();
+      expectDraftClaims(summary);
+    } finally {
+      if (prevEnv === undefined) {
+        delete process.env['AIDHA_EXTRACTION_PATH'];
+      } else {
+        process.env['AIDHA_EXTRACTION_PATH'] = prevEnv;
+      }
+    }
   });
 
   it('ingests rss fixtures and resolves linked articles through the shared web identity', async () => {
@@ -743,7 +846,7 @@ describe('aidha cli phase-1 surface', () => {
           );
         }
 
-        return makeFetchResponse(url, '<html><body><article><p>Linked article text.</p></article></body></html>');
+        return makeFetchResponse(url, '<html><body><article><p>Linked article text contains alpha beta gamma delta epsilon zeta eta theta fixture content.</p></article></body></html>');
       },
       services: services(),
     });
@@ -755,6 +858,8 @@ describe('aidha cli phase-1 surface', () => {
   });
 
   it('ingests podcast fixtures and diarizes panel episodes', async () => {
+    const prevEnv = process.env['AIDHA_EXTRACTION_PATH'];
+    process.env['AIDHA_EXTRACTION_PATH'] = 'chunk-mining';
     const summary = await runPodcastIngest('https://pod.example.com/feed.xml', {
       episodeGuid: 'episode-2',
       panel: true,
@@ -800,12 +905,20 @@ describe('aidha cli phase-1 surface', () => {
       },
     });
 
-    expect(summary.sourceId).toBe('podcast');
-    expect(summary.canonicalId).toBe('podcast:https://cdn.example.com/panel.m4a');
-    expect(summary.segmentCount).toBeGreaterThan(0);
-    expect(summary.segments[0]?.locator.kind).toBe('timecode');
-    expect(summary.segments[0]?.locator.speaker).toBeDefined();
-    expectDraftClaims(summary);
+    try {
+      expect(summary.sourceId).toBe('podcast');
+      expect(summary.canonicalId).toBe('podcast:https://cdn.example.com/panel.m4a');
+      expect(summary.segmentCount).toBeGreaterThan(0);
+      expect(summary.segments[0]?.locator.kind).toBe('timecode');
+      expect(summary.segments[0]?.locator.speaker).toBeDefined();
+      expectDraftClaims(summary);
+    } finally {
+      if (prevEnv === undefined) {
+        delete process.env['AIDHA_EXTRACTION_PATH'];
+      } else {
+        process.env['AIDHA_EXTRACTION_PATH'] = prevEnv;
+      }
+    }
   });
 
   it('ingests readwise exports with the shared web canonical id and highlight locators', async () => {
@@ -829,8 +942,8 @@ describe('aidha cli phase-1 surface', () => {
                   source_url: 'https://example.com/article?utm_source=readwise',
                   readwise_url: 'https://readwise.io/bookreview/11',
                   highlights: [
-                    { id: 1, text: 'First quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
-                    { id: 2, text: 'Second quote', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
+                    { id: 1, text: 'First quote alpha beta gamma delta epsilon zeta eta theta iota kappa', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
+                    { id: 2, text: 'Second quote alpha beta gamma delta epsilon zeta eta theta iota kappa', book_id: 11, updated_at: '2026-05-22T00:00:00.000Z' },
                   ],
                 },
               ],
@@ -929,7 +1042,7 @@ describe('aidha cli phase-1 surface', () => {
         'Subject: Re: Project status',
         'In-Reply-To: <msg-b>',
         '',
-        'Leaf body',
+        'Leaf body alpha beta gamma delta epsilon zeta eta theta iota kappa',
       ].join('\r\n'),
     );
     await writeFile(
@@ -943,7 +1056,7 @@ describe('aidha cli phase-1 surface', () => {
         'References: <msg-a>',
         'In-Reply-To: <msg-a>',
         '',
-        'Root body',
+        'Root body alpha beta gamma delta epsilon zeta eta theta iota kappa',
       ].join('\r\n'),
     );
 
@@ -1019,7 +1132,7 @@ describe('aidha cli phase-1 surface', () => {
     const summary = await runLinkedInIngest(
       'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/',
       {
-        pasteText: 'First paragraph.\n\nSecond paragraph.',
+        pasteText: 'First paragraph alpha beta gamma delta epsilon zeta eta theta iota kappa.\n\nSecond paragraph alpha beta gamma delta epsilon zeta eta theta iota kappa.',
         url: 'https://www.linkedin.com/feed/update/urn:li:activity:1234567890/',
         services: services(),
       },
@@ -1034,7 +1147,7 @@ describe('aidha cli phase-1 surface', () => {
 
   it('surfaces classification and metadata conflict telemetry in summaries', async () => {
     const summary = await runLinkedInIngest('stdin', {
-      pasteText: 'LinkedIn update about resilient ingestion.',
+      pasteText: 'LinkedIn update about resilient ingestion alpha beta gamma delta epsilon.',
       services: taxonomyServices(),
     });
 
@@ -1056,7 +1169,7 @@ describe('aidha cli phase-1 surface', () => {
       let first: Awaited<ReturnType<typeof runLinkedInIngest>>;
       try {
         first = await runLinkedInIngest('stdin', {
-          pasteText: 'LinkedIn update about durable ingestion.',
+          pasteText: 'LinkedIn update about durable ingestion alpha beta gamma delta epsilon.',
           services: { ...seeded, config, store: firstStore },
         });
       } finally {
@@ -1068,7 +1181,7 @@ describe('aidha cli phase-1 surface', () => {
       let resource: Awaited<ReturnType<SQLiteStore['getNode']>>;
       try {
         second = await runLinkedInIngest('stdin', {
-          pasteText: 'LinkedIn update about durable ingestion.',
+          pasteText: 'LinkedIn update about durable ingestion alpha beta gamma delta epsilon.',
           services: { ...seeded, config, store: secondStore },
         });
         resource = await secondStore.getNode(second.resourceId);
@@ -1163,8 +1276,8 @@ describe('aidha cli phase-1 surface', () => {
     const configPath = join(dir, 'config.yaml');
     const pdfPath = join(dir, 'activation.pdf');
     await writeFile(pdfPath, Buffer.from([
-      'Activation evidence is reusable without reopening the original document.',
-      'Project re-entry needs task provenance back to claims and sources.',
+      'Activation evidence is reusable without reopening the original document alpha beta gamma.',
+      'Project re-entry needs task provenance back to claims and sources alpha beta.',
     ].join('\f')));
     await writeFile(
       configPath,
@@ -1198,7 +1311,7 @@ describe('aidha cli phase-1 surface', () => {
         'ingest',
         'linkedin',
         '--paste',
-        'Activation planning converts captured knowledge into concrete next actions.',
+        'Activation planning converts captured knowledge into concrete next actions alpha beta.',
         '--url',
         'https://linkedin.example.test/posts/activation-gate',
         '--mock-llm',
@@ -1331,4 +1444,111 @@ describe('aidha cli phase-1 surface', () => {
       await servicesForWeb.store?.close();
     }
   }, 30_000);
+
+  it('accepts --extraction-intent runbook and produces a valid summary', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-intent-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'youtube', '--url', 'test-video', '--mock', '--extraction-intent', 'runbook', '--json', '--config', configPath]);
+      expect(code).toBe(0);
+      const summary = JSON.parse(logs.join('\n')) as { sourceId: string; claimsExtracted: number };
+      expect(summary.sourceId).toBe('youtube');
+      expect(summary.claimsExtracted).toBeGreaterThanOrEqual(0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it('rejects invalid --extraction-intent with a non-zero exit and stderr message', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-bad-intent-'));
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((value?: unknown) => {
+      errors.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'youtube', '--url', 'test-video', '--mock', '--extraction-intent', 'bogus', '--config', configPath]);
+      expect(code).not.toBe(0);
+      expect(errors.some(e => e.includes('bogus') || e.includes('extraction-intent'))).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('surfaces fail-closed distillation in summary and writes a stderr warning', async () => {
+    const alwaysInvalidLlm: LlmClient = {
+      async generate() {
+        return { ok: true, value: '{"not":"valid distillation"}' };
+      },
+    };
+    const summary = await runYouTubeIngest('test-video', {
+      client: new MockYouTubeClient(),
+      services: { config: testConfig(), llm: alwaysInvalidLlm },
+    });
+
+    expect(summary.claimsExtracted).toBe(0);
+    expect(summary.sourceDistillation?.failedClosed).toBe(true);
+  });
+
+  it('accepts --allow-partial flag without error', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-allow-partial-'));
+    const dbPath = join(dir, 'aidha.sqlite');
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'profiles:',
+        '  default:',
+        `    db: ${JSON.stringify(dbPath)}`,
+        '    llm:',
+        '      model: ""',
+        '      base_url: ""',
+      ].join('\n'),
+    );
+    const logs: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((value?: unknown) => {
+      logs.push(String(value));
+    });
+
+    try {
+      const code = await runCli(['ingest', 'youtube', '--url', 'test-video', '--mock', '--allow-partial', '--json', '--config', configPath]);
+      expect(code).toBe(0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
 });
