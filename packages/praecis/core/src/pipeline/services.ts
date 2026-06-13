@@ -662,7 +662,7 @@ export async function createTaxonomyRegistryFromConfig(
   return { ok: true, value: options.store ? new GraphBackedTaxonomyRegistry(vocabulary, options.store, options.clock) : vocabulary };
 }
 
-export async function createConfiguredPipelineServices(overrides: Partial<PipelineServices> = {}): Promise<Result<PipelineServices>> {
+export async function createConfiguredPipelineServices(overrides: Partial<PipelineServices> = {}, minerOptions: MinerSelectionOptions = {}): Promise<Result<PipelineServices>> {
   const store = overrides.store ?? new InMemoryStore();
   const config = overrides.config ?? defaultResolvedConfig();
   const clock = overrides.clock ?? new SystemClock();
@@ -676,7 +676,7 @@ export async function createConfiguredPipelineServices(overrides: Partial<Pipeli
     config,
     clock,
     ...(registry.value ? { taxonomyRegistry: registry.value } : {}),
-  }) };
+  }, minerOptions) };
 }
 
 export class KeywordTaxonomyClassifier implements IClassifier {
@@ -733,7 +733,7 @@ export class KeywordTaxonomyClassifier implements IClassifier {
  * createIngestionRuntime() so taxonomy configuration and durable assignment
  * persistence are wired consistently.
  */
-export function createDefaultPipelineServices(overrides: Partial<PipelineServices> = {}): PipelineServices {
+export function createDefaultPipelineServices(overrides: Partial<PipelineServices> = {}, minerOptions: MinerSelectionOptions = {}): PipelineServices {
   const store = overrides.store ?? new InMemoryStore();
   const config = overrides.config ?? defaultResolvedConfig();
   const configuredClient = config.llm.model && config.llm.baseUrl ? createLlmClientFromConfig(config.llm) : undefined;
@@ -741,7 +741,7 @@ export function createDefaultPipelineServices(overrides: Partial<PipelineService
   const allowHeuristicFallback = overrides.allowHeuristicFallback ?? false;
   return {
     store,
-    miner: overrides.miner ?? (llm ? selectCandidateMiner(process.env) : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
+    miner: overrides.miner ?? (llm ? selectCandidateMiner(process.env, minerOptions) : allowHeuristicFallback ? new HeuristicClaimMiner() : new MissingLlmClaimMiner()),
     exporter: overrides.exporter ?? new GraphPipelineExporter(store),
     ...(overrides.referenceExtractor
       ? { referenceExtractor: overrides.referenceExtractor }
