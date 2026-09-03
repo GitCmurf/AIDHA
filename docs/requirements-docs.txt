@@ -1,5 +1,5 @@
 mkdocs==1.5.3
-mkdocs-material==9.5.10
+mkdocs-material==9.7.7
 mkdocs-literate-nav==0.6.1
 mkdocs-macros-plugin==1.0.5
 PyYAML==6.0.2
