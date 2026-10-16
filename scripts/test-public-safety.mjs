@@ -1,25 +1,47 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const checker = fileURLToPath(new URL('./check-public-safety.mjs', import.meta.url));
+const testScript = fileURLToPath(import.meta.url);
+const repositoryLocalGitVariables = execFileSync('git', ['rev-parse', '--local-env-vars'], {
+    cwd: tmpdir(),
+    env: { PATH: process.env.PATH ?? '' },
+    encoding: 'utf8',
+}).split('\n').filter(Boolean);
+
+function isolatedGitEnv() {
+    // Fixtures must not borrow the caller's repository, index, or object storage.
+    // Git supplies the repository-local variable list for this installation.
+    const env = { ...process.env };
+    for (const name of [
+        ...repositoryLocalGitVariables,
+        'GIT_NAMESPACE',
+        'GIT_CEILING_DIRECTORIES',
+        'GIT_DISCOVERY_ACROSS_FILESYSTEM',
+    ]) {
+        delete env[name];
+    }
+    return env;
+}
 
 function withTrackedFiles(paths, run, rootSuffix = '') {
     const temporaryDir = mkdtempSync(join(tmpdir(), 'aidha-public-paths-'));
     const dir = rootSuffix ? join(temporaryDir, `repo${rootSuffix}`) : temporaryDir;
+    const env = isolatedGitEnv();
     try {
         if (rootSuffix) mkdirSync(dir);
-        execFileSync('git', ['init', '--quiet', dir]);
+        execFileSync('git', ['init', '--quiet', dir], { env });
         for (const path of paths) {
             const absolutePath = join(dir, path);
             mkdirSync(dirname(absolutePath), { recursive: true });
             writeFileSync(absolutePath, 'synthetic fixture\n');
-            execFileSync('git', ['-C', dir, 'add', '--force', '--', path]);
+            execFileSync('git', ['-C', dir, 'add', '--force', '--', path], { env });
         }
         run(dir);
     } finally {
@@ -28,7 +50,7 @@ function withTrackedFiles(paths, run, rootSuffix = '') {
 }
 
 function check(cwd) {
-    return spawnSync(process.execPath, [checker], { cwd, encoding: 'utf8' });
+    return spawnSync(process.execPath, [checker], { cwd, env: isolatedGitEnv(), encoding: 'utf8' });
 }
 
 test('allows tracked synthetic acceptance artifacts', () => {
@@ -139,5 +161,44 @@ test('fails closed if Git cannot list tracked paths', () => {
         assert.notEqual(result.status, 0);
     } finally {
         rmSync(cwd, { recursive: true, force: true });
+    }
+});
+
+test('keeps a disposable caller alternate index intact under inherited Git state', () => {
+    const temporaryDir = mkdtempSync(join(tmpdir(), 'aidha-public-caller-index-'));
+    const callerRepo = join(temporaryDir, 'caller');
+    const alternateIndex = join(temporaryDir, 'caller-alternate.index');
+    const fixtureEnv = isolatedGitEnv();
+    try {
+        mkdirSync(callerRepo);
+        execFileSync('git', ['init', '--quiet', callerRepo], { env: fixtureEnv });
+        writeFileSync(join(callerRepo, 'baseline.txt'), 'disposable caller baseline\n');
+        execFileSync('git', ['-C', callerRepo, 'add', '--', 'baseline.txt'], { env: fixtureEnv });
+        copyFileSync(join(callerRepo, '.git', 'index'), alternateIndex);
+
+        const indexEnv = { ...fixtureEnv, GIT_INDEX_FILE: alternateIndex };
+        const stagedPaths = () => execFileSync('git', ['-C', callerRepo, 'ls-files', '-z'], {
+            env: indexEnv,
+            encoding: 'utf8',
+        });
+        const beforeBytes = readFileSync(alternateIndex);
+        const beforePaths = stagedPaths();
+        assert.equal(beforePaths, 'baseline.txt\0');
+
+        const result = spawnSync(process.execPath, [
+            '--test',
+            '--test-name-pattern=allows tracked synthetic acceptance artifacts',
+            testScript,
+        ], {
+            cwd: callerRepo,
+            env: indexEnv,
+            encoding: 'utf8',
+        });
+
+        assert.equal(result.status, 0, result.stderr);
+        assert.deepEqual(readFileSync(alternateIndex), beforeBytes, 'caller alternate index bytes changed');
+        assert.equal(stagedPaths(), beforePaths, 'caller staged paths changed');
+    } finally {
+        rmSync(temporaryDir, { recursive: true, force: true });
     }
 });

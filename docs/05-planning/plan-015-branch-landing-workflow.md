@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.5'
+version: '0.6'
 last_updated: 2026-10-16
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.5
+> **Version:** 0.6
 > **Last Updated:** 2026-10-16
 > **Type:** PLAN
 
@@ -29,6 +29,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.3 | 2026-10-16 | Codex | Publish the first independent PR batch, record assessed review findings, and add inventory sidecar metadata. | — | Draft | PRs 27–30 |
 | 0.4 | 2026-10-16 | Codex | Record owner approval and land the first batch with unchanged reviewed patches and refreshed CI. | CMF | Draft | PRs 27–30 |
 | 0.5 | 2026-10-16 | Codex | Publish the next owner review brief, second-batch evidence and dependency maintenance priority. | — | Draft | PRs 31–32 |
+| 0.6 | 2026-10-16 | Codex | Record and resolve the late test Git-environment isolation finding. | — | Draft | PR 32 |
 
 ## Purpose and authority
 
@@ -154,7 +155,7 @@ Do not introduce links to pages absent from a PR base.
 | Slice | Base / dependencies | Branch / PR | Stage and next action | Evidence / findings |
 | --- | --- | --- | --- | --- |
 | Graph search startup optimisation | Verified `main` at `eff2087`; independent | `015-graph-search-startup` / [PR 27](https://github.com/GitCmurf/AIDHA/pull/27) | Merged as `e2459c5` after base refresh and final-head required CI | 156 tests, lint/build/docs/DocOps and completed deep CodeRabbit review pass |
-| Private public-artifact guard | Independent; integrated `main` at `475f615` | `019-private-artifact-guard` / [PR 32](https://github.com/GitCmurf/AIDHA/pull/32) | Reviewed and published; separate owner merge approval pending; latest required CI remains a merge gate | Forced-stage, newline, case, original-policy and fail-closed regressions; actual scan added to required test command |
+| Private public-artifact guard | Independent; integrated `main` at `475f615` | `019-private-artifact-guard` / [PR 32](https://github.com/GitCmurf/AIDHA/pull/32) | Late Greptile fix passes seven regressions and peer review; supplemental CLI review quota-limited; final CI/reporting-bot checks required | Forced-stage, newline, case, original-policy and fail-closed regressions; actual scan added to required test command |
 | Taxonomy-version provenance | Independent; integrated `main` at `475f615` | `020-taxonomy-provenance` / [PR 31](https://github.com/GitCmurf/AIDHA/pull/31) | Reviewed at `4021473`; CLI contract and reporting-bot corrections verified; separate merge approval pending | Structured canonical fingerprint; exact Resource metadata after fresh SQLite reopen and email ingestion |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
@@ -535,3 +536,24 @@ Recorded Actions evidence:
   behavioral checks. All nine classifier tests and core lint pass; the final test-only hunk has
   independent peer review. This follows the zero-finding 12-file CLI verification. Recheck its
   fresh final-head CI and actual reporting-bot status before merge.
+
+- Late actual Greptile report on PR 32: inherited `GIT_INDEX_FILE` may let the synthetic test
+  repositories modify a caller's alternate index. Reproduce only in disposable repositories;
+  isolate Git environment variables in test subprocesses while preserving the production guard's
+  inherited-index behavior. This is an engineering blocker until reproduced, fixed and reviewed;
+  do not ask the owner to approve around it.
+
+- The late Greptile finding is confirmed: a failing disposable-caller regression reproduced
+  alternate-index byte changes. The fix isolates Git repository-local environment variables in
+  fixture initialization, staging and checker subprocesses. The production checker is unchanged
+  and still honors the caller's intended index. Seven focused tests now pass, including exact
+  preservation of disposable caller index bytes and staged paths. Final review and fresh CI are
+  required before the PR returns to owner merge review.
+
+- Final isolation hunk: parent and independent peer review find no further issue. The supplemental
+  CodeRabbit CLI attempt was rate-limited (exit one, no completion; service reported a 24-minute
+  wait). It provides no review coverage and is not counted as approval. Earlier completed CLI
+  reviews remain recorded; the P1 follow-up relies on direct/peer review, red/green preservation
+  regression and fresh required CI/reporting-bot checks. No paid capacity or seat change is
+  requested. Waiting for a later extra CLI review is optional, not an owner action needed to fix
+  the confirmed defect.
