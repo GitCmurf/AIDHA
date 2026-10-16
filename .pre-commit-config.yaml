@@ -12,6 +12,12 @@ repos:
         args: ['--baseline', '.secrets.baseline', '--exclude-files', 'pnpm-lock.yaml']
   - repo: local
     hooks:
+      - id: public-safety-paths
+        name: Public safety tracked path guard
+        entry: node scripts/check-public-safety.mjs
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: docs-catalog
         name: Generate docs catalog
         entry: python docs/_scripts/gen_catalog.py
