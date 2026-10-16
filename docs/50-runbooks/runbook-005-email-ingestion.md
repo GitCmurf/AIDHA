@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-005
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-05-22
-version: '0.1'
+last_updated: 2026-10-16
+version: '0.2'
 title: Email Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-05-22
+> **Version:** 0.2
+> **Last Updated:** 2026-10-16
 > **Type:** RUNBOOK
 
 ## Version History
@@ -23,6 +23,7 @@ docops_version: '2.0'
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1     | 2026-05-22 | AI     | Seed email file-import runbook for the PLAN-007 email vector. | — | Draft | — |
+| 0.2 | 2026-10-16 | Codex | Update parser dependencies and document malformed-input and MIME regression checks. | — | Draft | PLAN-015 |
 
 ## Purpose
 
@@ -62,3 +63,45 @@ operational checks to run after an email batch import.
 
   Attachments are preserved in parsed metadata, but they are not auto-ingested.
   Record any follow-up extraction work explicitly.
+
+## Parser maintenance and validation
+
+Use the committed lockfile. The email package requires Node.js 20.19 or later;
+the workspace requires Node.js 22.5 or later. The parser dependency floor is
+`mailparser` 3.9.40, whose upstream dependency set includes `nodemailer` 10.1.2
+and `linkify-it` 5.0.2. Update the parent package together with its supported
+dependency set rather than forcing independent major child versions.
+
+Parsing happens before ingestion privacy gates. Those gates do not limit parser
+CPU or memory consumption. The importer reads and parses complete messages;
+this update does not establish a general resource limit for arbitrary inputs.
+
+From the repository root, run:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm --filter @aidha/praecis-source-email lint
+pnpm --filter @aidha/praecis-source-email test:ci
+pnpm --filter @aidha/praecis-core test:ci
+pnpm --filter @aidha/praecis-cli test:ci
+pnpm docs:build
+```
+
+The resource regression tests invoke the built public `parseEmailFile` entrypoint
+in a child process so a synchronous parser stall can be terminated. Rebuild before
+running them after source changes. The fifteen-second ceiling distinguishes the
+published malformed-address and repeated-mailto regressions from ordinary parsing;
+it is a test budget, not a production timeout or performance guarantee.
+
+The synthetic MIME control checks encoded names, recipient order, dates, thread
+references, HTML preference, raw text and attachment metadata. The existing pipeline
+and CLI suites cover thread persistence, reconstruction and taxonomy assignments.
+No private email is needed for these checks.
+
+Acceptance coverage:
+
+- [Resource regression tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/sources/email/tests/parser-budget.test.ts)
+- [MIME compatibility control](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/sources/email/tests/mime-compatibility.test.ts)
+- Published upstream reports: [address parser](https://github.com/advisories/GHSA-v53p-9fqp-m79j)
+  and [mailto matcher](https://github.com/advisories/GHSA-v245-v573-v5vm)
