@@ -664,6 +664,15 @@ export class KeywordTaxonomyClassifier implements IClassifier {
     const existingAssignments = await this.registry.getAssignments(request.resourceId);
     if (!existingAssignments.ok) return existingAssignments;
     const existingTagIds = new Set(existingAssignments.value.map(assignment => assignment.tagId));
+    // Encode tag fields separately so punctuation in names or aliases cannot
+    // make different matching vocabularies share the same fingerprint.
+    const matchingVocabulary = tags.value
+      .map(tag => ({ id: tag.id, name: tag.name, aliases: [...tag.aliases].sort() }))
+      .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+    const taxonomyVersion = createHash('sha256')
+      .update(JSON.stringify(matchingVocabulary))
+      .digest('hex')
+      .slice(0, 16);
 
     let tagsMatched = 0;
     let tagsAssigned = 0;
@@ -678,6 +687,7 @@ export class KeywordTaxonomyClassifier implements IClassifier {
         tagId: tag.id,
         confidence: 0.7,
         source: 'automatic',
+        taxonomyVersion,
         assignedBy: 'praecis-keyword-classifier',
       });
       if (!assigned.ok) return assigned;

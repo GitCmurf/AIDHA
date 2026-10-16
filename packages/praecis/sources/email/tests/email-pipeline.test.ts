@@ -329,6 +329,7 @@ describe('runEmailBatch', () => {
       tagId: 'tag-1',
       confidence: 0.7,
       source: 'automatic',
+      taxonomyVersion: '6267d933290d008d', // pragma: allowlist secret -- synthetic taxonomy fixture fingerprint
       assignedAt: '2026-05-25T12:34:56.000Z',
       assignedBy: 'praecis-keyword-classifier',
     }]);

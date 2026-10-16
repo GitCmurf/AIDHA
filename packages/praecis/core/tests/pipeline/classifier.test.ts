@@ -23,6 +23,65 @@ async function registryWithTag() {
 const fixedClock = { now: () => new Date('2026-05-25T12:34:56.000Z') };
 
 describe('KeywordTaxonomyClassifier', () => {
+  it('fingerprints distinct alias structures and ignores tag enumeration order', async () => {
+    async function classifyVersion(aliases: string[], reverseTags = false): Promise<string> {
+      const registry = new InMemoryRegistry();
+      try {
+        expect((await registry.addCategory({ id: 'cat-1', name: 'Technology' })).ok).toBe(true);
+        expect((await registry.addTopic({ id: 'topic-1', name: 'Programming', categoryId: 'cat-1' })).ok).toBe(true);
+        for (const tag of [
+          { id: 'tag-1', name: 'alpha', aliases, topicIds: ['topic-1'] },
+          { id: 'tag-2', name: 'beta', aliases: ['other'], topicIds: ['topic-1'] },
+        ]) {
+          expect((await registry.addTag(tag)).ok).toBe(true);
+        }
+        if (reverseTags) {
+          const listTags = registry.listTags.bind(registry);
+          registry.listTags = async (topicId?: string) => {
+            const result = await listTags(topicId);
+            return result.ok ? { ok: true, value: [...result.value].reverse() } : result;
+          };
+        }
+
+        const result = await new KeywordTaxonomyClassifier(registry).classify({
+          raw: {
+            canonicalId: 'resource-1',
+            sourceType: 'web',
+            sensitivity: 'public',
+            provenance: { ingestedAt: '2026-05-25T00:00:00.000Z', sourceType: 'web' },
+            payload: {},
+            label: 'alpha',
+          },
+          resourceId: 'resource-1',
+          excerptIds: [],
+          claimIds: [],
+          claims: [],
+          chunks: [],
+          context: {},
+          config: {} as Parameters<KeywordTaxonomyClassifier['classify']>[0]['config'],
+        });
+        expect(result.ok).toBe(true);
+        if (!result.ok) throw result.error;
+        expect(result.value.tagsAssigned).toBe(1);
+
+        const assignments = await registry.getAssignments('resource-1');
+        expect(assignments.ok).toBe(true);
+        if (!assignments.ok) throw assignments.error;
+        const version = assignments.value[0]?.taxonomyVersion;
+        expect(version).toMatch(/^[a-f0-9]{16}$/);
+        return version!;
+      } finally {
+        await registry.close();
+      }
+    }
+
+    const original = await classifyVersion(['a,b']);
+    expect(await classifyVersion(['a,b'], true)).toBe(original);
+    const splitAliases = await classifyVersion(['a', 'b']);
+    expect(splitAliases).not.toBe(original);
+    expect(await classifyVersion(['b', 'a'])).toBe(splitAliases);
+  });
+
   it('builds a seeded registry from resolved config extensions', async () => {
     const config = {
       extensions: {
