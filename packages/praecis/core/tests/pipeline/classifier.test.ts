@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
+import assert from 'node:assert/strict';
 import { describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { InMemoryRegistry } from '@aidha/taxonomy';
@@ -60,16 +61,14 @@ describe('KeywordTaxonomyClassifier', () => {
           context: {},
           config: {} as Parameters<KeywordTaxonomyClassifier['classify']>[0]['config'],
         });
-        expect(result.ok).toBe(true);
-        if (!result.ok) throw result.error;
+        assert.ok(result.ok, 'Keyword classification failed');
         expect(result.value.tagsAssigned).toBe(1);
 
         const assignments = await registry.getAssignments('resource-1');
-        expect(assignments.ok).toBe(true);
-        if (!assignments.ok) throw assignments.error;
+        assert.ok(assignments.ok, 'Reading taxonomy assignments failed');
         const version = assignments.value[0]?.taxonomyVersion;
         expect(version).toMatch(/^[a-f0-9]{16}$/);
-        if (typeof version !== 'string') throw new Error('Assignment taxonomy version is missing');
+        assert.ok(typeof version === 'string', 'Assignment taxonomy version is missing');
         return version;
       } finally {
         await registry.close();
