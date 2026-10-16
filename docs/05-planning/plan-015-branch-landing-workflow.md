@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-16
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-16
 > **Type:** PLAN
 
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-16 | Codex | Record the authorised extraction, review and PR workflow, subsequent outcome-focused sprints, owner gates and restart notes. | — | Draft | Owner request |
 | 0.2 | 2026-10-16 | Codex | Distinguish skipped bot reviews from actual reports; retain genuine findings, CI and completed peer/CLI review gates. | CMF | Draft | Owner clarification |
+| 0.3 | 2026-10-16 | Codex | Publish the first independent PR batch, record assessed review findings, and add inventory sidecar metadata. | — | Draft | PRs 27–30 |
 
 ## Purpose and authority
 
@@ -116,9 +117,27 @@ Do not introduce links to pages absent from a PR base.
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
-| Workflow and uncommitted documentation | Independent workflow; remaining docs assigned by feature | `018-landing-workflow` / Pending | Publish workflow and baseline inventory | Peer review and strict docs/DocOps pass; keep this row current |
-| Rolling captions | Independent `main`; original `2aca5ec` + `a4ad4df` | `016-rolling-captions` / Pending | Strengthen deliberate-repetition preservation before review | Initial red/green passed; unsafe duplicate assumptions require repair |
-| Dotenv configuration | Independent `main`; adapted `7e27977` | `017-dotenv-config` / Pending | Complete package checks and precommit review | Red/green regression reproduced; full checks in progress |
+| Workflow and uncommitted documentation | Independent workflow; remaining docs assigned by feature | `018-landing-workflow` / [PR 28](https://github.com/GitCmurf/AIDHA/pull/28) | Initial CI passes; metadata sidecar follow-up in preparation | Peer review, inventory validation, strict docs/DocOps pass |
+| VTT cue cleanup; rolling deduplication held | Independent `main`; bounded portion of `2aca5ec` + `a4ad4df` | `016-rolling-captions` / [PR 29](https://github.com/GitCmurf/AIDHA/pull/29) | Fix genuine reported escaped-text and short-timestamp defects before final verification | 42 focused / 1061 full tests pass on first revision; later findings reproduced separately |
+| Dotenv configuration | Independent `main`; adapted `7e27977` | `017-dotenv-config` / [PR 30](https://github.com/GitCmurf/AIDHA/pull/30) | Pushed at `7535527`; final CI/report inspection pending | 29 CLI + 37 loader tests, lint/build/docs/DocOps and completed reviews; findings assessed |
+
+## First batch completion checklist
+
+- [x] Preserve original edits and verify their content hashes remain unchanged, apart from this
+  newly created workflow. Retain private recovery material and the source branch.
+- [x] Extract graph, VTT and dotenv changes onto independent branches from verified main.
+- [x] Complete precommit local/peer/CLI review and publish PRs 27–30, including workflow PR 28.
+- [x] Reproduce the real regressions before fixing them and run each slice's targeted checks.
+- [x] Assess initial genuine bot reports and ignore CodeRabbit/Qodo skipped reviews.
+- [ ] Complete genuine reporting-bot follow-up fixes and final-head checks for every PR.
+- [ ] Record final PR heads, actual CI links, remaining findings and a concise owner merge brief.
+- [ ] Obtain explicit owner approval for the named PRs before merging.
+- [ ] Merge only the approved scope, refresh bases and revalidate downstream slices.
+
+Original branch commits are provenance, not a requirement to preserve unsafe behaviour. The
+original caption deduplication is held and must not re-enter through a later wholesale copy of
+source-branch files. Track improved tests and repaired behaviour as deliberate supersession when
+reconciling extracted commits after merges.
 
 ## Sprint 2: Prove the reader helps with a real question
 
@@ -255,3 +274,28 @@ Do not introduce links to pages absent from a PR base.
   The PR is ready for owner merge review; no merge has occurred.
 - Future PRs need inspection of any genuine reporting-bot findings and final-head CI. This
   clarification supersedes earlier work-note language about ignoring all repository bot results.
+
+### 2026-10-16 — Four independent PRs published; genuine reports assessed
+
+- PRs: graph search [27](https://github.com/GitCmurf/AIDHA/pull/27), workflow
+  [28](https://github.com/GitCmurf/AIDHA/pull/28), VTT cleanup
+  [29](https://github.com/GitCmurf/AIDHA/pull/29), dotenv config
+  [30](https://github.com/GitCmurf/AIDHA/pull/30). All target main independently.
+- Graph: final-head CI and completed CLI verification pass; its addressed DeepSource thread
+  is resolved. Workflow's initial revision passes real CI; a genuine Greptile report correctly
+  requests non-Markdown metadata. Added `inventory.json.metadata.yaml` (AIDHA-TESTING-055),
+  validated directly against the repository metadata schema. Creation/history is recorded here.
+- VTT: removed unsafe deduplication; 1061 full YouTube tests pass, seven skip; 42 focused tests,
+  lint/build/docs/DocOps and deep CodeRabbit review pass on initial revision. Genuine Greptile
+  reports then identify single-encoded literal loss and minute/second timestamp handling; these
+  require test-first follow-up before merge readiness. A DeepSource declaration-style report is
+  also being assessed. Passing review alone does not establish source fidelity.
+- Dotenv: 29 CLI and 37 loader tests pass, with shell-only values and both precedence modes.
+  Review's major environment-loss concern is disproved: the resolver merges process.env with
+  policy-selected dotenv entries. A minor test-link concern is addressed with stable repository
+  links, since source-code links outside docs fail strict relative-link rendering. Two completed
+  CodeRabbit passes and parent review are retained; synthetic fixtures have precise line-level
+  secret-scanner annotations rather than a relaxed detector policy.
+- Rechecked the initial recovery manifest: every pre-existing edited/untracked file is unchanged.
+  Only the newly created workflow differs from its first snapshot. Original checkout stays at
+  `39bea2d`; extracted refinements live in their PR worktrees.
