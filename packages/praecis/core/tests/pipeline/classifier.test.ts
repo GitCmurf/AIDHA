@@ -69,7 +69,8 @@ describe('KeywordTaxonomyClassifier', () => {
         if (!assignments.ok) throw assignments.error;
         const version = assignments.value[0]?.taxonomyVersion;
         expect(version).toMatch(/^[a-f0-9]{16}$/);
-        return version!;
+        if (typeof version !== 'string') throw new Error('Assignment taxonomy version is missing');
+        return version;
       } finally {
         await registry.close();
       }
