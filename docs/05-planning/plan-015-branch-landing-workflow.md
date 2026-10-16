@@ -1,0 +1,237 @@
+---
+document_id: AIDHA-PLAN-015
+owner: Engineering
+status: Draft
+version: '0.1'
+last_updated: 2026-10-16
+title: Branch Landing and Next Sprints Workflow
+type: PLAN
+docops_version: '2.0'
+area: CORE
+related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AIDHA-PLAN-012, AIDHA-PLAN-013, AIDHA-PLAN-014]
+---
+<!-- MEMINIT_METADATA_BLOCK -->
+> **Document ID:** AIDHA-PLAN-015
+> **Owner:** Engineering
+> **Status:** Draft
+> **Version:** 0.1
+> **Last Updated:** 2026-10-16
+> **Type:** PLAN
+
+# Branch Landing and Next Sprints Workflow
+
+## Version History
+
+| Version | Date | Author | Change Summary | Reviewers | Status | Reference |
+| ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
+| 0.1 | 2026-10-16 | Codex | Record the authorised extraction, review and PR workflow, subsequent outcome-focused sprints, owner gates and restart notes. | — | Draft | Owner request |
+
+## Purpose and authority
+
+Separate accumulated work into coherent, independently verified PRs and land it in dependency
+order. Then establish whether the reader and continuity workflows reduce the owner's effort.
+This file is the execution checklist and handoff record; it does not replace PEPYS commitment
+authority. Check items only when evidence exists. Keep unfinished work and limitations visible.
+
+The owner authorises local preparation, fixes, delegation, code review, pushing relevant branches
+and opening PRs. Existing CodeRabbit permission applies to this repository. Exclude credentials
+and private runtime material from external review and publication. Do not merge without explicit
+owner approval. Additional spending and new private-source destinations require specific authority.
+
+The owner confirms GitHub review bots run on PR updates. Their comments and review threads must
+be inspected and addressed before merging, alongside CI and local/external review evidence.
+
+## Restart procedure
+
+1. Read this file and `AGENTS.md`, including the [Slice ledger](#slice-ledger) and
+   [Work notes](#work-notes) sections below.
+2. Verify checkout, branch, dirty files, worktrees, live remote refs and PR state; do not assume
+   recorded hashes, CI results or review outcomes remain current.
+3. Identify the first unchecked actionable item. Preserve other work and record the exact
+   operation, base and result before moving to the next stage.
+4. Keep review receipts and recovery artifacts locally; link public PRs and publishable evidence
+   here. Never substitute elapsed time, a heartbeat or an interrupted review for completion.
+
+## Sprint 1: Separate, review and land existing work
+
+### Preserve and map
+
+- [x] Record initial branch and working-tree scope; see baseline work note.
+- [x] Save this workflow with checkboxes and work notes.
+- [x] Save a recovery snapshot of tracked edits and non-ignored untracked files; record hashes.
+- [x] Refresh remote refs and inspect existing PRs without changing the active checkout.
+- [x] Inventory all commits and uncommitted paths; assign every path to a slice or explicit hold.
+- [ ] Map dependencies, review evidence, known defects and acceptance tests for every slice.
+- [x] Select the first independently testable slice and record its verified base.
+
+### Repeat for every slice
+
+- [ ] Create an isolated worktree on an `NNN-short-name` branch from the verified base.
+- [ ] Extract code, tests, comments and supporting docs together; inspect the complete diff.
+- [ ] Verify the slice works without unrelated changes. Use stacked PRs only for real dependencies.
+- [ ] Reproduce confirmed defects with failing tests, implement the fix and run relevant checks.
+- [ ] Run appropriate build, lint, unit, integration and public-entrypoint checks.
+- [ ] Run relevant browser checks serially, preserving live data and using isolated fixtures.
+- [ ] Run scoped DocOps, documentation build and public-artifact/secret checks.
+- [ ] Complete code review before committing; resolve actionable findings and verify changes.
+- [ ] Verify exact staged file list, create a conventional commit and retain review identity.
+- [ ] Push the branch and open a PR with purpose, initiating specification, evidence and risks.
+- [ ] Verify the GitHub PR base, head, file list and CI results against the intended slice.
+- [ ] Wait for GitHub review bots; inspect reviews, issue comments and inline review threads.
+- [ ] Fix confirmed bot findings, explain rejected findings, rerun affected checks and push fixes.
+- [ ] Verify CI and review coverage of the latest head; record unresolved findings explicitly.
+- [ ] Present a concise merge brief to the owner; obtain explicit approval before merging.
+- [ ] After an approved merge, refresh dependent bases, revalidate and update the ledger.
+
+The repeated checklist is a template. Each slice needs its own stage/evidence entry in the ledger;
+checking the template once does not establish completion for every PR. Prefer independent PRs
+against `main`; use dependency-ordered or stacked PRs when separation would otherwise break a
+contract. Do not split tightly coupled code merely to reduce file counts or rewrite the source
+branch to make an extraction appear complete.
+
+### Sprint completion
+
+- [ ] Every original commit and uncommitted path is accounted for as landed, superseded with
+  evidence, or retained with an explicit reason and next action.
+- [ ] No private runtime evidence has entered published paths or PRs.
+- [ ] Owner-approved merges are complete and the integrated base passes required checks.
+- [ ] Deferred product requirements remain in the subsequent sprint checklist.
+
+## Slice ledger
+
+Supporting document IDs refer to the preserved source checkout until their owning slices land.
+Do not introduce links to pages absent from a PR base.
+
+| Slice | Base / dependencies | Branch / PR | Stage and next action | Evidence / findings |
+| --- | --- | --- | --- | --- |
+| Graph search startup optimisation | Verified `main` at `eff2087`; independent | `015-graph-search-startup` / [PR 27](https://github.com/GitCmurf/AIDHA/pull/27) | Committed/pushed; CI and bot inspection in progress | 156 tests, lint/build/docs/DocOps and completed deep CodeRabbit review pass |
+| Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
+| Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
+| Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
+| Workflow and uncommitted documentation | Independent workflow; remaining docs assigned by feature | `018-landing-workflow` / Pending | Publish workflow and baseline inventory | Peer review and strict docs/DocOps pass; keep this row current |
+| Rolling captions | Independent `main`; original `2aca5ec` + `a4ad4df` | `016-rolling-captions` / Pending | Strengthen deliberate-repetition preservation before review | Initial red/green passed; unsafe duplicate assumptions require repair |
+| Dotenv configuration | Independent `main`; adapted `7e27977` | `017-dotenv-config` / Pending | Complete package checks and precommit review | Red/green regression reproduced; full checks in progress |
+
+## Sprint 2: Prove the reader helps with a real question
+
+- [ ] Use the existing owner question about visceral fat and muscle preservation unless the
+  owner selects another live question; prepare the workflow before asking for review.
+- [ ] Show answer → claim → study or video → passage, with population, measured outcomes,
+  qualifications, missing evidence and shared-study identity visible where known.
+- [ ] Connect topic classification or reviewed relationships only where observed retrieval
+  failure justifies it; resolve relation direction before using qualification links in synthesis.
+- [ ] Have the owner inspect one concrete answer and evidence trail, recording what helped and
+  what required checking. Do not require the owner to adjudicate the full corpus.
+- [ ] Verify later retrieval and a small application or recall task; distinguish reading from
+  understanding and successful use.
+- [ ] Compare with ordinary source files/direct-agent assistance on the same question and budget.
+- [ ] Record usefulness, correction/reconstruction effort and remaining failure cases. Technical
+  tests and model approval alone do not demonstrate owner benefit.
+
+## Sprint 3: Prove continuity on one real project
+
+- [ ] Prepare the existing continuity workflow with synthetic inputs and current public commands.
+- [ ] Confirm one bounded real project and permitted inputs; keep PEPYS read-only and authoritative.
+- [ ] Produce a brief preserving settled decisions, corrections, ownership, freshness and gaps,
+  with one feasible next action and no more than three default attention items.
+- [ ] Demonstrate fresh-session recovery and one change without reconstructing the original story.
+- [ ] Compare against original notes; retain the simpler route if structured continuity adds effort.
+- [ ] Record owner feedback on reduced mental juggling and preserved practical outcomes.
+
+## Sprint 4: Automate the useful workflow
+
+- [ ] Select the workflow demonstrated useful in Sprints 2–3 and verify source/data boundaries.
+- [ ] Choose dependable execution and a briefing surface without assuming local WSL is always on.
+- [ ] Verify bounded retries/cost, durable checkpoints, freshness, duplicate suppression,
+  cancellation and restart/failure recovery.
+- [ ] Run a short pilot, proposed duration 14 days, with a brief less/same/more effort check.
+- [ ] Continue or expand only when observed usefulness justifies access and maintenance cost.
+
+## Owner decisions and review
+
+| Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
+| --- | --- | --- | --- |
+| Merge approval | After a concrete PR passes checks and reviews, including GitHub bots | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No; engineering preparation can proceed |
+| Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
+| Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
+| New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
+
+## Work notes
+
+### 2026-10-16 — Baseline and start
+
+- Active checkout: `/home/cmf/code/AIDHA`, branch `fix/youtube-llm-remediation`, HEAD `39bea2d`.
+- Cached `origin/main` is `eff2087`; directional count is 0 commits unique to that ref and 69
+  unique to HEAD. Cached source remote branch is `84647a8`; HEAD is nine commits ahead.
+- Committed difference from cached main: 373 files, 41,246 insertions and 650 deletions.
+- Initial working tree: 69 modified/untracked status entries, mostly supporting documentation.
+  `git status` directory entries can contain several files; this is not a literal file count.
+- GitHub exact-head lookup returned no PR. Remote refs still require refresh before extraction.
+- Fresh `pnpm docs:build` passed before workflow creation; this does not certify this new file.
+- Three read-only audits delegated: commit dependencies, graph-search independence and supporting
+  documentation/publication scope. Their conclusions must be checked against the extracted diff.
+- User explicitly requested inspection of GitHub review-bot comments before merging; added above.
+- No merge, reset, force-push or source-checkout branch change is authorised by this workflow.
+  An explicit later merge approval supersedes the merge restriction for its named scope.
+
+### 2026-10-16 — Recovery and extraction bases
+
+- Local recovery directory: `/tmp/aidha-landing-20261016/`. It contains `tracked.patch`,
+  `status.txt`, `commits.txt`, copies of 70 edited/untracked files including this workflow, and
+  a SHA-256 manifest. Initial manifest hash:
+  `3a710cd8b667bdab9d46e4d40af61c658f8d312b0313c626bd7f4145cca32076`.
+  These hashes describe the immutable initial snapshot, not subsequent workflow edits.
+  This is local recovery material, not a published attachment or replacement for Git history.
+- SSH fetch failed with public-key authentication. Native GitHub CLI credential-helper HTTPS
+  fetch succeeded without changing remote configuration or copying credentials. Refreshed
+  `origin/main` remains `eff2087`; extraction does not depend on stale cached refs.
+- Isolated worktrees: `/tmp/aidha-015-graph-search-startup`,
+  `/tmp/aidha-016-rolling-captions`, `/tmp/aidha-017-dotenv-config`, and
+  `/tmp/aidha-018-landing-workflow`. Each starts from refreshed main and has its matching
+  numbered branch. The source checkout stays on its original branch.
+- Independent audit confirmed `fee8b23` has no code prerequisite: its three original files
+  match main before the patch. First extraction strengthens FTS-unavailable test handling.
+- Two additional independent candidates are in preparation: rolling VTT/JSON3 captions
+  (`2aca5ec`, `a4ad4df`) and dotenv config propagation (`7e27977`). Each needs fresh tests and
+  a separate review. Whole-commit extraction of `b628643` is rejected because it combines
+  continuity, qualified evidence, source briefs, CLI and fixtures.
+- Publication holds: retain the two full-source evaluation texts locally pending publication
+  scope confirmation; generalise owner-specific context before publishing `PRODUCT.md`.
+  These holds do not block the independent PRs.
+- Scoped DocOps for this workflow passes. Full documentation verification follows updates.
+
+### 2026-10-16 — First slice checks and workflow review
+
+- Graph slice: new regressions fail against main (two expected failures), then all 156 graph
+  tests pass with the fix; package lint and build pass. Package-scoped DocOps and strict docs
+  build pass. Dynamic SQLite import and FTS availability checks retain existing optional-backend
+  behaviour. Fresh deep CodeRabbit review completes with zero findings across all three files.
+- Workflow peer review confirms authority and bot gates; clarified internal restart references,
+  canonical document IDs and publication status. Added Planning navigation in its isolated PR.
+- Recovery snapshot also persists in ignored `reports/branch-landing-20261016/recovery/` under
+  the source checkout, so temporary worktrees are not its only copy. Never publish this directory.
+
+### 2026-10-16 — Baseline inventory and first PR
+
+- [Baseline inventory](../55-testing/branch-landing-20261016/inventory.json) assigns every original
+  uncommitted file to a feature or publication hold and enumerates all 69 commits in six dependency
+  groups (18 foundation/activation, 16 acquisition/quality, 26 distillation, one mixed core, two
+  reader bootstrap/CI, six later comparisons/propositions/papers/library). Assignment is not
+  readiness; thematic extraction from mixed commits remains unchecked.
+- PR 27 is open with exactly three intended files. CI and review-bot inspection are pending.
+  CodeRabbit's GitHub status is green but its comment says automatic review was skipped; the
+  independent CLI review did complete. Qodo reports inactive subscription. Do not activate billing
+  or treat either status as completed bot review. Other running analyzers are still being checked.
+- Caption precommit inspection found unsafe deletion of deliberate within-cue repetition. Added
+  preservation requirements before publication; retaining ambiguous source speech takes priority
+  over text cleanup. This is engineering work, not a request for owner adjudication.
+
+### 2026-10-16 — Bot follow-up and publication checks
+
+- DeepSource flagged an unused constructed store in PR 27's regression. The follow-up now
+  asserts search on that instance; all five FTS tests and a completed independent CodeRabbit
+  verification pass. Follow-up `1db19c4` is pushed; final-head CI and bot results remain pending.
+- Secret-detection hooks correctly challenged high-entropy strings in the public inventory.
+  Inspection confirmed they were SHA-256 file checksums. Keep those in the private recovery
+  manifest; the published inventory now includes only paths, dispositions and commit metadata.
+  No detector rule or baseline has been weakened.
