@@ -901,6 +901,7 @@ describe('aidha cli phase-1 surface', () => {
         tagId: 'tag-1',
         confidence: 0.7,
         source: 'automatic',
+        taxonomyVersion: '9b34bdd251fd2e50', // pragma: allowlist secret -- synthetic taxonomy fixture fingerprint
         assignedAt: '2026-05-25T12:34:56.000Z',
         assignedBy: 'praecis-keyword-classifier',
       }]);
