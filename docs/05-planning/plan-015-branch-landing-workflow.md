@@ -670,3 +670,16 @@ Email slice completion record:
 - A read-only remaining-work audit recommends the deterministic distillation contracts next,
   ahead of broader activation/continuity changes. Owner review of a real reader result and
   private continuity inputs remain later gates, not blockers on these engineering slices.
+
+### 2026-10-16 — PR 33 reporting-bot follow-up
+
+- Qodo reports an inactive subscription and CodeRabbit's GitHub bot reports skipped automatic
+  review. Ignore both skips; do not activate billing. Macroscope also skips.
+- DeepSource reports three minor findings. Applied its function-expression and template-literal
+  style suggestions without changing the synthetic regression inputs or parser behavior.
+- Its third finding treats the `.mjs` child fixture as a non-module and rejects `import`.
+  Native `node --check` accepts it; the focused tests execute that same module successfully.
+  This is an analyzer source-type false positive. No analyzer configuration or detector is weakened.
+  Disclose any remaining red advisory JavaScript status rather than claiming all checks pass.
+- Required final-head CI and inspection of further genuine bot reports remain gates before
+  owner merge review. The PR remains open and has no merge approval.
