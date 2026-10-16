@@ -1,0 +1,11 @@
+document_id: AIDHA-TESTING-055
+owner: Engineering
+status: Draft
+version: '0.1'
+last_updated: '2026-10-16'
+title: Branch Landing Baseline Inventory
+type: TESTING
+docops_version: '2.0'
+area: CORE
+description: Frozen paths, dispositions and commit metadata for the initial branch inventory; creation and work history are recorded in AIDHA-PLAN-015.
+related_ids: [AIDHA-PLAN-015]
