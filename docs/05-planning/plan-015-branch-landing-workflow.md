@@ -48,6 +48,27 @@ those reports and resolve confirmed issues before merging. Actual build/test/doc
 and completed local, peer or explicitly requested CLI reviews remain separate evidence. A completed
 CodeRabbit CLI review is distinct from a skipped CodeRabbit GitHub bot review.
 
+## Owner merge brief for the first batch
+
+Recommendation: approve PR 28 (workflow), PR 27 (graph), PR 30 (dotenv) and PR 29 (VTT).
+They are independent of the large unfinished reader/core changes. Approval can name all four or
+individual PRs; no merge is inferred from preparation or publication. The source branch remains
+preserved. The full landing sprint is still open.
+
+| PR | Reviewed code / documentation revision | Evidence and review limit | Merge risk |
+| --- | --- | --- | --- |
+| [28 — workflow](https://github.com/GitCmurf/AIDHA/pull/28) | `fa8bec6` plus subsequent progress notes | CI passes at recorded revision; sidecar schema and peer review pass. Recheck CI for any later notes | Docs and navigation only |
+| [27 — graph](https://github.com/GitCmurf/AIDHA/pull/27) | `1db19c4` | 156 graph tests, focused follow-up, completed CodeRabbit review/verification; required CI passes | Startup count fix; missing-row check, not full index audit |
+| [30 — dotenv](https://github.com/GitCmurf/AIDHA/pull/30) | `7535527` | 29 CLI / 37 loader tests, review/verification and required CI pass. Four static fixture false positives are documented | Three-line resolver forwarding change; no credentials or account changes |
+| [29 — VTT](https://github.com/GitCmurf/AIDHA/pull/29) | `6017610` | 47 final focused tests, prior 1061-test package run, completed reviews and final required full CI pass | Safe cue cleanup; full HTML decoding and ambiguous deduplication stay separate |
+
+Read-only branch-protection inspection confirms required checks are `build`, `verify` and
+`gitleaks`, with strict up-to-date enforcement. After each approved merge, refresh every remaining
+PR against the new main, regenerate affected docs indices, verify unchanged intended scope and
+rerun required CI before the next merge. Do not bypass checks or change repository settings.
+DeepSource's four assessed fixture warnings on PR 30 are advisory rather than required checks;
+the red JavaScript status must remain disclosed unless its reporting service is corrected.
+
 ## Restart procedure
 
 1. Read this file and `AGENTS.md`, including the [Slice ledger](#slice-ledger) and
@@ -117,9 +138,9 @@ Do not introduce links to pages absent from a PR base.
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
-| Workflow and uncommitted documentation | Independent workflow; remaining docs assigned by feature | `018-landing-workflow` / [PR 28](https://github.com/GitCmurf/AIDHA/pull/28) | Initial CI passes; metadata sidecar follow-up in preparation | Peer review, inventory validation, strict docs/DocOps pass |
-| VTT cue cleanup; rolling deduplication held | Independent `main`; bounded portion of `2aca5ec` + `a4ad4df` | `016-rolling-captions` / [PR 29](https://github.com/GitCmurf/AIDHA/pull/29) | Fix genuine reported escaped-text and short-timestamp defects before final verification | 42 focused / 1061 full tests pass on first revision; later findings reproduced separately |
-| Dotenv configuration | Independent `main`; adapted `7e27977` | `017-dotenv-config` / [PR 30](https://github.com/GitCmurf/AIDHA/pull/30) | Pushed at `7535527`; final CI/report inspection pending | 29 CLI + 37 loader tests, lint/build/docs/DocOps and completed reviews; findings assessed |
+| Workflow and uncommitted documentation | Independent workflow; remaining docs assigned by feature | `018-landing-workflow` / [PR 28](https://github.com/GitCmurf/AIDHA/pull/28) | Sidecar fix pushed at `fa8bec6`; real CI passes; owner merge approval pending | Peer review, inventory validation, strict docs/DocOps pass |
+| VTT cue cleanup; rolling deduplication held | Independent `main`; bounded portion of `2aca5ec` + `a4ad4df` | `016-rolling-captions` / [PR 29](https://github.com/GitCmurf/AIDHA/pull/29) | Follow-up `6017610` passes required CI; owner merge approval pending | 47 final parser tests, lint/build/docs/DocOps pass; initial full suite 1061 passed / 7 skipped; reviews assessed |
+| Dotenv configuration | Independent `main`; adapted `7e27977` | `017-dotenv-config` / [PR 30](https://github.com/GitCmurf/AIDHA/pull/30) | Pushed at `7535527`; real CI passes; four fixture false positives documented | 29 CLI + 37 loader tests, lint/build/docs/DocOps and completed reviews; findings assessed |
 
 ## First batch completion checklist
 
@@ -129,8 +150,10 @@ Do not introduce links to pages absent from a PR base.
 - [x] Complete precommit local/peer/CLI review and publish PRs 27–30, including workflow PR 28.
 - [x] Reproduce the real regressions before fixing them and run each slice's targeted checks.
 - [x] Assess initial genuine bot reports and ignore CodeRabbit/Qodo skipped reviews.
-- [ ] Complete genuine reporting-bot follow-up fixes and final-head checks for every PR.
-- [ ] Record final PR heads, actual CI links, remaining findings and a concise owner merge brief.
+- [x] Complete required genuine reporting-bot follow-up fixes; record intentional/deferred limits.
+- [x] Confirm code PR final-head CI and workflow CI at the recorded revisions below.
+- [ ] After owner approval, refresh bases and recheck every latest head immediately before merge.
+- [x] Record reviewed PR heads, actual CI links, remaining findings and an owner merge brief.
 - [ ] Obtain explicit owner approval for the named PRs before merging.
 - [ ] Merge only the approved scope, refresh bases and revalidate downstream slices.
 
@@ -138,6 +161,25 @@ Original branch commits are provenance, not a requirement to preserve unsafe beh
 original caption deduplication is held and must not re-enter through a later wholesale copy of
 source-branch files. Track improved tests and repaired behaviour as deliberate supersession when
 reconciling extracted commits after merges.
+
+## Next batch extraction map
+
+All entries below remain unimplemented as extracted PRs. Use final reviewed hunks/files from the
+source branch, not wholesale chronological cherry-picks. This map is planning evidence, not
+completion evidence.
+
+| Order | Cohesive slice / provenance | Dependencies and required work | Verification |
+| --- | --- | --- | --- |
+| 1 | Private public-artifact guard; final `fdfa77c` plus safe template from `a0a8363` | Independent runtime slice. Include checker, hook, package script, final runbook/template and regenerated catalog. Replace links to unlanded plans. Never publish the intermediate template's instruction to commit private packets | Checker self-test, public-path guard, secret scan, docs/DocOps; inspect content as well as paths |
+| 2 | Taxonomy-version provenance; selected `f6a3549` hunks plus `000c66e` | Independent six-path slice: assignment schema/tests, classifier service, taxonomy metadata schema hunk, YouTube and email assertions. Do not include the graph routing hunk or activation task writes | Phyla/core/graph/YouTube/email tests; classifier provenance/determinism; lint/build/docs |
+| 3 | PLAN-008/TASK-010 planning baseline; `75f4c8d`, `0de6ed3`, `77f6ce3` | Eight-path historical union needs consolidation and current PEPYS wording; regenerate catalog/nav. Meminit config edits from `f6156c0` are separable; its catalog addition is undone by `d838900` | Scoped DocOps, docs validation/render, links and accurate acceptance claims |
+| 4 | Generic activation; `f6a3549` plus selected acceptance expansions | Dependency root. Separate read-only query/review/re-entry first. Reconcile Task creation with PEPYS before writes. `de1cb5d`, `b5d7f02`, `921ecf1` invoke task creation and cannot certify a read-only subset unchanged | Focused graph/core/CLI contracts and a public launcher scenario appropriate to the extracted scope |
+| 5 | Trace / JSON-LD CLI / source task sharing | Trace `70db052` depends on activation. JSON-LD `2775413` + `d7efe0d` needs activation/store helper and acceptance, independently of trace. YouTube sharing `15cd2b8` waits for the task-write boundary | Graph/core/CLI/acceptance or source tests per slice; lint/build/docs |
+| 6 | Readiness and pilot evidence; `a0a8363`, `0b62106`, `20c1971` | Consolidate after finished behaviour; use only the final safe template. Historical ledger closure does not complete the present pilot | Truthful evidence, protected private outputs and public-artifact checks |
+
+The guard checks tracked path names and cannot certify content privacy. The existing strategy
+already settles PEPYS authority; do not ask the owner to settle it again. Mixed core `b628643` and
+reader `39733e0` remain later thematic extraction work after these foundations are understood.
 
 ## Sprint 2: Prove the reader helps with a real question
 
@@ -299,3 +341,64 @@ reconciling extracted commits after merges.
 - Rechecked the initial recovery manifest: every pre-existing edited/untracked file is unchanged.
   Only the newly created workflow differs from its first snapshot. Original checkout stays at
   `39bea2d`; extracted refinements live in their PR worktrees.
+
+### 2026-10-16 — Follow-up fixes published; final CI in progress
+
+- PR 28's sidecar fix `fa8bec6` passes actual CI; its genuine metadata thread is resolved.
+- PR 29 follow-up `6017610` fixes escaped literals, both timestamp forms and within-word timing
+  without introducing spaces. Four reported cases plus the word-boundary case fail before fixes;
+  all 47 final focused tests, package lint/build, docs and scoped DocOps pass. Parent review and
+  completed CodeRabbit verification are retained. The prior full suite passed 1061 tests with seven
+  skipped; final-head CI reruns the full suite. The original unsafe deduplication remains held.
+- Full HTML-reference decoding is an existing limitation, explicitly documented rather than
+  expanded into this extraction. The basic references still decode once; unsupported numeric
+  references remain visible source text. A later update should use an established decoder and
+  source-fidelity tests, rather than grow another hand-written HTML parser.
+- PR 30 `7535527` passes actual CI. Four DeepSource static findings are assessed as intentional
+  fixture usage: three literal YAML placeholders and a required second `undefined` argument in
+  Vitest's stubEnv signature. Reasons are in the PR body; the threads are resolved. The static
+  JavaScript status remains red, so do not describe every external status as green. No runtime
+  finding remains from those four reports, and no analyzer configuration was weakened.
+- No owner decision is needed for these engineering corrections. The remaining owner gate is
+  approval to merge the named, verified PRs. The wider 69-commit branch is not yet landed.
+
+### 2026-10-16 — First batch reaches owner review
+
+- Required Actions pass for graph `1db19c4`, dotenv `7535527`, VTT `6017610`, and workflow
+  `fa8bec6`. The final workflow progress notes are a later docs-only update: refresh their CI
+  before merging rather than treating an earlier head as its certification.
+- All required genuine source-fidelity and governance corrections are pushed. The VTT declaration
+  warnings are superseded by module-local helpers; Greptile's two source-text findings are fixed.
+  The four intentional dotenv fixture reports are documented, assessed and resolved as threads.
+- Next batch: prioritise the public-artifact guard with the corrected private-pilot template;
+  never land the older template that directs private results into published docs. Then prepare
+  cohesive activation/re-entry, trace and export slices in dependency order. Reconcile existing
+  graph Task creation with the already-settled PEPYS commitment authority before exposing writes.
+  This is engineering reconciliation, not another request to decide which system owns tasks.
+
+Recorded Actions evidence:
+
+- Graph:
+  [Docs Check](https://github.com/GitCmurf/AIDHA/actions/runs/38895084194),
+  [Secret Scan](https://github.com/GitCmurf/AIDHA/actions/runs/38895084399),
+  [TypeScript Packages](https://github.com/GitCmurf/AIDHA/actions/runs/38895084195).
+- Dotenv:
+  [Secret Scan](https://github.com/GitCmurf/AIDHA/actions/runs/38896419297),
+  [Docs Check](https://github.com/GitCmurf/AIDHA/actions/runs/38896419099),
+  [TypeScript Packages](https://github.com/GitCmurf/AIDHA/actions/runs/38896419139).
+- VTT:
+  [Secret Scan](https://github.com/GitCmurf/AIDHA/actions/runs/38897340485),
+  [Docs Check](https://github.com/GitCmurf/AIDHA/actions/runs/38897340402),
+  [TypeScript Packages](https://github.com/GitCmurf/AIDHA/actions/runs/38897340333).
+- Workflow:
+  [Secret Scan](https://github.com/GitCmurf/AIDHA/actions/runs/38896824751),
+  [Docs Check](https://github.com/GitCmurf/AIDHA/actions/runs/38896824679),
+  [TypeScript Packages](https://github.com/GitCmurf/AIDHA/actions/runs/38896824801).
+
+### 2026-10-16 — Next batch mapped without altering source work
+
+- A read-only audit refined all 18 foundation commits into the executable map above. The first
+  two independent candidates are the safe public-artifact guard and a six-path taxonomy-version
+  slice. Activation task writes are deliberately excluded until their PEPYS boundary is reconciled.
+- This final workflow update records progress and future merge-time checks. The owner merge brief
+  is near the top for review; detailed evidence and unfinished work remain below it.
