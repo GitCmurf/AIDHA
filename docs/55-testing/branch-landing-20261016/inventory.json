@@ -1,0 +1,401 @@
+{
+  "baseline_head": "39bea2d",
+  "verified_main": "eff2087",
+  "status": "Inventory only; assignment does not establish readiness or approval",
+  "commit_groups": [
+    {
+      "slice": "Foundation/activation",
+      "start": "origin/main",
+      "end": "fdfa77c",
+      "commits": [
+        "f6156c0f9ba7c21301b4000e0c7ed610d323cd22 fix: Meminit commit blockers",
+        "d838900995c3e90e7a24787741697bb0bb76f952 fix(youtube): update llm remediation handling and tests (RevRem)",
+        "75f4c8dce26b6edfef2af9950e948f048a73bf31 docs: update evaluation matrix, validation scripts, and prototype planning",
+        "0de6ed3165af40bf6707081be1aee359d4153a3b docs: Opus review of plans",
+        "77f6ce3ce50b35955b97d2977bce618ac7af3e6a docs: Opus+Codex review of plans",
+        "f6a3549c0542ff7d7a49fcd5cdc80dd305dcd23f feat(activation): add generic activation loop",
+        "de1cb5d5f34731a2ba6199b7364f2818ccba37ad test(activation): run viable prototype through ingest",
+        "70db052b26e8b7250aec4bf77291067d495b0de6 feat(traces): add rationale trace review commands",
+        "b5d7f024bc15833ee2fc594d99053fea038f315c test(activation): add offline activation integration gate",
+        "921ecf180a3ee4f78feb94d3c217f1937070aff9 test(activation): validate viable prototype demo packet",
+        "15cd2b84c43d50fdf7bfb6d649181b13a2c50770 refactor(youtube): share claim task activation",
+        "a0a83633ec28f94b75e4e8ec6eda66b789732c6c docs(pilot): add viable prototype evidence template",
+        "2775413d836dc59e42db9f42640a8b63f6f08787 feat(cli): export graph as jsonld",
+        "d7efe0d0042d96b04e7ab22804cb8fe4194a4f29 test(activation): include jsonld in viable packet",
+        "0b6210681c9fbc1dced5e835440ae15eab66c5ee docs(activation): reconcile pilot readiness docs",
+        "20c19718e7a3db6e0ba2b4d6e67bb123a7bdec33 docs(planning): close pilot readiness ledger",
+        "000c66ec1607d388bfbc118e34f4ba778459fdb8 test(email): expect taxonomy version assignments",
+        "fdfa77cc70c597de6dda572a912ee2d3e1e9c3f0 chore(security): guard private pilot artifacts"
+      ]
+    },
+    {
+      "slice": "YouTube acquisition/quality",
+      "start": "fdfa77c",
+      "end": "efbc32b",
+      "commits": [
+        "7e27977bc618047aa26a3022489a3d006449ec55 fix(cli): pass dotenv env into config resolution",
+        "85da4518386887cb6c062d25b7ae12196a258228 fix(youtube): surface transcript acquisition failures",
+        "2aca5ec5b2510acc5299cf425bdaf632e18d380c fix(youtube): normalize rolling VTT captions",
+        "a4ad4df8bea1ea9e59989e0853a2e7f32e5f6c50 fix(youtube): normalize JSON3 rolling captions",
+        "2806fe493189c990a3fc584e964cd4500f9d2711 fix(youtube): retain network failure context",
+        "bacc714a11f7e18397155533ed2760d10442909e fix(extraction): improve claim-card quality",
+        "7b06cddb2996456f03b5e868c7eb19f4acf7b418 feat(youtube): cache transcripts and add source synopsis",
+        "36090141aadd187c7bc2bcd18bddc535a2a5a99b fix(youtube): allow cached transcripts without metadata",
+        "54782c44e1d44270f013a1ef261b8ba9d36f2988 fix(extraction): invalidate generic hierarchy cache",
+        "c2747523abae32a78a9966d5c07cac6c73361a92 fix(cli): rewrite youtube synopsis takeaways",
+        "6721144b7c9ae553fc7dece6c80e2ff106231b60 feat(extraction): add source synopsis quality gates",
+        "c799b99db07e7935238deed31166de784acfaf5c fix(eval): cap gpt model ladder requests",
+        "88b1337afa81c116a67ade6e63f6e097f3adf994 chore(cli): add repo-local aidha helper",
+        "60b82b929a1ce63fac5a777faa859d0c4d1b7518 test(cli): cover repo-local aidha helper",
+        "8dc0bf6a1125800041b05a03733c96b99f5fc7db feat(extraction): add claim quality confidence gates",
+        "efbc32b2220ff1da266cdf92a2c27a1ff300292d fix(extraction): separate rejected claim diagnostics"
+      ]
+    },
+    {
+      "slice": "Source distillation",
+      "start": "efbc32b",
+      "end": "84647a8",
+      "commits": [
+        "2e1facbff1603f998875bf6b1d62f5809bc76166 docs(planning): add plan-010 source-level claim distillation",
+        "d48a8debe517fb1bc91f38033ec79b72b529b199 docs(planning): add task-012 distillation implementation plan",
+        "2d5320531df411ccf258108f2587e601a9a54cae feat(distill): add source distillation schema and parser",
+        "880e91c81d0b631d68edf6113a3de7668e58e257 feat(distill): add deterministic quote verification",
+        "a21026d1e73d5e6a40306dc5443539fd503febca fix(distill): harden parser and quote verification per review",
+        "85faa5bf3b63334482a598e4801965062266f5b7 feat(distill): add coverage diagnostics",
+        "64f1e528267ec4a24fee68709b0b114d8a5a69c0 feat(distill): add deterministic graph projection policy",
+        "907f15f31af5fad8f2257d4407c73ec9a5f6be5e fix(distill): sort and merge timecoded runs in coverage gap computation",
+        "d457f160367b8423c934918d36d128a9f5c285ea feat(distill): add grounding verdict parsing and application",
+        "30c41bdac194568f7524e8122cc28b69f8efc185 feat(distill): add consolidation relation parsing and application",
+        "fc404b4c0efda81ec4e31518a6c0e06f9bf88f03 fix(distill): order-independent consolidation merges and grounding verdict hardening",
+        "958c00a6c77e13a3bb6cb0d534acfcedddabf543 feat(distill): add distill/grounding/consolidation/section-notes prompts",
+        "d069ccc1b1265f2b8bfdf3afc86896c2bc1d27a4 feat(distill): map knowledge units to draft claims and distillation report",
+        "e1426aba6837402d4f07a0638637ca4e89180e22 fix(distill): sanitize section notes and cover repair prompt with tests",
+        "e5103ba79834f7ff6286d1b5a0fde4de6ce7beba feat(pipeline): extend MiningResult and RunReport with distillation fields",
+        "71f4696c96f9ca87a0f9ca308f0e1fbf3b8062b1 feat(distill): add SourceDistillationMiner with fail-closed policy",
+        "b74de0e09ed443d0058ecab2e8c7038476d70c34 fix(distill): type consolidation input as ConsolidatedUnit to restore build",
+        "43e17bd042809bb7b7ecdbc11b35c8d0cb1568bd fix(distill): harden miner failure paths, section-notes cap, and cost ceiling",
+        "38458a9739c131644860ac470adb9fc248330d91 feat(pipeline): wire SourceDistillationMiner as default extraction path",
+        "a7f7424d4c3743e874289ccc8fbdd3a64c8cffa1 test(youtube): pin legacy-extraction integration tests to chunk-mining path",
+        "ff2c96a0febc2d31442a6ad19b713db2cdfedfe8 test(cli): make deterministic mock LLM distillation-aware",
+        "fc1b0e3c4bf944c1fe036144b6ff7627f1fe0756 feat(cli): add extraction-intent and allow-partial flags with fail-closed warning",
+        "2039cb1ef8d55cc571c5e4c974c3ffeda11a8b28 fix(cli): align mock quote guard, consistent intent validation, robust prompt detection",
+        "0cbc991f63199be50c40df5cc105658333523d6a test(distill): add golden recall and behavior fixtures",
+        "0abae81253a8fd9d55466539fd2a43f0ade506a0 docs(distill): document distillation pipeline; add temporary comparison script",
+        "84647a863d80a662ef42a5988cfa663c23832437 fix(distill): skip caching fail-closed results; correct projection scope comment"
+      ]
+    },
+    {
+      "slice": "Mixed core needing thematic split",
+      "start": "84647a8",
+      "end": "b628643",
+      "commits": [
+        "b628643b2da85c3d2c3c3489e821d99049b64d8b feat(core): preserve qualified evidence and continuity"
+      ]
+    },
+    {
+      "slice": "Reader bootstrap/CI",
+      "start": "b628643",
+      "end": "00b63f3",
+      "commits": [
+        "39733e07a2a92c5a895f8ab5cf5ae9e5a36ab9ef feat(reader): add saved-source questions and claim navigation",
+        "00b63f322bb9aee52664563568ffd3063183a5eb test(ci): validate extraction and reader browser workflows"
+      ]
+    },
+    {
+      "slice": "Comparisons/propositions/papers/library",
+      "start": "00b63f3",
+      "end": "HEAD",
+      "commits": [
+        "4c84c1d8afaa13bd3215f58fb4df95b920320525 feat(reader): clarify and diversify cross-source claim comparisons",
+        "e6b728eb0458bd78c03a2af292fa760b7738c323 feat(graph): share qualified propositions across source assertions",
+        "abf960f8e53d50b868097f8e153aab2d80c58ca5 feat(reader): add evidence-bound claim comparisons",
+        "fee8b23e8f70fe84f43fc5da6ffd7929de846ae5 fix(graph): avoid rebuilding complete search indexes",
+        "6943d6a8ce07cf60bdedb7e6dec7ff27fa5f0016 feat(reader): answer questions with captured paper evidence",
+        "39bea2deab119191868c7d0309f3fc75a15eff14 feat(reader): surface saved questions and captured paper matches"
+      ]
+    }
+  ],
+  "uncommitted_files": [
+    {
+      "path": "PRODUCT.md",
+      "disposition": "Publication hold: generalise personal context"
+    },
+    {
+      "path": "docs/01-indices/catalog.json",
+      "disposition": "Regenerate per slice; do not copy aggregated output"
+    },
+    {
+      "path": "docs/01-indices/package-docs.json",
+      "disposition": "Regenerate per slice; do not copy aggregated output"
+    },
+    {
+      "path": "docs/02-strategy/strategy-002-vision.md",
+      "disposition": "Cross-cutting product strategy; reconcile alongside feature PRs"
+    },
+    {
+      "path": "docs/02-strategy/strategy-003-agent-assisted-personal-continuity.md",
+      "disposition": "Cross-cutting product strategy; reconcile alongside feature PRs"
+    },
+    {
+      "path": "docs/05-planning/plan-010-source-level-claim-distillation.md",
+      "disposition": "Extraction/distillation"
+    },
+    {
+      "path": "docs/05-planning/plan-011-personal-continuity-demonstration.md",
+      "disposition": "Continuity"
+    },
+    {
+      "path": "docs/05-planning/plan-012-playlist-reading-inbox.md",
+      "disposition": "Reader"
+    },
+    {
+      "path": "docs/05-planning/plan-013-assistance-quality.md",
+      "disposition": "Cross-cutting acceptance ledger; split evidence by feature"
+    },
+    {
+      "path": "docs/05-planning/plan-014-routine-briefings.md",
+      "disposition": "Continuity"
+    },
+    {
+      "path": "docs/05-planning/plan-015-branch-landing-workflow.md",
+      "disposition": "Workflow PR"
+    },
+    {
+      "path": "docs/20-adr/adr-010-continuity-case-events.md",
+      "disposition": "Continuity"
+    },
+    {
+      "path": "docs/20-adr/adr-011-routine-projections.md",
+      "disposition": "Continuity"
+    },
+    {
+      "path": "docs/20-adr/adr-012-prepared-briefing-checkpoints.md",
+      "disposition": "Continuity"
+    },
+    {
+      "path": "docs/50-runbooks/runbook-014-personal-continuity.md",
+      "disposition": "Continuity"
+    },
+    {
+      "path": "docs/50-runbooks/runbook-015-routine-briefings.md",
+      "disposition": "Continuity"
+    },
+    {
+      "path": "docs/55-testing/eval-matrix/sboNwYmH3AY-polished.md",
+      "disposition": "Publication hold: full-source evaluation text"
+    },
+    {
+      "path": "docs/55-testing/eval-matrix/sboNwYmH3AY-verbatim.md",
+      "disposition": "Publication hold: full-source evaluation text"
+    },
+    {
+      "path": "docs/55-testing/jev-grounding-20260921/evidence.json",
+      "disposition": "Separate advisory Jev experiment; no production adoption"
+    },
+    {
+      "path": "docs/55-testing/testing-007-jev-grounding-trial.md",
+      "disposition": "Separate advisory Jev experiment; no production adoption"
+    },
+    {
+      "path": "docs/55-testing/testing-008-saved-video-briefs.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-009-playlist-reading-inbox.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-010-extraction-stress.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-011-project-reentry.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-012-continuity-restoration.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-013-qualified-claims.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-014-goal-progress.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-015-goal-scope.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-016-saved-source-audit.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-017-source-corrections.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-018-source-checks.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-019-source-coverage-repair.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-020-strong-model-qualification.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-021-evidence-scope.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-022-proposition-origins.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-023-recovery-comparison.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-024-recovery-view.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-025-continuity-timing.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-026-continuity-forgetting.md",
+      "disposition": "Activation/continuity acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-027-reading-forgetting.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-028-extraction-ambiguity.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-029-limitation-preservation.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-030-long-source-reading.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-031-brief-fidelity-review.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-032-focused-point-review.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-033-attribution-identity.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-034-reading-review-guidance.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-035-review-repair-readiness.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-036-saved-passage-search.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-037-qualified-retrieval.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-038-saved-limitations.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-039-fresh-source-review.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-040-question-evidence.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-041-saved-questions.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-042-question-qualification-stress.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-043-multi-source-questions.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-044-question-source-discovery.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-045-real-source-comparison.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-046-evidence-identity-audit.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-047-reviewed-source-correction.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-048-source-coverage-review.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-049-planned-source-briefs.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-050-saved-source-context.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-051-viewing-evidence.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/55-testing/testing-052-outcome-measurement-fidelity.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-053-quotation-reselection.md",
+      "disposition": "Extraction/qualified evidence acceptance; reconcile with reader consumers"
+    },
+    {
+      "path": "docs/55-testing/testing-054-saved-answer-freshness.md",
+      "disposition": "Reader/questions/review/lifecycle acceptance evidence"
+    },
+    {
+      "path": "docs/60-devex/config-guide.md",
+      "disposition": "CLI/config documentation; split hunks by owning change"
+    },
+    {
+      "path": "docs/60-devex/ingest-quickstart.md",
+      "disposition": "CLI/config documentation; split hunks by owning change"
+    },
+    {
+      "path": "mkdocs.yml",
+      "disposition": "Regenerate per slice; do not copy aggregated output"
+    }
+  ],
+  "checksums": "SHA-256 checksums retained in the private recovery manifest; this public inventory contains no file content."
+}
