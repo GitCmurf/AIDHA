@@ -325,7 +325,11 @@ export class SQLiteStore implements GraphStore {
   private rebuildFtsIfNeeded(): void {
     if (!this.ftsEnabled) return;
     try {
-      const nodeCount = this.db.prepare('SELECT COUNT(*) as count FROM nodes').get() as { count: number };
+      // Only searchable node types belong in FTS. Counting other graph nodes
+      // would rebuild a complete index on every open, including reader requests.
+      const nodeCount = this.db.prepare(
+        "SELECT COUNT(*) as count FROM nodes WHERE type IN ('Claim', 'Excerpt', 'Resource')"
+      ).get() as { count: number };
       const ftsCount = this.db.prepare('SELECT COUNT(*) as count FROM nodes_fts').get() as { count: number };
       if (ftsCount.count >= nodeCount.count) return;
       this.db.exec('DELETE FROM nodes_fts');
