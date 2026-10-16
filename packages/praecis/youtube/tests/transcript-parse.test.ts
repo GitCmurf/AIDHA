@@ -214,6 +214,55 @@ describe('transcript parsing', () => {
     expect(segments[0]?.text).toBe('So, let us begin now');
   });
 
+  it.each([
+    ['<00:02.000>', 'minute-second'],
+    ['<100:00:02.000>', 'three-digit hour'],
+  ])('strips an inline %s VTT timestamp', (timestamp) => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 100:00:03.000',
+      `Begin ${timestamp}continue`,
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload)[0]?.text).toBe('Begin continue');
+  });
+
+  it('preserves a word split by an inline VTT timestamp', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.000',
+      'An inter<00:02.000>national example',
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload)[0]?.text).toBe('An international example');
+  });
+
+  it('preserves escaped angle brackets and escaped timestamps in VTT text', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.000',
+      'Use &lt;name&gt; here and say &lt;00:02.000&gt; literally',
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload)[0]?.text).toBe('Use <name> here and say <00:02.000> literally');
+  });
+
+  it('preserves escaped angle brackets in an explicitly attributed VTT cue', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.000',
+      '<v Alice>Use &lt;name&gt; here</v>',
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload)[0]).toEqual({
+      start: 1, duration: 2, speaker: 'Alice', text: 'Use <name> here',
+    });
+  });
+
   it('decodes VTT entities once while preserving literal encoded angle brackets', () => {
     const payload = ['WEBVTT', '', '00:00:01.000 --> 00:00:02.000', '&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;'].join('\n');
     expect(parseTranscriptVtt(payload)[0]?.text).toBe('&lt;b&gt;literal&lt;/b&gt;');

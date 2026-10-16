@@ -11,9 +11,8 @@ function normalizeTranscriptText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function stripInlineCueTimestamps(value: string): string {
-  return value.replace(/<\d{1,2}:\d{2}:\d{2}\.\d{3}>/g, ' ');
-}
+const stripInlineCueTimestamps = (value: string): string =>
+  value.replace(/<(?:\d{2,}:)?[0-5]\d:[0-5]\d\.\d{3}>/g, '');
 
 function stripMarkupTags(value: string): string {
   let result = '';
@@ -36,11 +35,10 @@ function stripMarkupTags(value: string): string {
   return result;
 }
 
-function cleanCueText(value: string): string {
-  return normalizeTranscriptText(
-    stripMarkupTags(stripInlineCueTimestamps(decodeXmlEntities(value))),
+const cleanCueText = (value: string): string =>
+  normalizeTranscriptText(
+    decodeXmlEntities(stripMarkupTags(stripInlineCueTimestamps(value))),
   );
-}
 
 function parseVttVoiceTag(text: string): Pick<TranscriptSegment, 'text' | 'speaker'> | null {
   const match = text.match(/^<v\s+([^>]+)>([\s\S]*?)(?:<\/v>)?$/u);
