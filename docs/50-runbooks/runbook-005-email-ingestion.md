@@ -101,7 +101,7 @@ No private email is needed for these checks.
 
 Acceptance coverage:
 
-- [Resource regression tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/sources/email/tests/parser-budget.test.ts)
-- [MIME compatibility control](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/sources/email/tests/mime-compatibility.test.ts)
+- [Resource regression tests](https://github.com/GitCmurf/AIDHA/blob/e7695795956a6111a30a1b958f9e5ef373c456aa/packages/praecis/sources/email/tests/parser-budget.test.ts)
+- [MIME compatibility control](https://github.com/GitCmurf/AIDHA/blob/e7695795956a6111a30a1b958f9e5ef373c456aa/packages/praecis/sources/email/tests/mime-compatibility.test.ts)
 - Published upstream reports: [address parser](https://github.com/advisories/GHSA-v53p-9fqp-m79j)
   and [mailto matcher](https://github.com/advisories/GHSA-v245-v573-v5vm)

@@ -227,12 +227,18 @@ or users. Raw evidence remains in the local managed security-artifact store. The
 ### Next functional slice after email maintenance
 
 Prioritize the deterministic source-distillation contract layer before activation or reader
-expansion. Extract selected final hunks from `2d53205`, `880e91c`, `a21026d`, `85faa5b` and
-`64f1e52`: the four core `extract/distill/` modules (`schema`, `quote-verification`, `coverage`,
-`projection`) and matching unit tests. Core already has Zod and Vitest. Prepare the supporting
-PLAN-010 specification with truthful acceptance status; do not copy private evaluation sources.
+expansion. The complete final contract closure has nine code paths: five core
+`extract/distill/` modules (`schema`, `json`, `quote-verification`, `coverage`, `projection`)
+and four matching test files; JSON helpers are covered indirectly by schema tests. Core already
+has Zod and Vitest. Prepare PLAN-010 with truthful acceptance status and synthetic sources only.
 
-- [ ] Verify the current base and exact eight-code-path extraction; isolate prerequisite docs.
+Initial provenance is `2d53205`, `880e91c`, `a21026d`, `85faa5b` and `64f1e52`. Final semantics
+also require the JSON helper hunks from `d457f16`/`fc404b4`, selected schema/quote trust checks
+and matching tests from mixed `b628643`, and the coverage ordering fix from `907f15f`.
+Never cherry-pick those mixed commits wholesale. The latest projection comment describes runtime
+snapshot wiring outside this slice; revise it to describe policy only before publication.
+
+- [ ] Verify the current base and exact nine-code-path extraction; isolate prerequisite docs.
 - [ ] Test schema/reference integrity, exact and normalized quote checks, unsupported evidence,
   coverage diagnostics without forced claim counts, and intent/kind/importance projection rules.
 - [ ] Run core tests, lint/build, docs/DocOps and independent review; publish a separate PR.
@@ -643,7 +649,7 @@ and read-only continuity pilots. No owner decision is currently blocking enginee
   Build/type-check, strict docs and scoped DocOps pass. Fresh independent candidate review finds
   no reportable issue and also checks base64-encoded mailto text through the public parser.
 - Completed deep CodeRabbit CLI review covers all eight files. Its one minor finding about
-  deletable branch links is fixed with main-branch test links and checked directly. The
+  deletable branch links is fixed with permanent-commit test links. The
   incremental follow-up reused cached results and provided no fresh review coverage.
 - Registry audit returns no advisories for the email parser chain; it still exits nonzero with
   twenty-one unrelated advisories in configuration/build-tool chains. This is not a clean-repo
@@ -668,7 +674,9 @@ Email slice completion record:
 - [ ] Present the owner merge brief and obtain separate approval for PR 33.
 - [ ] Merge after approval, refresh advisory evidence and record the result.
 - A read-only remaining-work audit recommends the deterministic distillation contracts next,
-  ahead of broader activation/continuity changes. Owner review of a real reader result and
+  ahead of broader activation/continuity changes. Its follow-up corrected the dependency closure
+  to include the JSON helper and later trust/coverage fixes, with runtime wiring held.
+  Owner review of a real reader result and
   private continuity inputs remain later gates, not blockers on these engineering slices.
 
 ### 2026-10-16 — PR 33 reporting-bot follow-up
@@ -683,3 +691,11 @@ Email slice completion record:
   Disclose any remaining red advisory JavaScript status rather than claiming all checks pass.
 - Required final-head CI and inspection of further genuine bot reports remain gates before
   owner merge review. The PR remains open and has no merge approval.
+
+### 2026-10-16 — PR 33 documentation link check
+
+- Required TypeScript verification passes at `e769579`; the separate docs job reports two failing
+  links. The review correction pointed at new test files on main before they were merged.
+  Pin those acceptance links to existing commit `e769579` instead, so they work before merge
+  and survive deletion of the feature branch. Run the actual external link check as well as
+  strict docs build before pushing this correction.
