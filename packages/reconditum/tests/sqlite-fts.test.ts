@@ -135,8 +135,10 @@ sqliteDescribe('SQLiteStore FTS', () => {
       const result = reopened.searchText('planets', ['Excerpt']);
       expect(result.ok && [...result.value]).toEqual(['excerpt-recover']);
       const before = db.prepare('SELECT total_changes() AS count').get();
-      new SQLiteStore(db);
+      const reopenedAgain = new SQLiteStore(db);
       expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(before);
+      const repeatedResult = reopenedAgain.searchText('planets', ['Excerpt']);
+      expect(repeatedResult.ok && [...repeatedResult.value]).toEqual(['excerpt-recover']);
     } finally {
       await original.close();
     }
