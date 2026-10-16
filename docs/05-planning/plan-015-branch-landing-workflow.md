@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.4'
+version: '0.5'
 last_updated: 2026-10-16
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.4
+> **Version:** 0.5
 > **Last Updated:** 2026-10-16
 > **Type:** PLAN
 
@@ -28,6 +28,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.2 | 2026-10-16 | Codex | Distinguish skipped bot reviews from actual reports; retain genuine findings, CI and completed peer/CLI review gates. | CMF | Draft | Owner clarification |
 | 0.3 | 2026-10-16 | Codex | Publish the first independent PR batch, record assessed review findings, and add inventory sidecar metadata. | — | Draft | PRs 27–30 |
 | 0.4 | 2026-10-16 | Codex | Record owner approval and land the first batch with unchanged reviewed patches and refreshed CI. | CMF | Draft | PRs 27–30 |
+| 0.5 | 2026-10-16 | Codex | Publish the next owner review brief, second-batch evidence and dependency maintenance priority. | — | Draft | PRs 31–32 |
 
 ## Purpose and authority
 
@@ -69,6 +70,22 @@ PR against the new main, regenerate affected docs indices, verify unchanged inte
 rerun required CI before the next merge. Do not bypass checks or change repository settings.
 DeepSource's four assessed fixture warnings on PR 30 are advisory rather than required checks;
 the red JavaScript status must remain disclosed unless its reporting service is corrected.
+
+## Owner review for the next batch
+
+The previous approval has been used for PRs 28, 27, 30 and 29. PRs 32 and 31 are new,
+independent slices. **Recommend approving PR 32, then PR 31**, once their latest required
+checks pass and genuine reporting-bot findings are assessed. No further product, spending or
+account decision is needed for these changes.
+
+| Review | What matters to the owner | Sensible options |
+| --- | --- | --- |
+| [PR 32: private-artifact guard](https://github.com/GitCmurf/AIDHA/pull/32) | Real pilot records stay outside public Git. Synthetic examples remain permitted. The guard checks path patterns; content still needs review | Approve the guard first; or hold with a specific path-policy objection |
+| [PR 31: taxonomy provenance](https://github.com/GitCmurf/AIDHA/pull/31) | Stored automatic assignments identify their matching vocabulary. The fingerprint does not promise classification quality or version the full algorithm | Approve alongside the guard; or approve only the guard and leave provenance open |
+
+Engineering will refresh each approved base, recheck patch scope and required CI, inspect actual
+new reports and merge only the specifically approved PRs. Keeping a PR open preserves its work.
+The remaining source branch is not yet completely landed.
 
 ## Restart procedure
 
@@ -137,8 +154,8 @@ Do not introduce links to pages absent from a PR base.
 | Slice | Base / dependencies | Branch / PR | Stage and next action | Evidence / findings |
 | --- | --- | --- | --- | --- |
 | Graph search startup optimisation | Verified `main` at `eff2087`; independent | `015-graph-search-startup` / [PR 27](https://github.com/GitCmurf/AIDHA/pull/27) | Merged as `e2459c5` after base refresh and final-head required CI | 156 tests, lint/build/docs/DocOps and completed deep CodeRabbit review pass |
-| Private public-artifact guard | Independent; integrated `main` at `475f615` | `019-private-artifact-guard` / PR preparation | Final precommit review follow-up complete; GitHub publication and CI pending | Forced-stage, newline, case, original-policy and fail-closed regressions; actual scan added to required test command |
-| Taxonomy-version provenance | Independent; integrated `main` at `475f615` | `020-taxonomy-provenance` / [PR 31](https://github.com/GitCmurf/AIDHA/pull/31) | Published; CLI persistence contract follow-up and reporting-bot correction under verification; final CI pending | Structured canonical fingerprint; exact Resource metadata after fresh SQLite reopen and email ingestion |
+| Private public-artifact guard | Independent; integrated `main` at `475f615` | `019-private-artifact-guard` / [PR 32](https://github.com/GitCmurf/AIDHA/pull/32) | Reviewed and published; separate owner merge approval pending; latest required CI remains a merge gate | Forced-stage, newline, case, original-policy and fail-closed regressions; actual scan added to required test command |
+| Taxonomy-version provenance | Independent; integrated `main` at `475f615` | `020-taxonomy-provenance` / [PR 31](https://github.com/GitCmurf/AIDHA/pull/31) | Reviewed at `4021473`; CLI contract and reporting-bot corrections verified; separate merge approval pending | Structured canonical fingerprint; exact Resource metadata after fresh SQLite reopen and email ingestion |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
@@ -242,7 +259,7 @@ The source/lockfile audit and raw evidence remain in the local verification dire
 
 | Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
 | --- | --- | --- | --- |
-| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No; engineering preparation can proceed |
+| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | Only merging new PRs 32/31; later engineering preparation can continue |
 | Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
 | Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
 | New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
@@ -492,3 +509,29 @@ Recorded Actions evidence:
 - The guard's earlier full isolated suite passed 1,796 tests with seven skips; it predates the
   final guard-only refinements and main synchronization. Final focused tests, lint/build,
   strict docs and scoped DocOps pass. Fresh GitHub CI remains required before merge approval.
+
+### 2026-10-16 — Second batch published for separate review
+
+- PR 32 publishes the guard and this workflow checkpoint. PR 31 at `202bf3a` includes the
+  generic CLI persisted-metadata assertion that initial CI exposed. The failure was reproduced
+  locally, then all 29 CLI tests passed with the exact expected version. DeepSource's actual
+  non-null assertion finding was fixed with an explicit missing-value error; all nine classifier
+  tests pass and the thread is resolved. Full 12-file CLI verification completed with zero findings.
+- Initial reporting-bot inspection finds no unresolved threads on either PR after those fixes.
+  Fresh final-head required CI remains a merge gate. Skipped CodeRabbit/Qodo reports are ignored.
+- The preserved source branch is 69 commits ahead and four behind `origin/main`; it is nine ahead
+  and zero behind its own remote branch. Squash merges mean these counts are provenance facts,
+  not estimates of remaining work. Original edits still need the full slice-ledger reconciliation.
+- Next actions: review/approve the two concrete PRs, then finish planning/activation/trace/export
+  extraction in dependency order. Prepare bounded dependency maintenance before real-source pilots,
+  prioritising email. Demonstrate the real reader question and read-only continuity usefulness
+  before expanding automation. Owner merge approval is the only owner gate for this second batch.
+
+- Code-head CI passed for guard `d496cb6` and taxonomy `202bf3a`. This v0.5 checkpoint is a
+  subsequent documentation update; its latest required checks must pass before any merge.
+
+- A subsequent actual DeepSource report flagged complexity six in the taxonomy test fixture
+  helper. `4021473` uses typed Node assertions in place of branching guards, preserving all
+  behavioral checks. All nine classifier tests and core lint pass; the final test-only hunk has
+  independent peer review. This follows the zero-finding 12-file CLI verification. Recheck its
+  fresh final-head CI and actual reporting-bot status before merge.
