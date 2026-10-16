@@ -158,7 +158,7 @@ Do not introduce links to pages absent from a PR base.
 | Graph search startup optimisation | Verified `main` at `eff2087`; independent | `015-graph-search-startup` / [PR 27](https://github.com/GitCmurf/AIDHA/pull/27) | Merged as `e2459c5` after base refresh and final-head required CI | 156 tests, lint/build/docs/DocOps and completed deep CodeRabbit review pass |
 | Private public-artifact guard | Independent; integrated `main` at `475f615` | `019-private-artifact-guard` / [PR 32](https://github.com/GitCmurf/AIDHA/pull/32) | Merged as `01ec0ed` after required CI and actual findings were addressed; final isolation fix peer-reviewed; supplemental CLI attempt gave no coverage | Forced-stage, newline, case, original-policy and fail-closed regressions; actual scan added to required test command |
 | Taxonomy-version provenance | Independent; integrated `main` at `475f615` | `020-taxonomy-provenance` / [PR 31](https://github.com/GitCmurf/AIDHA/pull/31) | Merged as `33f40cd`; approved patch and all eleven non-generated blobs unchanged; fresh exact-head CI and actual reporting-bot checks pass | Structured canonical fingerprint; exact Resource metadata after fresh SQLite reopen and email ingestion |
-| Email parser dependency maintenance | Verified `main` at `33f40cd`; independent | `021-email-parser-dependencies` / PR pending | Preparing regressions, compatible parent upgrade and review; merge approval pending | Synthetic malformed-address/mailto tests and ordinary MIME control; no real email |
+| Email parser dependency maintenance | Verified `main` at `33f40cd`; independent | `021-email-parser-dependencies` / [PR 33](https://github.com/GitCmurf/AIDHA/pull/33) | Published; final-head CI and actual bot assessment pending; separate merge approval required | Synthetic malformed-address/mailto tests and ordinary MIME control; no real email |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
@@ -214,7 +214,7 @@ snapshot, not an assessment that all alerts are reachable. There is no productio
 or users. Raw evidence remains in the local managed security-artifact store. The earlier
 32-alert snapshot at `475f615` is superseded.
 
-- [ ] Prepare a focused email dependency PR before a real-email pilot. The runtime `mailparser`
+- [x] Prepare a focused email dependency PR before a real-email pilot. The runtime `mailparser`
   chain invokes the affected address parser and text-link matcher. Prefer a compatible parent
   upgrade and test real parsing boundaries; do not force a major child override blindly.
 - [ ] Separately update the bounded configuration/YAML chains after checking the actual used APIs.
@@ -652,7 +652,21 @@ and read-only continuity pilots. No owner decision is currently blocking enginee
   twenty-nine; together with fourteen email tests, 182 affected-package tests pass locally.
 - Rechecked all 69 original baseline files against the immutable manifest: unchanged, with this
   newly created workflow excluded. No source-checkout staging or branch change occurred.
-- PR publication, final-head required CI and actual reporting-bot assessment remain pending.
+- Published [PR 33](https://github.com/GitCmurf/AIDHA/pull/33) at `c5eb2f7`, targeting `main`.
+  It has exactly the eight intended files. The follow-up is this documentation checkpoint.
+  Final-head required CI and actual reporting-bot assessment remain pending.
+
+Email slice completion record:
+
+- [x] Trace the boundary and independently investigate compatibility.
+- [x] Prove both regressions fail on the old dependency and pass on the scoped upgrade.
+- [x] Preserve ordinary MIME behavior and run 182 affected-package tests, lint and workspace build.
+- [x] Complete independent candidate and eight-file CodeRabbit reviews; fix the confirmed finding.
+- [x] Pass scoped DocOps, strict docs, hooks and original-file preservation checks.
+- [x] Commit, push and open PR 33 with the exact intended file list.
+- [ ] Verify latest-head required CI and assess actual reporting-bot findings.
+- [ ] Present the owner merge brief and obtain separate approval for PR 33.
+- [ ] Merge after approval, refresh advisory evidence and record the result.
 - A read-only remaining-work audit recommends the deterministic distillation contracts next,
   ahead of broader activation/continuity changes. Owner review of a real reader result and
   private continuity inputs remain later gates, not blockers on these engineering slices.
