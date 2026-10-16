@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-16
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-16
 > **Type:** PLAN
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-16 | Codex | Record the authorised extraction, review and PR workflow, subsequent outcome-focused sprints, owner gates and restart notes. | — | Draft | Owner request |
+| 0.2 | 2026-10-16 | Codex | Distinguish skipped bot reviews from actual reports; retain genuine findings, CI and completed peer/CLI review gates. | CMF | Draft | Owner clarification |
 
 ## Purpose and authority
 
@@ -38,8 +39,13 @@ and opening PRs. Existing CodeRabbit permission applies to this repository. Excl
 and private runtime material from external review and publication. Do not merge without explicit
 owner approval. Additional spending and new private-source destinations require specific authority.
 
-The owner confirms GitHub review bots run on PR updates. Their comments and review threads must
-be inspected and addressed before merging, alongside CI and local/external review evidence.
+The owner clarified that some repository review bots use older free-tier configurations and
+now skip under changed eligibility criteria. Ignore skipped reviews (including CodeRabbit and
+Qodo skips); do not wait for them, count a skipped-success status as approval, trigger paid work
+or reactivate subscriptions. **Consider bots that actually produce reports or findings.** Inspect
+those reports and resolve confirmed issues before merging. Actual build/test/docs/secret-scan CI
+and completed local, peer or explicitly requested CLI reviews remain separate evidence. A completed
+CodeRabbit CLI review is distinct from a skipped CodeRabbit GitHub bot review.
 
 ## Restart procedure
 
@@ -77,9 +83,11 @@ be inspected and addressed before merging, alongside CI and local/external revie
 - [ ] Verify exact staged file list, create a conventional commit and retain review identity.
 - [ ] Push the branch and open a PR with purpose, initiating specification, evidence and risks.
 - [ ] Verify the GitHub PR base, head, file list and CI results against the intended slice.
-- [ ] Wait for GitHub review bots; inspect reviews, issue comments and inline review threads.
-- [ ] Fix confirmed bot findings, explain rejected findings, rerun affected checks and push fixes.
-- [ ] Verify CI and review coverage of the latest head; record unresolved findings explicitly.
+- [ ] Inspect actual repository bot reports, comments and inline threads; ignore bots that skip
+  rather than treating skipped statuses as approval or waiting for unavailable reviews.
+- [ ] Fix confirmed findings from actual bot reports and local/peer/CLI reviews; document rejected
+  findings, rerun affected checks and push fixes. Do not activate paid reviews or subscriptions.
+- [ ] Verify actual CI and completed review coverage of the latest head; record limits explicitly.
 - [ ] Present a concise merge brief to the owner; obtain explicit approval before merging.
 - [ ] After an approved merge, refresh dependent bases, revalidate and update the ledger.
 
@@ -104,7 +112,7 @@ Do not introduce links to pages absent from a PR base.
 
 | Slice | Base / dependencies | Branch / PR | Stage and next action | Evidence / findings |
 | --- | --- | --- | --- | --- |
-| Graph search startup optimisation | Verified `main` at `eff2087`; independent | `015-graph-search-startup` / [PR 27](https://github.com/GitCmurf/AIDHA/pull/27) | Committed/pushed; CI and bot inspection in progress | 156 tests, lint/build/docs/DocOps and completed deep CodeRabbit review pass |
+| Graph search startup optimisation | Verified `main` at `eff2087`; independent | `015-graph-search-startup` / [PR 27](https://github.com/GitCmurf/AIDHA/pull/27) | Pushed; actual CI passes at `1db19c4`; owner merge approval pending | 156 tests, lint/build/docs/DocOps and completed deep CodeRabbit review pass |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
@@ -151,7 +159,7 @@ Do not introduce links to pages absent from a PR base.
 
 | Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
 | --- | --- | --- | --- |
-| Merge approval | After a concrete PR passes checks and reviews, including GitHub bots | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No; engineering preparation can proceed |
+| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No; engineering preparation can proceed |
 | Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
 | Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
 | New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
@@ -235,3 +243,15 @@ Do not introduce links to pages absent from a PR base.
   Inspection confirmed they were SHA-256 file checksums. Keep those in the private recovery
   manifest; the published inventory now includes only paths, dispositions and commit metadata.
   No detector rule or baseline has been weakened.
+
+### 2026-10-16 — Owner clarification distinguishes reports from skips
+
+- Some repository review bots use old free-tier configurations and changed eligibility rules.
+  The owner's final instruction is to consider actual bot reports, while ignoring skipped reviews
+  such as the CodeRabbit and Qodo responses. Do not wait for skipped reviews or change billing.
+- Keep completed CodeRabbit CLI/peer reviews and real CI as separate verification. PR 27's final
+  revision `1db19c4` passes TypeScript Packages, Docs Check and Secret Scan. DeepSource's genuine
+  finding was addressed and its final JavaScript result passes. Skipped bots supply no approval.
+  The PR is ready for owner merge review; no merge has occurred.
+- Future PRs need inspection of any genuine reporting-bot findings and final-head CI. This
+  clarification supersedes earlier work-note language about ignoring all repository bot results.
