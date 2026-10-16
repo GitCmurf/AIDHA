@@ -72,6 +72,11 @@ describe('transcript parsing', () => {
     expect(segments[0]?.text).toBe('This is important text');
   });
 
+  it('decodes XML entities once while preserving literal encoded angle brackets', () => {
+    const xml = '<transcript><text start="0" dur="1">&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;</text></transcript>';
+    expect(parseTranscriptXml(xml)[0]?.text).toBe('&lt;b&gt;literal&lt;/b&gt;');
+  });
+
   it('preserves prose labels in XML transcript text', () => {
     const xml = [
       '<transcript>',
@@ -114,6 +119,59 @@ describe('transcript parsing', () => {
     expect(segments[0]).toEqual({ start: 1.5, duration: 2, text: 'Warning: Hello world' });
   });
 
+  it('preserves encoded angle brackets in JSON3 text', () => {
+    const payload = JSON.stringify({
+      events: [{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: '&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;' }] }],
+    });
+    expect(parseTranscriptJson(payload)[0]?.text).toBe('&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;');
+  });
+
+  it('preserves overlapping JSON3 event text until rolling captions can be distinguished', () => {
+    const payload = JSON.stringify({
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 2000,
+          segs: [{ utf8: "And in today's video, I'm going to show you how you can" }],
+        },
+        {
+          tStartMs: 1000,
+          dDurationMs: 2000,
+          segs: [{ utf8: "video, I'm going to show you how you can set this up in 5 minutes." }],
+        },
+        {
+          tStartMs: 2000,
+          dDurationMs: 2000,
+          segs: [{ utf8: 'set this up in 5 minutes.' }],
+        },
+      ],
+    });
+
+    const segments = parseTranscriptJson(payload);
+    expect(segments.map(segment => segment.text)).toEqual([
+      "And in today's video, I'm going to show you how you can",
+      "video, I'm going to show you how you can set this up in 5 minutes.",
+      'set this up in 5 minutes.',
+    ]);
+  });
+
+  it('preserves a deliberate repeated phrase inside one JSON3 event', () => {
+    const payload = JSON.stringify({
+      events: [
+        {
+          tStartMs: 0,
+          dDurationMs: 1000,
+          segs: [{
+            utf8: 'Never give up never give up and you can see progress.',
+          }],
+        },
+      ],
+    });
+
+    const segments = parseTranscriptJson(payload);
+    expect(segments[0]?.text).toBe('Never give up never give up and you can see progress.');
+  });
+
   it('handles XSSI-prefixed JSON responses', () => {
     const payload = `)]}'\n${JSON.stringify({
       events: [
@@ -141,6 +199,108 @@ describe('transcript parsing', () => {
     expect(segments).toHaveLength(2);
     expect(segments[0]).toEqual({ start: 1, duration: 2.5, text: 'Hello world' });
     expect(segments[1]?.text).toBe('Second line');
+  });
+
+  it('strips inline YouTube cue timestamps from VTT text', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.500',
+      'So, let<00:00:01.200> us<00:00:01.400> begin <c>now</c>',
+    ].join('\n');
+
+    const segments = parseTranscriptVtt(payload);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.text).toBe('So, let us begin now');
+  });
+
+  it('decodes VTT entities once while preserving literal encoded angle brackets', () => {
+    const payload = ['WEBVTT', '', '00:00:01.000 --> 00:00:02.000', '&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;'].join('\n');
+    expect(parseTranscriptVtt(payload)[0]?.text).toBe('&lt;b&gt;literal&lt;/b&gt;');
+  });
+
+  it('preserves overlapping VTT cue text until rolling captions can be distinguished', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:03.000',
+      'let us do a quick breakdown',
+      '',
+      '00:00:02.000 --> 00:00:04.000',
+      'let us do a quick breakdown and then continue',
+      '',
+      '00:00:03.000 --> 00:00:05.000',
+      'and then continue with the setup',
+    ].join('\n');
+
+    const segments = parseTranscriptVtt(payload);
+    expect(segments.map(segment => segment.text)).toEqual([
+      'let us do a quick breakdown',
+      'let us do a quick breakdown and then continue',
+      'and then continue with the setup',
+    ]);
+  });
+
+  it('preserves a deliberate repeated phrase inside one VTT cue', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'Never give up never give up and keep going',
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload)[0]?.text).toBe('Never give up never give up and keep going');
+  });
+
+  it('preserves identical speech in consecutive non-overlapping VTT cues', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'Please listen carefully',
+      '',
+      '00:00:02.000 --> 00:00:03.000',
+      'Please listen carefully',
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload).map(segment => segment.text)).toEqual([
+      'Please listen carefully',
+      'Please listen carefully',
+    ]);
+  });
+
+  it('preserves repeated speech in separate VTT cues', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'Please listen carefully',
+      '',
+      '00:00:12.000 --> 00:00:13.000',
+      'Please listen carefully',
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload).map(segment => segment.text)).toEqual([
+      'Please listen carefully',
+      'Please listen carefully',
+    ]);
+  });
+
+  it('preserves an adjacent repeated phrase when the VTT speaker changes', () => {
+    const payload = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      '<v Alice>Please listen carefully</v>',
+      '',
+      '00:00:02.000 --> 00:00:03.000',
+      '<v Bob>Please listen carefully</v>',
+    ].join('\n');
+
+    expect(parseTranscriptVtt(payload).map(segment => [segment.speaker, segment.text])).toEqual([
+      ['Alice', 'Please listen carefully'],
+      ['Bob', 'Please listen carefully'],
+    ]);
   });
 
   it('extracts WebVTT voice tags as speakers', () => {
@@ -192,6 +352,11 @@ describe('transcript parsing', () => {
 
     const segments = parseTranscriptTtml(payload);
     expect(segments[0]).toEqual({ start: 1, duration: 1.5, text: 'URL: Hello world' });
+  });
+
+  it('decodes TTML entities once while preserving literal encoded angle brackets', () => {
+    const payload = '<tt><body><p begin="0s" dur="1s">&amp;lt;b&amp;gt;literal&amp;lt;/b&amp;gt;</p></body></tt>';
+    expect(parseTranscriptTtml(payload)[0]?.text).toBe('&lt;b&gt;literal&lt;/b&gt;');
   });
 
   it.each([
