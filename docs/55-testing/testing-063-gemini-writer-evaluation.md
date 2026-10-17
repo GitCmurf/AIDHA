@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-063
 owner: Engineering
 status: Draft
-version: '0.3'
+version: '0.4'
 last_updated: 2026-10-17
 title: Native Gemini Writer Evaluation Route
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 > **Document ID:** AIDHA-TESTING-063
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.4
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -27,6 +27,7 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 | 0.1 | 2026-10-17 | Codex | Add a bounded native AGY writer route over frozen public sources, with raw failed-call capture and host validation. | — | Draft | TESTING-059 |
 | 0.2 | 2026-10-17 | Codex | Record the seven-call public trial, provisional completeness review and pre-grounding quote-length rejection. | — | Draft | Frozen public writer trial |
 | 0.3 | 2026-10-17 | Codex | Reject non-object stream events as recorded call failures while retaining raw output. | — | Draft | Greptile PR43 finding |
+| 0.4 | 2026-10-17 | Codex | Pin the acceptance-test link to the reviewed malformed-event fix. | — | Draft | PR 43 |
 
 ## Purpose and acceptance
 
@@ -36,7 +37,7 @@ production miner/runtime path in TESTING-059. It does not change the default min
 case labels, or production client. No new service account, API key, package dependency or paid
 endpoint is introduced. Preparing this route makes no model call.
 
-[The offline client tests](https://github.com/GitCmurf/AIDHA/blob/030-gemini-writer/scripts/semantic-quality/agy-client.test.mjs)
+[The offline client tests](https://github.com/GitCmurf/AIDHA/blob/3d76dc303249359b8b2759a6804cb792eb80affb/scripts/semantic-quality/agy-client.test.mjs)
 use an injected process boundary. They require one source-only JSON request, at most three calls
 per case, exact selector
 identity, raw NDJSON/stderr/exit capture before response parsing, consistent reported usage,
