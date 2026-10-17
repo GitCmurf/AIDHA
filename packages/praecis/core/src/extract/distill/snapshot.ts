@@ -9,7 +9,7 @@ import type { MiningResult } from '../../interfaces/index.js';
 import { KnowledgeUnitSchema, SourceDistillationSchema, UNIT_KINDS, UNIT_STANCES, UNIT_IMPORTANCES,
   UnitAttributionSchema, UnitConditionSchema } from './schema.js';
 import { EXTRACTION_INTENTS } from './projection.js';
-import { QUOTE_VERIFICATION_STATUSES, verifyQuote } from './quote-verification.js';
+import { QUOTE_VERIFICATION_STATUSES, verifyDistillationEvidence, verifyQuote } from './quote-verification.js';
 import { buildDistillationOutput } from './report.js';
 
 const EvidenceSchema = z.object({
@@ -61,6 +61,7 @@ export const ExtractionSnapshotSchema = ExtractionSnapshotCandidateSchema.extend
 
 export type ExtractionSnapshotCandidate = z.infer<typeof ExtractionSnapshotCandidateSchema>;
 export type ExtractionSnapshot = z.infer<typeof ExtractionSnapshotSchema>;
+export const SOURCE_DISTILLATION_SNAPSHOT_IDENTITY_VERSION = 'bounded-distillation-snapshot-v1';
 
 function canonicalJson(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalJson);
@@ -134,6 +135,42 @@ export function parseExtractionSnapshot(value: unknown): ExtractionSnapshot | nu
   }
 }
 
+function selectedMinerMatches(candidate: ExtractionSnapshotCandidate, failedQuoteCount: number): boolean {
+  let identity: unknown;
+  try { identity = JSON.parse(candidate.minerIdentity); } catch { return true; } // Opaque custom v1 miner.
+  if (!identity || typeof identity !== 'object') return true;
+  const fields = identity as Record<string, unknown>;
+  if (fields['version'] !== SOURCE_DISTILLATION_SNAPSHOT_IDENTITY_VERSION) return true;
+  const threshold = fields['threshold'];
+  return fields['intent'] === candidate.extractionIntent && fields['prompt'] === candidate.promptVersion &&
+    typeof threshold === 'number' && Number.isFinite(threshold) && threshold >= 0 && threshold <= 1 &&
+    (candidate.proposal.units.length === 0 ? 0 : failedQuoteCount / candidate.proposal.units.length) <= threshold;
+}
+
+/** Grounding may rewrite prose and qualification, but cannot change source identity or evidence. */
+function routedUnitsMatch(candidate: ExtractionSnapshotCandidate, excerpts: ReadonlyMap<string, string>): boolean {
+  const verified = verifyDistillationEvidence(candidate.proposal.units, excerpts);
+  const finalById = new Map(candidate.finalUnits.map(unit => [unit.id, unit]));
+  const rejectedById = new Map(candidate.rejectedUnits.map(item => [item.unit.id, item]));
+  if (finalById.size !== candidate.finalUnits.length || rejectedById.size !== candidate.rejectedUnits.length ||
+      new Set(candidate.proposal.units.map(unit => unit.id)).size !== candidate.proposal.units.length ||
+      finalById.size + rejectedById.size !== candidate.proposal.units.length) return false;
+  for (const original of verified.units) {
+    const admitted = finalById.get(original.id);
+    const rejected = rejectedById.get(original.id);
+    if (Boolean(admitted) === Boolean(rejected)) return false;
+    if (verified.failedUnitIds.includes(original.id)) {
+      if (!rejected || rejected.reason !== 'failed_quote_verification' || !sameJsonWire(rejected.unit, original)) return false;
+    } else if (rejected) {
+      if (rejected.reason !== 'ungrounded' || !sameJsonWire(rejected.unit, original)) return false;
+    } else if (!admitted || !sameJsonWire(
+      { id: admitted.id, kind: admitted.kind, supportsUnitIds: admitted.supportsUnitIds, evidence: admitted.evidence },
+      { id: original.id, kind: original.kind, supportsUnitIds: original.supportsUnitIds, evidence: original.evidence })) return false;
+  }
+  return selectedMinerMatches(candidate, candidate.rejectedUnits.filter(item =>
+    item.reason === 'failed_quote_verification').length);
+}
+
 /** A cache record cannot be promoted for another source, miner or excerpt set. */
 export function snapshotMatchesInput(candidate: ExtractionSnapshotCandidate, sourceCanonicalId: string,
   minerIdentity: string, excerpts: ReadonlyMap<string, string>): boolean {
@@ -145,7 +182,8 @@ export function snapshotMatchesInput(candidate: ExtractionSnapshotCandidate, sou
     candidate.finalUnits.every(unit => unit.evidence.every(ref => known(ref.excerptId) && matchesQuote(ref))) &&
     candidate.rejectedUnits.every(item => item.unit.evidence.every(ref => known(ref.excerptId) && matchesQuote(ref))) &&
     candidate.supportingUnits.every(unit => unit.excerptIds.every(known) &&
-      (unit.evidence ?? []).every(ref => known(ref.excerptId) && matchesQuote(ref)));
+      (unit.evidence ?? []).every(ref => known(ref.excerptId) && matchesQuote(ref))) &&
+    routedUnitsMatch(candidate, excerpts);
 }
 
 /** Re-run the deterministic projection so a valid-shaped cache cannot contradict its own claims. */

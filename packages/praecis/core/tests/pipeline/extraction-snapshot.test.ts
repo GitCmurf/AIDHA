@@ -7,6 +7,7 @@ import { SourceDistillationMiner, composeVector, createIngestionRuntime, type IC
   readExtractionSnapshot, SourceDistillationClosedError } from '../../src/index.js';
 import { MemoryCache } from '../../src/pipeline/services.js';
 import { hashSnapshotCandidate, parseSnapshotCandidate, snapshotMatchesMiningResult } from '../../src/extract/distill/snapshot.js';
+import { buildDistillationOutput } from '../../src/extract/distill/report.js';
 import { createRawSource } from '../../src/compose/source-envelope.js';
 import { RecordingLlm, config, grounded, payload, request, source, unit } from '../extract/distill/fixture.js';
 
@@ -357,7 +358,7 @@ it('rejects missing or mismatched cache snapshots and reuses a matching committe
     const valid = recording.lastWrite;
     if (!valid) throw new Error('No committed extraction was cached');
     for (const change of ['missing-both', 'wrong-source', 'wrong-identity', 'unknown-excerpt',
-      'changed-final-text', 'changed-proposal', 'future-proposal', 'failed-final-quote'] as const) {
+      'changed-final-text', 'changed-proposal', 'future-proposal', 'failed-final-quote', 'reprojected-kind'] as const) {
       const stale = { ...JSON.parse(valid) as MiningResult };
       const candidate = stale.extractionSnapshotCandidate;
       const firstFinal = candidate?.finalUnits[0];
@@ -374,6 +375,22 @@ it('rejects missing or mismatched cache snapshots and reuses a matching committe
         'This alternative claim has enough text for the schema but contradicts the exported Claim.';
       else if (change === 'changed-proposal') firstProposal.id = 'other-unit';
       else if (change === 'future-proposal') Reflect.set(candidate.proposal, 'schemaVersion', 2);
+      else if (change === 'reprojected-kind') {
+        firstFinal.kind = 'fact';
+        const output = buildDistillationOutput({ extractionIntent: candidate.extractionIntent,
+          sourceType: candidate.proposal.sourceType, sourcePurpose: candidate.proposal.sourcePurpose,
+          sourceCoherence: candidate.proposal.sourceCoherence, theses: candidate.proposal.theses,
+          units: candidate.finalUnits, rejectedUnits: candidate.rejectedUnits,
+          coverage: candidate.report.coverage, diagnostics: candidate.preProjectionDiagnostics,
+          model: candidate.model, promptVersion: candidate.promptVersion });
+        const projectedCandidate = parseSnapshotCandidate({ ...candidate,
+          supportingUnits: output.supportingUnits, report: output.distillation });
+        if (!projectedCandidate) throw new Error('Expected a valid reprojected cached candidate');
+        stale.extractionSnapshotCandidate = projectedCandidate;
+        Object.assign(stale, output, { distillation: { ...output.distillation, failedClosed: false } });
+        expect(snapshotMatchesMiningResult(projectedCandidate, { ...stale,
+          extractionSnapshotCandidateHash: hashSnapshotCandidate(projectedCandidate) })).toBe(true);
+      }
       else Reflect.set(firstEvidence, 'quoteVerification', 'failed');
       if (stale['extractionSnapshotCandidate']) {
         stale['extractionSnapshotCandidateHash'] = hashSnapshotCandidate(stale['extractionSnapshotCandidate']);
@@ -444,6 +461,40 @@ it('accepts an opted-in wrapper whose optional undefined fields disappear on the
     expect(noLlm.requests).toHaveLength(0);
     await reused.value.close();
     await first.value.close();
+  } finally { await store.close(); }
+});
+
+it('retains a legitimate grounding rewrite through configured runtime and cached snapshot replay', async () => {
+  const store = SQLiteStore.createInMemory();
+  try {
+    const proposalUnits = [unit, { ...unit, id: 'u2', kind: 'procedure', importance: 'supporting',
+      text: 'The chair can follow the linked index files for small collections.' }];
+    const corrected = 'The chair recommends following linked index files only for this small collection.';
+    const reply = JSON.stringify({ verdicts: [{ unitId: 'u1', verdict: 'grounded' },
+      { unitId: 'u2', verdict: 'rewrite', text: corrected, importance: 'core',
+        rationale: 'The chair describes this only for small collections.' }] });
+    const cache = new CapturingCache();
+    const llm = new RecordingLlm([payload(proposalUnits), reply]);
+    const miner = new SourceDistillationMiner();
+    const created = await createIngestionRuntime({ store, miner, llm, cache, config: config() });
+    if (!created.ok) throw created.error;
+    const fresh = await created.value.runVector(makeVector(), { ref: 'synthetic:checkpoint' });
+    if (!fresh.ok) throw fresh.error;
+    expect(fresh.value.extractionSnapshot?.finalUnits.find(value => value.id === 'u2')).toMatchObject({
+      text: corrected, importance: 'core', rationale: 'The chair describes this only for small collections.' });
+    const saved = cache.lastWrite;
+    if (!saved) throw new Error('Expected committed rewritten snapshot');
+    const noLlm = new RecordingLlm([]);
+    const replay = await createIngestionRuntime({ store, miner, llm: noLlm,
+      cache: new CapturingCache(saved), config: config() });
+    if (!replay.ok) throw replay.error;
+    const hit = await replay.value.runVector(makeVector(), { ref: 'synthetic:checkpoint' });
+    if (!hit.ok) throw hit.error;
+    expect(hit.value.cacheHits).toBe(1);
+    expect(hit.value.extractionSnapshot).toEqual(fresh.value.extractionSnapshot);
+    expect(noLlm.requests).toHaveLength(0);
+    await replay.value.close();
+    await created.value.close();
   } finally { await store.close(); }
 });
 
