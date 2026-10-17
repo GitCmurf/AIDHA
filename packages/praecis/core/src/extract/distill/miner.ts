@@ -8,18 +8,21 @@ import { estimateTokens } from '../token-budget.js';
 import { consoleLogger, type Logger } from '../../utils/logger.js';
 import { parseSourceDistillation, distillationResponseSchema } from './schema.js';
 import { verifyDistillationEvidence } from './quote-verification.js';
+import { prepareSegmentedEvidence, SEGMENTED_EVIDENCE_VERSION } from './segmented-evidence.js';
 import { computeCoverage } from './coverage.js';
-import { applyGroundingVerdicts, parseGroundingVerdicts, type RejectedUnit } from './grounding.js';
+import type { RejectedUnit } from './grounding.js';
+import { buildSegmentedGroundingReview, finalizeGroundingAdmission, rejectSegmentRepairs } from './grounding-admission.js';
 import { buildDistillationOutput } from './report.js';
 import { applyLimitationRelations, buildLimitationPrompt, limitationResponseSchema, LIMITATION_PROMPT_VERSION,
   parseLimitationRelations } from './limitations.js';
-import type { SourceLimitationSummary } from '../../interfaces/index.js';
+import type { SegmentRepairRecord, SourceLimitationSummary } from '../../interfaces/index.js';
 import { projectUnit, type ExtractionIntent } from './projection.js';
 import { buildDistillPrompt, buildRepairPrompt, buildGroundingPrompt, DISTILL_PROMPT_VERSION, GROUNDING_PROMPT_VERSION } from './prompts.js';
 
 export interface SourceDistillationMinerConfig {
   readonly extractionIntent?: ExtractionIntent;
   readonly enableLimitationApplicability?: boolean;
+  readonly enableSegmentedEvidence?: boolean;
   readonly quoteFailureCloseThreshold?: number;
   readonly logger?: Logger;
 }
@@ -32,12 +35,14 @@ export class SourceDistillationMiner implements ICandidateMiner {
   private readonly intent: ExtractionIntent;
   private readonly threshold: number;
   private readonly enableLimitationApplicability: boolean;
+  private readonly enableSegmentedEvidence: boolean;
   private readonly logger: Logger;
 
   constructor(config: SourceDistillationMinerConfig = {}) {
     this.intent = config.extractionIntent ?? 'knowledge_graph';
     this.threshold = config.quoteFailureCloseThreshold ?? 0.3;
     this.enableLimitationApplicability = config.enableLimitationApplicability ?? false;
+    this.enableSegmentedEvidence = config.enableSegmentedEvidence ?? false;
     if (!Number.isFinite(this.threshold) || this.threshold < 0 || this.threshold > 1) {
       throw new RangeError('quoteFailureCloseThreshold must be between zero and one');
     }
@@ -47,6 +52,7 @@ export class SourceDistillationMiner implements ICandidateMiner {
   get cacheIdentity(): string {
     return JSON.stringify({ version: 'bounded-distillation-v1', prompt: DISTILL_PROMPT_VERSION,
       grounding: GROUNDING_PROMPT_VERSION, limitation: this.enableLimitationApplicability ? LIMITATION_PROMPT_VERSION : null,
+      ...(this.enableSegmentedEvidence ? { segmentedEvidence: SEGMENTED_EVIDENCE_VERSION } : {}),
       intent: this.intent, threshold: this.threshold });
   }
 
@@ -68,10 +74,13 @@ export class SourceDistillationMiner implements ICandidateMiner {
     let totalTokens = 0;
     let usageUnknown = false;
     const diagnostics: string[] = [];
+    let segmentRepairs: SegmentRepairRecord[] = [];
     const failClosed = (reason: string): Result<MiningResult> => {
       this.logger.warn(`[DISTILL] ${reason}`);
+      segmentRepairs = rejectSegmentRepairs(segmentRepairs);
       return { ok: true, value: { claims: [], rejectedClaims: [], supportingUnits: [], tokenUsage: totalTokens,
-        distillation: { failedClosed: true, diagnostics: [...diagnostics, reason] } } };
+        distillation: { failedClosed: true, diagnostics: [...diagnostics, reason],
+          ...(segmentRepairs.length ? { segmentRepairs } : {}) } } };
     };
     const generate = async (prompt: Pick<LlmCompletionRequest, 'system' | 'user' | 'responseFormat'>): Promise<LlmCompletionResult> => {
       // maxTokens limits completion output; reserve estimated prompt/schema input too.
@@ -117,35 +126,31 @@ export class SourceDistillationMiner implements ICandidateMiner {
       }
       const proposal = parsed.value;
       const verified = verifyDistillationEvidence(proposal.units, excerpts);
-      const failedIds = new Set(verified.failedUnitIds);
+      const segmented = this.enableSegmentedEvidence
+        ? prepareSegmentedEvidence(verified.units, excerpts) : { repaired: [], records: [] };
+      segmentRepairs = segmented.records;
+      const replacements = new Map(segmented.repaired.map(unit => [unit.id, unit]));
+      const failedIds = new Set(verified.failedUnitIds.filter(id => !replacements.has(id)));
       const rejected: RejectedUnit[] = verified.units.filter(unit => failedIds.has(unit.id))
         .map(unit => ({ unit, reason: 'failed_quote_verification' }));
-      if (verified.failureRatio > this.threshold) return failClosed('Quote verification failure ratio exceeds the configured threshold');
-      let kept = verified.units.filter(unit => !failedIds.has(unit.id));
-      const affirmativeGroundingIds = new Set<string>();
-      if (kept.length) {
-        const judged = await generate(buildGroundingPrompt(kept, excerpts));
-        if (!judged.ok) diagnostics.push(`Grounding transport failure (advisory); retaining untrusted drafts: ${judged.error.message}`);
-        else {
-          const verdicts = parseGroundingVerdicts(judged.value);
-          if (!verdicts.ok) diagnostics.push(`Grounding parse failure (advisory); retaining untrusted drafts: ${verdicts.errors.join('; ')}`);
-          else {
-            diagnostics.push(...verdicts.errors);
-            const applied = applyGroundingVerdicts(kept, verdicts.value);
-            kept = [...applied.kept];
-            rejected.push(...applied.rejected);
-            diagnostics.push(...applied.diagnostics);
-            const counts = new Map<string, number>();
-            for (const verdict of verdicts.value) counts.set(verdict.unitId, (counts.get(verdict.unitId) ?? 0) + 1);
-            const keptIds = new Set(kept.map(unit => unit.id));
-            for (const verdict of verdicts.value) {
-              if (verdict.verdict === 'grounded' && counts.get(verdict.unitId) === 1 && keptIds.has(verdict.unitId)) {
-                affirmativeGroundingIds.add(verdict.unitId);
-              }
-            }
-          }
-        }
+      const failureRatio = verified.units.length ? failedIds.size / verified.units.length : 0;
+      if (failureRatio > this.threshold) return failClosed('Quote verification failure ratio exceeds the configured threshold');
+      const provisional = verified.units.filter(unit => !failedIds.has(unit.id)).map(unit => replacements.get(unit.id) ?? unit);
+      let grounding: LlmCompletionResult | undefined;
+      if (provisional.length) {
+        const groundingPrompt = buildGroundingPrompt(provisional, excerpts);
+        const review = buildSegmentedGroundingReview(segmentRepairs);
+        grounding = await generate({ ...groundingPrompt,
+          user: [groundingPrompt.user, review].filter(Boolean).join('\n\n') });
       }
+      const admission = finalizeGroundingAdmission({ originalUnits: verified.units, failedUnitIds: failedIds,
+        replacements, kept: provisional, rejected, segmentRepairs, grounding, threshold: this.threshold });
+      segmentRepairs = [...admission.segmentRepairs];
+      diagnostics.push(...admission.diagnostics);
+      if (admission.closeReason) return failClosed(admission.closeReason);
+      const kept = admission.kept;
+      const finalRejected = admission.rejected;
+      const affirmativeGroundingIds = admission.affirmativeGroundingIds;
       let limitationsByTarget: ReadonlyMap<string, readonly SourceLimitationSummary[]> = new Map();
       const isGroundedClaim = (unit: typeof kept[number]): boolean => affirmativeGroundingIds.has(unit.id) &&
         projectUnit(this.intent, proposal.sourceType, unit.kind, unit.importance) === 'claim';
@@ -178,10 +183,10 @@ export class SourceDistillationMiner implements ICandidateMiner {
       const coverage = computeCoverage(kept, coverageExcerpts);
       const output = buildDistillationOutput({ extractionIntent: this.intent,
         sourceType: proposal.sourceType, sourcePurpose: proposal.sourcePurpose, sourceCoherence: proposal.sourceCoherence,
-        theses: proposal.theses, units: kept, rejectedUnits: rejected,
+        theses: proposal.theses, units: kept, rejectedUnits: finalRejected,
         limitationsByTarget,
         coverage: { ...coverage, weakQuoteCount: coverage.weakQuoteCount + verified.weakQuoteCount },
-        diagnostics, model, promptVersion: DISTILL_PROMPT_VERSION });
+        diagnostics, segmentRepairs, model, promptVersion: DISTILL_PROMPT_VERSION });
       return { ok: true, value: { ...output, tokenUsage: totalTokens, distillation: { ...output.distillation, failedClosed: false } } };
     } catch (error) {
       return failClosed(error instanceof Error ? error.message : String(error));

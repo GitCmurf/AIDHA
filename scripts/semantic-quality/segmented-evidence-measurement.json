@@ -1,0 +1,683 @@
+{
+  "schemaVersion": 1,
+  "caseId": "supplier-alert-proposal",
+  "reviewStatus": "Independent assistant factual comparison and parent review; not human semantic endorsement",
+  "decision": "One-source recovery feasibility established; keep opt-in and require owner review before adoption",
+  "source": {
+    "id": "supplier-alert-proposal",
+    "sourceType": "web",
+    "canonicalId": "synthetic:supplier-alert-proposal",
+    "label": "Fictional operations review note",
+    "excerpts": [
+      {
+        "id": "alert-1",
+        "text": "At the review meeting I reported a proposal from the equipment supplier's safety lead, whose personal name was not supplied. The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle. I am the committee chair relaying that proposal, not its originator. The supplier argued that earlier warnings might give operators more time to inspect a developing fault, but no reduction in faults had been measured when the proposal was made."
+      },
+      {
+        "id": "alert-2",
+        "text": "Our maintenance team tested the six-unit alert threshold on five new-spindle machines for two weeks. They counted forty extra alerts, of which thirty-six were judged nuisance alerts after inspection. That trial measured alert burden in a narrow setting; it did not test fault prevention or older spindle models. The supplier did not conduct this local test, and the chair did not certify that the threshold should be rolled out."
+      },
+      {
+        "id": "alert-3",
+        "text": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning. Until then, keep the existing eight-unit threshold outside the five trial machines. This is a conditional recommendation by the operations lead, distinct from the supplier's original six-unit proposal. The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting."
+      }
+    ],
+    "expected": {
+      "required": [
+        {
+          "id": "alert-supplier-origin",
+          "kind": "recommendation",
+          "importance": "core",
+          "proposition": "The equipment supplier's safety lead proposed a six-unit vibration alert threshold for new-spindle machines, arguing that earlier warnings might allow more inspection time; fault reduction had not been measured.",
+          "evidence": [
+            {
+              "excerptId": "alert-1",
+              "quote": "The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle"
+            },
+            {
+              "excerptId": "alert-1",
+              "quote": "earlier warnings might give operators more time to inspect a developing fault"
+            }
+          ],
+          "requiredDistinctions": [
+            "Originator is an unnamed supplier safety lead, not the reporting chair.",
+            "The possible inspection benefit was the supplier's argument, not an observed fault reduction.",
+            "Scope is new-spindle machines."
+          ]
+        },
+        {
+          "id": "alert-trial-burden",
+          "kind": "fact",
+          "importance": "core",
+          "proposition": "In a two-week maintenance-team test on five new-spindle machines, the six-unit threshold produced forty extra alerts, thirty-six of which were judged nuisance alerts.",
+          "evidence": [
+            {
+              "excerptId": "alert-2",
+              "quote": "tested the six-unit alert threshold on five new-spindle machines for two weeks"
+            },
+            {
+              "excerptId": "alert-2",
+              "quote": "They counted forty extra alerts, of which thirty-six were judged nuisance alerts"
+            }
+          ],
+          "requiredDistinctions": [
+            "Tester is the maintenance team, not the supplier.",
+            "The trial measured alert burden, not fault prevention."
+          ]
+        },
+        {
+          "id": "alert-conditional-trial",
+          "kind": "recommendation",
+          "importance": "core",
+          "proposition": "The operations lead recommends considering a wider trial only after the nuisance-alert share is below one in ten for four consecutive weeks after tuning; meanwhile the eight-unit threshold remains outside the five trial machines.",
+          "evidence": [
+            {
+              "excerptId": "alert-3",
+              "quote": "consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning"
+            },
+            {
+              "excerptId": "alert-3",
+              "quote": "keep the existing eight-unit threshold outside the five trial machines"
+            }
+          ],
+          "requiredDistinctions": [
+            "This conditional recommendation originates with the operations lead, not the supplier.",
+            "Consideration of a wider trial is not approval for general rollout."
+          ]
+        }
+      ],
+      "supporting": [],
+      "forbidden": [
+        "The committee chair originated or endorsed the supplier's proposal.",
+        "The regulator endorsed the six-unit threshold.",
+        "The six-unit threshold reduced faults or was tested on older spindle models.",
+        "The operations lead recommended immediate general rollout.",
+        "The equipment supplier performed the local two-week test."
+      ]
+    }
+  },
+  "corpusSha256": "sha256:a090676bbc92cfff3bdfac3f1bfdd6348c0d102fb210794ff88802d9fe7e5ee3",
+  "execution": {
+    "revision": "git:74134ecf49ea8dd9582d50122967aa6c3ea072ba",
+    "dirty": false,
+    "trackedDiffSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runtimeSourceSha256": {
+      "packages/praecis/core/src/extract/distill/miner.ts": "sha256:4d545375694a3fc743ae6a91a1b39cc80f1a026ab7f63c72d67a37d11c5420f8",
+      "packages/praecis/core/src/extract/distill/segmented-evidence.ts": "sha256:20b932f7aa102e7ae1b856f137f6656def51dc9d824f09c48cc87f0d3141cdc6",
+      "packages/praecis/core/src/interfaces/index.ts": "sha256:3624c00c57cc83edb12f421ba4af8eba0e77fb46a883dd5a021b14d3984a76aa",
+      "packages/praecis/core/src/extract/distill/report.ts": "sha256:dcb6e40420eae4a73143b1177430d22feb32d5c64f4f7afc2869ffa1f534cdee"
+    },
+    "promptSourceSha256": "sha256:b47fd3b40495e50cca592e52cbf285e514b4e0434272d1babb2259514ea9c54a",
+    "cliVersion": "1.4.0",
+    "requestedSelector": "gemini-3.8-flash-low",
+    "reportedSelector": "gemini-3.8-flash-low",
+    "route": "frozen 030 generation plus at most one fresh native AGY grounding call",
+    "executionSha256": {
+      "replay-supplier.mjs": "sha256:217575a5fdadcb9630566418be113b08181b7bbc327830f8385481a2cc39e507",
+      "agy-client.mjs": "sha256:1c2994bea4aec9434956cea13c96d7b27d27f8f7a0aadabface123d6cf42beff",
+      "record-case.mjs": "sha256:fabd891bac5ca0be54ca01b2bf4183dfc81eecdd44edd9bb86df2b99dae31f2e"
+    },
+    "privateRecordSha256": "sha256:1e65ccdffcc8c68f4c9083e4648c10e8ddbdb3a5bba28f8ba786d3b87b65d82f"
+  },
+  "frozenGeneration": {
+    "originalRevision": "git:12f0473bd7a79b8baceb5bd9bc657435c66ff59b",
+    "responseSha256": "sha256:939aa9eec0dbe60b3ce3b0dc0d6bf21cfd48fbd245596cb15adb9536ce1544e3",
+    "usage": {
+      "input_tokens": 14912,
+      "output_tokens": 1383,
+      "thinking_tokens": 0,
+      "cache_read_tokens": 0,
+      "total_tokens": 16295
+    },
+    "response": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "schemaVersion": 1,
+      "sourceType": "other",
+      "sourcePurpose": "To review a supplier proposal to lower a machine vibration alert threshold alongside local trial findings and operational next steps.",
+      "sourceCoherence": "single_topic",
+      "theses": [
+        "Lowering the vibration alert threshold to six units increased nuisance alerts in a narrow trial, justifying keeping the eight-unit threshold until nuisance alerts drop below one in ten."
+      ],
+      "units": [
+        {
+          "id": "u1",
+          "kind": "idea",
+          "text": "The equipment supplier's safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle.",
+          "rationale": "earlier warnings might give operators more time to inspect a developing fault",
+          "conditions": [
+            {
+              "type": "exclusion",
+              "text": "machines running the new spindle"
+            }
+          ],
+          "attribution": {
+            "kind": "third_party",
+            "name": null,
+            "role": "equipment supplier's safety lead"
+          },
+          "stance": "reported",
+          "evidence": [
+            {
+              "excerptId": "alert-1",
+              "quote": "The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle."
+            },
+            {
+              "excerptId": "alert-1",
+              "quote": "The supplier argued that earlier warnings might give operators more time to inspect a developing fault, but no reduction in faults had been measured when the proposal was made."
+            }
+          ],
+          "supportsUnitIds": null,
+          "importance": "core"
+        },
+        {
+          "id": "u2",
+          "kind": "example",
+          "text": "In a two-week maintenance trial of the six-unit alert threshold across five new-spindle machines, forty extra alerts occurred, of which thirty-six were judged nuisance alerts after inspection.",
+          "rationale": null,
+          "conditions": [
+            {
+              "type": "scale",
+              "text": "five new-spindle machines"
+            },
+            {
+              "type": "temporal",
+              "text": "two weeks"
+            }
+          ],
+          "attribution": {
+            "kind": "speaker",
+            "name": null,
+            "role": "committee chair"
+          },
+          "stance": "demonstrated",
+          "evidence": [
+            {
+              "excerptId": "alert-2",
+              "quote": "Our maintenance team tested the six-unit alert threshold on five new-spindle machines for two weeks. They counted forty extra alerts, of which thirty-six were judged nuisance alerts after inspection."
+            }
+          ],
+          "supportsUnitIds": [
+            "u1",
+            "u4"
+          ],
+          "importance": "supporting"
+        },
+        {
+          "id": "u3",
+          "kind": "limitation",
+          "text": "The maintenance team's trial measured alert burden in a narrow setting and did not test fault prevention or performance on older spindle models.",
+          "rationale": null,
+          "conditions": [
+            {
+              "type": "exclusion",
+              "text": "did not test fault prevention or older spindle models"
+            }
+          ],
+          "attribution": {
+            "kind": "speaker",
+            "name": null,
+            "role": "committee chair"
+          },
+          "stance": "asserted",
+          "evidence": [
+            {
+              "excerptId": "alert-2",
+              "quote": "That trial measured alert burden in a narrow setting; it did not test fault prevention or older spindle models."
+            }
+          ],
+          "supportsUnitIds": null,
+          "importance": "supporting"
+        },
+        {
+          "id": "u4",
+          "kind": "recommendation",
+          "text": "Maintain the existing eight-unit vibration alert threshold outside the five trial machines, and consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning.",
+          "rationale": null,
+          "conditions": [
+            {
+              "type": "assumption",
+              "text": "nuisance-alert share falls below one in ten for four consecutive weeks after tuning"
+            },
+            {
+              "type": "exclusion",
+              "text": "outside the five trial machines"
+            }
+          ],
+          "attribution": {
+            "kind": "third_party",
+            "name": null,
+            "role": "operations lead"
+          },
+          "stance": "recommended",
+          "evidence": [
+            {
+              "excerptId": "alert-3",
+              "quote": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning. Until then, keep the existing eight-unit threshold outside the five trial machines."
+            }
+          ],
+          "supportsUnitIds": null,
+          "importance": "core"
+        },
+        {
+          "id": "u5",
+          "kind": "fact",
+          "text": "The regulator attended the review meeting solely as an observer and provided neither an endorsement nor any instruction regarding the vibration alert threshold.",
+          "rationale": null,
+          "conditions": null,
+          "attribution": {
+            "kind": "speaker",
+            "name": null,
+            "role": "committee chair"
+          },
+          "stance": "asserted",
+          "evidence": [
+            {
+              "excerptId": "alert-3",
+              "quote": "The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting."
+            }
+          ],
+          "supportsUnitIds": null,
+          "importance": "supporting"
+        }
+      ]
+    }
+  },
+  "freshGrounding": {
+    "calls": 1,
+    "outcome": "ok",
+    "usage": {
+      "input_tokens": 15088,
+      "output_tokens": 65,
+      "thinking_tokens": 0,
+      "cache_read_tokens": 0,
+      "total_tokens": 15153
+    },
+    "reportedNativeDurationSeconds": 5.42558754,
+    "costUsd": null,
+    "verdicts": [
+      {
+        "unitId": "u1",
+        "verdict": "grounded"
+      },
+      {
+        "unitId": "u2",
+        "verdict": "grounded"
+      },
+      {
+        "unitId": "u3",
+        "verdict": "grounded"
+      },
+      {
+        "unitId": "u4",
+        "verdict": "grounded"
+      },
+      {
+        "unitId": "u5",
+        "verdict": "grounded"
+      }
+    ]
+  },
+  "recovery": {
+    "ok": true,
+    "unitId": "u4",
+    "claimId": "claim:1a48591dabd6d11a",
+    "beforeClaims": 3,
+    "afterClaims": 4,
+    "unchangedClaimIds": [
+      "claim:73f23df96e6cec8a",
+      "claim:8aa6b76806c4ffcf",
+      "claim:cf4218d077de48c5"
+    ],
+    "addedClaimIds": [
+      "claim:1a48591dabd6d11a"
+    ],
+    "failedClosed": false,
+    "reportTokenUsageIncludingFrozenGeneration": 31448,
+    "assessmentCorrection": "Initial private gate read claim.state; corrected offline check reads metadata.state against unchanged saved run. Original failed gate retained; seven adverse mutations fail; no additional model call.",
+    "repairAudit": [
+      {
+        "unitId": "u4",
+        "originalUnit": {
+          "id": "u4",
+          "kind": "recommendation",
+          "text": "Maintain the existing eight-unit vibration alert threshold outside the five trial machines, and consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning.",
+          "conditions": [
+            {
+              "type": "assumption",
+              "text": "nuisance-alert share falls below one in ten for four consecutive weeks after tuning"
+            },
+            {
+              "type": "exclusion",
+              "text": "outside the five trial machines"
+            }
+          ],
+          "attribution": {
+            "kind": "third_party",
+            "role": "operations lead"
+          },
+          "stance": "recommended",
+          "evidence": [
+            {
+              "excerptId": "alert-3",
+              "quote": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning. Until then, keep the existing eight-unit threshold outside the five trial machines.",
+              "quoteVerification": "failed"
+            }
+          ],
+          "importance": "core"
+        },
+        "replacementEvidence": [
+          {
+            "excerptId": "alert-3",
+            "quote": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning.",
+            "quoteVerification": "exact"
+          },
+          {
+            "excerptId": "alert-3",
+            "quote": "Until then, keep the existing eight-unit threshold outside the five trial machines.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "finalEvidence": [
+          {
+            "excerptId": "alert-3",
+            "quote": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning.",
+            "quoteVerification": "exact"
+          },
+          {
+            "excerptId": "alert-3",
+            "quote": "Until then, keep the existing eight-unit threshold outside the five trial machines.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "status": "grounded"
+      }
+    ]
+  },
+  "baselineClaims": [
+    {
+      "id": "claim:73f23df96e6cec8a",
+      "type": "Claim",
+      "label": "The equipment supplier's safety lead proposed lowering the vibration alert thres",
+      "content": "The equipment supplier's safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle.",
+      "metadata": {
+        "resourceId": "synthetic:supplier-alert-proposal",
+        "state": "draft",
+        "type": "insight",
+        "classification": "insight",
+        "method": "llm-distill",
+        "model": "gemini-3.8-flash-low",
+        "promptVersion": "bounded-distill-v1",
+        "unitId": "u1",
+        "unitKind": "idea",
+        "stance": "reported",
+        "importance": "core",
+        "trusted": false,
+        "qualityStatus": "reviewable",
+        "evidence": [
+          {
+            "excerptId": "alert-1",
+            "quote": "The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle.",
+            "quoteVerification": "exact"
+          },
+          {
+            "excerptId": "alert-1",
+            "quote": "The supplier argued that earlier warnings might give operators more time to inspect a developing fault, but no reduction in faults had been measured when the proposal was made.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "rationale": "earlier warnings might give operators more time to inspect a developing fault",
+        "conditions": [
+          {
+            "type": "exclusion",
+            "text": "machines running the new spindle"
+          }
+        ],
+        "attribution": {
+          "kind": "third_party",
+          "role": "equipment supplier's safety lead"
+        }
+      }
+    },
+    {
+      "id": "claim:8aa6b76806c4ffcf",
+      "type": "Claim",
+      "label": "The regulator attended the review meeting solely as an observer and provided nei",
+      "content": "The regulator attended the review meeting solely as an observer and provided neither an endorsement nor any instruction regarding the vibration alert threshold.",
+      "metadata": {
+        "resourceId": "synthetic:supplier-alert-proposal",
+        "state": "draft",
+        "type": "fact",
+        "classification": "fact",
+        "method": "llm-distill",
+        "model": "gemini-3.8-flash-low",
+        "promptVersion": "bounded-distill-v1",
+        "unitId": "u5",
+        "unitKind": "fact",
+        "stance": "asserted",
+        "importance": "supporting",
+        "trusted": false,
+        "qualityStatus": "reviewable",
+        "evidence": [
+          {
+            "excerptId": "alert-3",
+            "quote": "The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "attribution": {
+          "kind": "speaker",
+          "role": "committee chair"
+        }
+      }
+    },
+    {
+      "id": "claim:cf4218d077de48c5",
+      "type": "Claim",
+      "label": "The maintenance team's trial measured alert burden in a narrow setting and did n",
+      "content": "The maintenance team's trial measured alert burden in a narrow setting and did not test fault prevention or performance on older spindle models.",
+      "metadata": {
+        "resourceId": "synthetic:supplier-alert-proposal",
+        "state": "draft",
+        "type": "warning",
+        "classification": "warning",
+        "method": "llm-distill",
+        "model": "gemini-3.8-flash-low",
+        "promptVersion": "bounded-distill-v1",
+        "unitId": "u3",
+        "unitKind": "limitation",
+        "stance": "asserted",
+        "importance": "supporting",
+        "trusted": false,
+        "qualityStatus": "reviewable",
+        "evidence": [
+          {
+            "excerptId": "alert-2",
+            "quote": "That trial measured alert burden in a narrow setting; it did not test fault prevention or older spindle models.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "conditions": [
+          {
+            "type": "exclusion",
+            "text": "did not test fault prevention or older spindle models"
+          }
+        ],
+        "attribution": {
+          "kind": "speaker",
+          "role": "committee chair"
+        }
+      }
+    }
+  ],
+  "claimsAfterSQLiteReopen": [
+    {
+      "id": "claim:1a48591dabd6d11a",
+      "type": "Claim",
+      "label": "Maintain the existing eight-unit vibration alert threshold outside the five tria",
+      "content": "Maintain the existing eight-unit vibration alert threshold outside the five trial machines, and consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning.",
+      "metadata": {
+        "attribution": {
+          "kind": "third_party",
+          "role": "operations lead"
+        },
+        "classification": "recommendation",
+        "conditions": [
+          {
+            "text": "nuisance-alert share falls below one in ten for four consecutive weeks after tuning",
+            "type": "assumption"
+          },
+          {
+            "text": "outside the five trial machines",
+            "type": "exclusion"
+          }
+        ],
+        "evidence": [
+          {
+            "excerptId": "alert-3",
+            "quote": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning.",
+            "quoteVerification": "exact"
+          },
+          {
+            "excerptId": "alert-3",
+            "quote": "Until then, keep the existing eight-unit threshold outside the five trial machines.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "importance": "core",
+        "method": "llm-distill",
+        "model": "gemini-3.8-flash-low",
+        "promptVersion": "bounded-distill-v1",
+        "qualityStatus": "reviewable",
+        "resourceId": "synthetic:supplier-alert-proposal",
+        "stance": "recommended",
+        "state": "draft",
+        "trusted": false,
+        "type": "recommendation",
+        "unitId": "u4",
+        "unitKind": "recommendation"
+      }
+    },
+    {
+      "id": "claim:73f23df96e6cec8a",
+      "type": "Claim",
+      "label": "The equipment supplier's safety lead proposed lowering the vibration alert thres",
+      "content": "The equipment supplier's safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle.",
+      "metadata": {
+        "attribution": {
+          "kind": "third_party",
+          "role": "equipment supplier's safety lead"
+        },
+        "classification": "insight",
+        "conditions": [
+          {
+            "text": "machines running the new spindle",
+            "type": "exclusion"
+          }
+        ],
+        "evidence": [
+          {
+            "excerptId": "alert-1",
+            "quote": "The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle.",
+            "quoteVerification": "exact"
+          },
+          {
+            "excerptId": "alert-1",
+            "quote": "The supplier argued that earlier warnings might give operators more time to inspect a developing fault, but no reduction in faults had been measured when the proposal was made.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "importance": "core",
+        "method": "llm-distill",
+        "model": "gemini-3.8-flash-low",
+        "promptVersion": "bounded-distill-v1",
+        "qualityStatus": "reviewable",
+        "rationale": "earlier warnings might give operators more time to inspect a developing fault",
+        "resourceId": "synthetic:supplier-alert-proposal",
+        "stance": "reported",
+        "state": "draft",
+        "trusted": false,
+        "type": "insight",
+        "unitId": "u1",
+        "unitKind": "idea"
+      }
+    },
+    {
+      "id": "claim:8aa6b76806c4ffcf",
+      "type": "Claim",
+      "label": "The regulator attended the review meeting solely as an observer and provided nei",
+      "content": "The regulator attended the review meeting solely as an observer and provided neither an endorsement nor any instruction regarding the vibration alert threshold.",
+      "metadata": {
+        "attribution": {
+          "kind": "speaker",
+          "role": "committee chair"
+        },
+        "classification": "fact",
+        "evidence": [
+          {
+            "excerptId": "alert-3",
+            "quote": "The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "importance": "supporting",
+        "method": "llm-distill",
+        "model": "gemini-3.8-flash-low",
+        "promptVersion": "bounded-distill-v1",
+        "qualityStatus": "reviewable",
+        "resourceId": "synthetic:supplier-alert-proposal",
+        "stance": "asserted",
+        "state": "draft",
+        "trusted": false,
+        "type": "fact",
+        "unitId": "u5",
+        "unitKind": "fact"
+      }
+    },
+    {
+      "id": "claim:cf4218d077de48c5",
+      "type": "Claim",
+      "label": "The maintenance team's trial measured alert burden in a narrow setting and did n",
+      "content": "The maintenance team's trial measured alert burden in a narrow setting and did not test fault prevention or performance on older spindle models.",
+      "metadata": {
+        "attribution": {
+          "kind": "speaker",
+          "role": "committee chair"
+        },
+        "classification": "warning",
+        "conditions": [
+          {
+            "text": "did not test fault prevention or older spindle models",
+            "type": "exclusion"
+          }
+        ],
+        "evidence": [
+          {
+            "excerptId": "alert-2",
+            "quote": "That trial measured alert burden in a narrow setting; it did not test fault prevention or older spindle models.",
+            "quoteVerification": "exact"
+          }
+        ],
+        "importance": "supporting",
+        "method": "llm-distill",
+        "model": "gemini-3.8-flash-low",
+        "promptVersion": "bounded-distill-v1",
+        "qualityStatus": "reviewable",
+        "resourceId": "synthetic:supplier-alert-proposal",
+        "stance": "asserted",
+        "state": "draft",
+        "trusted": false,
+        "type": "warning",
+        "unitId": "u3",
+        "unitKind": "limitation"
+      }
+    }
+  ],
+  "limitations": [
+    "One public fictional source, one fresh grounding sample and no held-out replication; not writer superiority or stable quality gain.",
+    "Baseline used InMemoryStore, replay used SQLite. Unchanged claim IDs and semantic fields were compared; this is a controlled pipeline check, not an isolated model experiment.",
+    "The quote verifier counts letter/number token sequences: all 41 of 75 tokens are retained as 28 plus 13 across two exact citations. No aggregate coverage reduction.",
+    "Existing unmodified claims retain ordinary advisory grounding behavior; a model grounded verdict can be wrong.",
+    "Native AGY usage and duration do not establish API parity, context-window capacity, output limit or provider billing cost. Runtime spendUsd=0 is not an API cost measurement.",
+    "Raw native account metadata, conversation identifiers and stderr remain private; the projection includes only public source, generated JSON, verdicts and admitted claims."
+  ]
+}
