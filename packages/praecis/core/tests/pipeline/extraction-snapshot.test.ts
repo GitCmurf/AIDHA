@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SQLiteStore, type GraphStore, type Result } from '@aidha/graph-backend';
-import { SourceDistillationMiner, composeVector, createIngestionRuntime, type ICandidateMiner,
+import { SourceDistillationMiner, composeVector, createIngestionRuntime, type ICandidateMiner, type MiningResult,
   readExtractionSnapshot, SourceDistillationClosedError } from '../../src/index.js';
 import { MemoryCache } from '../../src/pipeline/services.js';
 import { hashSnapshotCandidate, parseSnapshotCandidate, snapshotMatchesMiningResult } from '../../src/extract/distill/snapshot.js';
@@ -241,6 +241,7 @@ it.each([true, false])('exposes a final-write failure after changed graph writes
   if (!before.ok) throw before.error;
   const oldSnapshot = await readExtractionSnapshot(store, initial.value.resourceId);
   if (!oldSnapshot.ok || !oldSnapshot.value) throw new Error('Missing first checkpoint');
+  const oldCandidateHash = oldSnapshot.value.candidateHash;
   const changedSource = `${source} A later source note changes the excerpt.`;
   const changedClaim = 'A changed source-backed claim about linked index files and small collections.';
   const observed: string[] = [];
@@ -251,7 +252,7 @@ it.each([true, false])('exposes a final-write failure after changed graph writes
     if (property === 'upsertNode') return async (...args: Parameters<GraphStore['upsertNode']>) => {
       const next = args[2].metadata?.['extractionSnapshot'] as { candidateHash?: string } | undefined;
       if (args[0] === 'Resource' && next?.candidateHash !== undefined &&
-          next.candidateHash !== oldSnapshot.value.candidateHash) {
+          next.candidateHash !== oldCandidateHash) {
         return { ok: false as const, error: new Error('injected final snapshot write failure') };
       }
       const written = await target.upsertNode(...args);
@@ -357,18 +358,23 @@ it('rejects missing or mismatched cache snapshots and reuses a matching committe
     if (!valid) throw new Error('No committed extraction was cached');
     for (const change of ['missing-both', 'wrong-source', 'wrong-identity', 'unknown-excerpt',
       'changed-final-text', 'changed-proposal', 'future-proposal', 'failed-final-quote'] as const) {
-      const stale = JSON.parse(valid) as Record<string, any>;
+      const stale = { ...JSON.parse(valid) as MiningResult };
+      const candidate = stale.extractionSnapshotCandidate;
+      const firstFinal = candidate?.finalUnits[0];
+      const firstEvidence = firstFinal?.evidence[0];
+      const firstProposal = candidate?.proposal.units[0];
+      if (!candidate || !firstFinal || !firstEvidence || !firstProposal) throw new Error('Expected complete cached fixture');
       if (change === 'missing-both') {
         delete stale['distillation'];
         delete stale['extractionSnapshotCandidate'];
-      } else if (change === 'wrong-source') stale['extractionSnapshotCandidate'].sourceCanonicalId = 'other:source';
-      else if (change === 'wrong-identity') stale['extractionSnapshotCandidate'].minerIdentity = 'other-miner';
-      else if (change === 'unknown-excerpt') stale['extractionSnapshotCandidate'].finalUnits[0].evidence[0].excerptId = 'other-excerpt';
-      else if (change === 'changed-final-text') stale['extractionSnapshotCandidate'].finalUnits[0].text =
+      } else if (change === 'wrong-source') candidate.sourceCanonicalId = 'other:source';
+      else if (change === 'wrong-identity') candidate.minerIdentity = 'other-miner';
+      else if (change === 'unknown-excerpt') firstEvidence.excerptId = 'other-excerpt';
+      else if (change === 'changed-final-text') firstFinal.text =
         'This alternative claim has enough text for the schema but contradicts the exported Claim.';
-      else if (change === 'changed-proposal') stale['extractionSnapshotCandidate'].proposal.units[0].id = 'other-unit';
-      else if (change === 'future-proposal') stale['extractionSnapshotCandidate'].proposal.schemaVersion = 2;
-      else stale['extractionSnapshotCandidate'].finalUnits[0].evidence[0].quoteVerification = 'failed';
+      else if (change === 'changed-proposal') firstProposal.id = 'other-unit';
+      else if (change === 'future-proposal') Reflect.set(candidate.proposal, 'schemaVersion', 2);
+      else Reflect.set(firstEvidence, 'quoteVerification', 'failed');
       if (stale['extractionSnapshotCandidate']) {
         stale['extractionSnapshotCandidateHash'] = hashSnapshotCandidate(stale['extractionSnapshotCandidate']);
       }
@@ -511,7 +517,9 @@ it('stores a dedup alias checkpoint on the resolved Resource and ignores forged 
     expect(second.value.dedupAction).toBe('merge');
     const resource = await store.getNode('web:primary');
     if (!resource.ok) throw resource.error;
-    expect(resource.value?.metadata?.['ownerNote']).toBe('real');
+    const resourceNode = resource.value;
+    if (!resourceNode) throw new Error('Missing primary Resource');
+    expect(resourceNode.metadata?.['ownerNote']).toBe('real');
     const read = await readExtractionSnapshot(store, 'web:primary');
     if (!read.ok) throw read.error;
     expect(read.value).toMatchObject({ resourceId: 'web:primary', sourceCanonicalId: 'web:alias', trusted: false });
@@ -522,8 +530,8 @@ it('stores a dedup alias checkpoint on the resolved Resource and ignores forged 
       if (damage === 'outer-version') (corruptSnapshot as { schemaVersion: number }).schemaVersion = 2;
       else if (damage === 'proposal-version') (corruptSnapshot.proposal as { schemaVersion: number }).schemaVersion = 2;
       else (corruptSnapshot.finalUnits[0]?.evidence[0] as { quoteVerification: string }).quoteVerification = 'failed';
-      const corrupt = await store.upsertNode('Resource', 'web:primary', { label: resource.value?.label,
-        content: resource.value?.content, metadata: { ...resource.value?.metadata,
+      const corrupt = await store.upsertNode('Resource', 'web:primary', { label: resourceNode.label,
+        content: resourceNode.content, metadata: { ...resourceNode.metadata,
           extractionSnapshot: corruptSnapshot } });
       if (!corrupt.ok) throw corrupt.error;
       expect(await readExtractionSnapshot(store, 'web:primary'), damage).toMatchObject({ ok: false,
