@@ -35,6 +35,7 @@ nav:
       - Model Distillation and Grounding: 55-testing/testing-057-distillation-pipeline.md
       - Shared Grounding Source Context: 55-testing/testing-058-grounding-context.md
       - Distillation Semantic Quality: 55-testing/testing-059-semantic-quality.md
+      - Native Gemini Writer Evaluation: 55-testing/testing-063-gemini-writer-evaluation.md
   - Planning:
       - Branch Landing Workflow: 05-planning/plan-015-branch-landing-workflow.md
       - Engineering Tech Debt Backlog: 05-planning/tasks/task-007-tech-debt-backlog.md
