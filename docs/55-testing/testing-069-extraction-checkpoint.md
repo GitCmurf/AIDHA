@@ -1,0 +1,180 @@
+---
+document_id: AIDHA-TESTING-069
+owner: Engineering
+status: Draft
+version: '0.1'
+last_updated: 2026-10-17
+title: Durable Source Extraction Checkpoint
+type: TESTING
+docops_version: '2.0'
+area: CORE
+related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
+---
+<!-- MEMINIT_METADATA_BLOCK -->
+> **Document ID:** AIDHA-TESTING-069
+> **Owner:** Engineering
+> **Status:** Draft
+> **Version:** 0.1
+> **Last Updated:** 2026-10-17
+> **Type:** TESTING
+
+# Durable Source Extraction Checkpoint
+
+## Version History
+
+| Version | Date | Author | Change Summary | Reviewers | Status | Reference |
+| ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
+| 0.1 | 2026-10-17 | Codex | Specify versioned extraction recovery, transactional admission and failed retry preservation. | — | Draft | AIDHA-PLAN-015 |
+
+## Purpose and limits
+
+An explicitly selected source distillation must retain a complete, inspectable last committed
+extraction after process restart. A failed extraction must not overwrite it. This storage contract
+is exercised with public fictional sources and injected fake models through
+`createIngestionRuntime`, with real SQLite close/reopen checks. Default miner selection, semantic
+acceptance, reader policy and model activation remain separate decisions.
+
+## Scope and schema
+
+An explicitly selected `SourceDistillationMiner` emits a JSON-safe v1 **candidate** after parsed
+proposal, quote verification, advisory grounding and projection. The candidate retains the complete
+parsed source proposal (including incidental units), final admitted units, rejected units with host
+reasons, supporting units, diagnostics/coverage and a required source-level `trusted:false` flag.
+The pending PR42 limitation projection and PR44 segment-repair audit are outside this main-based v1
+implementation. Combining them requires explicit projection/audit inputs and replay before use; this
+contract does not establish that integration. Include source canonical ID, extraction intent,
+configured model, prompt version and miner identity. The envelope `schemaVersion:1` and parsed
+proposal `schemaVersion:1` identify the supported storage and proposal contracts; miner identity
+binds the distillation and grounding prompt versions. The exporter finishes the stored snapshot with
+resolved Resource ID and exact claim/excerpt IDs. Call this last **successful extraction**, not a
+semantic certification or full run history.
+
+Define a core-owned Zod (or equivalent typed) v1 validator and a `readExtractionSnapshot(store,
+resourceId)` reader. The reader returns `null` for no snapshot, validates Resource type and envelope
+for present data, and returns an explicit error for unknown version/corruption; it never silently
+treats corrupt data as absent. Graph Resource metadata may remain passthrough, because graph backend
+must not import core types. Reserve `extractionSnapshot` against source-provided Resource metadata
+mutation. Normalize the candidate to its JSON-wire form at capture, *before*
+caching/reporting/storage, then validate it. This intentionally removes `undefined` object
+properties while preserving all defined semantic fields. Tests compare canonical JSON values after
+SQLite reopen, not raw own-property presence; no `NaN`, functions or cycles may be accepted. Do not
+store a raw provider response or imply the model text is trusted.
+
+## Failed-close outcome and retry
+
+Today `RunReport` requires `resourceId`, `dedupAction`, counts and IDs. For
+`MiningResult.distillation.failedClosed === true`, `runVector` should return
+`{ok:false,error:SourceDistillationClosedError}` **before exporter/reference/classifier**, with
+typed `diagnostics`, `sourceCanonicalId` and reported token usage. This avoids fabricated Resource
+IDs or success stats. The miner may keep its current internal `{ok:true,
+value:{failedClosed:true,...}}` contract; the pipeline converts the outcome. The typed error's
+message is concise for CLI reporting; diagnostics stay inspectable for tests/callers. No failed
+result is cached. A repeat call with a fresh runtime/cache miss retries generation. Direct exporter
+invocation with `failedClosed` must also reject before writing. No Resource is created by the failed
+attempt; an existing last-success Resource and all graph material remain byte-for-byte unchanged.
+
+A transport/parse failure that already returns `{ok:false}` upstream remains a failure result. Do
+not force it into a success-shaped report. If a parsed proposal exists on a failed close, retaining
+it in the typed error is useful but is not required to establish the last-success storage invariant.
+The full PLAN-010 failed-run report promise needs an explicit later report API if callers require
+one for all error classes.
+
+## Transactional admission
+
+For a valid successful distillation candidate, `GraphPipelineExporter` requires
+`store.runInTransaction` before any dedup call. In one transaction: resolve/upsert Resource, upsert
+excerpts, claims and evidence edges, then upsert that Resource with the v1 snapshot. Every
+`{ok:false}` and thrown exception must abort and return failure. Preserve other Resource
+metadata/provenance. Unsupported backends fail before writes; non-distillation exporter behavior
+remains unchanged. Do not overwrite a pre-existing snapshot on failed close or failed export. A
+second successful extraction may replace the one active snapshot; its active claim IDs are the
+checkpoint boundary. Old claim nodes may remain until separate lifecycle/reader work.
+
+A successful graph export may precede a later reference-extraction/classification failure. This
+slice proves extraction-export atomicity, not rollback of arbitrary downstream side effects or all
+concurrent ingestion. The PLAN-010 stronger all-failed-run rollback statement remains open unless
+that broader stage is included and tested. Snapshot insertion must not silently mark unrelated
+downstream stages as successful.
+
+## Red-first acceptance tests
+
+The [configured-runtime and SQLite
+regression](https://github.com/GitCmurf/AIDHA/blob/237020a4bf0eeb90a939c13ac57ae0b3233d82c1/packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts)
+protects these boundaries with fictional inputs.
+
+1. **Full successful round trip:** Public synthetic source with one qualified claim, one example,
+   one procedure, one incidental unit and one bad-quote unit. Use the configured runtime factory
+   with explicit miner/fake LLM and real SQLite. Close/reopen, call the typed reader, assert exact
+   original parsed units, final/rejected/supporting content,
+   rationale/conditions/attribution/evidence, diagnostics and active claim/excerpt IDs. Compare
+   reopened graph Claim/Excerpt/edge IDs and exact metadata. Version is 1; `trusted:false` remains.
+2. **Mid-export rollback:** Inject a store failure after at least Resource+Excerpt+Claim graph
+   writes and separately on final snapshot upsert, delegating the transaction to the same SQLite
+   instance. Reopen and assert no new/changed Resource, Excerpt, Claim or edge rows. Repeat from an
+   existing success and assert its full snapshot and graph state unchanged. A returned error must
+   not be swallowed by transaction callback.
+3. **Failed close, last success, retry:** First succeed. Force schema/quote fail-close with a fresh
+   cache or changed input; assert typed error diagnostics, zero exporter/ref/classifier calls, zero
+   cache write, and exact reopened prior snapshot/graph. Then valid retry succeeds and updates the
+   snapshot. Also assert failed close on a new source leaves no Resource.
+4. **Cache-wire validity:** Hit a valid cached v1 result and assert exact snapshot still exports
+   without another model call. Feed a cached pre-v1/missing/corrupt/unknown-version candidate;
+   assert it is rejected as a hit and reminted or returns explicit failure, never a summary-only
+   snapshot. Check intentionally absent optional keys remain absent after JSON-wire normalization
+   and reopen; all defined conditions/evidence remain exact.
+5. **Boundaries:** Nontransactional store rejects distillation before any write; legacy miner still
+   follows its existing path; source-supplied `resourceMetadata.extractionSnapshot` cannot replace
+   exporter-owned state; newer successful extraction preserves unrelated Resource metadata and
+   provenance.
+
+The acceptance evidence is a focused red/green log, full affected core/graph suites,
+typecheck/build, strict docs/DocOps, exact SQLite close/reopen assertions, and material code review
+before commit. No synthetic test can establish semantic recall, entailment or product readiness.
+
+## Verification commands
+
+Run from the repository root with the locked dependencies installed. The offline command requires
+those packages in the local cache; a fresh machine needs its normal authorised install.
+
+```sh
+pnpm install --frozen-lockfile --offline
+pnpm build:deps
+pnpm --filter @aidha/praecis-core test -- tests/pipeline/extraction-snapshot.test.ts tests/pipeline/distillation.test.ts
+pnpm --filter @aidha/praecis-core test
+pnpm --filter @aidha/praecis-core lint
+pnpm --filter @aidha/praecis-core build
+pnpm --filter @aidha/graph-backend test
+node scripts/meminit-check.mjs docs/55-testing/testing-069-extraction-checkpoint.md
+pnpm docs:build
+```
+
+Record actual results and limitations before requesting merge. A skipped or incomplete review is not
+evidence of coverage. Named merge approval remains separate from engineering preparation.
+
+## Verification record
+
+The reviewed runtime and tests are committed as `237020a4bf0eeb90a939c13ac57ae0b3233d82c1`. The
+initial configured-runtime regression fails on main because the reopened Resource lacks an
+extraction checkpoint. With the implementation, all fifteen snapshot-specific checks and all 291
+core tests pass. All 156 graph-backend tests, core lint and build also pass. The compiled package
+exposes a callable public snapshot reader and the typed failure API.
+
+Independent hash-pinned source reviews cover the full implementation and final correction. The
+complete initial native review covers thirteen files and reports two Minor issues: locale-dependent
+hash ordering and the temporary branch-based test link. The locale regression fails using real
+English/Estonian collation before the correction; deterministic code-unit ordering passes afterward.
+The regression restores its collation spy. The test link above is pinned to the reviewed source
+commit. Normal source commit hooks pass.
+
+The complete native verification then reports one conditional Major concern about absent optional
+fields. The ordinary miner passes fresh and cached runs with those fields absent, so its alleged
+failure is not reproduced. A declared-v1 wrapper adding own `undefined` optional fields does
+reproduce a narrower comparison failure. Guarded JSON-wire comparison fixes it while retaining
+rejection of function and nonfinite values. Peer review catches a throwing-getter escape in that
+guard; a failing regression precedes the correction. The final two-file followup is independently
+hash-pinned reviewed and passes the tests above. The two full native passes cover their recorded
+pre-followup bytes; the final peer review and exact rerun cover the corrective delta. Documentation
+and final hosted reports are assessed before merge readiness is claimed.
+
+These fake-model tests establish durability and internal consistency, not semantic recall or
+entailment. No real source, new model call, paid collection or default activation is used.
