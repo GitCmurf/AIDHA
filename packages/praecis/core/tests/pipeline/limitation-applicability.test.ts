@@ -43,6 +43,22 @@ const vector = composeVector({
 
 const sqliteIt = SQLiteStore.isAvailable() ? it : it.skip;
 describe('opt-in limitation applicability through shared runtime and durable Claim storage', () => {
+  it('skips the optional relation call when grounded targets project only to supporting or procedure', async () => {
+    const projectedUnits = [units[2],
+      { ...units[0], kind: 'example' },
+      { ...units[1], kind: 'procedure' }];
+    const llm = new RecordingLlm([payload(projectedUnits), JSON.stringify({ verdicts:
+      projectedUnits.map(unit => ({ unitId: unit.id, verdict: 'grounded' })) })]);
+    const input = request(llm);
+    const result = await new SourceDistillationMiner({ enableLimitationApplicability: true }).mine({ ...input,
+      chunks: excerpts.map(entry => ({ id: entry.id, text: entry.text, segments: [],
+        locator: { kind: 'text' as const, charStart: 0, charEnd: entry.text.length } })) });
+    if (!result.ok) throw result.error;
+    expect(llm.requests).toHaveLength(2);
+    expect(result.value.claims).toHaveLength(1);
+    expect(result.value.claims[0]?.metadata?.['unitId']).toBe('limit');
+  });
+
   it.each([
     { invalidUsage: -1, maxTokens: 10_000 },
     { invalidUsage: Number.NaN, maxTokens: undefined },

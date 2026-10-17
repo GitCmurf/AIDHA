@@ -78,17 +78,30 @@ export interface LimitationApplication {
 }
 
 const lower = (value: string): string => value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/gu, ' ').trim();
+const identifierCharacter = /[\p{L}\p{N}\p{M}_]/u;
+const identifierJoiner = /[.\-/:']/u;
+const joinedIdentifier = (left: string, separator: string, right: string): boolean =>
+  (identifierJoiner.test(separator) && identifierCharacter.test(left) && identifierCharacter.test(right)) ||
+  (separator === ',' && /\p{N}/u.test(left) && /\p{N}/u.test(right));
 const containsLiteralAnchor = (quote: string, anchor: string): boolean => {
   const text = lower(quote);
   const term = lower(anchor);
   if (!term) return false;
+  const termPoints = Array.from(term);
+  const first = termPoints[0] ?? '';
+  const last = termPoints.at(-1) ?? '';
   let index = text.indexOf(term);
   while (index !== -1) {
-    const before = text[index - 1] ?? '';
-    const after = text[index + term.length] ?? '';
-    const word = /[\p{L}\p{N}\p{M}_]/u;
-    if ((!word.test(term[0] ?? '') || !word.test(before)) &&
-        (!word.test(term.at(-1) ?? '') || !word.test(after))) return true;
+    const left = Array.from(text.slice(0, index));
+    const right = Array.from(text.slice(index + term.length));
+    const before = left.at(-1) ?? '';
+    const after = right[0] ?? '';
+    const startsInsideIdentifier = identifierCharacter.test(first) &&
+      (identifierCharacter.test(before) || joinedIdentifier(left.at(-2) ?? '', before, first) ||
+        (/\p{N}/u.test(first) && /[+\-−]/u.test(before)));
+    const endsInsideIdentifier = identifierCharacter.test(last) &&
+      (identifierCharacter.test(after) || joinedIdentifier(last, after, right[1] ?? ''));
+    if (!startsInsideIdentifier && !endsInsideIdentifier) return true;
     index = text.indexOf(term, index + 1);
   }
   return false;
@@ -124,6 +137,31 @@ const evidenceRejectionReason = (
   return null;
 };
 
+const relationKey = (relation: LimitationRelation): string =>
+  `${relation.limitationUnitId}\u0000${relation.targetUnitId}`;
+
+const summarizeLimitation = (limitation: VerifiedUnit, relation: LimitationRelation): SourceLimitationSummary => ({
+  id: limitation.id, text: limitation.text, stance: limitation.stance,
+  evidence: limitation.evidence,
+  ...(limitation.rationale ? { rationale: limitation.rationale } : {}),
+  ...(limitation.conditions ? { conditions: limitation.conditions } : {}),
+  ...(limitation.attribution ? { attribution: limitation.attribution } : {}),
+  applicability: { trusted: false, targetScope: relation.targetScope,
+    relationEvidence: { ...relation.relationEvidence, quoteVerification: 'exact' }, explanation: relation.explanation },
+});
+
+const relationRejectionReason = (
+  target: VerifiedUnit | undefined, limitation: VerifiedUnit | undefined, relation: LimitationRelation,
+  duplicateCount: number, units: readonly VerifiedUnit[], excerptTextById: ReadonlyMap<string, string>,
+  affirmativelyGroundedIds: ReadonlySet<string>, intent: ExtractionIntent, sourceType: SourceType
+): string | null => {
+  if (duplicateCount !== 1) return 'duplicate or conflicting relation';
+  const endpointReason = endpointRejectionReason(target, limitation, relation, affirmativelyGroundedIds, intent, sourceType);
+  if (endpointReason) return endpointReason;
+  if (!target || !limitation) return 'unknown or self endpoint';
+  return evidenceRejectionReason(target, limitation, relation, units, excerptTextById, intent, sourceType);
+};
+
 /** A deliberately narrow host gate: source-literal direct scope, never semantic certification. */
 export const applyLimitationRelations = (
   units: readonly VerifiedUnit[], relations: readonly LimitationRelation[], excerptTextById: ReadonlyMap<string, string>,
@@ -134,32 +172,21 @@ export const applyLimitationRelations = (
   const diagnostics: string[] = [];
   const relationCounts = new Map<string, number>();
   for (const relation of relations) {
-    const key = `${relation.limitationUnitId}\u0000${relation.targetUnitId}`;
+    const key = relationKey(relation);
     relationCounts.set(key, (relationCounts.get(key) ?? 0) + 1);
   }
   for (const relation of relations) {
-    const key = `${relation.limitationUnitId}\u0000${relation.targetUnitId}`;
     const target = byId.get(relation.targetUnitId);
     const limitation = byId.get(relation.limitationUnitId);
-    const reason = (relationCounts.get(key) ?? 0) !== 1 ? 'duplicate or conflicting relation' :
-      endpointRejectionReason(target, limitation, relation, affirmativelyGroundedIds, intent, sourceType) ??
-      (target && limitation ? evidenceRejectionReason(target, limitation, relation, units, excerptTextById, intent, sourceType) : null);
+    const reason = relationRejectionReason(target, limitation, relation, relationCounts.get(relationKey(relation)) ?? 0,
+      units, excerptTextById, affirmativelyGroundedIds, intent, sourceType);
     if (reason || !target || !limitation) {
       diagnostics.push(`${relation.limitationUnitId} limits ${relation.targetUnitId}: ${reason || 'unknown or self endpoint'}; link ignored.`);
       continue;
     }
     // These checks preserve provenance and reject common wrong-target proposals. They do not
     // mechanically prove entailment; every stored attachment remains an untrusted draft.
-    const summary: SourceLimitationSummary = {
-      id: limitation.id, text: limitation.text, stance: limitation.stance,
-      evidence: limitation.evidence,
-      ...(limitation.rationale ? { rationale: limitation.rationale } : {}),
-      ...(limitation.conditions ? { conditions: limitation.conditions } : {}),
-      ...(limitation.attribution ? { attribution: limitation.attribution } : {}),
-      applicability: { trusted: false, targetScope: relation.targetScope,
-        relationEvidence: { ...relation.relationEvidence, quoteVerification: 'exact' }, explanation: relation.explanation },
-    };
-    byTarget.set(target.id, [...(byTarget.get(target.id) ?? []), summary]);
+    byTarget.set(target.id, [...(byTarget.get(target.id) ?? []), summarizeLimitation(limitation, relation)]);
   }
   return { byTarget, diagnostics };
 };
