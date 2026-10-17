@@ -130,10 +130,6 @@ def main() -> int:
         res = check_url(url)
         if is_failure(res):
             failures += 1
-            print(
-                f"Linkcheck failed: {url} (HTTP {res.get('http_status')}; {res.get('error')})",
-                file=sys.stderr,
-            )
         results.append(res)
     REPORT.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     if failures:

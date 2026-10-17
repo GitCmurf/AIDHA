@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-061
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.1'
 last_updated: 2026-10-17
 title: Offline Decision Provider Adapters and Comparison Proposal
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-059, AIDHA-TESTING-060]
 > **Document ID:** AIDHA-TESTING-061
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.1
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -25,7 +25,6 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-059, AIDHA-TESTING-060]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.1 | 2026-10-17 | Codex | Translate frozen decision tasks, replay native replies offline and prepare a bounded live comparison proposal. | — | Draft | TESTING-060; owner autonomous preparation |
-| 0.2 | 2026-10-17 | Codex | Report failed external URLs in CI after repeated link-check failures hidden from job logs. | — | Draft | PR 39 |
 
 ## Purpose and acceptance
 
@@ -50,11 +49,6 @@ The direct offline tests are `openai.test.mjs`, `openrouter.test.mjs`, `capture.
 `plan.test.mjs` and `adapters.test.mjs` under `scripts/decision-quality/`. Existing corpus and
 scorer tests remain in the same root test command. This slice depends on TESTING-060 and is
 stacked on its branch until that PR is approved and merged.
-
-PR 39's documentation link check failed twice in CI after passing locally. The job retained no
-downloadable report and logged only the failure count. The checker now prints each failed URL,
-HTTP status and error to stderr while retaining its JSON report and unchanged failure rules.
-`python3 scripts/test_linkcheck.py` covers that CI diagnostic without contacting a server.
 
 ## Native API contracts
 
