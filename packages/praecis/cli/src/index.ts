@@ -77,12 +77,16 @@ export interface IngestSummary {
   readonly chunkCount: number;
   readonly claimsExtracted: number;
   readonly claimIds: readonly string[];
+  readonly sourceDistillation?: RunReport['sourceDistillation'];
+  readonly supportingUnits?: RunReport['supportingUnits'];
+  readonly rejectedClaims?: RunReport['rejectedClaims'];
   readonly claims: Array<{
     readonly text: string;
     readonly excerptIds: readonly string[];
     readonly method?: unknown;
     readonly model?: unknown;
     readonly promptVersion?: unknown;
+    readonly metadata?: RunReport['claims'][number]['metadata'];
   }>;
   readonly resourceId: string;
   readonly dedupAction: 'create' | 'merge' | 'corroborate';
@@ -302,12 +306,16 @@ function summaryFromRunReport(sourceId: SourceId, ref: string, result: RunReport
     chunkCount: result.chunkCount,
     claimsExtracted: result.claimsExtracted,
     claimIds: result.claimIds,
+    ...(result.sourceDistillation ? { sourceDistillation: result.sourceDistillation } : {}),
+    ...(result.supportingUnits ? { supportingUnits: result.supportingUnits } : {}),
+    ...(result.rejectedClaims ? { rejectedClaims: result.rejectedClaims } : {}),
     claims: result.claims.map(claim => ({
       text: claim.text,
       excerptIds: claim.excerptIds,
       method: claim.metadata?.['method'],
       model: claim.metadata?.['model'],
       promptVersion: claim.metadata?.['promptVersion'],
+      ...(claim.metadata ? { metadata: claim.metadata } : {}),
     })),
     dedupAction: result.dedupAction,
     policyRoute: result.policyRoute,

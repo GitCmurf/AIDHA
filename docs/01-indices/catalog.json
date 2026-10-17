@@ -278,6 +278,25 @@
     }
   },
   {
+    "path": "55-testing/testing-057-distillation-pipeline.md",
+    "title": "Bounded Model Distillation and Grounding",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-057",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-17",
+      "title": "Bounded Model Distillation and Grounding",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-056"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-056-distillation-validation.md",
     "title": "Validation and Evidence Checks for Model-Generated Distillations",
     "front_matter": {
@@ -566,7 +585,7 @@
       "document_id": "AIDHA-PLAN-015",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.11",
+      "version": "0.13",
       "last_updated": "2026-10-17",
       "title": "Branch Landing and Next Sprints Workflow",
       "type": "PLAN",

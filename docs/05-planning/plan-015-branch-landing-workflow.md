@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.11'
+version: '0.13'
 last_updated: 2026-10-17
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.11
+> **Version:** 0.13
 > **Last Updated:** 2026-10-17
 > **Type:** PLAN
 
@@ -35,6 +35,8 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.9 | 2026-10-16 | Codex | Record final PR 33 CI, actual bot assessment and concrete owner merge review. | — | Draft | PR 33 |
 | 0.10 | 2026-10-17 | Codex | Record owner approval, merge PR 33 and refresh remaining dependency alerts. | CMF | Draft | PR 33 |
 | 0.11 | 2026-10-17 | Codex | Extract validation and evidence checks for model-generated distillations with explicit semantic limits. | — | Draft | AIDHA-TESTING-056 |
+| 0.12 | 2026-10-17 | Codex | Record final PR 34 verification, reproduced bot fixes, remaining complexity advisories and the owner merge gate. | — | Draft | PR 34 |
+| 0.13 | 2026-10-17 | Codex | Record owner approval and PR 34 merge; prepare the bounded generation and grounding slice. | CMF | Draft | PR 34 |
 
 ## Purpose and authority
 
@@ -110,6 +112,41 @@ Configuration/build-tool and documentation-tool maintenance remain separate slic
 product, spending or account decision blocks the next synthetic engineering slice. Future PRs
 still need their own merge approval.
 
+## PR 34 approved and merged
+
+The owner approved [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) on 2026-10-17. It merged
+as `1c83ecb` from unchanged `dd55b43`, based on `580b94c`,
+with exactly sixteen intended files. It adds validation and evidence checks for model-generated
+distillations. No provider, default pipeline, storage or dependency change is included.
+Mechanical acceptance does not establish semantic entailment or extraction quality.
+
+- [x] Reproduce and fix confirmed independent/CLI/reporting-bot defects with regressions.
+- [x] Pass all 221 core tests, including 82 new contract tests; owning build/lint and docs pass.
+- [x] Pass final-head required build, documentation verification and secret scanning.
+- [x] Inspect and resolve actual reporting-bot threads; retain the documented complexity risk.
+- [x] Preserve all 69 original baseline paths and the original unstaged index.
+- [x] Obtain separate owner approval for PR 34.
+- [x] Refresh the reviewed head/base and required checks, then merge the approved scope.
+- [x] Verify integrated main and refresh context/ledger after merging.
+
+The approved and integrated trees are identical. The remaining documented risk is maintenance
+complexity: DeepSource's advisory JavaScript status is red, including quotation-matcher complexity
+17 (high). Explicit boundary guards have regression and independent review coverage; thresholds
+and suppression settings are unchanged. No paid-review or account change was needed.
+
+The previous CodeRabbit CLI verification covered the initial sixteen-file candidate. Later bot
+fixes have independent peer review and regressions; do not claim that CLI run covers the final
+code. CodeRabbit GitHub, Qodo and Macroscope skips supply no review coverage. Greptile's two actual
+correctness findings are reproduced and fixed. Actual CodeQL and DeepSource Python/Secrets/Shell
+results pass. The PR description holds current CI links and the complete review assessment.
+
+Next engineering order: extract and test a bounded model-generation/semantic-grounding pipeline
+using injected dependencies and production entrypoints, then demonstrate the reader's answer to
+the existing real question. Synthetic orchestration tests do not prove model quality. Keep
+configuration/YAML and build/docs dependency maintenance in independent PRs before relevant real
+pilots. No new owner product decision blocks synthetic preparation; private inputs and merge
+approvals retain their existing gates.
+
 ## Restart procedure
 
 1. Read this file and `AGENTS.md`, including the [Slice ledger](#slice-ledger) and
@@ -180,7 +217,8 @@ Do not introduce links to pages absent from a PR base.
 | Private public-artifact guard | Independent; integrated `main` at `475f615` | `019-private-artifact-guard` / [PR 32](https://github.com/GitCmurf/AIDHA/pull/32) | Merged as `01ec0ed` after required CI and actual findings were addressed; final isolation fix peer-reviewed; supplemental CLI attempt gave no coverage | Forced-stage, newline, case, original-policy and fail-closed regressions; actual scan added to required test command |
 | Taxonomy-version provenance | Independent; integrated `main` at `475f615` | `020-taxonomy-provenance` / [PR 31](https://github.com/GitCmurf/AIDHA/pull/31) | Merged as `33f40cd`; approved patch and all eleven non-generated blobs unchanged; fresh exact-head CI and actual reporting-bot checks pass | Structured canonical fingerprint; exact Resource metadata after fresh SQLite reopen and email ingestion |
 | Email parser dependency maintenance | Verified `main` at `33f40cd`; independent | `021-email-parser-dependencies` / [PR 33](https://github.com/GitCmurf/AIDHA/pull/33) | Merged as `580b94c` from approved `a5d9651`; required CI passes; actual reports assessed | Synthetic malformed-address/mailto tests and ordinary MIME control; no real email |
-| Distillation validation and evidence checks | Verified `main` at `580b94c`; independent of model/pipeline wiring | `022-distillation-validation` / [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) | Published at `dc6b5ac`; actual bot follow-up and final CI in progress | AIDHA-TESTING-056; mechanical acceptance explicitly does not prove semantic entailment |
+| Distillation validation and evidence checks | Verified `main` at `580b94c`; independent of model/pipeline wiring | `022-distillation-validation` / [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) | Merged as `1c83ecb` from approved `dd55b43`; exact integrated tree matches; required CI passes | AIDHA-TESTING-056; mechanical acceptance explicitly does not prove semantic entailment |
+| Bounded model generation and grounding | Verified `main` at `1c83ecb`; uses PR 34 contracts | `023-distillation-pipeline` / pending | Implementation and meaningful runtime regressions pass; full checks and review in progress | TESTING-057; default selection unchanged; no live provider calls |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
@@ -267,8 +305,8 @@ snapshot wiring outside this slice; revise it to describe policy only before pub
 - [x] Isolate a self-contained acceptance spec with explicit semantic and runtime limits.
 - [x] Test schema/reference integrity, literal quote checks and unknown references, citation
   diagnostics without forced claim counts, and intent/kind/importance routing rules.
-- [ ] Run core tests, lint/build, docs/DocOps and independent review; publish a separate PR.
-- [ ] Keep runtime wiring, activation/task writes, continuity and reader UI in subsequent slices.
+- [x] Run core tests, lint/build, docs/DocOps and independent review; publish a separate PR.
+- [x] Keep runtime wiring, activation/task writes, continuity and reader UI in subsequent slices.
 - [ ] Prove runtime extraction quality only after a separately reviewed miner/pipeline slice.
 
 This foundation supports inspectable reader evidence. It is not itself a user-visible quality win.
@@ -313,7 +351,7 @@ Synthetic contract work needs no owner product decision. Existing PEPYS authorit
 
 | Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
 | --- | --- | --- | --- |
-| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No; approved PR 33 is merged. Future PRs need their own approval |
+| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No; PR 34 is approved and merged. Future PRs need separate approval |
 | Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
 | Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
 | New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
@@ -841,3 +879,80 @@ Email slice completion record:
 - These are mechanical correctness fixes; neither establishes semantic entailment. Independent
   review and refreshed package/docs checks precede another push. Final-head CI and actual reports
   remain merge-readiness gates; earlier-head passes do not replace them.
+
+### 2026-10-17 — PR 34 final checks and owner gate
+
+- Final head `dd55b43` differs from fully tested `58969c2` only by two equivalent template-literal
+  expressions in a test. All 221 core tests and 82 contract tests pass; final required CI passes.
+- Required jobs: [build](https://github.com/GitCmurf/AIDHA/actions/runs/39026928782/job/117379665330),
+  [verify](https://github.com/GitCmurf/AIDHA/actions/runs/39026928943/job/117379665994), and
+  [gitleaks](https://github.com/GitCmurf/AIDHA/actions/runs/39026928787/job/117379665196).
+- Eight red cases establish the two Greptile fixes. Independent review confirms seventeen rejected
+  contraction fragments, seventeen valid quotation controls and fourteen JSON controls. DeepSource
+  style issues are fixed; remaining complexity reports are assessed maintenance advisories.
+- Keep receipts in ignored `reports/branch-landing-20261016/verification/distillation022/`.
+  No credentials, private source or paid-review activation is part of this slice.
+- The source checkout remains on `fix/youtube-llm-remediation` at `39bea2d`, with its index unstaged
+  and all 69 baseline paths unchanged. This local v0.12 completion record accompanies the next
+  appropriate slice; the PR retains its reviewed v0.11 record. Do not create a status-only PR.
+- No PR 34 merge approval has been received. The concrete owner decision is approval of this
+  named PR; no product, spending or account question blocks the prepared engineering work.
+
+### 2026-10-17 — PR 34 approved merge and next slice
+
+- Owner approved merging PR 34 and continuing. Refreshed main/head, all three required checks
+  and all twenty-one actual review threads immediately before merging the approved `dd55b43`.
+  GitHub merged it as `1c83ecb`; a tree comparison confirms exact equality with the tested head.
+- Created isolated `023-distillation-pipeline` at that merge. The source checkout remains preserved.
+  The next bounded slice extracts generation, one schema repair, literal checks, advisory semantic
+  grounding and draft projection. It uses the existing injected LLM client and production runtime.
+  Consolidation, quotation reselection, large-source notes and default selection stay separate.
+- Before copying, the dependency audit found that the original miner imports quote catalogs and
+  claim identity through those later passes. Trim those dependencies rather than importing the
+  larger bundle. Preserve PR 34's corrected validators. The new acceptance spec is TESTING-057.
+- Runtime acceptance must include exact rejected/supporting outputs, cache isolation by miner/model,
+  retry after failed extraction, and truthful token usage after later thrown calls. Synthetic tests
+  demonstrate orchestration, not semantic model accuracy. No live provider call is authorised here.
+- Agent-context refresh was attempted after the merge and stopped before edits because
+  `specs/023-distillation-pipeline/plan.md` is absent. This repository has no feature-spec tree;
+  the governed acceptance document and this workflow retain the handoff. No template change is needed.
+
+- Integrated main `1c83ecb` passes TypeScript Packages, Docs Check, Secret Scan and Push on main.
+  The context-refresh limitation above remains recorded; no generated context file was changed.
+- Meaningful runtime regressions reproduced lost supporting/rejected reports, cross-miner/model
+  cache reuse and failed extraction cache poisoning. Those cases pass after report propagation,
+  explicit cache identities and failed-run exclusion. Independent review additionally identified
+  CLI summary loss, unresolved support links and completion-only budgeting; fixes and regressions
+  are being completed before publication. TESTING-057 documents the bounded behavior and limits.
+
+- The 023 slice passes all 270 core tests, including 49 added host/runtime tests. Its complete
+  workspace build, owning core lint, strict docs and scoped DocOps pass. Two public CLI regressions
+  reproduce lost failure status and lost qualified metadata before the shared mapper fix.
+- Peer review found four issues and the scoped fixes are implemented: estimated prompt input is
+  reserved before completion budgets; unresolved proposed links remain separate from live links;
+  anonymous miners bypass cache; public CLI summaries retain failure and qualified reports.
+  Tokenisation remains approximate, and unsupported dollar ceilings fail before provider calls.
+- Fresh independent recheck finds no surviving material issue in the three core corrections;
+  the CLI correction has parent review and public-entrypoint regressions. Whole-slice external
+  review and final affected-package checks precede commit and publication.
+
+- Fresh deep CodeRabbit review completed over all twenty files with one minor finding: one invalid
+  grounding verdict discarded valid rejections elsewhere in the same response. The mixed-response
+  regression reproduced two exported drafts instead of one. Per-entry verdict parsing now retains
+  valid rejections and bounded entry diagnostics; malformed entries use the existing missing-verdict
+  policy. Verification review and refreshed affected checks follow this correction.
+
+- A final real-exporter check reproduced same-text qualified drafts overwriting one graph node.
+  Distillation-only IDs now include source meaning and evidence, while excluding model/prompt
+  versions and generated unit numbering. Legacy IDs are unchanged. Regression cases check distinct
+  qualifications and citations, exact stored metadata and stable IDs after a fresh model run.
+- CodeRabbit verification completed with one further minor finding: missing usage on the final
+  advisory grounding call incorrectly discarded verified drafts under a token allowance. Two red
+  cases reproduce it. Usage uncertainty now blocks a later call, while the final advisory result
+  retains untrusted drafts and the accounting diagnostic. These final corrections receive bounded
+  independent review and affected checks before publication.
+
+- Bounded independent review finds no surviving material issue in the final identity and usage
+  corrections. All 136 focused tests pass. Both completed twenty-file CodeRabbit reviews produced
+  genuine minor findings, now fixed with regressions; the last corrections have peer review rather
+  than a claimed zero-finding CLI receipt. Final owning checks and repository CI remain gates.
