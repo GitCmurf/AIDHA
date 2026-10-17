@@ -8,8 +8,26 @@ export const capErrors = (errors: readonly string[]): readonly string[] => {
   return [...errors.slice(0, MAX_PARSE_ERRORS), `(${errors.length - MAX_PARSE_ERRORS} more errors omitted)`];
 };
 
+/** Return the matching closing brace, ignoring braces inside JSON strings. */
+const objectEnd = (text: string, start: number): number => {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+    } else if (char === '"') inString = true;
+    else if (char === '{') depth += 1;
+    else if (char === '}' && --depth === 0) return index + 1;
+  }
+  return -1;
+};
+
 /**
- * Extracts the outermost JSON object from an LLM response, tolerating
+ * Extracts the first valid JSON object from an LLM response, tolerating
  * markdown fences and leading/trailing prose. Falls back to the raw tail
  * when a brace is opened but never closed so JSON.parse can report the
  * truncation precisely.
@@ -32,7 +50,19 @@ export const extractJsonObject = (text: string): string | null => {
   }
   const first = candidate.indexOf('{');
   if (first === -1) return null; // no brace → "no JSON object" (existing behavior)
-  const last = candidate.lastIndexOf('}');
-  if (last <= first) return candidate.slice(first); // truncated → JSON.parse fails → "not valid JSON"
-  return candidate.slice(first, last + 1);
+  let start = first;
+  while (start !== -1) {
+    const end = objectEnd(candidate, start);
+    if (end === -1) break;
+    const object = candidate.slice(start, end);
+    try {
+      JSON.parse(object);
+      return object;
+    } catch {
+      // Balanced prose placeholders such as {excerptId} are not JSON objects.
+      start = candidate.indexOf('{', end);
+    }
+  }
+  // Preserve malformed/truncated input for the caller's readable JSON error.
+  return candidate.slice(first);
 };

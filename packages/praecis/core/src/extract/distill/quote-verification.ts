@@ -40,6 +40,14 @@ const tokensOf = (value: string): string[] => {
   return normalizeQuoteText(value).match(/[\p{L}\p{N}]+/gu) ?? [];
 };
 
+/** Surrounding quote marks are allowed; splitting an apostrophe word is not. */
+const splitsApostropheWord = (left: string, right: string): boolean => {
+  const before = left.normalize('NFKC');
+  const after = right.normalize('NFKC');
+  return (/[\p{L}\p{N}\p{M}]['‘’]$/u.test(before) && /^[\p{L}\p{N}\p{M}]/u.test(after)) ||
+    (/[\p{L}\p{N}\p{M}]$/u.test(before) && /^['‘’][\p{L}\p{N}\p{M}]/u.test(after));
+};
+
 /** A substring inside "ineffective" or "+15" is not the claimed word or number. */
 const containsWholeSpan = (excerpt: string, quote: string): boolean => {
   if (!quote) return false;
@@ -56,7 +64,9 @@ const containsWholeSpan = (excerpt: string, quote: string): boolean => {
     const after = Array.from(excerpt.slice(start + quote.length))[0] ?? '';
     const truncatedNumber = /\p{N}/u.test(last) && /^[.,]\p{N}/u.test(excerpt.slice(start + quote.length));
     if (!((word.test(first) || numericStart) && attached.test(before)) &&
-        !((word.test(last) || numericPunctuationEnd) && /[\p{L}\p{N}\p{M}_]/u.test(after)) && !truncatedNumber) return true;
+        !((word.test(last) || numericPunctuationEnd) && /[\p{L}\p{N}\p{M}_]/u.test(after)) && !truncatedNumber &&
+        !splitsApostropheWord(excerpt.slice(0, start), excerpt.slice(start)) &&
+        !splitsApostropheWord(excerpt.slice(0, start + quote.length), excerpt.slice(start + quote.length))) return true;
     start = excerpt.indexOf(quote, start + 1);
   }
   return false;

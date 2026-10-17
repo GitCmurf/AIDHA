@@ -64,6 +64,24 @@ describe('verifyQuote', () => {
     expect(verifyQuote(quote, context)).toBe('failed');
   });
 
+  it.each(["'", '’', '‘', '＇'])('rejects partial contractions across %s at either endpoint', apostrophe => {
+    const ending = `The report confirms that the updated device now can${apostrophe}t operate safely under load, and several independent checks recorded the same failure during repeated laboratory trials.`;
+    expect(verifyQuote('the updated device now can', ending)).toBe('failed');
+    expect(verifyQuote(`the updated device now can${apostrophe}`, ending)).toBe('failed');
+    const beginning = `The report confirms that we${apostrophe}re checking all device readings carefully during repeated laboratory trials, with several independent observers recording the same failure.`;
+    expect(verifyQuote('re checking all device readings', beginning)).toBe('failed');
+    expect(verifyQuote(`${apostrophe}re checking all device readings`, beginning)).toBe('failed');
+  });
+
+  it.each(["'", '’', '‘', '＇'])('preserves surrounding quotation marks and complete contractions: %s', apostrophe => {
+    const quote = 'the updated device now can';
+    const surrounded = `The report quotes ${apostrophe}${quote}${apostrophe} and records many other independent observations during repeated laboratory trials to establish the complete context.`;
+    expect(verifyQuote(quote, surrounded)).toBe('exact');
+    const complete = `the updated device now can${apostrophe}t operate`;
+    const context = `The report confirms that ${complete} safely under load, and several independent checks recorded the same failure during repeated laboratory trials.`;
+    expect(verifyQuote(complete, context)).toBe('exact');
+  });
+
   it('normalizes compatibility characters and curly quotes without paraphrasing', () => {
     const context = "The synthetic record states that the device's red indicator stayed off and describes several other readings with their timestamps afterwards.";
     expect(verifyQuote('the device’s red indicator stayed off', context)).toBe('normalized');

@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-056
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-17
 title: Validation and Evidence Checks for Model-Generated Distillations
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015]
 > **Document ID:** AIDHA-TESTING-056
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-015]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify the isolated validation, quotation, citation-diagnostic and routing contracts. | — | Draft | AIDHA-PLAN-015 |
+| 0.2 | 2026-10-17 | Codex | Clarify JSON prose boundaries and apostrophe-word rejection after reporting-bot review. | — | Draft | PR 34 |
 
 ## Scope and limits
 
@@ -52,6 +53,11 @@ a recommendation may omit a rationale rather than invent one. Unknown attributio
 a name or role. Null optional wire fields become absent local fields. Empty units and theses
 are permitted; there is no forced claim count. Errors are bounded and readable.
 
+JSON extraction tolerates complete JSON/plain fences and surrounding prose. It selects the first
+valid JSON object, skipping balanced non-JSON placeholders such as `{excerptId}`. Braces and
+escaped quotation marks inside JSON strings do not end the object. Malformed or truncated input
+still produces a readable parse error; schema validation then checks the extracted object.
+
 `distillationResponseSchema` describes provider-facing structured output with required nullable
 optional fields and allowed excerpt IDs. Host validation remains authoritative. A generation
 schema requires at least one allowed excerpt; a caller with no excerpts must avoid generation.
@@ -60,7 +66,9 @@ schema requires at least one allowed excerpt; a caller with no excerpts must avo
 
 `verifyQuote` returns `exact`, `normalized` or `failed`. Normalisation applies NFKC, lowercasing,
 curly-quote substitutions and collapsed whitespace. Matches require whole spans, including the
-defined word/number boundaries. Approximate token overlap cannot establish a literal quotation.
+defined word/number boundaries. A match must not cut either side of an apostrophe joining word
+characters, including straight, curly and NFKC-compatible apostrophes. Surrounding quotation
+marks remain permitted. Approximate token overlap cannot establish a literal quotation.
 
 The extracted eligibility policy requires at least five words, four distinct tokens, and at most
 half the excerpt's token count. Consequently, some literal quotations fail eligibility. These

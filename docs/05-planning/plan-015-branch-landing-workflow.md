@@ -828,3 +828,16 @@ Email slice completion record:
   after the follow-up; do not weaken analyzer thresholds or split predicates only to hide counts.
 - Required published-head CI and inspection of further actual bot findings remain gates before
   owner merge review. Skipped review bots provide no coverage. No new merge approval exists.
+
+### 2026-10-17 — Actual Greptile findings reproduced and corrected
+
+- Greptile produced two actual correctness reports. Quotations could stop inside contractions,
+  and JSON extraction used the final prose brace rather than the object's boundary. Eight red
+  cases reproduce both defects before correction.
+- Quotation boundaries now reject either side of apostrophes joining word characters, including
+  straight, curly and compatibility variants. Complete contractions and surrounding quotation
+  marks remain accepted. JSON extraction tracks nested braces and string escapes, skipping
+  balanced non-JSON prose placeholders before the first valid JSON object.
+- These are mechanical correctness fixes; neither establishes semantic entailment. Independent
+  review and refreshed package/docs checks precede another push. Final-head CI and actual reports
+  remain merge-readiness gates; earlier-head passes do not replace them.
