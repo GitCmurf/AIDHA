@@ -14,7 +14,7 @@ import { buildDistillationOutput } from './report.js';
 import { applyLimitationRelations, buildLimitationPrompt, limitationResponseSchema, LIMITATION_PROMPT_VERSION,
   parseLimitationRelations } from './limitations.js';
 import type { SourceLimitationSummary } from '../../interfaces/index.js';
-import type { ExtractionIntent } from './projection.js';
+import { projectUnit, type ExtractionIntent } from './projection.js';
 import { buildDistillPrompt, buildRepairPrompt, buildGroundingPrompt, DISTILL_PROMPT_VERSION, GROUNDING_PROMPT_VERSION } from './prompts.js';
 
 export interface SourceDistillationMinerConfig {
@@ -147,8 +147,10 @@ export class SourceDistillationMiner implements ICandidateMiner {
         }
       }
       let limitationsByTarget: ReadonlyMap<string, readonly SourceLimitationSummary[]> = new Map();
-      if (this.enableLimitationApplicability && kept.some(unit => unit.kind === 'limitation' && affirmativeGroundingIds.has(unit.id)) &&
-          kept.some(unit => unit.kind !== 'limitation' && affirmativeGroundingIds.has(unit.id))) {
+      const isGroundedClaim = (unit: typeof kept[number]): boolean => affirmativeGroundingIds.has(unit.id) &&
+        projectUnit(this.intent, proposal.sourceType, unit.kind, unit.importance) === 'claim';
+      if (this.enableLimitationApplicability && kept.some(unit => unit.kind === 'limitation' && isGroundedClaim(unit)) &&
+          kept.some(unit => unit.kind !== 'limitation' && isGroundedClaim(unit))) {
         try {
           const judged = await generate({ ...buildLimitationPrompt(kept, excerpts),
             responseFormat: { type: 'json_schema', schema: limitationResponseSchema() } });

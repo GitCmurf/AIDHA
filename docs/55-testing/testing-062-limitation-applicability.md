@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-062
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-17
 title: Source-Backed Limitation Applicability
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 > **Document ID:** AIDHA-TESTING-062
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify opt-in source-backed links and storage regressions. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-17 | Codex | Clarify hosted-review cleanup and retain the tested relation contract. | — | Draft | PR 42 |
+| 0.3 | 2026-10-17 | Codex | Guard whole target labels and skip calls without claim-projected endpoints. | — | Draft | PR 42 |
 
 ## Scope
 
@@ -58,7 +59,8 @@ const services = createDefaultPipelineServices({ store, llm, miner, config });
 ```
 
 The optional pass makes at most one additional model call after generation and grounding, only
-when a retained limitation and a target have affirmative grounded verdicts. Its full-source
+when a retained limitation and a claim-projected target have affirmative grounded verdicts.
+Supporting examples and non-runbook procedures cannot trigger a call by themselves. Its full-source
 prompt and response schema consume tokens. The existing token-ceiling preflight estimates the
 next call's input and output capacity: if too little remains before the optional call, links
 are skipped and the standalone claims are retained. If reported usage exceeds the ceiling
@@ -72,12 +74,15 @@ does not support dollar ceilings.
   context, target-specific exact evidence, retained limitation attribution, and rejection of
   nonliteral, generic, wrong-target-anchor, wrong-kind, and nonaffirmative proposals. An
   affirmative source paraphrase remains eligible; a source sentence with a negated target
-  receives no link when the advisory model reports `unsupported`.
+  receives no link when the advisory model reports `unsupported`. Whole-anchor regressions reject
+  `Trial 1` inside `Trial 1.5`, signed and Unicode-prefixed lookalikes, while admitting a qualified
+  label and an ordinary punctuation boundary.
 - `packages/praecis/core/tests/pipeline/limitation-applicability.test.ts` uses the shared runtime,
   fake model responses and SQLite close/reopen to verify two similar results A and B, a later
   A-only limitation with an unnamed origin, B without the link, and the limitation as an
   independent assertion. It also verifies distinct stored IDs when only limitation meaning
-  changes while the target's own text and evidence stay constant.
+  changes while the target's own text and evidence stay constant. A limitation with only
+  claim-ineligible example/procedure targets makes no relation call.
 
 Run from the repository root:
 

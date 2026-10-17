@@ -67,6 +67,54 @@ describe('source-backed limitation applicability', () => {
     expect(result.byTarget.size).toBe(0);
   });
 
+  it('treats a numeric continuation as part of the same target identifier', () => {
+    const later = 'The maintenance team reported that clogging affected Trial 1.5 after the original assembly was used. Their later note was retained alongside the sensor readings and the separate Trial 1 record for review.';
+    const own = 'Trial 1 used a revised assembly and removed eighty percent of particles during the measured hour. The operators checked the recorded sensor readings before closing this separate run.';
+    const source = new Map([...passages, ['numeric-later', later], ['numeric-own', own]]);
+    const target: VerifiedUnit = { ...units[0], evidence: [{ excerptId: 'numeric-own',
+      quote: 'Trial 1 used a revised assembly and removed eighty percent of particles', quoteVerification: 'exact' }] };
+    const proposal = { ...relation('a', 'Trial 1'), relationEvidence: { excerptId: 'numeric-later',
+      quote: 'clogging affected Trial 1.5 after the original assembly was used' } };
+    const result = applyLimitationRelations([target, units[2]], [proposal], source,
+      new Set(['a', 'limit']), 'knowledge_graph', 'other');
+    expect(result.byTarget.size).toBe(0);
+    expect(result.diagnostics).toEqual([expect.stringContaining('relation quote lacks the literal target anchor')]);
+
+    const qualifiedTarget: VerifiedUnit = { ...target, evidence: [{ excerptId: 'numeric-later',
+      quote: 'clogging affected Trial 1.5 after the original assembly was used', quoteVerification: 'exact' }] };
+    const qualified = applyLimitationRelations([qualifiedTarget, units[2]],
+      [{ ...proposal, targetScope: { kind: 'trial', text: 'Trial 1.5' } }], source,
+      new Set(['a', 'limit']), 'knowledge_graph', 'other');
+    expect(qualified.byTarget.get('a')).toHaveLength(1);
+
+    const punctuation = new Map([...source, ['punctuation',
+      'The maintenance team reported clogging in Trial 1, after the original assembly was used. Their later note and the sensor readings were retained with the record for independent review.']]);
+    const punctuated = applyLimitationRelations([target, units[2]], [{ ...proposal,
+      relationEvidence: { excerptId: 'punctuation', quote: 'reported clogging in Trial 1, after the original assembly was used' } }],
+    punctuation, new Set(['a', 'limit']), 'knowledge_graph', 'other');
+    expect(punctuated.byTarget.get('a')).toHaveLength(1);
+  });
+
+  it('does not attach a signed or Unicode-prefixed target label to an unsigned or shorter one', () => {
+    const cases = [
+      { targetScope: '12345', sourceLabel: '+12345' },
+      { targetScope: 'Trial 1', sourceLabel: '𐌰Trial 1' },
+    ];
+    for (const { targetScope, sourceLabel } of cases) {
+      const own = `${targetScope} used the revised assembly during the measured run. The operators checked the sensor readings, recorded the result and retained the separate log for review.`;
+      const later = `The maintenance team reported that clogging affected ${sourceLabel} after the original assembly was used. Their later note and the sensor readings were retained with the record for independent review.`;
+      const source = new Map([...passages, ['target-own', own], ['target-later', later]]);
+      const target: VerifiedUnit = { ...units[0], evidence: [{ excerptId: 'target-own',
+        quote: `${targetScope} used the revised assembly during the measured run`, quoteVerification: 'exact' }] };
+      const proposal = { ...relation('a', targetScope), relationEvidence: { excerptId: 'target-later',
+        quote: `clogging affected ${sourceLabel} after the original assembly was used` } };
+      const result = applyLimitationRelations([target, units[2]], [proposal], source,
+        new Set(['a', 'limit']), 'knowledge_graph', 'other');
+      expect(result.byTarget.size).toBe(0);
+      expect(result.diagnostics).toEqual([expect.stringContaining('relation quote lacks the literal target anchor')]);
+    }
+  });
+
   it('abstains on conflicting proposals for the same endpoints', () => {
     const result = applyLimitationRelations(units,
       [relation('a', 'Trial A'), { ...relation('a', 'Trial A'), verdict: 'unsupported' }],
