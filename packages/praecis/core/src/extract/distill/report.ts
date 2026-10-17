@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import type { DraftClaim, SupportingUnitSummary } from '../../interfaces/index.js';
+import type { DraftClaim, SourceLimitationSummary, SupportingUnitSummary } from '../../interfaces/index.js';
 import type { CoverageDiagnostics } from './coverage.js';
 import type { RejectedUnit } from './grounding.js';
 import { projectUnit, type ExtractionIntent } from './projection.js';
@@ -30,6 +30,7 @@ export interface DistillationOutputInput {
   readonly theses: readonly string[];
   readonly units: readonly VerifiedUnit[];
   readonly rejectedUnits: readonly RejectedUnit[];
+  readonly limitationsByTarget?: ReadonlyMap<string, readonly SourceLimitationSummary[]>;
   readonly coverage: CoverageDiagnostics;
   readonly diagnostics: readonly string[];
   readonly model: string;
@@ -56,6 +57,7 @@ const unitToDraftClaim = (
   qualityStatus: 'reviewable' | 'rejected',
   rejectionReason?: RejectedUnit['reason'],
   unresolvedSupportsUnitIds: readonly string[] = [],
+  limitations: readonly SourceLimitationSummary[] = [],
 ): DraftClaim => ({
   text: unit.text,
   excerptIds: excerptIdsOf(unit),
@@ -72,6 +74,7 @@ const unitToDraftClaim = (
     ...(unit.attribution ? { attribution: unit.attribution } : {}),
     ...(unit.supportsUnitIds?.length ? { supportsUnitIds: unit.supportsUnitIds } : {}),
     ...(unresolvedSupportsUnitIds.length ? { unresolvedSupportsUnitIds } : {}),
+    ...(limitations.length ? { limitations } : {}),
   },
 });
 
@@ -91,7 +94,8 @@ export const buildDistillationOutput = (input: DistillationOutputInput): Distill
     const projection = projectUnit(input.extractionIntent, input.sourceType, unit.kind, unit.importance);
     switch (projection) {
       case 'claim':
-        claims.push(unitToDraftClaim(unit, input, 'reviewable', undefined, unresolvedSupportsUnitIds));
+        claims.push(unitToDraftClaim(unit, input, 'reviewable', undefined, unresolvedSupportsUnitIds,
+          input.limitationsByTarget?.get(unit.id) ?? []));
         break;
       case 'supportingEvidence':
       case 'procedure':
