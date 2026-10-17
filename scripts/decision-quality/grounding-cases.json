@@ -1,0 +1,550 @@
+{
+  "version": 1,
+  "task": "grounding",
+  "labelStatus": "assistant-authored; not human gold",
+  "cases": [
+    {
+      "id": "garden-mulch",
+      "split": "development",
+      "source": {
+        "id": "src-01",
+        "title": "Garden Bed Notes"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "For the trial beds, apply a five centimetre mulch layer after watering. The instruction applies to the outdoor beds planted in spring; the greenhouse beds use a different schedule. Volunteers recorded the instructions before the planting session and checked the depth with a marked ruler.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "recommendation",
+        "text": "Apply a five centimetre mulch layer after watering to the outdoor spring trial beds.",
+        "stance": "recommended",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "apply a five centimetre mulch layer after watering"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "grounded",
+        "rationale": "The cited excerpt states the action, depth, sequence, and applicable beds.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "library-return",
+      "split": "development",
+      "source": {
+        "id": "src-02",
+        "title": "Library Returns Procedure"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "Staff place returned books in the blue cart before sorting them by shelf. This step happens at the front desk during ordinary opening hours. The cart is emptied at the end of each shift, and damaged books are sent to a separate inspection table.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "procedure",
+        "text": "Staff place returned books in the blue cart before sorting them by shelf at the front desk.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "place returned books in the blue cart before sorting"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "grounded",
+        "rationale": "The procedure and location are directly supported by the cited excerpt.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "cooling-window",
+      "split": "development",
+      "source": {
+        "id": "src-03",
+        "title": "Cold Room Test Memo"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "The logger stayed below eight degrees during the first two hours of the overnight test. It then rose above that threshold when the door was left open. The team recorded readings every ten minutes and did not extrapolate beyond the observed test period.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "fact",
+        "text": "The logger stayed below eight degrees throughout the overnight test.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "stayed below eight degrees during the first two hours"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "rewrite",
+        "rationale": "The cited reading applies only to the first two hours; the unit extends it across the night and omits the later rise.",
+        "criticalFalseAccept": true
+      }
+    },
+    {
+      "id": "paint-scope",
+      "split": "development",
+      "source": {
+        "id": "src-04",
+        "title": "Community Hall Paint Guide"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "Use the low odour paint on the interior walls in the north room. The exterior masonry needs a weatherproof coating instead. The guide was written after a small indoor patch test and says nothing about using the paint on the outside of the building.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "recommendation",
+        "text": "Use low odour paint on the community hall walls.",
+        "stance": "recommended",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "Use the low odour paint on the interior walls"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "rewrite",
+        "rationale": "The cited recommendation is limited to north-room interior walls, whereas the unit generalizes to all hall walls.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "rationationale",
+      "split": "development",
+      "source": {
+        "id": "src-05",
+        "title": "Seed Tray Protocol"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "Move seed trays to a shaded bench at midday during the July trial. The note gives this timing as an instruction, but records no comparison of survival or germination. Staff labelled each tray so the trial could be checked later.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "recommendation",
+        "text": "Move seed trays to a shaded bench at midday during the July trial.",
+        "stance": "recommended",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "Move seed trays to a shaded bench at midday"
+          }
+        ],
+        "importance": "core",
+        "rationale": "This improves germination by twenty percent."
+      },
+      "expected": {
+        "verdict": "rewrite",
+        "rationale": "The action is supported, but the unit rationale asserts an unmeasured germination benefit.",
+        "criticalFalseAccept": true
+      }
+    },
+    {
+      "id": "speaker-origin",
+      "split": "development",
+      "source": {
+        "id": "src-06",
+        "title": "River Group Meeting Notes"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "At the meeting, visiting ecologist Mara Chen suggested checking the north bank after heavy rain. The chair recorded this as Mara\u2019s suggestion, not a decision or finding of the river group. No inspection result was available at the meeting.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "recommendation",
+        "text": "Check the north bank after heavy rain.",
+        "stance": "recommended",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "visiting ecologist Mara Chen suggested checking the north bank"
+          }
+        ],
+        "importance": "core",
+        "attribution": {
+          "kind": "speaker",
+          "name": "River Group"
+        }
+      },
+      "expected": {
+        "verdict": "rewrite",
+        "rationale": "The action is supported, but the unit attributes Mara Chen\u2019s suggestion to the river group.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "lamp-benefit",
+      "split": "development",
+      "source": {
+        "id": "src-07",
+        "title": "Reading Room Lamp Trial"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "The team installed brighter lamps above four desks for one week. The trial measured illumination at each desk but did not collect reading speed or comprehension data. A survey about comfort was planned for a later month and had not started.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "fact",
+        "text": "The brighter lamps increased reading speed in the reading room trial.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "installed brighter lamps above four desks for one week"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "ungrounded",
+        "rationale": "The cited excerpt reports lamp installation and illumination measurement, not any reading-speed result.",
+        "criticalFalseAccept": true
+      }
+    },
+    {
+      "id": "route-correction",
+      "split": "development",
+      "source": {
+        "id": "src-08",
+        "title": "Shuttle Route Bulletin"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "A provisional notice said the shuttle would stop at the east gate from Monday. Staff were told that the route was still under review and a final bulletin would follow. Riders should consult the later bulletin before planning a journey.",
+          "startSeconds": 0
+        },
+        {
+          "id": "e2",
+          "text": "The final route bulletin cancels the planned east-gate stop. From Monday the shuttle stops at the west gate, and riders should use that stop. This correction supersedes the provisional notice after the route review was completed.",
+          "startSeconds": 60
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "fact",
+        "text": "The shuttle stops at the east gate from Monday.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "shuttle would stop at the east gate from Monday"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "ungrounded",
+        "rationale": "The quoted notice was provisional and a later bulletin explicitly replaced it with the west gate.",
+        "criticalFalseAccept": true
+      }
+    },
+    {
+      "id": "compost-duration",
+      "split": "held-out",
+      "source": {
+        "id": "src-09",
+        "title": "Compost Batch Log"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "The compost batch reached sixty degrees for three consecutive days in the monitored bin. Temperatures were taken each morning with the same probe. The log concerns only this batch, and the team made no claim about other bins or future seasons.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "fact",
+        "text": "The monitored compost batch reached sixty degrees for three consecutive days.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "reached sixty degrees for three consecutive days"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "grounded",
+        "rationale": "The cited log directly supports the temperature, duration, and batch scope.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "museum-label",
+      "split": "held-out",
+      "source": {
+        "id": "src-10",
+        "title": "Museum Display Setup"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "Attach the date label below each photograph in the temporary gallery. Installers should use removable mounts because the walls are part of a short exhibition. The labels are checked during opening preparation, before visitors enter the gallery.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "procedure",
+        "text": "Attach the date label below each photograph in the temporary gallery.",
+        "stance": "recommended",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "Attach the date label below each photograph"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "grounded",
+        "rationale": "The cited setup instruction supports the exact placement and gallery scope.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "water-season",
+      "split": "held-out",
+      "source": {
+        "id": "src-11",
+        "title": "Orchard Irrigation Note"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "Water the young trees twice weekly during the dry August period. The note does not prescribe that frequency in winter, when rainfall and soil conditions differ. The caretaker recorded this temporary schedule for the new planting rows only.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "recommendation",
+        "text": "Water the young trees twice weekly throughout the year.",
+        "stance": "recommended",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "Water the young trees twice weekly during the dry August period"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "rewrite",
+        "rationale": "The twice-weekly recommendation is explicitly confined to the dry August period, not the entire year.",
+        "criticalFalseAccept": true
+      }
+    },
+    {
+      "id": "review-audience",
+      "split": "held-out",
+      "source": {
+        "id": "src-12",
+        "title": "Volunteer Check-in Guide"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "New volunteers should attend the orientation before handling donated equipment. Returning volunteers who completed the orientation may go straight to the check-in desk. The coordinator uses this distinction during busy donation mornings to avoid repeating the session.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "recommendation",
+        "text": "All volunteers must attend orientation at each check-in before handling donated equipment.",
+        "stance": "recommended",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "New volunteers should attend the orientation before handling donated equipment"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "rewrite",
+        "rationale": "The cited requirement applies to new volunteers; returning volunteers who already completed it can skip orientation at later check-ins.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "trial-origin",
+      "split": "held-out",
+      "source": {
+        "id": "src-13",
+        "title": "Workshop Feedback Report"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "A small participant survey reported that the workshop instructions were easy to follow. The facilitator gathered responses at the end of the first session. The report presents participant perceptions, not an independent usability test or a measurement of completion time.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "fact",
+        "text": "An independent usability test found the workshop instructions easy to follow.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "participant survey reported that the workshop instructions were easy to follow"
+          }
+        ],
+        "importance": "core",
+        "attribution": {
+          "kind": "study",
+          "name": "Independent usability test"
+        }
+      },
+      "expected": {
+        "verdict": "rewrite",
+        "rationale": "The underlying positive assessment exists but came from participant survey responses, not an independent usability test.",
+        "criticalFalseAccept": true
+      }
+    },
+    {
+      "id": "rain-limit",
+      "split": "held-out",
+      "source": {
+        "id": "src-14",
+        "title": "Outdoor Sensor Limitations"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "The outdoor sensor cannot resolve rainfall below one millimetre per hour. The manufacturer identified this threshold in a bench test, and field readings near it require caution. The note does not describe the sensor as unable to detect heavier rainfall.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "limitation",
+        "text": "The outdoor sensor cannot resolve rainfall below one millimetre per hour.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "cannot resolve rainfall below one millimetre per hour"
+          }
+        ],
+        "importance": "core",
+        "rationale": "Below that threshold, readings are not reliable."
+      },
+      "expected": {
+        "verdict": "grounded",
+        "rationale": "The limitation includes the same measurement threshold as the cited source.",
+        "criticalFalseAccept": false
+      }
+    },
+    {
+      "id": "unmeasured-yield",
+      "split": "held-out",
+      "source": {
+        "id": "src-15",
+        "title": "Greenhouse Fan Demonstration"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "A fan ran for two afternoons in the greenhouse demonstration. The team measured air movement near the benches but did not track crop yield or plant growth. The demonstration was meant to check equipment placement before a longer trial.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "fact",
+        "text": "The greenhouse fan increased crop yield by fifteen percent.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "measured air movement near the benches but did not track crop yield"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "ungrounded",
+        "rationale": "The cited excerpt explicitly says crop yield was not measured; the numerical outcome is invented.",
+        "criticalFalseAccept": true
+      }
+    },
+    {
+      "id": "notice-irrelevance",
+      "split": "held-out",
+      "source": {
+        "id": "src-16",
+        "title": "Trail Notice Board Record"
+      },
+      "excerpts": [
+        {
+          "id": "e1",
+          "text": "The ranger replaced the faded notice board near the south trail entrance. The board lists opening hours, emergency contacts, and the next maintenance date. This record documents signage maintenance and contains no count of visitors or trail use.",
+          "startSeconds": 0
+        }
+      ],
+      "unit": {
+        "id": "u1",
+        "kind": "fact",
+        "text": "Visitor numbers doubled on the south trail after the notice board replacement.",
+        "stance": "asserted",
+        "evidence": [
+          {
+            "excerptId": "e1",
+            "quote": "replaced the faded notice board near the south trail entrance"
+          }
+        ],
+        "importance": "core"
+      },
+      "expected": {
+        "verdict": "ungrounded",
+        "rationale": "The literal quote concerns signage work; no visitor count or doubling is documented.",
+        "criticalFalseAccept": true
+      }
+    }
+  ]
+}
