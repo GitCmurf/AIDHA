@@ -10,7 +10,8 @@ import { parseSourceDistillation, distillationResponseSchema } from './schema.js
 import { verifyDistillationEvidence } from './quote-verification.js';
 import { prepareSegmentedEvidence, SEGMENTED_EVIDENCE_VERSION } from './segmented-evidence.js';
 import { computeCoverage } from './coverage.js';
-import { applyGroundingVerdicts, parseGroundingVerdicts, type RejectedUnit } from './grounding.js';
+import type { RejectedUnit } from './grounding.js';
+import { buildSegmentedGroundingReview, finalizeGroundingAdmission, rejectSegmentRepairs } from './grounding-admission.js';
 import { buildDistillationOutput } from './report.js';
 import { applyLimitationRelations, buildLimitationPrompt, limitationResponseSchema, LIMITATION_PROMPT_VERSION,
   parseLimitationRelations } from './limitations.js';
@@ -76,7 +77,7 @@ export class SourceDistillationMiner implements ICandidateMiner {
     let segmentRepairs: SegmentRepairRecord[] = [];
     const failClosed = (reason: string): Result<MiningResult> => {
       this.logger.warn(`[DISTILL] ${reason}`);
-      segmentRepairs = segmentRepairs.map(record => ({ ...record, status: 'rejected' }));
+      segmentRepairs = rejectSegmentRepairs(segmentRepairs);
       return { ok: true, value: { claims: [], rejectedClaims: [], supportingUnits: [], tokenUsage: totalTokens,
         distillation: { failedClosed: true, diagnostics: [...diagnostics, reason],
           ...(segmentRepairs.length ? { segmentRepairs } : {}) } } };
@@ -130,62 +131,26 @@ export class SourceDistillationMiner implements ICandidateMiner {
       segmentRepairs = segmented.records;
       const replacements = new Map(segmented.repaired.map(unit => [unit.id, unit]));
       const failedIds = new Set(verified.failedUnitIds.filter(id => !replacements.has(id)));
-      let rejected: RejectedUnit[] = verified.units.filter(unit => failedIds.has(unit.id))
+      const rejected: RejectedUnit[] = verified.units.filter(unit => failedIds.has(unit.id))
         .map(unit => ({ unit, reason: 'failed_quote_verification' }));
       const failureRatio = verified.units.length ? failedIds.size / verified.units.length : 0;
       if (failureRatio > this.threshold) return failClosed('Quote verification failure ratio exceeds the configured threshold');
-      let kept = verified.units.filter(unit => !failedIds.has(unit.id)).map(unit => replacements.get(unit.id) ?? unit);
-      const affirmativeGroundingIds = new Set<string>();
-      if (kept.length) {
-        const groundingPrompt = buildGroundingPrompt(kept, excerpts);
-        const review = segmentRepairs.length ? [
-          'For SEGMENTED_EVIDENCE, judge whether ALL listed exact segments together support the WHOLE unchanged unit, including conditions, quantities, attribution and uncertainty. Source context cannot substitute for missing support in these segments. Return ungrounded if material support is absent; a rewrite cannot admit a segmented unit.',
-          'SEGMENTED_EVIDENCE:', JSON.stringify(segmentRepairs.map(record => ({ unitId: record.unitId,
-            evidence: record.finalEvidence }))),
-        ].join('\n') : '';
-        const judged = await generate({ ...groundingPrompt,
+      const provisional = verified.units.filter(unit => !failedIds.has(unit.id)).map(unit => replacements.get(unit.id) ?? unit);
+      let grounding: LlmCompletionResult | undefined;
+      if (provisional.length) {
+        const groundingPrompt = buildGroundingPrompt(provisional, excerpts);
+        const review = buildSegmentedGroundingReview(segmentRepairs);
+        grounding = await generate({ ...groundingPrompt,
           user: [groundingPrompt.user, review].filter(Boolean).join('\n\n') });
-        if (!judged.ok) diagnostics.push(`Grounding transport failure (advisory); retaining untrusted drafts: ${judged.error.message}`);
-        else {
-          const verdicts = parseGroundingVerdicts(judged.value);
-          if (!verdicts.ok) diagnostics.push(`Grounding parse failure (advisory); retaining untrusted drafts: ${verdicts.errors.join('; ')}`);
-          else {
-            diagnostics.push(...verdicts.errors);
-            const applied = applyGroundingVerdicts(kept, verdicts.value);
-            kept = [...applied.kept];
-            rejected.push(...applied.rejected);
-            diagnostics.push(...applied.diagnostics);
-            const counts = new Map<string, number>();
-            for (const verdict of verdicts.value) counts.set(verdict.unitId, (counts.get(verdict.unitId) ?? 0) + 1);
-            const keptIds = new Set(kept.map(unit => unit.id));
-            for (const verdict of verdicts.value) {
-              if ((!replacements.has(verdict.unitId) || verdicts.errors.length === 0) &&
-                  verdict.verdict === 'grounded' && counts.get(verdict.unitId) === 1 && keptIds.has(verdict.unitId)) {
-                affirmativeGroundingIds.add(verdict.unitId);
-              }
-            }
-          }
-        }
       }
-      if (replacements.size) {
-        segmentRepairs = segmentRepairs.map(record => ({ ...record,
-          status: affirmativeGroundingIds.has(record.unitId) ? 'grounded' : 'rejected' }));
-        const originalsById = new Map(verified.units.map(unit => [unit.id, unit]));
-        for (const id of replacements.keys()) {
-          if (affirmativeGroundingIds.has(id)) continue;
-          kept = kept.filter(unit => unit.id !== id);
-          rejected = rejected.filter(item => item.unit.id !== id);
-          const original = originalsById.get(id);
-          if (!original) throw new Error(`Segmented-evidence unit ${id} has no original candidate`);
-          rejected.push({ unit: original, reason: 'failed_quote_verification' });
-          diagnostics.push(`Segmented evidence for unit ${id} rejected without one explicit grounded verdict.`);
-        }
-        const finalFailedQuoteCount = failedIds.size + [...replacements.keys()]
-          .filter(id => !affirmativeGroundingIds.has(id)).length;
-        if (verified.units.length && finalFailedQuoteCount / verified.units.length > this.threshold) {
-          return failClosed('Quote verification failure ratio exceeds the configured threshold after segmentation review');
-        }
-      }
+      const admission = finalizeGroundingAdmission({ originalUnits: verified.units, failedUnitIds: failedIds,
+        replacements, kept: provisional, rejected, segmentRepairs, grounding, threshold: this.threshold });
+      segmentRepairs = [...admission.segmentRepairs];
+      diagnostics.push(...admission.diagnostics);
+      if (admission.closeReason) return failClosed(admission.closeReason);
+      const kept = admission.kept;
+      const finalRejected = admission.rejected;
+      const affirmativeGroundingIds = admission.affirmativeGroundingIds;
       let limitationsByTarget: ReadonlyMap<string, readonly SourceLimitationSummary[]> = new Map();
       const isGroundedClaim = (unit: typeof kept[number]): boolean => affirmativeGroundingIds.has(unit.id) &&
         projectUnit(this.intent, proposal.sourceType, unit.kind, unit.importance) === 'claim';
@@ -218,7 +183,7 @@ export class SourceDistillationMiner implements ICandidateMiner {
       const coverage = computeCoverage(kept, coverageExcerpts);
       const output = buildDistillationOutput({ extractionIntent: this.intent,
         sourceType: proposal.sourceType, sourcePurpose: proposal.sourcePurpose, sourceCoherence: proposal.sourceCoherence,
-        theses: proposal.theses, units: kept, rejectedUnits: rejected,
+        theses: proposal.theses, units: kept, rejectedUnits: finalRejected,
         limitationsByTarget,
         coverage: { ...coverage, weakQuoteCount: coverage.weakQuoteCount + verified.weakQuoteCount },
         diagnostics, segmentRepairs, model, promptVersion: DISTILL_PROMPT_VERSION });

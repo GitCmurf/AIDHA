@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.27'
+version: '0.28'
 last_updated: 2026-10-17
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.27
+> **Version:** 0.28
 > **Last Updated:** 2026-10-17
 > **Type:** PLAN
 
@@ -51,6 +51,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.25 | 2026-10-17 | Codex | Challenge the extra selector call and prepare deterministic evidence segmentation with model grounding as the cheaper comparator. | — | Draft | TESTING-066; TESTING-067 |
 | 0.26 | 2026-10-17 | Codex | Record reviewed evidence segmentation, parent integration, current review gates and the controlled recovery check. | — | Draft | TESTING-067 |
 | 0.27 | 2026-10-17 | Codex | Publish PR 44, record completed native verification and clarify the per-PR approval record. | — | Draft | PR 44; TESTING-067 |
+| 0.28 | 2026-10-17 | Codex | Assess the full analyzer report and prepare cohesive grounding-admission extraction with offline parity. | — | Draft | PR 44; TESTING-067 |
 
 ## Purpose and authority
 
@@ -245,7 +246,7 @@ separate. No force push, production default change or model endpoint activation 
 | [PR 41](https://github.com/GitCmurf/AIDHA/pull/41), Fast URI maintenance | `b2e46dd`, 3.1.8 covers eight published patched floors; parser red/green, 317 config tests, frozen install, builds; actual test-link finding fixed/resolved; final required CI and all actual analyzers pass | Named merge approval and subsequent dependency audit. GitHub alerts remain open until post-merge verification |
 | [PR 40](https://github.com/GitCmurf/AIDHA/pull/40), documentation CI maintenance | Six-file diff, three tests, strict docs and hooks; complete native review zero findings; required CI and actual reviews pass | Approved and merged `10124ab`; approved tree identical, all four main workflows pass. No checker acceptance rule changed |
 | 033, model-driven evidence reselection, held locally | Reviewed `fed371d`, 31 focused/323 core tests; exact persistence, threshold and malformed-verdict regressions | Extra call is not justified for the sentence-splittable failure. Final native verification retains a catalog-fairness finding; no PR or live call |
-| [PR 44](https://github.com/GitCmurf/AIDHA/pull/44), complete evidence segmentation, stacked on 42 | Reviewed initial `83ab403`, two independent reviews; preserves complete literal quote and requires whole-unit grounding. Parent integration passes 317 core tests and strict docs | Integration `74134ec` passes 317 tests and all local gates. One fresh grounding call recovers u4 (3 → 4 claims), with the original three unchanged after SQLite reopen. Published at `8421f69`; required CI and three analyzers pass, JavaScript remains red without itemized GitHub findings. No merge approval or default activation |
+| [PR 44](https://github.com/GitCmurf/AIDHA/pull/44), complete evidence segmentation, stacked on 42 | Reviewed initial `83ab403`, two independent reviews; preserves complete literal quote and requires whole-unit grounding. Parent integration passes 317 core tests and strict docs | Integration `74134ec` passes 317 tests and all local gates. One fresh grounding call recovers u4 (3 → 4 claims), with the original three unchanged after SQLite reopen. Published with documentation followup `61be66d`; required CI and three analyzers pass. Full JavaScript findings are now available; introduced miner complexity is being reduced. No merge approval or default activation |
 
 No owner direction blocks these engineering checks. Stop each lane at its concrete review or
 activation gate, retain the evidence and continue independent work. A USD 1 decision-model
@@ -1544,8 +1545,10 @@ Email slice completion record:
 - [x] Publish the narrow feature as PR 44, base 42, exact eleven-file scope at `8421f69`.
 - [x] Assess actual hosted reports available through GitHub: required CI and three analyzers pass;
   JavaScript remains red with no itemized GitHub finding. Skipped bot runs are ignored.
-- [ ] Obtain and assess the itemized JavaScript analyzer output before declaring this lane ready
-  to merge. No extra-selector call or default adoption is authorized; named approval is pending.
+- [x] Retrieve and assess all thirteen JavaScript findings through credential-free HTTP after
+  browser timeout. The previously unavailable detail gate is superseded by the assessment below.
+- [ ] Complete the bounded admission-state refactor, offline parity, source review and refreshed CI.
+  No extra-selector call or default adoption is authorized; named approval is pending.
 - [x] Resolve 19 verified fixed behavior/style threads on PR 42; keep complexity threads open.
   Its required CI passes, while the JavaScript complexity analyzer remains red and disclosed.
 - [x] Verify final PR 43 required checks and all four actual analyzers at `61ddd71`; no unresolved
@@ -1635,3 +1638,60 @@ Restart paths for the quality lane: branch `034-segmented-evidence`, worktree
 failed gate and corrected offline gate. Native account metadata is excluded from publication.
 Resume from the reviewed PR head if the temporary worktree is gone; do not repeat the model call
 merely to correct a saved-record assertion.
+
+### 2026-10-17 — Full analyzer access and cohesive admission boundary
+
+- A single credential-free HTTP GET succeeds with a server-rendered public DeepSource report.
+  This resolves the earlier visibility limitation without login or a working browser. At source
+  head `61be66d`, the complete report contains thirteen Minor findings: seven complexity metrics,
+  two module/global-scope warnings and four async-without-await test stubs. No functional defect
+  is identified in the thirteen findings. The JavaScript status remains red.
+- The two off-diff metrics are miner `mine` at 46 (very high) and `buildDistillationOutput` at
+  20 (high). Miner complexity rose from the parent lane's 35; the additional segmented admission
+  state is a meaningful, cohesive extraction opportunity. Constructor/defaulting and the report's
+  optional audit field also add small decisions; do not call all of their complexity inherited.
+  The budget `generate` body is unchanged. No thresholds or analyzer settings are waived.
+- Confirm the two global-scope warnings are false positives for an explicit TypeScript ES module:
+  both named exports exist after import, while neither name is present on `globalThis` before
+  or after import. Do not wrap exports in an IIFE. The Node probe is retained in private receipts.
+- [x] Review, commit and push the four Promise-returning test-double corrections as `e1d8d7c`;
+  values and Promise contracts are unchanged. Twenty-two focused tests and core lint pass.
+- [x] Extract only the pure grounding/admission transition and its strict repaired-unit audit/ratio
+  rules. Keep generation, transport, usage and optional limitation orchestration in the miner.
+  Preserve ordinary advisory behavior, cache identity, original evidence and exact prompt bytes.
+- [x] Prove parity without another model call: rebuild dependencies, replay the saved real generation
+  and grounding JSON through the shared runtime and fresh SQLite, compare the captured grounding
+  request, all four reopened semantic records and the complete admission audit to the live record.
+- [ ] Obtain independent source review, full core/lint/build and docs/hooks, then publish the bounded
+  change and assess the actual analyzer rerun. No owner direction blocks this engineering work.
+
+The extracted implementation passes 328 core tests, lint and build. An independent source review
+finds no production behavior regression, but identifies a test fixture that incorrectly includes
+a successfully repaired unit in the residual failed-unit set. The new boundary assertion fails
+with the old fixture; correcting the fixture passes 35 focused tests and lint, including a
+separate residual-failure case. Full native review covers all thirteen files,
+including the new helper and initial tests, with exit zero and zero findings. The final test-only
+correction is separately reviewed; documentation, hooks and refreshed CI remain to complete.
+The saved-response parity result follows below.
+
+The measured live result remains the original clean `74134ec` execution and its immutable public
+measurement `21c716a`. Any refactored implementation must be linked by explicit code hashes and
+offline parity rather than relabeled as a new live measurement. No additional provider call is
+needed to improve the structure or correct test fixtures.
+
+- The saved-response replay builds dependencies and completes through the shared runtime and fresh
+  SQLite using exactly two saved replies, with no provider call. The grounding request, including
+  exact system/user strings, matches the original live request. All four reopened claim semantic
+  records, full serialized repair audit and supporting units match the live record.
+- Preserve the sandbox-blocked preflight, the original strict in-memory parity failure and executed
+  runner. The latter failure concerns explicit `undefined` keys omitted from the JSON-only baseline.
+  A separate saved-record JSON comparison passes, and six adverse mutations fail their expected
+  gates. Its initial identity assertion is corrected offline against persisted resource identity.
+  No runtime repetition or new live call is needed for either assertion correction. This proves
+  JSON representation and persisted-state parity, not equality of unavailable original in-memory
+  property presence or semantic quality beyond the one controlled source.
+- Bind the replayed runtime to miner SHA-256
+  `ef0d83587a58e0524b0640724ecf4309c4222b477510d0a8267aa79d8e54dbe5` and helper SHA-256
+  `3b48da6198e526c5fc4cd8113671d841826af7ec70d641632cb5b617d11621b1`.
+  The immutable public measurement remains unchanged at `21c716a`; do not replace its original
+  `74134ec` live execution provenance with the refactor's code revision.

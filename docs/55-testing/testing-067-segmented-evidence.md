@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-067
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-17
 title: Complete Segmented Evidence Recovery
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
 > **Document ID:** AIDHA-TESTING-067
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify opt-in complete splitting of exact overlong evidence. | — | Draft | AIDHA-PLAN-010 |
 | 0.2 | 2026-10-17 | Codex | Pin reviewed regression links and record the bounded recovery replay and review limits. | — | Draft | AIDHA-PLAN-015 |
+| 0.3 | 2026-10-17 | Codex | Separate grounding admission and verify saved-response request, audit and SQLite parity. | — | Draft | AIDHA-PLAN-015 |
 
 ## Scope and acceptance
 
@@ -85,7 +86,7 @@ synthetic text and fake model replies; no model endpoint is invoked.
 Run from the repository root:
 
 ```sh
-pnpm --filter @aidha/praecis-core test -- tests/extract/distill/segmented-evidence.test.ts tests/pipeline/segmented-evidence.test.ts
+pnpm --filter @aidha/praecis-core test -- tests/extract/distill/grounding-admission.test.ts tests/extract/distill/segmented-evidence.test.ts tests/pipeline/segmented-evidence.test.ts
 pnpm --filter @aidha/praecis-core lint
 node scripts/meminit-check.mjs docs/55-testing/testing-067-segmented-evidence.md
 pnpm docs:build
@@ -129,3 +130,44 @@ semantic expectations and per-citation admission policy is needed before default
 The earlier supplier-origin and trial-burden qualification issues remain unchanged.
 
 [measurement]: https://github.com/GitCmurf/AIDHA/blob/21c716a356fee084f8de72e53673b37d70eefed9/scripts/semantic-quality/segmented-evidence-measurement.json
+
+## Grounding admission boundary and offline parity
+
+The pure `grounding-admission.ts` transition owns verdict application, strict repaired-unit
+admission, repair status and the final failure ratio. The miner retains model calls, token
+accounting and optional limitation orchestration. This extraction preserves the existing
+prompt, evidence policy, ordinary advisory behavior, cache identity and failure handling.
+The pure tests protect unique valid grounding, missing/duplicate/rewrite/ungrounded verdicts,
+malformed batches, advisory transport failure, original rejection restoration and the exact
+half-failure boundary. A distinct residual failed candidate counts separately from a rejected
+repair; successfully repaired candidates are excluded from the residual failed-unit set.
+
+An offline shared-runtime replay builds the dependencies and supplies exactly the two saved
+replies from the controlled run above, without a provider call. Its grounding request matches
+the saved live request exactly, including system and user strings. All four SQLite-reopened
+claims match by ID, type, label, content and complete metadata. The complete serialized
+source-distillation audit and supporting units also match. Six adverse mutations to claim text,
+a condition, audit status, prompt, claim count and support relations fail the corresponding
+comparison. This is parity for one saved execution, not another semantic-quality measurement.
+
+The first offline attempt stops at a sandbox process restriction before building or executing
+the runtime. The permitted execution completes, but its original in-memory comparison fails on
+explicit `undefined` properties that the JSON baseline omits. The original failed result is
+preserved. A separate pure comparison reads only the saved input/output JSON and passes;
+its initial report-identity assertion is also corrected against those saved records. Neither
+correction re-executes the runtime or calls a model. The passing comparison establishes JSON
+representation and persisted-state parity; a JSON-only baseline cannot establish whether the
+original in-memory object had an omitted property or one whose value was `undefined`.
+
+The replay binds the implementation to these SHA-256 source hashes:
+
+```text
+miner.ts
+  ef0d83587a58e0524b0640724ecf4309c4222b477510d0a8267aa79d8e54dbe5
+grounding-admission.ts
+  3b48da6198e526c5fc4cd8113671d841826af7ec70d641632cb5b617d11621b1
+```
+
+The published live measurement remains pinned to its original runtime and measurement commits.
+This refactor and offline check do not relabel it as a fresh model run, establish entailment,
+or approve the opt-in policy as a production default.
