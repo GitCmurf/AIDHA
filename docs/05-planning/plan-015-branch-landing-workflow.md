@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.28'
+version: '0.29'
 last_updated: 2026-10-17
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.28
+> **Version:** 0.29
 > **Last Updated:** 2026-10-17
 > **Type:** PLAN
 
@@ -52,6 +52,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.26 | 2026-10-17 | Codex | Record reviewed evidence segmentation, parent integration, current review gates and the controlled recovery check. | — | Draft | TESTING-067 |
 | 0.27 | 2026-10-17 | Codex | Publish PR 44, record completed native verification and clarify the per-PR approval record. | — | Draft | PR 44; TESTING-067 |
 | 0.28 | 2026-10-17 | Codex | Assess the full analyzer report and prepare cohesive grounding-admission extraction with offline parity. | — | Draft | PR 44; TESTING-067 |
+| 0.29 | 2026-10-17 | Codex | Record completed admission refactor, saved-response parity and assessed final hosted reports. | — | Draft | PR 44; TESTING-067 |
 
 ## Purpose and authority
 
@@ -246,7 +247,7 @@ separate. No force push, production default change or model endpoint activation 
 | [PR 41](https://github.com/GitCmurf/AIDHA/pull/41), Fast URI maintenance | `b2e46dd`, 3.1.8 covers eight published patched floors; parser red/green, 317 config tests, frozen install, builds; actual test-link finding fixed/resolved; final required CI and all actual analyzers pass | Named merge approval and subsequent dependency audit. GitHub alerts remain open until post-merge verification |
 | [PR 40](https://github.com/GitCmurf/AIDHA/pull/40), documentation CI maintenance | Six-file diff, three tests, strict docs and hooks; complete native review zero findings; required CI and actual reviews pass | Approved and merged `10124ab`; approved tree identical, all four main workflows pass. No checker acceptance rule changed |
 | 033, model-driven evidence reselection, held locally | Reviewed `fed371d`, 31 focused/323 core tests; exact persistence, threshold and malformed-verdict regressions | Extra call is not justified for the sentence-splittable failure. Final native verification retains a catalog-fairness finding; no PR or live call |
-| [PR 44](https://github.com/GitCmurf/AIDHA/pull/44), complete evidence segmentation, stacked on 42 | Reviewed initial `83ab403`, two independent reviews; preserves complete literal quote and requires whole-unit grounding. Parent integration passes 317 core tests and strict docs | Integration `74134ec` passes 317 tests and all local gates. One fresh grounding call recovers u4 (3 → 4 claims), with the original three unchanged after SQLite reopen. Published with documentation followup `61be66d`; required CI and three analyzers pass. Full JavaScript findings are now available; introduced miner complexity is being reduced. No merge approval or default activation |
+| [PR 44](https://github.com/GitCmurf/AIDHA/pull/44), complete evidence segmentation, stacked on 42 | Source `3a59b75`, thirteen files; 328 full core tests before the final fixture correction, 35 final focused tests, lint/build/docs/hooks; full native thirteen-file review zero findings and independent source/final-test reviews. One fresh live grounding call recovered u4 (3 → 4), with unchanged prior claims after SQLite reopen; subsequent saved-response JSON/persisted parity passes without a provider call | Build, verify and gitleaks pass at `3a59b75`; three analyzers pass. JavaScript retains eleven Minor complexity/module observations, fully assessed; miner falls 46 → 30 and four fixed style threads are resolved. Named merge approval and later semantic/policy review remain; no default activation |
 
 No owner direction blocks these engineering checks. Stop each lane at its concrete review or
 activation gate, retain the evidence and continue independent work. A USD 1 decision-model
@@ -1547,7 +1548,7 @@ Email slice completion record:
   JavaScript remains red with no itemized GitHub finding. Skipped bot runs are ignored.
 - [x] Retrieve and assess all thirteen JavaScript findings through credential-free HTTP after
   browser timeout. The previously unavailable detail gate is superseded by the assessment below.
-- [ ] Complete the bounded admission-state refactor, offline parity, source review and refreshed CI.
+- [x] Complete the bounded admission-state refactor, offline parity, source review and refreshed CI.
   No extra-selector call or default adoption is authorized; named approval is pending.
 - [x] Resolve 19 verified fixed behavior/style threads on PR 42; keep complexity threads open.
   Its required CI passes, while the JavaScript complexity analyzer remains red and disclosed.
@@ -1662,7 +1663,7 @@ merely to correct a saved-record assertion.
 - [x] Prove parity without another model call: rebuild dependencies, replay the saved real generation
   and grounding JSON through the shared runtime and fresh SQLite, compare the captured grounding
   request, all four reopened semantic records and the complete admission audit to the live record.
-- [ ] Obtain independent source review, full core/lint/build and docs/hooks, then publish the bounded
+- [x] Obtain independent source review, full core/lint/build and docs/hooks, then publish the bounded
   change and assess the actual analyzer rerun. No owner direction blocks this engineering work.
 
 The extracted implementation passes 328 core tests, lint and build. An independent source review
@@ -1671,7 +1672,8 @@ a successfully repaired unit in the residual failed-unit set. The new boundary a
 with the old fixture; correcting the fixture passes 35 focused tests and lint, including a
 separate residual-failure case. Full native review covers all thirteen files,
 including the new helper and initial tests, with exit zero and zero findings. The final test-only
-correction is separately reviewed; documentation, hooks and refreshed CI remain to complete.
+correction is separately reviewed. Strict docs, scoped DocOps, all commit hooks and refreshed
+build/verify/gitleaks pass at published source `3a59b75`.
 The saved-response parity result follows below.
 
 The measured live result remains the original clean `74134ec` execution and its immutable public
@@ -1695,3 +1697,33 @@ needed to improve the structure or correct test fixtures.
   `3b48da6198e526c5fc4cd8113671d841826af7ec70d641632cb5b617d11621b1`.
   The immutable public measurement remains unchanged at `21c716a`; do not replace its original
   `74134ec` live execution provenance with the refactor's code revision.
+
+### 2026-10-17 — PR 44 engineering review complete
+
+- Publish reviewed source `3a59b7547561204e9f9b0be828841a08968fb66c`; exact remote/base/thirteen-file
+  scope matches, and the worktree is clean. Miner/helper hashes still match the offline replay;
+  the immutable public live-measurement hash is unchanged. All 69 original authored paths remain
+  unchanged, with original head `39bea2d` and an empty index.
+- Build, verify and gitleaks pass at that source head. The stack targets PR 42's branch, so
+  `gh pr checks --required` reports no required checks; inspect the three main-branch merge-gate
+  jobs directly rather than treating that empty response as coverage. Python/Shell/Secrets pass.
+  Hosted CodeRabbit explicitly skips its non-default base, and Qodo/Macroscope skip; ignore
+  their nominal status colors. The complete native review is separate actual coverage.
+- The complete actual JavaScript report has eleven Minor observations: eight complexity scores
+  and three module/global-scope warnings. Miner is 30, down from 46 and below parent 35; the
+  extracted pure admission phase is 19. Constructor is 9, unchanged generation helper 13,
+  existing report builder with the optional audit field 20, and segmentation helpers 8/8/13.
+  Dashboard “introduced” does not establish that unchanged function bodies gained complexity.
+- An independent maintainability challenge recommends no further metric-only split of the
+  coupled parse/apply, strict repair admission and final-ratio transition. Its direct tests and
+  parity evidence make that boundary reviewable; no concrete source defect is found. The red
+  analyzer result remains disclosed, without a setting change or special approval waiver.
+- The compiled-module probe confirms all three named functions are exported functions and none
+  appears on `globalThis` before or after import; these three global warnings are false positives
+  for explicit ES modules. Four fake-async warnings are absent from the complete current report,
+  and their four verified fixed GitHub threads are resolved. Complexity and module threads remain
+  visible with their assessment; no functional correctness finding is hidden or claimed fixed.
+- Final evidence notes pin the new pure admission test to reviewed source `3a59b75`. This last
+  documentation followup changes no runtime, model request, measurement or policy. Named PR 44
+  merge approval remains pending. The next useful owner review is still PR 37's semantic rubric:
+  prefer independently retrievable qualifications, or give concrete expected-claim corrections.

@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-067
 owner: Engineering
 status: Draft
-version: '0.3'
+version: '0.4'
 last_updated: 2026-10-17
 title: Complete Segmented Evidence Recovery
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
 > **Document ID:** AIDHA-TESTING-067
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.4
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -27,6 +27,7 @@ related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
 | 0.1 | 2026-10-17 | Codex | Specify opt-in complete splitting of exact overlong evidence. | — | Draft | AIDHA-PLAN-010 |
 | 0.2 | 2026-10-17 | Codex | Pin reviewed regression links and record the bounded recovery replay and review limits. | — | Draft | AIDHA-PLAN-015 |
 | 0.3 | 2026-10-17 | Codex | Separate grounding admission and verify saved-response request, audit and SQLite parity. | — | Draft | AIDHA-PLAN-015 |
+| 0.4 | 2026-10-17 | Codex | Pin the reviewed pure admission and threshold-boundary tests. | — | Draft | PR 44 |
 
 ## Scope and acceptance
 
@@ -137,7 +138,8 @@ The pure `grounding-admission.ts` transition owns verdict application, strict re
 admission, repair status and the final failure ratio. The miner retains model calls, token
 accounting and optional limitation orchestration. This extraction preserves the existing
 prompt, evidence policy, ordinary advisory behavior, cache identity and failure handling.
-The pure tests protect unique valid grounding, missing/duplicate/rewrite/ungrounded verdicts,
+[The pure tests][admission-test] protect unique valid grounding,
+missing/duplicate/rewrite/ungrounded verdicts,
 malformed batches, advisory transport failure, original rejection restoration and the exact
 half-failure boundary. A distinct residual failed candidate counts separately from a rejected
 repair; successfully repaired candidates are excluded from the residual failed-unit set.
@@ -171,3 +173,5 @@ grounding-admission.ts
 The published live measurement remains pinned to its original runtime and measurement commits.
 This refactor and offline check do not relabel it as a fresh model run, establish entailment,
 or approve the opt-in policy as a production default.
+
+[admission-test]: https://github.com/GitCmurf/AIDHA/blob/3a59b7547561204e9f9b0be828841a08968fb66c/packages/praecis/core/tests/extract/distill/grounding-admission.test.ts
