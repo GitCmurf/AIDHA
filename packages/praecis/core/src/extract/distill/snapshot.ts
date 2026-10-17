@@ -97,6 +97,18 @@ function isJsonValue(value: unknown, active = new WeakSet<object>(), inArray = f
   }
 }
 
+function sameJsonWire(left: unknown, right: unknown): boolean {
+  try {
+    if (!isJsonValue(left) || !isJsonValue(right)) return false;
+    const leftWire = JSON.stringify(left);
+    const rightWire = JSON.stringify(right);
+    return leftWire !== undefined && rightWire !== undefined &&
+      isDeepStrictEqual(JSON.parse(leftWire), JSON.parse(rightWire));
+  } catch {
+    return false;
+  }
+}
+
 /** Normalize to the durable JSON representation before caching, reporting or writing. */
 export function parseSnapshotCandidate(value: unknown): ExtractionSnapshotCandidate | null {
   try {
@@ -149,12 +161,12 @@ export function snapshotMatchesMiningResult(candidate: ExtractionSnapshotCandida
     coverage: candidate.report.coverage, diagnostics: candidate.preProjectionDiagnostics,
     model: candidate.model, promptVersion: candidate.promptVersion,
   });
-  return isDeepStrictEqual(output.claims, result.claims) &&
-    isDeepStrictEqual(output.rejectedClaims, result.rejectedClaims ?? []) &&
-    isDeepStrictEqual(output.supportingUnits, candidate.supportingUnits) &&
-    isDeepStrictEqual(output.supportingUnits, result.supportingUnits ?? []) &&
-    isDeepStrictEqual(output.distillation, candidate.report) &&
-    isDeepStrictEqual({ ...output.distillation, failedClosed: false }, result.distillation);
+  return sameJsonWire(output.claims, result.claims) &&
+    sameJsonWire(output.rejectedClaims, result.rejectedClaims ?? []) &&
+    sameJsonWire(output.supportingUnits, candidate.supportingUnits) &&
+    sameJsonWire(output.supportingUnits, result.supportingUnits ?? []) &&
+    sameJsonWire(output.distillation, candidate.report) &&
+    sameJsonWire({ ...output.distillation, failedClosed: false }, result.distillation);
 }
 
 /** Absent checkpoints are distinct from malformed or unsupported stored versions. */

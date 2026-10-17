@@ -3,10 +3,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SQLiteStore, type GraphStore, type Result } from '@aidha/graph-backend';
-import { SourceDistillationMiner, composeVector, createIngestionRuntime,
+import { SourceDistillationMiner, composeVector, createIngestionRuntime, type ICandidateMiner,
   readExtractionSnapshot, SourceDistillationClosedError } from '../../src/index.js';
 import { MemoryCache } from '../../src/pipeline/services.js';
-import { hashSnapshotCandidate, parseSnapshotCandidate } from '../../src/extract/distill/snapshot.js';
+import { hashSnapshotCandidate, parseSnapshotCandidate, snapshotMatchesMiningResult } from '../../src/extract/distill/snapshot.js';
 import { createRawSource } from '../../src/compose/source-envelope.js';
 import { RecordingLlm, config, grounded, payload, request, source, unit } from '../extract/distill/fixture.js';
 
@@ -343,6 +343,15 @@ it('rejects missing or mismatched cache snapshots and reuses a matching committe
     if (!first.ok) throw first.error;
     const firstRun = await first.value.runVector(makeVector(), { ref: 'synthetic:checkpoint' });
     if (!firstRun.ok) throw firstRun.error;
+    const firstSnapshot = firstRun.value.extractionSnapshot;
+    if (!firstSnapshot) throw new Error('Expected the first snapshot');
+    expect(Object.hasOwn(firstSnapshot.proposal, 'sourcePurpose')).toBe(false);
+    expect(Object.hasOwn(firstSnapshot.report, 'sourcePurpose')).toBe(false);
+    for (const field of ['rationale', 'conditions', 'attribution', 'supportsUnitIds']) {
+      expect(Object.hasOwn(firstSnapshot.proposal.units[0] ?? {}, field), field).toBe(false);
+      expect(Object.hasOwn(firstSnapshot.finalUnits[0] ?? {}, field), field).toBe(false);
+      expect(Object.hasOwn(firstRun.value.claims[0]?.metadata ?? {}, field), field).toBe(false);
+    }
     expect(recording.writes).toBe(1);
     const valid = recording.lastWrite;
     if (!valid) throw new Error('No committed extraction was cached');
@@ -383,9 +392,78 @@ it('rejects missing or mismatched cache snapshots and reuses a matching committe
     if (!reused.ok) throw reused.error;
     expect(reused.value.cacheHits).toBe(1);
     expect(noLlm.requests).toHaveLength(0);
+    expect(reused.value.extractionSnapshot).toEqual(firstSnapshot);
     await hit.value.close();
     await first.value.close();
   } finally { await store.close(); }
+});
+
+it('accepts an opted-in wrapper whose optional undefined fields disappear on the JSON wire', async () => {
+  const store = SQLiteStore.createInMemory();
+  const delegate = new SourceDistillationMiner();
+  const wrapper: ICandidateMiner = {
+    extractionSnapshotVersion: 1,
+    cacheIdentity: delegate.cacheIdentity,
+    async mine(miningRequest) {
+      const mined = await delegate.mine(miningRequest);
+      if (!mined.ok) return mined;
+      return { ok: true, value: {
+        ...mined.value,
+        claims: mined.value.claims.map(claim => ({ ...claim,
+          metadata: { ...claim.metadata, rationale: undefined } })),
+        distillation: mined.value.distillation && { ...mined.value.distillation, sourcePurpose: undefined },
+      } };
+    },
+  };
+  try {
+    const cache = new CapturingCache();
+    const first = await createIngestionRuntime({ store, config: config(), miner: wrapper,
+      llm: new RecordingLlm([payload(), grounded]), cache });
+    if (!first.ok) throw first.error;
+    const fresh = await first.value.runVector(makeVector('synthetic:wrapper'), { ref: 'synthetic:wrapper' });
+    if (!fresh.ok) throw fresh.error;
+    expect(fresh.value.extractionSnapshot?.trusted).toBe(false);
+    expect(Object.hasOwn(fresh.value.claims[0]?.metadata ?? {}, 'rationale')).toBe(true);
+    expect(Object.hasOwn(fresh.value.extractionSnapshot?.report ?? {}, 'sourcePurpose')).toBe(false);
+    const saved = cache.lastWrite;
+    if (!saved) throw new Error('Missing committed cache record');
+    const noLlm = new RecordingLlm([]);
+    const reused = await createIngestionRuntime({ store, config: config(), miner: wrapper,
+      llm: noLlm, cache: new CapturingCache(saved) });
+    if (!reused.ok) throw reused.error;
+    const hit = await reused.value.runVector(makeVector('synthetic:wrapper'), { ref: 'synthetic:wrapper' });
+    if (!hit.ok) throw hit.error;
+    expect(hit.value.cacheHits).toBe(1);
+    expect(hit.value.extractionSnapshot).toEqual(fresh.value.extractionSnapshot);
+    expect(noLlm.requests).toHaveLength(0);
+    await reused.value.close();
+    await first.value.close();
+  } finally { await store.close(); }
+});
+
+it.each([Number.NaN, () => 'non-JSON'])(
+  'rejects a snapshot sibling with a non-JSON claim metadata value', async invalidValue => {
+    const mined = await new SourceDistillationMiner().mine(request(new RecordingLlm([payload(), grounded])));
+    if (!mined.ok) throw mined.error;
+    const candidate = mined.value.extractionSnapshotCandidate;
+    if (!candidate) throw new Error('Missing candidate');
+    const damaged = { ...mined.value, claims: mined.value.claims.map(claim => ({ ...claim,
+      metadata: { ...claim.metadata, reviewerField: invalidValue } })) };
+    expect(snapshotMatchesMiningResult(candidate, damaged)).toBe(false);
+  });
+
+it('rejects a throwing metadata getter without escaping snapshot admission', async () => {
+  const mined = await new SourceDistillationMiner().mine(request(new RecordingLlm([payload(), grounded])));
+  if (!mined.ok) throw mined.error;
+  const candidate = mined.value.extractionSnapshotCandidate;
+  const claim = mined.value.claims[0];
+  if (!candidate || !claim) throw new Error('Missing candidate or claim');
+  const metadata = { ...claim.metadata };
+  Object.defineProperty(metadata, 'reviewerField', { enumerable: true, get() {
+    throw new Error('untrusted getter must not escape admission');
+  } });
+  const damaged = { ...mined.value, claims: [{ ...claim, metadata }] };
+  expect(snapshotMatchesMiningResult(candidate, damaged)).toBe(false);
 });
 
 it('leaves a custom miner without snapshot capability on the legacy export path', async () => {
