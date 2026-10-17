@@ -27,14 +27,14 @@ const originalUnit = {
 const vector = composeVector({
   sourceId: 'synthetic', sensitivity: 'public',
   registration: { sourceId: 'synthetic', validateActiveSourceConfig: value => value },
-  ingestor: { sourceId: 'synthetic', acquire: async () => ({ ok: true as const,
+  ingestor: { sourceId: 'synthetic', acquire: () => Promise.resolve({ ok: true as const,
     value: { canonicalId: 'synthetic:source-34', sourceType: 'web' as const, label: 'Operations review',
       sensitivity: 'public' as const, provenance: { ingestedAt: '2026-10-17T00:00:00Z', sourceType: 'web' }, payload: {} } }) },
-  decode: [{ name: 'synthetic', decode: async () => ({ ok: true as const, value: {
+  decode: [{ name: 'synthetic', decode: () => Promise.resolve({ ok: true as const, value: {
     segments: [{ id: 'seg3', text: source,
       locator: { kind: 'text' as const, charStart: 0, charEnd: source.length } }], warnings: [] } }) }],
-  context: { build: async () => ({}) },
-  chunking: { name: 'synthetic', chunk: async ({ segments }) => ({ ok: true as const,
+  context: { build: () => Promise.resolve({}) },
+  chunking: { name: 'synthetic', chunk: ({ segments }) => Promise.resolve({ ok: true as const,
     value: [{ id: 'alert-3', text: source, segments,
       locator: { kind: 'text' as const, charStart: 0, charEnd: source.length } }] }) },
 });
