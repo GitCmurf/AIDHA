@@ -179,3 +179,5 @@ export type { ExtractionIntent, GraphProjection } from './distill/projection.js'
 
 export { SourceDistillationMiner } from './distill/miner.js';
 export type { SourceDistillationMinerConfig } from './distill/miner.js';
+export { readExtractionSnapshot } from './distill/snapshot.js';
+export type { ExtractionSnapshot, ExtractionSnapshotCandidate } from './distill/snapshot.js';

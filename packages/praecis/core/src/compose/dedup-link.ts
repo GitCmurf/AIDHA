@@ -50,6 +50,7 @@ const RESERVED_RESOURCE_METADATA_KEYS = new Set([
   'dedupKeys',
   'provenances',
   'label',
+  'extractionSnapshot',
 ]);
 
 interface MetadataConflict {

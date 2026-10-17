@@ -10,6 +10,7 @@ const RESERVED_RESOURCE_METADATA_KEYS = new Set([
   'dedupKeys',
   'provenances',
   'label',
+  'extractionSnapshot',
 ]);
 
 function isJsonSafe(value: unknown): boolean {
