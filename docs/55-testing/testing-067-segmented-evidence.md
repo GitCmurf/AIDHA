@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-067
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-17
 title: Complete Segmented Evidence Recovery
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
 > **Document ID:** AIDHA-TESTING-067
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify opt-in complete splitting of exact overlong evidence. | — | Draft | AIDHA-PLAN-010 |
+| 0.2 | 2026-10-17 | Codex | Pin reviewed regression links and record the bounded recovery replay and review limits. | — | Draft | AIDHA-PLAN-015 |
 
 ## Scope and acceptance
 
@@ -43,7 +44,8 @@ and in their original order.
 The unchanged half-excerpt limit applies to each resulting passage, not to their combined
 coverage. In the recorded supplier case, the original 41-token quotation from a 75-token
 excerpt becomes two exact passages of 28 and 13 tokens; together they still cover 41 of 75
-tokens. This opt-in path therefore changes admission of long literal evidence while retaining
+tokens, counted as letter/number sequences by the quote verifier, not model billing tokens.
+This opt-in path therefore changes admission of long literal evidence while retaining
 all its text. It makes no aggregate citation-coverage claim, and the split itself does not
 establish semantic support; the whole-unit grounding requirement below still applies.
 
@@ -77,8 +79,8 @@ token failures and mixed fabricated citations. [The splitter test][splitter-test
 content/order, unchanged valid references, literal gating and work bounds. All tests use public
 synthetic text and fake model replies; no model endpoint is invoked.
 
-[runtime-test]: https://github.com/GitCmurf/AIDHA/blob/034-segmented-evidence/packages/praecis/core/tests/pipeline/segmented-evidence.test.ts
-[splitter-test]: https://github.com/GitCmurf/AIDHA/blob/034-segmented-evidence/packages/praecis/core/tests/extract/distill/segmented-evidence.test.ts
+[runtime-test]: https://github.com/GitCmurf/AIDHA/blob/83ab40323d86e9c2154573bbf50d95f39a3cc1f6/packages/praecis/core/tests/pipeline/segmented-evidence.test.ts
+[splitter-test]: https://github.com/GitCmurf/AIDHA/blob/83ab40323d86e9c2154573bbf50d95f39a3cc1f6/packages/praecis/core/tests/extract/distill/segmented-evidence.test.ts
 
 Run from the repository root:
 
@@ -88,3 +90,42 @@ pnpm --filter @aidha/praecis-core lint
 node scripts/meminit-check.mjs docs/55-testing/testing-067-segmented-evidence.md
 pnpm docs:build
 ```
+
+## Controlled public supplier replay
+
+A manual replay at clean runtime revision `74134ecf49ea8dd9582d50122967aa6c3ea072ba` reuses
+the first Gemini writer trial's complete generated supplier response and original three excerpts.
+It makes one fresh native AGY `gemini-3.8-flash-low` grounding call, using client revision
+`61ddd7139f015d020b2426bf215a05f2e9b97089`. The model explicitly returns `grounded` for `u4`.
+The shared ingestion runtime writes four claims, closes SQLite and reopens it. The previously
+missing conditional recommendation is the only added claim; all three prior claims retain
+identical IDs, type, label, content and metadata. The recovered recommendation remains an
+untrusted draft, with both original conditions, operations-lead attribution and the two exact
+`alert-3` passages. Original failed evidence and the grounded repair appear in the saved report.
+
+The fresh call reports 15088 input tokens, 65 output tokens, 15153 total tokens and a native
+duration of 5.42558754 seconds. The pipeline token total is 31448 because it also accounts for
+16295 tokens from the reused generation; those reused tokens are not another live call. Provider
+API cost is unknown (`null`); the runtime's internal zero spend is not a provider cost measurement.
+
+The first private runner preflight fails before a model call because a provenance hash read uses
+a URL string as a path. After that correction, the actual run completes, but its final assertion
+initially reads draft state from the wrong location (`claim.state`). The saved SQLite node holds
+`metadata.state = draft`. Correcting only that offline assertion makes the full recovery gate
+pass against the unchanged saved report; seven adverse mutations fail. Both original failed
+receipts are retained. No second fresh grounding call is made.
+
+[The public measurement projection][measurement] contains the source, frozen generation, fresh
+verdicts, repair audit, unchanged baseline claims and SQLite-reopened claims. It excludes raw
+native account metadata, conversation identifiers and stderr. Two assistant reviews check the
+code path; an independent assistant comparison checks this run's factual recovery. These are not
+human gold labels or semantic endorsement.
+
+This establishes feasibility for one public fictional source. It does not establish repeated
+quality gain, writer superiority, corpus prevalence or a Pareto frontier. The baseline uses
+InMemoryStore and this replay uses SQLite, so the result is a controlled pipeline check rather
+than an isolated model experiment. A fresh model judge can still be wrong. Owner review of the
+semantic expectations and per-citation admission policy is needed before default adoption.
+The earlier supplier-origin and trial-burden qualification issues remain unchanged.
+
+[measurement]: https://github.com/GitCmurf/AIDHA/blob/21c716a356fee084f8de72e53673b37d70eefed9/scripts/semantic-quality/segmented-evidence-measurement.json
