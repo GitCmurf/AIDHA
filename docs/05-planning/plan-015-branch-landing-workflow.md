@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.13'
+version: '0.15'
 last_updated: 2026-10-17
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.13
+> **Version:** 0.15
 > **Last Updated:** 2026-10-17
 > **Type:** PLAN
 
@@ -37,6 +37,8 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.11 | 2026-10-17 | Codex | Extract validation and evidence checks for model-generated distillations with explicit semantic limits. | — | Draft | AIDHA-TESTING-056 |
 | 0.12 | 2026-10-17 | Codex | Record final PR 34 verification, reproduced bot fixes, remaining complexity advisories and the owner merge gate. | — | Draft | PR 34 |
 | 0.13 | 2026-10-17 | Codex | Record owner approval and PR 34 merge; prepare the bounded generation and grounding slice. | CMF | Draft | PR 34 |
+| 0.14 | 2026-10-17 | Codex | Record PR 35 final checks, actual bot assessment and concrete owner merge brief. | — | Draft | PR 35 |
+| 0.15 | 2026-10-17 | Codex | Record PR 35 approval, merge-gate sequencing error, corrective slice and semantic-quality priority. | CMF | Draft | PR 35 |
 
 ## Purpose and authority
 
@@ -147,6 +149,51 @@ configuration/YAML and build/docs dependency maintenance in independent PRs befo
 pilots. No new owner product decision blocks synthetic preparation; private inputs and merge
 approvals retain their existing gates.
 
+## PR 35 approved and merged; semantic quality is next
+
+The owner approved [PR 35](https://github.com/GitCmurf/AIDHA/pull/35) on 2026-10-17 and
+specified semantic-quality improvement as the intended destination of this branch. PR 35 merged
+as `5b81d23` from reviewed `b08f8ab`. The integrated tree matches the reviewed tree exactly and
+required checks passed. The default extractor remains selected; the new miner is injectable.
+
+A late Greptile report identified repeated source excerpts in the grounding prompt. The review
+gate detected the additional unresolved thread, but a shell sequencing error allowed the merge
+command to run after that failed check. This was an execution error. Future dependent mutations
+must be separate calls after a successful gate, or joined with an explicit success condition.
+The owner was informed. Preserve this record rather than describing the merge as fully gated.
+
+The confirmed finding has a separate corrective slice, `024-grounding-context`: one complete
+source table, each unit's own cited IDs, and a bumped grounding/cache version. A ten-unit
+regression fails before the fix and passes afterward. Independent review finds no actionable
+correctness issue. Documentation and reporting-bot checks remain recorded per candidate.
+Skipped bots supply no coverage. DeepSource's assessed maintenance warnings and dashboard-only
+findings inaccessible with HTTP 403 remain the review limits recorded on PR 35.
+
+- [x] Obtain separate owner approval for PR 35 and merge the approved head.
+- [x] Verify exact integrated-tree equality.
+- [x] Reproduce the late shared-excerpt finding and prepare a separate correction.
+- [ ] Complete correction checks/reviews, publish its PR and obtain separate merge approval.
+- [ ] Verify post-merge main CI and refresh the context helper where supported.
+
+### Next sprint: semantic-quality evaluation and improvement
+
+The target is better preservation of useful meaning, beyond mechanically valid output.
+
+- [x] Freeze three newly authored public multi-excerpt sources and provisional semantic expectations.
+- [x] Keep expectations out of generation and grounding prompts; preserve the original private texts.
+- [ ] Exercise the actual miner, runtime and exporter with a bounded native-model run.
+- [ ] Review core-idea recall, qualifiers, corrections, origins, rationale and procedural leakage.
+- [ ] Fix the smallest demonstrated quality failure and compare a paired run with the same model.
+- [ ] Keep source-level omission, grounding and projection losses separately inspectable.
+- [ ] Show the owner concrete before/after evidence; do not claim synthetic expectations are human gold.
+
+`025-semantic-quality` prepares this work independently. Native Claude subscription calls use
+public synthetic text only, tools disabled, and no new API credentials or service activation.
+Record the actual resolved model and usage; native CLI results do not establish API-provider
+parity or default-pipeline quality. Source-report persistence follows when needed for the real
+reader trial; it is not a substitute for measuring semantic usefulness. No owner input blocks
+this preparation. Future PRs retain their own merge gate.
+
 ## Restart procedure
 
 1. Read this file and `AGENTS.md`, including the [Slice ledger](#slice-ledger) and
@@ -218,7 +265,9 @@ Do not introduce links to pages absent from a PR base.
 | Taxonomy-version provenance | Independent; integrated `main` at `475f615` | `020-taxonomy-provenance` / [PR 31](https://github.com/GitCmurf/AIDHA/pull/31) | Merged as `33f40cd`; approved patch and all eleven non-generated blobs unchanged; fresh exact-head CI and actual reporting-bot checks pass | Structured canonical fingerprint; exact Resource metadata after fresh SQLite reopen and email ingestion |
 | Email parser dependency maintenance | Verified `main` at `33f40cd`; independent | `021-email-parser-dependencies` / [PR 33](https://github.com/GitCmurf/AIDHA/pull/33) | Merged as `580b94c` from approved `a5d9651`; required CI passes; actual reports assessed | Synthetic malformed-address/mailto tests and ordinary MIME control; no real email |
 | Distillation validation and evidence checks | Verified `main` at `580b94c`; independent of model/pipeline wiring | `022-distillation-validation` / [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) | Merged as `1c83ecb` from approved `dd55b43`; exact integrated tree matches; required CI passes | AIDHA-TESTING-056; mechanical acceptance explicitly does not prove semantic entailment |
-| Bounded model generation and grounding | Verified `main` at `1c83ecb`; uses PR 34 contracts | `023-distillation-pipeline` / pending | Implementation and meaningful runtime regressions pass; full checks and review in progress | TESTING-057; default selection unchanged; no live provider calls |
+| Bounded model generation and grounding | Verified `main` at `1c83ecb`; uses PR 34 contracts | `023-distillation-pipeline` / [PR 35](https://github.com/GitCmurf/AIDHA/pull/35) | Merged as `5b81d23` from approved `b08f8ab`; exact tree matches; late Greptile finding has separate correction | TESTING-057; default selection unchanged; no live provider calls |
+| Shared grounding source context | Verified `main` at `5b81d23` | `024-grounding-context` / pending | Corrective regression and peer review pass; full checks in progress | TESTING-058; source text once, per-unit citation IDs, cache version bumped |
+| Semantic-quality evaluation and improvement | Verified `main` at `5b81d23` | `025-semantic-quality` / pending | Three public synthetic cases frozen; actual-model baseline in progress | Reviewed assistant-authored expectations, not human gold; no private inputs |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
@@ -351,7 +400,7 @@ Synthetic contract work needs no owner product decision. Existing PEPYS authorit
 
 | Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
 | --- | --- | --- | --- |
-| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No; PR 34 is approved and merged. Future PRs need separate approval |
+| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No current owner action; PR 35 approved and merged, future PRs need separate approval |
 | Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
 | Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
 | New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
@@ -956,3 +1005,34 @@ Email slice completion record:
   corrections. All 136 focused tests pass. Both completed twenty-file CodeRabbit reviews produced
   genuine minor findings, now fixed with regressions; the last corrections have peer review rather
   than a claimed zero-finding CLI receipt. Final owning checks and repository CI remain gates.
+
+### 2026-10-17 — PR 35 reaches owner merge review
+
+- Published PR 35 from `f83b4f5` against `1c83ecb`; final convention follow-up is `b08f8ab`.
+  Exactly twenty files remain in scope. Required final-head CI passes:
+  [build](https://github.com/GitCmurf/AIDHA/actions/runs/39031744891/job/117393414493)
+  [verify](https://github.com/GitCmurf/AIDHA/actions/runs/39031744925/job/117393414602)
+  [gitleaks](https://github.com/GitCmurf/AIDHA/actions/runs/39031744872/job/117393414424).
+- All 275 core and 31 CLI tests pass on the functional candidate; the small helper and exhaustive switch
+  follow-up passes owning typechecks, ten report tests and two public CLI tests.
+  The final built-package public ingestion smoke makes two synthetic model calls and returns an
+  untrusted draft with literal evidence and an explicit successful distillation status.
+- Actual DeepSource findings are assessed in the PR. Retained complexity/async-fake advisories are
+  disclosed, convention fixes are pushed, and no paid-review activation or suppression is used.
+  Any later report must be checked again before merging. Skipped reviews supply no coverage.
+- Keep private receipts in ignored `reports/branch-landing-20261016/verification/distillation023/`.
+  This validated local v0.14 completion record accompanies the next appropriate slice; PR 35
+  retains reviewed v0.13. Do not create a status-only PR or alter the preserved source index.
+- The source remains at `39bea2d` on `fix/youtube-llm-remediation`, with all 69 baseline files
+  unchanged. PR 35 has no merge approval yet; do not extend PR 34's approval to this new PR.
+
+### 2026-10-17 — PR 35 approval and quality sprint
+
+- Owner approved PR 35 and explicitly prioritized semantic-quality improvement. Approved head
+  `b08f8ab` merged as `5b81d23`; fetched main has exactly the same tree.
+- Late Greptile thread `discussion_r4302631283` reproduces repeated grounding context. The failed
+  review gate did not stop the subsequent shell command. Record the error and use explicit
+  dependent-call success gates going forward. A separate 024 correction is being reviewed.
+- 025 freezes three new public synthetic cases before calls; native Claude authentication uses
+  the existing subscription. Expectations are assistant authored and not human adjudicated.
+  Keep extraction/grounding source-only; store full generated and persisted outputs for review.
