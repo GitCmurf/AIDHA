@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "labelStatus": "assistant-authored expectations; not human gold or adjudicated",
+  "cases": [
+    {
+      "id": "archive-cutover",
+      "sourceType": "web",
+      "canonicalId": "synthetic:archive-cutover",
+      "label": "Fictional archive cutover note",
+      "excerpts": [
+        {
+          "id": "archive-1",
+          "text": "Our archive exports can arrive out of order when a network retry completes after a later batch. A visible file count is therefore a poor readiness test: it says nothing about whether the index points to the bytes that were actually copied. For the next migration, I recommend writing a versioned manifest containing each object identifier and checksum, then comparing that manifest with the destination before any reader is moved. This is an integrity recommendation, not a claim that every copy will be quick."
+        },
+        {
+          "id": "archive-2",
+          "text": "The cutover should keep the previous reader endpoint available until the new manifest reconciles and a sample of reads succeeds. If reconciliation fails, leave readers on the previous endpoint and inspect the missing or mismatched objects. In last week's demonstration I opened the admin menu, selected Export, copied a status link, and changed the dashboard filter from blue to green. Those clicks showed where the status appears; they are not the migration rule."
+        },
+        {
+          "id": "archive-3",
+          "text": "A checksum comparison can detect missing or altered objects, but it does not establish that the search index has the intended document order. The rehearsal used a separate ordering check against the manifest before traffic moved. We have not measured whether this procedure reduces cutover time compared with the old procedure. The value we are seeking is a reversible switch with inspectable data integrity, while the speed effect remains unknown."
+        }
+      ],
+      "expected": {
+        "required": [
+          {
+            "id": "archive-integrity",
+            "kind": "recommendation",
+            "importance": "core",
+            "proposition": "Before moving archive readers, use a versioned object manifest with checksums and reconcile it against the destination, because file count alone cannot establish copy integrity.",
+            "evidence": [
+              {
+                "excerptId": "archive-1",
+                "quote": "A visible file count is therefore a poor readiness test"
+              },
+              {
+                "excerptId": "archive-1",
+                "quote": "writing a versioned manifest containing each object identifier and checksum"
+              }
+            ],
+            "requiredDistinctions": [
+              "This is a recommended cutover check, not an observed speed improvement.",
+              "The manifest must be compared with the destination before readers move."
+            ]
+          },
+          {
+            "id": "archive-reversibility",
+            "kind": "recommendation",
+            "importance": "core",
+            "proposition": "Keep the previous reader endpoint available until manifest reconciliation and sample reads succeed; if reconciliation fails, leave readers on the previous endpoint.",
+            "evidence": [
+              {
+                "excerptId": "archive-2",
+                "quote": "keep the previous reader endpoint available until the new manifest reconciles and a sample of reads succeeds"
+              },
+              {
+                "excerptId": "archive-2",
+                "quote": "If reconciliation fails, leave readers on the previous endpoint"
+              }
+            ],
+            "requiredDistinctions": [
+              "The rollback condition is a failed reconciliation, not a routine immediate rollback."
+            ]
+          },
+          {
+            "id": "archive-order-limit",
+            "kind": "limitation",
+            "importance": "supporting",
+            "proposition": "Checksum reconciliation does not establish intended search-index order; an additional ordering check is needed before traffic moves.",
+            "evidence": [
+              {
+                "excerptId": "archive-3",
+                "quote": "it does not establish that the search index has the intended document order"
+              },
+              {
+                "excerptId": "archive-3",
+                "quote": "used a separate ordering check against the manifest before traffic moved"
+              }
+            ],
+            "requiredDistinctions": [
+              "Object integrity and index order are separate checks."
+            ]
+          }
+        ],
+        "supporting": [
+          {
+            "id": "archive-ui-demo",
+            "kind": "procedure",
+            "excerptId": "archive-2",
+            "expectedProjection": "procedure-or-diagnostic, never knowledge-graph claim"
+          }
+        ],
+        "forbidden": [
+          "The archive migration reduced cutover time.",
+          "File count alone verifies copied object integrity.",
+          "Dashboard menu clicks are a general archive migration claim.",
+          "Checksums by themselves establish correct search-index order."
+        ]
+      }
+    },
+    {
+      "id": "queue-pilot-correction",
+      "sourceType": "web",
+      "canonicalId": "synthetic:queue-pilot-correction",
+      "label": "Fictional service queue pilot note",
+      "excerpts": [
+        {
+          "id": "queue-1",
+          "text": "The first slide in our service queue pilot deck says the median wait fell from eighteen minutes to fourteen minutes across twelve sites after a routing change. That slide was drafted before baseline records were reconciled. It describes an initial comparison, not a randomized experiment. The routing change sent overflow requests to a shared pool whenever the local queue crossed its capacity threshold. Staff also replaced a wall display during the pilot, but the display change was not measured as an intervention."
+        },
+        {
+          "id": "queue-2",
+          "text": "Here is the correction to the slide: three sites lacked a comparable pre-change baseline, so the eighteen-to-fourteen-minute median comparison covers nine sites, not twelve. The twelve sites participated in the pilot, but only nine enter that before-and-after result. The figures come from recorded queue timestamps over the same four-week reporting windows. No control group was assigned, and seasonal demand could have affected the comparison. Do not describe the observed difference as proof that routing caused it."
+        },
+        {
+          "id": "queue-3",
+          "text": "We did not record power use for the routing equipment during this pilot. An earlier meeting note called the change an energy saving, but there is no energy measurement behind that phrase. Operators reported no outage during the four-week reporting window; that observation is limited to the monitored sites and period. Next quarter we plan to measure both queue time and power use with a matched comparison group, but those results do not yet exist."
+        }
+      ],
+      "expected": {
+        "required": [
+          {
+            "id": "queue-observed-wait",
+            "kind": "fact",
+            "importance": "core",
+            "proposition": "In the comparable nine-site before-and-after pilot data, median recorded queue wait was eighteen minutes before routing and fourteen minutes after routing over four-week windows.",
+            "evidence": [
+              {
+                "excerptId": "queue-2",
+                "quote": "the eighteen-to-fourteen-minute median comparison covers nine sites, not twelve"
+              },
+              {
+                "excerptId": "queue-2",
+                "quote": "recorded queue timestamps over the same four-week reporting windows"
+              }
+            ],
+            "requiredDistinctions": [
+              "Nine sites have comparable baselines; twelve sites participated overall.",
+              "The difference was observed, not proven to be caused by routing."
+            ]
+          },
+          {
+            "id": "queue-causal-limit",
+            "kind": "limitation",
+            "importance": "core",
+            "proposition": "The queue pilot did not assign a control group, and seasonal demand could explain part of the observed wait-time difference, so a causal effect of routing is not established.",
+            "evidence": [
+              {
+                "excerptId": "queue-2",
+                "quote": "No control group was assigned, and seasonal demand could have affected the comparison"
+              }
+            ],
+            "requiredDistinctions": [
+              "Lack of causal proof does not erase the measured before-and-after observation."
+            ]
+          },
+          {
+            "id": "queue-energy-unmeasured",
+            "kind": "limitation",
+            "importance": "supporting",
+            "proposition": "The pilot did not measure routing-equipment power use, so the earlier energy-saving phrase has no measured support.",
+            "evidence": [
+              {
+                "excerptId": "queue-3",
+                "quote": "We did not record power use for the routing equipment during this pilot"
+              },
+              {
+                "excerptId": "queue-3",
+                "quote": "there is no energy measurement behind that phrase"
+              }
+            ],
+            "requiredDistinctions": [
+              "Unmeasured energy use is not a measured negative energy result."
+            ]
+          }
+        ],
+        "supporting": [
+          {
+            "id": "queue-outage-window",
+            "kind": "fact",
+            "excerptId": "queue-3",
+            "expectedProjection": "if retained, explicitly scoped to monitored sites and four weeks"
+          }
+        ],
+        "forbidden": [
+          "The eighteen-to-fourteen-minute result covers all twelve pilot sites.",
+          "Routing caused the wait-time reduction.",
+          "The pilot measured an energy saving or measured no energy saving.",
+          "The pilot proved the system never has outages.",
+          "The planned matched comparison has already produced results."
+        ]
+      }
+    },
+    {
+      "id": "supplier-alert-proposal",
+      "sourceType": "web",
+      "canonicalId": "synthetic:supplier-alert-proposal",
+      "label": "Fictional operations review note",
+      "excerpts": [
+        {
+          "id": "alert-1",
+          "text": "At the review meeting I reported a proposal from the equipment supplier's safety lead, whose personal name was not supplied. The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle. I am the committee chair relaying that proposal, not its originator. The supplier argued that earlier warnings might give operators more time to inspect a developing fault, but no reduction in faults had been measured when the proposal was made."
+        },
+        {
+          "id": "alert-2",
+          "text": "Our maintenance team tested the six-unit alert threshold on five new-spindle machines for two weeks. They counted forty extra alerts, of which thirty-six were judged nuisance alerts after inspection. That trial measured alert burden in a narrow setting; it did not test fault prevention or older spindle models. The supplier did not conduct this local test, and the chair did not certify that the threshold should be rolled out."
+        },
+        {
+          "id": "alert-3",
+          "text": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning. Until then, keep the existing eight-unit threshold outside the five trial machines. This is a conditional recommendation by the operations lead, distinct from the supplier's original six-unit proposal. The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting."
+        }
+      ],
+      "expected": {
+        "required": [
+          {
+            "id": "alert-supplier-origin",
+            "kind": "recommendation",
+            "importance": "core",
+            "proposition": "The equipment supplier's safety lead proposed a six-unit vibration alert threshold for new-spindle machines, arguing that earlier warnings might allow more inspection time; fault reduction had not been measured.",
+            "evidence": [
+              {
+                "excerptId": "alert-1",
+                "quote": "The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle"
+              },
+              {
+                "excerptId": "alert-1",
+                "quote": "earlier warnings might give operators more time to inspect a developing fault"
+              }
+            ],
+            "requiredDistinctions": [
+              "Originator is an unnamed supplier safety lead, not the reporting chair.",
+              "The possible inspection benefit was the supplier's argument, not an observed fault reduction.",
+              "Scope is new-spindle machines."
+            ]
+          },
+          {
+            "id": "alert-trial-burden",
+            "kind": "fact",
+            "importance": "core",
+            "proposition": "In a two-week maintenance-team test on five new-spindle machines, the six-unit threshold produced forty extra alerts, thirty-six of which were judged nuisance alerts.",
+            "evidence": [
+              {
+                "excerptId": "alert-2",
+                "quote": "tested the six-unit alert threshold on five new-spindle machines for two weeks"
+              },
+              {
+                "excerptId": "alert-2",
+                "quote": "They counted forty extra alerts, of which thirty-six were judged nuisance alerts"
+              }
+            ],
+            "requiredDistinctions": [
+              "Tester is the maintenance team, not the supplier.",
+              "The trial measured alert burden, not fault prevention."
+            ]
+          },
+          {
+            "id": "alert-conditional-trial",
+            "kind": "recommendation",
+            "importance": "core",
+            "proposition": "The operations lead recommends considering a wider trial only after the nuisance-alert share is below one in ten for four consecutive weeks after tuning; meanwhile the eight-unit threshold remains outside the five trial machines.",
+            "evidence": [
+              {
+                "excerptId": "alert-3",
+                "quote": "consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning"
+              },
+              {
+                "excerptId": "alert-3",
+                "quote": "keep the existing eight-unit threshold outside the five trial machines"
+              }
+            ],
+            "requiredDistinctions": [
+              "This conditional recommendation originates with the operations lead, not the supplier.",
+              "Consideration of a wider trial is not approval for general rollout."
+            ]
+          }
+        ],
+        "supporting": [],
+        "forbidden": [
+          "The committee chair originated or endorsed the supplier's proposal.",
+          "The regulator endorsed the six-unit threshold.",
+          "The six-unit threshold reduced faults or was tested on older spindle models.",
+          "The operations lead recommended immediate general rollout.",
+          "The equipment supplier performed the local two-week test."
+        ]
+      }
+    }
+  ]
+}
