@@ -220,11 +220,11 @@ These are candidates, not an AIDHA ranking. Quoted zero output pricing does not 
 
 | Candidate | Published input / output price | Route and evidence |
 | --- | --- | --- |
-| TypeSafe Jev 1.14 | $0.042 / $0 | [OpenRouter current Jev guide](https://openrouter.ai/blog/insights/what-is-jev/); pin the resolved version rather than a latest alias |
-| Microsoft-Decision-1 | $0.042 / $0 | [Microsoft launch and pricing](https://commandline.microsoft.com/microsoft-decision-1-model-foundry/); Foundry or OpenRouter |
-| GPT-6 Luna Decisions | $0.10 / $0 | [Official OpenAI Decisions guide](https://developers.openai.com/api/docs/guides/decisions); the quoted rate is specific to `/v1/decisions`, with regional/long-context premiums |
-| Liquid d1-ultra | $0.042 / $0 on the listed route | [Current OpenRouter model listing](https://openrouter.ai/liquid/d1-ultra); recheck route availability and per-question charging before execution |
-| Cloudflare Clef / Clef-flash | Recheck selected route before execution | [Cloudflare launch](https://blog.cloudflare.com/clef-decision-models/); hosted or open weights, with local operational costs evaluated separately |
+| TypeSafe Jev 1.14 | $0.042 / $0 | [OpenRouter current Jev guide](https://openrouter.ai/blog/insights/what-is-jev/). Pin the resolved version rather than a latest alias |
+| Microsoft-Decision-1 | $0.042 / $0 | [Microsoft launch and pricing](https://commandline.microsoft.com/microsoft-decision-1-model-foundry/). Foundry or OpenRouter |
+| GPT-6 Luna Decisions | $0.10 / $0 | [Official OpenAI Decisions guide](https://developers.openai.com/api/docs/guides/decisions). The quoted rate is specific to `/v1/decisions`, with regional/long-context premiums |
+| Liquid d1-ultra | $0.042 / $0 on the listed route | [Current OpenRouter model listing](https://openrouter.ai/liquid/d1-ultra). Recheck route availability and per-question charging before execution |
+| Cloudflare Clef / Clef-flash | Recheck selected route before execution | [Cloudflare launch](https://blog.cloudflare.com/clef-decision-models/). Hosted or open weights, with local operational costs evaluated separately |
 
 Also screen lower-priced alternatives in the
 [provider decision-model catalog](https://openrouter.ai/models?output_modalities=decisions),
@@ -1166,3 +1166,8 @@ Email slice completion record:
 - Final-head CI, independent correction review and a fresh report/thread inspection remain
   required before owner merge readiness. PR 36 still needs its own approval. Neither the
   checkpoint nor the model inventory demonstrates semantic improvement.
+
+- The first correction head passes package tests, secret scanning and all four analyzers, but
+  Docs Check fails four URLs. The unchanged link checker includes a semicolon after a Markdown
+  link in the URL. Correct the five affected link separators; all 77 URLs then pass unchanged
+  link checking, and strict docs still builds. Retain the failed CI receipt and rerun final CI.
