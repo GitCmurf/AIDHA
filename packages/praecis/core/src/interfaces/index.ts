@@ -95,6 +95,23 @@ export interface SupportingUnitSummary {
   readonly attribution?: { readonly kind: string; readonly name?: string; readonly role?: string };
 }
 
+/** Direct source-backed limitation, retained as an untrusted assertion in its own right. */
+export interface SourceLimitationSummary {
+  readonly id: string;
+  readonly text: string;
+  readonly stance: string;
+  readonly rationale?: string;
+  readonly conditions?: readonly { readonly type: string; readonly text: string }[];
+  readonly attribution?: { readonly kind: string; readonly name?: string; readonly role?: string };
+  readonly evidence: readonly { readonly excerptId: string; readonly quote: string; readonly quoteVerification: string }[];
+  readonly applicability: {
+    readonly trusted: false;
+    readonly targetScope: { readonly kind: 'population' | 'time' | 'trial' | 'version' | 'actor' | 'other'; readonly text: string };
+    readonly relationEvidence: { readonly excerptId: string; readonly quote: string; readonly quoteVerification: 'exact' };
+    readonly explanation: string;
+  };
+}
+
 export interface SourceDistillationSummary {
   readonly failedClosed: boolean;
   readonly sourceType?: string;
