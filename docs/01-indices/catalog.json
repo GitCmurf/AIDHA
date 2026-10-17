@@ -264,6 +264,25 @@
     }
   },
   {
+    "path": "55-testing/testing-058-grounding-context.md",
+    "title": "Shared Source Context for Grounding",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-058",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-17",
+      "title": "Shared Source Context for Grounding",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-057"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-001-mvp-tests.md",
     "title": "MVP Test Suite Map and Hardening Coverage",
     "front_matter": {
@@ -585,7 +604,7 @@
       "document_id": "AIDHA-PLAN-015",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.13",
+      "version": "0.15",
       "last_updated": "2026-10-17",
       "title": "Branch Landing and Next Sprints Workflow",
       "type": "PLAN",
