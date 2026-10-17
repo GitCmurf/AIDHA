@@ -61,12 +61,12 @@ describe('parseSourceDistillation', () => {
     ['', '\nThe notation uses {excerptId}.'],
     ['The notation uses {excerptId}.\n', '\nThe notation uses {otherId}.'],
   ])('ignores prose braces around a valid response: %s %s', (prefix, suffix) => {
-    expect(parseSourceDistillation(prefix + validPayload() + suffix, excerptIds).ok).toBe(true);
+    expect(parseSourceDistillation(`${prefix}${validPayload()}${suffix}`, excerptIds).ok).toBe(true);
   });
 
   it('tracks nested objects and escaped quotes while finding the JSON boundary', () => {
     const payload = validPayload([validUnit({ text: 'A quoted "brace }" and a literal backslash \\ remain part of this source description.' })]);
-    expect(parseSourceDistillation(payload + '\nThe notation uses {excerptId}.', excerptIds).ok).toBe(true);
+    expect(parseSourceDistillation(`${payload}\nThe notation uses {excerptId}.`, excerptIds).ok).toBe(true);
   });
 
   it('accepts a source recommendation without fabricating an unstated rationale', () => {
