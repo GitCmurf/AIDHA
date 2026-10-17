@@ -239,6 +239,25 @@
     }
   },
   {
+    "path": "55-testing/testing-060-decision-quality.md",
+    "title": "Categorisation and Evidence Decision Quality Checkpoint",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-060",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-17",
+      "title": "Categorisation and Evidence Decision Quality Checkpoint",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-058"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-006-viable-prototype-pilot-evidence-template.md",
     "title": "Testing: Viable Prototype Pilot Evidence Template",
     "front_matter": {
@@ -604,7 +623,7 @@
       "document_id": "AIDHA-PLAN-015",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.15",
+      "version": "0.19",
       "last_updated": "2026-10-17",
       "title": "Branch Landing and Next Sprints Workflow",
       "type": "PLAN",
