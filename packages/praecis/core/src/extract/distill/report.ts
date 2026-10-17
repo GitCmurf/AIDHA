@@ -109,6 +109,8 @@ export const buildDistillationOutput = (input: DistillationOutputInput): Distill
       case 'diagnostic':
         diagnostics.push(`Unit ${unit.id} (${unit.kind}, ${unit.importance}) projected to diagnostic.`);
         break;
+      default:
+        throw new Error(`Unsupported projection: ${projection satisfies never}`);
     }
   }
   if (input.theses.length === 0) diagnostics.push('Distillation produced no thesis; review whether the source genuinely lacks one.');

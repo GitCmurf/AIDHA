@@ -8,7 +8,7 @@ afterEach(async () => {
   for (const store of stores.splice(0)) await store.close();
 });
 
-async function ingestWithMiner(mine: ICandidateMiner['mine']) {
+const ingestWithMiner = (mine: ICandidateMiner['mine']) => {
   const store = new InMemoryStore();
   stores.push(store);
   const miner: ICandidateMiner = { mine };
@@ -19,7 +19,7 @@ async function ingestWithMiner(mine: ICandidateMiner['mine']) {
     status: 200,
     text: async () => '<html><body><article><p>The committee links research documents with explicit references for later review.</p></article></body></html>',
   }), services);
-}
+};
 
 describe('public ingestion distillation summary', () => {
   it('preserves failed-closed status and diagnostics rather than only reporting zero claims', async () => {
