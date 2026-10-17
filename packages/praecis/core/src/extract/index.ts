@@ -156,3 +156,23 @@ export {
   extractKeywords,
   hasBoilerplatePOSPattern,
 } from './nlp-utils.js';
+
+// Validation contracts for proposed model-generated distillations.
+// These exports do not enable a runtime miner or establish semantic entailment.
+export {
+  DISTILLATION_SCHEMA_VERSION,
+  parseSourceDistillation,
+  distillationResponseSchema,
+} from './distill/schema.js';
+export type {
+  KnowledgeUnit, SourceDistillation, ParseDistillationResult, SourceType,
+  SourceCoherence, UnitKind, UnitImportance, UnitStance, ConditionType, AttributionKind,
+} from './distill/schema.js';
+export { verifyQuote, verifyDistillationEvidence } from './distill/quote-verification.js';
+export type {
+  QuoteVerificationStatus, VerifiedEvidence, VerifiedUnit, EvidenceVerificationResult,
+} from './distill/quote-verification.js';
+export { computeCoverage } from './distill/coverage.js';
+export type { CoverageExcerpt, CoverageDiagnostics } from './distill/coverage.js';
+export { projectUnit, EXTRACTION_INTENTS, GRAPH_PROJECTIONS } from './distill/projection.js';
+export type { ExtractionIntent, GraphProjection } from './distill/projection.js';
