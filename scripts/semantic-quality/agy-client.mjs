@@ -59,8 +59,11 @@ export const mustStopAgyEvaluation = (report, calls) =>
 function parseTranscript(stdout) {
   const lines = stdout.trim().split('\n').filter(Boolean);
   if (!lines.length) throw new Error('AGY returned no NDJSON');
-  try { return lines.map(line => JSON.parse(line)); }
+  let events;
+  try { events = lines.map(line => JSON.parse(line)); }
   catch { throw new Error('AGY returned malformed NDJSON'); }
+  if (events.some(value => !isRecord(value))) throw new Error('AGY NDJSON event must be a JSON object');
+  return events;
 }
 
 function responseJson(response) {

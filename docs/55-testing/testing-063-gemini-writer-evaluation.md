@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-063
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-17
 title: Native Gemini Writer Evaluation Route
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 > **Document ID:** AIDHA-TESTING-063
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.1 | 2026-10-17 | Codex | Add a bounded native AGY writer route over frozen public sources, with raw failed-call capture and host validation. | — | Draft | TESTING-059 |
 | 0.2 | 2026-10-17 | Codex | Record the seven-call public trial, provisional completeness review and pre-grounding quote-length rejection. | — | Draft | Frozen public writer trial |
+| 0.3 | 2026-10-17 | Codex | Reject non-object stream events as recorded call failures while retaining raw output. | — | Draft | Greptile PR43 finding |
 
 ## Purpose and acceptance
 
@@ -35,14 +36,16 @@ production miner/runtime path in TESTING-059. It does not change the default min
 case labels, or production client. No new service account, API key, package dependency or paid
 endpoint is introduced. Preparing this route makes no model call.
 
-The offline client tests in `scripts/semantic-quality/agy-client.test.mjs` use an injected process
-boundary. They require one source-only JSON request, at most three calls per case, exact selector
+[The offline client tests](https://github.com/GitCmurf/AIDHA/blob/030-gemini-writer/scripts/semantic-quality/agy-client.test.mjs)
+use an injected process boundary. They require one source-only JSON request, at most three calls
+per case, exact selector
 identity, raw NDJSON/stderr/exit capture before response parsing, consistent reported usage,
-and failure on malformed JSON, refusal/error status, missing identity, tool/delegation steps,
-nonzero exit or timeout. After forced termination the client waits for process close and stream
+and failure on malformed JSON or non-object NDJSON rows (including null, arrays and scalars),
+refusal/error status, missing identity, tool/delegation steps, nonzero exit or timeout. Invalid
+rows are saved as failed calls with their raw transcript and explicit error. After forced
+termination the client waits for process close and stream
 drain. If close never arrives, it releases stdio/child handles, marks the captured bytes incomplete
-and rejects the call. The
-existing miner enforces schema and quotations, while grounding is
+and rejects the call. The existing miner enforces schema and quotations, while grounding is
 advisory; the manual runner stops on any native failure even if that grounding stage keeps units. A
 passing offline test proves adapter behavior, not Gemini semantic quality.
 

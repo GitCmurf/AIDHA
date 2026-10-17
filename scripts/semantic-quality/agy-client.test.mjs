@@ -67,6 +67,20 @@ test('failed, malformed, missing identity, tool, refusal and unknown-usage repli
   }
 });
 
+test('rejects non-object NDJSON rows as failed calls while preserving the raw transcript', async () => {
+  for (const row of ['null', '[]', '17', '"unexpected"', 'true']) {
+    const calls = [];
+    const raw = { stdout: `${row}\n${transcript()}`, stderr: 'captured stderr', exitCode: 0,
+      signal: null, timedOut: false };
+    const result = await createAgyClient({ model: selector, calls, execute: async () => raw }).generate(request);
+    assert.equal(result.ok, false, `row ${row} must be rejected`);
+    assert.match(result.error.message, /event must be a JSON object/);
+    assert.equal(calls[0].outcome, 'error');
+    assert.match(calls[0].error, /event must be a JSON object/);
+    assert.deepEqual(calls[0].raw, raw);
+  }
+});
+
 test('three-call ceiling rejects a fourth request without executing it', async () => {
   const calls = [];
   let executions = 0;
