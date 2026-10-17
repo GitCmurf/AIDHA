@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-069
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-17
 title: Durable Source Extraction Checkpoint
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 > **Document ID:** AIDHA-TESTING-069
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify versioned extraction recovery, transactional admission and failed retry preservation. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-17 | Codex | Verify the public CLI failure contract and typed fixtures. | — | Draft | PR 45 |
+| 0.3 | 2026-10-17 | Codex | Verify cache identity and routed-unit consistency. | — | Draft | PR 45 follow-up |
 
 ## Purpose and limits
 
@@ -99,9 +100,10 @@ downstream stages as successful.
 
 ## Red-first acceptance tests
 
-The [configured-runtime and SQLite
+The historical [configured-runtime and SQLite
 regression](https://github.com/GitCmurf/AIDHA/blob/0016e54c4779947d4b3dc5849fcd5ef04a40185f/packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts)
-protects these boundaries with fictional inputs.
+protects the v0.2 boundaries with fictional inputs. The v0.3 protocol tests and verified results
+below supplement that historical test revision.
 
 1. **Full successful round trip:** Public synthetic source with one qualified claim, one example,
    one procedure, one incidental unit and one bad-quote unit. Use the configured runtime factory
@@ -132,6 +134,45 @@ The acceptance evidence is a focused red/green log, full affected core/graph sui
 typecheck/build, strict docs/DocOps, exact SQLite close/reopen assertions, and material code review
 before commit. No synthetic test can establish semantic recall, entailment or product readiness.
 
+## v0.3 verified cache-protocol correction
+
+The base PR45 correction is committed at `5a206966011f61cb00f0015679c1801f368ba34c`. The
+[direct consistency tests](https://github.com/GitCmurf/AIDHA/blob/5a206966011f61cb00f0015679c1801f368ba34c/packages/praecis/core/tests/extract/distill/snapshot-consistency.test.ts)
+and [configured-runtime tests](https://github.com/GitCmurf/AIDHA/blob/5a206966011f61cb00f0015679c1801f368ba34c/packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts)
+are pinned to that source revision.
+
+The recognized official miner identity now binds typed intent and prompt fields to the candidate
+and validates the finite configured threshold against routed quote failures. For base PR45, the
+empty-proposal ratio is zero and equality at the threshold passes. Custom identities remain opaque.
+Routed ordinary units are reverified against current excerpts: quote-failed units remain unchanged
+with the failed-quote reason, quote-valid rejected units remain unchanged with the `ungrounded`
+reason, and admitted units retain their original ID, kind, supporting-unit IDs, and full verified
+evidence. Valid grounding rewrites to text, rationale, conditions, attribution, stance, and
+importance remain accepted on fresh generation and cache replay.
+
+Seven red regressions reproduced identity and routing contradictions. The focused direct/pipeline
+suite passes 27/27 tests; the full core suite passes 303/303. Core lint and build pass. Strict
+no-emit TypeScript checking of both linked test files exits 0. The tests reproject and rehash
+adverse candidates before asserting the host rejects them; they also verify a legitimate rewrite
+and a custom opaque identity. The configured-runtime test confirms cache replay uses zero model
+calls after the fresh rewrite. No live model calls or source inputs were used.
+
+An independent four-file review found no material defect in the v1 source correction. The later
+v2 test-only normalization was separately reviewed and typechecked; it did not change runtime
+bytes and was not part of the native review. The completed native v1 review exits 0 with one Minor
+suggestion to use the verifier's `failureRatio` directly. The review assessment confirms that the
+current base verifier defines this as failed unit IDs divided by proposal units, with empty input
+equal to zero; routing requires every failed unit exactly once, so it matches the final-rejection
+ratio currently checked. No present behavioral discrepancy was reproduced. The Minor remains
+recorded as assessed, not as a zero-finding review.
+
+This v0.3 correction covers base PR45 only. Segmented-repair ratio semantics and the custom JSON
+`segmentedEvidence` identity collision are 037-specific cases and are not claimed as tested here.
+The source changes do not alter defaults, model routing, trust flags, or semantic policy. An
+unsigned hash and consistency checks are not authentication; without a verdict ledger the host
+cannot prove that a permitted rewrite or `ungrounded` rejection came from the model. These tests
+do not establish entailment or model quality.
+
 ## Verification commands
 
 Run from the repository root with the locked dependencies installed. The offline command requires
@@ -140,7 +181,7 @@ those packages in the local cache; a fresh machine needs its normal authorised i
 ```sh
 pnpm install --frozen-lockfile --offline
 pnpm --filter '@aidha/praecis-cli...' build
-pnpm --filter @aidha/praecis-core test -- tests/pipeline/extraction-snapshot.test.ts tests/pipeline/distillation.test.ts
+pnpm --filter @aidha/praecis-core test -- tests/pipeline/extraction-snapshot.test.ts tests/pipeline/distillation.test.ts tests/extract/distill/snapshot-consistency.test.ts
 pnpm --filter @aidha/praecis-core test
 pnpm --filter @aidha/praecis-core lint
 pnpm --filter @aidha/praecis-core build
@@ -154,7 +195,11 @@ pnpm docs:build
 Record actual results and limitations before requesting merge. A skipped or incomplete review is not
 evidence of coverage. Named merge approval remains separate from engineering preparation.
 
-## Verification record
+## v0.2 historical verification record
+
+The following results are the preserved v0.2 record published at source revision
+`bd9aca6503bf063fbda8b31837dfa726ee9f8c57`. They remain historical and are superseded for the
+base cache-protocol correction by the v0.3 results above.
 
 The reviewed runtime and tests are committed as `0016e54c4779947d4b3dc5849fcd5ef04a40185f`. The
 initial configured-runtime regression fails on main because the reopened Resource lacks an
