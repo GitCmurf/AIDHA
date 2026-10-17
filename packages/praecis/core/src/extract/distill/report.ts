@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import type { DraftClaim, SourceLimitationSummary, SupportingUnitSummary } from '../../interfaces/index.js';
+import type { DraftClaim, SegmentRepairRecord, SourceLimitationSummary, SupportingUnitSummary } from '../../interfaces/index.js';
 import type { CoverageDiagnostics } from './coverage.js';
 import type { RejectedUnit } from './grounding.js';
 import { projectUnit, type ExtractionIntent } from './projection.js';
@@ -20,6 +20,7 @@ export interface SourceDistillationReport {
   readonly coverage: CoverageDiagnostics;
   readonly unitCountsByKind: Readonly<Record<string, number>>;
   readonly diagnostics: readonly string[];
+  readonly segmentRepairs?: readonly SegmentRepairRecord[];
 }
 
 export interface DistillationOutputInput {
@@ -33,6 +34,7 @@ export interface DistillationOutputInput {
   readonly limitationsByTarget?: ReadonlyMap<string, readonly SourceLimitationSummary[]>;
   readonly coverage: CoverageDiagnostics;
   readonly diagnostics: readonly string[];
+  readonly segmentRepairs?: readonly SegmentRepairRecord[];
   readonly model: string;
   readonly promptVersion: string;
 }
@@ -129,6 +131,7 @@ export const buildDistillationOutput = (input: DistillationOutputInput): Distill
       ...(input.sourcePurpose ? { sourcePurpose: input.sourcePurpose } : {}),
       sourceCoherence: input.sourceCoherence, theses: input.theses, coverage: input.coverage,
       unitCountsByKind, diagnostics,
+      ...(input.segmentRepairs?.length ? { segmentRepairs: input.segmentRepairs } : {}),
     },
   };
 };
