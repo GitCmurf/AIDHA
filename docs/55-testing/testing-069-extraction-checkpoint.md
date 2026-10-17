@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-069
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-17
 title: Durable Source Extraction Checkpoint
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 > **Document ID:** AIDHA-TESTING-069
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify versioned extraction recovery, transactional admission and failed retry preservation. | — | Draft | AIDHA-PLAN-015 |
+| 0.2 | 2026-10-17 | Codex | Verify the public CLI failure contract and typed fixtures. | — | Draft | PR 45 |
 
 ## Purpose and limits
 
@@ -99,7 +100,7 @@ downstream stages as successful.
 ## Red-first acceptance tests
 
 The [configured-runtime and SQLite
-regression](https://github.com/GitCmurf/AIDHA/blob/237020a4bf0eeb90a939c13ac57ae0b3233d82c1/packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts)
+regression](https://github.com/GitCmurf/AIDHA/blob/0016e54c4779947d4b3dc5849fcd5ef04a40185f/packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts)
 protects these boundaries with fictional inputs.
 
 1. **Full successful round trip:** Public synthetic source with one qualified claim, one example,
@@ -138,12 +139,14 @@ those packages in the local cache; a fresh machine needs its normal authorised i
 
 ```sh
 pnpm install --frozen-lockfile --offline
-pnpm build:deps
+pnpm --filter '@aidha/praecis-cli...' build
 pnpm --filter @aidha/praecis-core test -- tests/pipeline/extraction-snapshot.test.ts tests/pipeline/distillation.test.ts
 pnpm --filter @aidha/praecis-core test
 pnpm --filter @aidha/praecis-core lint
 pnpm --filter @aidha/praecis-core build
 pnpm --filter @aidha/graph-backend test
+pnpm --filter @aidha/praecis-cli test
+pnpm --filter @aidha/praecis-cli lint
 node scripts/meminit-check.mjs docs/55-testing/testing-069-extraction-checkpoint.md
 pnpm docs:build
 ```
@@ -153,7 +156,7 @@ evidence of coverage. Named merge approval remains separate from engineering pre
 
 ## Verification record
 
-The reviewed runtime and tests are committed as `237020a4bf0eeb90a939c13ac57ae0b3233d82c1`. The
+The reviewed runtime and tests are committed as `0016e54c4779947d4b3dc5849fcd5ef04a40185f`. The
 initial configured-runtime regression fails on main because the reopened Resource lacks an
 extraction checkpoint. With the implementation, all fifteen snapshot-specific checks and all 291
 core tests pass. All 156 graph-backend tests, core lint and build also pass. The compiled package
@@ -178,3 +181,24 @@ and final hosted reports are assessed before merge readiness is claimed.
 
 These fake-model tests establish durability and internal consistency, not semantic recall or
 entailment. No real source, new model call, paid collection or default activation is used.
+
+The initial hosted required verification exposes a public CLI test still expecting a successful
+summary for failed-close. Its actual assertion failure is the RED evidence; the first local attempt
+stops earlier on missing built dependencies. The CLI already propagates upstream typed errors.
+After building its complete dependency closure, the corrected public test asserts the typed error,
+canonical source ID, diagnostics, available summary, reported usage and zero graph nodes. All 31
+CLI tests pass. The snapshot-specific suite passes all fifteen checks, and all 291 core tests pass
+again after the shared fictional fixture is corrected. Production runtime bytes remain unchanged.
+
+Additional no-emit TypeScript checks include these exact test files, unlike the package lint
+commands that cover source only. Both checks pass after supplying the fixture's required label and
+provenance and narrowing nullable values before callbacks and writes. Independent review covers
+all three test-file corrections, including removal of a test-only `any`; all eight corrupt-cache
+controls remain. These checks add no new test infrastructure or runtime behavior.
+
+The complete initial hosted JavaScript report for `f7b34f1` contains 41 findings: forty Minor and
+one Critical. All pages are assessed. The Critical is the test-only type escape removed above;
+the remaining findings concern async style, complexity and module-scope warnings on ES modules.
+No demonstrated runtime defect is identified by those findings. CodeQL and the other analyzers
+pass. Hosted CodeRabbit and Qodo explicitly skip and provide no coverage. Final required checks
+and actual reports must be refreshed on the corrected PR head before merge readiness is claimed.
