@@ -239,6 +239,24 @@
     }
   },
   {
+    "path": "55-testing/testing-065-link-check-diagnostics.md",
+    "title": "Link Check Failure Diagnostics",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-065",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-17",
+      "title": "Link Check Failure Diagnostics",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS",
+      "related_ids": [
+        "AIDHA-TASK-001"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-006-viable-prototype-pilot-evidence-template.md",
     "title": "Testing: Viable Prototype Pilot Evidence Template",
     "front_matter": {
@@ -1052,9 +1070,9 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-001",
       "owner": "GitCmurf",
-      "status": "Approved",
-      "version": "1.20",
-      "last_updated": "2026-05-13",
+      "status": "Draft",
+      "version": "1.21",
+      "last_updated": "2026-10-17",
       "title": "Public Repository Readiness — Task List & Strategy",
       "type": "TASK",
       "docops_version": "2.0"
