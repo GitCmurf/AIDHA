@@ -30,15 +30,10 @@ const normalizeQuoteText = (value: string): string => {
   return value
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/\s+/g, ' ')
+    .replace(/[‘’]/gu, "'")
+    .replace(/[“”]/gu, '"')
+    .replace(/\s+/gu, ' ')
     .trim();
-};
-
-/** Approximate overlap must never stand in for a literal quotation. */
-export const isLiteralQuote = (quote: string, text: string): boolean => {
-  return verifyQuote(quote, text) !== 'failed' && normalizeQuoteText(text).includes(normalizeQuoteText(quote));
 };
 
 const tokensOf = (value: string): string[] => {
@@ -51,8 +46,8 @@ const containsWholeSpan = (excerpt: string, quote: string): boolean => {
   const attached = /[\p{L}\p{N}\p{M}_+\-−.,]/u;
   const word = /[\p{L}\p{N}\p{M}]/u;
   const quotePoints = Array.from(quote);
-  const first = quotePoints[0]!;
-  const last = quotePoints.at(-1)!;
+  const first = quotePoints[0] ?? '';
+  const last = quotePoints.at(-1) ?? '';
   const numericStart = /^[+\-−]?[.,]?\p{N}/u.test(quote);
   const numericPunctuationEnd = /\p{N}[.,]$/u.test(quote);
   let start = excerpt.indexOf(quote);
@@ -85,6 +80,11 @@ export const verifyQuote = (quote: string, excerptText: string): QuoteVerificati
   // Token overlap cannot verify a quotation: dropping "not" can reverse its meaning.
   // Keep the legacy fuzzy status readable, but never award it to new evidence.
   return 'failed';
+};
+
+/** Approximate overlap must never stand in for a literal quotation. */
+export const isLiteralQuote = (quote: string, text: string): boolean => {
+  return verifyQuote(quote, text) !== 'failed' && normalizeQuoteText(text).includes(normalizeQuoteText(quote));
 };
 
 /** Eligibility only: acceptance must still use verifyQuote on replacement evidence. */

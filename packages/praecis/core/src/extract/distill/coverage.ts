@@ -23,6 +23,39 @@ const round1 = (value: number): number => {
   return Math.round(value * 10) / 10;
 };
 
+// Temporal coverage is separate from citation counters so its interval policy is reviewable.
+const computeUncitedGap = (excerpts: readonly CoverageExcerpt[], citedIds: ReadonlySet<string>): number => {
+  // Sweep interval boundaries: measure uncited time only where source excerpts
+  // exist and no cited interval overlaps. Aggregate ties before the next segment.
+  const events = new Map<number, { cited: number; uncited: number }>();
+  for (const excerpt of excerpts) {
+    const { startSec, endSec } = excerpt;
+    if (startSec === undefined || endSec === undefined ||
+        !Number.isFinite(startSec) || !Number.isFinite(endSec) ||
+        startSec < 0 || endSec <= startSec) continue;
+    const key = citedIds.has(excerpt.id) ? 'cited' : 'uncited';
+    for (const [time, delta] of [[startSec, 1], [endSec, -1]] as const) {
+      const event = events.get(time) ?? { cited: 0, uncited: 0 };
+      event[key] += delta;
+      events.set(time, event);
+    }
+  }
+  let largestGap = 0;
+  let runLength = 0;
+  let previous = 0;
+  let cited = 0;
+  let uncited = 0;
+  for (const [time, event] of [...events].sort(([a], [b]) => a - b)) {
+    runLength = uncited > 0 && cited === 0 ? runLength + time - previous : 0;
+    largestGap = Math.max(largestGap, runLength);
+    cited += event.cited;
+    uncited += event.uncited;
+    previous = time;
+  }
+
+  return largestGap;
+};
+
 export const computeCoverage = (units: readonly VerifiedUnit[], excerpts: readonly CoverageExcerpt[]): CoverageDiagnostics => {
   const knownExcerptIds = new Set(excerpts.map(excerpt => excerpt.id));
   if (knownExcerptIds.size !== excerpts.length) {
@@ -51,33 +84,7 @@ export const computeCoverage = (units: readonly VerifiedUnit[], excerpts: readon
     .filter(excerpt => citedIds.has(excerpt.id))
     .reduce((sum, excerpt) => sum + excerpt.text.length, 0);
 
-  // Sweep interval boundaries: measure uncited time only where source excerpts
-  // exist and no cited interval overlaps. Aggregate ties before the next segment.
-  const events = new Map<number, { cited: number; uncited: number }>();
-  for (const excerpt of excerpts) {
-    const { startSec, endSec } = excerpt;
-    if (startSec === undefined || endSec === undefined ||
-        !Number.isFinite(startSec) || !Number.isFinite(endSec) ||
-        startSec < 0 || endSec <= startSec) continue;
-    const key = citedIds.has(excerpt.id) ? 'cited' : 'uncited';
-    for (const [time, delta] of [[startSec, 1], [endSec, -1]] as const) {
-      const event = events.get(time) ?? { cited: 0, uncited: 0 };
-      event[key] += delta;
-      events.set(time, event);
-    }
-  }
-  let largestGap = 0;
-  let runLength = 0;
-  let previous = 0;
-  let cited = 0;
-  let uncited = 0;
-  for (const [time, event] of [...events].sort(([a], [b]) => a - b)) {
-    runLength = uncited > 0 && cited === 0 ? runLength + time - previous : 0;
-    largestGap = Math.max(largestGap, runLength);
-    cited += event.cited;
-    uncited += event.uncited;
-    previous = time;
-  }
+  const largestGap = computeUncitedGap(excerpts, citedIds);
 
   return {
     citedExcerptCount: citedIds.size,

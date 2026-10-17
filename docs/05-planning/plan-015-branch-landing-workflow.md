@@ -180,7 +180,7 @@ Do not introduce links to pages absent from a PR base.
 | Private public-artifact guard | Independent; integrated `main` at `475f615` | `019-private-artifact-guard` / [PR 32](https://github.com/GitCmurf/AIDHA/pull/32) | Merged as `01ec0ed` after required CI and actual findings were addressed; final isolation fix peer-reviewed; supplemental CLI attempt gave no coverage | Forced-stage, newline, case, original-policy and fail-closed regressions; actual scan added to required test command |
 | Taxonomy-version provenance | Independent; integrated `main` at `475f615` | `020-taxonomy-provenance` / [PR 31](https://github.com/GitCmurf/AIDHA/pull/31) | Merged as `33f40cd`; approved patch and all eleven non-generated blobs unchanged; fresh exact-head CI and actual reporting-bot checks pass | Structured canonical fingerprint; exact Resource metadata after fresh SQLite reopen and email ingestion |
 | Email parser dependency maintenance | Verified `main` at `33f40cd`; independent | `021-email-parser-dependencies` / [PR 33](https://github.com/GitCmurf/AIDHA/pull/33) | Merged as `580b94c` from approved `a5d9651`; required CI passes; actual reports assessed | Synthetic malformed-address/mailto tests and ordinary MIME control; no real email |
-| Distillation validation and evidence checks | Verified `main` at `580b94c`; independent of model/pipeline wiring | `022-distillation-validation` / PR pending | Extracted schema/quote/coverage/routing modules and tests; independent review and publication pending | AIDHA-TESTING-056; mechanical acceptance explicitly does not prove semantic entailment |
+| Distillation validation and evidence checks | Verified `main` at `580b94c`; independent of model/pipeline wiring | `022-distillation-validation` / [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) | Published at `dc6b5ac`; actual bot follow-up and final CI in progress | AIDHA-TESTING-056; mechanical acceptance explicitly does not prove semantic entailment |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
@@ -811,3 +811,20 @@ Email slice completion record:
   no secret detector or public-artifact policy is weakened. Dependencies and lockfile are unchanged.
 - All 69 preserved baseline files remain byte-identical and the original index is unstaged.
   The full model pipeline and real-source semantic evaluation remain future slices.
+
+### 2026-10-17 — PR 34 published and reporting-bot follow-up
+
+- Published [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) from `dc6b5ac` against `580b94c`,
+  with exactly sixteen reviewed files. The full workspace build, all 209 core tests, seventy
+  focused contract tests and the final built-package consumer smoke pass locally.
+- Fresh deep CodeRabbit verification covers all sixteen files, completes with zero findings
+  and has no uncovered files. Independent recheck confirms the JSON/numeric/Unicode fixes.
+- DeepSource produced twelve actual reports. Addressed regex Unicode flags, a forward reference,
+  non-null assertions and a wildcard test import. Separate the unchanged temporal sweep from
+  citation counters to improve reviewability; all behavioral tests remain the acceptance boundary.
+- Six complexity reports are advisory maintenance signals, not reproduced correctness defects.
+  Explicit parser/reference/boundary checks and the exhaustive routing-table test retain branches
+  that are covered by regressions and independent interval checks. Assess any remaining metrics
+  after the follow-up; do not weaken analyzer thresholds or split predicates only to hide counts.
+- Required published-head CI and inspection of further actual bot findings remain gates before
+  owner merge review. Skipped review bots provide no coverage. No new merge approval exists.
