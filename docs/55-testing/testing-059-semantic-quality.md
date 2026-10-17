@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-059
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-17
 title: Source Distillation Semantic Quality Checkpoint
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057, AIDHA-TESTING-058]
 > **Document ID:** AIDHA-TESTING-059
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057, AIDHA-TESTING-058]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Freeze a public semantic checkpoint, record live failures and separate unproven semantic changes. | — | Draft | AIDHA-PLAN-015 |
+| 0.2 | 2026-10-17 | Codex | Retain complete parsed native replies and usage on failed calls, with two regression paths. | — | Draft | PR 37 bot finding |
 
 ## Purpose and acceptance
 
@@ -132,7 +133,10 @@ node scripts/semantic-quality/live.mjs --live /tmp/aidha-semantic-fresh
 
 The offline suite checks the actual runtime/exporter, expectation isolation, exact untrusted
 qualification/evidence persistence, native schema forwarding, usage accounting, dialect adaptation
-and rejection of prose in place of a required structured result. Root `pnpm test` includes it;
+and rejection of prose in place of a required structured result. Complete parsed native replies,
+including available usage and duration, survive both native error replies and missing structured
+results. Spawn or JSON-parse failures retain the existing partial-call/error record.
+Root `pnpm test` includes it;
 CI builds workspace packages first and never invokes the live script. Offline tests do not grade
 semantic accuracy. Local tests also require the documented dependency build first.
 

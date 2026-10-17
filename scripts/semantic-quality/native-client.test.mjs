@@ -29,6 +29,26 @@ test('retains every constraint while omitting the unsupported schema dialect dec
 });
 
 test('rejects prose when a requested structured result is absent', async () => {
-  const client = createNativeClient({ model: 'test-model', calls: [], execute: async () => ({ result: '{"units":[]}' }) });
+  const calls = [];
+  const reply = { result: '{"units":[]}', usage: { input_tokens: 8, output_tokens: 2 },
+    modelUsage: { 'test-model': { inputTokens: 8 } }, duration_ms: 120 };
+  const client = createNativeClient({ model: 'test-model', calls, execute: async () => reply });
   await assert.rejects(client.generate({ system: '', user: '', responseFormat: { type: 'json_schema', schema: { type: 'object' } } }), /requested completion format/);
+  assert.deepEqual(calls[0].nativeReply, reply);
+  assert.deepEqual(calls[0].usage, reply.usage);
+  assert.deepEqual(calls[0].modelUsage, reply.modelUsage);
+  assert.equal(calls[0].durationMs, reply.duration_ms);
+});
+
+test('retains the complete native error reply and usage before rejecting it', async () => {
+  const calls = [];
+  const reply = { is_error: true, subtype: 'rate_limit', result: 'Try again later',
+    usage: { input_tokens: 12, cache_read_input_tokens: 3, output_tokens: 1 },
+    modelUsage: { 'test-model': { inputTokens: 15 } }, duration_ms: 230 };
+  const client = createNativeClient({ model: 'test-model', calls, execute: async () => reply });
+  await assert.rejects(client.generate({ system: '', user: 'Source only' }), /Native CLI failed: rate_limit/);
+  assert.deepEqual(calls[0].nativeReply, reply);
+  assert.deepEqual(calls[0].usage, reply.usage);
+  assert.deepEqual(calls[0].modelUsage, reply.modelUsage);
+  assert.equal(calls[0].durationMs, reply.duration_ms);
 });

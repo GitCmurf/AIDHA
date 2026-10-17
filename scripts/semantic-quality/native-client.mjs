@@ -14,13 +14,15 @@ export function createNativeClient({ model, calls, execute }) {
       args.push('--json-schema', JSON.stringify(nativeSchema));
     }
     const response = await execute(args, request.user);
+    call.nativeReply = response;
+    call.modelUsage = response.modelUsage; call.usage = response.usage;
+    call.durationMs = response.duration_ms;
     if (response.is_error) throw new Error(`Native CLI failed: ${response.subtype ?? 'unknown error'}`);
     const value = request.responseFormat?.type === 'json_schema'
       ? response.structured_output && JSON.stringify(response.structured_output)
       : response.result;
     if (typeof value !== 'string' || !value.trim()) throw new Error('Native CLI did not return the requested completion format');
-    call.response = value; call.modelUsage = response.modelUsage; call.usage = response.usage;
-    call.durationMs = response.duration_ms;
+    call.response = value;
     const usage = response.usage;
     const inputTokens = usage && ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens']
       .reduce((sum, key) => sum + (usage[key] ?? 0), 0);
