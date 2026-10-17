@@ -93,6 +93,37 @@ const containsLiteralAnchor = (quote: string, anchor: string): boolean => {
   }
   return false;
 };
+
+const endpointRejectionReason = (
+  target: VerifiedUnit | undefined, limitation: VerifiedUnit | undefined, relation: LimitationRelation,
+  affirmativelyGroundedIds: ReadonlySet<string>, intent: ExtractionIntent, sourceType: SourceType
+): string | null => {
+  if (!target || !limitation || target.id === limitation.id) return 'unknown or self endpoint';
+  if (limitation.kind !== 'limitation' || target.kind === 'limitation' ||
+      projectUnit(intent, sourceType, target.kind, target.importance) !== 'claim' ||
+      projectUnit(intent, sourceType, limitation.kind, limitation.importance) !== 'claim') return 'ineligible endpoint kind or projection';
+  if (!affirmativelyGroundedIds.has(target.id) || !affirmativelyGroundedIds.has(limitation.id)) return 'endpoint lacks affirmative grounding';
+  if (relation.verdict !== 'grounded') return 'applicability not affirmatively grounded';
+  return null;
+};
+
+const evidenceRejectionReason = (
+  target: VerifiedUnit, limitation: VerifiedUnit, relation: LimitationRelation,
+  units: readonly VerifiedUnit[], excerptTextById: ReadonlyMap<string, string>,
+  intent: ExtractionIntent, sourceType: SourceType
+): string | null => {
+  if (verifyQuote(relation.relationEvidence.quote, excerptTextById.get(relation.relationEvidence.excerptId) ?? '') !== 'exact') return 'nonliteral relation evidence';
+  if (!containsLiteralAnchor(relation.relationEvidence.quote, relation.targetScope.text)) return 'relation quote lacks the literal target anchor';
+  if (!target.evidence.some(ref => containsLiteralAnchor(ref.quote, relation.targetScope.text))) return 'target scope absent from target own evidence';
+  if (units.some(other => other.id !== target.id && other.id !== limitation.id &&
+      projectUnit(intent, sourceType, other.kind, other.importance) === 'claim' &&
+      other.evidence.some(ref => containsLiteralAnchor(ref.quote, relation.targetScope.text)))) return 'target scope also names another claim';
+  if ([limitation.attribution?.name, limitation.attribution?.role].filter((value): value is string => Boolean(value))
+    .some(value => ![...limitation.evidence.map(ref => ref.quote), relation.relationEvidence.quote]
+      .some(quote => containsLiteralAnchor(quote, value)))) return 'limitation origin absent from its cited or relation evidence';
+  return null;
+};
+
 /** A deliberately narrow host gate: source-literal direct scope, never semantic certification. */
 export const applyLimitationRelations = (
   units: readonly VerifiedUnit[], relations: readonly LimitationRelation[], excerptTextById: ReadonlyMap<string, string>,
@@ -101,7 +132,6 @@ export const applyLimitationRelations = (
   const byId = new Map(units.map(unit => [unit.id, unit]));
   const byTarget = new Map<string, SourceLimitationSummary[]>();
   const diagnostics: string[] = [];
-  const linked = new Set<string>();
   const relationCounts = new Map<string, number>();
   for (const relation of relations) {
     const key = `${relation.limitationUnitId}\u0000${relation.targetUnitId}`;
@@ -111,40 +141,25 @@ export const applyLimitationRelations = (
     const key = `${relation.limitationUnitId}\u0000${relation.targetUnitId}`;
     const target = byId.get(relation.targetUnitId);
     const limitation = byId.get(relation.limitationUnitId);
-    let reason = '';
-    if ((relationCounts.get(key) ?? 0) !== 1 || linked.has(key)) reason = 'duplicate or conflicting relation';
-    else if (!target || !limitation || target.id === limitation.id) reason = 'unknown or self endpoint';
-    else if (limitation.kind !== 'limitation' || target.kind === 'limitation' ||
-      projectUnit(intent, sourceType, target.kind, target.importance) !== 'claim' ||
-      projectUnit(intent, sourceType, limitation.kind, limitation.importance) !== 'claim') reason = 'ineligible endpoint kind or projection';
-    else if (!affirmativelyGroundedIds.has(target.id) || !affirmativelyGroundedIds.has(limitation.id)) reason = 'endpoint lacks affirmative grounding';
-    else if (relation.verdict !== 'grounded') reason = 'applicability not affirmatively grounded';
-    else if (verifyQuote(relation.relationEvidence.quote, excerptTextById.get(relation.relationEvidence.excerptId) ?? '') !== 'exact') reason = 'nonliteral relation evidence';
-    else if (!containsLiteralAnchor(relation.relationEvidence.quote, relation.targetScope.text)) reason = 'relation quote lacks the literal target anchor';
-    else if (!target.evidence.some(ref => containsLiteralAnchor(ref.quote, relation.targetScope.text))) reason = 'target scope absent from target own evidence';
-    else if (units.some(other => other.id !== target.id && other.id !== limitation.id &&
-      projectUnit(intent, sourceType, other.kind, other.importance) === 'claim' &&
-      other.evidence.some(ref => containsLiteralAnchor(ref.quote, relation.targetScope.text)))) reason = 'target scope also names another claim';
-    else if ([limitation.attribution?.name, limitation.attribution?.role].filter((value): value is string => !!value)
-      .some(value => ![...limitation.evidence.map(ref => ref.quote), relation.relationEvidence.quote]
-        .some(quote => containsLiteralAnchor(quote, value)))) reason = 'limitation origin absent from its cited or relation evidence';
-    if (reason) {
-      diagnostics.push(`${relation.limitationUnitId} limits ${relation.targetUnitId}: ${reason}; link ignored.`);
+    const reason = (relationCounts.get(key) ?? 0) !== 1 ? 'duplicate or conflicting relation' :
+      endpointRejectionReason(target, limitation, relation, affirmativelyGroundedIds, intent, sourceType) ??
+      (target && limitation ? evidenceRejectionReason(target, limitation, relation, units, excerptTextById, intent, sourceType) : null);
+    if (reason || !target || !limitation) {
+      diagnostics.push(`${relation.limitationUnitId} limits ${relation.targetUnitId}: ${reason || 'unknown or self endpoint'}; link ignored.`);
       continue;
     }
     // These checks preserve provenance and reject common wrong-target proposals. They do not
     // mechanically prove entailment; every stored attachment remains an untrusted draft.
     const summary: SourceLimitationSummary = {
-      id: limitation!.id, text: limitation!.text, stance: limitation!.stance,
-      evidence: limitation!.evidence,
-      ...(limitation!.rationale ? { rationale: limitation!.rationale } : {}),
-      ...(limitation!.conditions ? { conditions: limitation!.conditions } : {}),
-      ...(limitation!.attribution ? { attribution: limitation!.attribution } : {}),
+      id: limitation.id, text: limitation.text, stance: limitation.stance,
+      evidence: limitation.evidence,
+      ...(limitation.rationale ? { rationale: limitation.rationale } : {}),
+      ...(limitation.conditions ? { conditions: limitation.conditions } : {}),
+      ...(limitation.attribution ? { attribution: limitation.attribution } : {}),
       applicability: { trusted: false, targetScope: relation.targetScope,
         relationEvidence: { ...relation.relationEvidence, quoteVerification: 'exact' }, explanation: relation.explanation },
     };
-    byTarget.set(target!.id, [...(byTarget.get(target!.id) ?? []), summary]);
-    linked.add(key);
+    byTarget.set(target.id, [...(byTarget.get(target.id) ?? []), summary]);
   }
   return { byTarget, diagnostics };
 };

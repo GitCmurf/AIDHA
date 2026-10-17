@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-062
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-17
 title: Source-Backed Limitation Applicability
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 > **Document ID:** AIDHA-TESTING-062
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify opt-in source-backed links and storage regressions. | — | Draft | AIDHA-PLAN-015 |
+| 0.2 | 2026-10-17 | Codex | Clarify hosted-review cleanup and retain the tested relation contract. | — | Draft | PR 42 |
 
 ## Scope
 
