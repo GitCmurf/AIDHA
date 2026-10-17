@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 1,
+  "corpusSha256": "sha256:a090676bbc92cfff3bdfac3f1bfdd6348c0d102fb210794ff88802d9fe7e5ee3",
+  "labelStatus": "assistant assessment against assistant-authored frozen expectations; not human gold or adjudication",
+  "reviewStatus": "Independent assistant assessment with parent review; not human gold or an automated truth score",
+  "requestedSelector": "gemini-3.8-flash-low",
+  "reportedSelectors": [
+    "gemini-3.8-flash-low"
+  ],
+  "cliVersion": "1.4.0",
+  "harnessRevision": "git:12f0473bd7a79b8baceb5bd9bc657435c66ff59b",
+  "executionSha256": {
+    "agy-live.mjs": "sha256:081e743e39eda0d4e245bbade65582d6d624ae1cdf5f96ac7f4b4a9a021bc073",
+    "agy-client.mjs": "sha256:5b3944276f25b652141aeaa2d1d5a5dae966663ad78f75336846472e6f9fe6aa",
+    "run.mjs": "sha256:a9d2a0c6fafb3b41d3131639fc085b7f13eb9cddb95eca9c39b3b28dade70b7a",
+    "record-case.mjs": "sha256:fabd891bac5ca0be54ca01b2bf4183dfc81eecdd44edd9bb86df2b99dae31f2e"
+  },
+  "route": "Native AGY; prompt-constrained JSON and host validation; not native schema or provider API parity",
+  "sampling": "One complete three-source sample; no model ranking or stable semantic improvement established",
+  "counts": {
+    "required": {
+      "met": 2,
+      "partial": 6,
+      "missed": 1
+    },
+    "forbidden": {
+      "present": 0,
+      "absent": 14
+    }
+  },
+  "measurements": {
+    "calls": 7,
+    "failedNativeCalls": 0,
+    "failedClosedCases": 0,
+    "inputTokens": 105617,
+    "outputTokens": 7391,
+    "totalTokens": 113008,
+    "reportedNativeDurationSeconds": 54.649098034000005,
+    "reportedNativeDurationCount": 7,
+    "costUsd": null
+  },
+  "cases": [
+    {
+      "caseId": "archive-cutover",
+      "required": [
+        {
+          "criterionId": "archive-integrity",
+          "expectedKind": "recommendation",
+          "grade": "partial",
+          "unitIds": [
+            "u3",
+            "u2"
+          ],
+          "reason": "u3 is a recommendation with versioned object IDs/checksums and destination comparison before reader movement. The reason file count is insufficient lives only in separate graph limitation u2, so the recommended check is not fully qualified as one claim.",
+          "sourceEvidence": {
+            "excerptId": "archive-1",
+            "quote": "A visible file count is therefore a poor readiness test: it says nothing about whether the index points to the bytes that were actually copied. For the next migration, I recommend writing a versioned manifest containing each object identifier and checksum, then comparing that manifest with the destination before any reader is moved."
+          }
+        },
+        {
+          "criterionId": "archive-reversibility",
+          "expectedKind": "recommendation",
+          "grade": "partial",
+          "unitIds": [
+            "u4",
+            "u5"
+          ],
+          "reason": "Graph recommendation u4 keeps the previous endpoint until reconciliation and sample reads succeed. The failed-reconciliation branch is a linked supporting procedure u5, not in u4 own claim or metadata; u5 is appropriately not a graph claim.",
+          "sourceEvidence": {
+            "excerptId": "archive-2",
+            "quote": "If reconciliation fails, leave readers on the previous endpoint and inspect the missing or mismatched objects."
+          }
+        },
+        {
+          "criterionId": "archive-order-limit",
+          "expectedKind": "limitation",
+          "grade": "partial",
+          "unitIds": [
+            "u7",
+            "u8"
+          ],
+          "reason": "Graph limitation u7 correctly separates checksum integrity from index order. The before-traffic ordering check exists only as linked supporting rehearsal procedure u8; u7 does not itself state that an additional ordering check is needed.",
+          "sourceEvidence": {
+            "excerptId": "archive-3",
+            "quote": "The rehearsal used a separate ordering check against the manifest before traffic moved."
+          }
+        }
+      ],
+      "forbidden": [
+        {
+          "index": 1,
+          "distortion": "The archive migration reduced cutover time.",
+          "status": "absent",
+          "reason": "u9 explicitly says speed effect was unmeasured and unknown.",
+          "sourceEvidence": {
+            "excerptId": "archive-3",
+            "quote": "We have not measured whether this procedure reduces cutover time compared with the old procedure."
+          }
+        },
+        {
+          "index": 2,
+          "distortion": "File count alone verifies copied object integrity.",
+          "status": "absent",
+          "reason": "u2 says visible file count is a poor readiness test.",
+          "sourceEvidence": {
+            "excerptId": "archive-1",
+            "quote": "A visible file count is therefore a poor readiness test"
+          }
+        },
+        {
+          "index": 3,
+          "distortion": "Dashboard menu clicks are a general archive migration claim.",
+          "status": "absent",
+          "reason": "No dashboard clicks appear in graph claims or supporting units; u5/u8 are source-stated cutover procedures, not UI demonstration clicks.",
+          "sourceEvidence": {
+            "excerptId": "archive-2",
+            "quote": "Those clicks showed where the status appears; they are not the migration rule."
+          }
+        },
+        {
+          "index": 4,
+          "distortion": "Checksums by themselves establish correct search-index order.",
+          "status": "absent",
+          "reason": "u7 explicitly states checksum comparison does not establish index order.",
+          "sourceEvidence": {
+            "excerptId": "archive-3",
+            "quote": "it does not establish that the search index has the intended document order."
+          }
+        }
+      ]
+    },
+    {
+      "caseId": "queue-pilot-correction",
+      "required": [
+        {
+          "criterionId": "queue-observed-wait",
+          "expectedKind": "fact",
+          "grade": "met",
+          "unitIds": [
+            "u2"
+          ],
+          "reason": "The graph fact includes nine comparable sites, eighteen-to-fourteen minutes, and four-week before/after windows in its content and conditions. Following a change states temporal association without asserting routing causality.",
+          "sourceEvidence": {
+            "excerptId": "queue-2",
+            "quote": "The figures come from recorded queue timestamps over the same four-week reporting windows."
+          }
+        },
+        {
+          "criterionId": "queue-causal-limit",
+          "expectedKind": "limitation",
+          "grade": "partial",
+          "unitIds": [
+            "u3"
+          ],
+          "reason": "The same graph unit correctly warns against treating the observed change as causal proof and gives absent control plus seasonal demand in its evidence/rationale. It is classified as a recommendation, not the required limitation; its content also frames a reporting instruction rather than a standalone causal-design limit.",
+          "sourceEvidence": {
+            "excerptId": "queue-2",
+            "quote": "No control group was assigned, and seasonal demand could have affected the comparison. Do not describe the observed difference as proof that routing caused it."
+          }
+        },
+        {
+          "criterionId": "queue-energy-unmeasured",
+          "expectedKind": "limitation",
+          "grade": "met",
+          "unitIds": [
+            "u4"
+          ],
+          "reason": "The graph limitation states energy-saving claims lack measured support because equipment power was not tracked. It does not convert absent measurement into a measured negative result.",
+          "sourceEvidence": {
+            "excerptId": "queue-3",
+            "quote": "We did not record power use for the routing equipment during this pilot. An earlier meeting note called the change an energy saving, but there is no energy measurement behind that phrase."
+          }
+        }
+      ],
+      "forbidden": [
+        {
+          "index": 1,
+          "distortion": "The eighteen-to-fourteen-minute result covers all twelve pilot sites.",
+          "status": "absent",
+          "reason": "u2 claim and scale metadata explicitly limit the comparison to nine comparable sites out of twelve participants.",
+          "sourceEvidence": {
+            "excerptId": "queue-2",
+            "quote": "the eighteen-to-fourteen-minute median comparison covers nine sites, not twelve."
+          }
+        },
+        {
+          "index": 2,
+          "distortion": "Routing caused the wait-time reduction.",
+          "status": "absent",
+          "reason": "u3 explicitly rejects causal proof; u2 says following routing, not caused by routing.",
+          "sourceEvidence": {
+            "excerptId": "queue-2",
+            "quote": "Do not describe the observed difference as proof that routing caused it."
+          }
+        },
+        {
+          "index": 3,
+          "distortion": "The pilot measured an energy saving or measured no energy saving.",
+          "status": "absent",
+          "reason": "u4 says power was not tracked and an energy saving is unsupported; it makes no measured-positive or measured-negative energy claim.",
+          "sourceEvidence": {
+            "excerptId": "queue-3",
+            "quote": "there is no energy measurement behind that phrase."
+          }
+        },
+        {
+          "index": 4,
+          "distortion": "The pilot proved the system never has outages.",
+          "status": "absent",
+          "reason": "u5 scopes the operator report to monitored sites and four weeks, including conditions metadata.",
+          "sourceEvidence": {
+            "excerptId": "queue-3",
+            "quote": "that observation is limited to the monitored sites and period."
+          }
+        },
+        {
+          "index": 5,
+          "distortion": "The planned matched comparison has already produced results.",
+          "status": "absent",
+          "reason": "No completed matched-comparison result appears in graph claims or supporting units.",
+          "sourceEvidence": {
+            "excerptId": "queue-3",
+            "quote": "those results do not yet exist."
+          }
+        }
+      ]
+    },
+    {
+      "caseId": "supplier-alert-proposal",
+      "required": [
+        {
+          "criterionId": "alert-supplier-origin",
+          "expectedKind": "recommendation",
+          "grade": "partial",
+          "unitIds": [
+            "u1"
+          ],
+          "reason": "The graph claim attributes the proposal to the supplier safety lead and scopes it to new-spindle machines; rationale holds the possible inspection benefit. It is classified as idea/insight rather than recommendation, and the unmeasured-fault-reduction qualifier appears only in the cited quotation, not the claim's own text or metadata.",
+          "sourceEvidence": {
+            "excerptId": "alert-1",
+            "quote": "The supplier argued that earlier warnings might give operators more time to inspect a developing fault, but no reduction in faults had been measured when the proposal was made."
+          }
+        },
+        {
+          "criterionId": "alert-trial-burden",
+          "expectedKind": "fact",
+          "grade": "partial",
+          "unitIds": [
+            "u2",
+            "u3"
+          ],
+          "reason": "The exact two-week/five-machine/forty/ thirty-six observation survives only as supporting example u2, not a persisted graph fact. Its attribution names the reporting chair rather than the maintenance team that tested; graph limitation u3 preserves that fault prevention and older models were not tested but does not repair u2 origin/projection.",
+          "sourceEvidence": {
+            "excerptId": "alert-2",
+            "quote": "Our maintenance team tested the six-unit alert threshold on five new-spindle machines for two weeks. They counted forty extra alerts, of which thirty-six were judged nuisance alerts after inspection."
+          }
+        },
+        {
+          "criterionId": "alert-conditional-trial",
+          "expectedKind": "recommendation",
+          "grade": "missed",
+          "unitIds": [],
+          "reason": "No graph claim or supporting unit states the operations lead condition, four consecutive weeks, wider trial only, or continued eight-unit threshold outside five trial machines. Supporting u2 lists unresolved target u4. The initial blinded packet did not establish the loss stage; the post-review trace identifies the pre-grounding quote-length gate.",
+          "sourceEvidence": {
+            "excerptId": "alert-3",
+            "quote": "The operations lead's recommendation is to consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning. Until then, keep the existing eight-unit threshold outside the five trial machines."
+          },
+          "stageDiagnosis": "Confirmed pre-grounding quote-length rejection of generated u4; see stageDiagnosisAfterUnblinding. The observed output grade remains missed."
+        }
+      ],
+      "forbidden": [
+        {
+          "index": 1,
+          "distortion": "The committee chair originated or endorsed the supplier's proposal.",
+          "status": "absent",
+          "reason": "u1 attributes the proposal to the supplier safety lead. The chair is attributed only as reporter on other units; no endorsement is claimed.",
+          "sourceEvidence": {
+            "excerptId": "alert-1",
+            "quote": "I am the committee chair relaying that proposal, not its originator."
+          }
+        },
+        {
+          "index": 2,
+          "distortion": "The regulator endorsed the six-unit threshold.",
+          "status": "absent",
+          "reason": "u5 graph fact explicitly says the regulator gave no endorsement or instruction.",
+          "sourceEvidence": {
+            "excerptId": "alert-3",
+            "quote": "The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting."
+          }
+        },
+        {
+          "index": 3,
+          "distortion": "The six-unit threshold reduced faults or was tested on older spindle models.",
+          "status": "absent",
+          "reason": "u3 graph limitation says fault prevention and older spindle models were not tested. u1 evidence mentions no measured fault reduction.",
+          "sourceEvidence": {
+            "excerptId": "alert-2",
+            "quote": "it did not test fault prevention or older spindle models."
+          }
+        },
+        {
+          "index": 4,
+          "distortion": "The operations lead recommended immediate general rollout.",
+          "status": "absent",
+          "reason": "No claim recommends immediate general rollout; the conditional wider-trial recommendation is missing entirely.",
+          "sourceEvidence": {
+            "excerptId": "alert-3",
+            "quote": "consider a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning."
+          }
+        },
+        {
+          "index": 5,
+          "distortion": "The equipment supplier performed the local two-week test.",
+          "status": "absent",
+          "reason": "Supporting u2 calls this a maintenance trial, although its attribution incorrectly assigns speaker role to the chair; no unit says the supplier ran the local test.",
+          "sourceEvidence": {
+            "excerptId": "alert-2",
+            "quote": "Our maintenance team tested the six-unit alert threshold on five new-spindle machines for two weeks."
+          }
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "caseId": "archive-cutover",
+      "recordSha256": "sha256:3a246aa1821969c9bc09d3aa3ac8d0301712354016ac0c9f51a954c1caa0a782",
+      "calls": 3,
+      "persistedClaims": 6,
+      "sourceRejections": [
+        {
+          "unitId": "u6",
+          "reason": "failed_quote_verification"
+        }
+      ]
+    },
+    {
+      "caseId": "queue-pilot-correction",
+      "recordSha256": "sha256:47689390679897a48aeea6b49850888d12f8433a34347ff74bfb58bd8612047e",
+      "calls": 2,
+      "persistedClaims": 5,
+      "sourceRejections": []
+    },
+    {
+      "caseId": "supplier-alert-proposal",
+      "recordSha256": "sha256:c1cd1982b7995a1e25c703b873735694190b5b575fb99f47461345c5c0744029",
+      "calls": 2,
+      "persistedClaims": 3,
+      "sourceRejections": [
+        {
+          "unitId": "u4",
+          "reason": "failed_quote_verification"
+        }
+      ]
+    }
+  ],
+  "additionalObservations": [
+    {
+      "caseId": "archive-cutover",
+      "finding": "The UI demonstration is appropriately absent from both graph and supporting units. Source-stated rollback and rehearsal ordering procedures remain supporting units, not graph claims."
+    },
+    {
+      "caseId": "queue-pilot-correction",
+      "finding": "The outage observation u5 is a correctly scoped reported fact, not a universal no-outage assertion. Wall display change remains a supporting example u6, not a graph claim."
+    },
+    {
+      "caseId": "supplier-alert-proposal",
+      "finding": "The initial blinded packet showed absent operations-lead u4 and an unresolved u4 target, but not the loss stage. A subsequent local run-record trace confirms pre-grounding quote-length rejection, not a semantic grounding rejection."
+    },
+    {
+      "caseId": "supplier-alert-proposal",
+      "finding": "Post-review stage trace confirms generated u4 was rejected solely by the half-excerpt quote-length gate before grounding; the grounding call did not receive u4. This changes cause attribution, not semantic output counts."
+    }
+  ],
+  "stageDiagnosis": {
+    "caseId": "supplier-alert-proposal",
+    "unitId": "u4",
+    "semanticGradeUnchanged": "missed",
+    "generation": "Call 0 contained a core recommendation with the operations lead origin, four-week nuisance-alert condition and existing eight-unit threshold outside the five trial machines.",
+    "quoteVerification": {
+      "status": "failed",
+      "rejectionReason": "failed_quote_verification",
+      "quoteCharacters": 246,
+      "quoteTokens": 41,
+      "excerptTokens": 75,
+      "tokenRatio": 0.5466666666666666,
+      "maxTokenRatio": 0.5,
+      "literalWholeSpan": true,
+      "isOverlongLiteralQuote": true
+    },
+    "grounding": "The miner filtered u4 before grounding. Call 1 grounding request contains no unit with id u4, and its verdicts contain no u4. This was not a semantic grounding rejection.",
+    "inferenceLimit": "This proves the rejection mechanism for this recorded run; it does not prove that a shorter quotation would pass semantic grounding or improve the remaining eight criteria."
+  },
+  "decision": "Do not select a production writer from this sample. Recover overlong literal evidence through bounded source-only reselection before further model sweeps; keep the evidence gate unchanged.",
+  "limitations": [
+    "Strict completeness/type grades are not a factual accuracy percentage.",
+    "Native agent overhead, prompt-only schema mode and one sample prevent model-only or direct API cost comparisons.",
+    "Reported selector is not evidence of immutable provider weights. Complete original captures remain private local evidence."
+  ]
+}
