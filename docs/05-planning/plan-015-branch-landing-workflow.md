@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.26'
+version: '0.27'
 last_updated: 2026-10-17
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.26
+> **Version:** 0.27
 > **Last Updated:** 2026-10-17
 > **Type:** PLAN
 
@@ -50,6 +50,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.24 | 2026-10-17 | Codex | Record explicit PR 40 approval and verified merge; synchronize pending PRs without altering feature files. | CMF | Draft | PR 40; TESTING-066 |
 | 0.25 | 2026-10-17 | Codex | Challenge the extra selector call and prepare deterministic evidence segmentation with model grounding as the cheaper comparator. | — | Draft | TESTING-066; TESTING-067 |
 | 0.26 | 2026-10-17 | Codex | Record reviewed evidence segmentation, parent integration, current review gates and the controlled recovery check. | — | Draft | TESTING-067 |
+| 0.27 | 2026-10-17 | Codex | Publish PR 44, record completed native verification and clarify the per-PR approval record. | — | Draft | PR 44; TESTING-067 |
 
 ## Purpose and authority
 
@@ -224,7 +225,7 @@ retain the source until every authored change has a verified disposition.
 | [PR 38](https://github.com/GitCmurf/AIDHA/pull/38), synchronized `b482239` | Review the independent offline category/evidence task sets and actual persisted keyword baseline when convenient | Sixteen files, 23 offline tests, strict docs, 80 URLs, hooks, required CI, CodeQL and four analyzers pass; no new model call or semantic improvement claim |
 
 **Current owner gate:** PRs 36 and 40 are separately approved and merged. Main is
-`10124ab`. PRs 37, 38, 39, 41, 42 and 43 each require their own named approval. Recommend
+`10124ab`. PRs 37, 38, 39, 41, 42, 43 and 44 each require their own named approval. Recommend
 reviewing PR 37's semantic checkpoint next, then the independent offline decision checkpoint
 and maintenance. Approval of a checkpoint does not adopt a model or approve paid collection.
 Holding a PR for concrete rubric or policy changes is also sensible.
@@ -244,7 +245,7 @@ separate. No force push, production default change or model endpoint activation 
 | [PR 41](https://github.com/GitCmurf/AIDHA/pull/41), Fast URI maintenance | `b2e46dd`, 3.1.8 covers eight published patched floors; parser red/green, 317 config tests, frozen install, builds; actual test-link finding fixed/resolved; final required CI and all actual analyzers pass | Named merge approval and subsequent dependency audit. GitHub alerts remain open until post-merge verification |
 | [PR 40](https://github.com/GitCmurf/AIDHA/pull/40), documentation CI maintenance | Six-file diff, three tests, strict docs and hooks; complete native review zero findings; required CI and actual reviews pass | Approved and merged `10124ab`; approved tree identical, all four main workflows pass. No checker acceptance rule changed |
 | 033, model-driven evidence reselection, held locally | Reviewed `fed371d`, 31 focused/323 core tests; exact persistence, threshold and malformed-verdict regressions | Extra call is not justified for the sentence-splittable failure. Final native verification retains a catalog-fairness finding; no PR or live call |
-| 034, complete evidence segmentation, stacked on 42 | Reviewed initial `83ab403`, two independent reviews; preserves complete literal quote and requires whole-unit grounding. Parent integration passes 317 core tests and strict docs | Integration `74134ec` passes 317 tests and all local gates. One fresh grounding call recovers u4 (3 → 4 claims), with the original three unchanged after SQLite reopen. Publish and assess actual reports; no merge approval or default activation |
+| [PR 44](https://github.com/GitCmurf/AIDHA/pull/44), complete evidence segmentation, stacked on 42 | Reviewed initial `83ab403`, two independent reviews; preserves complete literal quote and requires whole-unit grounding. Parent integration passes 317 core tests and strict docs | Integration `74134ec` passes 317 tests and all local gates. One fresh grounding call recovers u4 (3 → 4 claims), with the original three unchanged after SQLite reopen. Published at `8421f69`; required CI and three analyzers pass, JavaScript remains red without itemized GitHub findings. No merge approval or default activation |
 
 No owner direction blocks these engineering checks. Stop each lane at its concrete review or
 activation gate, retain the evidence and continue independent work. A USD 1 decision-model
@@ -545,7 +546,7 @@ Synthetic contract work needs no owner product decision. Existing PEPYS authorit
 
 | Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
 | --- | --- | --- | --- |
-| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | PRs 36 and 40 approved and merged; 37, 38, 39, 41, 42 and 43 unapproved; 42 retains red JavaScript complexity findings |
+| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | PRs 36 and 40 approved and merged; 37, 38, 39, 41, 42, 43 and 44 unapproved; 42 and 44 retain red JavaScript analyzer output |
 | Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
 | Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
 | New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
@@ -1503,8 +1504,8 @@ Email slice completion record:
   with a USD 1 review budget, not a hard provider billing cap. Recommend reviewing its endpoint,
   terms and spending scope before authorizing any API collection. Keeping the preparation offline
   or reducing it to a smoke sample are sensible alternatives. No key has been copied or used.
-- **Merge sequence:** PR 40 alone is approved and merged. PRs 37, 38, 39, 41, 42, 43 and any new
-  quality increment each need their own named approval after current checks and actual review.
+- **Merge sequence:** PRs 36 and 40 are separately approved and merged. PRs 37, 38, 39, 41, 42,
+  43 and each new quality increment need their own named approval after current checks and review.
   Engineering fixes and the bounded public recovery comparison continue without owner input;
   human review is needed before adoption, rubric acceptance or further paid collection.
 
@@ -1540,8 +1541,11 @@ Email slice completion record:
   `u4` is the only addition (3 → 4 claims), and the original three semantic records are unchanged.
 - [x] Record the actual result and its limits; independently review the public projection against
   the complete private records.
-- [ ] Publish the narrow feature PR and assess actual hosted reports. No extra-selector call or
-  default adoption is authorized.
+- [x] Publish the narrow feature as PR 44, base 42, exact eleven-file scope at `8421f69`.
+- [x] Assess actual hosted reports available through GitHub: required CI and three analyzers pass;
+  JavaScript remains red with no itemized GitHub finding. Skipped bot runs are ignored.
+- [ ] Obtain and assess the itemized JavaScript analyzer output before declaring this lane ready
+  to merge. No extra-selector call or default adoption is authorized; named approval is pending.
 - [x] Resolve 19 verified fixed behavior/style threads on PR 42; keep complexity threads open.
   Its required CI passes, while the JavaScript complexity analyzer remains red and disclosed.
 - [x] Verify final PR 43 required checks and all four actual analyzers at `61ddd71`; no unresolved
@@ -1583,3 +1587,51 @@ merge remain separate approval decisions.
   from high-entropy secrets; the unchanged secret scanner passes without a waiver or baseline edit.
   TESTING-067 pins both regression URLs to `83ab403` and the measurement URL to `21c716a`,
   resolving the native review's one minor link finding.
+
+### 2026-10-17 — PR 44 publication and final review
+
+- PR 44 publishes eleven files at `8421f694349edee5c7f7c6c9616287338860b0af`, stacked on
+  reviewed limitation parent `39011f8`. Exact remote head/base/file list match the local reviewed
+  diff; the feature worktree is clean. Runtime code still matches controlled replay `74134ec`.
+- Full native verification completes for all eleven files, exit zero with one minor workflow
+  wording finding and no source finding. The ambiguous “PR 40 alone” merge-sequence line is
+  corrected: 36 and 40 are separately approved and merged; 37–39 and 41–44 need named approval. The
+  finding concerns documentation, not additional merge authority. This is not a zero-finding run.
+- Initial hosted snapshot: gitleaks and Python/Shell/Secrets pass, build/verify pending and
+  JavaScript complexity status red. CodeRabbit explicitly skips the non-default base; Qodo's
+  billing-paused message is ignored as skipped coverage. Assess actual reports as they arrive.
+- A further independent PR 42 maintainability challenge recommends retaining its cohesive tested
+  anchor boundary rule and ordered endpoint rejection gate. Further pre-merge splitting would
+  mainly relocate branches and risk sign/numeric/Unicode drift. Relation application already
+  falls from 28 to 10; miner orchestration predates the slice. No current runtime defect is found.
+  A later allocation-focused Unicode-neighbor improvement needs parity fixtures and measurement.
+  Existing red complexity output remains disclosed under the ordinary named-PR review, without
+  a repository-setting change or special owner waiver.
+
+- Required build, verify and gitleaks all pass at published `8421f69`; Python/Shell/Secrets
+  analyzers also pass. JavaScript remains red. Native review covers all eleven files; actual
+  hosted findings and metrics are assessed separately, with no all-green analyzer claim.
+
+- The completed GitHub report assessment finds no itemized PR 44 issue: zero reviews/threads,
+  and GitHub check annotations contain runner-maintenance notices only. DeepSource JavaScript
+  is a failing commit status with aggregate B, reliability C and complexity C; other analyzers pass.
+  This is an unresolved analyzer gate, not a confirmed source defect or clean hosted review.
+  The bounded public report-page check timed out; no account activation or paid review is authorized.
+
+- The isolated public DeepSource browser attempt times out before rendering any content; its
+  bounded close also times out. This establishes a browser/runtime/access limit, not a login
+  requirement. No credentials, saved profile, new account, subscription or repeated page attempt
+  is used. The detailed JavaScript findings remain unavailable, so PR 44 stays held on that
+  engineering review gate even though its required CI and local reviews pass.
+- Next useful owner input remains PR 37's provisional semantic rubric. Recommend retaining
+  independently retrievable conditions and attribution; approve the checkpoint if that matches
+  the intended product, or give concrete expected-claim/kind/qualifier corrections before tuning.
+  This is separate from approving each PR, default adoption or the unapproved API collection budget.
+
+Restart paths for the quality lane: branch `034-segmented-evidence`, worktree
+`/tmp/aidha-034-segmented-evidence`, public contract TESTING-067 and measurement commit
+`21c716a`. Private receipts are backed up under ignored
+`reports/branch-landing-20261016/verification/segmented034/`, including the full run, original
+failed gate and corrected offline gate. Native account metadata is excluded from publication.
+Resume from the reviewed PR head if the temporary worktree is gone; do not repeat the model call
+merely to correct a saved-record assertion.
