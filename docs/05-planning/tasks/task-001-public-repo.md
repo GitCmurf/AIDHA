@@ -1,9 +1,9 @@
 ---
 document_id: AIDHA-TASK-001
 owner: GitCmurf
-status: Approved
-version: "1.20"
-last_updated: 2026-05-13
+status: Draft
+version: "1.21"
+last_updated: 2026-10-17
 title: Public Repository Readiness — Task List & Strategy
 type: TASK
 docops_version: "2.0"
@@ -13,9 +13,9 @@ docops_version: "2.0"
 
 > **Document ID:** AIDHA-TASK-001
 > **Owner:** GitCmurf
-> **Status:** Approved
-> **Version:** 1.20
-> **Last Updated:** 2026-05-13
+> **Status:** Draft
+> **Version:** 1.21
+> **Last Updated:** 2026-10-17
 > **Type:** TASK
 
 # Public Repository Readiness — Task List & Strategy
@@ -45,6 +45,7 @@ docops_version: "2.0"
 | 1.18    | 2026-05-13 | AI     | Correct fixture provenance scope for eval artifacts and acceptance-run report. | — | Draft | AIDHA-GOV-005 |
 | 1.19    | 2026-05-13 | AI     | Replace committed extraction-quality eval fixtures with synthetic data and close the redistribution gate. | — | Draft | AIDHA-GOV-005 |
 | 1.20    | 2026-05-13 | AI     | Close the public-release gate after remote Secret Scan and history-strategy verification. | — | Approved | AIDHA-TASK-007 |
+| 1.21    | 2026-10-17 | Codex  | Replace the unstable CLA Assistant homepage link with its maintained project documentation. | — | Draft | AIDHA-TESTING-065 |
 
 ## Project Status
 
@@ -376,8 +377,8 @@ Add to each `package.json`:
 
 If you want to retain the ability to later relicense AIDHA (e.g. for a commercial edition), require
 contributors to sign a CLA that assigns copyright or grants you a broad licence. Tools like
-[CLA Assistant](https://cla-assistant.io/) automate this via GitHub. This is standard practice for
-Apache-licensed projects (the ASF itself requires CLAs).
+[CLA Assistant](https://github.com/cla-assistant/cla-assistant) automate this via GitHub. This is standard
+practice for Apache-licensed projects (the ASF itself requires CLAs).
 
 > [!IMPORTANT]
 > **Without a CLA, each contributor retains copyright on their contributions**, and you cannot
