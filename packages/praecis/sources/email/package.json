@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.3.0"
+    "node": ">=20.19.0"
   },
   "exports": {
     ".": {
@@ -31,7 +31,7 @@
     "@aidha/graph-backend": "workspace:*",
     "@aidha/praecis-core": "workspace:*",
     "@aidha/praecis-decode-text": "workspace:*",
-    "mailparser": "^3.9.8"
+    "mailparser": "^3.9.40"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",
