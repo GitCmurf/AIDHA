@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-063
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-17
 title: Native Gemini Writer Evaluation Route
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 > **Document ID:** AIDHA-TESTING-063
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-17
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.1 | 2026-10-17 | Codex | Add a bounded native AGY writer route over frozen public sources, with raw failed-call capture and host validation. | — | Draft | TESTING-059 |
+| 0.2 | 2026-10-17 | Codex | Record the seven-call public trial, provisional completeness review and pre-grounding quote-length rejection. | — | Draft | Frozen public writer trial |
 
 ## Purpose and acceptance
 
@@ -82,3 +83,29 @@ runtime report and persisted graph claims. A failed native call or failed-closed
 remaining batch while retaining its record. This matters because production grounding is advisory
 and can otherwise retain units after a transport failure. Labels are assistant-authored
 expectations, not human gold, and one run does not establish model superiority.
+
+## Recorded public trial
+
+The reviewed harness ran all three frozen sources through the production miner and exporter.
+Seven native calls completed, with no failed native call or failed-closed case. The public
+`scripts/semantic-quality/gemini-measurements.json` records source-bound assessment, usage,
+code/corpus hashes and private-capture digests. Original native records remain local.
+
+Independent assistant review, checked by the parent agent, rated two of nine required criteria
+complete, six partial and one missing. None of the fourteen specified forbidden distortions
+appeared. These are provisional completeness and type judgments, not a factual accuracy rate
+or human-adjudicated gold. Some qualifications survived only in separate or supporting units,
+which does not make a complete independently retrievable graph claim. One sample, native
+agent overhead and different schema enforcement prevent a model-only ranking against the
+older Claude records.
+
+The missing operations-lead conditional recommendation was generated with correct text and
+origin, then rejected before grounding: its exact source quote used 41 of 75 excerpt tokens,
+above the unchanged 50% quote-length gate. The grounding request never received that unit.
+This was not a semantic rejection by the grounding model. The next bounded slice should select
+concise exact source passages and reverify them, preserving both the gate and the audit trail.
+
+Reported usage totals 105,617 input and 7,391 output tokens. Seven native durations sum to
+54.649 seconds; this excludes local dependency builds and is not a direct API latency measure.
+No provider cost was reported, so provider cost remains unknown. No production writer or default is selected
+from this result.
