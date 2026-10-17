@@ -176,3 +176,6 @@ export { computeCoverage } from './distill/coverage.js';
 export type { CoverageExcerpt, CoverageDiagnostics } from './distill/coverage.js';
 export { projectUnit, EXTRACTION_INTENTS, GRAPH_PROJECTIONS } from './distill/projection.js';
 export type { ExtractionIntent, GraphProjection } from './distill/projection.js';
+
+export { SourceDistillationMiner } from './distill/miner.js';
+export type { SourceDistillationMinerConfig } from './distill/miner.js';

@@ -32,6 +32,7 @@ nav:
   - Testing:
       - MVP Test Suite: 55-testing/testing-001-mvp-tests.md
       - Distillation Validation Contracts: 55-testing/testing-056-distillation-validation.md
+      - Model Distillation and Grounding: 55-testing/testing-057-distillation-pipeline.md
   - Planning:
       - Branch Landing Workflow: 05-planning/plan-015-branch-landing-workflow.md
       - Engineering Tech Debt Backlog: 05-planning/tasks/task-007-tech-debt-backlog.md

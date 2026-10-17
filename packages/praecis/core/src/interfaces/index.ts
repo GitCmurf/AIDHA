@@ -78,7 +78,38 @@ export interface DraftClaim {
   readonly metadata?: Record<string, unknown>;
 }
 
+/** Source-linked context retained separately from reusable draft claims. */
+export interface SupportingUnitSummary {
+  readonly id: string;
+  readonly kind: string;
+  readonly text: string;
+  readonly supportsUnitIds: readonly string[];
+  /** Source-proposed targets absent from the emitted output; not live relationships. */
+  readonly unresolvedSupportsUnitIds?: readonly string[];
+  readonly excerptIds: readonly string[];
+  readonly evidence?: readonly { readonly excerptId: string; readonly quote: string; readonly quoteVerification: string }[];
+  readonly stance?: string;
+  readonly importance?: string;
+  readonly rationale?: string;
+  readonly conditions?: readonly { readonly type: string; readonly text: string }[];
+  readonly attribution?: { readonly kind: string; readonly name?: string; readonly role?: string };
+}
+
+export interface SourceDistillationSummary {
+  readonly failedClosed: boolean;
+  readonly sourceType?: string;
+  readonly sourcePurpose?: string;
+  readonly sourceCoherence?: string;
+  readonly theses?: readonly string[];
+  readonly coverage?: import('../extract/distill/coverage.js').CoverageDiagnostics;
+  readonly unitCountsByKind?: Readonly<Record<string, number>>;
+  readonly diagnostics: readonly string[];
+}
+
 export interface MiningResult {
+  readonly rejectedClaims?: readonly DraftClaim[];
+  readonly supportingUnits?: readonly SupportingUnitSummary[];
+  readonly distillation?: SourceDistillationSummary;
   readonly claims: readonly DraftClaim[];
   readonly tokenUsage?: number;
   readonly spendUsd?: number;
@@ -123,6 +154,9 @@ export interface ClassificationResult {
 }
 
 export interface RunReport {
+  readonly rejectedClaims?: readonly DraftClaim[];
+  readonly supportingUnits?: readonly SupportingUnitSummary[];
+  readonly sourceDistillation?: SourceDistillationSummary;
   readonly sourceId: string;
   readonly canonicalId: string;
   readonly resourceId: string;
@@ -197,6 +231,8 @@ export interface MiningRequest {
 }
 
 export interface ICandidateMiner {
+  /** Changes when prompts, validation policy or miner options change. Missing/blank identity bypasses cache. */
+  readonly cacheIdentity?: string;
   estimate?(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }>;
   mine(request: MiningRequest): Promise<Result<MiningResult>>;
 }
