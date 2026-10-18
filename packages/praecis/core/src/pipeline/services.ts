@@ -51,6 +51,33 @@ function stableId(seed: string): string {
   return createHash('sha256').update(seed).digest('hex').slice(0, 16);
 }
 
+const identityFields = (value: unknown, fields: readonly string[]): readonly unknown[] => {
+  const record = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return fields.map(field => record[field] ?? null);
+};
+
+const identityRecords = (value: unknown, fields: readonly string[]): readonly string[] => {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(entry => JSON.stringify(identityFields(entry, fields))))].sort();
+};
+
+/** Distinct source qualifications/evidence must not overwrite a same-worded draft. */
+const exportedClaimId = (resourceId: string, claim: DraftClaim): string => {
+  if (claim.id) return claim.id;
+  const seed = `${resourceId}:${claim.text}`;
+  const metadata = claim.metadata;
+  if (metadata?.['method'] !== 'llm-distill') return `claim:${stableId(seed)}`;
+  // Model versions and generated unit IDs identify a run, not proposition meaning.
+  const meaning = {
+    type: claim.type, classification: claim.classification,
+    kind: metadata['unitKind'], stance: metadata['stance'], rationale: metadata['rationale'],
+    conditions: identityRecords(metadata['conditions'], ['type', 'text']),
+    attribution: identityFields(metadata['attribution'], ['kind', 'name', 'role']),
+    evidence: identityRecords(metadata['evidence'], ['excerptId', 'quote']),
+  };
+  return `claim:${stableId(`${seed}:${JSON.stringify(meaning)}`)}`;
+};
+
 export class SystemClock implements Clock {
   now(): Date {
     return new Date();
@@ -202,6 +229,7 @@ export class MissingLlmClaimMiner implements ICandidateMiner {
 }
 
 export class CanonicalLlmClaimMiner implements ICandidateMiner {
+  readonly cacheIdentity = 'canonical-chunk-miner-v1';
   estimate(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }> {
     return { ok: true, value: estimateChunkBudget(request.chunks) };
   }
@@ -251,6 +279,7 @@ export class CanonicalLlmClaimMiner implements ICandidateMiner {
 }
 
 export class HeuristicClaimMiner implements ICandidateMiner {
+  readonly cacheIdentity = 'heuristic-miner-v1';
   estimate(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }> {
     return { ok: true, value: estimateChunkBudget(request.chunks) };
   }
@@ -323,7 +352,7 @@ export class GraphPipelineExporter implements IExporter {
     }
 
     for (const claim of miningResult.claims) {
-      const claimId = claim.id ?? `claim:${stableId(`${dedup.value.resourceId}:${claim.text}`)}`;
+      const claimId = exportedClaimId(dedup.value.resourceId, claim);
       const result = await this.store.upsertNode(
         'Claim',
         claimId,
@@ -664,6 +693,15 @@ export class KeywordTaxonomyClassifier implements IClassifier {
     const existingAssignments = await this.registry.getAssignments(request.resourceId);
     if (!existingAssignments.ok) return existingAssignments;
     const existingTagIds = new Set(existingAssignments.value.map(assignment => assignment.tagId));
+    // Encode tag fields separately so punctuation in names or aliases cannot
+    // make different matching vocabularies share the same fingerprint.
+    const matchingVocabulary = tags.value
+      .map(tag => ({ id: tag.id, name: tag.name, aliases: [...tag.aliases].sort() }))
+      .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+    const taxonomyVersion = createHash('sha256')
+      .update(JSON.stringify(matchingVocabulary))
+      .digest('hex')
+      .slice(0, 16);
 
     let tagsMatched = 0;
     let tagsAssigned = 0;
@@ -678,6 +716,7 @@ export class KeywordTaxonomyClassifier implements IClassifier {
         tagId: tag.id,
         confidence: 0.7,
         source: 'automatic',
+        taxonomyVersion,
         assignedBy: 'praecis-keyword-classifier',
       });
       if (!assigned.ok) return assigned;

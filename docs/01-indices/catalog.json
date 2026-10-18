@@ -34,8 +34,8 @@
       "document_id": "AIDHA-GUIDE-002",
       "owner": "Taxonomy Team",
       "status": "Draft",
-      "last_updated": "2025-12-27",
-      "version": "0.2",
+      "last_updated": "2026-10-16",
+      "version": "0.3",
       "title": "Taxonomy Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2026-05-25",
-      "version": "1.11",
+      "last_updated": "2026-10-16",
+      "version": "1.12",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -239,6 +239,68 @@
     }
   },
   {
+    "path": "55-testing/testing-065-link-check-diagnostics.md",
+    "title": "Link Check Failure Diagnostics",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-065",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-17",
+      "title": "Link Check Failure Diagnostics",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS",
+      "related_ids": [
+        "AIDHA-TASK-001"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-006-viable-prototype-pilot-evidence-template.md",
+    "title": "Testing: Viable Prototype Pilot Evidence Template",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-006",
+      "owner": "Product",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-16",
+      "title": "Viable Prototype Pilot Evidence Template",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "keywords": [
+        "prototype",
+        "pilot",
+        "activation",
+        "re-entry",
+        "evidence"
+      ],
+      "related_ids": [
+        "AIDHA-RUNBOOK-013"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-058-grounding-context.md",
+    "title": "Shared Source Context for Grounding",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-058",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-17",
+      "title": "Shared Source Context for Grounding",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-057"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-001-mvp-tests.md",
     "title": "MVP Test Suite Map and Hardening Coverage",
     "front_matter": {
@@ -250,6 +312,59 @@
       "title": "MVP Test Suite Map and Hardening Coverage",
       "type": "TESTING",
       "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "55-testing/testing-084-docs-theme-compatibility.md",
+    "title": "Documentation Theme Compatibility",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-084",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-18",
+      "title": "Documentation Theme Compatibility",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS",
+      "related_ids": []
+    }
+  },
+  {
+    "path": "55-testing/testing-057-distillation-pipeline.md",
+    "title": "Bounded Model Distillation and Grounding",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-057",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-17",
+      "title": "Bounded Model Distillation and Grounding",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-056"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-056-distillation-validation.md",
+    "title": "Validation and Evidence Checks for Model-Generated Distillations",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-056",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-17",
+      "title": "Validation and Evidence Checks for Model-Generated Distillations",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015"
+      ]
     }
   },
   {
@@ -399,8 +514,8 @@
       "document_id": "AIDHA-RUNBOOK-005",
       "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2026-05-22",
-      "version": "0.1",
+      "last_updated": "2026-10-16",
+      "version": "0.2",
       "title": "Email Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
@@ -463,6 +578,32 @@
     }
   },
   {
+    "path": "50-runbooks/runbook-013-private-pilot-safety.md",
+    "title": "Runbook: Private Pilot Safety Operations",
+    "front_matter": {
+      "document_id": "AIDHA-RUNBOOK-013",
+      "owner": "Product",
+      "status": "Draft",
+      "last_updated": "2026-10-16",
+      "version": "0.1",
+      "title": "Private Pilot Safety Operations",
+      "type": "RUNBOOK",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "keywords": [
+        "pilot",
+        "security",
+        "public",
+        "privacy",
+        "acceptance"
+      ],
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-006"
+      ]
+    }
+  },
+  {
     "path": "05-planning/plan-004-improve-claims-quality-editorial-ranking.md",
     "title": "Improve Claim Quality and Editorial Ranking (Plan)",
     "front_matter": {
@@ -488,6 +629,30 @@
       "title": "Other Ingestion Vectors",
       "type": "PLAN",
       "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "05-planning/plan-015-branch-landing-workflow.md",
+    "title": "Branch Landing and Next Sprints Workflow",
+    "front_matter": {
+      "document_id": "AIDHA-PLAN-015",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.15",
+      "last_updated": "2026-10-17",
+      "title": "Branch Landing and Next Sprints Workflow",
+      "type": "PLAN",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-009",
+        "AIDHA-PLAN-008",
+        "AIDHA-PLAN-010",
+        "AIDHA-PLAN-011",
+        "AIDHA-PLAN-012",
+        "AIDHA-PLAN-013",
+        "AIDHA-PLAN-014"
+      ]
     }
   },
   {
@@ -902,9 +1067,9 @@
     "front_matter": {
       "document_id": "AIDHA-TASK-001",
       "owner": "GitCmurf",
-      "status": "Approved",
-      "version": "1.20",
-      "last_updated": "2026-05-13",
+      "status": "Draft",
+      "version": "1.21",
+      "last_updated": "2026-10-17",
       "title": "Public Repository Readiness — Task List & Strategy",
       "type": "TASK",
       "docops_version": "2.0"

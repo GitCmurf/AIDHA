@@ -64,6 +64,7 @@ export const TaxonomyAssignmentMetadataSchema = z.object({
   tagId: z.string(),
   confidence: z.number().min(0).max(1),
   source: z.enum(['manual', 'automatic', 'imported', 'inferred']),
+  taxonomyVersion: z.string().min(1).optional(),
   assignedAt: z.string().datetime(),
   assignedBy: z.string().optional(),
   notes: z.string().optional(),

@@ -152,6 +152,7 @@ describe('ResourceMetadataSchema', () => {
         tagId: 'tag-1',
         confidence: 0.7,
         source: 'automatic',
+        taxonomyVersion: 'taxonomy-abc123',
         assignedBy: 'praecis-keyword-classifier',
         assignedAt: '2026-05-25T12:00:00.000Z',
       }],
@@ -160,6 +161,7 @@ describe('ResourceMetadataSchema', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.taxonomyAssignments?.[0]?.tagId).toBe('tag-1');
+    expect(result.data.taxonomyAssignments?.[0]?.taxonomyVersion).toBe('taxonomy-abc123');
   });
 
   it('rejects malformed taxonomy assignments', () => {

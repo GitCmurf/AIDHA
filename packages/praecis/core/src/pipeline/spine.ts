@@ -46,7 +46,7 @@ function assertWithinCost(services: PipelineServices, tokenUsage: number, spendU
 function parseMiningResult(value: string): MiningResult | null {
   try {
     const parsed = JSON.parse(value) as MiningResult;
-    return Array.isArray(parsed.claims) ? parsed : null;
+    return Array.isArray(parsed.claims) && !parsed.distillation?.failedClosed ? parsed : null;
   } catch {
     return null;
   }
@@ -88,12 +88,26 @@ export async function runVector(
   if (!chunkResult.ok) return chunkResult;
 
   const warningMessages = warnings.map((w: DecodeWarning) => `${w.unit}: ${w.reason}`);
-  const cacheKey = `pipeline:${raw.canonicalId}:${stableHash(chunkResult.value.map(chunk => [chunk.id, chunk.text]))}`;
+  const minerIdentity = services.miner.cacheIdentity;
+  const cacheEnabled = Boolean(minerIdentity?.trim());
+  const cacheKey = `pipeline:${raw.canonicalId}:${stableHash({
+    chunks: chunkResult.value.map(chunk => [chunk.id, chunk.text, chunk.locator]),
+    sourceLabel: raw.label,
+    context,
+    miner: minerIdentity,
+    route: runtimePolicy.value,
+    model: services.config.llm.model,
+    endpoint: services.config.llm.baseUrl,
+    reasoningEffort: services.config.llm.reasoningEffort,
+    verbosity: services.config.llm.verbosity,
+    extraction: services.config.extraction,
+    editor: services.config.editor,
+  })}`;
   let cacheHits = 0;
   let cacheWrites = 0;
 
   let miningResult: MiningResult | null = null;
-  const cached = await services.cache.get(cacheKey);
+  const cached = cacheEnabled ? await services.cache.get(cacheKey) : { ok: true as const, value: null };
   if (!cached.ok) return cached;
   if (cached.value) {
     miningResult = parseMiningResult(cached.value);
@@ -122,11 +136,14 @@ export async function runVector(
     const mined = await services.miner.mine(miningRequest);
     if (!mined.ok) return mined;
     miningResult = mined.value;
-    const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
-    if (cacheSet.ok) {
-      cacheWrites += 1;
-    } else {
-      console.warn(`pipeline cache write failed for ${cacheKey}: ${cacheSet.error.message}`);
+    // Transient extraction failures must remain retryable after a fresh runtime.
+    if (cacheEnabled && !miningResult.distillation?.failedClosed) {
+      const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
+      if (cacheSet.ok) {
+        cacheWrites += 1;
+      } else {
+        console.warn(`pipeline cache write failed for ${cacheKey}: ${cacheSet.error.message}`);
+      }
     }
   }
 
@@ -172,6 +189,9 @@ export async function runVector(
       claimsExtracted: miningResult.claims.length,
       claimIds: exported.value.claimIds,
       claims: miningResult.claims,
+      ...(miningResult.rejectedClaims ? { rejectedClaims: miningResult.rejectedClaims } : {}),
+      ...(miningResult.supportingUnits ? { supportingUnits: miningResult.supportingUnits } : {}),
+      ...(miningResult.distillation ? { sourceDistillation: miningResult.distillation } : {}),
       dedupAction: exported.value.dedupAction,
       policyRoute: runtimePolicy.value,
       cacheHits,

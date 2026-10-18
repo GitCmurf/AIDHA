@@ -31,7 +31,13 @@ nav:
       - Ingestion Runbook: 50-runbooks/runbook-003-youtube-ingestion.md
   - Testing:
       - MVP Test Suite: 55-testing/testing-001-mvp-tests.md
+      - Distillation Validation Contracts: 55-testing/testing-056-distillation-validation.md
+      - Model Distillation and Grounding: 55-testing/testing-057-distillation-pipeline.md
+      - Shared Grounding Source Context: 55-testing/testing-058-grounding-context.md
+      - Link Check Failure Diagnostics: 55-testing/testing-065-link-check-diagnostics.md
+      - Documentation Theme Compatibility: 55-testing/testing-084-docs-theme-compatibility.md
   - Planning:
+      - Branch Landing Workflow: 05-planning/plan-015-branch-landing-workflow.md
       - Engineering Tech Debt Backlog: 05-planning/tasks/task-007-tech-debt-backlog.md
       - Next Sprint Improvements: 05-planning/tasks/task-008-next-sprint-improvements.md
   - DevEx & Tooling:

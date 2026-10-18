@@ -90,4 +90,57 @@ sqliteDescribe('SQLiteStore FTS', () => {
     if (result.ok) return;
     expect(result.error).toBeInstanceOf(Error);
   });
+
+  it('reopens a complete search index without writing when other node types exist', async () => {
+    const { DatabaseSync } = await import('node:sqlite');
+    const db = new DatabaseSync(':memory:');
+    const original = new SQLiteStore(db);
+    try {
+      if (!original.supportsFts()) return;
+      expect((await original.upsertNode('Claim', 'claim-reopen', {
+        label: 'A claim', content: 'Searchable fictional astronomy passage.',
+      })).ok).toBe(true);
+      expect((await original.upsertNode('Topic', 'topic-reopen', {
+        label: 'Astronomy',
+      })).ok).toBe(true);
+      const before = db.prepare('SELECT total_changes() AS count').get();
+
+      const reopened = new SQLiteStore(db);
+
+      expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(before);
+      const result = reopened.searchText('astronomy', ['Claim']);
+      expect(result.ok && [...result.value]).toEqual(['claim-reopen']);
+    } finally {
+      await original.close();
+    }
+  });
+
+  it('restores missing indexed text on reopen even with other node types', async () => {
+    const { DatabaseSync } = await import('node:sqlite');
+    const db = new DatabaseSync(':memory:');
+    const original = new SQLiteStore(db);
+    try {
+      if (!original.supportsFts()) return;
+      expect((await original.upsertNode('Excerpt', 'excerpt-recover', {
+        label: 'A passage', content: 'Fictional telescopes observe distant planets.',
+      })).ok).toBe(true);
+      expect((await original.upsertNode('Topic', 'topic-recover', {
+        label: 'Astronomy',
+      })).ok).toBe(true);
+      // Reproduce an incomplete persisted index, as after an earlier indexing failure.
+      db.exec('DELETE FROM nodes_fts');
+
+      const reopened = new SQLiteStore(db);
+
+      const result = reopened.searchText('planets', ['Excerpt']);
+      expect(result.ok && [...result.value]).toEqual(['excerpt-recover']);
+      const before = db.prepare('SELECT total_changes() AS count').get();
+      const reopenedAgain = new SQLiteStore(db);
+      expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(before);
+      const repeatedResult = reopenedAgain.searchText('planets', ['Excerpt']);
+      expect(repeatedResult.ok && [...repeatedResult.value]).toEqual(['excerpt-recover']);
+    } finally {
+      await original.close();
+    }
+  });
 });
