@@ -57,7 +57,7 @@ import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { INGEST_USAGE } from './ingest-usage.js';
 import { SOURCE_REGISTRATIONS } from './source-registrations.js';
-import { explainResolvedKey, resolveAidhaConfig } from './config-runtime.js';
+import { resolveAidhaConfig } from './config-runtime.js';
 import { optionString, parseCliArguments, validateConfigSelectorOptions, type CliOptions } from './cli-args.js';
 export type { CliOptions } from './cli-args.js';
 export { explainResolvedKey, resolveAidhaConfig } from './config-runtime.js';
