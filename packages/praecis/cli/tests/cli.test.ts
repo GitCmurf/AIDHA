@@ -171,6 +171,83 @@ describe('aidha cli phase-1 surface', () => {
     vi.restoreAllMocks();
   });
 
+  it('resolves dotenv-loaded secrets through the generic CLI config path', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-dotenv-'));
+    const configPath = join(dir, 'config.yaml');
+    await writeFile(join(dir, '.env.test'), 'AIDHA_CLI_DOTENV_TEST_KEY=from-dotenv\n'); // pragma: allowlist secret -- synthetic dotenv fixture
+    await writeFile(
+      configPath,
+      [
+        'config_version: 1',
+        'default_profile: default',
+        'env:',
+        '  dotenv_files:',
+        '    - .env.test',
+        'profiles:',
+        '  default:',
+        '    llm:',
+        '      model: gpt-5-mini',
+        '      base_url: https://api.openai.com/v1',
+        '      api_key: ${AIDHA_CLI_DOTENV_TEST_KEY}',
+      ].join('\n'),
+    );
+
+    try {
+      vi.stubEnv('AIDHA_CLI_DOTENV_TEST_KEY', undefined);
+      const resolved = await resolveAidhaConfig({ configPath, source: 'youtube' });
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+      expect(resolved.config.llm.apiKey).toBe('from-dotenv');
+      expect(Object.keys(resolved.loadResult.dotenvEnv)).toContain('AIDHA_CLI_DOTENV_TEST_KEY');
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  for (const overrideExisting of [false, true]) {
+    it(`resolves shell and dotenv values with override_existing=${overrideExisting}`, async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-env-precedence-'));
+      const configPath = join(dir, 'config.yaml');
+
+      try {
+        vi.stubEnv('AIDHA_CLI_SHELL_ONLY_TEST_MODEL', 'from-shell-only');
+        vi.stubEnv('AIDHA_CLI_CONFLICT_TEST_KEY', 'from-shell');
+        await writeFile(join(dir, '.env.test'), 'AIDHA_CLI_CONFLICT_TEST_KEY=from-dotenv\n'); // pragma: allowlist secret -- synthetic dotenv fixture
+        await writeFile(
+          configPath,
+          [
+            'config_version: 1',
+            'default_profile: default',
+            'env:',
+            '  dotenv_files:',
+            '    - .env.test',
+            ...(overrideExisting ? ['  override_existing: true'] : []),
+            'profiles:',
+            '  default:',
+            '    llm:',
+            '      model: ${AIDHA_CLI_SHELL_ONLY_TEST_MODEL}',
+            '      base_url: https://api.openai.com/v1',
+            '      api_key: ${AIDHA_CLI_CONFLICT_TEST_KEY}',
+          ].join('\n'),
+        );
+
+        const resolved = await resolveAidhaConfig({ configPath, source: 'youtube' });
+        expect(resolved.ok).toBe(true);
+        if (!resolved.ok) return;
+        expect(resolved.config.llm.model).toBe('from-shell-only');
+        expect(resolved.config.llm.apiKey).toBe(overrideExisting ? 'from-dotenv' : 'from-shell');
+        expect(resolved.loadResult.dotenvEnv['AIDHA_CLI_CONFLICT_TEST_KEY'])
+          .toBe(overrideExisting ? 'from-dotenv' : undefined);
+        expect(resolved.loadResult.dotenvEnv['AIDHA_CLI_SHELL_ONLY_TEST_MODEL']).toBeUndefined();
+        expect(process.env['AIDHA_CLI_CONFLICT_TEST_KEY']).toBe('from-shell');
+      } finally {
+        vi.unstubAllEnvs();
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+  }
+
   it('derives source command ids and usage from a unique manifest registry', () => {
     const sourceIds = SOURCE_MANIFESTS.map(manifest => manifest.sourceId);
     const usageLines = SOURCE_MANIFESTS.map(manifest => manifest.usage);
@@ -824,6 +901,7 @@ describe('aidha cli phase-1 surface', () => {
         tagId: 'tag-1',
         confidence: 0.7,
         source: 'automatic',
+        taxonomyVersion: '9b34bdd251fd2e50', // pragma: allowlist secret -- synthetic taxonomy fixture fingerprint
         assignedAt: '2026-05-25T12:34:56.000Z',
         assignedBy: 'praecis-keyword-classifier',
       }]);

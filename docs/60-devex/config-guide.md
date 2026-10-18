@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
-last_updated: 2026-05-25
-version: "1.11"
+last_updated: 2026-10-16
+version: "1.12"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.11
-> **Last Updated:** 2026-05-25
+> **Version:** 1.12
+> **Last Updated:** 2026-10-16
 > **Type:** GUIDE
 
 ## Version History
@@ -35,6 +35,7 @@ docops_version: "2.0"
 | 1.9     | 2026-05-18 | AI     | Clarify lazy interpolation during config mutation       | —         | Draft  | —         |
 | 1.10    | 2026-05-25 | AI     | Document taxonomy extension seed data for ingestion classification. | — | Draft | AIDHA-PLAN-007 |
 | 1.11    | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence across ingestion vectors. | — | Draft | AIDHA-PLAN-007 |
+| 1.12    | 2026-10-16 | Codex  | Document dotenv resolution in the generic CLI. | — | Draft | [CLI configuration tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/cli.test.ts) |
 
 # AIDHA Configuration Guide
 
@@ -163,6 +164,13 @@ You can set these variables in your shell
 or use a `.env` file if you configure `env.dotenv_files` in your config.
 Each entry must be a string path; malformed entries fail validation, and
 dotenv paths stay confined to `base_dir_prelim`.
+
+For example, add `env: { dotenv_files: [.env.local] }` to the config and put
+`AIDHA_LLM_API_KEY` in `.env.local`. The generic `aidha` CLI now uses that value
+when resolving the active profile and source settings, without requiring a shell
+export. An existing shell variable takes precedence unless
+`env.override_existing: true` is configured. The regression test is in
+[CLI configuration tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/cli.test.ts).
 
 Config validation and `aidha config set` resolve interpolation before semantic
 checks for the active core profile. Inactive profiles and source overrides keep
