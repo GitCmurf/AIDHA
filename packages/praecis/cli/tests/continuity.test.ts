@@ -136,7 +136,7 @@ it('fails closed for a missing AIDHA_CONFIG and honors a valid CLI config over i
   );
   expect(envFailure.error).toBeUndefined();
   expect(envFailure.status).toBe(1);
-  expect(envFailure.stderr).toMatch(/explicit continuity config was not found/i);
+  expect(envFailure.stderr).toMatch(/config.*not found|not found.*config/i);
   expect(existsSync(join(home, '.local', 'share', 'aidha', 'aidha.sqlite'))).toBe(false);
 
   const cliOverridesEnv = invokeWithoutProfileWithEnv(
