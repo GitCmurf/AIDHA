@@ -33,9 +33,9 @@ describe('public YouTube ingestion failure', () => {
       })();
       await writeFile(configPath, [
         'config_version: 1', 'default_profile: default', 'profiles:', '  default:',
-        '    db: ' + JSON.stringify(dbPath),
+        `    db: ${JSON.stringify(dbPath)}`,
         '    llm:', '      model: ""', '      base_url: ""',
-        '      cache_dir: ' + JSON.stringify(join(directory, 'cache')),
+        `      cache_dir: ${JSON.stringify(join(directory, 'cache'))}`,
       ].join('\n'), 'utf8');
       const cliPath = fileURLToPath(new URL('../dist/cli.js', import.meta.url));
       const processResult = spawnSync(process.execPath,
