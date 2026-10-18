@@ -3,6 +3,7 @@
 
 import type { Clock, Sensitivity } from '../interfaces/index.js';
 import type { RawSource } from '../types/index.js';
+export { emptySourceConfigRegistration } from '../source-registration.js';
 
 const RESERVED_RESOURCE_METADATA_KEYS = new Set([
   'canonicalId',
@@ -69,21 +70,5 @@ export function createRawSource<TPayload>(input: SourceEnvelopeInput<TPayload>):
     payload: input.payload,
     ...(resourceMetadata ? { resourceMetadata } : {}),
     label: input.label,
-  };
-}
-
-export function emptySourceConfigRegistration(sourceId: string) {
-  return {
-    sourceId,
-    validateActiveSourceConfig(value: unknown): Record<string, never> {
-      if (
-        value === undefined ||
-        value === null ||
-        (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)
-      ) {
-        return {};
-      }
-      throw new Error(`${sourceId} source config does not accept source-private keys`);
-    },
   };
 }
