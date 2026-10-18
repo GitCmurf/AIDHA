@@ -14,11 +14,12 @@ describe('public CLI SQLite memory database', () => {
       await writeFile(config, 'config_version: 1\ndefault_profile: selected\nprofiles:\n  selected: {}\n', { mode: 0o600 });
       const cli = fileURLToPath(new URL('../dist/cli.js', import.meta.url));
       const run = (args: string[]) => spawnSync(process.execPath,
-        [cli, ...args, '--db', ':memory:', '--config', config],
+        [...(process.allowedNodeEnvironmentFlags.has('--experimental-sqlite') ? ['--experimental-sqlite'] : []),
+          cli, ...args, '--db', ':memory:', '--config', config],
         { cwd: directory, encoding: 'utf8', timeout: 20000, env: { PATH: process.env['PATH'] ?? '', LANG: 'C.UTF-8' } });
       const ingested = run(['ingest', 'video', 'test-video', '--mock']);
       expect(ingested.error).toBeUndefined();
-      expect(ingested.status).toBe(0);
+      expect(ingested.status, ingested.stderr).toBe(0);
       expect(ingested.stdout).toContain('Ingested video test-video');
       await expect(stat(join(directory, ':memory:'))).rejects.toMatchObject({ code: 'ENOENT' });
       const reopened = run(['export', 'transcript', 'video', 'test-video', '--out', join(directory, 'transcript.json')]);
