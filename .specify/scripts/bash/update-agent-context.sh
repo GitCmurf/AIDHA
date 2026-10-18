@@ -56,9 +56,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Explicit-source mode is independent of the legacy feature branch/specs layout.
 # Dispatch before evaluating legacy feature paths or installing legacy write traps.
-if [[ "${1:-}" == --* ]]; then
-    exec "$SCRIPT_DIR/../../../scripts/python" "$SCRIPT_DIR/../python/update_agent_context.py" "$@"
-fi
+for context_option in "$@"; do
+    if [[ "$context_option" == --* ]]; then
+        exec "$SCRIPT_DIR/../../../scripts/python" "$SCRIPT_DIR/../python/update_agent_context.py" "$@"
+    fi
+done
 
 source "$SCRIPT_DIR/common.sh"
 

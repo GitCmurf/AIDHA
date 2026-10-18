@@ -184,7 +184,7 @@ class TestGovernedAgentContext(unittest.TestCase):
         self.assertEqual(written.returncode, 0, written.stderr)
         self.assertIn(b"Python 3.12", self.agents.read_bytes())  # codespell:ignore assertin
 
-    def test_legacy_codex_route_still_reads_legacy_spec(self):
+    def write_legacy_plan(self):
         # common.sh intentionally falls back to main for an unborn Git branch.
         legacy = self.root / "specs/main/plan.md"
         legacy.parent.mkdir(parents=True)
@@ -194,9 +194,18 @@ class TestGovernedAgentContext(unittest.TestCase):
             "**Storage**: N/A\n**Project Type**: CLI\n",
             encoding="utf-8",
         )
+
+    def test_legacy_codex_route_still_reads_legacy_spec(self):
+        self.write_legacy_plan()
         result = self.run_helper("codex")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Python 3.12", self.agents.read_text(encoding="utf-8"))  # codespell:ignore assertin
+
+    def test_misplaced_preview_flag_never_falls_through_to_legacy_write(self):
+        self.write_legacy_plan()
+        result = self.run_helper("codex", "--plan", str(self.plan), "--preview")
+        self.assertNotEqual(result.returncode, 0, "Unsupported arguments must fail before legacy writes")
+        self.assertEqual(self.agents.read_bytes(), self.manual)
 
     def test_explicit_route_uses_project_python_environment(self):
         environment = self.root / ".venv/bin/python"
@@ -222,6 +231,54 @@ class TestGovernedAgentContext(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("regular file", result.stderr)  # codespell:ignore assertin
         self.assertEqual(self.agents.read_bytes(), self.manual)
+
+    def run_writer_fault(self, fault):
+        # Inject OS-boundary failures in a child running the real helper's main.
+        launcher = """
+import importlib.util
+from pathlib import Path
+import sys
+from unittest.mock import patch
+
+helper, plan, fault = sys.argv[1:]
+spec = importlib.util.spec_from_file_location('context_helper', helper)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+target = Path(plan).parents[2] / 'AGENTS.md'
+original_fsync = module.os.fsync
+
+def edit_during_flush(descriptor):
+    original_fsync(descriptor)
+    target.write_bytes(b'Concurrent manual edit\\n' + target.read_bytes())
+
+sys.argv = [helper, '--plan', plan, '--write']
+if fault == 'changed':
+    with patch.object(module.os, 'fsync', side_effect=edit_during_flush):
+        sys.exit(module.main())
+else:
+    with patch.object(module.os, 'replace', side_effect=PermissionError('injected replacement failure')):
+        sys.exit(module.main())
+"""
+        return subprocess.run(
+            [sys.executable, "-c", launcher,
+             str(self.root / ".specify/scripts/python/update_agent_context.py"),
+             str(self.plan), fault],
+            cwd=self.root, text=True, capture_output=True,
+        )
+
+    def test_intervening_manual_edit_survives_writer_rejection(self):
+        result = self.run_writer_fault("changed")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("changed during refresh", result.stderr)  # codespell:ignore assertin
+        self.assertEqual(self.agents.read_bytes(), b"Concurrent manual edit\n" + self.manual)
+        self.assertEqual(list(self.root.glob(".agent-context-*")), [])
+
+    def test_failed_atomic_replacement_preserves_manual_bytes_and_cleans_temporary_file(self):
+        result = self.run_writer_fault("replace")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("injected replacement failure", result.stderr)  # codespell:ignore assertin
+        self.assertEqual(self.agents.read_bytes(), self.manual)
+        self.assertEqual(list(self.root.glob(".agent-context-*")), [])
 
 
 if __name__ == "__main__":

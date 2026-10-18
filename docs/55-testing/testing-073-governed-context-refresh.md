@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-073
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-18
 title: Explicit Agent Context Refresh
 type: TESTING
@@ -12,7 +12,7 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-TESTING-073
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-18
 > **Type:** TESTING
 
@@ -23,6 +23,7 @@ docops_version: '2.0'
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify explicit plan input, preview, bounded writes and preservation tests | — | Draft | PLAN-015 |
+| 0.2 | 2026-10-18 | Codex | Test writer failures and reject misplaced preview flags before legacy writes | — | Draft | PR 46 review |
 
 ## Problem and scope
 
@@ -71,6 +72,8 @@ of the repair. All five fields are mandatory; unknown or duplicate fields, other
 non-list dependencies/storage, blank values and multiline text are rejected. Empty lists
 explicitly mean no dependencies or storage declared. Surrounding prose is never scraped.
 Source symlinks resolving outside the allowed planning directory are rejected.
+Explicit flags are parsed even if preceded by a legacy positional agent name; that unsupported
+combination fails before any legacy write, so a misplaced `--preview` cannot be silently ignored.
 
 ## Write and preview contract
 
@@ -103,8 +106,18 @@ missing legacy `specs/main/plan.md` error before implementation.
   nonregular targets and ambiguous/missing actions fail without altering manual content.
 - A missing target stays absent during preview and is created only by explicit write.
 - A legacy positional `codex` invocation still reads a legacy spec in its isolated fixture.
+- A positional `codex` followed by explicit preview flags fails without writing, even when a
+  valid legacy spec exists.
 - Explicit mode selects the existing project Python environment when available.
 - A nonregular source, including a FIFO, fails before reading rather than hanging.
+- An edit injected when the prepared file is flushed survives rejection by the final change check;
+  the generated temporary file is removed. A failed atomic replacement preserves the caller's
+  original bytes and also removes the temporary file.
+
+The two writer-failure tests call the real helper entrypoint in a child process with controlled
+OS-boundary fault injection. Counterfactual runs in separate disposable copies remove the final
+change guard or the cleanup guard respectively; each corresponding regression test fails. These
+controls establish that the assertions detect lost concurrent edits and leaked temporary files.
 
 ```bash
 bash -n .specify/scripts/bash/update-agent-context.sh
