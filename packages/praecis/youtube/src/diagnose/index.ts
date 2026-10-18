@@ -21,7 +21,8 @@ function toNumber(value: unknown, fallback = 0): number {
 
 function parsePromptPackId(promptVersion: string | undefined): ExtractionPromptPackId | undefined {
   if (!promptVersion) return undefined;
-  const match = promptVersion.match(/:pack:([^:]+)(?::\d+)?$/);
+  // Current canonical qualifications may carry custom/cache revisions after the pack.
+  const match = promptVersion.match(/:pack:([^:]+)(?=:|$)/);
   if (!match) return undefined;
   const promptPackId = match[1];
   switch (promptPackId) {
@@ -269,9 +270,7 @@ export async function diagnoseExtraction(
       ?? parsePromptPackId(resource.value.metadata?.['lastClaimRunPromptVersion'] as string | undefined)
       ?? parsePromptPackId(promptFromClaims)
       ?? 'generic-hierarchy';
-    const effectivePromptVersion = promptVersion.includes(':pack:')
-      ? promptVersion
-      : getEffectivePromptVersion(promptVersion, promptPackId);
+    const effectivePromptVersion = getEffectivePromptVersion(promptVersion, promptPackId);
 
     const rawEditorVersion = options.editorVersion
       ?? (resource.value.metadata?.['lastClaimRunEditorVersion'] as string | undefined);

@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-083
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-18
 title: Complete Transcript Data in Chunk Mining Prompts
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015]
 > **Document ID:** AIDHA-TESTING-083
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-18
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PLAN-015]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify complete chunk data and bounded input estimates. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-18 | Codex | Correct qualified pack cache identities. | — | Draft | PR 52 |
+| 0.3 | 2026-10-18 | Codex | Align diagnostic pack inference and provenance. | — | Draft | PR 52 |
 
 ## Contract
 
@@ -80,6 +81,11 @@ including bounded escalation from enumeration-framework to enumeration-framework
 caller omitting a pack retains the embedded pack; an unqualified version defaults to generic.
 The current generic and encoder revisions are rebuilt once, preserving family/custom revisions.
 Diagnostic candidate provenance reports the effective version actually used for its cache read.
+The exported YouTube `diagnoseExtraction` reader recognizes that pack before current cache/custom
+revision suffixes in canonical single-pack versions. It infers omitted packs from Resource or
+Claim metadata written by extraction, honors explicit pack options, and normalizes both loaded
+and reported identities through the shared helper. Historical nested-pack qualification is not
+a supported cache-reuse format; generation now writes canonical single-pack identities.
 
 The shared cache contract advances to `full-transcript-json-v2` for this correction. The payload
 JSON encoding is unchanged. Published v1 outer-runtime and evaluation-matrix results may contain
@@ -118,6 +124,12 @@ real evaluation runner with a recording fake provider. The runner regenerates ra
 resuming old claims, then resumes its corrected entry without constructing another client.
 Both original and published v1 matrix identities are tested with default, custom and qualified
 prompt-version labels. Judge/model selection and score cache identities are unchanged.
+
+`packages/praecis/youtube/tests/diagnose.test.ts` runs real extraction/store/cache fixtures,
+then proves diagnostic cache hits from either Resource or Claim metadata with current non-generic
+revisions. It also checks explicit pack override, normalized reported provenance and unchanged
+provider-call counts. Existing raw-v1 diagnostic tests remain in scope. This reader correction
+does not change generation output or advance the shared v2 cache revision.
 
 All provider interactions use recording fakes; no live service or paid model is needed.
 

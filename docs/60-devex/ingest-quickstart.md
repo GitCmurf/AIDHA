@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-10-18
-version: '0.36'
+version: '0.37'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.36
+> **Version:** 0.37
 > **Last Updated:** 2026-10-18
 > **Type:** GUIDE
 
@@ -59,6 +59,7 @@ docops_version: '2.0'
 | 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
 | 0.35 | 2026-10-18 | Codex | Preserve complete chunk prompt data. | — | Draft | AIDHA-TESTING-083 |
 | 0.36 | 2026-10-18 | Codex | Correct qualified pack cache reuse. | — | Draft | AIDHA-TESTING-083 |
+| 0.37 | 2026-10-18 | Codex | Align diagnostic cache provenance. | — | Draft | AIDHA-TESTING-083 |
 
 ## Purpose
 
@@ -370,3 +371,7 @@ Qualified prompt versions retain distinct caches for explicitly selected packs, 
 retry packs. The shared cache revision also invalidates earlier outer-runtime and matrix results;
 exact corrected requests still reuse their caches. This correction leaves the JSON payload,
 model choices and ranking unchanged.
+
+Extraction diagnostics infer the current non-generic prompt pack from saved extraction metadata,
+including its cache revision suffix. An explicit pack option overrides that inference. Diagnostic
+reports use the normalized cache identity and reuse the existing entry without model calls.
