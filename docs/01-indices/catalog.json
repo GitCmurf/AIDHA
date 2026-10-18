@@ -513,8 +513,8 @@
       "document_id": "AIDHA-RUNBOOK-005",
       "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2026-10-16",
-      "version": "0.2",
+      "last_updated": "2026-10-18",
+      "version": "0.3",
       "title": "Email Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
