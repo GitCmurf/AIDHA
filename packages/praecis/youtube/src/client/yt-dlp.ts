@@ -485,7 +485,7 @@ export async function fetchTranscriptWithYtDlp(
     args.push('--cookies', cookiesFile);
   }
 
-  args.push(videoIdOrUrl);
+  args.push('--', videoIdOrUrl);
 
   try {
     if (cfg.debugTranscript) {
