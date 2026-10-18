@@ -6,6 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SQLiteStore } from '../src/store/sqlite.js';
 
+const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split('.').map(Number);
+const supportsReadOnlySnapshots = nodeMajor >= 24 || (nodeMajor === 23 && nodeMinor >= 2) ||
+  (nodeMajor === 22 && nodeMinor >= 12);
+const snapshotTest = it.runIf(supportsReadOnlySnapshots);
+
 const directories: string[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -28,7 +33,7 @@ async function fixture() {
 }
 
 describe('SQLiteStore.readSnapshot', () => {
-  it('reads the full existing graph without changing its bytes and honors knowledge scope', async () => {
+  snapshotTest('reads the full existing graph without changing its bytes and honors knowledge scope', async () => {
     const { path, snapshot } = await fixture();
     const before = await readFile(path);
     expect(await SQLiteStore.readSnapshot(path)).toEqual({ ok: true, value: snapshot });
@@ -40,7 +45,7 @@ describe('SQLiteStore.readSnapshot', () => {
     expect(knowledge.value.edges).toEqual([]);
   });
 
-  it('does not initialize missing views, indexes or FTS structures', async () => {
+  snapshotTest('does not initialize missing views, indexes or FTS structures', async () => {
     const { path, snapshot } = await fixture();
     const database = new DatabaseSync(path);
     database.exec('DROP VIEW v_nodes; DROP INDEX nodes_type_idx; DROP TABLE IF EXISTS nodes_fts');
@@ -50,7 +55,7 @@ describe('SQLiteStore.readSnapshot', () => {
     expect(await readFile(path)).toEqual(before);
   });
 
-  it('keeps one coherent view when another WAL connection commits between node and edge reads', async () => {
+  snapshotTest('keeps one coherent view when another WAL connection commits between node and edge reads', async () => {
     const { path, snapshot } = await fixture();
     const writer = new DatabaseSync(path);
     writer.exec('PRAGMA journal_mode=WAL');
@@ -71,7 +76,7 @@ describe('SQLiteStore.readSnapshot', () => {
     } finally { writer.close(); }
   });
 
-  it('does not create a missing database or its parent', async () => {
+  snapshotTest('does not create a missing database or its parent', async () => {
     const { directory } = await fixture();
     const absentFile = join(directory, 'missing.sqlite');
     expect((await SQLiteStore.readSnapshot(absentFile)).ok).toBe(false);
@@ -81,7 +86,7 @@ describe('SQLiteStore.readSnapshot', () => {
     await expect(stat(join(directory, 'absent'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  it('returns corrupt and incomplete-schema failures without changing files and closes connections', async () => {
+  snapshotTest('returns corrupt and incomplete-schema failures without changing files and closes connections', async () => {
     const { directory } = await fixture();
     const corrupt = join(directory, 'corrupt.sqlite');
     await writeFile(corrupt, 'not a sqlite database');
@@ -99,7 +104,7 @@ describe('SQLiteStore.readSnapshot', () => {
     }
   });
 
-  it('opens a connection that rejects writes even through the wrapped store', async () => {
+  snapshotTest('opens a connection that rejects writes even through the wrapped store', async () => {
     const { path, snapshot } = await fixture();
     const original = SQLiteStore.prototype.exportSnapshot;
     vi.spyOn(SQLiteStore.prototype, 'exportSnapshot').mockImplementation(async function (this: SQLiteStore, options) {
@@ -111,7 +116,7 @@ describe('SQLiteStore.readSnapshot', () => {
     expect(await SQLiteStore.readSnapshot(path)).toEqual({ ok: true, value: snapshot });
   });
 
-  it('closes the connection when snapshot acquisition unexpectedly throws', async () => {
+  snapshotTest('closes the connection when snapshot acquisition unexpectedly throws', async () => {
     const { path } = await fixture();
     const error = new Error('Fictional snapshot failure');
     vi.spyOn(SQLiteStore.prototype, 'exportSnapshot').mockRejectedValue(error);
@@ -120,7 +125,7 @@ describe('SQLiteStore.readSnapshot', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('preserves the primary snapshot error when closing also reports a failure', async () => {
+  snapshotTest('preserves the primary snapshot error when closing also reports a failure', async () => {
     const { path } = await fixture();
     const primary = new Error('Fictional primary snapshot failure');
     const secondary = new Error('Fictional secondary close failure');
@@ -134,7 +139,7 @@ describe('SQLiteStore.readSnapshot', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('reports closing failure after an otherwise successful snapshot', async () => {
+  snapshotTest('reports closing failure after an otherwise successful snapshot', async () => {
     const { path } = await fixture();
     const secondary = new Error('Fictional close failure after snapshot');
     const closeOriginal = DatabaseSync.prototype.close;
@@ -144,6 +149,20 @@ describe('SQLiteStore.readSnapshot', () => {
     });
     expect(await SQLiteStore.readSnapshot(path)).toEqual({ ok: false, error: secondary });
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it.runIf(!supportsReadOnlySnapshots)('rejects the actual unsupported runtime without changing an existing file', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'aidha-unsupported-snapshot-'));
+    directories.push(directory);
+    const path = join(directory, 'existing.sqlite');
+    const database = new DatabaseSync(path);
+    database.exec("CREATE TABLE fixture (value TEXT); INSERT INTO fixture VALUES ('Existing content')");
+    database.close();
+    const before = await readFile(path);
+    const result = await SQLiteStore.readSnapshot(path);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('Read-only graph snapshots require Node.js');
+    expect(await readFile(path)).toEqual(before);
   });
 
   it.each(['22.5.0', '22.11.9', '23.0.0', '23.1.0'])('refuses unsupported Node %s before opening a file', async version => {

@@ -13,6 +13,12 @@ import {
   type GraphSnapshot,
 } from '@aidha/graph-backend';
 
+const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split('.').map(Number);
+const supportsReadOnlySnapshots = nodeMajor >= 24 || (nodeMajor === 23 && nodeMinor >= 2) ||
+  (nodeMajor === 22 && nodeMinor >= 12);
+// Preserve only the known SQLite feature flag, never arbitrary parent runtime options.
+const sqliteFlags = process.allowedNodeEnvironmentFlags.has('--experimental-sqlite') ? ['--experimental-sqlite'] : [];
+
 const directories: string[] = [];
 const cliPath = fileURLToPath(new URL('../dist/cli.js', import.meta.url));
 
@@ -68,7 +74,7 @@ function execute(f: Fixture, extra: string[] = []) {
 }
 
 function executeArgs(f: Fixture, args: string[], environment: Record<string, string> = {}) {
-  const result = spawnSync(process.execPath, [cliPath, ...args], {
+  const result = spawnSync(process.execPath, [...sqliteFlags, cliPath, ...args], {
     cwd: f.directory,
     encoding: 'utf8',
     timeout: 20000,
@@ -91,7 +97,7 @@ async function expectInputsUnchanged(f: Fixture) {
   }
 }
 
-describe('public JSON-LD graph export', () => {
+describe.runIf(supportsReadOnlySnapshots)('public JSON-LD graph export', () => {
   it.each(['file', 'symlink', 'hardlink', 'directory', 'database', 'config'])(
     'refuses an existing %s destination and preserves its contents', async kind => {
       const f = await fixture();
@@ -301,5 +307,35 @@ describe('public JSON-LD graph export', () => {
     expect(result.stdout.endsWith('\n')).toBe(true);
     expect(execute(f).stdout).toBe(result.stdout);
     await expectInputsUnchanged(f);
+  }, 60000);
+});
+
+
+describe('unsupported runtime JSON-LD export', () => {
+  it.runIf(!supportsReadOnlySnapshots)('reports the command runtime requirement without output or input mutation', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'aidha-unsupported-export-'));
+    directories.push(directory);
+    const dbPath = join(directory, 'graph.sqlite');
+    const configPath = join(directory, 'config.yaml');
+    const out = join(directory, 'export.jsonld');
+    const database = new DatabaseSync(dbPath);
+    database.exec("CREATE TABLE fixture (value TEXT); INSERT INTO fixture VALUES ('Existing content')");
+    database.close();
+    await writeFile(configPath, [
+      'config_version: 1', 'default_profile: selected', 'profiles:', '  selected:',
+      `    db: ${JSON.stringify(dbPath)}`,
+    ].join('\n'), { encoding: 'utf8', mode: 0o600 });
+    const before = { db: await readFile(dbPath), config: await readFile(configPath) };
+    const result = spawnSync(process.execPath,
+      [...sqliteFlags, cliPath, 'export', 'graph', '--jsonld', '--config', configPath, '--out', out],
+      { cwd: directory, encoding: 'utf8', timeout: 20000,
+        env: { PATH: process.env['PATH'] ?? '', LANG: 'C.UTF-8' } });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('Read-only graph snapshots require Node.js');
+    expect(await readFile(dbPath)).toEqual(before.db);
+    expect(await readFile(configPath)).toEqual(before.config);
+    await expect(stat(out)).rejects.toMatchObject({ code: 'ENOENT' });
   }, 60000);
 });
