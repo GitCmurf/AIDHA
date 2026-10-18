@@ -23,7 +23,7 @@ export const Video = z.object({
   duration: z.number().int().nonnegative(),
 
   /** ISO 8601 publish date */
-  publishedAt: z.string().datetime(),
+  publishedAt: z.string().datetime().optional(),
 
   /** Video description */
   description: z.string().optional(),

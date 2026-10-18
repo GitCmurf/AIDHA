@@ -20,6 +20,18 @@ export interface RawSource<TPayload = unknown> {
   payload: TPayload;
   /** Source-specific Resource metadata persisted by the shared spine. */
   resourceMetadata?: Record<string, unknown>;
+  /**
+   * Optional atomic ownership groups for related Resource metadata fields.
+   * The shared spine binds group ownership to this source's canonicalId.
+   */
+  resourceMetadataGroups?: ResourceMetadataGroup[];
   /** Human-readable Resource label. */
   label: string;
+}
+
+export interface ResourceMetadataGroup {
+  /** Stable source-neutral identity for this related metadata set. */
+  id: string;
+  /** Resource metadata fields merged as one source-owned unit. */
+  fields: string[];
 }

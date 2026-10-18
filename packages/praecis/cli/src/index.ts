@@ -2,14 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { SQLiteStore } from '@aidha/graph-backend';
-import {
-  formatProvenance,
-  loadConfig,
-  resolveConfig,
-  resolveKeyProvenance,
-  ConfigNotFoundError,
-} from '@aidha/config';
-import type { LoadResult, ResolvedConfig, SourceRegistration } from '@aidha/config';
+import type { ResolvedConfig, SourceRegistration } from '@aidha/config';
 import {
   createYouTubeVectorSpec,
   MockYouTubeClient,
@@ -62,11 +55,13 @@ import {
 import { createConfiguredPipelineServices, createIngestionRuntimeFromServices, runBatch, type BatchOutcome, type ClassificationResult, type ComposedVector, type LlmClient, type PipelineServices, type Result, type RunReport } from '@aidha/praecis-core';
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
-import { createCliUsageText } from './help.js';
-
-export interface CliOptions {
-  [key: string]: string | boolean | undefined;
-}
+import { INGEST_USAGE } from './ingest-usage.js';
+import { SOURCE_REGISTRATIONS } from './source-registrations.js';
+import { resolveAidhaConfig } from './config-runtime.js';
+import { optionString, parseCliArguments, validateConfigSelectorOptions, type CliOptions } from './cli-args.js';
+export type { CliOptions } from './cli-args.js';
+export { explainResolvedKey, resolveAidhaConfig } from './config-runtime.js';
+import { runLightCli } from './light-cli.js';
 
 export interface IngestSummary {
   readonly sourceId: 'youtube' | 'web' | 'pdf' | 'voice' | 'meeting' | 'rss' | 'podcast' | 'readwise' | 'email' | 'linkedin';
@@ -163,10 +158,6 @@ export interface SourceIngestManifest<TSummary extends IngestCommandSummary = In
 
 function isString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
-}
-
-function optionString(options: CliOptions, key: string): string | undefined {
-  return isString(options[key]) ? options[key] : undefined;
 }
 
 function optionBool(options: CliOptions, key: string): boolean {
@@ -610,93 +601,6 @@ export async function runYouTubePlaylistIngest(
   };
 }
 
-export async function resolveAidhaConfig(
-  opts: { configPath?: string; profile?: string; source?: string } = {},
-): Promise<{ readonly ok: true; readonly config: ResolvedConfig; readonly loadResult: LoadResult } | { readonly ok: false; readonly error: Error; readonly loadResult: LoadResult }> {
-  try {
-    const loadOptions: Parameters<typeof loadConfig>[0] = { cwd: process.cwd(), syncProcessEnv: false };
-    if (opts.configPath) {
-      loadOptions.configPath = opts.configPath;
-    }
-    const loadResult = await loadConfig(loadOptions);
-
-    const resolveOptions: Parameters<typeof resolveConfig>[0] = {
-      rawConfig: loadResult.config,
-      baseDir: loadResult.baseDir,
-      sourceRegistrations: SOURCE_REGISTRATIONS,
-      env: loadResult.dotenvEnv,
-      dotenvVarCount: Object.keys(loadResult.dotenvEnv).length,
-      warningCount: loadResult.warnings.length,
-    };
-    if (opts.profile) {
-      resolveOptions.profileName = opts.profile;
-    }
-    if (opts.source) {
-      resolveOptions.sourceId = opts.source;
-    }
-    const config = resolveConfig(resolveOptions);
-
-    return { ok: true, config, loadResult };
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    if (err instanceof ConfigNotFoundError) {
-      const resolveOptions: Parameters<typeof resolveConfig>[0] = { sourceRegistrations: SOURCE_REGISTRATIONS };
-      if (opts.profile) {
-        resolveOptions.profileName = opts.profile;
-      }
-      if (opts.source) {
-        resolveOptions.sourceId = opts.source;
-      }
-      const config = resolveConfig(resolveOptions);
-      return {
-        ok: true,
-        config,
-        loadResult: {
-          config: null,
-          configPath: opts.configPath ?? null,
-          baseDir: process.cwd(),
-          warnings: [],
-          dotenvEnv: {},
-        },
-      };
-    }
-    return {
-      ok: false,
-      error: err,
-      loadResult: {
-        config: null,
-        configPath: opts.configPath ?? null,
-        baseDir: process.cwd(),
-        warnings: [],
-        dotenvEnv: {},
-      },
-    };
-  }
-}
-
-export function explainResolvedKey(
-  key: string,
-  configResult: { readonly config: ResolvedConfig; readonly loadResult: LoadResult },
-  opts: { profile?: string; source?: string } = {},
-): string {
-  const resolved = configResult.config;
-  const provenanceOptions: Parameters<typeof resolveKeyProvenance>[0] = {
-    key,
-    rawConfig: configResult.loadResult.config,
-    resolvedConfig: resolved,
-    cliOverrides: {},
-    sourceRegistrations: SOURCE_REGISTRATIONS,
-  };
-  if (opts.profile) {
-    provenanceOptions.profileName = opts.profile;
-  }
-  if (opts.source) {
-    provenanceOptions.sourceId = opts.source;
-  }
-  const { value, provenance } = resolveKeyProvenance(provenanceOptions);
-  return formatProvenance(provenance, value);
-}
-
 export async function resolveRuntimeServicesForSource(
   sourceId: IngestSummary['sourceId'],
   options: CliOptions,
@@ -816,19 +720,6 @@ function singleVectorManifest(args: {
     print: printSingleIngestSummary,
   };
 }
-
-const INGEST_USAGE: Record<SourceId, string> = {
-  youtube: 'aidha ingest youtube (--url <videoIdOrUrl> | --playlist <playlistIdOrUrl>) [--mock] [--json]',
-  web: 'aidha ingest web --url <url> [--json]',
-  pdf: 'aidha ingest pdf --file <path> [--json]',
-  voice: 'aidha ingest voice --file <path> [--json]',
-  meeting: 'aidha ingest meeting --file <path> [--json]',
-  rss: 'aidha ingest rss --feed <url> [--item-guid <guid>] [--json]',
-  podcast: 'aidha ingest podcast --feed <url> [--episode <guid>] [--panel] [--json]',
-  readwise: 'aidha ingest readwise --since <iso8601> [--token <token>] [--json]',
-  email: 'aidha ingest email --file <path> [--json]',
-  linkedin: 'aidha ingest linkedin --paste <text> [--url <url>] [--json]',
-};
 
 export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
   {
@@ -979,56 +870,17 @@ export const SOURCE_MANIFESTS: readonly SourceIngestManifest[] = [
 ] as const;
 
 const SOURCE_MANIFEST_BY_ID = new Map(SOURCE_MANIFESTS.map(manifest => [manifest.sourceId, manifest]));
-const SOURCE_REGISTRATIONS: SourceRegistration[] = SOURCE_MANIFESTS.map(manifest => manifest.registration);
-const CLI_USAGE_TEXT = createCliUsageText(SOURCE_MANIFESTS.map(manifest => manifest.usage));
+if (SOURCE_MANIFESTS.map(manifest => manifest.registration.sourceId).join(',') !== SOURCE_REGISTRATIONS.map(registration => registration.sourceId).join(',')) {
+  throw new Error('Ingest manifests and source registration registry are out of sync.');
+}
 
 export async function runCli(argv: string[]): Promise<number> {
-  const positionals: string[] = [];
-  const options: CliOptions = {};
-
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (!arg) continue;
-    if (arg.startsWith('--')) {
-      const key = arg.slice(2);
-      const next = argv[i + 1];
-      if (next !== undefined && !next.startsWith('-')) {
-        options[key] = next;
-        i += 1;
-      } else {
-        options[key] = true;
-      }
-    } else {
-      positionals.push(arg);
-    }
-  }
+  const { positionals, options } = parseCliArguments(argv);
 
   const command = positionals[0];
   try {
-    if (command === 'config' && positionals[1] === 'explain') {
-      const key = positionals[2];
-      if (!key) {
-        console.error('Usage: config explain <key> [--config <path>] [--profile <name>] [--source <id>]');
-        return 1;
-      }
-      const configOpts: { configPath?: string; profile?: string; source?: string } = {};
-      const configPath = optionString(options, 'config');
-      const profile = optionString(options, 'profile');
-      const source = optionString(options, 'source');
-      if (configPath) configOpts.configPath = configPath;
-      if (profile) configOpts.profile = profile;
-      if (source) configOpts.source = source;
-      const configResult = await resolveAidhaConfig(configOpts);
-      if (!configResult.ok) {
-        console.error(configResult.error.message);
-        return 1;
-      }
-      const explainOpts: { profile?: string; source?: string } = {};
-      if (profile) explainOpts.profile = profile;
-      if (source) explainOpts.source = source;
-      console.log(explainResolvedKey(key, configResult, explainOpts));
-      return 0;
-    }
+    if (command !== 'ingest') return await runLightCli(argv);
+    validateConfigSelectorOptions(options);
 
     if (command === 'ingest') {
       const mode = positionals[1];
@@ -1052,8 +904,7 @@ export async function runCli(argv: string[]): Promise<number> {
       return 0;
     }
 
-    console.log(CLI_USAGE_TEXT);
-    return 0;
+    return await runLightCli(argv);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error(err.message);

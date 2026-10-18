@@ -6,7 +6,7 @@ import type { IIngestor, IngestInput, VectorRuntimeContext } from '@aidha/praeci
 import type { RawSource } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
 import type { YouTubeClient } from '../client/types.js';
-import type { Video } from '../schema/index.js';
+import { Video } from '../schema/index.js';
 import type { Transcript } from '../schema/index.js';
 import { SOURCE_ID } from '../config/youtube-source-adapter.js';
 
@@ -18,7 +18,7 @@ export interface YouTubeVideoPayload {
   channelId: string;
   channelName: string;
   duration: number;
-  publishedAt: string;
+  publishedAt?: string;
   description?: string;
   thumbnailUrl?: string;
   transcript: Transcript | null;
@@ -42,6 +42,8 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       return { ok: false, error: videoResult.error };
     }
     const video: Video = videoResult.value;
+    const publicationDate = Video.shape.publishedAt.safeParse(video.publishedAt);
+    const publishedAt = publicationDate.success ? publicationDate.data : undefined;
 
     const transcriptResult = await this.client.fetchTranscript(videoId);
     const transcript: Transcript | null = transcriptResult.ok ? transcriptResult.value : null;
@@ -52,7 +54,7 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       channelId: video.channelId,
       channelName: video.channelName,
       duration: video.duration,
-      publishedAt: video.publishedAt,
+      publishedAt,
       description: video.description,
       thumbnailUrl: video.thumbnailUrl,
       transcript,
@@ -70,7 +72,8 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
         channelId: video.channelId,
         channelName: video.channelName,
         duration: video.duration,
-        publishedAt: video.publishedAt,
+        // Null clears a stale date when current acquisition has no valid date.
+        publishedAt: publishedAt ?? null,
         description: video.description,
         url: `https://www.youtube.com/watch?v=${videoId}`,
         thumbnailUrl: video.thumbnailUrl,
