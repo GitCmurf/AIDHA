@@ -51,3 +51,20 @@ export function sanitizeForPrompt(text: string, maxLength: number): string {
   }
   return Array.from(sanitized).slice(0, maxLength).join('');
 }
+
+export const TRANSCRIPT_EXCERPT_ENCODING_VERSION = 'full-transcript-json-v1';
+
+/**
+ * Encode complete excerpt data without interpreting source words as instructions.
+ * JSON escapes embedded quotes/newlines, so source triple quotes cannot close the
+ * surrounding triple-quote data section. Callers retain explicit untrusted-data
+ * instructions; this structural boundary is not a model-injection guarantee.
+ */
+export function encodeTranscriptExcerpts(excerpts: readonly {
+  readonly id: string;
+  readonly startSeconds: number;
+  readonly text: string;
+  readonly speaker?: string;
+}[]): string {
+  return JSON.stringify(excerpts, null, 2);
+}

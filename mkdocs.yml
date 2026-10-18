@@ -30,6 +30,7 @@ nav:
       - Taxonomy Runbook: 50-runbooks/runbook-002-taxonomy.md
       - Ingestion Runbook: 50-runbooks/runbook-003-youtube-ingestion.md
   - Testing:
+      - Complete Chunk Prompt Data: 55-testing/testing-083-transcript-prompt-fidelity.md
       - MVP Test Suite: 55-testing/testing-001-mvp-tests.md
       - Distillation Validation Contracts: 55-testing/testing-056-distillation-validation.md
       - Model Distillation and Grounding: 55-testing/testing-057-distillation-pipeline.md

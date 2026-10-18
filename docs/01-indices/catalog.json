@@ -76,8 +76,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-05-25",
-      "version": "0.34",
+      "last_updated": "2026-10-18",
+      "version": "0.35",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -312,6 +312,24 @@
       "title": "MVP Test Suite Map and Hardening Coverage",
       "type": "TESTING",
       "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "55-testing/testing-083-transcript-prompt-fidelity.md",
+    "title": "Complete Transcript Data in Chunk Mining Prompts",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-083",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "Complete Transcript Data in Chunk Mining Prompts",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015"
+      ]
     }
   },
   {
