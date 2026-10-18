@@ -1,3 +1,5 @@
+import { VoiceSourceRegistration } from './registration.js';
+export { VoiceSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -5,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { ResolvedConfig } from '@aidha/config';
-import { composeVector, createRawSource, emptySourceConfigRegistration, transcribeStrategy } from '@aidha/praecis-core';
+import { composeVector, createRawSource, transcribeStrategy } from '@aidha/praecis-core';
 import type {
   AudioRef,
   ExtractionContext,
@@ -92,7 +94,6 @@ export class VoiceIngestor implements IIngestor<AudioRef> {
   }
 }
 
-export const VoiceSourceRegistration = emptySourceConfigRegistration('voice');
 
 export function createVoiceVectorSpec(options: {
   readonly readFileFn?: typeof readFile;

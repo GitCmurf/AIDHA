@@ -379,6 +379,25 @@
     }
   },
   {
+    "path": "55-testing/testing-091-cli-startup-import-boundary.md",
+    "title": "CLI Startup Import Boundary",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-091",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "CLI Startup Import Boundary",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI",
+      "related_ids": [
+        "AIDHA-TESTING-078",
+        "AIDHA-TESTING-089"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-059-semantic-quality.md",
     "title": "Source Distillation Semantic Quality Checkpoint",
     "front_matter": {
