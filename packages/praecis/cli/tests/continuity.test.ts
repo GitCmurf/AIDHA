@@ -7,6 +7,9 @@ import { capture } from '../../core/tests/continuity/fixture.js';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const directories: string[] = [];
+// Real CLI startup can exceed 15 seconds; retain finite child and sequence limits.
+const CHILD_PROCESS_TIMEOUT_MS = 60_000;
+const PROCESS_TEST_TIMEOUT_MS = 600_000;
 
 afterEach(() => {
   for (const dir of directories.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -28,7 +31,7 @@ function setup() {
       '--experimental-sqlite', join(root, 'packages/praecis/cli/dist/cli.js'),
       'continuity', ...args, '--config', selectedConfig, '--profile', 'test',
     ], {
-      cwd: dir, encoding: 'utf8', timeout: 15_000,
+      cwd: dir, encoding: 'utf8', timeout: CHILD_PROCESS_TIMEOUT_MS,
       env: { PATH: process.env['PATH'], HOME: home, XDG_CONFIG_HOME: home },
     });
   };
@@ -37,7 +40,7 @@ function setup() {
     '--experimental-sqlite', join(root, 'packages/praecis/cli/dist/cli.js'),
     'continuity', ...args,
   ], {
-    cwd: dir, encoding: 'utf8', timeout: 15_000,
+    cwd: dir, encoding: 'utf8', timeout: CHILD_PROCESS_TIMEOUT_MS,
     env: { PATH: process.env['PATH'], HOME: home, XDG_CONFIG_HOME: home, ...extraEnv },
   });
   const invokeWithoutProfile = (...args: string[]) => invokeWithoutProfileWithEnv({}, ...args);
@@ -75,7 +78,7 @@ it('exposes the strict capture/update schemas and command help without opening a
   const invalid = invoke('schema', '--kind', 'other');
   expect(invalid.status).toBe(1);
   expect(invalid.stderr).toMatch(/--kind must be capture or update/i);
-}, 15_000);
+}, PROCESS_TEST_TIMEOUT_MS);
 
 it('accepts an exact 1 MiB input and rejects larger or non-file inputs before store access', () => {
   const { call, invoke, invokeWithConfig, dir } = setup();
@@ -103,7 +106,7 @@ it('accepts an exact 1 MiB input and rejects larger or non-file inputs before st
   expect(notAFile.status).toBe(1);
   expect(notAFile.stderr).toMatch(/regular file/i);
   expect(call('show', '--case', 'friday', '--on', '2026-10-02', '--json')).toEqual(saved);
-}, 60_000);
+}, PROCESS_TEST_TIMEOUT_MS);
 
 it('fails closed for a missing explicit config without creating a fallback database', () => {
   const { input, invokeWithoutProfile, dir, home } = setup();
@@ -114,7 +117,7 @@ it('fails closed for a missing explicit config without creating a fallback datab
   expect(result.stderr).toMatch(/config.*not found|not found.*config/i);
   expect(existsSync(join(home, '.local', 'share', 'aidha', 'aidha.sqlite'))).toBe(false);
   expect(existsSync(join(dir, 'graph.sqlite'))).toBe(false);
-});
+}, PROCESS_TEST_TIMEOUT_MS);
 
 it('uses the default profile from a valid explicit config when --profile is omitted', () => {
   const { input, invokeWithoutProfile, dir } = setup();
@@ -123,7 +126,7 @@ it('uses the default profile from a valid explicit config when --profile is omit
   expect(result.status, result.stderr).toBe(0);
   expect(JSON.parse(result.stdout)).toEqual({ caseId: 'friday', revision: 1, replayed: false });
   expect(existsSync(join(dir, 'graph.sqlite'))).toBe(true);
-});
+}, PROCESS_TEST_TIMEOUT_MS);
 
 it('fails closed for a missing AIDHA_CONFIG and honors a valid CLI config over it', () => {
   const { input, invokeWithoutProfileWithEnv, dir, home } = setup();
@@ -143,7 +146,7 @@ it('fails closed for a missing AIDHA_CONFIG and honors a valid CLI config over i
   expect(cliOverridesEnv.error).toBeUndefined();
   expect(cliOverridesEnv.status, cliOverridesEnv.stderr).toBe(0);
   expect(JSON.parse(cliOverridesEnv.stdout)).toEqual({ caseId: 'friday', revision: 1, replayed: false });
-});
+}, PROCESS_TEST_TIMEOUT_MS);
 
 it.each([
   { flags: ['--config'] },
@@ -156,11 +159,11 @@ it.each([
   expect(result.stderr).toMatch(/--(?:config|profile).*(?:value|required)/i);
   expect(existsSync(join(home, '.local', 'share', 'aidha', 'aidha.sqlite'))).toBe(false);
   expect(existsSync(join(dir, 'graph.sqlite'))).toBe(false);
-});
+}, PROCESS_TEST_TIMEOUT_MS);
 
 describe('continuity through the built public package executable', () => {
   it('captures, corrects and recovers exact source history across fresh processes', () => {
-    const { call, input, invoke, dir } = setup();
+    const { call, input, invoke } = setup();
     expect(call('capture', '--case', 'friday', '--input', input('capture', capture)))
       .toEqual({ caseId: 'friday', revision: 1, replayed: false });
     const resumed = call('show', '--case', 'friday', '--on', '2026-10-02', '--json');
@@ -204,5 +207,5 @@ describe('continuity through the built public package executable', () => {
     expect(failure.status).toBe(1);
     expect(failure.stderr).toMatch(/revision conflict/i);
     expect(call('show', '--case', 'friday', '--on', '2026-10-02', '--json')).toEqual(corrected);
-  }, 60_000);
+  }, PROCESS_TEST_TIMEOUT_MS);
 });
