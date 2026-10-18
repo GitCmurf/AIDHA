@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-079
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-18
 title: Configuration Filesystem Paths
 type: TESTING
@@ -12,7 +12,7 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-TESTING-079
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-18
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ docops_version: '2.0'
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify bare filesystem path resolution. | — | Draft | AIDHA-PLAN-005 |
 | 0.2 | 2026-10-18 | Codex | Preserve the SQLite memory database sentinel. | — | Draft | PR 48 |
+| 0.3 | 2026-10-18 | Codex | Build native CLI test dependencies before execution. | — | Draft | PR 48 |
 
 ## Contract
 
@@ -66,6 +67,9 @@ The config bridge regression protects `--db :memory:`. The built-executable test
 ingestion in a separate process, asserts no physical `:memory:` file exists, and opens a
 fresh process whose transcript export must report that the ingested Resource is absent.
 This proves connection-local lifetime rather than relying on an in-process test store.
+The native test builds its CLI and transitive workspace dependencies in a bounded setup hook,
+using the test process runtime. A standalone package test therefore exercises current source
+even when build artifacts are missing or stale.
 
 ## Validation
 
