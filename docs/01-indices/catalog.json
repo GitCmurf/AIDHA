@@ -334,6 +334,24 @@
     }
   },
   {
+    "path": "55-testing/testing-087-meminit-lock-ignore.md",
+    "title": "Ignore Generated Meminit Lock Files",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-087",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "Ignore Generated Meminit Lock Files",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS",
+      "related_ids": [
+        "AIDHA-GOV-001"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-056-distillation-validation.md",
     "title": "Validation and Evidence Checks for Model-Generated Distillations",
     "front_matter": {
