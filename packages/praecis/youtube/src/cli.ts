@@ -279,7 +279,7 @@ async function createStoredYouTubeClient(store: GraphStore, videoId: string): Pr
     channelId: metadataString(metadata, 'channelId') ?? 'stored',
     channelName: metadataString(metadata, 'channelName') ?? 'Stored YouTube',
     duration: metadataNumber(metadata, 'duration') ?? 0,
-    publishedAt: metadataString(metadata, 'publishedAt') ?? new Date(0).toISOString(),
+    publishedAt: metadataString(metadata, 'publishedAt'),
     ...(metadataString(metadata, 'description') ? { description: metadataString(metadata, 'description') } : {}),
     ...(metadataString(metadata, 'thumbnailUrl') ? { thumbnailUrl: metadataString(metadata, 'thumbnailUrl') } : {}),
   };
