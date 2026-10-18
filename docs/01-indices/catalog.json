@@ -364,6 +364,26 @@
     }
   },
   {
+    "path": "55-testing/testing-059-semantic-quality.md",
+    "title": "Source Distillation Semantic Quality Checkpoint",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-059",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-17",
+      "title": "Source Distillation Semantic Quality Checkpoint",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-057",
+        "AIDHA-TESTING-058"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-079-config-filesystem-paths.md",
     "title": "Configuration Filesystem Paths",
     "front_matter": {
@@ -666,7 +686,7 @@
       "document_id": "AIDHA-PLAN-015",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.15",
+      "version": "0.17",
       "last_updated": "2026-10-17",
       "title": "Branch Landing and Next Sprints Workflow",
       "type": "PLAN",

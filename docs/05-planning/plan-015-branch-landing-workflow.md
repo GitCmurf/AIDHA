@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.15'
+version: '0.17'
 last_updated: 2026-10-17
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.15
+> **Version:** 0.17
 > **Last Updated:** 2026-10-17
 > **Type:** PLAN
 
@@ -39,6 +39,8 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.13 | 2026-10-17 | Codex | Record owner approval and PR 34 merge; prepare the bounded generation and grounding slice. | CMF | Draft | PR 34 |
 | 0.14 | 2026-10-17 | Codex | Record PR 35 final checks, actual bot assessment and concrete owner merge brief. | — | Draft | PR 35 |
 | 0.15 | 2026-10-17 | Codex | Record PR 35 approval, merge-gate sequencing error, corrective slice and semantic-quality priority. | CMF | Draft | PR 35 |
+| 0.16 | 2026-10-17 | Codex | Record the reviewed context correction, semantic checkpoint and explicit hold on unstable experiments. | — | Draft | AIDHA-TESTING-059 |
+| 0.17 | 2026-10-17 | Codex | Refresh the decision-model shortlist and task-specific evaluation plan; preserve failed native replies after a genuine bot finding. | — | Draft | PR 37; owner model refresh |
 
 ## Purpose and authority
 
@@ -172,8 +174,11 @@ findings inaccessible with HTTP 403 remain the review limits recorded on PR 35.
 - [x] Obtain separate owner approval for PR 35 and merge the approved head.
 - [x] Verify exact integrated-tree equality.
 - [x] Reproduce the late shared-excerpt finding and prepare a separate correction.
-- [ ] Complete correction checks/reviews, publish its PR and obtain separate merge approval.
-- [ ] Verify post-merge main CI and refresh the context helper where supported.
+- [x] Complete correction checks/reviews and publish PR 36.
+- [ ] Obtain separate approval and merge PR 36 after a fresh review gate.
+- [x] Verify all four PR 35 post-merge main CI workflows pass.
+- [x] Attempt the context helper; missing `specs/024-grounding-context/plan.md` prevents it
+  before edits. The governed workflow and testing specs remain the restart record.
 
 ### Next sprint: semantic-quality evaluation and improvement
 
@@ -181,10 +186,11 @@ The target is better preservation of useful meaning, beyond mechanically valid o
 
 - [x] Freeze three newly authored public multi-excerpt sources and provisional semantic expectations.
 - [x] Keep expectations out of generation and grounding prompts; preserve the original private texts.
-- [ ] Exercise the actual miner, runtime and exporter with a bounded native-model run.
-- [ ] Review core-idea recall, qualifiers, corrections, origins, rationale and procedural leakage.
-- [ ] Fix the smallest demonstrated quality failure and compare a paired run with the same model.
-- [ ] Keep source-level omission, grounding and projection losses separately inspectable.
+- [x] Exercise the actual miner, runtime and exporter with a bounded native-model baseline.
+- [x] Review core-idea recall, qualifiers, corrections, origins, rationale and procedural leakage.
+- [x] Test targeted corrections against the same model and frozen sources; record all failures.
+- [ ] Demonstrate a repeatable improvement before landing experimental semantic changes.
+- [x] Keep source-level omission, grounding and projection losses separately inspectable.
 - [ ] Show the owner concrete before/after evidence; do not claim synthetic expectations are human gold.
 
 `025-semantic-quality` prepares this work independently. Native Claude subscription calls use
@@ -193,6 +199,71 @@ Record the actual resolved model and usage; native CLI results do not establish 
 parity or default-pipeline quality. Source-report persistence follows when needed for the real
 reader trial; it is not a substitute for measuring semantic usefulness. No owner input blocks
 this preparation. Future PRs retain their own merge gate.
+
+## Model refresh before further semantic tuning
+
+The owner identified newer decision models on 2026-10-17. Refresh model selection separately
+for each ingestion task. The current checkpoint used one native generative model and low effort;
+it cannot establish the current quality/cost frontier or rank decision-only models.
+
+| Task | Model role and acceptance focus |
+| --- | --- |
+| Source distillation and wording repair | A generative writer must preserve useful meaning, source-stated rationale, qualifications and attribution; refresh the strong generative baseline |
+| Taxonomy, unit kind and relevance | Bounded decisions over explicit category definitions, including unknown/abstain and overlapping topics |
+| Grounding and limitation applicability | Evidence-backed accept/reject/escalate or target selection; measure misleading false acceptance separately from unnecessary rejection |
+| Quote, reference and persistence checks | Existing deterministic checks remain mandatory regardless of model confidence |
+
+### Dated candidate inventory
+
+Verified official/provider documentation on 2026-10-17; prices are USD per million input tokens.
+These are candidates, not an AIDHA ranking. Quoted zero output pricing does not make requests free.
+
+| Candidate | Published input / output price | Route and evidence |
+| --- | --- | --- |
+| TypeSafe Jev 1.14 | $0.042 / $0 | [OpenRouter current Jev guide](https://openrouter.ai/blog/insights/what-is-jev/). Pin the resolved version rather than a latest alias |
+| Microsoft-Decision-1 | $0.042 / $0 | [Microsoft launch and pricing](https://commandline.microsoft.com/microsoft-decision-1-model-foundry/). Foundry or OpenRouter |
+| GPT-6 Luna Decisions | $0.10 / $0 | [Official OpenAI Decisions guide](https://developers.openai.com/api/docs/guides/decisions). The quoted rate is specific to `/v1/decisions`, with regional/long-context premiums |
+| Liquid d1-ultra | $0.042 / $0 on the listed route | [Current OpenRouter model listing](https://openrouter.ai/liquid/d1-ultra). Recheck route availability and per-question charging before execution |
+| Cloudflare Clef / Clef-flash | Recheck selected route before execution | [Cloudflare launch](https://blog.cloudflare.com/clef-decision-models/). Hosted or open weights, with local operational costs evaluated separately |
+
+Also screen lower-priced alternatives in the
+[provider decision-model catalog](https://openrouter.ai/models?output_modalities=decisions),
+including current Perplexity Decider variants. Confirm the exact model page and API contract;
+a rendered catalog can ignore filters. Include a current strong structured-output generative
+comparator and the existing keyword/rule baseline where applicable. Do not adopt a vendor
+leaderboard's winner without testing AIDHA's tasks.
+
+### Evaluation and next implementation checklist
+
+- [x] Verify the Microsoft and OpenAI launches, dedicated decision APIs and input-only pricing.
+- [x] Record a dated shortlist and retain the existing semantic checkpoint's failed comparisons.
+- [ ] Define separate generation, category and evidence-judgment datasets and release criteria.
+  Add independently reviewed held-out examples, ambiguous/unknown cases and critical qualifier,
+  correction, origin and measured-outcome errors. The current three-source corpus is a smoke
+  checkpoint, not enough to estimate rare false-accept rates.
+- [ ] Add an injectable decision adapter and offline contract tests without changing defaults.
+  Preserve provider refusals, unknown results, raw replies, usage, model version and failures.
+  Translate each provider's actual schema; do not force a decision endpoint through chat JSON.
+- [ ] Compare identical evidence and rubric across the screened models, with repeated runs,
+  held-out sources and label/order/paraphrase perturbations. Keep tuning examples separate.
+- [ ] Report task accuracy and per-class precision/recall, false accept/reject counts, abstention,
+  calibration, p50/p95 latency and measured full cost including repeated state per question,
+  caching, retries and escalation. Record native CLI/API differences instead of assuming parity.
+- [ ] Specify bounded request counts, token/input limits, cost ceiling and authorised endpoint
+  before live comparison. Use public synthetic inputs first; preparation needs no new account.
+- [ ] Select the nondominated options per task only after applying critical-error quality gates.
+  A cheaper/faster model with worse fidelity is not an improvement unless the tradeoff is explicit.
+- [ ] Re-run the full miner/exporter path with the selected writer and advisory decider; prove
+  meaningful improvement before enabling a new default or landing held semantic experiments.
+
+Start this refresh before more tuning of the held prompt experiment. In parallel, prepare
+source-backed limitation applicability and persistence/retrieval tests already identified below.
+A decider can select, reject or escalate a candidate; the writer must still compose any repaired
+claim. Typed JSON and confidence values alone do not establish semantic correctness.
+
+No owner decision blocks research, fixtures or adapter preparation. A new charged endpoint or
+private-source destination needs its own concrete bounded request when implementation reaches
+that dependency. No activation, new model calls or model-default changes are part of PR 37.
 
 ## Restart procedure
 
@@ -266,8 +337,9 @@ Do not introduce links to pages absent from a PR base.
 | Email parser dependency maintenance | Verified `main` at `33f40cd`; independent | `021-email-parser-dependencies` / [PR 33](https://github.com/GitCmurf/AIDHA/pull/33) | Merged as `580b94c` from approved `a5d9651`; required CI passes; actual reports assessed | Synthetic malformed-address/mailto tests and ordinary MIME control; no real email |
 | Distillation validation and evidence checks | Verified `main` at `580b94c`; independent of model/pipeline wiring | `022-distillation-validation` / [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) | Merged as `1c83ecb` from approved `dd55b43`; exact integrated tree matches; required CI passes | AIDHA-TESTING-056; mechanical acceptance explicitly does not prove semantic entailment |
 | Bounded model generation and grounding | Verified `main` at `1c83ecb`; uses PR 34 contracts | `023-distillation-pipeline` / [PR 35](https://github.com/GitCmurf/AIDHA/pull/35) | Merged as `5b81d23` from approved `b08f8ab`; exact tree matches; late Greptile finding has separate correction | TESTING-057; default selection unchanged; no live provider calls |
-| Shared grounding source context | Verified `main` at `5b81d23` | `024-grounding-context` / pending | Corrective regression and peer review pass; full checks in progress | TESTING-058; source text once, per-unit citation IDs, cache version bumped |
-| Semantic-quality evaluation and improvement | Verified `main` at `5b81d23` | `025-semantic-quality` / pending | Three public synthetic cases frozen; actual-model baseline in progress | Reviewed assistant-authored expectations, not human gold; no private inputs |
+| Shared grounding source context | Verified `main` at `5b81d23` | `024-grounding-context` / [PR 36](https://github.com/GitCmurf/AIDHA/pull/36) | Ready at `f994fa0`; 276 core tests, complete zero-finding review, all required CI and reporting analyzers pass; merge approval pending | TESTING-058; source text once, per-unit citation IDs, cache version bumped |
+| Semantic-quality evaluation and improvement | Depends on PR 36 at `f994fa0` | `025-semantic-quality` / [PR 37](https://github.com/GitCmurf/AIDHA/pull/37) | Stable checkpoint published; failed-reply evidence correction needs refreshed final-head checks; no production semantic experiment included | Reviewed assistant-authored expectations, not human gold; controlled scores 6/9, 7/9, 6/9 |
+| Semantic grounding experiment | Depends on reviewed 024; retain acceptance failures | `026-semantic-grounding` / local hold | No PR or merge request; prompt/kind/link changes remain unproven and separate from the checkpoint | Three fresh-run partials and run-to-run variability; no semantic win claimed |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
 | Reader and evidence navigation | Core extraction/evidence contracts; exact boundaries pending | Pending | Split usable increments from questions, relations and paper discovery | PLAN-012, PLAN-013 |
@@ -400,7 +472,7 @@ Synthetic contract work needs no owner product decision. Existing PEPYS authorit
 
 | Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
 | --- | --- | --- | --- |
-| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | No current owner action; PR 35 approved and merged, future PRs need separate approval |
+| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | PRs 36 and 37 need separate approval, preferably the named 36 then 37 sequence; preparation continues |
 | Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
 | Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
 | New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
@@ -1036,3 +1108,66 @@ Email slice completion record:
 - 025 freezes three new public synthetic cases before calls; native Claude authentication uses
   the existing subscription. Expectations are assistant authored and not human adjudicated.
   Keep extraction/grounding source-only; store full generated and persisted outputs for review.
+
+### 2026-10-17 — Context correction and measured semantic checkpoint
+
+- PR 36 is ready at `f994fa0`: six files, all 276 core tests, strict docs, scoped DocOps, hooks,
+  independent review and a completed zero-finding six-file CodeRabbit review pass. Final required
+  CI, CodeQL and all four DeepSource analyzers pass. GitHub skips supply no coverage.
+- PR 35 main CI passes all four workflows. The context helper exits before edits because this
+  extraction branch has no legacy `specs/.../plan.md`. No spec/template change is fabricated.
+- Freeze nine provisional semantic expectations and fourteen forbidden distortions across three
+  public fictional sources. The first native-CLI prototype omits schema controls; its candidate
+  fails after one repair invents a condition type. Preserve it as an exploratory failure.
+- A schema-forwarding adapter is regression-tested, after its first attempt exposes a native
+  schema-dialect incompatibility. Only the rejected dialect URI is removed; constraints and
+  authoritative host parsing remain. Controlled baseline and candidate both use the same
+  pinned `claude-sonnet-5-5` and low effort. CLI invocation counts are not provider-call caps.
+- Controlled baseline: six required items met, three partial, none missed, no listed forbidden
+  distortion. The remaining losses detach qualifiers; additional observed issues are a redundant
+  preliminary queue result and an irrelevant UI support link. TESTING-059 records the rubric,
+  source-only production-runtime seam, limits and subsequent comparison. No private source is sent.
+
+### 2026-10-17 — Separate the stable checkpoint from unstable semantic changes
+
+- Controlled baseline meets six of nine provisional criteria. The first controlled semantic
+  experiment meets seven; a fresh expanded experiment returns to six. None passes the recorded
+  nine-item bar. Keep exploratory schema failures, intermediate results and the partial frozen
+  grounding replay; do not select an attractive output and claim a reliable improvement.
+- Publish only stable runners, synthetic corpus, reviewed snapshots, offline CI checks and
+  TESTING-059 from `025-semantic-quality` at `/tmp/aidha-025-semantic-checkpoint`. It depends on
+  PR 36. Production prompt/schema/default contracts are unchanged in the checkpoint.
+- Retain all experimental prompt/kind/link changes uncommitted on `026-semantic-grounding` at
+  `/tmp/aidha-025-semantic-quality`. No experiment PR or merge approval is requested.
+- Next semantic slice: validate typed limitation applicability with the relevant source passages,
+  attach each limitation to its exact target, preserve origin/tester roles, and measure repeated
+  plus held-out behavior. A structurally valid relation is not semantic evidence. Existing
+  consolidation proposals omit source evidence and permit overly broad `limits` attachment;
+  these need correction during extraction rather than wholesale reuse from the preserved branch.
+- Then prove that qualified claims and review dependencies survive SQLite close/reopen and
+  query/brief retrieval. Use two similar fictional results, a later limitation affecting only one,
+  and an unnamed source origin; assert exact target, evidence, roles and propagated review state.
+  The original brief checks limitation dependencies while generic activation retrieval can omit
+  a later check on the limiting assertion. Keep this follow-on boundary explicit.
+- The owner is not blocking semantic implementation. Named PR merge decisions remain separate;
+  optional review of one concrete queue/supplier result can calibrate the provisional rubric.
+
+### 2026-10-17 — Current model inventory and actual checkpoint bot follow-up
+
+- The owner's Microsoft/OpenAI recollection is confirmed by their official documentation.
+  Record the decision-only comparison above before further held-prompt tuning. Preserve a
+  refreshed strong generative baseline for distillation and repair, with decisions evaluated
+  separately by task. No hosted live comparison or new spending is authorised by this note.
+- PR 37's first head `ae0854b` passes build, verify, gitleaks and all four DeepSource analyzers.
+  CodeRabbit GitHub and Qodo skip and supply no coverage. A later actual Greptile finding
+  identifies failed native replies losing returned content and usage; initial green CI does
+  not supersede the finding. The error-reply and missing-structured-result regressions fail
+  before the fix and pass after complete reply/usage capture moves before those checks.
+- Final-head CI, independent correction review and a fresh report/thread inspection remain
+  required before owner merge readiness. PR 36 still needs its own approval. Neither the
+  checkpoint nor the model inventory demonstrates semantic improvement.
+
+- The first correction head passes package tests, secret scanning and all four analyzers, but
+  Docs Check fails four URLs. The unchanged link checker includes a semicolon after a Markdown
+  link in the URL. Correct the five affected link separators; all 77 URLs then pass unchanged
+  link checking, and strict docs still builds. Retain the failed CI receipt and rerun final CI.
