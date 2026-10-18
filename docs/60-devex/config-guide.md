@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
 last_updated: 2026-10-18
-version: "1.13"
+version: "1.14"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,7 +15,7 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.13
+> **Version:** 1.14
 > **Last Updated:** 2026-10-18
 > **Type:** GUIDE
 
@@ -37,6 +37,7 @@ docops_version: "2.0"
 | 1.11    | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence across ingestion vectors. | — | Draft | AIDHA-PLAN-007 |
 | 1.12    | 2026-10-16 | Codex  | Document dotenv resolution in the generic CLI. | — | Draft | [CLI configuration tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/cli.test.ts) |
 | 1.13 | 2026-10-18 | Codex | Resolve bare filesystem names against base_dir. | — | Draft | AIDHA-TESTING-079 |
+| 1.14 | 2026-10-18 | Codex | Preserve SQLite :memory: databases. | — | Draft | AIDHA-TESTING-079 |
 
 # AIDHA Configuration Guide
 
@@ -61,6 +62,12 @@ Absolute paths remain absolute, and empty path values retain their existing mean
 Dotenv values are interpolated before this path resolution. For example, with
 `base_dir: ./data` and `db: ${GRAPH_FILE}`, `GRAPH_FILE=relative.sqlite` selects
 `<config-base>/data/relative.sqlite`, rather than a file in the process working directory.
+
+For every schema-qualified `db` (including source defaults and overrides), the exact value
+`:memory:` selects a connection-local SQLite database and
+remains unchanged, including when supplied through dotenv interpolation or `--db`.
+It creates no database file and its data disappears when the connection closes. A cache or
+output directory named `:memory:` remains a regular path relative to `base_dir`.
 
 The source-owned `youtube.ytdlp.bin` is a command setting: a bare `yt-dlp` remains available
 for PATH lookup, while `bin/yt-dlp` resolves against `base_dir`. Its `cookies_file` is a

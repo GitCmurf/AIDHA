@@ -67,6 +67,13 @@ describe('CLI Configuration Bridge', () => {
     expect(config.db).toBe(resolve(process.env['INIT_CWD'] || process.cwd(), 'zero-config.db'));
   });
 
+  it('preserves an explicit --db :memory: override through the config bridge', async () => {
+    const result = await resolveCliConfig({ configPath: fixturePath, cliOverrides: buildCliOverrides({ db: ':memory:' }) });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+    expect(result.config.db).toBe(':memory:');
+  });
+
   it('applies source defaults (if defined)', async () => {
     // We don't have source defaults in fixture, but we can check if source is respected in resolution logic
     // The default defaults.ts in aidha-config provides defaults.

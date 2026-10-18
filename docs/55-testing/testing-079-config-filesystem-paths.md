@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-079
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-18
 title: Configuration Filesystem Paths
 type: TESTING
@@ -12,7 +12,7 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-TESTING-079
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-18
 > **Type:** TESTING
 
@@ -23,6 +23,7 @@ docops_version: '2.0'
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify bare filesystem path resolution. | — | Draft | AIDHA-PLAN-005 |
+| 0.2 | 2026-10-18 | Codex | Preserve the SQLite memory database sentinel. | — | Draft | PR 48 |
 
 ## Contract
 
@@ -33,6 +34,12 @@ absolute and empty values retain their existing meaning.
 The public loader reads dotenv inputs before interpolation; the resolver then uses the
 final base directory for selected profile filesystem fields. A slashless filename is not
 a PATH command merely because it has no separator.
+
+The exact SQLite database value `:memory:` is a connection-local sentinel, not a filename.
+Preserve it for every schema-qualified `db`: profiles, source defaults/overrides, and their
+runtime forms. These fields all describe SQLite connections in the schema. The same string in
+cache/output directory fields is a normal filesystem name resolved against `base_dir`.
+The generic single-path helper has no database exception.
 
 Only the source-owned YouTube `ytdlp.bin` uses command-name semantics: bare commands remain
 unchanged, while separator-containing relative binary paths resolve against `base_dir`.
@@ -53,6 +60,12 @@ YouTube's two bin resolution paths are the runtime calls. `resolver.ts` imports 
 helper without calling it, while its actual runtime call uses `resolvePathValues`. The helper
 exports remain public. Other source-private keys and extension payloads remain outside generic
 schema traversal; existing tests protect this boundary.
+
+The config bridge regression protects `--db :memory:`. The built-executable test
+`packages/praecis/youtube/tests/cli-memory-database.test.ts` runs explicit offline mock
+ingestion in a separate process, asserts no physical `:memory:` file exists, and opens a
+fresh process whose transcript export must report that the ingested Resource is absent.
+This proves connection-local lifetime rather than relying on an in-process test store.
 
 ## Validation
 

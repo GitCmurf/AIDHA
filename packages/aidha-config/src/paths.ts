@@ -113,7 +113,11 @@ export function resolvePathValues<T extends Record<string, unknown>>(
         RUNTIME_PATH_PATTERNS.some((p) => matchesPathPattern(p, nextPath));
 
       if (typeof value === 'string' && isMatch) {
-        record[key] = resolvePathValue(value, baseDir);
+        // SQLite's connection-local database sentinel is not a filesystem name.
+        // Every schema-qualified db field (profiles, source defaults/overrides,
+        // and runtime forms) is a SQLite connection setting.
+        const isDatabaseField = key === 'db';
+        record[key] = isDatabaseField && value === ':memory:' ? value : resolvePathValue(value, baseDir);
       } else if (typeof value === 'object' && value !== null) {
         walk(value, nextPath);
       }
