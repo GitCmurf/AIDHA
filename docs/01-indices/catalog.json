@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2026-10-16",
-      "version": "1.12",
+      "last_updated": "2026-10-18",
+      "version": "1.14",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -346,6 +346,20 @@
       "type": "TESTING",
       "docops_version": "2.0",
       "area": "DOCS"
+    }
+  },
+  {
+    "path": "55-testing/testing-079-config-filesystem-paths.md",
+    "title": "Configuration Filesystem Paths",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-079",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-18",
+      "title": "Configuration Filesystem Paths",
+      "type": "TESTING",
+      "docops_version": "2.0"
     }
   },
   {
