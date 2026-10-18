@@ -223,7 +223,9 @@ describe('aidha cli phase-1 surface', () => {
       const explicitCli = await resolveAidhaConfig({ configPath: missingPath });
       vi.stubEnv('AIDHA_CONFIG', missingPath);
       const explicitEnvironment = await resolveAidhaConfig();
+      vi.stubEnv('AIDHA_CONFIG', undefined);
       const cliCode = await runCli(['config', 'explain', 'db', '--config', missingPath]);
+      vi.stubEnv('AIDHA_CONFIG', missingPath);
       const environmentCode = await runCli(['config', 'explain', 'db']);
 
       expect({
