@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { SQLiteStore } from '@aidha/graph-backend';
+import { SQLiteStore, type GraphStore } from '@aidha/graph-backend';
 import {
   formatProvenance,
   loadConfig,
@@ -63,6 +63,7 @@ import { createConfiguredPipelineServices, createIngestionRuntimeFromServices, r
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
+import { runContinuity } from './continuity.js';
 
 export interface CliOptions {
   [key: string]: string | boolean | undefined;
@@ -1050,6 +1051,36 @@ export async function runCli(argv: string[]): Promise<number> {
         }
       }
       return 0;
+    }
+
+    if (command === 'continuity') {
+      const configOpts: { configPath?: string; profile?: string } = {};
+      const configPath = optionString(options, 'config');
+      const profile = optionString(options, 'profile');
+      if (configPath) configOpts.configPath = configPath;
+      if (profile) configOpts.profile = profile;
+      const explicitlySelectedConfig = configPath ?? process.env['AIDHA_CONFIG'];
+      const withStore = async <T>(work: (store: GraphStore) => Promise<T>): Promise<T> => {
+        for (const key of ['config', 'profile'] as const) {
+          const value = options[key];
+          if (value !== undefined && (typeof value !== 'string' || value.length === 0)) {
+            throw new Error(`--${key} requires a value`);
+          }
+        }
+        const configResult = await resolveAidhaConfig(configOpts);
+        if (!configResult.ok) throw configResult.error;
+        if (explicitlySelectedConfig && configResult.loadResult.config === null) {
+          throw new Error(`Explicit continuity config was not found: ${explicitlySelectedConfig}`);
+        }
+        await mkdir(dirname(configResult.config.db), { recursive: true });
+        const store = SQLiteStore.open(configResult.config.db);
+        try {
+          return await work(store);
+        } finally {
+          await store.close();
+        }
+      };
+      return await runContinuity(positionals[1], options, withStore);
     }
 
     console.log(CLI_USAGE_TEXT);
