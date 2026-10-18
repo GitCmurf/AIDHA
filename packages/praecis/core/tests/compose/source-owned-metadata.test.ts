@@ -272,6 +272,95 @@ it('adopts an exact-canonical legacy group while retaining omitted last-good mem
     .groups[DESCRIPTION_GROUP.id]?.canonicalId).toBe(canonicalId);
 });
 
+it('claims an empty new group and rejects a later foreign claim after SQLite reopen', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'aidha-empty-source-owned-group-'));
+  directories.push(directory);
+  const db = join(directory, 'graph.sqlite');
+  const aliasId = 'existing-video-alias';
+  const first = SQLiteStore.open(db);
+  try {
+    await seedAlias(first);
+    const initial = await applyDedupResolution(first, source({
+      canonicalId: 'youtube:video-1',
+      resourceMetadataGroups: [DESCRIPTION_GROUP],
+      resourceMetadata: {},
+    }));
+    if (!initial.ok) throw initial.error;
+    expect(initial.value.resourceId).toBe(aliasId);
+  } finally {
+    await first.close();
+  }
+
+  const reopened = SQLiteStore.open(db);
+  try {
+    const afterInitialization = await reopened.getNode(aliasId);
+    if (!afterInitialization.ok || !afterInitialization.value) throw new Error('Missing reopened alias Resource');
+    expect(afterInitialization.value.metadata['description']).toBeNull();
+    expect(afterInitialization.value.metadata['creatorNoteCapture']).toBeNull();
+    expect(afterInitialization.value.metadata['creatorNoteCaptureAttempt']).toBeNull();
+    expect(getSourceOwnedMetadataGroup(afterInitialization.value.metadata, DESCRIPTION_GROUP.id)).toEqual({
+      canonicalId: 'youtube:video-1',
+      fields: ['creatorNoteCapture', 'creatorNoteCaptureAttempt', 'description'],
+    });
+
+    const foreign = await applyDedupResolution(reopened, source({
+      canonicalId: 'youtube:video-2',
+      resourceMetadataGroups: [DESCRIPTION_GROUP],
+      resourceMetadata: capture('youtube:video-2', 'Foreign description', '2026-10-18T16:02:00.000Z', 'success'),
+    }));
+    if (!foreign.ok) throw foreign.error;
+    expect(foreign.value.metadataConflictCount).toBeGreaterThan(0);
+
+    const afterForeign = await reopened.getNode(aliasId);
+    if (!afterForeign.ok || !afterForeign.value) throw new Error('Missing alias after foreign claim');
+    expect(afterForeign.value.metadata['description']).toBeNull();
+    expect(afterForeign.value.metadata['creatorNoteCapture']).toBeNull();
+    expect(afterForeign.value.metadata['creatorNoteCaptureAttempt']).toBeNull();
+    expect(getSourceOwnedMetadataGroup(afterForeign.value.metadata, DESCRIPTION_GROUP.id)).toEqual({
+      canonicalId: 'youtube:video-1',
+      fields: ['creatorNoteCapture', 'creatorNoteCaptureAttempt', 'description'],
+    });
+  } finally {
+    await reopened.close();
+  }
+});
+
+it('rejects sparse group declarations before creating or persisting a Resource', async () => {
+  const store = new InMemoryStore();
+  const sparseFields: string[] = [];
+  sparseFields[0] = 'description';
+  sparseFields.length = 2;
+  await expect(applyDedupResolution(store, source({
+    canonicalId: 'youtube:sparse-fields',
+    dedupKeys: [],
+    resourceMetadataGroups: [{ id: 'sparse-fields', fields: sparseFields }],
+    resourceMetadata: { description: 'Not persisted' },
+  }))).rejects.toThrow(/field/i);
+  let resources = await store.queryNodes({ type: 'Resource' });
+  expect(resources.ok && resources.value.items).toHaveLength(0);
+
+  const sparseStoredFields: string[] = [];
+  sparseStoredFields[0] = 'description';
+  sparseStoredFields.length = 2;
+  expect(() => getSourceOwnedMetadataGroup({
+    sourceOwnedMetadataGroups: {
+      schemaVersion: 1,
+      groups: { 'sparse-fields': { canonicalId: 'youtube:sparse-fields', fields: sparseStoredFields } },
+    },
+  }, 'sparse-fields')).toThrow(/field/i);
+
+  const sparseGroups: ResourceMetadataGroup[] = [];
+  sparseGroups.length = 1;
+  await expect(applyDedupResolution(store, source({
+    canonicalId: 'youtube:sparse-groups',
+    dedupKeys: [],
+    resourceMetadataGroups: sparseGroups,
+    resourceMetadata: {},
+  }))).rejects.toThrow(/group/i);
+  resources = await store.queryNodes({ type: 'Resource' });
+  expect(resources.ok && resources.value.items).toHaveLength(0);
+});
+
 it('rejects malformed or overlapping groups before writing a Resource', async () => {
   const invalidGroups: ResourceMetadataGroup[][] = [
     [{ id: '', fields: ['field'] }],

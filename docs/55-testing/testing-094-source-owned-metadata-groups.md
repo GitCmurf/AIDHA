@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-094
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-18
 title: Source-Owned Resource Metadata Groups
 type: TESTING
@@ -13,7 +13,7 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-094
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-18
 > **Type:** TESTING
 
@@ -23,6 +23,7 @@ area: CORE
 
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
+| 0.2 | 2026-10-18 | Codex | Reject sparse declarations and persist empty group ownership | — | Draft | — |
 | 0.1 | 2026-10-18 | Codex | Define source-owned atomic Resource metadata groups and regression coverage | — | Draft | — |
 
 ## Scope
@@ -42,6 +43,8 @@ declared group keep the existing scalar merge behavior.
 
 - A new group may initialize an empty alias. Omitted members are stored as `null`, giving the new
   group a complete representation.
+- Declaring a new group on an empty Resource, even with no supplied values, initializes its members
+  as `null` and persists its canonical owner. A later foreign source cannot claim it.
 - A source that already owns a group may patch supplied members. Omission retains the last stored
   value; explicit `null` clears that member.
 - An exact-canonical Resource may adopt legacy group values. Omitted existing values are retained;
@@ -49,8 +52,8 @@ declared group keep the existing scalar merge behavior.
 - A populated ownerless alias is not adopted, even when its values equal the incoming values.
   A foreign owner's group patch is rejected as a whole and reported as a metadata conflict.
 - A source cannot change a group's field set. Group declarations reject empty or duplicate
-  identifiers/fields, reserved core metadata keys, and overlapping members. Malformed stored
-  ownership records fail closed.
+  identifiers/fields, sparse group or field arrays, reserved core metadata keys, and overlapping
+  members. Malformed stored ownership records, including sparse stored field arrays, fail closed.
 - An ordinary ungrouped write cannot alter a field already owned by a group. Unrelated ungrouped
   fields continue to use the existing merge policy.
 - Group values and their ownership record are written together in the Resource metadata update.
@@ -63,10 +66,12 @@ declared group keep the existing scalar merge behavior.
 by failed refresh with a SQLite close/reopen, foreign-owner conflicts, ungrouped bypass rejection,
 ownerless-equal and ownerless-conflicting bootstrap, exact-canonical legacy adoption, malformed and
 overlapping declarations, persisted field-set changes, source-envelope ownership-key sanitization,
-and explicit `null` clearing. Existing `dedup-link` tests remain the control for ungrouped metadata
-merging. The regression suite also covers member names inherited from `Object.prototype`, so an
-omitted `constructor` field is initialized as absent rather than treated as supplied metadata, and
-the owner reader rejects malformed persisted records.
+and explicit `null` clearing. Empty-group ownership is checked after SQLite close/reopen and against
+a later foreign claim. Sparse field/group declarations must fail before creating a Resource, and a
+sparse stored owner record is rejected by the reader. Existing `dedup-link` tests remain the control
+for ungrouped metadata merging. The regression suite also covers member names inherited from
+`Object.prototype`, so an omitted `constructor` field is initialized as absent rather than treated
+as supplied metadata, and the owner reader rejects malformed persisted records.
 
 ## Verification
 

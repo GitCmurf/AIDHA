@@ -66,7 +66,7 @@ function validateFields(value: unknown, description: string): string[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`${description} must declare at least one field`);
   }
-  const fields = value.map((field, index) => {
+  const fields = Array.from(value, (field, index) => {
     const key = validateIdentifier(field, `${description} field ${index + 1}`);
     if (RESERVED_FIELDS.has(key)) {
       throw new Error(`${description} cannot own reserved Resource metadata field ${key}`);
@@ -88,7 +88,7 @@ export function validateResourceMetadataGroups(
 
   const ids = new Set<string>();
   const fields = new Set<string>();
-  return groups.map((group, index) => {
+  return Array.from(groups, (group, index) => {
     if (!isRecord(group)) throw new Error(`Resource metadata group ${index + 1} must be an object`);
     const id = validateIdentifier(group['id'], `Resource metadata group ${index + 1} id`);
     if (ids.has(id)) throw new Error(`Resource metadata group id is duplicated: ${id}`);
@@ -191,7 +191,6 @@ export function mergeSourceOwnedMetadataGroups(
     }
 
     const incomingValues = groupValues(incoming, declaration.fields);
-    if (Object.keys(incomingValues).length === 0) continue;
 
     let mayUpdate = false;
     if (stored) {
