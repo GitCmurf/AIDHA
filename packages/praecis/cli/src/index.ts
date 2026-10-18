@@ -63,6 +63,7 @@ import { createConfiguredPipelineServices, createIngestionRuntimeFromServices, r
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
+import { exportGraphJsonLd, parseGraphExport } from './export-graph.js';
 
 export interface CliOptions {
   [key: string]: string | boolean | undefined;
@@ -611,7 +612,7 @@ export async function runYouTubePlaylistIngest(
 }
 
 export async function resolveAidhaConfig(
-  opts: { configPath?: string; profile?: string; source?: string } = {},
+  opts: { configPath?: string; profile?: string; source?: string; strictExplicitConfig?: boolean } = {},
 ): Promise<{ readonly ok: true; readonly config: ResolvedConfig; readonly loadResult: LoadResult } | { readonly ok: false; readonly error: Error; readonly loadResult: LoadResult }> {
   try {
     const loadOptions: Parameters<typeof loadConfig>[0] = { cwd: process.cwd(), syncProcessEnv: false };
@@ -639,7 +640,9 @@ export async function resolveAidhaConfig(
     return { ok: true, config, loadResult };
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    if (err instanceof ConfigNotFoundError) {
+    if (err instanceof ConfigNotFoundError && !(opts.strictExplicitConfig && (
+      opts.configPath || process.env['AIDHA_CONFIG']
+    ))) {
       const resolveOptions: Parameters<typeof resolveConfig>[0] = { sourceRegistrations: SOURCE_REGISTRATIONS };
       if (opts.profile) {
         resolveOptions.profileName = opts.profile;
@@ -1005,6 +1008,15 @@ export async function runCli(argv: string[]): Promise<number> {
 
   const command = positionals[0];
   try {
+    if (command === 'export') {
+      const request = parseGraphExport(argv);
+      const configResult = await resolveAidhaConfig({ ...request, strictExplicitConfig: true });
+      if (!configResult.ok) throw configResult.error;
+      const document = await exportGraphJsonLd(configResult.config.db, request.out);
+      if (document !== undefined) console.log(document);
+      return 0;
+    }
+
     if (command === 'config' && positionals[1] === 'explain') {
       const key = positionals[2];
       if (!key) {
