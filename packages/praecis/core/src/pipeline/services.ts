@@ -2,6 +2,7 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { createHash } from 'node:crypto';
+import { TRANSCRIPT_EXCERPT_ENCODING_VERSION } from '../extract/prompt-safety.js';
 import { CURRENT_GRAPH_SCHEMA_VERSION, InMemoryStore, type GraphNode, type GraphStore } from '@aidha/graph-backend';
 import { InMemoryRegistry, type Result, type TaxonomyRegistry } from '@aidha/taxonomy';
 import {
@@ -26,6 +27,7 @@ import {
   estimateCost,
   estimateTokens,
   LlmClaimExtractor,
+  ClaimRequestBudgetError,
 } from '../extract/index.js';
 import { ReferenceExtractionPipeline } from '../extract/references.js';
 import type {
@@ -229,7 +231,7 @@ export class MissingLlmClaimMiner implements ICandidateMiner {
 }
 
 export class CanonicalLlmClaimMiner implements ICandidateMiner {
-  readonly cacheIdentity = 'canonical-chunk-miner-v1';
+  readonly cacheIdentity = `canonical-chunk-miner-v1:${TRANSCRIPT_EXCERPT_ENCODING_VERSION}`;
   estimate(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }> {
     return { ok: true, value: estimateChunkBudget(request.chunks) };
   }
@@ -260,11 +262,17 @@ export class CanonicalLlmClaimMiner implements ICandidateMiner {
       reasoningEffort: request.config.llm.reasoningEffort,
       verbosity: request.config.llm.verbosity,
     });
-    const claims = await extractor.extractClaims({
-      resource: resourceFromRequest(request),
-      excerpts: excerptsFromRequest(request),
-      maxClaims: request.config.extraction.maxClaims > 0 ? request.config.extraction.maxClaims : undefined,
-    });
+    let claims: import('../extract/index.js').ClaimCandidate[];
+    try {
+      claims = await extractor.extractClaims({
+        resource: resourceFromRequest(request),
+        excerpts: excerptsFromRequest(request),
+        maxClaims: request.config.extraction.maxClaims > 0 ? request.config.extraction.maxClaims : undefined,
+      });
+    } catch (error) {
+      if (error instanceof ClaimRequestBudgetError) return { ok: false, error };
+      throw error;
+    }
     const usage = extractor.getLastRunStats().actualTokenUsage;
     const spendUsd = extractor.getLastRunStats().actualSpendUsd;
     return {
