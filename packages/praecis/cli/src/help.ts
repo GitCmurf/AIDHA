@@ -3,6 +3,7 @@ export function createCliUsageText(ingestUsageLines: readonly string[]): string 
 
 Usage:
   aidha config explain <key> [--config <path>] [--profile <name>] [--source <id>]
+  aidha export graph --jsonld [--out <new-file>] [--config <path>] [--profile <name>]
   ${ingestUsageLines.join('\n  ')}
 
 Notes:

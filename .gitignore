@@ -76,8 +76,8 @@ specs/**/TASKS.auto.md
 .qodo/cache/
 .qodo/sessions/
 .meminit/cache/
-.claude/
 .meminit.lock
+.claude/
 
 # Temporary files and directories
 temp-*
