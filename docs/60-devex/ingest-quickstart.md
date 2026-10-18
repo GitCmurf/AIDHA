@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-05-25
-version: '0.34'
+last_updated: 2026-10-18
+version: '0.35'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.34
-> **Last Updated:** 2026-05-25
+> **Version:** 0.35
+> **Last Updated:** 2026-10-18
 > **Type:** GUIDE
 
 ## Version History
@@ -57,6 +57,7 @@ docops_version: '2.0'
 | 0.32    | 2026-05-25 | AI     | Clarify classification status. | — | Draft | AIDHA-PLAN-007 |
 | 0.33    | 2026-05-25 | AI     | Document config-seeded taxonomy. | — | Draft | AIDHA-PLAN-007 |
 | 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
+| 0.35 | 2026-10-18 | Codex | Describe network failure context. | — | Draft | AIDHA-TESTING-081 |
 
 ## Purpose
 
@@ -334,6 +335,12 @@ to read from stdin, and optionally attach a provenance-only `--url`.
    ```
 
 ## Transcript Fallbacks
+
+Client network failures include the operation and video ID, with immediate cause details
+where available. If caption discovery and transcript fallbacks all fail, diagnostics retain
+the failed returned phases rather than only the final native fallback error. Original Error
+objects remain available through structured causes. This does not change fallback order or
+add retries; see [AIDHA-TESTING-081](../55-testing/testing-081-youtube-network-diagnostics.md).
 
 When direct YouTube transcript fetches fail, ingestion falls back to `yt-dlp`. You can control it
 per run:
