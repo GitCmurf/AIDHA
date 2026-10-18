@@ -248,18 +248,27 @@ export class ClaimRequestBudgetError extends Error {
   }
 }
 
+/**
+ * Bump this when the default generic hierarchy prompt text changes.
+ * Generic-pack cache entries must not reuse results from older prompt wording.
+ */
+const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v2';
+
 export function getEffectivePromptVersion(
   promptVersion: string,
-  promptPackId: ExtractionPromptPackId = 'generic-hierarchy'
+  promptPackId?: ExtractionPromptPackId,
 ): string {
-  // Qualified diagnostic versions and raw configured family versions share one
-  // idempotent encoder revision; neither may bypass invalidation of old text.
-  const familyVersion = promptVersion.includes(':pack:') ? promptVersion
-    : promptPackId === 'generic-hierarchy'
-      ? `${promptVersion}:pack:${promptPackId}:${GENERIC_HIERARCHY_PROMPT_CACHE_VERSION}`
-      : `${promptVersion}:pack:${promptPackId}`;
-  const encodingSuffix = `:${TRANSCRIPT_EXCERPT_ENCODING_VERSION}`;
-  return familyVersion.endsWith(encodingSuffix) ? familyVersion : `${familyVersion}${encodingSuffix}`;
+  const marker = promptVersion.indexOf(':pack:');
+  const family = marker < 0 ? promptVersion : promptVersion.slice(0, marker);
+  const [embeddedPack, ...qualifiedRevisions] = marker < 0 ? [] : promptVersion.slice(marker + 6).split(':');
+  // Runtime retry routing owns an explicit pack. Diagnostic callers that omit
+  // it may retain the embedded pack; only raw unqualified inputs default generic.
+  const selectedPack = promptPackId ?? (embeddedPack || 'generic-hierarchy');
+  // Rebuild owned revisions, preserving unrelated custom version qualifiers.
+  const revisions = qualifiedRevisions.filter(revision =>
+    !/^(?:generic-hierarchy-v\d+|full-transcript-json-v\d+)$/u.test(revision));
+  if (selectedPack === 'generic-hierarchy') revisions.push(GENERIC_HIERARCHY_PROMPT_CACHE_VERSION);
+  return [family, 'pack', selectedPack, ...revisions, TRANSCRIPT_EXCERPT_ENCODING_VERSION].join(':');
 }
 
 export interface CachedClaimsLoadOptions {
@@ -303,12 +312,6 @@ const DEFAULT_SEMANTIC_CHUNK_HARD_MAX_INPUT_TOKENS = 6000;
 const DEFAULT_CHUNK_OVERLAP_EXCERPTS = 2;
 const DEFAULT_TRANSPORT_RETRY_MAX_ATTEMPTS = 3;
 const DEFAULT_TRANSPORT_RETRY_BASE_DELAY_MS = 750;
-/**
- * Bump this when the default generic hierarchy prompt text changes.
- * Generic-pack cache entries must not reuse results from older prompt wording.
- */
-const GENERIC_HIERARCHY_PROMPT_CACHE_VERSION = 'generic-hierarchy-v2';
-
 /**
  * Optimal input token size per chunk for extraction quality.
  * Scaled to DEFAULT_CHUNK_MINUTES=10 with v2 prompt overhead (~1200 tokens).
@@ -953,7 +956,7 @@ export async function loadCachedClaimCandidates(
         ...claim,
         method: claim.method ?? 'llm' as const,
         model: input.model,
-        promptVersion: input.promptVersion,
+        promptVersion: effectivePromptVersion,
         chunkIndex: chunk.index,
       }))
     );

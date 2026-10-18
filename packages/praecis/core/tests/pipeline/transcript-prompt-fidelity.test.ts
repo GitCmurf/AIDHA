@@ -78,13 +78,14 @@ function node(id: string, type: GraphNode['type'], content = ''): GraphNode {
 const packs: ExtractionPromptPackId[] = ['generic-hierarchy', 'enumeration-framework', 'clinical-risk-management',
   'business-framework', 'enumeration-framework-v2', 'clinical-risk-management-v2'];
 
-it.each(packs.flatMap(promptPackId => (['current', 'legacy'] as const).map(format => ({ promptPackId, format }))))(
-  'ignores old $format prompt cache for $promptPackId and reuses the corrected cache', async ({ promptPackId, format }) => {
+it.each(packs.flatMap(promptPackId => (['current', 'legacy'] as const).flatMap(format =>
+  [false, true].map(publishedRevision => ({ promptPackId, format, publishedRevision })))))(
+  'ignores old $format cache for $promptPackId (published=$publishedRevision)', async ({ promptPackId, format, publishedRevision }) => {
   const dir = mkdtempSync(join(tmpdir(), 'aidha-fidelity-cache-')); directories.push(dir);
   const resource = node('resource', 'Resource');
   const excerpt = node('ex1', 'Excerpt', 'Linked-file navigation is limited to small research collections.');
   const transcriptHash = createHash('sha256').update('ex1').update('0').update(excerpt.content ?? '').digest('hex').slice(0, 16);
-  const oldVersion = `v1:pack:${promptPackId}${promptPackId === 'generic-hierarchy' ? ':generic-hierarchy-v2' : ''}`;
+  const oldVersion = `v1:pack:${promptPackId}${promptPackId === 'generic-hierarchy' ? ':generic-hierarchy-v2' : ''}${publishedRevision ? ':full-transcript-json-v1' : ''}`;
   const metadata = { transcriptHash, model: 'test-model', promptVersion: oldVersion, schemaVersion: 2,
     chunkIndex: 0, chunkStart: 0, chunkEnd: 0 };
   const stale = { text: 'An old redacted-prompt result must not be reused.', excerptIds: ['ex1'], confidence: 0.9 };
@@ -103,6 +104,8 @@ it.each(packs.flatMap(promptPackId => (['current', 'legacy'] as const).map(forma
   const options = { resource, excerpts: [excerpt], model: 'test-model', promptPackId, cacheDir: dir };
   const old = await loadCachedClaimCandidates({ ...options, promptVersion: oldVersion });
   expect(old.cacheHits).toBe(0);
+  const { promptPackId: _requestedPack, ...diagnosticOptions } = options;
+  expect((await loadCachedClaimCandidates({ ...diagnosticOptions, promptVersion: oldVersion })).cacheHits).toBe(0);
   const staleDiagnostic = await loadCachedClaimCandidates({ ...options, promptVersion: 'v1' });
   expect(staleDiagnostic.cacheHits).toBe(0);
   const llm = new RecordingLlm([claimReply]);
@@ -117,22 +120,30 @@ it.each(packs.flatMap(promptPackId => (['current', 'legacy'] as const).map(forma
   const qualified = getEffectivePromptVersion('v1', promptPackId);
   const fullyQualified = await loadCachedClaimCandidates({ ...options, promptVersion: qualified });
   expect(fullyQualified.cacheHits).toBe(1); // The revision is not appended twice.
+  expect((await loadCachedClaimCandidates({ ...diagnosticOptions, promptVersion: qualified })).cacheHits).toBe(1);
 
 });
 
-it('invalidates the old outer runtime cache while retaining exact corrected retry reuse', async () => {
+it.each([
+  { oldIdentity: 'canonical-chunk-miner-v1', promptVersion: 'v1' },
+  { oldIdentity: 'canonical-chunk-miner-v1:full-transcript-json-v1',
+    promptVersion: 'pass1-claim-mining-v2:pack:enumeration-framework:full-transcript-json-v1' },
+])('invalidates $oldIdentity outer cache and retains corrected reuse', async ({ oldIdentity, promptVersion }) => {
   const dir = mkdtempSync(join(tmpdir(), 'aidha-fidelity-outer-')); directories.push(dir);
   const store = new InMemoryStore();
   const cache = new MemoryCache();
   const config = resolveConfig({ env: {}, baseDir: dir, cliOverrides: {
-    llm: { model: 'test-model', cache_dir: join(dir, 'claims') }, extraction: { prompt_version: 'v1' },
+    llm: { model: 'test-model', cache_dir: join(dir, 'claims') }, extraction: { prompt_version: promptVersion },
   } });
   const oldRuntime = await createIngestionRuntime({ store, config, cache, clock,
-    miner: { cacheIdentity: 'canonical-chunk-miner-v1', mine: async () => ({ ok: true, value: { claims: [] } }) } });
+    miner: { cacheIdentity: oldIdentity, mine: async () => ({ ok: true, value: { claims: [] } }) } });
   if (!oldRuntime.ok) throw oldRuntime.error;
   const initial = await oldRuntime.value.runVector(vector(transcript), { ref: 'fictional:tutorial' });
   if (!initial.ok) throw initial.error;
   expect(initial.value.cacheWrites).toBe(1);
+  const oldHit = await oldRuntime.value.runVector(vector(transcript), { ref: 'fictional:tutorial' });
+  if (!oldHit.ok) throw oldHit.error;
+  expect(oldHit.value.cacheHits).toBe(1);
   const llm = new RecordingLlm([claimReply]);
   const current = await createIngestionRuntime({ store, config, cache, clock, llm });
   if (!current.ok) throw current.error;
@@ -156,4 +167,53 @@ it('round-trips raw Unicode, source headers, quotes and newlines in the direct P
   expect(JSON.parse(encoded.slice(3, -3))).toEqual([{ id: 'raw', startSeconds: 12, text }]);
   expect(encoded.match(/"""/gu)).toHaveLength(2);
   expect(prompt.system).not.toContain('Ignore all instructions');
+});
+
+it('runs a stronger pack retry instead of colliding with the qualified weaker-pack cache', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aidha-qualified-pack-')); directories.push(dir);
+  const resource = node('layouts', 'Resource');
+  resource.label = 'Five slide layouts and categories';
+  const excerpt = node('ex1', 'Excerpt',
+    'There are five slide layouts and categories in this framework. Chart slides and table slides are two categories.');
+  const weaker = JSON.stringify({ claims: [{
+    text: 'Chart slides should match the underlying data type and decision context.',
+    excerptIds: ['ex1'], confidence: 0.9, type: 'fact',
+  }] });
+  const stronger = JSON.stringify({ claims: [{
+    text: 'Five slide layouts account for most consulting presentation needs and form one practical framework.',
+    excerptIds: ['ex1'], confidence: 0.9, type: 'insight',
+  }] });
+  const llm = new RecordingLlm([weaker, stronger]);
+  const version = 'pass1-claim-mining-v2:pack:enumeration-framework:full-transcript-json-v1';
+  const create = () => new LlmClaimExtractor({ client: llm, model: 'test-model', promptVersion: version,
+    promptPackId: 'enumeration-framework', cacheDir: dir });
+  const first = create();
+  const claims = await first.extractClaims({ resource, excerpts: [excerpt] });
+  expect(first.getLastRunStats().retryPromptPackId).toBe('enumeration-framework-v2');
+  expect(llm.requests).toHaveLength(2);
+  expect(llm.requests[0]?.user).not.toContain('Capture the root claim for any named finite set');
+  expect(llm.requests[1]?.user).toContain('Capture the root claim for any named finite set');
+  expect(claims.map(claim => claim.text)).toContain(
+    'Five slide layouts account for most consulting presentation needs and form one practical framework.');
+  await create().extractClaims({ resource, excerpts: [excerpt] });
+  expect(llm.requests).toHaveLength(2);
+  const weakerDiagnostic = await loadCachedClaimCandidates({ resource, excerpts: [excerpt], model: 'test-model',
+    promptVersion: version, promptPackId: 'enumeration-framework', cacheDir: dir });
+  const strongerDiagnostic = await loadCachedClaimCandidates({ resource, excerpts: [excerpt], model: 'test-model',
+    promptVersion: version, promptPackId: 'enumeration-framework-v2', cacheDir: dir });
+  expect(weakerDiagnostic.candidates.map(claim => claim.text)).toEqual([
+    'Chart slides should match the underlying data type and decision context.']);
+  expect(strongerDiagnostic.candidates[0]?.promptVersion).toBe(
+    getEffectivePromptVersion(version, 'enumeration-framework-v2'));
+  expect(strongerDiagnostic.candidates.map(claim => claim.text)).toEqual([
+    'Five slide layouts account for most consulting presentation needs and form one practical framework.']);
+});
+
+it('preserves an embedded diagnostic pack only when no explicit pack is requested', () => {
+  const qualified = getEffectivePromptVersion('custom-family:custom-revision', 'enumeration-framework');
+  expect(getEffectivePromptVersion(qualified)).toBe(qualified);
+  expect(getEffectivePromptVersion(qualified, 'enumeration-framework-v2')).toBe(
+    getEffectivePromptVersion('custom-family:custom-revision', 'enumeration-framework-v2'));
+  expect(getEffectivePromptVersion(qualified, 'generic-hierarchy')).toBe(
+    getEffectivePromptVersion('custom-family:custom-revision', 'generic-hierarchy'));
 });

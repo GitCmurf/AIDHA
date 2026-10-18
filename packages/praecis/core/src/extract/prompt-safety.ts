@@ -52,7 +52,8 @@ export function sanitizeForPrompt(text: string, maxLength: number): string {
   return Array.from(sanitized).slice(0, maxLength).join('');
 }
 
-export const TRANSCRIPT_EXCERPT_ENCODING_VERSION = 'full-transcript-json-v1';
+// Shared cache contract: v2 also corrects qualified prompt-pack selection; JSON encoding is unchanged.
+export const TRANSCRIPT_EXCERPT_ENCODING_VERSION = 'full-transcript-json-v2';
 
 /**
  * Encode complete excerpt data without interpreting source words as instructions.

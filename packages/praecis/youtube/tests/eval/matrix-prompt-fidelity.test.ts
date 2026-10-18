@@ -9,7 +9,10 @@ import { getModel } from '../../src/eval/model-registry.js';
 
 const dirs: string[] = [];
 afterEach(async () => { for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true }); });
-it.each(['pass1-claim-mining-v2', 'custom-encoding-fixture'])('does not resume pre-fidelity %s extraction and resumes the corrected result', async promptVersion => {
+it.each([undefined, 'custom-encoding-fixture', 'pass1-claim-mining-v2:pack:enumeration-framework'].flatMap(
+  promptVersion => ['v1', 'v1:full-transcript-json-v1'].map(oldExtractorVersion => ({ promptVersion, oldExtractorVersion })),
+))('does not resume $oldExtractorVersion / $promptVersion and reuses the corrected result', async ({ promptVersion, oldExtractorVersion }) => {
+  const sourceVersion = promptVersion ?? 'pass1-claim-mining-v2';
   const dir = await mkdtemp(join(tmpdir(), 'aidha-matrix-fidelity-')); dirs.push(dir);
   const transcriptDir = join(dir, 'transcripts'); await mkdir(transcriptDir);
   const videoId = 'fictional-fidelity';
@@ -22,9 +25,9 @@ it.each(['pass1-claim-mining-v2', 'custom-encoding-fixture'])('does not resume p
   const cacheDir = join(dir, 'cache');
   const oldCell = { videoId, modelId: model.id, extractorVariantId: 'raw' as const,
     claimSet: [{ text: 'Old redacted-prompt result.', excerptIds: ['old'], method: 'llm' as const }] };
-  await setCachedExtraction(videoId, model.id, 'raw', promptVersion, 'v1',
+  await setCachedExtraction(videoId, model.id, 'raw', sourceVersion, oldExtractorVersion,
     undefined, undefined, undefined, 0, undefined, oldCell, { cacheDir });
-  expect(await getCachedExtraction(videoId, model.id, 'raw', promptVersion, 'v1',
+  expect(await getCachedExtraction(videoId, model.id, 'raw', sourceVersion, oldExtractorVersion,
     undefined, undefined, undefined, 0, undefined, { cacheDir })).toEqual(oldCell);
   const requests: LlmCompletionRequest[] = [];
   const client: LlmClient = { async generate(request) {
@@ -39,9 +42,9 @@ it.each(['pass1-claim-mining-v2', 'custom-encoding-fixture'])('does not resume p
   const fresh = await runEvaluationMatrix(corpus, [model], options);
   expect(fresh.metadata.failedCellCount).toBe(0);
   expect(fresh.cells[0]?.claimSet).toEqual([]);
-  expect(fresh.metadata.config['transcriptEncodingVersion']).toBe('full-transcript-json-v1');
-  expect(fresh.cells[0]?.transcriptEncodingVersion).toBe('full-transcript-json-v1');
-  expect(fresh.cells[0]?.extractorVersion).toContain('full-transcript-json-v1');
+  expect(fresh.metadata.config['transcriptEncodingVersion']).toBe('full-transcript-json-v2');
+  expect(fresh.cells[0]?.transcriptEncodingVersion).toBe('full-transcript-json-v2');
+  expect(fresh.cells[0]?.extractorVersion).toContain('full-transcript-json-v2');
   expect(requests).toHaveLength(2); // Existing empty-result parse retry, both fake provider calls.
   const retry = await runEvaluationMatrix(corpus, [model], { ...options,
     extractorClientFactory: () => { throw new Error('Exact resume must not construct an extractor client'); },

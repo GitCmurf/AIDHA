@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-083
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-18
 title: Complete Transcript Data in Chunk Mining Prompts
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015]
 > **Document ID:** AIDHA-TESTING-083
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-18
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-015]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify complete chunk data and bounded input estimates. | — | Draft | AIDHA-PLAN-015 |
+| 0.2 | 2026-10-18 | Codex | Correct qualified pack cache identities. | — | Draft | PR 52 |
 
 ## Contract
 
@@ -74,6 +75,17 @@ fully qualified historical versions are also upgraded to the current encoding id
 already corrected versions remain unchanged. Matrix result and cached-cell metadata expose the
 actual extractor/encoding revision without changing the prompt-family selector.
 
+An explicitly selected runtime pack takes priority over an embedded pack in a qualified version,
+including bounded escalation from enumeration-framework to enumeration-framework-v2. A diagnostic
+caller omitting a pack retains the embedded pack; an unqualified version defaults to generic.
+The current generic and encoder revisions are rebuilt once, preserving family/custom revisions.
+Diagnostic candidate provenance reports the effective version actually used for its cache read.
+
+The shared cache contract advances to `full-transcript-json-v2` for this correction. The payload
+JSON encoding is unchanged. Published v1 outer-runtime and evaluation-matrix results may contain
+outputs from a suppressed stronger-pack retry, so those entries are invalidated too. The pure
+generic prompt revision constant is declared before its helper; its value and behavior are unchanged.
+
 ## Acceptance
 
 `packages/praecis/core/tests/pipeline/transcript-prompt-fidelity.test.ts` checks:
@@ -84,9 +96,13 @@ actual extractor/encoding revision without changing the prompt-family selector.
   Source text stays outside the system message; original exported graph excerpt text is unchanged.
 - Each of six packs rejects separately seeded old current-format and legacy-fallback entries.
   Qualified historical and raw diagnostic reads miss old entries and find corrected entries
-  without duplicating the revision. Fresh corrected extractors reuse the new entry.
+  without duplicating the revision, including when the diagnostic omits the pack. Both pre-fidelity
+  and published v1 encoding identities are exercised. Fresh extractors reuse the corrected entry.
 - A configured runtime ignores a valid old outer pipeline entry, calls the recording fake LLM,
-  and reuses its new outer entry on an exact retry.
+  and reuses its new outer entry on an exact retry. Both original and published v1 outer identities
+  have positive old-cache hits before the corrected runtime ignores them.
+- A real weaker-pack pass triggers existing stronger-pack escalation, makes a second provider call
+  with the stronger prompt, returns its improved structural result, and caches both packs separately.
 
 `packages/praecis/core/tests/pipeline/transcript-prompt-budget.test.ts` checks:
 
@@ -100,7 +116,8 @@ actual extractor/encoding revision without changing the prompt-family selector.
 matrix extraction on disk, proves it is readable under its historical identity, and runs the
 real evaluation runner with a recording fake provider. The runner regenerates rather than
 resuming old claims, then resumes its corrected entry without constructing another client.
-Judge/model selection and score cache identities are unchanged.
+Both original and published v1 matrix identities are tested with default, custom and qualified
+prompt-version labels. Judge/model selection and score cache identities are unchanged.
 
 All provider interactions use recording fakes; no live service or paid model is needed.
 
