@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.18'
+version: '0.19'
 last_updated: 2026-10-18
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.18
+> **Version:** 0.19
 > **Last Updated:** 2026-10-18
 > **Type:** PLAN
 
@@ -42,6 +42,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.16 | 2026-10-17 | Codex | Record the reviewed context correction, semantic checkpoint and explicit hold on unstable experiments. | — | Draft | AIDHA-TESTING-059 |
 | 0.17 | 2026-10-17 | Codex | Refresh the decision-model shortlist and task-specific evaluation plan; preserve failed native replies after a genuine bot finding. | — | Draft | PR 37; owner model refresh |
 | 0.18 | 2026-10-18 | Codex | Record the standing technical merge authority, PR 37 and PR 56 landings, and retain the separate product and private-data gates. | — | Draft | Owner instruction; PRs 37 and 56 |
+| 0.19 | 2026-10-18 | Codex | Clarify that older batch approval gates are dated history and align the active checklist with the standing technical authority. | — | Draft | PR 57 Greptile finding |
 
 ## Purpose and authority
 
@@ -78,6 +79,10 @@ those reports and resolve confirmed issues before merging. Actual build/test/doc
 and completed local, peer or explicitly requested CLI reviews remain separate evidence. A completed
 CodeRabbit CLI review is distinct from a skipped CodeRabbit GitHub bot review.
 
+The batch summaries and dated work notes below preserve decisions and status as recorded at the
+time. Current and future work follows the authority above and the owner decision/merge checklist
+below; later entries supersede earlier status snapshots.
+
 ## Owner merge brief for the first batch
 
 The owner explicitly approved PR 28 (workflow), PR 27 (graph), PR 30 (dotenv) and PR 29 (VTT)
@@ -102,7 +107,9 @@ the red JavaScript status must remain disclosed unless its reporting service is 
 ## Second batch approval and landing
 
 The owner explicitly approved PRs 32 and 31 on 2026-10-16: “both approved”. This covers
-those two named PRs and routine base synchronization. Future PRs need separate merge approval.
+those two named PRs and routine base synchronization. At that time, future PRs needed separate
+merge approval. The standing authority recorded in v0.18 now applies to later eligible technical
+PRs; reserved decisions retain their specific owner gates.
 Both PRs are merged. No further owner action is needed for this batch. The full source branch
 remains open.
 
@@ -111,8 +118,9 @@ remains open.
 | [PR 32: private-artifact guard](https://github.com/GitCmurf/AIDHA/pull/32) | Real pilot records stay outside public Git. Synthetic examples remain permitted. The guard checks path patterns; content still needs review | Merged as `01ec0ed` after exact-head required CI and actual reporting-bot findings were assessed. Final isolation fix has peer review and regression coverage; extra CLI attempt had no coverage because of quota |
 | [PR 31: taxonomy provenance](https://github.com/GitCmurf/AIDHA/pull/31) | Stored automatic assignments identify their matching vocabulary; the fingerprint does not certify classification quality or version the full algorithm | Merged as `33f40cd` from synchronized head `4ad7e88` after fresh required CI and actual reports passed. Its stable patch and all eleven non-generated blobs match approved `4021473` |
 
-Engineering will merge only the approved PRs after their latest required checks pass. No force
-push, admin override, paid-review activation or repository-settings change is authorized here.
+Engineering merged these two approved PRs after their synchronized heads passed required checks.
+No force push, admin override, paid-review activation or repository-settings change was used for
+this batch.
 
 ## PR 33 approved and merged
 
@@ -129,8 +137,10 @@ The refreshed GitHub inventory has 22 open alerts (15 high, seven medium); none 
 updated email parser chain. The thirteen previously open email-chain alerts are no longer open.
 This is a dated dependency snapshot, not proof that every remaining alert is reachable.
 Configuration/build-tool and documentation-tool maintenance remain separate slices. No owner
-product, spending or account decision blocks the next synthetic engineering slice. Future PRs
-still need their own merge approval.
+product, spending or account decision blocks the next synthetic engineering slice. At the time of
+this 2026-10-17 status note, future PRs still had individual merge gates. The standing authority
+recorded in v0.18 supersedes that rule for eligible pure technical PRs; reserved decisions retain
+their specific owner gates.
 
 ## PR 34 approved and merged
 
@@ -191,7 +201,7 @@ findings inaccessible with HTTP 403 remain the review limits recorded on PR 35.
 - [x] Verify exact integrated-tree equality.
 - [x] Reproduce the late shared-excerpt finding and prepare a separate correction.
 - [x] Complete correction checks/reviews and publish PR 36.
-- [ ] Obtain separate approval and merge PR 36 after a fresh review gate.
+- [x] Obtain separate owner approval and merge PR 36 as `be9876c` after its fresh review gate.
 - [x] Verify all four PR 35 post-merge main CI workflows pass.
 - [x] Attempt the context helper; missing `specs/024-grounding-context/plan.md` prevents it
   before edits. The governed workflow and testing specs remain the restart record.
@@ -214,7 +224,8 @@ public synthetic text only, tools disabled, and no new API credentials or servic
 Record the actual resolved model and usage; native CLI results do not establish API-provider
 parity or default-pipeline quality. Source-report persistence follows when needed for the real
 reader trial; it is not a substitute for measuring semantic usefulness. No owner input blocks
-this preparation. Future PRs retain their own merge gate.
+this preparation. Eligible pure technical PRs use the standing authority above after fresh checks
+and report review; reserved decisions retain their specific owner gates.
 
 ## Model refresh before further semantic tuning
 
