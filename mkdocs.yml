@@ -35,6 +35,9 @@ nav:
       - Model Distillation and Grounding: 55-testing/testing-057-distillation-pipeline.md
       - Shared Grounding Source Context: 55-testing/testing-058-grounding-context.md
       - Link Check Failure Diagnostics: 55-testing/testing-065-link-check-diagnostics.md
+      - Configuration Filesystem Paths: 55-testing/testing-079-config-filesystem-paths.md
+      - Read-Only JSON-LD Graph Export: 55-testing/testing-078-jsonld-graph-export.md
+      - Node Runtime Floor: 55-testing/testing-080-node-runtime-floor.md
       - Explicit Config Selection: 55-testing/testing-089-explicit-config-selection.md
   - Planning:
       - Branch Landing Workflow: 05-planning/plan-015-branch-landing-workflow.md

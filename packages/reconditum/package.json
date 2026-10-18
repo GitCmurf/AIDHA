@@ -13,7 +13,7 @@
   },
   "author": "Colin Farmer (GitCmurf) (https://github.com/GitCmurf)",
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.12.0"
   },
   "license": "Apache-2.0",
   "repository": {

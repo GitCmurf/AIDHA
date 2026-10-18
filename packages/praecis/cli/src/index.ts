@@ -63,6 +63,7 @@ import { createConfiguredPipelineServices, createIngestionRuntimeFromServices, r
 import type { Chunk, Locator, MediaSegment } from '@aidha/praecis-core';
 
 import { createCliUsageText } from './help.js';
+import { exportGraphJsonLd, parseGraphExport } from './export-graph.js';
 
 export interface CliOptions {
   [key: string]: string | boolean | undefined;
@@ -1007,6 +1008,14 @@ export async function runCli(argv: string[]): Promise<number> {
   const command = positionals[0];
   try {
     validateConfigSelectorOptions(options);
+    if (command === 'export') {
+      const request = parseGraphExport(argv);
+      const configResult = await resolveAidhaConfig(request);
+      if (!configResult.ok) throw configResult.error;
+      const document = await exportGraphJsonLd(configResult.config.db, request.out);
+      if (document !== undefined) console.log(document);
+      return 0;
+    }
 
     if (command === 'config' && positionals[1] === 'explain') {
       const key = positionals[2];
