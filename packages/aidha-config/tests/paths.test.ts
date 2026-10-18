@@ -175,9 +175,10 @@ describe('resolvePathValues', () => {
     resolvePathValues(config as Record<string, unknown>, baseDir);
 
     // Array payloads outside schema-qualified config paths are left untouched.
-    expect(config.profiles.default.list[0]!.cache_dir).toBe('./cache-a');
-    expect(config.profiles.default.list[1]!.cache_dir).toBe('./cache-b');
-    expect(config.profiles.default.list[1]!.model).toBe('gpt-4o');
+    expect(config.profiles.default.list).toEqual([
+      { cache_dir: './cache-a' },
+      { cache_dir: './cache-b', model: 'gpt-4o' },
+    ]);
   });
 
   it('should not re-resolve top-level base_dir', () => {
