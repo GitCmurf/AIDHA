@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-078
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-18
 title: Read-Only JSON-LD Graph Export
 type: TESTING
@@ -13,7 +13,7 @@ area: CLI
 > **Document ID:** AIDHA-TESTING-078
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-18
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ area: CLI
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify full graph export without database initialization or output replacement. | — | Draft | Original commit 2775413 |
+| 0.2 | 2026-10-18 | Codex | Publish completed exports without destination cleanup races. | — | Draft | PR 49 |
 
 ## Scope and contract
 
@@ -45,13 +46,20 @@ read-only constructor option before opening any database. Keep the repository-wi
 unchanged; document this command's narrower runtime requirement.
 
 Without `--out`, stdout contains exactly one JSON-LD document and a newline. With `--out`,
-serialize first, then create the destination exclusively; refuse existing files, directories,
+serialize first, then stage a complete file privately before atomic publication; refuse existing
+files, directories,
 symlinks and hardlinks. Protect database paths and SQLite sidecar names, including aliases
 through an existing symlinked parent directory. Reserve case variants in the same physical
 directory on every filesystem; allow the same basename in a different directory.
 Do not add overwrite or force behavior.
-Do not create missing output directories. Remove only a new partial output owned by this
-operation if writing it fails. Diagnostics use stderr and failures exit nonzero.
+Do not create missing output directories. Stage the complete file with mode 0600 inside a
+private mode-0700 directory in the destination parent. Close it, then atomically hard-link it
+to the destination without replacement. If the filesystem cannot perform this publication,
+fail without a direct-write fallback. Never expose a partial destination or unlink the final
+path during cleanup: another owner can publish there between staging and the link attempt.
+Cleanup removes only the private staging directory. Preserve primary write/close failures
+when cleanup also fails. A cleanup failure after successful publication exits nonzero but
+leaves the complete destination in place. Diagnostics use stderr and failures exit nonzero.
 
 ## Acceptance criteria and regressions
 
@@ -65,6 +73,9 @@ operation if writing it fails. Diagnostics use stderr and failures exit nonzero.
   values and unsupported runtimes fail without output files or graph creation.
 - Existing output, database/config collisions, symlink/hardlink aliases and reserved SQLite
   sidecars cannot be overwritten. A failed write does not remove an existing destination.
+- Failure injection observes no destination during staged writes, including after the data is
+  complete but before close/publication. Concurrent destination publication is preserved.
+  Unsupported hard-link publication fails closed and only private staging is cleaned.
 - A concurrent independent writer cannot produce a mixed node/edge snapshot.
 - Existing writable store and ingestion behavior remain protected by their owning suites.
 

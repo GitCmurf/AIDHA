@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-001
 owner: Graph Backend Team
 status: Draft
 last_updated: 2026-10-18
-version: '0.3'
+version: '0.4'
 title: Graph Backend Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Graph Backend Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.4
 > **Last Updated:** 2026-10-18
 > **Type:** GUIDE
 
@@ -25,6 +25,7 @@ docops_version: '2.0'
 | 0.1     | 2025-11-09 | TBD    | Seed placeholder quickstart               | —         | Draft  | —         |
 | 0.2     | 2025-12-27 | CMF    | Adopt DocOps 2.0 ID + add Version History | —         | Draft  | —         |
 | 0.3 | 2026-10-18 | Codex | Document read-only JSON-LD graph export. | — | Draft | AIDHA-TESTING-078 |
+| 0.4 | 2026-10-18 | Codex | Describe atomic export publication. | — | Draft | AIDHA-TESTING-078 |
 
 ## Purpose
 
@@ -82,7 +83,11 @@ The database must exist. Export reads one coherent snapshot without initializing
 migrating tables or repairing search indexes. A missing explicitly selected config fails
 rather than selecting another database. Existing output files and links are refused, as are
 database and SQLite sidecar destinations, including case variants in the same physical
-directory. Missing output directories are not created.
+directory. Missing output directories are not created. Output is written completely in a
+private sibling staging directory before atomic hard-link publication; existing or concurrently
+published destinations are never replaced or removed by cleanup. Filesystems without this
+publication capability fail without exposing partial output. If private staging cleanup fails
+after publication, the command reports failure and leaves the complete output in place.
 With `--out`, stdout stays empty; errors go to stderr and exit nonzero.
 
 ## Verify

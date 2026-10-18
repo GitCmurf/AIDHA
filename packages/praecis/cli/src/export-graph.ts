@@ -2,7 +2,7 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { SQLiteStore, serializeJsonLd, toJsonLd } from '@aidha/graph-backend';
-import { lstat, open, realpath, stat, unlink } from 'node:fs/promises';
+import { chmod, link, lstat, mkdtemp, open, realpath, rm, stat, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -41,24 +41,35 @@ export function parseGraphExport(argv: readonly string[]): GraphExportOptions {
   };
 }
 
-/** Never follow or replace an existing destination, including links and directories. */
+/** Publish complete data without replacing a destination or unlinking another owner's path. */
 export async function writeNewOutput(path: string, contents: string): Promise<void> {
-  const file = await open(path, 'wx', 0o600);
-  let identity: { dev: number; ino: number } | undefined;
+  let exists = false;
+  try { await lstat(path); exists = true; }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  if (exists) throw Object.assign(new Error(`Output already exists: ${path}`), { code: 'EEXIST' });
+
+  const directory = await mkdtemp(join(dirname(path), '.aidha-export-'));
+  const staged = join(directory, 'document');
+  let file: FileHandle | undefined;
+  let failure: { error: unknown } | undefined;
   try {
-    identity = await file.stat();
+    await chmod(directory, 0o700);
+    file = await open(staged, 'wx', 0o600);
+    await file.chmod(0o600);
     await file.writeFile(contents, 'utf8');
     await file.close();
+    file = undefined;
+    // A hard link publishes the closed, complete inode atomically and never replaces path.
+    await link(staged, path);
   } catch (error) {
-    try { await file.close(); } catch { /* Keep the original write or close failure. */ }
-    try {
-      const current = await lstat(path);
-      if (identity && current.dev === identity.dev && current.ino === identity.ino) {
-        await unlink(path);
-      }
-    } catch { /* Do not replace the original failure with a cleanup failure. */ }
-    throw error;
+    failure = { error };
+  } finally {
+    try { await file?.close(); } catch (error) { failure ??= { error }; }
+    // Cleanup owns only the private staging directory, never the destination path.
+    try { await rm(directory, { recursive: true, force: true }); }
+    catch (error) { failure ??= { error }; }
   }
+  if (failure) throw failure.error;
 }
 
 async function protectDatabaseDestination(databasePath: string, outputPath: string): Promise<string> {
