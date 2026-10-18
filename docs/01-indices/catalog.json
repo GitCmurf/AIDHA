@@ -486,6 +486,21 @@
     }
   },
   {
+    "path": "55-testing/testing-094-source-owned-metadata-groups.md",
+    "title": "Source-Owned Resource Metadata Groups",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-094",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-18",
+      "title": "Source-Owned Resource Metadata Groups",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE"
+    }
+  },
+  {
     "path": "10-prd/prd-003-taxonomy.md",
     "title": null,
     "front_matter": {

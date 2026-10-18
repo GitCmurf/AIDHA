@@ -42,6 +42,7 @@ nav:
       - Node Runtime Floor: 55-testing/testing-080-node-runtime-floor.md
       - Explicit Config Selection: 55-testing/testing-089-explicit-config-selection.md
       - Truthful YouTube Publication Dates: 55-testing/testing-092-youtube-publication-dates.md
+      - Source-Owned Resource Metadata Groups: 55-testing/testing-094-source-owned-metadata-groups.md
       - CLI Startup Import Boundary: 55-testing/testing-091-cli-startup-import-boundary.md
   - Planning:
       - Branch Landing Workflow: 05-planning/plan-015-branch-landing-workflow.md
