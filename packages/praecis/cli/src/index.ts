@@ -174,6 +174,15 @@ function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
+function validateConfigSelectorOptions(options: CliOptions): void {
+  for (const key of ['config', 'profile'] as const) {
+    const value = options[key];
+    if (value !== undefined && (typeof value !== 'string' || value.length === 0)) {
+      throw new Error(`--${key} requires a value`);
+    }
+  }
+}
+
 type WebFetchFn = NonNullable<Parameters<typeof createWebVectorSpec>[0]>['fetchFn'];
 
 function stableId(seed: string): string {
@@ -612,7 +621,7 @@ export async function runYouTubePlaylistIngest(
 }
 
 export async function resolveAidhaConfig(
-  opts: { configPath?: string; profile?: string; source?: string; strictExplicitConfig?: boolean } = {},
+  opts: { configPath?: string; profile?: string; source?: string } = {},
 ): Promise<{ readonly ok: true; readonly config: ResolvedConfig; readonly loadResult: LoadResult } | { readonly ok: false; readonly error: Error; readonly loadResult: LoadResult }> {
   try {
     const loadOptions: Parameters<typeof loadConfig>[0] = { cwd: process.cwd(), syncProcessEnv: false };
@@ -640,23 +649,13 @@ export async function resolveAidhaConfig(
     return { ok: true, config, loadResult };
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    if (err instanceof ConfigNotFoundError && !(opts.strictExplicitConfig && (
-      opts.configPath || process.env['AIDHA_CONFIG']
-    ))) {
-      const resolveOptions: Parameters<typeof resolveConfig>[0] = { sourceRegistrations: SOURCE_REGISTRATIONS };
-      if (opts.profile) {
-        resolveOptions.profileName = opts.profile;
-      }
-      if (opts.source) {
-        resolveOptions.sourceId = opts.source;
-      }
-      const config = resolveConfig(resolveOptions);
+    if (err instanceof ConfigNotFoundError) {
       return {
-        ok: true,
-        config,
+        ok: false,
+        error: err,
         loadResult: {
           config: null,
-          configPath: opts.configPath ?? null,
+          configPath: err.filePath,
           baseDir: process.cwd(),
           warnings: [],
           dotenvEnv: {},
@@ -1008,9 +1007,10 @@ export async function runCli(argv: string[]): Promise<number> {
 
   const command = positionals[0];
   try {
+    validateConfigSelectorOptions(options);
     if (command === 'export') {
       const request = parseGraphExport(argv);
-      const configResult = await resolveAidhaConfig({ ...request, strictExplicitConfig: true });
+      const configResult = await resolveAidhaConfig(request);
       if (!configResult.ok) throw configResult.error;
       const document = await exportGraphJsonLd(configResult.config.db, request.out);
       if (document !== undefined) console.log(document);

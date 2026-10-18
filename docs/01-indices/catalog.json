@@ -63,7 +63,7 @@
       "owner": "Repo Maintainers",
       "status": "Draft",
       "last_updated": "2026-10-18",
-      "version": "1.14",
+      "version": "1.15",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -380,6 +380,24 @@
         "AIDHA-PLAN-015",
         "AIDHA-TESTING-057",
         "AIDHA-TESTING-058"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-089-explicit-config-selection.md",
+    "title": "Explicit Config Selection",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-089",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "Explicit Config Selection",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI",
+      "related_ids": [
+        "AIDHA-GUIDE-005"
       ]
     }
   },
