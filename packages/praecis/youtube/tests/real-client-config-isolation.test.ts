@@ -19,11 +19,16 @@ describe('RealYouTubeClient config isolation', () => {
         return new Response('', { status: 500 });
       });
 
-    const clientA = new RealYouTubeClient({ cookie: 'cookie-A', debugTranscript: false });
+    // A mocked HTTP failure must not fall through to a real yt-dlp process.
+    const noYtDlp = {
+      bin: '/definitely/missing/yt-dlp', jsRuntimes: 'node', remoteComponents: '',
+      timeoutMs: 1, keepFiles: false, debugTranscript: false,
+    };
+    const clientA = new RealYouTubeClient({ cookie: 'cookie-A', debugTranscript: false }, noYtDlp);
     // Creating a second client must not mutate clientA behavior.
     // Previous implementation used shared module state and would leak this config.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const clientB = new RealYouTubeClient({ cookie: 'cookie-B', debugTranscript: false });
+    const clientB = new RealYouTubeClient({ cookie: 'cookie-B', debugTranscript: false }, noYtDlp);
 
     const result = await clientA.fetchTranscript('video-one');
     expect(result.ok).toBe(false);
