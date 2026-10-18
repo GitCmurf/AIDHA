@@ -205,6 +205,110 @@ describe('aidha cli phase-1 surface', () => {
     }
   });
 
+  it('fails closed when an explicitly selected config is missing', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-missing-config-'));
+    const previousCwd = process.cwd();
+    const missingPath = join(dir, 'missing.yaml');
+    const output: string[] = [];
+    const errors: string[] = [];
+    const log = vi.spyOn(console, 'log').mockImplementation((value?: unknown) => output.push(String(value)));
+    const error = vi.spyOn(console, 'error').mockImplementation((value?: unknown) => errors.push(String(value)));
+
+    try {
+      process.chdir(dir);
+      vi.stubEnv('HOME', dir);
+      vi.stubEnv('XDG_CONFIG_HOME', join(dir, 'xdg'));
+      vi.stubEnv('AIDHA_CONFIG', undefined);
+
+      const explicitCli = await resolveAidhaConfig({ configPath: missingPath });
+      vi.stubEnv('AIDHA_CONFIG', missingPath);
+      const explicitEnvironment = await resolveAidhaConfig();
+      const cliCode = await runCli(['config', 'explain', 'db', '--config', missingPath]);
+      const environmentCode = await runCli(['config', 'explain', 'db']);
+
+      expect({
+        explicitCli: explicitCli.ok,
+        explicitEnvironment: explicitEnvironment.ok,
+        cliCode,
+        environmentCode,
+      }).toEqual({ explicitCli: false, explicitEnvironment: false, cliCode: 1, environmentCode: 1 });
+      expect(errors.join('\n')).toMatch(/config file not found/i);
+      expect(output).toEqual([]);
+    } finally {
+      process.chdir(previousCwd);
+      vi.unstubAllEnvs();
+      log.mockRestore();
+      error.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('lets an explicit CLI config override a missing AIDHA_CONFIG and uses its default profile', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-config-precedence-'));
+    const configPath = join(dir, 'config.yaml');
+    const dbPath = join(dir, 'selected.sqlite');
+    const output: string[] = [];
+    const log = vi.spyOn(console, 'log').mockImplementation((value?: unknown) => output.push(String(value)));
+
+    try {
+      await writeFile(configPath, [
+        'config_version: 1',
+        'default_profile: selected',
+        'profiles:',
+        '  selected:',
+        `    db: ${JSON.stringify(dbPath)}`,
+      ].join('\n'));
+      vi.stubEnv('AIDHA_CONFIG', join(dir, 'missing-env.yaml'));
+
+      const resolved = await resolveAidhaConfig({ configPath });
+      const code = await runCli(['config', 'explain', 'db', '--config', configPath]);
+
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+      expect(resolved.config.db).toBe(dbPath);
+      expect(code).toBe(0);
+      expect(output.join('\n')).toContain(dbPath);
+    } finally {
+      vi.unstubAllEnvs();
+      log.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps zero-config defaults when no explicit file is selected', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-zero-config-'));
+    const previousCwd = process.cwd();
+
+    try {
+      process.chdir(dir);
+      vi.stubEnv('HOME', dir);
+      vi.stubEnv('XDG_CONFIG_HOME', join(dir, 'xdg'));
+      vi.stubEnv('AIDHA_CONFIG', undefined);
+
+      const resolved = await resolveAidhaConfig();
+      expect(resolved.ok).toBe(true);
+      if (!resolved.ok) return;
+      expect(resolved.loadResult.config).toBeNull();
+      expect(resolved.config.db).toBe(join(dir, 'out', 'aidha.sqlite'));
+    } finally {
+      process.chdir(previousCwd);
+      vi.unstubAllEnvs();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    { option: '--config' },
+    { option: '--profile' },
+  ])('rejects $option without a value before falling back', async ({ option }) => {
+    const errors: string[] = [];
+    const error = vi.spyOn(console, 'error').mockImplementation((value?: unknown) => errors.push(String(value)));
+    const code = await runCli(['config', 'explain', 'db', option]);
+    expect(code).toBe(1);
+    expect(errors.join('\n')).toMatch(new RegExp(`${option} requires a value`));
+    error.mockRestore();
+  });
+
   for (const overrideExisting of [false, true]) {
     it(`resolves shell and dotenv values with override_existing=${overrideExisting}`, async () => {
       const dir = await mkdtemp(join(tmpdir(), 'aidha-cli-env-precedence-'));

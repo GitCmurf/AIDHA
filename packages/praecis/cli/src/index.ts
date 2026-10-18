@@ -173,6 +173,15 @@ function optionBool(options: CliOptions, key: string): boolean {
   return options[key] === true;
 }
 
+function validateConfigSelectorOptions(options: CliOptions): void {
+  for (const key of ['config', 'profile'] as const) {
+    const value = options[key];
+    if (value !== undefined && (typeof value !== 'string' || value.length === 0)) {
+      throw new Error(`--${key} requires a value`);
+    }
+  }
+}
+
 type WebFetchFn = NonNullable<Parameters<typeof createWebVectorSpec>[0]>['fetchFn'];
 
 function stableId(seed: string): string {
@@ -640,20 +649,12 @@ export async function resolveAidhaConfig(
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     if (err instanceof ConfigNotFoundError) {
-      const resolveOptions: Parameters<typeof resolveConfig>[0] = { sourceRegistrations: SOURCE_REGISTRATIONS };
-      if (opts.profile) {
-        resolveOptions.profileName = opts.profile;
-      }
-      if (opts.source) {
-        resolveOptions.sourceId = opts.source;
-      }
-      const config = resolveConfig(resolveOptions);
       return {
-        ok: true,
-        config,
+        ok: false,
+        error: err,
         loadResult: {
           config: null,
-          configPath: opts.configPath ?? null,
+          configPath: err.filePath,
           baseDir: process.cwd(),
           warnings: [],
           dotenvEnv: {},
@@ -1005,6 +1006,8 @@ export async function runCli(argv: string[]): Promise<number> {
 
   const command = positionals[0];
   try {
+    validateConfigSelectorOptions(options);
+
     if (command === 'config' && positionals[1] === 'explain') {
       const key = positionals[2];
       if (!key) {
