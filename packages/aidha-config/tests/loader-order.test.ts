@@ -40,6 +40,31 @@ function writeFile(subPath: string, content: string): void {
 }
 
 describe('Loader — 8-step load order', () => {
+  it('resolves interpolated bare filesystem names against the final base_dir through public APIs', async () => {
+    writeFile('.aidha/config.yaml', `
+config_version: 1
+default_profile: selected
+base_dir: \${CUSTOM_BASE}
+env:
+  dotenv_files: [values.env]
+profiles:
+  selected:
+    db: \${GRAPH_FILE}
+    llm:
+      cache_dir: cache
+    export:
+      out_dir: exports
+`);
+    writeFile('values.env', 'CUSTOM_BASE=data\nGRAPH_FILE=relative.sqlite\n');
+    const loaded = await loadConfig({ cwd: tmpDir, env: {}, syncProcessEnv: false });
+    const resolved = resolveConfig({ rawConfig: loaded.config, baseDir: loaded.baseDir, env: loaded.dotenvEnv });
+    const finalBase = resolve(tmpDir, 'data');
+    expect(loaded.baseDir).toBe(finalBase);
+    expect(resolved.db).toBe(resolve(finalBase, 'relative.sqlite'));
+    expect(resolved.llm.cacheDir).toBe(resolve(finalBase, 'cache'));
+    expect(resolved.export.outDir).toBe(resolve(finalBase, 'exports'));
+  });
+
   it('should load dotenv before interpolation (steps 4→5)', async () => {
     writeFile('.aidha/config.yaml', `
 config_version: 1

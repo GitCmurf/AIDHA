@@ -82,8 +82,9 @@ describe('resolvePathValue', () => {
     expect(resolvePathValue('/tmp/absolute.db', baseDir)).toBe('/tmp/absolute.db');
   });
 
-  it('should not rewrite bare command names', () => {
-    expect(resolvePathValue('yt-dlp', baseDir)).toBe('yt-dlp');
+  it('should resolve bare filesystem names against baseDir', () => {
+    expect(resolvePathValue('database.sqlite', baseDir)).toBe(resolve(baseDir, 'database.sqlite'));
+    expect(resolvePathValue('cache', baseDir)).toBe(resolve(baseDir, 'cache'));
   });
 
   it('should return empty strings unchanged', () => {
@@ -98,13 +99,13 @@ describe('resolvePathValues', () => {
     const config = {
       profiles: {
         default: {
-          db: './out/test.sqlite',
+          db: 'database.sqlite',
           llm: {
-            cache_dir: './cache',
+            cache_dir: 'cache',
             model: 'gpt-4o',
           },
           export: {
-            out_dir: './exports',
+            out_dir: 'exports',
             source_prefix: 'youtube',
           },
         },
@@ -113,10 +114,10 @@ describe('resolvePathValues', () => {
 
     resolvePathValues(config, baseDir);
 
-    expect(config.profiles.default.db).toBe(resolve(baseDir, './out/test.sqlite'));
-    expect(config.profiles.default.llm.cache_dir).toBe(resolve(baseDir, './cache'));
+    expect(config.profiles.default.db).toBe(resolve(baseDir, 'database.sqlite'));
+    expect(config.profiles.default.llm.cache_dir).toBe(resolve(baseDir, 'cache'));
     expect(config.profiles.default.llm.model).toBe('gpt-4o'); // not a path
-    expect(config.profiles.default.export.out_dir).toBe(resolve(baseDir, './exports'));
+    expect(config.profiles.default.export.out_dir).toBe(resolve(baseDir, 'exports'));
     expect(config.profiles.default.export.source_prefix).toBe('youtube'); // not a path
   });
 
@@ -174,9 +175,9 @@ describe('resolvePathValues', () => {
     resolvePathValues(config as Record<string, unknown>, baseDir);
 
     // Array payloads outside schema-qualified config paths are left untouched.
-    expect(config.profiles.default.list[0].cache_dir).toBe('./cache-a');
-    expect(config.profiles.default.list[1].cache_dir).toBe('./cache-b');
-    expect(config.profiles.default.list[1].model).toBe('gpt-4o');
+    expect(config.profiles.default.list[0]!.cache_dir).toBe('./cache-a');
+    expect(config.profiles.default.list[1]!.cache_dir).toBe('./cache-b');
+    expect(config.profiles.default.list[1]!.model).toBe('gpt-4o');
   });
 
   it('should not re-resolve top-level base_dir', () => {

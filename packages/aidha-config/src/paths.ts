@@ -68,11 +68,10 @@ export function isBareCommand(value: string): boolean {
 
 /**
  * Resolve a single path-like value relative to `baseDir`, unless it is
- * already absolute or is a bare command name.
+ * already absolute. Bare filenames are relative filesystem paths.
  */
 export function resolvePathValue(value: string, baseDir: string): string {
   if (value === '') return value;
-  if (isBareCommand(value)) return value;
   return resolve(baseDir, value);
 }
 

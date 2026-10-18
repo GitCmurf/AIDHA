@@ -54,7 +54,7 @@ describe('CLI Configuration Bridge', () => {
         llm: { model: 'overridden-model' },
       },
     });
-    expect(config.db).toBe('overridden.db');
+    expect(config.db).toBe(resolve(fixtureRoot, 'overridden.db'));
     expect(config.llm.model).toBe('overridden-model');
   });
 
@@ -64,7 +64,7 @@ describe('CLI Configuration Bridge', () => {
         db: 'zero-config.db',
       },
     });
-    expect(config.db).toBe('zero-config.db');
+    expect(config.db).toBe(resolve(process.env['INIT_CWD'] || process.cwd(), 'zero-config.db'));
   });
 
   it('applies source defaults (if defined)', async () => {
