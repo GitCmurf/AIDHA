@@ -14,6 +14,7 @@ nav:
       - Graph Database: 10-prd/prd-001-graph-database.md
       - Ingest to Graph Database: 10-prd/prd-002-ingest-to-graph-database.md
       - Taxonomy: 10-prd/prd-003-taxonomy.md
+      - Bounded Continuity Capture and Correction: 10-prd/prd-004-continuity-capture.md
   - Architecture Decisions:
       - Adopt Meminit DocOps: 20-adr/adr-001-adopt-meminit-docops.md
       - Graph Storage Engine: 20-adr/adr-002-graph-storage-engine.md
@@ -21,6 +22,7 @@ nav:
       - Ingestion Architecture: 20-adr/adr-004-ingestion-architecture.md
       - Claim Lifecycle Review Workflow: 20-adr/adr-006-claim-lifecycle-review-workflow.md
       - Two-Pass LLM Extraction: 20-adr/adr-007-two-pass-llm-extraction-architecture.md
+      - Continuity Case Events: 20-adr/adr-010-continuity-case-events.md
   - Feature Designs:
       - Ingestion Engine Design: 30-fdd/fdd-001-ingestion-engine.md
       - First-Pass Claim Mining: 30-fdd/fdd-002-first-pass-youtube-claim-mining.md
@@ -29,11 +31,13 @@ nav:
       - Graph Backend Runbook: 50-runbooks/runbook-001-graph-backend.md
       - Taxonomy Runbook: 50-runbooks/runbook-002-taxonomy.md
       - Ingestion Runbook: 50-runbooks/runbook-003-youtube-ingestion.md
+      - Personal Continuity Capture and Recovery: 50-runbooks/runbook-014-personal-continuity.md
   - Testing:
       - MVP Test Suite: 55-testing/testing-001-mvp-tests.md
       - Distillation Validation Contracts: 55-testing/testing-056-distillation-validation.md
       - Model Distillation and Grounding: 55-testing/testing-057-distillation-pipeline.md
       - Shared Grounding Source Context: 55-testing/testing-058-grounding-context.md
+      - Continuity Capture and Direct-Correction Acceptance: 55-testing/testing-088-continuity-capture.md
       - Link Check Failure Diagnostics: 55-testing/testing-065-link-check-diagnostics.md
   - Planning:
       - Branch Landing Workflow: 05-planning/plan-015-branch-landing-workflow.md
