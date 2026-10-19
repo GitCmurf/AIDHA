@@ -127,6 +127,8 @@ export interface MiningResult {
   readonly rejectedClaims?: readonly DraftClaim[];
   readonly supportingUnits?: readonly SupportingUnitSummary[];
   readonly distillation?: SourceDistillationSummary;
+  readonly extractionSnapshotCandidate?: import('../extract/distill/snapshot.js').ExtractionSnapshotCandidate;
+  readonly extractionSnapshotCandidateHash?: string;
   readonly claims: readonly DraftClaim[];
   readonly tokenUsage?: number;
   readonly spendUsd?: number;
@@ -141,6 +143,7 @@ export interface ExportResult {
   readonly created: number;
   readonly updated: number;
   readonly noop: number;
+  readonly extractionSnapshot?: import('../extract/distill/snapshot.js').ExtractionSnapshot;
 }
 
 export interface ReferenceExtractionReport {
@@ -174,6 +177,7 @@ export interface RunReport {
   readonly rejectedClaims?: readonly DraftClaim[];
   readonly supportingUnits?: readonly SupportingUnitSummary[];
   readonly sourceDistillation?: SourceDistillationSummary;
+  readonly extractionSnapshot?: import('../extract/distill/snapshot.js').ExtractionSnapshot;
   readonly sourceId: string;
   readonly canonicalId: string;
   readonly resourceId: string;
@@ -250,6 +254,8 @@ export interface MiningRequest {
 export interface ICandidateMiner {
   /** Changes when prompts, validation policy or miner options change. Missing/blank identity bypasses cache. */
   readonly cacheIdentity?: string;
+  /** Explicit opt-in to the durable source-distillation snapshot contract. */
+  readonly extractionSnapshotVersion?: 1;
   estimate?(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }>;
   mine(request: MiningRequest): Promise<Result<MiningResult>>;
 }

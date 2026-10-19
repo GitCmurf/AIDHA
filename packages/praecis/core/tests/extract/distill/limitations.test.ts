@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLimitationPrompt, parseLimitationRelations, applyLimitationRelations } from '../../../src/extract/distill/limitations.js';
+import { buildLimitationPrompt, parseLimitationRelations, applyLimitationRelations, type LimitationRelation } from '../../../src/extract/distill/limitations.js';
 import type { VerifiedUnit } from '../../../src/extract/distill/quote-verification.js';
 
 const passages = new Map([
@@ -7,7 +7,7 @@ const passages = new Map([
   ['b', 'In Trial B, the filter removed eighty percent of particles during the first measured hour. A different assembly was used for this run, and the technicians checked the sensor twice before closing the trial.'],
   ['later', 'The maintenance team stated that the clogging limitation applies only to Trial A and not to Trial B because the original assembly was used there. Dr Vale repeated the team finding in a meeting but did not originate or test the limitation.'],
 ]);
-const units: VerifiedUnit[] = [
+const units: [VerifiedUnit, VerifiedUnit, VerifiedUnit] = [
   { id: 'a', kind: 'fact', text: 'Trial A filter removal was measured at eighty percent in the first hour.', stance: 'asserted', importance: 'core',
     evidence: [{ excerptId: 'a', quote: 'Trial A, the filter removed eighty percent of particles', quoteVerification: 'exact' }] },
   { id: 'b', kind: 'fact', text: 'Trial B filter removal was measured at eighty percent in the first hour.', stance: 'asserted', importance: 'core',
@@ -17,7 +17,7 @@ const units: VerifiedUnit[] = [
     attribution: { kind: 'third_party', role: 'maintenance team' },
     evidence: [{ excerptId: 'later', quote: 'maintenance team stated that the clogging limitation applies only to Trial A', quoteVerification: 'exact' }] },
 ];
-const relation = (targetUnitId: string, targetScope: string, quote = 'the clogging limitation applies only to Trial A and not to Trial B') => ({
+const relation = (targetUnitId: string, targetScope: string, quote = 'the clogging limitation applies only to Trial A and not to Trial B'): LimitationRelation => ({
   limitationUnitId: 'limit', targetUnitId, verdict: 'grounded',
   relationEvidence: { excerptId: 'later', quote },
   targetScope: { kind: 'trial', text: targetScope }, explanation: 'The later correction explicitly names the affected trial.',
@@ -174,3 +174,17 @@ describe('source-backed limitation applicability', () => {
     expect(ambiguous.diagnostics).toEqual([expect.stringContaining('also names another claim')]);
   });
 });
+
+
+it.each(['response', 'relation', 'relationEvidence', 'targetScope'] as const)(
+  'rejects unsupported fields in the fresh %s protocol without keeping a valid subset', level => {
+    const extra = relation('b', 'Trial B');
+    const response: Record<string, unknown> = { relations: [relation('a', 'Trial A'), extra] };
+    if (level === 'response') response['unsupported'] = 'unsupported protocol field';
+    else if (level === 'relation') Object.assign(extra, { unsupported: 'unsupported protocol field' });
+    else Object.assign(extra[level], { unsupported: 'unsupported protocol field' });
+    const parsed = parseLimitationRelations(JSON.stringify(response));
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors).toEqual(expect.arrayContaining([expect.stringContaining('Unrecognized key')]));
+    expect('value' in parsed).toBe(false);
+  });
