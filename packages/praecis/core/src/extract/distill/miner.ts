@@ -11,6 +11,7 @@ import { verifyDistillationEvidence } from './quote-verification.js';
 import { computeCoverage } from './coverage.js';
 import { applyGroundingVerdicts, parseGroundingVerdicts, type RejectedUnit } from './grounding.js';
 import { buildDistillationOutput } from './report.js';
+import { hashSnapshotCandidate, parseSnapshotCandidate, SOURCE_DISTILLATION_SNAPSHOT_IDENTITY_VERSION } from './snapshot.js';
 import type { ExtractionIntent } from './projection.js';
 import { buildDistillPrompt, buildRepairPrompt, buildGroundingPrompt, DISTILL_PROMPT_VERSION, GROUNDING_PROMPT_VERSION } from './prompts.js';
 
@@ -22,6 +23,7 @@ export interface SourceDistillationMinerConfig {
 
 /** Explicitly injectable two-pass miner; default pipeline selection is separate. */
 export class SourceDistillationMiner implements ICandidateMiner {
+  readonly extractionSnapshotVersion = 1 as const;
   private readonly intent: ExtractionIntent;
   private readonly threshold: number;
   private readonly logger: Logger;
@@ -36,7 +38,7 @@ export class SourceDistillationMiner implements ICandidateMiner {
   }
 
   get cacheIdentity(): string {
-    return JSON.stringify({ version: 'bounded-distillation-v1', prompt: DISTILL_PROMPT_VERSION,
+    return JSON.stringify({ version: SOURCE_DISTILLATION_SNAPSHOT_IDENTITY_VERSION, prompt: DISTILL_PROMPT_VERSION,
       grounding: GROUNDING_PROMPT_VERSION, intent: this.intent, threshold: this.threshold });
   }
 
@@ -135,7 +137,16 @@ export class SourceDistillationMiner implements ICandidateMiner {
         theses: proposal.theses, units: kept, rejectedUnits: rejected,
         coverage: { ...coverage, weakQuoteCount: coverage.weakQuoteCount + verified.weakQuoteCount },
         diagnostics, model, promptVersion: DISTILL_PROMPT_VERSION });
-      return { ok: true, value: { ...output, tokenUsage: totalTokens, distillation: { ...output.distillation, failedClosed: false } } };
+      const extractionSnapshotCandidate = parseSnapshotCandidate({
+        schemaVersion: 1, trusted: false, sourceCanonicalId: request.raw.canonicalId, extractionIntent: this.intent,
+        minerIdentity: this.cacheIdentity, model, promptVersion: DISTILL_PROMPT_VERSION,
+        preProjectionDiagnostics: diagnostics, proposal, finalUnits: kept, rejectedUnits: rejected,
+        supportingUnits: output.supportingUnits, report: output.distillation,
+      });
+      if (!extractionSnapshotCandidate) return failClosed('Could not validate the complete extraction snapshot');
+      return { ok: true, value: { ...output, extractionSnapshotCandidate,
+        extractionSnapshotCandidateHash: hashSnapshotCandidate(extractionSnapshotCandidate), tokenUsage: totalTokens,
+        distillation: { ...output.distillation, failedClosed: false } } };
     } catch (error) {
       return failClosed(error instanceof Error ? error.message : String(error));
     }

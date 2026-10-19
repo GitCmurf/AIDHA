@@ -16,6 +16,7 @@ const RESERVED_RESOURCE_METADATA_KEYS = new Set([
   'provenances',
   'label',
   SOURCE_OWNED_METADATA_GROUPS_KEY,
+  'extractionSnapshot',
 ]);
 
 function isJsonSafe(value: unknown): boolean {

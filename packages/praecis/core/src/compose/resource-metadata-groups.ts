@@ -13,6 +13,7 @@ const RESERVED_FIELDS = new Set([
   'provenances',
   'label',
   'metadataConflicts',
+  'extractionSnapshot',
   SOURCE_OWNED_METADATA_GROUPS_KEY,
 ]);
 

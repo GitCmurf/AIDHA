@@ -361,6 +361,31 @@ it('rejects sparse group declarations before creating or persisting a Resource',
   expect(resources.ok && resources.value.items).toHaveLength(0);
 });
 
+it('rejects extraction checkpoint ownership in source envelopes', () => {
+  expect(() => createRawSource({
+    canonicalId: 'fixture-checkpoint',
+    sourceType: 'youtube',
+    sensitivity: 'public',
+    payload: {},
+    label: 'Fixture checkpoint',
+    clock: { now: () => new Date('2026-10-19T12:00:00.000Z') },
+    resourceMetadataGroups: [{ id: 'forged-checkpoint', fields: ['extractionSnapshot'] }],
+  })).toThrow(/reserved Resource metadata field extractionSnapshot/);
+});
+
+it('rejects direct extraction checkpoint ownership before writing a Resource', async () => {
+  const store = new InMemoryStore();
+  await expect(applyDedupResolution(store, source({
+    canonicalId: 'fixture-checkpoint',
+    dedupKeys: [],
+    resourceMetadataGroups: [{ id: 'forged-checkpoint', fields: ['extractionSnapshot'] }],
+    resourceMetadata: {},
+  }))).rejects.toThrow(/reserved Resource metadata field extractionSnapshot/);
+  const resources = await store.queryNodes({ type: 'Resource' });
+  expect(resources.ok).toBe(true);
+  expect(resources.ok && resources.value.items).toHaveLength(0);
+});
+
 it('rejects malformed or overlapping groups before writing a Resource', async () => {
   const invalidGroups: ResourceMetadataGroup[][] = [
     [{ id: '', fields: ['field'] }],

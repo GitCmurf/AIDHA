@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-094
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-18
+version: '0.3'
+last_updated: 2026-10-19
 title: Source-Owned Resource Metadata Groups
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-094
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-18
+> **Version:** 0.3
+> **Last Updated:** 2026-10-19
 > **Type:** TESTING
 
 # Source-Owned Resource Metadata Groups
@@ -23,6 +23,7 @@ area: CORE
 
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
+| 0.3 | 2026-10-19 | Codex | Reserve extraction checkpoints against source-owned group declarations | — | Draft | AIDHA-TESTING-069 |
 | 0.2 | 2026-10-18 | Codex | Reject sparse declarations and persist empty group ownership | — | Draft | — |
 | 0.1 | 2026-10-18 | Codex | Define source-owned atomic Resource metadata groups and regression coverage | — | Draft | — |
 
@@ -54,6 +55,8 @@ declared group keep the existing scalar merge behavior.
 - A source cannot change a group's field set. Group declarations reject empty or duplicate
   identifiers/fields, sparse group or field arrays, reserved core metadata keys, and overlapping
   members. Malformed stored ownership records, including sparse stored field arrays, fail closed.
+- `extractionSnapshot` is core-owned. Source-envelope construction and direct `RawSource` dedup
+  reject a group claiming that field before creating or persisting a Resource.
 - An ordinary ungrouped write cannot alter a field already owned by a group. Unrelated ungrouped
   fields continue to use the existing merge policy.
 - Group values and their ownership record are written together in the Resource metadata update.
@@ -72,6 +75,8 @@ sparse stored owner record is rejected by the reader. Existing `dedup-link` test
 for ungrouped metadata merging. The regression suite also covers member names inherited from
 `Object.prototype`, so an omitted `constructor` field is initialized as absent rather than treated
 as supplied metadata, and the owner reader rejects malformed persisted records.
+The extraction-checkpoint regression checks both `createRawSource` and direct `applyDedupResolution`
+rejection with the reserved-field error, then queries the store to confirm no Resource was written.
 
 ## Verification
 
