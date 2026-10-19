@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-093
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-19
 title: YouTube Creator Note Capture
 type: TESTING
@@ -13,7 +13,7 @@ area: INGEST
 > **Document ID:** AIDHA-TESTING-093
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-19
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ area: INGEST
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-19 | Codex | Specify bounded watch capture and durable refresh checks | — | Draft | TESTING-094 |
+| 0.2 | 2026-10-19 | Codex | Keep protocol ownership in YouTube and pin acceptance-test link to reviewed public commit | — | Draft | TESTING-094 |
 
 ## Contract
 
@@ -52,6 +53,7 @@ No publication date is inferred. Literal Unicode, line endings, repeated URLs an
 New success and failure receipts use method youtube-watch-page. Version 1 also accepts yt-dlp for
 existing carriers; an absent live method retains that legacy interpretation. Unknown methods fail
 validation.
+YouTube supplies this protocol's vocabulary to the reusable, source-neutral core contract factory.
 
 ## Persistence and refresh
 
@@ -99,4 +101,4 @@ Run source builds, affected tests and strict affected-test type checks, package 
 and the full docs build before merge. Runtime fixtures prove transport and persistence mechanics;
 they do not establish live caption timing or semantic note quality.
 
-[capture-test]: https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/youtube/tests/watch-page-creator-capture.test.ts
+[capture-test]: https://github.com/GitCmurf/AIDHA/blob/64fe481b105fde42a4f1613281e6a71022ff1f78/packages/praecis/youtube/tests/watch-page-creator-capture.test.ts

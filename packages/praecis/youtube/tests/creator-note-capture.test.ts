@@ -171,8 +171,13 @@ profiles:
     vi.spyOn(console, 'log').mockImplementation(() => {});
     expect(await runCli(['extract', 'claims', videoId, '--config', path, '--mock'])).toBe(0);
     expect(contexts.length).toBeGreaterThan(0);
-    expect(contexts.every(value => Boolean(value?.includes('https://example.test/prompt'))
-      === (state === 'success'))).toBe(true);
+    for (const context of contexts) {
+      if (state === 'success') {
+        expect(context).toContain('https://example.test/prompt');
+      } else {
+        expect(context ?? '').not.toContain('https://example.test/prompt');
+      }
+    }
     expect(globalThis.fetch).not.toHaveBeenCalled();
     const reopened = SQLiteStore.open(db);
     try {

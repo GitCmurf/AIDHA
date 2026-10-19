@@ -10,7 +10,7 @@ import { Video } from '../schema/index.js';
 import type { Transcript } from '../schema/index.js';
 import { SOURCE_ID } from '../config/youtube-source-adapter.js';
 import { prepareCreatorNoteMetadata } from './creator-note-metadata.js';
-import { CREATOR_NOTE_METADATA_GROUP } from '@aidha/praecis-core/creator-capture';
+import { CREATOR_NOTE_METADATA_GROUP } from '../schema/creator-note.js';
 
 // ── Payload type ─────────────────────────────────────────────────────────────
 
