@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-069
 owner: Engineering
 status: Draft
-version: '0.3'
-last_updated: 2026-10-17
+version: '0.4'
+last_updated: 2026-10-19
 title: Durable Source Extraction Checkpoint
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 > **Document ID:** AIDHA-TESTING-069
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
-> **Last Updated:** 2026-10-17
+> **Version:** 0.4
+> **Last Updated:** 2026-10-19
 > **Type:** TESTING
 
 # Durable Source Extraction Checkpoint
@@ -27,6 +27,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 | 0.1 | 2026-10-17 | Codex | Specify versioned extraction recovery, transactional admission and failed retry preservation. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-17 | Codex | Verify the public CLI failure contract and typed fixtures. | — | Draft | PR 45 |
 | 0.3 | 2026-10-17 | Codex | Verify cache identity and routed-unit consistency. | — | Draft | PR 45 follow-up |
+| 0.4 | 2026-10-19 | Codex | Record current-main integration, reserved-group regression and standing technical merge authority | — | Draft | AIDHA-TESTING-094 |
 
 ## Purpose and limits
 
@@ -134,7 +135,33 @@ The acceptance evidence is a focused red/green log, full affected core/graph sui
 typecheck/build, strict docs/DocOps, exact SQLite close/reopen assertions, and material code review
 before commit. No synthetic test can establish semantic recall, entailment or product readiness.
 
-## v0.3 verified cache-protocol correction
+## v0.4 current-main integration
+
+The refresh onto main `8c4f40ede2a6736960642add1d398dd9a24dbce2` preserves PR52's transcript
+encoding export and miner cache identity, and PR60's source-owned metadata validation and merge
+behaviour. The `emptySourceConfigRegistration` re-export is retained.
+
+Combining snapshots with source-owned groups exposed a new integration gap: a group could claim
+the core-owned `extractionSnapshot` field. Two new regressions first failed because
+`createRawSource` accepted the declaration and direct `applyDedupResolution` created a Resource.
+Adding that field to the group validator's reserved set makes both reject with the reserved-field
+error; the direct test confirms the Resource query remains empty. See
+[AIDHA-TESTING-094](testing-094-source-owned-metadata-groups.md) and
+`packages/praecis/core/tests/compose/source-owned-metadata.test.ts`.
+This finding does not establish historical data corruption.
+
+The focused refresh run passed 96 tests across nine files, covering those regressions,
+existing group controls, snapshot persistence and cache consistency, distillation, pipeline
+execution, and transcript prompt fidelity and budget behaviour. The post-fix core build passed.
+Strict checking of the five affected core test/fixture files exposed a missing required `label` in
+the synthetic pipeline fixture. That omission exists in both merge parents. Adding the label makes
+the strict check pass; all seven affected pipeline distillation tests pass after that correction.
+Final documentation checks and normal commit-hook results are recorded with the commit evidence.
+The older full-suite results below are historical. This refresh has not repeated the full core or
+CLI suites or strict CLI test checking locally. All current tests use fictional sources and
+injected models; no provider call or private-code upload was made.
+
+## v0.3 historical cache-protocol correction
 
 The base PR45 correction is committed at `5a206966011f61cb00f0015679c1801f368ba34c`. The
 [direct consistency tests](https://github.com/GitCmurf/AIDHA/blob/5a206966011f61cb00f0015679c1801f368ba34c/packages/praecis/core/tests/extract/distill/snapshot-consistency.test.ts)
@@ -150,9 +177,10 @@ reason, and admitted units retain their original ID, kind, supporting-unit IDs, 
 evidence. Valid grounding rewrites to text, rationale, conditions, attribution, stance, and
 importance remain accepted on fresh generation and cache replay.
 
-Seven red regressions reproduced identity and routing contradictions. The focused direct/pipeline
-suite passes 27/27 tests; the full core suite passes 303/303. Core lint and build pass. Strict
-no-emit TypeScript checking of both linked test files exits 0. The tests reproject and rehash
+At the source revision above, seven red regressions reproduced identity and routing contradictions.
+The focused direct/pipeline suite passed 27/27 tests; the full core suite passed 303/303. Core lint
+and build passed. Strict no-emit TypeScript checking of both linked test files exited 0. The tests
+reproject and rehash
 adverse candidates before asserting the host rejects them; they also verify a legitimate rewrite
 and a custom opaque identity. The configured-runtime test confirms cache replay uses zero model
 calls after the fresh rewrite. No live model calls or source inputs were used.
@@ -192,8 +220,9 @@ node scripts/meminit-check.mjs docs/55-testing/testing-069-extraction-checkpoint
 pnpm docs:build
 ```
 
-Record actual results and limitations before requesting merge. A skipped or incomplete review is not
-evidence of coverage. Named merge approval remains separate from engineering preparation.
+Record actual results and limitations before merge. A skipped or incomplete review is not evidence
+of coverage. Noncontroversial technical changes may merge under standing owner authority after
+satisfactory review and required checks.
 
 ## v0.2 historical verification record
 

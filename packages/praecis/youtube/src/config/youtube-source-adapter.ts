@@ -17,7 +17,7 @@
 import type { SourceRegistration } from '@aidha/config';
 import { ConfigValidationError } from '@aidha/config';
 import { resolve } from 'node:path';
-import { resolvePathValue } from '@aidha/config';
+import { isBareCommand, resolvePathValue } from '@aidha/config';
 
 // ── Source ID ────────────────────────────────────────────────────────────────
 
@@ -368,7 +368,8 @@ export const YouTubeSourceRegistration: SourceRegistration<ResolvedYoutubeConfig
       ...value,
       ytdlp: {
         ...value.ytdlp,
-        bin: resolvePathValue(value.ytdlp.bin, baseDir),
+        // Only the source-owned binary setting preserves PATH command lookup.
+        bin: isBareCommand(value.ytdlp.bin) ? value.ytdlp.bin : resolvePathValue(value.ytdlp.bin, baseDir),
         cookiesFile: cookiesFile === '' ? '' : resolve(baseDir, cookiesFile),
       },
     };
@@ -397,7 +398,7 @@ export function resolveRawYoutubeActiveSourceConfigPaths(
     const ytdlpConfig = clonePlainObject(ytdlp as Record<string, unknown>);
     const bin = ytdlpConfig['bin'];
     if (typeof bin === 'string') {
-      ytdlpConfig['bin'] = resolvePathValue(bin, baseDir);
+      ytdlpConfig['bin'] = isBareCommand(bin) ? bin : resolvePathValue(bin, baseDir);
     }
 
     const cookies_file = ytdlpConfig['cookies_file'];

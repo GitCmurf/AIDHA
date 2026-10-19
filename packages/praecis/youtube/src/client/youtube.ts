@@ -960,7 +960,6 @@ export class RealYouTubeClient implements YouTubeClient {
         channelId,
         channelName: author_name,
         duration: 0,
-        publishedAt: new Date().toISOString(),
         description: undefined,
         thumbnailUrl: thumbnail_url,
       };

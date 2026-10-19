@@ -5,6 +5,10 @@ import type { GraphNode, GraphStore } from '@aidha/graph-backend';
 import type { Result } from '@aidha/taxonomy';
 import type { RawSource } from '../types/index.js';
 import { DedupResolver, type DedupAction } from './dedup-resolver.js';
+import {
+  mergeSourceOwnedMetadataGroups,
+  SOURCE_OWNED_METADATA_GROUPS_KEY,
+} from './resource-metadata-groups.js';
 
 export interface DedupLinkResult {
   readonly action: DedupAction;
@@ -50,6 +54,7 @@ const RESERVED_RESOURCE_METADATA_KEYS = new Set([
   'dedupKeys',
   'provenances',
   'label',
+  SOURCE_OWNED_METADATA_GROUPS_KEY,
   'extractionSnapshot',
 ]);
 
@@ -59,6 +64,7 @@ interface MetadataConflict {
   readonly incoming: unknown;
   readonly incomingCanonicalId: string;
   readonly incomingSourceType: string;
+  readonly groupId?: string;
 }
 
 function isJsonSafe(value: unknown): boolean {
@@ -105,14 +111,20 @@ export function mergeResourceMetadata(
   options: { readonly sameCanonical: boolean },
 ): Record<string, unknown> {
   const incoming = source.resourceMetadata ?? {};
-  const merged: Record<string, unknown> = { ...existingMetadata };
-  const conflicts = existingConflicts(existingMetadata);
+  const grouped = mergeSourceOwnedMetadataGroups(existingMetadata, source, options.sameCanonical);
+  const merged: Record<string, unknown> = { ...grouped.metadata };
+  const conflicts = [...existingConflicts(existingMetadata), ...grouped.conflicts];
 
   for (const [key, value] of Object.entries(incoming)) {
     if (RESERVED_RESOURCE_METADATA_KEYS.has(key)) continue;
     if (value === undefined) continue;
     if (!isJsonSafe(value)) {
       throw new Error(`invalid Resource metadata for ${source.canonicalId}: ${key} is not JSON-safe`);
+    }
+    if (grouped.groupedFields.has(key)) continue;
+    const ownerGroupId = grouped.ownedFieldGroups.get(key);
+    if (ownerGroupId !== undefined) {
+      throw new Error(`Resource metadata field ${key} is owned by group ${ownerGroupId}; declare that group to update it`);
     }
 
     const existingValue = merged[key];

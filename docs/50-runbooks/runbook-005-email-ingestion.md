@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-005
 owner: Ingestion Oncall
 status: Draft
-last_updated: 2026-10-16
-version: '0.2'
+last_updated: 2026-10-18
+version: '0.3'
 title: Email Ingestion Operations
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Oncall
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-16
+> **Version:** 0.3
+> **Last Updated:** 2026-10-18
 > **Type:** RUNBOOK
 
 ## Version History
@@ -24,6 +24,7 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1     | 2026-05-22 | AI     | Seed email file-import runbook for the PLAN-007 email vector. | — | Draft | — |
 | 0.2 | 2026-10-16 | Codex | Update parser dependencies and document malformed-input and MIME regression checks. | — | Draft | PLAN-015 |
+| 0.3 | 2026-10-18 | Codex | Align workspace setup with the verified Node 22.12 floor. | — | Draft | AIDHA-TESTING-080 |
 
 ## Purpose
 
@@ -67,7 +68,7 @@ operational checks to run after an email batch import.
 ## Parser maintenance and validation
 
 Use the committed lockfile. The email package requires Node.js 20.19 or later;
-the workspace requires Node.js 22.5 or later. The parser dependency floor is
+the workspace requires Node.js 22.12 or later. The parser dependency floor is
 `mailparser` 3.9.40, whose upstream dependency set includes `nodemailer` 10.1.2
 and `linkify-it` 5.0.2. Update the parent package together with its supported
 dependency set rather than forcing independent major child versions.

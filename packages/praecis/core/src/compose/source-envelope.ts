@@ -2,7 +2,12 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import type { Clock, Sensitivity } from '../interfaces/index.js';
-import type { RawSource } from '../types/index.js';
+import type { RawSource, ResourceMetadataGroup } from '../types/index.js';
+import {
+  SOURCE_OWNED_METADATA_GROUPS_KEY,
+  validateResourceMetadataGroups,
+} from './resource-metadata-groups.js';
+export { emptySourceConfigRegistration } from '../source-registration.js';
 
 const RESERVED_RESOURCE_METADATA_KEYS = new Set([
   'canonicalId',
@@ -10,6 +15,7 @@ const RESERVED_RESOURCE_METADATA_KEYS = new Set([
   'dedupKeys',
   'provenances',
   'label',
+  SOURCE_OWNED_METADATA_GROUPS_KEY,
   'extractionSnapshot',
 ]);
 
@@ -52,10 +58,12 @@ export interface SourceEnvelopeInput<TPayload> {
   readonly pipelineVersion?: string;
   readonly dedupKeys?: readonly string[];
   readonly resourceMetadata?: Record<string, unknown>;
+  readonly resourceMetadataGroups?: readonly ResourceMetadataGroup[];
 }
 
 export function createRawSource<TPayload>(input: SourceEnvelopeInput<TPayload>): RawSource<TPayload> {
   const resourceMetadata = sanitizeResourceMetadata(input.canonicalId, input.resourceMetadata);
+  const resourceMetadataGroups = validateResourceMetadataGroups(input.resourceMetadataGroups);
   return {
     canonicalId: input.canonicalId,
     ...(input.dedupKeys ? { dedupKeys: [...input.dedupKeys] } : {}),
@@ -69,22 +77,7 @@ export function createRawSource<TPayload>(input: SourceEnvelopeInput<TPayload>):
     },
     payload: input.payload,
     ...(resourceMetadata ? { resourceMetadata } : {}),
+    ...(resourceMetadataGroups ? { resourceMetadataGroups } : {}),
     label: input.label,
-  };
-}
-
-export function emptySourceConfigRegistration(sourceId: string) {
-  return {
-    sourceId,
-    validateActiveSourceConfig(value: unknown): Record<string, never> {
-      if (
-        value === undefined ||
-        value === null ||
-        (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)
-      ) {
-        return {};
-      }
-      throw new Error(`${sourceId} source config does not accept source-private keys`);
-    },
   };
 }
