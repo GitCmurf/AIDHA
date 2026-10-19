@@ -2,20 +2,20 @@
 document_id: AIDHA-TESTING-067
 owner: Engineering
 status: Draft
-version: '0.4'
-last_updated: 2026-10-17
+version: '0.5'
+last_updated: 2026-10-20
 title: Complete Segmented Evidence Recovery
 type: TESTING
 docops_version: '2.0'
 area: CORE
-related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
+related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059, AIDHA-TESTING-062, AIDHA-TESTING-069]
 ---
 <!-- MEMINIT_METADATA_BLOCK -->
 > **Document ID:** AIDHA-TESTING-067
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.4
-> **Last Updated:** 2026-10-17
+> **Version:** 0.5
+> **Last Updated:** 2026-10-20
 > **Type:** TESTING
 
 # Complete Segmented Evidence Recovery
@@ -28,6 +28,7 @@ related_ids: [AIDHA-PLAN-010, AIDHA-TESTING-059]
 | 0.2 | 2026-10-17 | Codex | Pin reviewed regression links and record the bounded recovery replay and review limits. | — | Draft | AIDHA-PLAN-015 |
 | 0.3 | 2026-10-17 | Codex | Separate grounding admission and verify saved-response request, audit and SQLite parity. | — | Draft | AIDHA-PLAN-015 |
 | 0.4 | 2026-10-17 | Codex | Pin the reviewed pure admission and threshold-boundary tests. | — | Draft | PR 44 |
+| 0.5 | 2026-10-20 | Codex | Preserve complete repair audits with the strict limitation checkpoint through cache and durable reopen. | — | Draft | PR 44 |
 
 ## Scope and acceptance
 
@@ -68,8 +69,10 @@ repair, and grounding retain their existing bounds and token accounting. Usage e
 
 `sourceDistillation.segmentRepairs` in the returned run report/cache receipt records the original
 failed candidate, selected contiguous passages, full final evidence and final status. A failed
-run marks all provisional repairs rejected. SQLite stores the admitted draft claim and exact
-evidence after close/reopen, not the full repair audit. The opt-in cache identity is versioned;
+run marks all provisional repairs rejected. The historical pre-checkpoint replay below stores the
+admitted draft claim and exact evidence after SQLite close/reopen. The integrated checkpoint also
+retains the full repair audit,
+as described in the next section. The opt-in cache identity is versioned;
 the default identity and model route do not change. Host traceability and an advisory model
 verdict do not prove semantic entailment or a measured improvement in extraction quality.
 
@@ -87,11 +90,58 @@ synthetic text and fake model replies; no model endpoint is invoked.
 Run from the repository root:
 
 ```sh
-pnpm --filter @aidha/praecis-core test -- tests/extract/distill/grounding-admission.test.ts tests/extract/distill/segmented-evidence.test.ts tests/pipeline/segmented-evidence.test.ts
+pnpm --filter @aidha/praecis-core test -- tests/extract/distill/grounding-admission.test.ts tests/extract/distill/segmented-evidence.test.ts tests/pipeline/segmented-evidence.test.ts tests/pipeline/semantic-snapshot-integration.test.ts
 pnpm --filter @aidha/praecis-core lint
 node scripts/meminit-check.mjs docs/55-testing/testing-067-segmented-evidence.md
 pnpm docs:build
 ```
+
+## Current-main checkpoint integration
+
+The PR44 refresh integrates with public main `d624e20072e553ff4241b6bd09c5eb47f2cd928c`,
+whose tree is the reviewed PR42 tree. It preserves the required strict
+`limitationApplicability` object from [AIDHA-TESTING-062](testing-062-limitation-applicability.md)
+and the durable checkpoint from [AIDHA-TESTING-069](testing-069-extraction-checkpoint.md).
+Both options remain off by default. Enabling segmentation adds only the known
+`complete-segmented-evidence-v1` identity flag; the current default identity is unchanged.
+No miner selection, model route or aggregate quotation-coverage rule changes.
+Segmented-unit grounding retains the original PR44 review protocol.
+
+Fresh runtime admission, cache reuse and export replay every eligible repair against the
+original proposal and cited excerpts. The stored audit must contain all prepared repairs in
+order, including rejected repairs. Each record retains the original failed candidate, exact
+ordered replacement passages, complete final evidence and final grounded/rejected status.
+Deleting the entire audit cannot turn a rejected repair into an ordinary uncaptured rejection.
+A grounded repair must retain the unchanged unit and its affirmative grounding ID; a rejected
+repair retains the original failed evidence. The nested limitation map keeps the existing
+source-literal scope, origin, endpoint and affirmative-grounding gates. Rehashing an altered
+candidate does not bypass these checks. Ordinary grounding rewrites and custom miner identities
+retain their existing behaviour; default-off validation does not run the splitter.
+
+The combined acceptance test is
+`packages/praecis/core/tests/pipeline/semantic-snapshot-integration.test.ts`.
+It calls the actual runtime factory with public fictional Trial A/B and supplier passages,
+then checks fresh extraction, serialized-cache reuse with no additional model calls and SQLite
+close/reopen for both grounded and rejected repairs. Exact claim qualifications and the Trial A
+limitation survive together. Further controls cover missing/reordered records, altered source or
+evidence, status and identity changes, duplicate/foreign affirmative IDs, cache regeneration and
+transaction rollback with last-good checkpoint retention. Internally reprojected, rehashed
+mutations are also rejected by the actual exporter before any graph write.
+
+The first test fails on unchanged merged main because its final units omit supplier unit `u4`,
+after the valid Trial A limitation assertions pass. The same test then passes with the integration.
+These are mechanical tests with controlled model replies, not new semantic-quality results.
+The durable reader validates schema and hash and returns the complete stored audit; source and
+excerpt replay belongs to runtime/cache/export admission, not an independent semantic check on
+reopen. The historical live replay and its limits below remain bound to their original revisions.
+
+Local verification combines 150 passing cases in ten unchanged affected test files from an
+initial run whose new combined file still had an incorrect identity expectation, plus a final
+eight-case passing combined run. These are disjoint results, not one 158-case green command.
+Strict checking passes for the four affected test files and again for the final combined bytes;
+core build and lint also pass. The final mutation controls require every intended shape-valid
+case to parse before rehash/replay, with shape-invalid cases tested separately. These local
+checks do not repeat the full core/CLI suites or call live providers.
 
 ## Controlled public supplier replay
 

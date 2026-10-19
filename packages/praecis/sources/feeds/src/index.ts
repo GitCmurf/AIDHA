@@ -1,3 +1,7 @@
+import { RssSourceRegistration } from './registration.js';
+export { RssSourceRegistration };
+import { PodcastSourceRegistration } from './registration.js';
+export { PodcastSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -17,7 +21,7 @@ import type {
 } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import { HttpWebFetcher, type WebFetchFn } from '@aidha/praecis-acquire-webfetch';
-import { composeVector, createRawSource, emptySourceConfigRegistration, urlCanonical } from '@aidha/praecis-core';
+import { composeVector, createRawSource, urlCanonical } from '@aidha/praecis-core';
 import type { ResolvedConfig } from '@aidha/config';
 
 export interface RssItem {
@@ -197,7 +201,6 @@ export class RssTextDecodeStrategy implements IDecodeStrategy<RssFeedPayload> {
   }
 }
 
-export const RssSourceRegistration = emptySourceConfigRegistration('rss');
 
 export interface RssVectorOptions {
   readonly fetchFn?: WebFetchFn;

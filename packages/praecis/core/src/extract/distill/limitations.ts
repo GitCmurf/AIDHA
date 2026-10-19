@@ -2,27 +2,28 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { z } from 'zod';
+import { isDeepStrictEqual } from 'node:util';
 import type { SourceLimitationSummary } from '../../interfaces/index.js';
 import { capErrors, extractJsonObject } from './json.js';
 import { projectUnit, type ExtractionIntent } from './projection.js';
 import type { VerifiedUnit } from './quote-verification.js';
 import { verifyQuote } from './quote-verification.js';
-import type { SourceType } from './schema.js';
+import { UNIT_STANCES, UnitConditionSchema, UnitAttributionSchema, type SourceType } from './schema.js';
 
 export const LIMITATION_PROMPT_VERSION = 'bounded-limitation-applicability-v1';
 const SCOPE_KINDS = ['population', 'time', 'trial', 'version', 'actor', 'other'] as const;
-const RelationSchema = z.object({
+const RelationSchema = z.strictObject({
   limitationUnitId: z.string().min(1),
   targetUnitId: z.string().min(1),
   verdict: z.enum(['grounded', 'unsupported']),
-  relationEvidence: z.object({ excerptId: z.string().min(1), quote: z.string().min(1) }),
-  targetScope: z.object({ kind: z.enum(SCOPE_KINDS), text: z.string().min(5) }),
+  relationEvidence: z.strictObject({ excerptId: z.string().min(1), quote: z.string().min(1) }),
+  targetScope: z.strictObject({ kind: z.enum(SCOPE_KINDS), text: z.string().min(5) }),
   explanation: z.string().min(1),
 });
-const ResponseSchema = z.object({ relations: z.array(z.unknown()) });
+const ResponseSchema = z.strictObject({ relations: z.array(z.unknown()) });
 export type LimitationRelation = z.infer<typeof RelationSchema>;
 
-export const limitationResponseSchema = (): Record<string, unknown> => z.toJSONSchema(z.object({
+export const limitationResponseSchema = (): Record<string, unknown> => z.toJSONSchema(z.strictObject({
   relations: z.array(RelationSchema),
 }), { io: 'output' });
 
@@ -190,3 +191,41 @@ export const applyLimitationRelations = (
   }
   return { byTarget, diagnostics };
 };
+
+
+const StoredEvidenceSchema = z.strictObject({
+  excerptId: z.string().min(1), quote: z.string().min(1), quoteVerification: z.enum(['exact', 'normalized']),
+});
+const LimitationSummarySchema = z.strictObject({
+  id: z.string().min(1), text: z.string().min(1), stance: z.enum(UNIT_STANCES),
+  rationale: z.string().min(1).optional(), conditions: z.array(UnitConditionSchema.strict()).optional(),
+  attribution: UnitAttributionSchema.strict().optional(), evidence: z.array(StoredEvidenceSchema).min(1),
+  applicability: z.strictObject({
+    trusted: z.literal(false), targetScope: RelationSchema.shape.targetScope.strict(),
+    relationEvidence: StoredEvidenceSchema.extend({ quoteVerification: z.literal('exact') }),
+    explanation: z.string().min(1),
+  }),
+});
+
+/** JSON representation shared by fresh extraction, durable checkpoints and cache admission. */
+export const LimitationApplicabilitySchema = z.strictObject({
+  affirmativeGroundingIds: z.array(z.string().min(1)),
+  limitationsByTarget: z.record(z.string().min(1), z.array(LimitationSummarySchema).min(1)),
+});
+export type StoredLimitationApplicability = z.infer<typeof LimitationApplicabilitySchema>;
+
+/** Rebuild every stored attachment with the same source and endpoint gates used by the miner. */
+export function storedLimitationsMatch(value: StoredLimitationApplicability, units: readonly VerifiedUnit[],
+  excerpts: ReadonlyMap<string, string>, intent: ExtractionIntent, sourceType: SourceType): boolean {
+  const affirmative = new Set(value.affirmativeGroundingIds);
+  if (affirmative.size !== value.affirmativeGroundingIds.length ||
+      !isDeepStrictEqual(units.filter(unit => affirmative.has(unit.id)).map(unit => unit.id), value.affirmativeGroundingIds)) return false;
+  const relations: LimitationRelation[] = Object.entries(value.limitationsByTarget).flatMap(([targetUnitId, summaries]) =>
+    summaries.map(summary => ({ limitationUnitId: summary.id, targetUnitId, verdict: 'grounded' as const,
+      relationEvidence: { excerptId: summary.applicability.relationEvidence.excerptId,
+        quote: summary.applicability.relationEvidence.quote },
+      targetScope: summary.applicability.targetScope, explanation: summary.applicability.explanation })));
+  const replay = applyLimitationRelations(units, relations, excerpts, affirmative, intent, sourceType);
+  return replay.diagnostics.length === 0 &&
+    isDeepStrictEqual(JSON.parse(JSON.stringify(Object.fromEntries(replay.byTarget))), value.limitationsByTarget);
+}
