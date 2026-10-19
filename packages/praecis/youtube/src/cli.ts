@@ -36,6 +36,7 @@ import {
   formatExtractionDiagnosis,
 } from './index.js';
 import { ingestYouTubePlaylist, ingestYouTubeVideo } from './ingest/index.js';
+import { hasFailedCreatorNoteAttempt } from './ingest/creator-note-metadata.js';
 import { runConfig } from './cli/config-cmd.js';
 import { parseArgs } from './cli/parse.js';
 import { CLI_USAGE_TEXT } from './cli/help.js';
@@ -273,14 +274,17 @@ async function createStoredYouTubeClient(store: GraphStore, videoId: string): Pr
   const excerptsResult = await store.queryNodes({ type: 'Excerpt', filters: { resourceId } });
   if (!excerptsResult.ok || excerptsResult.value.items.length === 0) return null;
 
+  const storedDescription = metadata['description'];
   const video: Video = {
     id: videoId,
+    creatorNoteRetrieval: 'stored',
     title: resource.label,
     channelId: metadataString(metadata, 'channelId') ?? 'stored',
     channelName: metadataString(metadata, 'channelName') ?? 'Stored YouTube',
     duration: metadataNumber(metadata, 'duration') ?? 0,
     publishedAt: metadataString(metadata, 'publishedAt'),
-    ...(metadataString(metadata, 'description') ? { description: metadataString(metadata, 'description') } : {}),
+    ...(!hasFailedCreatorNoteAttempt(metadata) && typeof storedDescription === 'string'
+      ? { description: storedDescription } : {}),
     ...(metadataString(metadata, 'thumbnailUrl') ? { thumbnailUrl: metadataString(metadata, 'thumbnailUrl') } : {}),
   };
 

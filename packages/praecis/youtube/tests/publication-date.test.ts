@@ -27,7 +27,12 @@ afterEach(async () => {
 
 function realClient() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
-    expect(String(input)).toMatch(/^https:\/\/www\.youtube\.com\/oembed\?/u);
+    const url = new URL(String(input));
+    if (url.pathname === '/watch') {
+      return new Response(`ytInitialPlayerResponse = ${JSON.stringify({ videoDetails: { videoId } })};`);
+    }
+    expect(url.origin).toBe('https://www.youtube.com');
+    expect(url.pathname).toBe('/oembed');
     return new Response(JSON.stringify({
       title: videoMetadata.title, author_name: videoMetadata.channelName,
       author_url: 'https://www.youtube.com/channel/UC-fixture',

@@ -9,6 +9,8 @@ import type { YouTubeClient } from '../client/types.js';
 import { Video } from '../schema/index.js';
 import type { Transcript } from '../schema/index.js';
 import { SOURCE_ID } from '../config/youtube-source-adapter.js';
+import { prepareCreatorNoteMetadata } from './creator-note-metadata.js';
+import { CREATOR_NOTE_METADATA_GROUP } from '@aidha/praecis-core/creator-capture';
 
 // ── Payload type ─────────────────────────────────────────────────────────────
 
@@ -44,6 +46,14 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
     const video: Video = videoResult.value;
     const publicationDate = Video.shape.publishedAt.safeParse(video.publishedAt);
     const publishedAt = publicationDate.success ? publicationDate.data : undefined;
+    const resourceId = `youtube-${videoId}`;
+    const sourceUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const creatorNote = prepareCreatorNoteMetadata({
+      description: video.description,
+      acquisition: video.creatorNoteAcquisition,
+      storedRetrieval: video.creatorNoteRetrieval === 'stored',
+      sourceCanonicalId: resourceId, sourceUrl, now: () => runtimeContext.clock.now().toISOString(),
+    });
 
     const transcriptResult = await this.client.fetchTranscript(videoId);
     const transcript: Transcript | null = transcriptResult.ok ? transcriptResult.value : null;
@@ -55,18 +65,19 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       channelName: video.channelName,
       duration: video.duration,
       publishedAt,
-      description: video.description,
+      description: creatorNote.description,
       thumbnailUrl: video.thumbnailUrl,
       transcript,
     };
 
     const raw = createRawSource({
-      canonicalId: `youtube-${videoId}`,
+      canonicalId: resourceId,
       dedupKeys: [videoId],
       sourceType: 'youtube',
       sensitivity: 'public',
-      sourceUri: `https://www.youtube.com/watch?v=${videoId}`,
+      sourceUri: sourceUrl,
       clock: runtimeContext.clock,
+      resourceMetadataGroups: [{ id: CREATOR_NOTE_METADATA_GROUP.id, fields: [...CREATOR_NOTE_METADATA_GROUP.fields] }],
       resourceMetadata: {
         videoId: video.id,
         channelId: video.channelId,
@@ -74,8 +85,8 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
         duration: video.duration,
         // Null clears a stale date when current acquisition has no valid date.
         publishedAt: publishedAt ?? null,
-        description: video.description,
-        url: `https://www.youtube.com/watch?v=${videoId}`,
+        ...creatorNote.metadata,
+        url: sourceUrl,
         thumbnailUrl: video.thumbnailUrl,
         transcriptStatus: transcript ? 'available' : 'missing',
         ...(transcript?.language ? { transcriptLanguage: transcript.language } : {}),

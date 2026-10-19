@@ -14,6 +14,10 @@
     "./source-registration": {
       "import": "./dist/source-registration.js",
       "types": "./dist/source-registration.d.ts"
+    },
+    "./creator-capture": {
+      "import": "./dist/creator-capture.js",
+      "types": "./dist/creator-capture.d.ts"
     }
   },
   "author": "Colin Farmer (GitCmurf) (https://github.com/GitCmurf)",
