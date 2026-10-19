@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-069
 owner: Engineering
 status: Draft
-version: '0.4'
+version: '0.5'
 last_updated: 2026-10-19
 title: Durable Source Extraction Checkpoint
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 > **Document ID:** AIDHA-TESTING-069
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.4
+> **Version:** 0.5
 > **Last Updated:** 2026-10-19
 > **Type:** TESTING
 
@@ -28,6 +28,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 | 0.2 | 2026-10-17 | Codex | Verify the public CLI failure contract and typed fixtures. | — | Draft | PR 45 |
 | 0.3 | 2026-10-17 | Codex | Verify cache identity and routed-unit consistency. | — | Draft | PR 45 follow-up |
 | 0.4 | 2026-10-19 | Codex | Record current-main integration, reserved-group regression and standing technical merge authority | — | Draft | AIDHA-TESTING-094 |
+| 0.5 | 2026-10-19 | Codex | Admit fresh delegated snapshots when optional cache identity is absent or blank | — | Draft | PR 45 |
 
 ## Purpose and limits
 
@@ -134,6 +135,30 @@ below supplement that historical test revision.
 The acceptance evidence is a focused red/green log, full affected core/graph suites,
 typecheck/build, strict docs/DocOps, exact SQLite close/reopen assertions, and material code review
 before commit. No synthetic test can establish semantic recall, entailment or product readiness.
+
+## v0.5 fresh snapshots without cache identity
+
+`ICandidateMiner.extractionSnapshotVersion:1` opts into durable snapshots independently of
+`cacheIdentity`. A missing or blank cache identity disables cache reads and writes. Fresh snapshots
+still require their own validated miner identity, source, excerpts, routed evidence and candidate
+hash. When the wrapper provides a nonblank cache identity, the candidate must match it. Cached
+snapshot validation keeps its existing identity requirement.
+
+The regression reproduced the failure on public revision
+`9354a2a8afed323c1a9e292dc03f058ffdc16033`: a wrapper delegating to `SourceDistillationMiner`
+without forwarding its optional cache identity failed before export. Missing, empty and whitespace
+identities each failed at the runtime's snapshot identity check after both fake-model calls.
+Fresh admission now uses the candidate's identity only when caching is disabled.
+
+`packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts` exercises the public runtime
+factory, actual delegated miner and SQLite close/reopen for all three cases. Each case makes two
+fresh attempts with two fake-model responses per attempt and cache methods that throw if used.
+The typed reader returns the exact committed checkpoint after each reopen. A separate nonblank
+identity mismatch rejects before creating a Resource or writing cache data. The focused regression,
+snapshot consistency, distillation and pipeline controls pass 42 tests across four files. The core
+build and strict no-emit checking of the affected test file pass. Final documentation and hook
+results are recorded with the correction's commit evidence. These local correction checks do not
+repeat the full core/CLI suites or call live providers.
 
 ## v0.4 current-main integration
 

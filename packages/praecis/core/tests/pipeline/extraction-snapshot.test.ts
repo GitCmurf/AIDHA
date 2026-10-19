@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SQLiteStore, type GraphStore, type Result } from '@aidha/graph-backend';
 import { SourceDistillationMiner, composeVector, createIngestionRuntime, type ICandidateMiner, type MiningResult,
-  readExtractionSnapshot, SourceDistillationClosedError } from '../../src/index.js';
+  readExtractionSnapshot, SourceDistillationClosedError, type ExtractionSnapshot } from '../../src/index.js';
 import { MemoryCache } from '../../src/pipeline/services.js';
 import { hashSnapshotCandidate, parseSnapshotCandidate, snapshotMatchesMiningResult } from '../../src/extract/distill/snapshot.js';
 import { buildDistillationOutput } from '../../src/extract/distill/report.js';
@@ -418,6 +418,76 @@ it('rejects missing or mismatched cache snapshots and reuses a matching committe
     expect(reused.value.extractionSnapshot).toEqual(firstSnapshot);
     await hit.value.close();
     await first.value.close();
+  } finally { await store.close(); }
+});
+
+it.each([undefined, '', ' '])(
+  'persists fresh delegated snapshots without using an absent or blank cache identity (%j)', async cacheIdentity => {
+  const dir = mkdtempSync(join(tmpdir(), 'aidha-snapshot-without-cache-identity-'));
+  tempPaths.push(dir);
+  const dbPath = join(dir, 'graph.sqlite');
+  const canonicalId = 'synthetic:uncached-snapshot';
+  const delegate = new SourceDistillationMiner();
+  const wrapper: ICandidateMiner = {
+    extractionSnapshotVersion: 1,
+    ...(cacheIdentity === undefined ? {} : { cacheIdentity }),
+    mine: miningRequest => delegate.mine(miningRequest),
+  };
+  const cache = {
+    get: vi.fn(async () => { throw new Error('Uncached snapshot must not read the cache'); }),
+    set: vi.fn(async () => { throw new Error('Uncached snapshot must not write the cache'); }),
+  };
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const store = SQLiteStore.open(dbPath);
+    let expectedSnapshot: ExtractionSnapshot | undefined;
+    try {
+      const llm = new RecordingLlm([payload(), grounded]);
+      const created = await createIngestionRuntime({ store, config: config(), miner: wrapper, llm, cache });
+      if (!created.ok) throw created.error;
+      try {
+        const fresh = await created.value.runVector(makeVector(canonicalId), { ref: canonicalId });
+        expect(llm.requests).toHaveLength(2);
+        if (!fresh.ok) throw fresh.error;
+        expectedSnapshot = fresh.value.extractionSnapshot;
+        expect(expectedSnapshot).toMatchObject({ schemaVersion: 1, trusted: false,
+          sourceCanonicalId: canonicalId, minerIdentity: delegate.cacheIdentity,
+          resourceId: fresh.value.resourceId, claimIds: fresh.value.claimIds, excerptIds: fresh.value.excerptIds });
+        expect(fresh.value.cacheHits).toBe(0);
+        expect(fresh.value.cacheWrites).toBe(0);
+        expect(cache.get).not.toHaveBeenCalled();
+        expect(cache.set).not.toHaveBeenCalled();
+      } finally { await created.value.close(); }
+    } finally { await store.close(); }
+    const reopened = SQLiteStore.open(dbPath);
+    try {
+      const checkpoint = await readExtractionSnapshot(reopened, canonicalId);
+      if (!checkpoint.ok) throw checkpoint.error;
+      expect(checkpoint.value).toEqual(expectedSnapshot);
+    } finally { await reopened.close(); }
+  }
+});
+
+it('rejects a fresh delegated snapshot that contradicts a provided cache identity before export', async () => {
+  const store = SQLiteStore.createInMemory();
+  const delegate = new SourceDistillationMiner();
+  const cache = new CapturingCache();
+  const llm = new RecordingLlm([payload(), grounded]);
+  try {
+    const created = await createIngestionRuntime({ store, config: config(), llm, cache,
+      miner: { extractionSnapshotVersion: 1, cacheIdentity: 'mismatched-delegating-wrapper',
+        mine: miningRequest => delegate.mine(miningRequest) } });
+    if (!created.ok) throw created.error;
+    try {
+      const result = await created.value.runVector(makeVector(), { ref: 'synthetic:checkpoint' });
+      expect(llm.requests).toHaveLength(2);
+      expect(result).toMatchObject({ ok: false, error: expect.objectContaining({
+        message: 'Source distillation produced no complete matching extraction snapshot',
+      }) });
+      const resources = await store.queryNodes({ type: 'Resource' });
+      if (!resources.ok) throw resources.error;
+      expect(resources.value.items).toHaveLength(0);
+      expect(cache.writes).toBe(0);
+    } finally { await created.value.close(); }
   } finally { await store.close(); }
 });
 

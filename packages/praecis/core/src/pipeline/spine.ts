@@ -171,7 +171,9 @@ export async function runVector(
   if (!costCheck.ok) return costCheck;
   if (requireSnapshot) {
     const candidate = parseSnapshotCandidate(miningResult.extractionSnapshotCandidate);
-    if (!candidate || !snapshotMatchesInput(candidate, raw.canonicalId, minerIdentity ?? '',
+    // An absent cache identity disables reuse, not fresh snapshot admission.
+    const snapshotIdentity = cacheEnabled ? minerIdentity ?? '' : candidate?.minerIdentity ?? '';
+    if (!candidate || !snapshotMatchesInput(candidate, raw.canonicalId, snapshotIdentity,
       new Map(chunkResult.value.map(chunk => [chunk.id, chunk.text]))) ||
       !snapshotMatchesMiningResult(candidate, miningResult)) {
       return { ok: false, error: new Error('Source distillation produced no complete matching extraction snapshot') };
