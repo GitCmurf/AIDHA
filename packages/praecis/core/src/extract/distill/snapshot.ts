@@ -11,6 +11,7 @@ import { KnowledgeUnitSchema, SourceDistillationSchema, UNIT_KINDS, UNIT_STANCES
 import { EXTRACTION_INTENTS } from './projection.js';
 import { QUOTE_VERIFICATION_STATUSES, verifyDistillationEvidence, verifyQuote } from './quote-verification.js';
 import { buildDistillationOutput } from './report.js';
+import { prepareSegmentedEvidence, SEGMENTED_EVIDENCE_VERSION } from './segmented-evidence.js';
 import { LimitationApplicabilitySchema, LIMITATION_PROMPT_VERSION, storedLimitationsMatch } from './limitations.js';
 
 const EvidenceSchema = z.object({
@@ -40,10 +41,17 @@ const CoverageSchema = z.object({
   citedTextPercent: z.number().finite(), largestUncitedGapSeconds: z.number().finite(),
   coreUnitsWithoutVerifiedEvidence: z.number().int().nonnegative(), weakQuoteCount: z.number().int().nonnegative(),
 });
+const SegmentRepairSchema = z.strictObject({
+  unitId: z.string().min(1), originalUnit: VerifiedUnitSchema,
+  replacementEvidence: z.array(EvidenceSchema.extend({ quoteVerification: z.literal('exact') })).min(2),
+  finalEvidence: z.array(EvidenceSchema.extend({ quoteVerification: z.enum(['exact', 'normalized']) })).min(2),
+  status: z.enum(['grounded', 'rejected']),
+});
 const ReportSchema = z.object({
   sourceType: z.string().min(1), sourcePurpose: z.string().min(1).optional(),
   sourceCoherence: z.string().min(1), theses: z.array(z.string()), coverage: CoverageSchema,
   unitCountsByKind: z.record(z.string(), z.number().int().nonnegative()), diagnostics: z.array(z.string()),
+  segmentRepairs: z.array(SegmentRepairSchema).optional(),
 }).passthrough();
 
 export const ExtractionSnapshotCandidateSchema = z.object({
@@ -145,6 +153,9 @@ function selectedMinerMatches(candidate: ExtractionSnapshotCandidate, failedQuot
   if (fields['version'] !== SOURCE_DISTILLATION_SNAPSHOT_IDENTITY_VERSION) return true;
   const threshold = fields['threshold'];
   const limitation = fields['limitation'];
+  const segmentation = fields['segmentedEvidence'];
+  if (segmentation !== undefined && segmentation !== SEGMENTED_EVIDENCE_VERSION) return false;
+  if (segmentation === undefined && candidate.report.segmentRepairs?.length) return false;
   if (limitation !== null && limitation !== LIMITATION_PROMPT_VERSION) return false;
   if (limitation === null && Object.keys(candidate.limitationApplicability.limitationsByTarget).length) return false;
   return fields['intent'] === candidate.extractionIntent && fields['prompt'] === candidate.promptVersion &&
@@ -153,8 +164,8 @@ function selectedMinerMatches(candidate: ExtractionSnapshotCandidate, failedQuot
 }
 
 /** Grounding may rewrite prose and qualification, but cannot change source identity or evidence. */
-function routedUnitsMatch(candidate: ExtractionSnapshotCandidate, excerpts: ReadonlyMap<string, string>): boolean {
-  const verified = verifyDistillationEvidence(candidate.proposal.units, excerpts);
+function routedUnitsMatch(candidate: ExtractionSnapshotCandidate,
+  verified: ReturnType<typeof verifyDistillationEvidence>, repairIds: ReadonlySet<string>): boolean {
   const finalById = new Map(candidate.finalUnits.map(unit => [unit.id, unit]));
   const rejectedById = new Map(candidate.rejectedUnits.map(item => [item.unit.id, item]));
   if (finalById.size !== candidate.finalUnits.length || rejectedById.size !== candidate.rejectedUnits.length ||
@@ -164,6 +175,7 @@ function routedUnitsMatch(candidate: ExtractionSnapshotCandidate, excerpts: Read
     const admitted = finalById.get(original.id);
     const rejected = rejectedById.get(original.id);
     if (Boolean(admitted) === Boolean(rejected)) return false;
+    if (repairIds.has(original.id)) continue; // Repaired units require the complete source-backed audit below.
     if (verified.failedUnitIds.includes(original.id)) {
       if (!rejected || rejected.reason !== 'failed_quote_verification' || !sameJsonWire(rejected.unit, original)) return false;
     } else if (rejected) {
@@ -174,6 +186,42 @@ function routedUnitsMatch(candidate: ExtractionSnapshotCandidate, excerpts: Read
   }
   return selectedMinerMatches(candidate, candidate.rejectedUnits.filter(item =>
     item.reason === 'failed_quote_verification').length);
+}
+
+/** Reproduce every eligible repair, including rejections, before trusting a stored audit. */
+function segmentedUnitsMatch(candidate: ExtractionSnapshotCandidate, excerpts: ReadonlyMap<string, string>): boolean {
+  const verified = verifyDistillationEvidence(candidate.proposal.units, excerpts);
+  const records = candidate.report.segmentRepairs ?? [];
+  const repairIds = new Set(records.map(record => record.unitId));
+  let segmentedOptIn = false;
+  try {
+    const identity: unknown = JSON.parse(candidate.minerIdentity);
+    if (identity && typeof identity === 'object') {
+      const fields = identity as Record<string, unknown>;
+      segmentedOptIn = fields['version'] === SOURCE_DISTILLATION_SNAPSHOT_IDENTITY_VERSION &&
+        fields['segmentedEvidence'] === SEGMENTED_EVIDENCE_VERSION;
+    }
+  } catch { /* Custom miner identities remain opaque. */ }
+  if (!segmentedOptIn && records.length === 0) return routedUnitsMatch(candidate, verified, repairIds);
+  const prepared = prepareSegmentedEvidence(verified.units, excerpts);
+  if (!sameJsonWire(records.map(record => record.unitId), prepared.records.map(record => record.unitId))) return false;
+  const preparedById = new Map(prepared.records.map(record => [record.unitId, record]));
+  const affirmative = new Set(candidate.limitationApplicability.affirmativeGroundingIds);
+  if (repairIds.size !== records.length) return false;
+  for (const record of records) {
+    const expected = preparedById.get(record.unitId);
+    if (!expected || !sameJsonWire(record.originalUnit, expected.originalUnit) ||
+        !sameJsonWire(record.replacementEvidence, expected.replacementEvidence) ||
+        !sameJsonWire(record.finalEvidence, expected.finalEvidence)) return false;
+    const admitted = candidate.finalUnits.find(unit => unit.id === record.unitId);
+    const rejected = candidate.rejectedUnits.find(item => item.unit.id === record.unitId);
+    if (record.status === 'grounded') {
+      if (!affirmative.has(record.unitId) || !admitted || rejected ||
+          !sameJsonWire(admitted, { ...record.originalUnit, evidence: record.finalEvidence })) return false;
+    } else if (admitted || !rejected || rejected.reason !== 'failed_quote_verification' ||
+               affirmative.has(record.unitId) || !sameJsonWire(rejected.unit, record.originalUnit)) return false;
+  }
+  return routedUnitsMatch(candidate, verified, repairIds);
 }
 
 /** A cache record cannot be promoted for another source, miner or excerpt set. */
@@ -188,7 +236,7 @@ export function snapshotMatchesInput(candidate: ExtractionSnapshotCandidate, sou
     candidate.rejectedUnits.every(item => item.unit.evidence.every(ref => known(ref.excerptId) && matchesQuote(ref))) &&
     candidate.supportingUnits.every(unit => unit.excerptIds.every(known) &&
       (unit.evidence ?? []).every(ref => known(ref.excerptId) && matchesQuote(ref))) &&
-    routedUnitsMatch(candidate, excerpts) &&
+    segmentedUnitsMatch(candidate, excerpts) &&
     storedLimitationsMatch(candidate.limitationApplicability, candidate.finalUnits, excerpts,
       candidate.extractionIntent, candidate.proposal.sourceType);
 }
@@ -205,6 +253,7 @@ export function snapshotMatchesMiningResult(candidate: ExtractionSnapshotCandida
     theses: candidate.proposal.theses, units: candidate.finalUnits, rejectedUnits: candidate.rejectedUnits,
     coverage: candidate.report.coverage, diagnostics: candidate.preProjectionDiagnostics,
     limitationsByTarget: new Map(Object.entries(candidate.limitationApplicability.limitationsByTarget)),
+    segmentRepairs: candidate.report.segmentRepairs,
     model: candidate.model, promptVersion: candidate.promptVersion,
   });
   return sameJsonWire(output.claims, result.claims) &&

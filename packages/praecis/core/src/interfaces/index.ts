@@ -112,6 +112,15 @@ export interface SourceLimitationSummary {
   };
 }
 
+/** Original overlong evidence and complete deterministic segmentation outcome. */
+export interface SegmentRepairRecord {
+  readonly unitId: string;
+  readonly originalUnit: Readonly<Record<string, unknown>>;
+  readonly replacementEvidence: readonly { readonly excerptId: string; readonly quote: string; readonly quoteVerification: string }[];
+  readonly finalEvidence: readonly { readonly excerptId: string; readonly quote: string; readonly quoteVerification: string }[];
+  readonly status: 'awaiting_grounding' | 'grounded' | 'rejected';
+}
+
 export interface SourceDistillationSummary {
   readonly failedClosed: boolean;
   readonly sourceType?: string;
@@ -121,6 +130,7 @@ export interface SourceDistillationSummary {
   readonly coverage?: import('../extract/distill/coverage.js').CoverageDiagnostics;
   readonly unitCountsByKind?: Readonly<Record<string, number>>;
   readonly diagnostics: readonly string[];
+  readonly segmentRepairs?: readonly SegmentRepairRecord[];
 }
 
 export interface MiningResult {
