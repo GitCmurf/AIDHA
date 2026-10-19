@@ -34,6 +34,7 @@ function reproject(candidate: ExtractionSnapshotCandidate, originalResult: Await
     sourceCoherence: candidate.proposal.sourceCoherence, theses: candidate.proposal.theses,
     units: candidate.finalUnits, rejectedUnits: candidate.rejectedUnits,
     coverage: candidate.report.coverage, diagnostics: candidate.preProjectionDiagnostics,
+    limitationsByTarget: new Map(Object.entries(candidate.limitationApplicability.limitationsByTarget)),
     model: candidate.model, promptVersion: candidate.promptVersion });
   const parsed = parseSnapshotCandidate({ ...candidate, supportingUnits: output.supportingUnits,
     report: output.distillation });
@@ -110,3 +111,27 @@ it('keeps a custom opaque identity valid when its candidate is otherwise unchang
   const altered = reproject({ ...candidate, minerIdentity: identity }, result);
   expect(snapshotMatchesInput(altered, 'synthetic:wiki', identity, excerpts)).toBe(true);
 });
+
+
+it('retains the explicit empty map and affirmative IDs on the JSON wire with stable canonical hashing', async () => {
+  const { candidate, result } = await original();
+  expect(candidate.limitationApplicability).toEqual({ affirmativeGroundingIds: ['u1', 'u2', 'u3'], limitationsByTarget: {} });
+  const wire = parseSnapshotCandidate(JSON.parse(JSON.stringify(candidate)));
+  expect(wire).toEqual(candidate);
+  expect(hashSnapshotCandidate(wire!)).toBe(result.extractionSnapshotCandidateHash);
+  expect(snapshotMatchesInput(wire!, 'synthetic:wiki', candidate.minerIdentity, excerpts)).toBe(true);
+});
+
+it.each(['unsupported-prompt', 'unknown-grounded-id', 'duplicate-grounded-id', 'reordered-grounded-ids'])(
+  'rejects %s in an otherwise rehashed snapshot', async damage => {
+    const { candidate, result } = await original();
+    const altered = structuredClone(candidate);
+    if (damage === 'unsupported-prompt') {
+      altered.minerIdentity = JSON.stringify({ ...JSON.parse(altered.minerIdentity), limitation: 'unsupported-version' });
+    } else {
+      altered.limitationApplicability.affirmativeGroundingIds = damage === 'unknown-grounded-id' ? ['absent']
+        : damage === 'duplicate-grounded-id' ? ['u1', 'u1'] : ['u3', 'u2', 'u1'];
+    }
+    const reprojected = reproject(altered, result);
+    expect(snapshotMatchesInput(reprojected, 'synthetic:wiki', reprojected.minerIdentity, excerpts)).toBe(false);
+  });

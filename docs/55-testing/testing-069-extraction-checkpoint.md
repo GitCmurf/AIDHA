@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-069
 owner: Engineering
 status: Draft
-version: '0.5'
+version: '0.6'
 last_updated: 2026-10-19
 title: Durable Source Extraction Checkpoint
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 > **Document ID:** AIDHA-TESTING-069
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.5
+> **Version:** 0.6
 > **Last Updated:** 2026-10-19
 > **Type:** TESTING
 
@@ -29,6 +29,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-057]
 | 0.3 | 2026-10-17 | Codex | Verify cache identity and routed-unit consistency. | — | Draft | PR 45 follow-up |
 | 0.4 | 2026-10-19 | Codex | Record current-main integration, reserved-group regression and standing technical merge authority | — | Draft | AIDHA-TESTING-094 |
 | 0.5 | 2026-10-19 | Codex | Admit fresh delegated snapshots when optional cache identity is absent or blank | — | Draft | PR 45 |
+| 0.6 | 2026-10-19 | Codex | Persist and validate the explicit PR42 limitation target map through snapshot and cache reconstruction | — | Draft | PR 42 |
 
 ## Purpose and limits
 
@@ -44,14 +45,21 @@ An explicitly selected `SourceDistillationMiner` emits a JSON-safe v1 **candidat
 proposal, quote verification, advisory grounding and projection. The candidate retains the complete
 parsed source proposal (including incidental units), final admitted units, rejected units with host
 reasons, supporting units, diagnostics/coverage and a required source-level `trusted:false` flag.
-The pending PR42 limitation projection and PR44 segment-repair audit are outside this main-based v1
-implementation. Combining them requires explicit projection/audit inputs and replay before use; this
-contract does not establish that integration. Include source canonical ID, extraction intent,
+The candidate also requires `limitationApplicability`: affirmative retained grounding IDs and an
+explicit JSON target-to-limitation map. Admission rebuilds that complete map with the fresh relation
+host gates; deterministic projection and candidate hashing preserve it through JSON cache replay
+and SQLite reopen. Applicability remains opt-in, untrusted and disabled by default. PR44's segment
+repair audit remains a separate extension; this contract does not establish combined compatibility.
+Include source canonical ID, extraction intent,
 configured model, prompt version and miner identity. The envelope `schemaVersion:1` and parsed
 proposal `schemaVersion:1` identify the supported storage and proposal contracts; miner identity
 binds the distillation and grounding prompt versions. The exporter finishes the stored snapshot with
 resolved Resource ID and exact claim/excerpt IDs. Call this last **successful extraction**, not a
 semantic certification or full run history.
+
+The required applicability field and changed miner identity invalidate earlier cache/checkpoint
+records. Re-extract affected resources; no compatibility migration is provided for this greenfield
+repository.
 
 Define a core-owned Zod (or equivalent typed) v1 validator and a `readExtractionSnapshot(store,
 resourceId)` reader. The reader returns `null` for no snapshot, validates Resource type and envelope
@@ -190,7 +198,8 @@ injected models; no provider call or private-code upload was made.
 
 The base PR45 correction is committed at `5a206966011f61cb00f0015679c1801f368ba34c`. The
 [direct consistency tests](https://github.com/GitCmurf/AIDHA/blob/5a206966011f61cb00f0015679c1801f368ba34c/packages/praecis/core/tests/extract/distill/snapshot-consistency.test.ts)
-and [configured-runtime tests](https://github.com/GitCmurf/AIDHA/blob/5a206966011f61cb00f0015679c1801f368ba34c/packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts)
+and [configured-runtime
+tests](https://github.com/GitCmurf/AIDHA/blob/5a206966011f61cb00f0015679c1801f368ba34c/packages/praecis/core/tests/pipeline/extraction-snapshot.test.ts)
 are pinned to that source revision.
 
 The recognized official miner identity now binds typed intent and prompt fields to the candidate

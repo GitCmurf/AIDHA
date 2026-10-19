@@ -11,6 +11,7 @@ import { KnowledgeUnitSchema, SourceDistillationSchema, UNIT_KINDS, UNIT_STANCES
 import { EXTRACTION_INTENTS } from './projection.js';
 import { QUOTE_VERIFICATION_STATUSES, verifyDistillationEvidence, verifyQuote } from './quote-verification.js';
 import { buildDistillationOutput } from './report.js';
+import { LimitationApplicabilitySchema, LIMITATION_PROMPT_VERSION, storedLimitationsMatch } from './limitations.js';
 
 const EvidenceSchema = z.object({
   excerptId: z.string().min(1), quote: z.string().min(1),
@@ -50,6 +51,7 @@ export const ExtractionSnapshotCandidateSchema = z.object({
   extractionIntent: z.enum(EXTRACTION_INTENTS), minerIdentity: z.string().min(1),
   model: z.string().min(1), promptVersion: z.string().min(1),
   preProjectionDiagnostics: z.array(z.string()),
+  limitationApplicability: LimitationApplicabilitySchema,
   proposal: SourceDistillationSchema.safeExtend({ schemaVersion: z.literal(1) }), finalUnits: z.array(AdmittedUnitSchema),
   rejectedUnits: z.array(RejectedUnitSchema), supportingUnits: z.array(SupportingUnitSchema),
   report: ReportSchema,
@@ -142,6 +144,9 @@ function selectedMinerMatches(candidate: ExtractionSnapshotCandidate, failedQuot
   const fields = identity as Record<string, unknown>;
   if (fields['version'] !== SOURCE_DISTILLATION_SNAPSHOT_IDENTITY_VERSION) return true;
   const threshold = fields['threshold'];
+  const limitation = fields['limitation'];
+  if (limitation !== null && limitation !== LIMITATION_PROMPT_VERSION) return false;
+  if (limitation === null && Object.keys(candidate.limitationApplicability.limitationsByTarget).length) return false;
   return fields['intent'] === candidate.extractionIntent && fields['prompt'] === candidate.promptVersion &&
     typeof threshold === 'number' && Number.isFinite(threshold) && threshold >= 0 && threshold <= 1 &&
     (candidate.proposal.units.length === 0 ? 0 : failedQuoteCount / candidate.proposal.units.length) <= threshold;
@@ -183,7 +188,9 @@ export function snapshotMatchesInput(candidate: ExtractionSnapshotCandidate, sou
     candidate.rejectedUnits.every(item => item.unit.evidence.every(ref => known(ref.excerptId) && matchesQuote(ref))) &&
     candidate.supportingUnits.every(unit => unit.excerptIds.every(known) &&
       (unit.evidence ?? []).every(ref => known(ref.excerptId) && matchesQuote(ref))) &&
-    routedUnitsMatch(candidate, excerpts);
+    routedUnitsMatch(candidate, excerpts) &&
+    storedLimitationsMatch(candidate.limitationApplicability, candidate.finalUnits, excerpts,
+      candidate.extractionIntent, candidate.proposal.sourceType);
 }
 
 /** Re-run the deterministic projection so a valid-shaped cache cannot contradict its own claims. */
@@ -197,6 +204,7 @@ export function snapshotMatchesMiningResult(candidate: ExtractionSnapshotCandida
     sourcePurpose: candidate.proposal.sourcePurpose, sourceCoherence: candidate.proposal.sourceCoherence,
     theses: candidate.proposal.theses, units: candidate.finalUnits, rejectedUnits: candidate.rejectedUnits,
     coverage: candidate.report.coverage, diagnostics: candidate.preProjectionDiagnostics,
+    limitationsByTarget: new Map(Object.entries(candidate.limitationApplicability.limitationsByTarget)),
     model: candidate.model, promptVersion: candidate.promptVersion,
   });
   return sameJsonWire(output.claims, result.claims) &&

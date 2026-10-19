@@ -397,6 +397,25 @@
     }
   },
   {
+    "path": "55-testing/testing-062-limitation-applicability.md",
+    "title": "Source-Backed Limitation Applicability",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-062",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.5",
+      "last_updated": "2026-10-19",
+      "title": "Source-Backed Limitation Applicability",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-058"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-080-node-runtime-floor.md",
     "title": "Node Runtime Floor",
     "front_matter": {
@@ -457,7 +476,7 @@
       "document_id": "AIDHA-TESTING-069",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.5",
+      "version": "0.6",
       "last_updated": "2026-10-19",
       "title": "Durable Source Extraction Checkpoint",
       "type": "TESTING",

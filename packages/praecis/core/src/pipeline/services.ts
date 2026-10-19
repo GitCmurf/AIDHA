@@ -65,6 +65,24 @@ const identityRecords = (value: unknown, fields: readonly string[]): readonly st
   return [...new Set(value.map(entry => JSON.stringify(identityFields(entry, fields))))].sort();
 };
 
+const limitationMeaning = (value: unknown): string => {
+  const limitation = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const applicability = limitation['applicability'];
+  const scope = applicability !== null && typeof applicability === 'object'
+    ? (applicability as Record<string, unknown>)['targetScope'] : undefined;
+  const relationEvidence = applicability !== null && typeof applicability === 'object'
+    ? (applicability as Record<string, unknown>)['relationEvidence'] : undefined;
+  return JSON.stringify({
+    text: limitation['text'] ?? null, stance: limitation['stance'] ?? null,
+    rationale: limitation['rationale'] ?? null,
+    conditions: identityRecords(limitation['conditions'], ['type', 'text']),
+    attribution: identityFields(limitation['attribution'], ['kind', 'name', 'role']),
+    evidence: identityRecords(limitation['evidence'], ['excerptId', 'quote']),
+    targetScope: identityFields(scope, ['kind', 'text']),
+    relationEvidence: identityFields(relationEvidence, ['excerptId', 'quote']),
+  });
+};
+
 /** Distinct source qualifications/evidence must not overwrite a same-worded draft. */
 const exportedClaimId = (resourceId: string, claim: DraftClaim): string => {
   if (claim.id) return claim.id;
@@ -78,6 +96,8 @@ const exportedClaimId = (resourceId: string, claim: DraftClaim): string => {
     conditions: identityRecords(metadata['conditions'], ['type', 'text']),
     attribution: identityFields(metadata['attribution'], ['kind', 'name', 'role']),
     evidence: identityRecords(metadata['evidence'], ['excerptId', 'quote']),
+    ...(Array.isArray(metadata['limitations']) && metadata['limitations'].length > 0
+      ? { limitations: [...new Set(metadata['limitations'].map(limitationMeaning))].sort() } : {}),
   };
   return `claim:${stableId(`${seed}:${JSON.stringify(meaning)}`)}`;
 };

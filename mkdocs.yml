@@ -36,6 +36,7 @@ nav:
       - Model Distillation and Grounding: 55-testing/testing-057-distillation-pipeline.md
       - Durable Source Extraction Checkpoint: 55-testing/testing-069-extraction-checkpoint.md
       - Shared Grounding Source Context: 55-testing/testing-058-grounding-context.md
+      - Source-Backed Limitation Applicability: 55-testing/testing-062-limitation-applicability.md
       - Distillation Semantic Quality: 55-testing/testing-059-semantic-quality.md
       - Link Check Failure Diagnostics: 55-testing/testing-065-link-check-diagnostics.md
       - Meminit Lock File Ignore: 55-testing/testing-087-meminit-lock-ignore.md
