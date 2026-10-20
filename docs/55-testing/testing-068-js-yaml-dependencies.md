@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-068
 owner: Engineering
 status: Draft
-version: '0.1'
-last_updated: 2026-10-17
+version: '0.2'
+last_updated: 2026-10-20
 title: Patched JS-YAML Dependency Paths
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PLAN-015]
 > **Document ID:** AIDHA-TESTING-068
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-10-17
+> **Version:** 0.2
+> **Last Updated:** 2026-10-20
 > **Type:** TESTING
 
 # Patched JS-YAML Dependency Paths
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PLAN-015]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify compatible YAML dependency resolution and bounded merge-work regression. | — | Draft | AIDHA-PLAN-015; PR 26 |
+| 0.2 | 2026-10-20 | Codex | Refresh on integrated main; preserve Fast URI and registration exports; date historical evidence. | — | Draft | AIDHA-PLAN-015; PR 26 |
 
 ## Scope and call sites
 
@@ -49,9 +50,9 @@ JSON schema. No untrusted production JS-YAML parsing path is established by this
 
 ## Advisory floors
 
-The current repository snapshot has four open JS-YAML advisories. Their patched 4.x floors
-are covered by 4.3.2; version coverage does not establish application reachability or close
-GitHub alerts before the change is merged and re-audited.
+The GitHub dependency-alert snapshot on 2026-10-20 has four open JS-YAML advisories.
+Their patched 4.x floors are covered by 4.3.2; version coverage does not establish application
+reachability or close GitHub alerts before the change is merged and re-audited.
 
 | Advisory | Patched 4.x floor | Boundary |
 | --- | --- | --- |
@@ -81,10 +82,14 @@ pass before the refreshed PR is offered for merge. Real configuration or email i
 
 [regression]: https://github.com/GitCmurf/AIDHA/blob/b6ed449ed084832c9223746ecd294d1f1b8b6cb7/packages/praecis/youtube/tests/js-yaml-maintenance.test.ts
 
+Local acceptance excludes `tests/real-client-config-isolation.test.ts` from the YouTube
+package because its real-client fallback paths can attempt network access. That fixture
+provides no coverage in this local run; it is unchanged by this dependency update.
+
 Run from the repository root, in this order:
 
 ```sh
-pnpm install --frozen-lockfile --offline
+pnpm install --frozen-lockfile --offline --ignore-scripts
 pnpm --filter @aidha/ingestion-youtube test -- tests/js-yaml-maintenance.test.ts
 pnpm --filter @aidha/config gen:types
 pnpm build:deps
@@ -92,7 +97,8 @@ pnpm --filter @aidha/config test
 pnpm --filter @aidha/config lint
 pnpm --filter @aidha/ingestion-youtube build
 pnpm --filter @aidha/ingestion-youtube lint
-pnpm --filter @aidha/ingestion-youtube test
+pnpm --filter @aidha/ingestion-youtube exec vitest run \
+  --exclude tests/real-client-config-isolation.test.ts
 node scripts/meminit-check.mjs docs/55-testing/testing-068-js-yaml-dependencies.md
 pnpm docs:build
 ```
@@ -100,9 +106,10 @@ pnpm docs:build
 The offline install command assumes the locked packages are already cached; a fresh environment
 needs its normal authorised dependency installation first. A registry audit can still report
 unrelated packages. Treat the JS-YAML-specific resolved paths separately from whole-repository
-alert counts. Named approval is required before merging PR 26.
+alert counts. Refresh against current main, pass fresh CI and assess actual review findings
+before merging under the standing authority for noncontroversial technical changes.
 
-## Verification record
+## Historical verification (2026-10-17)
 
 The reviewed source is commit `b6ed449ed084832c9223746ecd294d1f1b8b6cb7`.
 A normal local merge retains the original PR 26 bot head
@@ -112,7 +119,33 @@ bot lockfile and does not merge the GitHub PR.
 
 The frozen install, configuration type generation, dependency and CLI builds, and both
 package lint commands passed. Generation left the checked-in generated files unchanged.
-All 317 configuration tests passed; the complete YouTube/CLI suite passed 1,068 tests,
-with seven skipped. The focused library regression passed both tests. The post-change
-registry audit reported 17 other advisories (12 high, five moderate) and no JS-YAML
+The historical record reports 317 passing configuration tests and 1,068 passing
+YouTube/CLI tests, with seven skipped. Those totals do not establish the current offline
+selection or coverage of the excluded fixture. The focused library regression passed both tests.
+The post-change registry audit reported 17 other advisories (12 high, five moderate) and no JS-YAML
 advisory. These results apply to the isolated reviewed tree, not the original mixed branch.
+
+## Current-main refresh (2026-10-20)
+
+This refresh composes public PR 26 with main
+`27924ad75732e72a7f2a0a6c5c104c767bb5b37c`, after the Fast URI maintenance merge.
+It retains the `fast-uri` override `^3.1.8` and installed resolution 3.1.8, the YouTube
+`./registration` export, and all 91 existing catalogue records and navigation entries.
+Only the JS-YAML floor, its three lockfile paths, this regression and its documentation change.
+
+The current baseline check reproduced the exhausted-budget failure with JS-YAML 4.1.1
+while its sufficient-budget control passed. The existing two-case regression passed
+with 4.3.2. Installed-path checks confirmed 4.3.2 for the direct CLI, generator and reference
+parser, alongside Fast URI 3.1.8. The frozen offline installation downloaded no packages.
+Current generation left both checked-in generated configuration files unchanged.
+The configuration suite passed 366 tests in 25 files. Dependency and YouTube builds,
+and both package lint commands, passed.
+The historical test and audit totals above apply only to their dated source tree.
+Current YouTube acceptance uses the explicit fixture exclusion shown above.
+
+The corrected YouTube run passed 1,130 tests, but its CLI memory-database suite failed
+before its test when the nested build reached its 120-second limit. An isolated restricted
+invocation then reported `spawnSync pnpm EPERM`. The unchanged isolated test passed on
+the permitted native route in 99.27 seconds, within the original build bound. This is
+1,130 passing cases plus one separately passing case, with seven existing skips. The earlier
+full-suite failure remains part of the evidence; the excluded fixture has no local coverage.

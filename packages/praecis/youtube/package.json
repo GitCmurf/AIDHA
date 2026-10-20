@@ -12,6 +12,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./registration": {
+      "import": "./dist/config/youtube-source-adapter.js",
+      "types": "./dist/config/youtube-source-adapter.d.ts"
     }
   },
   "bin": {

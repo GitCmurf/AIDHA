@@ -10,6 +10,7 @@ export { ClaimExtractionPipeline, HeuristicClaimExtractor } from './claims.js';
 export { purgeClaimsForResource, purgeClaimsForVideo } from './purge.js';
 export {
   LlmClaimExtractor,
+  ClaimRequestBudgetError,
   loadCachedClaimCandidates,
   getEffectivePromptVersion,
 } from './llm-claims.js';
@@ -179,3 +180,7 @@ export type { ExtractionIntent, GraphProjection } from './distill/projection.js'
 
 export { SourceDistillationMiner } from './distill/miner.js';
 export type { SourceDistillationMinerConfig } from './distill/miner.js';
+
+export { TRANSCRIPT_EXCERPT_ENCODING_VERSION } from './prompt-safety.js';
+export { readExtractionSnapshot } from './distill/snapshot.js';
+export type { ExtractionSnapshot, ExtractionSnapshotCandidate } from './distill/snapshot.js';

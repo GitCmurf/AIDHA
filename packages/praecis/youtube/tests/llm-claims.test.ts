@@ -1280,13 +1280,16 @@ describe('LLM claim extraction', () => {
       cacheDir,
       chunkStrategy: 'semantic-overlap',
       chunkTargetInputTokens: 200,
-      chunkHardMaxInputTokens: 400,
+      // Include parse-feedback headroom; the target still forces the same chunk splits.
+      chunkHardMaxInputTokens: 800,
       chunkOverlapExcerpts: 0,
     });
 
     await extractor.extractClaims({ resource, excerpts, maxClaims: 3 });
+    const firstCalls = client.calls;
     const second = await extractor.extractClaims({ resource, excerpts, maxClaims: 3 });
 
+    expect(client.calls).toBe(firstCalls);
     expect(second.length).toBeGreaterThan(0);
     expect(extractor.getLastRunStats().maxChunkInputTokens).toBeGreaterThan(0);
     await rm(cacheDir, { recursive: true, force: true });
@@ -1611,7 +1614,7 @@ describe('LLM claim extraction', () => {
     await store.close();
   });
 
-  it('enforces a hard max token split for semantic-overlap chunking', async () => {
+  it('rejects an intact excerpt that cannot fit the semantic-overlap hard input limit', async () => {
     const resource = {
       id: 'youtube-llm-hard-max',
       metadata: { videoId: 'llm-hard-max' },
@@ -1651,12 +1654,13 @@ describe('LLM claim extraction', () => {
       chunkOverlapExcerpts: 0,
     });
 
-    await extractor.extractClaims({ resource, excerpts, maxClaims: 5 });
+    await expect(extractor.extractClaims({ resource, excerpts, maxClaims: 5 })).rejects.toMatchObject({
+      name: 'ClaimRequestBudgetError', hardLimit: 150,
+    });
     const stats = extractor.getLastRunStats();
 
-    expect(client.calls).toBeGreaterThan(1);
-    expect(stats.chunkInputTokenCounts).toHaveLength(8);
-    expect(stats.maxChunkInputTokens).toBe(Math.max(...stats.chunkInputTokenCounts));
+    expect(client.calls).toBe(0);
+    expect(stats.chunkInputTokenCounts).toEqual([]);
     await rm(cacheDir, { recursive: true, force: true });
   });
 

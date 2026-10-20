@@ -2,6 +2,7 @@
  * Video schema - YouTube video metadata.
  */
 import { z } from 'zod';
+import { CreatorNoteAcquisition } from './creator-note.js';
 
 /**
  * Video schema.
@@ -23,10 +24,16 @@ export const Video = z.object({
   duration: z.number().int().nonnegative(),
 
   /** ISO 8601 publish date */
-  publishedAt: z.string().datetime(),
+  publishedAt: z.string().datetime().optional(),
 
   /** Video description */
   description: z.string().optional(),
+
+  /** Optional live creator-note acquisition outcome; absent on legacy/stored clients. */
+  creatorNoteAcquisition: CreatorNoteAcquisition.optional(),
+
+  /** Internal cached-reader marker; does not represent a live acquisition. */
+  creatorNoteRetrieval: z.literal('stored').optional(),
 
   /** Thumbnail URL */
   thumbnailUrl: z.string().url().optional(),
