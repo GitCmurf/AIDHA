@@ -2,8 +2,8 @@
 document_id: AIDHA-GOV-001
 owner: Repo Maintainers
 status: Draft
-version: '1.3'
-last_updated: 2026-02-24
+version: '1.4'
+last_updated: 2026-10-20
 title: Repository Document Standards
 type: GOV
 docops_version: '2.0'
@@ -12,11 +12,11 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-GOV-001
 > **Owner:** Repo Maintainers
 > **Status:** Draft
-> **Version:** 1.3
-> **Last Updated:** 2026-02-24
+> **Version:** 1.4
+> **Last Updated:** 2026-10-20
 > **Type:** GOV
 
-# Repository Document Standards (v1.3)
+# Repository Document Standards (v1.4)
 
 These standards implement the organisation-wide **DocOps Constitution v2.0** for this repository.
 
@@ -28,6 +28,7 @@ These standards implement the organisation-wide **DocOps Constitution v2.0** for
 | 1.1     | 2025-12-27 | CMF    | Add required Version History for validation | —         | Draft  | —         |
 | 1.2     | 2026-02-22 | CMF    | Document meminit local install guidance     | —         | Draft  | —         |
 | 1.3     | 2026-02-24 | AI     | Align TASK status guidance with meminit schema validation | — | Draft | — |
+| 1.4 | 2026-10-20 | Codex | Clarify source links outside the MkDocs root | — | Draft | AIDHA-PLAN-015; PR 26 |
 
 ---
 
@@ -160,8 +161,14 @@ Sidecar metadata MUST be used for non-Markdown artefacts.
 Documents MUST:
 
 * Reference other docs by **Document ID**
-* Use **relative links** within the repository
+* Use **relative links** for documentation pages and site assets within the MkDocs documentation
+  root (`docs/`).
+* Use **absolute GitHub source URLs** for repository source-code files outside that root, including
+  files in this repository. These files are not published with the documentation site.
 * Use **absolute GitHub links** across repositories
+
+Guides to the current implementation should use stable `main` branch source URLs. Prefer source
+URLs pinned to a commit when documenting a particular historical verification.
 
 Example:
 `See AIDHA-ADR-001.`
