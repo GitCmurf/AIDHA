@@ -54,7 +54,7 @@ describe('CLI Configuration Bridge', () => {
         llm: { model: 'overridden-model' },
       },
     });
-    expect(config.db).toBe('overridden.db');
+    expect(config.db).toBe(resolve(fixtureRoot, 'overridden.db'));
     expect(config.llm.model).toBe('overridden-model');
   });
 
@@ -64,7 +64,14 @@ describe('CLI Configuration Bridge', () => {
         db: 'zero-config.db',
       },
     });
-    expect(config.db).toBe('zero-config.db');
+    expect(config.db).toBe(resolve(process.env['INIT_CWD'] || process.cwd(), 'zero-config.db'));
+  });
+
+  it('preserves an explicit --db :memory: override through the config bridge', async () => {
+    const result = await resolveCliConfig({ configPath: fixturePath, cliOverrides: buildCliOverrides({ db: ':memory:' }) });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw result.error;
+    expect(result.config.db).toBe(':memory:');
   });
 
   it('applies source defaults (if defined)', async () => {

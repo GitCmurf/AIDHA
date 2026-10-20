@@ -1,3 +1,5 @@
+import { PodcastSourceRegistration } from './registration.js';
+export { PodcastSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -22,7 +24,7 @@ import type {
   ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { normalizeText, urlCanonical, composeVector, createRawSource, emptySourceConfigRegistration, transcribeStrategy, TokenWindowChunker, ConversationChunker } from '@aidha/praecis-core';
+import { normalizeText, urlCanonical, composeVector, createRawSource, transcribeStrategy, TokenWindowChunker, ConversationChunker } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import { MockTranscriber, type MockTranscriberConfig } from '@aidha/praecis-decode-transcribe';
 import { MockDiarizer, type MockDiarizerConfig } from '@aidha/praecis-decode-diarize';
@@ -365,7 +367,6 @@ export class PodcastIngestor implements IIngestor<PodcastPayload> {
   }
 }
 
-export const PodcastSourceRegistration = emptySourceConfigRegistration('podcast');
 
 export function createPodcastVectorSpec(options: PodcastVectorOptions = {}): ComposedVector<PodcastPayload> {
   const transcriber = options.transcriber ?? new MockTranscriber(options.mockTranscriber ?? { transcriptText: 'podcast transcript sample' });

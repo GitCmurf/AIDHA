@@ -1,2 +1,15 @@
 # Ignore historical mock API key in PR
 97ac48a94aed1c0597085b64f9c7c95442015742:packages/praecis/youtube/tests/cli-robustness.test.ts:generic-api-key:138
+
+# Historical synthetic dotenv value asserted by the loader-order test
+c2db410d9fb535df004130475e6d9b49d7180601:packages/aidha-config/tests/loader-order.test.ts:generic-api-key:50
+
+# Historical detect-secrets hashed_secret fields, not plaintext credentials
+# Exact commit/rule/path/line fingerprints keep later changes in scope
+c2db410d9fb535df004130475e6d9b49d7180601:.secrets.baseline:generic-api-key:115
+c2db410d9fb535df004130475e6d9b49d7180601:.secrets.baseline:generic-api-key:124
+c2db410d9fb535df004130475e6d9b49d7180601:.secrets.baseline:generic-api-key:133
+c2db410d9fb535df004130475e6d9b49d7180601:.secrets.baseline:generic-api-key:140
+c2db410d9fb535df004130475e6d9b49d7180601:.secrets.baseline:generic-api-key:147
+c2db410d9fb535df004130475e6d9b49d7180601:.secrets.baseline:generic-api-key:156
+c2db410d9fb535df004130475e6d9b49d7180601:.secrets.baseline:generic-api-key:165

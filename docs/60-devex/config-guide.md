@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-005
 owner: Repo Maintainers
 status: Draft
-last_updated: 2026-10-16
-version: "1.12"
+last_updated: 2026-10-18
+version: "1.15"
 title: AIDHA Configuration Guide
 type: GUIDE
 docops_version: "2.0"
@@ -15,8 +15,8 @@ docops_version: "2.0"
 > **Owner:** Repo Maintainers
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 1.12
-> **Last Updated:** 2026-10-16
+> **Version:** 1.15
+> **Last Updated:** 2026-10-18
 > **Type:** GUIDE
 
 ## Version History
@@ -36,6 +36,9 @@ docops_version: "2.0"
 | 1.10    | 2026-05-25 | AI     | Document taxonomy extension seed data for ingestion classification. | — | Draft | AIDHA-PLAN-007 |
 | 1.11    | 2026-05-25 | AI     | Clarify durable taxonomy assignment persistence across ingestion vectors. | — | Draft | AIDHA-PLAN-007 |
 | 1.12    | 2026-10-16 | Codex  | Document dotenv resolution in the generic CLI. | — | Draft | [CLI configuration tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/cli.test.ts) |
+| 1.13 | 2026-10-18 | Codex | Resolve bare filesystem names against base_dir. | — | Draft | AIDHA-TESTING-079 |
+| 1.14 | 2026-10-18 | Codex | Preserve SQLite :memory: databases. | — | Draft | AIDHA-TESTING-079 |
+| 1.15 | 2026-10-18 | Codex | Clarify explicit config-selection errors and no-config defaults. | — | Draft | AIDHA-TESTING-089 |
 
 # AIDHA Configuration Guide
 
@@ -52,6 +55,27 @@ The config file lives at `.aidha/config.yaml` (per-project) or `~/.config/aidha/
 2. **Sources**: Defaults that apply only when a specific ingestion source is active.
 3. **Resolution**: Values are merged from 5 tiers (CLI -> Profile -> Source -> Default -> Hardcoded).
 
+## Filesystem paths and command names
+
+Filesystem settings such as `db`, `llm.cache_dir` and `export.out_dir` resolve against
+final `base_dir`, including bare names such as `relative.sqlite`, `cache` or `exports`.
+Absolute paths remain absolute, and empty path values retain their existing meaning.
+Dotenv values are interpolated before this path resolution. For example, with
+`base_dir: ./data` and `db: ${GRAPH_FILE}`, `GRAPH_FILE=relative.sqlite` selects
+`<config-base>/data/relative.sqlite`, rather than a file in the process working directory.
+
+For every schema-qualified `db` (including source defaults and overrides), the exact value
+`:memory:` selects a connection-local SQLite database and
+remains unchanged, including when supplied through dotenv interpolation or `--db`.
+It creates no database file and its data disappears when the connection closes. A cache or
+output directory named `:memory:` remains a regular path relative to `base_dir`.
+
+The source-owned `youtube.ytdlp.bin` is a command setting: a bare `yt-dlp` remains available
+for PATH lookup, while `bin/yt-dlp` resolves against `base_dir`. Its `cookies_file` is a
+filesystem path even when its value is just `cookies.txt`. These rules apply to both raw
+and validated YouTube configuration. See
+[AIDHA-TESTING-079](../55-testing/testing-079-config-filesystem-paths.md) for the regression contract.
+
 ## Configuration File Locations
 
 AIDHA searches for a configuration file in the following order:
@@ -62,7 +86,13 @@ AIDHA searches for a configuration file in the following order:
 4. `$XDG_CONFIG_HOME/aidha/config.yaml` (User global)
 5. `~/.config/aidha/config.yaml` (Fallback)
 
-If no file is found, AIDHA runs with safe defaults.
+If no file is explicitly selected and discovery finds no file, AIDHA runs with safe defaults.
+An explicitly selected but missing `--config` or `AIDHA_CONFIG` path is an error and does not
+fall back to a default database. A `--config` path takes precedence over `AIDHA_CONFIG`; when a
+valid file is loaded without `--profile`, its `default_profile` is used. Supplying `--config` or
+`--profile` without a value is an error. See
+[AIDHA-TESTING-089](../55-testing/testing-089-explicit-config-selection.md) for the regression
+contract.
 
 ## Taxonomy Classification Seeds
 

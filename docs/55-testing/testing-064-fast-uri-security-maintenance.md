@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-064
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-17
+version: '0.3'
+last_updated: 2026-10-20
 title: Fast URI Security Maintenance
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-GOV-001]
 > **Document ID:** AIDHA-TESTING-064
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-17
+> **Version:** 0.3
+> **Last Updated:** 2026-10-20
 > **Type:** TESTING
 
 # Fast URI Security Maintenance
@@ -26,6 +26,7 @@ related_ids: [AIDHA-GOV-001]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify the v3 Fast URI security floor and production-closure checks. | — | Draft | — |
 | 0.2 | 2026-10-17 | Codex | Link the actual schema and config-ingestion tests after reporting-bot review. | — | Draft | PR 41 |
+| 0.3 | 2026-10-20 | Codex | Refresh against merged main and date the historical advisory snapshot. | — | Draft | PR 41 |
 
 ## Scope
 
@@ -33,14 +34,18 @@ The root pnpm override keeps Fast URI on the compatible v3 line and at or above 
 maintainer's [v3.1.8 release](https://github.com/fastify/fast-uri/releases/tag/v3.1.8) identifies
 the v3 fix for GHSA-hrr3-gc8f-f4qj; [npm publishes 3.1.8](https://www.npmjs.com/package/fast-uri/v/3.1.8).
 The [advisory](https://github.com/fastify/fast-uri/security/advisories/GHSA-hrr3-gc8f-f4qj) lists
-versions before 3.1.8 as affected. The current Dependabot snapshot lists eight open Fast URI
-advisories, with published patched v3 versions no later than 3.1.8.
+versions before 3.1.8 as affected. The initial 2026-10-17 preparation snapshot listed eight open
+Fast URI advisories, with published patched v3 versions no later than 3.1.8.
 
 Fast URI is resolved below Ajv in the lockfile, and `@aidha/config` declares Ajv as a runtime
 dependency. This establishes dependency closure in a production package. It does not establish that
 the application exposes an advisory-specific vulnerable operation to attacker-controlled input.
 Do not infer exploitability or alert closure from this version maintenance; refresh repository
 alerts after merge.
+
+This refresh merges public main `44727cb18f5f5a3d33dc4b75c7014d1cc3eed9b6`, including PR44.
+Its Node runtime floor, package manager and document records are retained. The dependency change
+remains the v3 Fast URI floor and its lockfile resolution; the checks below remain required.
 
 ## Acceptance and verification
 

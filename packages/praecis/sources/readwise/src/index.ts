@@ -1,3 +1,5 @@
+import { ReadwiseSourceRegistration } from './registration.js';
+export { ReadwiseSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -19,7 +21,7 @@ import type {
   ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { composeVector, createRawSource, emptySourceConfigRegistration, urlCanonical } from '@aidha/praecis-core';
+import { composeVector, createRawSource, urlCanonical } from '@aidha/praecis-core';
 import type { ResolvedConfig } from '@aidha/config';
 
 export interface ReadwiseHighlight {
@@ -259,7 +261,6 @@ export class ReadwiseIngestor implements IIngestor<ReadwiseHighlightPayload> {
   }
 }
 
-export const ReadwiseSourceRegistration = emptySourceConfigRegistration('readwise');
 
 export interface ReadwiseVectorSpecOptions {
   readonly book: ReadwiseBook;

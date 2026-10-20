@@ -1,3 +1,5 @@
+import { LinkedInSourceRegistration } from './registration.js';
+export { LinkedInSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -19,7 +21,7 @@ import type {
   ComposedVector,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { composeVector, createRawSource, emptySourceConfigRegistration, normalizeText } from '@aidha/praecis-core';
+import { composeVector, createRawSource, normalizeText } from '@aidha/praecis-core';
 import type { ResolvedConfig } from '@aidha/config';
 
 export interface LinkedInPastePayload {
@@ -202,7 +204,6 @@ class LinkedInPassthroughDecodeStrategy implements IDecodeStrategy<LinkedInPaste
   }
 }
 
-export const LinkedInSourceRegistration = emptySourceConfigRegistration('linkedin');
 
 export function createLinkedInVectorSpec(options: LinkedInVectorOptions): ComposedVector<LinkedInPastePayload> {
   return composeVector({

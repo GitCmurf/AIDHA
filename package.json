@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "packageManager": "pnpm@9.12.0",
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.12.0"
   },
   "license": "Apache-2.0",
   "pnpm": {
@@ -17,7 +17,8 @@
     "gen:types": "pnpm --filter @aidha/config gen:types",
     "security:public-paths": "node scripts/check-public-safety.mjs",
     "security:public-paths:test": "node scripts/test-public-safety.mjs",
-    "test": "node scripts/check-test-scripts.mjs && pnpm security:public-paths && pnpm security:public-paths:test && pnpm -r test:ci",
+    "test": "node scripts/check-test-scripts.mjs && pnpm security:public-paths && pnpm security:public-paths:test && pnpm test:semantic-quality && pnpm -r test:ci",
+    "test:semantic-quality": "node scripts/semantic-quality/run.test.mjs && node scripts/semantic-quality/native-client.test.mjs",
     "test:full": "pnpm -r --if-present test:full",
     "build": "pnpm -r build",
     "build:deps": "pnpm --filter @aidha/config --filter @aidha/graph-backend --filter @aidha/taxonomy --filter @aidha/praecis-core --filter \"@aidha/praecis-decode-*\" --filter \"@aidha/praecis-acquire-*\" build",
