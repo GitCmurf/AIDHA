@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-068
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-20
+version: '0.4'
+last_updated: 2026-10-28
 title: Patched JS-YAML Dependency Paths
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PLAN-015]
 > **Document ID:** AIDHA-TESTING-068
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-20
+> **Version:** 0.4
+> **Last Updated:** 2026-10-28
 > **Type:** TESTING
 
 # Patched JS-YAML Dependency Paths
@@ -26,6 +26,8 @@ related_ids: [AIDHA-PLAN-015]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-17 | Codex | Specify compatible YAML dependency resolution and bounded merge-work regression. | — | Draft | AIDHA-PLAN-015; PR 26 |
 | 0.2 | 2026-10-20 | Codex | Refresh on integrated main; preserve Fast URI and registration exports; date historical evidence. | — | Draft | AIDHA-PLAN-015; PR 26 |
+| 0.3 | 2026-10-28 | Codex | Correct focused test selection after file-list reproduction. | Claude | Draft | AIDHA-PLAN-015; PR 26 |
+| 0.4 | 2026-10-28 | Codex | Separate current and historical evidence and retain the suite timeout. | Claude | Draft | AIDHA-PLAN-015; PR 26 |
 
 ## Scope and call sites
 
@@ -80,7 +82,7 @@ and secret redaction. The actual configuration type generator must succeed witho
 its checked-in generated files. Lint, dependency/CLI builds and the documentation checks must
 pass before the refreshed PR is offered for merge. Real configuration or email is not used.
 
-[regression]: https://github.com/GitCmurf/AIDHA/blob/b6ed449ed084832c9223746ecd294d1f1b8b6cb7/packages/praecis/youtube/tests/js-yaml-maintenance.test.ts
+[regression]: https://github.com/GitCmurf/AIDHA/blob/6290ee22a685b4ffc2ae7b6f619c55f0b94b8416/packages/praecis/youtube/tests/js-yaml-maintenance.test.ts
 
 Local acceptance excludes `tests/real-client-config-isolation.test.ts` from the YouTube
 package because its real-client fallback paths can attempt network access. That fixture
@@ -90,8 +92,10 @@ Run from the repository root, in this order:
 
 ```sh
 pnpm install --frozen-lockfile --offline --ignore-scripts
-pnpm --filter @aidha/ingestion-youtube test -- tests/js-yaml-maintenance.test.ts
+pnpm --filter @aidha/ingestion-youtube exec vitest run tests/js-yaml-maintenance.test.ts
 pnpm --filter @aidha/config gen:types
+git diff --exit-code -- packages/aidha-config
+pnpm -r why js-yaml
 pnpm build:deps
 pnpm --filter @aidha/config test
 pnpm --filter @aidha/config lint
@@ -125,7 +129,7 @@ selection or coverage of the excluded fixture. The focused library regression pa
 The post-change registry audit reported 17 other advisories (12 high, five moderate) and no JS-YAML
 advisory. These results apply to the isolated reviewed tree, not the original mixed branch.
 
-## Current-main refresh (2026-10-20)
+## Historical main refresh (2026-10-20)
 
 This refresh composes public PR 26 with main
 `27924ad75732e72a7f2a0a6c5c104c767bb5b37c`, after the Fast URI maintenance merge.
@@ -133,19 +137,52 @@ It retains the `fast-uri` override `^3.1.8` and installed resolution 3.1.8, the 
 `./registration` export, and all 91 existing catalogue records and navigation entries.
 Only the JS-YAML floor, its three lockfile paths, this regression and its documentation change.
 
-The current baseline check reproduced the exhausted-budget failure with JS-YAML 4.1.1
+That refresh's baseline check reproduced the exhausted-budget failure with JS-YAML 4.1.1
 while its sufficient-budget control passed. The existing two-case regression passed
 with 4.3.2. Installed-path checks confirmed 4.3.2 for the direct CLI, generator and reference
 parser, alongside Fast URI 3.1.8. The frozen offline installation downloaded no packages.
-Current generation left both checked-in generated configuration files unchanged.
+Generation during that refresh left both checked-in generated configuration files unchanged.
 The configuration suite passed 366 tests in 25 files. Dependency and YouTube builds,
 and both package lint commands, passed.
 The historical test and audit totals above apply only to their dated source tree.
-Current YouTube acceptance uses the explicit fixture exclusion shown above.
+That refresh's broader acceptance used the explicit fixture exclusion shown above.
 
-The corrected YouTube run passed 1,130 tests, but its CLI memory-database suite failed
+The recorded broader YouTube run passed 1,130 tests, but its CLI memory-database suite failed
 before its test when the nested build reached its 120-second limit. An isolated restricted
 invocation then reported `spawnSync pnpm EPERM`. The unchanged isolated test passed on
 the permitted native route in 99.27 seconds, within the original build bound. This is
 1,130 passing cases plus one separately passing case, with seven existing skips. The earlier
-full-suite failure remains part of the evidence; the excluded fixture has no local coverage.
+full-suite failure remains part of the evidence; these totals do not establish coverage from earlier
+fixture selections.
+
+## Focused-command correction (2026-10-28)
+
+Vitest file-list checks reproduced the command-selection defect without executing the suite:
+the former extra `--` selected all 123 test files, including the excluded real-client fixture.
+The corrected `exec vitest run` command selects only the regression file; both regression cases
+pass. Keep the explicit fixture exclusion on the broader acceptance command.
+
+## Current verification (2026-10-28)
+
+The refreshed branch includes main `22f68dc6d666f642440c7cf373855582a2f62233`,
+including the source-link policy in PR 63. Its executable inputs (manifest, lockfile and
+regression test) are byte-identical to the tested PR 26 head `6290ee2`; the main refresh
+adds documentation only. All 91 existing catalogue records are preserved.
+
+A fresh frozen offline install, dependency and YouTube builds, configuration type generation
+without tracked drift, both package lints and 366 configuration tests pass. Installed checks
+find JS-YAML 4.3.2 through the direct CLI, generator and reference-parser paths, retaining
+Fast URI 3.1.8. A structural lockfile comparison finds only the intended JS-YAML changes.
+The small fixture distinguishes the cached 4.1.1 behaviour from 4.3.2: the older library
+ignores the exhausted budget; 4.3.2 rejects cap three and accepts cap four.
+
+The broader offline run with two workers passes 1,130 cases but exits 1 when the unchanged
+CLI-memory setup exceeds its 120-second nested build limit. The unchanged isolated case
+then passes in 64.58 seconds, within the original limits. These are composed results,
+1,130 plus one separately passing case, with seven existing skips; they are not one fully
+passing suite invocation. The excluded real-client fixture has no coverage in this run.
+The initial failed invocation is retained in the verification evidence.
+
+The dated 2026-10-17 and 2026-10-20 sections above are historical records. Their totals do
+not establish which test-selection command was executed or historical network-fixture
+coverage. The corrected focused selection is independently verified on 2026-10-28.
