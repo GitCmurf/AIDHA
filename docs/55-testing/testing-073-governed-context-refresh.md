@@ -24,7 +24,6 @@ docops_version: '2.0'
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify explicit plan input, preview, bounded writes and preservation tests | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-18 | Codex | Test writer failures and reject misplaced preview flags before legacy writes | — | Draft | PR 46 review |
-
 | 0.3 | 2026-10-28 | Codex | Clarify LF and refresh links. | Peers | Draft | PR 46 |
 
 ## Problem and scope
