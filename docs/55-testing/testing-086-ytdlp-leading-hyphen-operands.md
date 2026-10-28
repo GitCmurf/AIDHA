@@ -36,7 +36,7 @@ that operand; configured yt-dlp options remain before the terminator.
 
 ## Acceptance and verification
 
-- The [original public-client regression](https://github.com/GitCmurf/AIDHA/blob/a8fa3e3baa73903eaced5f80310fcecf28c317db/packages/praecis/youtube/tests/ytdlp-leading-hyphen-operand.test.ts)
+- The [public-client regression](https://github.com/GitCmurf/AIDHA/blob/0846dff393a72aad57146ec1e5a2349a0da99445/packages/praecis/youtube/tests/ytdlp-leading-hyphen-operand.test.ts)
   exercises both a
   leading-hyphen raw ID and its equivalent watch URL through the public `RealYouTubeClient`.
 - The test mocks caption-fetch misses and uses a temporary fake executable that rejects a
@@ -74,3 +74,5 @@ hooks pass on this refreshed integration.
 
 The executable fixture targets the Linux CI runner, with Bash and an executable temporary
 directory. It does not establish coverage of other downloader operations or output-file discovery.
+
+The source link resolves to the reviewed test, including its copied Bash fixture.
