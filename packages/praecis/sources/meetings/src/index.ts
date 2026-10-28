@@ -1,3 +1,5 @@
+import { MeetingSourceRegistration } from './registration.js';
+export { MeetingSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -5,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { ResolvedConfig } from '@aidha/config';
-import { composeVector, createRawSource, diarizeStrategy, emptySourceConfigRegistration, transcribeStrategy } from '@aidha/praecis-core';
+import { composeVector, createRawSource, diarizeStrategy, transcribeStrategy } from '@aidha/praecis-core';
 import type {
   AudioRef,
   ExtractionContext,
@@ -93,7 +95,6 @@ export class MeetingIngestor implements IIngestor<AudioRef> {
   }
 }
 
-export const MeetingSourceRegistration = emptySourceConfigRegistration('meeting');
 
 export function createMeetingVectorSpec(options: {
   readonly readFileFn?: typeof readFile;

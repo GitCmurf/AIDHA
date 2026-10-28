@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
+import { PATH_PATTERNS, RUNTIME_PATH_PATTERNS } from '../src/schema.generated.js';
 import {
   computeBaseDirPrelim,
   computeFinalBaseDir,
@@ -82,8 +83,9 @@ describe('resolvePathValue', () => {
     expect(resolvePathValue('/tmp/absolute.db', baseDir)).toBe('/tmp/absolute.db');
   });
 
-  it('should not rewrite bare command names', () => {
-    expect(resolvePathValue('yt-dlp', baseDir)).toBe('yt-dlp');
+  it('should resolve bare filesystem names against baseDir', () => {
+    expect(resolvePathValue('database.sqlite', baseDir)).toBe(resolve(baseDir, 'database.sqlite'));
+    expect(resolvePathValue('cache', baseDir)).toBe(resolve(baseDir, 'cache'));
   });
 
   it('should return empty strings unchanged', () => {
@@ -92,19 +94,73 @@ describe('resolvePathValue', () => {
 });
 
 describe('resolvePathValues', () => {
+  const databasePatterns = [
+    ...PATH_PATTERNS.map(pattern => ({ kind: 'raw', pattern })),
+    ...RUNTIME_PATH_PATTERNS.map(pattern => ({ kind: 'runtime', pattern })),
+  ].filter(({ pattern }) => pattern.at(-1) === 'db');
+
+  it.each(databasePatterns)('preserves the database sentinel at $kind $pattern and still resolves bare files', ({ pattern }) => {
+    const keys = pattern.map(key => key === '*' ? 'selected' : key);
+    const makeConfig = (value: string): Record<string, unknown> => {
+      let nested: unknown = value;
+      for (const key of [...keys].reverse()) nested = { [key]: nested };
+      return nested as Record<string, unknown>;
+    };
+    const memory = makeConfig(':memory:');
+    resolvePathValues(memory, '/project/data');
+    expect(memory).toEqual(makeConfig(':memory:'));
+    const file = makeConfig('bare.sqlite');
+    resolvePathValues(file, '/project/data');
+    expect(file).toEqual(makeConfig(resolve('/project/data', 'bare.sqlite')));
+  });
+
+  it.each([...PATH_PATTERNS, ...RUNTIME_PATH_PATTERNS].filter(pattern =>
+    !['db', 'base_dir', 'baseDir'].includes(pattern.at(-1) ?? ''),
+  ))('resolves a non-database sentinel string at %j as a filesystem path', (...pattern) => {
+    const keys = pattern.map(key => key === '*' ? 'selected' : key);
+    const makeConfig = (value: string): Record<string, unknown> => {
+      let nested: unknown = value;
+      for (const key of [...keys].reverse()) nested = { [key]: nested };
+      return nested as Record<string, unknown>;
+    };
+    const config = makeConfig(':memory:');
+    resolvePathValues(config, '/project/data');
+    expect(config).toEqual(makeConfig(resolve('/project/data', ':memory:')));
+  });
+
+  it('preserves the SQLite sentinel only at schema-qualified database fields', () => {
+    const base = '/project/data';
+    const config = {
+      profiles: { selected: { db: ':memory:', llm: { cache_dir: ':memory:' }, export: { out_dir: ':memory:' } } },
+      db: ':memory:', llm: { cacheDir: ':memory:' }, export: { outDir: ':memory:' },
+      extensions: { custom: { db: ':memory:' } },
+      source_private: { db: ':memory:', cache_dir: ':memory:' },
+    };
+    resolvePathValues(config, base);
+    expect(config.profiles.selected.db).toBe(':memory:');
+    expect(config.db).toBe(':memory:');
+    expect(config.profiles.selected.llm.cache_dir).toBe(resolve(base, ':memory:'));
+    expect(config.profiles.selected.export.out_dir).toBe(resolve(base, ':memory:'));
+    expect(config.llm.cacheDir).toBe(resolve(base, ':memory:'));
+    expect(config.export.outDir).toBe(resolve(base, ':memory:'));
+    expect(config.extensions.custom.db).toBe(':memory:');
+    expect(config.source_private).toEqual({ db: ':memory:', cache_dir: ':memory:' });
+    expect(resolvePathValue(':memory:', base)).toBe(resolve(base, ':memory:'));
+  });
+
   const baseDir = '/home/user/project';
 
   it('should resolve known path-annotated keys in nested config', () => {
     const config = {
       profiles: {
         default: {
-          db: './out/test.sqlite',
+          db: 'database.sqlite',
           llm: {
-            cache_dir: './cache',
+            cache_dir: 'cache',
             model: 'gpt-4o',
           },
           export: {
-            out_dir: './exports',
+            out_dir: 'exports',
             source_prefix: 'youtube',
           },
         },
@@ -113,10 +169,10 @@ describe('resolvePathValues', () => {
 
     resolvePathValues(config, baseDir);
 
-    expect(config.profiles.default.db).toBe(resolve(baseDir, './out/test.sqlite'));
-    expect(config.profiles.default.llm.cache_dir).toBe(resolve(baseDir, './cache'));
+    expect(config.profiles.default.db).toBe(resolve(baseDir, 'database.sqlite'));
+    expect(config.profiles.default.llm.cache_dir).toBe(resolve(baseDir, 'cache'));
     expect(config.profiles.default.llm.model).toBe('gpt-4o'); // not a path
-    expect(config.profiles.default.export.out_dir).toBe(resolve(baseDir, './exports'));
+    expect(config.profiles.default.export.out_dir).toBe(resolve(baseDir, 'exports'));
     expect(config.profiles.default.export.source_prefix).toBe('youtube'); // not a path
   });
 
@@ -174,9 +230,10 @@ describe('resolvePathValues', () => {
     resolvePathValues(config as Record<string, unknown>, baseDir);
 
     // Array payloads outside schema-qualified config paths are left untouched.
-    expect(config.profiles.default.list[0].cache_dir).toBe('./cache-a');
-    expect(config.profiles.default.list[1].cache_dir).toBe('./cache-b');
-    expect(config.profiles.default.list[1].model).toBe('gpt-4o');
+    expect(config.profiles.default.list).toEqual([
+      { cache_dir: './cache-a' },
+      { cache_dir: './cache-b', model: 'gpt-4o' },
+    ]);
   });
 
   it('should not re-resolve top-level base_dir', () => {

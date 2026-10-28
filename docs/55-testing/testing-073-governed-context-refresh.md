@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-073
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-18
+version: '0.3'
+last_updated: 2026-10-28
 title: Explicit Agent Context Refresh
 type: TESTING
 docops_version: '2.0'
@@ -12,8 +12,8 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-TESTING-073
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-18
+> **Version:** 0.3
+> **Last Updated:** 2026-10-28
 > **Type:** TESTING
 
 # Explicit Agent Context Refresh
@@ -22,8 +22,10 @@ docops_version: '2.0'
 
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
-| 0.1 | 2026-10-18 | Codex | Specify explicit plan input, preview, bounded writes and preservation tests | — | Draft | PLAN-015 |
+| 0.1 | 2026-10-18 | Codex | Specify explicit plan input, preview, bounded writes and preservation tests | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-18 | Codex | Test writer failures and reject misplaced preview flags before legacy writes | — | Draft | PR 46 review |
+
+| 0.3 | 2026-10-28 | Codex | Clarify LF and refresh links. | Peers | Draft | PR 46 |
 
 ## Problem and scope
 
@@ -81,6 +83,8 @@ The target block uses `<!-- AIDHA_AGENT_CONTEXT: begin -->` and
 `<!-- AIDHA_AGENT_CONTEXT: end -->`, each alone on its own line. If absent, the generated block
 is appended with a separator. If present, only that block is replaced. Prefix and suffix bytes,
 including CRLF, manual instructions, dates and any number of Recent Changes bullets, are preserved.
+The generated block and separator use LF line endings; a CRLF target can therefore contain mixed
+line endings while the surrounding manual bytes remain unchanged.
 Duplicate, reversed, incomplete or inline delimiters fail before writing. The target must be a
 regular file or absent; symlink targets are rejected. A new target is created only by `--write`.
 
@@ -93,7 +97,8 @@ guarantee against an editor changing the file between that comparison and rename
 
 ## Acceptance and verification
 
-The process-level suite is `scripts/test_update_agent_context.py`.
+The process-level suite is
+[`scripts/test_update_agent_context.py`](https://github.com/GitCmurf/AIDHA/blob/3179a8cbcf63a10214a057f958a17cf7aaa167fb/scripts/test_update_agent_context.py).
 Each test copies the real helper into a disposable Git repository. It never invokes the updater
 against this repository's actual agent instructions. The initial acceptance failed with the real
 missing legacy `specs/main/plan.md` error before implementation.
@@ -130,6 +135,12 @@ pnpm docs:build
 CI runs the suite after installing documentation dependencies. The existing shell-lint job checks
 the helper at warning severity, alongside its ordinary script checks. Remaining legacy info/style
 observations are outside that gate; no warning-level exclusions are added.
+
+## Refreshed verification on 2026-10-28
+
+Against main `0fd1ae3979b8c05222929ef2b113ff1f8caaacf5`, all 16 process-level tests pass,
+alongside Bash syntax and warning-level ShellCheck. These checks use disposable repositories; the
+real agent instructions and real planning inputs remain unchanged.
 
 ## Remaining owner choices
 
