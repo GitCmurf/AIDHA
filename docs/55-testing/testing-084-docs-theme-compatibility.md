@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-084
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-18
+version: '0.3'
+last_updated: 2026-10-28
 title: Documentation Theme Compatibility
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: []
 > **Document ID:** AIDHA-TESTING-084
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-18
+> **Version:** 0.3
+> **Last Updated:** 2026-10-28
 > **Type:** TESTING
 
 # Documentation Theme Compatibility
@@ -26,6 +26,7 @@ related_ids: []
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify a compatible pinned MkDocs and Material toolchain and its validation. | — | Draft | PR 24 |
 | 0.2 | 2026-10-18 | Codex | Record isolated install, strict docs checks and rendered-page inspection. | — | Draft | PR 24 |
+| 0.3 | 2026-10-28 | Codex | Refresh install, build and browser evidence. | Claude | Draft | PR 24 |
 
 ## Purpose and scope
 
@@ -50,7 +51,7 @@ or introduce a new site service.
 The checks validate the pinned toolchain and current public documentation in the isolated PR
 worktree. They do not certify security or external link availability beyond the observed run.
 
-## Observed verification
+## Historical verification on 2026-10-18
 
 In the isolated PR worktree, the fresh Python 3.12.3 environment installs all declared pins and
 `pip check` reports no broken requirements. It contains MkDocs 1.6.1, Material 9.7.7, literate-nav
@@ -65,3 +66,23 @@ horizontal overflow. Browser page-error and console logs are empty for the inspe
 uncommitted preview build reports that the revision-date plugin is using the current timestamp for
 files without git history; this is expected for newly added files before commit. Screenshots and
 full command logs are retained with the private verification evidence.
+
+## Refreshed verification on 2026-10-28
+
+The integration with main `0fd1ae3979b8c05222929ef2b113ff1f8caaacf5` retains every existing
+catalog record and adds only this page. A fresh Python 3.12.3 environment reproduces the
+incompatible MkDocs 1.5.3/Material 9.7.7 resolver failure, then installs all declared compatible
+pins. `pip check`, the strict documentation build, scoped Meminit and public-safety checks pass.
+The captured installed MkDocs, Material and plugin versions match the historical record.
+Repository Markdown lint also passes on the refreshed document.
+The complete link check records 103 URLs: 92 reachable and 11 skipped, with no failures.
+
+A local Chromium preview renders the homepage and this page at 1280 by 900. The Testing navigation
+opens this page. The configuration guide renders at 390 by 844 with both viewport width and
+document scroll width equal to 390 pixels. Retained screenshots show readable desktop navigation
+and a mobile layout whose wide tables scroll within their containers.
+
+The initial homepage load logs one HTTP 404 for GitHub's optional latest-release lookup.
+The inspected configuration guide has no console errors or warnings. These observations do not
+claim that every page or external service was tested. Private screenshots and complete receipts
+are retained separately from the public site.
