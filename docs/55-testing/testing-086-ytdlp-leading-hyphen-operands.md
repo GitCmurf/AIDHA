@@ -36,7 +36,7 @@ that operand; configured yt-dlp options remain before the terminator.
 
 ## Acceptance and verification
 
-- The [original public-client regression](https://github.com/GitCmurf/AIDHA/blob/ba27770ae003edf5c2c6b86e6a238174e8cc6f2b/packages/praecis/youtube/tests/ytdlp-leading-hyphen-operand.test.ts)
+- The [public-client regression](https://github.com/GitCmurf/AIDHA/blob/a8fa3e3baa73903eaced5f80310fcecf28c317db/packages/praecis/youtube/tests/ytdlp-leading-hyphen-operand.test.ts)
   exercises both a
   leading-hyphen raw ID and its equivalent watch URL through the public `RealYouTubeClient`.
 - The test mocks caption-fetch misses and uses a temporary fake executable that rejects a
@@ -56,7 +56,7 @@ that operand; configured yt-dlp options remain before the terminator.
 
 ## Refreshed verification on 2026-10-28
 
-The current integration preserves main `0fd1ae3979b8c05222929ef2b113ff1f8caaacf5` and all
+The current integration preserves main `ed8232b559498fce6f7688aa2243966ff9eca424` and all
 existing catalog entries. Removing only the production option terminator makes both public-client
 cases fail with the fake downloader's option-parsing error. Restoring it passes the focused
 regression and yt-dlp suite: 8 tests pass and 6 existing network tests remain skipped.
@@ -67,3 +67,6 @@ changes preserve fixture behavior while addressing the static review observation
 dependency install, YouTube package build and package lint pass. Existing dependency build outputs
 are reused from the successful current-main workspace build; their source files are unchanged.
 No real downloader, provider or transcript request is exercised by these checks.
+
+Strict documentation rendering, scoped Meminit, generated catalog validation and normal commit
+hooks pass on this refreshed integration. The linked regression source matches the tested fixture.

@@ -50,6 +50,8 @@ jobs:
 
       - name: Lint shell scripts
         run: |
+          bash -n .specify/scripts/bash/update-agent-context.sh
+          shellcheck --severity=warning .specify/scripts/bash/update-agent-context.sh
           mapfile -d '' scripts < <(find scripts -name '*.sh' -print0)
           if [ "${#scripts[@]}" -eq 0 ]; then
             echo "No shell scripts found."
