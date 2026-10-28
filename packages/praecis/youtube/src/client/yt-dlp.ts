@@ -5,6 +5,7 @@ import { basename, extname, join } from 'node:path';
 import { promisify } from 'node:util';
 import type { Result } from './types.js';
 import type { Transcript } from '../schema/index.js';
+import type { CreatorNoteFailureReason } from '../schema/creator-note.js';
 import {
   parseTranscriptJson,
   parseTranscriptTtml,
@@ -13,6 +14,18 @@ import {
 import { consoleLogger, resolveLogger, type Logger } from '../utils/logger.js';
 
 const execFileAsync = promisify(execFile);
+
+export class CreatorNoteAcquisitionError extends Error {
+  constructor(readonly reason: CreatorNoteFailureReason, cause?: unknown) {
+    super(`Creator-note acquisition failed: ${reason}`, { cause });
+    this.name = 'CreatorNoteAcquisitionError';
+  }
+}
+
+export type CreatorNotePayload =
+  | { state: 'available' | 'empty'; description: string }
+  | { state: 'unavailable' };
+
 
 // ── Runtime Config ───────────────────────────────────────────────────────────
 

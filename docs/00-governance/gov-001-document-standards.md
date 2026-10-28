@@ -2,8 +2,8 @@
 document_id: AIDHA-GOV-001
 owner: Repo Maintainers
 status: Draft
-version: '1.3'
-last_updated: 2026-02-24
+version: '1.5'
+last_updated: 2026-10-28
 title: Repository Document Standards
 type: GOV
 docops_version: '2.0'
@@ -12,11 +12,11 @@ docops_version: '2.0'
 > **Document ID:** AIDHA-GOV-001
 > **Owner:** Repo Maintainers
 > **Status:** Draft
-> **Version:** 1.3
-> **Last Updated:** 2026-02-24
+> **Version:** 1.5
+> **Last Updated:** 2026-10-28
 > **Type:** GOV
 
-# Repository Document Standards (v1.3)
+# Repository Document Standards (v1.5)
 
 These standards implement the organisation-wide **DocOps Constitution v2.0** for this repository.
 
@@ -28,6 +28,8 @@ These standards implement the organisation-wide **DocOps Constitution v2.0** for
 | 1.1     | 2025-12-27 | CMF    | Add required Version History for validation | —         | Draft  | —         |
 | 1.2     | 2026-02-22 | CMF    | Document meminit local install guidance     | —         | Draft  | —         |
 | 1.3     | 2026-02-24 | AI     | Align TASK status guidance with meminit schema validation | — | Draft | — |
+| 1.4 | 2026-10-20 | Codex | Clarify source links outside the MkDocs root | — | Draft | AIDHA-PLAN-015; issue raised in PR 26 |
+| 1.5 | 2026-10-28 | Codex | Cover tracked non-code files and distinguish moving and historical source links | Claude; CodeRabbit | Draft | PR 63 |
 
 ---
 
@@ -160,8 +162,17 @@ Sidecar metadata MUST be used for non-Markdown artefacts.
 Documents MUST:
 
 * Reference other docs by **Document ID**
-* Use **relative links** within the repository
+* Use **relative links** for documentation pages and site assets within the MkDocs documentation
+  root (`docs/`).
+* Use **absolute GitHub source URLs** for Git-tracked repository files outside that root,
+  including code, configuration, fixtures and root-level documents. These files are not published
+  with the documentation site.
 * Use **absolute GitHub links** across repositories
+
+Guides to the current implementation may use moving `main` branch source URLs. If a file exists
+only on the feature branch, link to its commit until it reaches `main`; check the target after
+merge before changing that link. Use commit-pinned source URLs for a particular historical
+verification.
 
 Example:
 `See AIDHA-ADR-001.`

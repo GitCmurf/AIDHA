@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-05-25
-version: '0.34'
+last_updated: 2026-10-18
+version: '0.37'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.34
-> **Last Updated:** 2026-05-25
+> **Version:** 0.37
+> **Last Updated:** 2026-10-18
 > **Type:** GUIDE
 
 ## Version History
@@ -57,6 +57,9 @@ docops_version: '2.0'
 | 0.32    | 2026-05-25 | AI     | Clarify classification status. | — | Draft | AIDHA-PLAN-007 |
 | 0.33    | 2026-05-25 | AI     | Document config-seeded taxonomy. | — | Draft | AIDHA-PLAN-007 |
 | 0.34    | 2026-05-25 | AI     | Clarify durable taxonomy. | — | Draft | AIDHA-PLAN-007 |
+| 0.35 | 2026-10-18 | Codex | Preserve complete chunk prompt data. | — | Draft | AIDHA-TESTING-083 |
+| 0.36 | 2026-10-18 | Codex | Correct qualified pack cache reuse. | — | Draft | AIDHA-TESTING-083 |
+| 0.37 | 2026-10-18 | Codex | Align diagnostic cache provenance. | — | Draft | AIDHA-TESTING-083 |
 
 ## Purpose
 
@@ -354,3 +357,21 @@ pnpm -C packages/praecis/youtube cli ingest video <video-url> \
 
 - Global help: `pnpm -C packages/praecis/youtube cli help`
 - Subcommand help: `pnpm -C packages/praecis/youtube cli <command> --help`
+
+## Complete chunk prompt data
+
+Existing chunk extraction keeps complete normalized excerpts as explicitly untrusted JSON data,
+including quoted instructions and late qualifications. Labels retain their existing sanitization.
+If an intact excerpt cannot fit the configured estimated input hard limit, extraction returns
+`ClaimRequestBudgetError` before generation rather than truncating source text. Oversized feedback
+retries are also rejected before their retry call. The estimate does not guarantee provider token
+counts or spend. See [the acceptance contract](../55-testing/testing-083-transcript-prompt-fidelity.md).
+
+Qualified prompt versions retain distinct caches for explicitly selected packs, including stronger
+retry packs. The shared cache revision also invalidates earlier outer-runtime and matrix results;
+exact corrected requests still reuse their caches. This correction leaves the JSON payload,
+model choices and ranking unchanged.
+
+Extraction diagnostics infer the current non-generic prompt pack from saved extraction metadata,
+including its cache revision suffix. An explicit pack option overrides that inference. Diagnostic
+reports use the normalized cache identity and reuse the existing entry without model calls.
