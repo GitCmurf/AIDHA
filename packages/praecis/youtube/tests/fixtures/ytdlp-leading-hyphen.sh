@@ -6,7 +6,7 @@ printf "%s\n" "$@" > "$args_file"
 previous_arg=""
 last_arg=""
 for arg in "$@"; do previous_arg="$last_arg"; last_arg="$arg"; done
-if [[ "$last_arg" == -* && "$previous_arg" != "--" ]]; then
+if [[ "$last_arg" = -* && "$previous_arg" != "--" ]]; then
     echo "leading-dash operand was parsed as an option" >&2
     exit 64
 fi
