@@ -348,6 +348,22 @@
     }
   },
   {
+    "path": "55-testing/testing-084-docs-theme-compatibility.md",
+    "title": "Documentation Theme Compatibility",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-084",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-28",
+      "title": "Documentation Theme Compatibility",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS",
+      "related_ids": []
+    }
+  },
+  {
     "path": "55-testing/testing-083-transcript-prompt-fidelity.md",
     "title": "Complete Transcript Data in Chunk Mining Prompts",
     "front_matter": {
