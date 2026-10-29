@@ -694,6 +694,25 @@
     }
   },
   {
+    "path": "55-testing/testing-063-gemini-writer-evaluation.md",
+    "title": "Native Gemini Writer Evaluation Route",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-063",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.6",
+      "last_updated": "2026-10-29",
+      "title": "Native Gemini Writer Evaluation Route",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-TESTING-059",
+        "AIDHA-PLAN-010"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-073-governed-context-refresh.md",
     "title": "Explicit Agent Context Refresh",
     "front_matter": {

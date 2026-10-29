@@ -47,8 +47,8 @@ imports. Existing export/config startup and the ingestion entry point are preser
 
 The focused suite uses the following source-pinned controls:
 
-- [core acceptance tests](https://github.com/GitCmurf/AIDHA/blob/099e0fb2f2105ee317fb7dcda56702c20f8a6e24/packages/praecis/core/tests/continuity/case.test.ts)
-- [synthetic fixture](https://github.com/GitCmurf/AIDHA/blob/099e0fb2f2105ee317fb7dcda56702c20f8a6e24/packages/praecis/core/tests/continuity/fixture.ts)
+- [core acceptance tests](https://github.com/GitCmurf/AIDHA/blob/0516bd1226ca3a04392e47ebd935212679705284/packages/praecis/core/tests/continuity/case.test.ts)
+- [synthetic fixture](https://github.com/GitCmurf/AIDHA/blob/0516bd1226ca3a04392e47ebd935212679705284/packages/praecis/core/tests/continuity/fixture.ts)
 
 Its acceptance cases verify:
 
@@ -77,7 +77,7 @@ Its acceptance cases verify:
 
 The suite launches prebuilt output through the following controls:
 
-- [public-process tests](https://github.com/GitCmurf/AIDHA/blob/099e0fb2f2105ee317fb7dcda56702c20f8a6e24/packages/praecis/cli/tests/continuity.test.ts)
+- [public-process tests](https://github.com/GitCmurf/AIDHA/blob/0516bd1226ca3a04392e47ebd935212679705284/packages/praecis/cli/tests/continuity.test.ts)
 
 It invokes
 the actual CLI package entry point, `packages/praecis/cli/dist/cli.js`, with an explicit config and
