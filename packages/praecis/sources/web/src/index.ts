@@ -1,8 +1,10 @@
+import { WebSourceRegistration } from './registration.js';
+export { WebSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import type { Result, IIngestor, IDecodeStrategy, IContextProvider, IngestInput, DecodeInput, DecodeOutput, RawSource, ExtractionContext, VectorRuntimeContext, ComposedVector } from '@aidha/praecis-core';
-import { composeVector, createRawSource, emptySourceConfigRegistration, normalizeText, urlCanonical } from '@aidha/praecis-core';
+import { composeVector, createRawSource, normalizeText, urlCanonical } from '@aidha/praecis-core';
 import { HttpWebFetcher, type WebFetchFn } from '@aidha/praecis-acquire-webfetch';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import type { ResolvedConfig } from '@aidha/config';
@@ -133,7 +135,6 @@ function stableId(source: string, raw: string): string {
   return createHash('sha256').update(`${source}:${raw}`).digest('hex').slice(0, 16);
 }
 
-export const WebSourceRegistration = emptySourceConfigRegistration('web');
 
 export interface WebVectorOptions {
   readonly fetchFn?: WebFetchFn;

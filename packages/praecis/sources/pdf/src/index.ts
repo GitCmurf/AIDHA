@@ -1,3 +1,5 @@
+import { PdfSourceRegistration } from './registration.js';
+export { PdfSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -21,7 +23,7 @@ import type {
   VectorRuntimeContext,
   ComposedVector,
 } from '@aidha/praecis-core';
-import { composeVector, createRawSource, emptySourceConfigRegistration, SectionChunker, TokenWindowChunker } from '@aidha/praecis-core';
+import { composeVector, createRawSource, SectionChunker, TokenWindowChunker } from '@aidha/praecis-core';
 import { extractTextFromPdfText } from '@aidha/praecis-decode-text';
 import { ocrBlocksToResult, type OcrBlock } from '@aidha/praecis-decode-ocr';
 import type { ResolvedConfig } from '@aidha/config';
@@ -247,7 +249,6 @@ export class PdfOcrDecodeStrategy implements IDecodeStrategy<PdfDocumentPayload>
   }
 }
 
-export const PdfSourceRegistration = emptySourceConfigRegistration('pdf');
 
 export interface PdfVectorOptions {
   readonly readFileFn?: typeof readFile;

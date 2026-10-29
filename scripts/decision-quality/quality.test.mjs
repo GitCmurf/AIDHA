@@ -100,15 +100,26 @@ test('failed grounding receipts remain separate from an explicit unknown decisio
   assert.equal(report.summary.accuracy, 0);
 });
 
-test('keyword observations must agree with their normalized positive tag decisions', () => {
+function keywordRecords() {
   const records = categories([['applies', 'not_applicable'], ['not_applicable', 'applies'], ['not_applicable', 'not_applicable']]);
   for (const record of records) {
     record.evidenceKind = 'keyword-baseline';
     record.rawReply = { resource: { id: record.caseId, metadata: { canonicalId: record.caseId,
-      taxonomyAssignments: record.answers.filter(a => a.choice === 'applies').map(a => ({ tagId: a.questionId })) } } };
+      taxonomyAssignments: record.answers.filter(a => a.choice === 'applies').map(a => ({
+        nodeId: record.caseId, tagId: a.questionId, source: 'automatic',
+        assignedBy: 'praecis-keyword-classifier', assignedAt: '2026-10-17T00:00:00.000Z',
+      })) } }, classification: { status: 'completed',
+        tagsMatched: record.answers.filter(a => a.choice === 'applies').length,
+        tagsAssigned: record.answers.filter(a => a.choice === 'applies').length, warnings: [] },
+      taxonomyVersionVerified: true };
   }
+  return records;
+}
+
+test('keyword observations must agree with their normalized positive tag decisions', () => {
+  const records = keywordRecords();
   const wrongObservation = structuredClone(records);
-  wrongObservation[0].rawReply.resource.metadata.taxonomyAssignments = [{ tagId: 'b' }];
+  wrongObservation[0].rawReply.resource.metadata.taxonomyAssignments[0].tagId = 'b';
   assert.throws(() => scoreDecisions(category, categoryRequest, wrongObservation), /stored assignments/);
   assert.equal(scoreDecisions(category, categoryRequest, records).summary.exactSetCorrect, 3);
   const missingResource = structuredClone(records);
@@ -174,4 +185,30 @@ test('duplicate expected tags cannot give exact-set credit to an extra wrong ass
   const records = invalid.cases.map((c, i) => receipt(invalid, i, categoryRequest,
     ['a', 'b'].map(questionId => ({ questionId, choice: i === 0 ? 'applies' : 'not_applicable' }))));
   assert.throws(() => scoreDecisions(invalid, categoryRequest, records), /duplicate expected tag/i);
+});
+
+test('keyword replay rejects foreign, manual or differently attributed stored assignments', () => {
+  for (const changed of [{ nodeId: 'another-resource' }, { source: 'manual' },
+    { assignedBy: 'another-classifier' }]) {
+    const records = keywordRecords();
+    Object.assign(records[0].rawReply.resource.metadata.taxonomyAssignments[0], changed);
+    assert.throws(() => scoreDecisions(category, categoryRequest, records), /stored assignment provenance/i);
+  }
+});
+
+test('keyword replay requires the completed report and collector verification on every receipt', () => {
+  const corruptions = [
+    [raw => { delete raw.classification; }, /classification.*completed/],
+    [raw => { raw.classification.warnings = ['incomplete']; }, /classification warnings/],
+    [raw => { raw.classification.tagsAssigned = 0; }, /classification counts/],
+    [raw => { delete raw.taxonomyVersionVerified; }, /collector-supplied taxonomy verification/],
+    [raw => { raw.taxonomyVersionVerified = false; }, /collector-supplied taxonomy verification/],
+    [raw => { raw.resource.metadata.taxonomyAssignments[0].assignedAt = '2026-10-18T00:00:00.000Z'; },
+      /stored assignment provenance/i],
+  ];
+  for (const [corrupt, expected] of corruptions) {
+    const records = keywordRecords();
+    corrupt(records[0].rawReply);
+    assert.throws(() => scoreDecisions(category, categoryRequest, records), expected);
+  }
 });

@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-060
 owner: Engineering
 status: Draft
-version: '0.1'
-last_updated: 2026-10-17
+version: '0.3'
+last_updated: 2026-10-29
 title: Categorisation and Evidence Decision Quality Checkpoint
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 > **Document ID:** AIDHA-TESTING-060
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-10-17
+> **Version:** 0.3
+> **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
 # Categorisation and Evidence Decision Quality Checkpoint
@@ -24,7 +24,9 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0.1 | 2026-10-17 | Codex | Freeze separate public category and evidence tasks, measure persisted keyword assignments, and validate offline decision receipt scoring. | — | Draft | PLAN-015; owner model refresh |
+| 0.1 | 2026-10-17 | Codex | Freeze separate public category and evidence tasks, measure persisted keyword assignments, and validate offline decision receipt scoring. | — | Draft | AIDHA-PLAN-015; owner model refresh |
+| 0.2 | 2026-10-29 | Codex | Integrate current main and retain both offline preflights and serial dispatch. | — | Draft | PR 38 |
+| 0.3 | 2026-10-29 | Codex | Require completed classification and verify stored provenance before baseline credit. | — | Draft | PR 38 |
 
 ## Purpose and boundary
 
@@ -68,7 +70,12 @@ No model, network, credential, private-source, account or billing operation is p
 
 ## Validation
 
-Acceptance tests live next to the tools in `scripts/decision-quality/`. Run the existing
+Acceptance tests cover [runtime collection](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/category.test.mjs),
+[literal grounding](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/grounding.test.mjs),
+[receipt validation/scoring](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/quality.test.mjs)
+and
+[artifact/CLI behaviour](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/run.test.mjs).
+Run the existing
 `pnpm build:deps` first. CI already builds workspace packages before the root offline tests.
 The benchmark records known baseline defects; passing tool tests certify measurement behavior,
 not successful categorisation or semantic fidelity. The final report must retain per-case
@@ -107,10 +114,16 @@ proof that a provider produced a reply. Keep complete raw records and verified m
 when a separately authorised collection is implemented. Hash binding detects changed inputs;
 it does not authenticate a provider or certify the provisional labels.
 
+The report's modelQualityMeasured flag denotes collector-declared recorded-provider
+replies scored against these provisional labels. It does not authenticate the provider or
+turn the labels into human gold.
+
 ## Recorded keyword baseline
 
-The public `scripts/decision-quality/keyword-baseline.json` contains all persisted observations,
-receipts, per-case errors and split-specific counts. This deliberately constructed challenge set
+The public [keyword baseline](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/keyword-baseline.json)
+contains the projected stored
+assignments, classification reports, receipts, per-case errors and split-specific counts.
+This deliberately constructed challenge set
 contains eight development and eight held-out examples. It is not sampled to estimate production
 prevalence or overall categorisation accuracy. Both subsets are public and assistant-reviewed.
 
@@ -127,8 +140,7 @@ prevalence or overall categorisation accuracy. Both subsets are public and assis
 The four mismatches are a negated incident mention (`cat09`), incidental accessibility guidance
 in an unrelated procedure (`cat10`), retention expressed without configured vocabulary (`cat13`),
 and negated deployment/release terms adding release to a capacity source (`cat14`). These
-demonstrate
-specific baseline limitations. They do not show that a newer model fixes them.
+demonstrate specific baseline limitations. They do not show that a newer model fixes them.
 
 The runtime supplies no generated claims or source-summary enrichment: the source label and
 body reach the keyword classifier as raw label and one chunk. The model-visible packet shares
@@ -156,6 +168,8 @@ participant survey feedback mislabeled as an independent usability test is repai
 this rubric because the positive assessment remains sourced. A claim whose central event,
 outcome or mechanism is unsupported needs rejection. This boundary was independently reviewed
 and remains provisional. Typed judgments do not create repaired text or endorse projection.
+Instructions were shaped after reviewing the public held-out examples; that split is not blind
+to rubric development and needs fresh independently adjudicated cases before generalisation.
 
 Cost totals are known only when every receipt records cost. Partial sums retain a separate known
 count; missing costs stay unknown. Latency p50/p95 use nearest-rank percentiles over the recorded
@@ -183,3 +197,56 @@ projection changes neither persisted metadata nor classifier decisions. Snapshot
 stored tag IDs with normalized answers, recompute per-case rows, and compare a fresh report when
 the classifier module identity matches. Historical evidence can remain when that identity changes;
 tests do not require preserving known incorrect classifier behavior.
+
+## Current-main integration, 2026-10-29
+
+Integration starts from merged main ff052ba8, including the qualified runtime/dependency
+maintenance, acquisition and diagnostic boundaries. The root test command retains public-safety
+and semantic-quality checks and exhaustive serial workspace dispatch, adding this independent
+decision-quality preflight. The root-script contract first rejects the new unrecorded stage,
+then passes with that stage explicitly included; no existing stage or package suite is removed.
+
+AIDHA-PLAN-015 retains the current standing technical authority and all separate owner decision gates.
+Older branch snapshots are not reintroduced as current status. Current verification and peer/bot
+assessment remain required before landing this refreshed checkpoint.
+
+## Completed classification and observation checks
+
+A successful ingestion report alone cannot establish a completed classification. The collector
+now requires completed classification without warnings, valid integer counts bounded by the
+vocabulary size, and equal matched/assigned/unique stored-assignment counts in each fresh store.
+An absent assignment field becomes an empty projected array only after verified completion with
+zero matches. Replay always requires an explicit projected array and the classification report;
+a missing or null observation cannot silently earn empty-set credit.
+
+Before collection, configured matching vocabulary must equal the supplied corpus. Every present
+assignment must belong to its Resource, use the automatic keyword classifier identity and fixed
+observation time, and carry the expected vocabulary fingerprint. Only then is that fingerprint
+omitted from the public projection. rawReply.classification retains completed status, counts
+and warnings; taxonomyVersionVerified records the collector's vocabulary/fingerprint check.
+Replay validates the declared report, projected assignment provenance and verification marker.
+It cannot independently revalidate omitted fingerprints or authenticate the collector.
+
+The offline-only service-factory seam exercises disabled/warned/error reports, impossible or
+inconsistent counts, missing positive writes, wrong vocabulary, and corrupt persisted ownership,
+origin, time and fingerprints through the actual runtime. A completed zero-match control remains
+valid. Unexpected fetch calls fail the collection tests. There is no new production switch.
+
+The first five negative collection cases reproduce before wiring the stricter observation
+boundary. Removing only the completed-observation validation after wiring reproduces failures;
+byte-identical restoration passes the checkpoint. The expanded 34-test suite also passes on
+Node 22.21.1 and official Node 22.12.0, including direct replay report/marker
+corruption controls. Replay also reproduces
+foreign/manual/wrong-classifier acceptance before correction and rejects it afterwards.
+Regenerating the public receipt adds the verification evidence while preserving every per-case
+result, split total and score: 12/16 exact tag sets, with the same four mismatches.
+
+The classification module digest still identifies only the named compiled module. A changed
+identity now emits an explicit historical-baseline message; it does not establish whole-stack
+identity or model improvement. Final supported-runtime, public-safety, documentation and hosted
+checks remain completion gates.
+
+The refreshed classifier digest identifies the currently built main module, whose bytes match
+the separately qualified main baseline. PR 38 changes no production source path. The changed
+digest relative to the older public receipt therefore does not represent a new classifier
+implementation in this slice.

@@ -12,6 +12,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./registration": {
+      "import": "./dist/config/youtube-source-adapter.js",
+      "types": "./dist/config/youtube-source-adapter.d.ts"
     }
   },
   "bin": {
@@ -25,12 +29,13 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "vitest run",
-    "test:ci": "vitest run --silent --reporter=dot",
-    "test:full": "vitest run",
-    "test:watch": "vitest",
+    "test": "pnpm run build:test-runtime && vitest run",
+    "test:ci": "pnpm run build:test-runtime && vitest run --silent --reporter=dot",
+    "test:full": "pnpm run build:test-runtime && vitest run",
+    "test:watch": "pnpm run build:test-runtime && vitest",
     "lint": "tsc --noEmit",
-    "cli": "pnpm build && node dist/cli.js"
+    "cli": "pnpm build && node dist/cli.js",
+    "build:test-runtime": "pnpm --filter @aidha/ingestion-youtube... --fail-if-no-match build"
   },
   "dependencies": {
     "@aidha/config": "workspace:*",
@@ -38,13 +43,13 @@
     "@aidha/praecis-core": "workspace:*",
     "@aidha/taxonomy": "workspace:*",
     "compromise": "^14.15.0",
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.3.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.7.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.11"
   }
 }

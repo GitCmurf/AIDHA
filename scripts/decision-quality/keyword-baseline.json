@@ -4,7 +4,7 @@
   "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
   "labelStatus": "assistant-authored; not human gold",
   "requestedModel": "KeywordTaxonomyClassifier",
-  "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+  "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
   "endpoint": null,
   "evidenceKind": "keyword-baseline",
   "modelQualityMeasured": false,
@@ -431,7 +431,7 @@
   "receipts": [
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -485,6 +485,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -499,7 +506,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -553,6 +560,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -567,7 +581,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -621,6 +635,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -635,7 +656,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -689,6 +710,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -703,7 +731,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -757,6 +785,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -771,7 +806,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -833,6 +868,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -847,7 +889,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -909,6 +951,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -923,7 +972,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -968,6 +1017,13 @@
             "taxonomyAssignments": []
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 0,
+          "tagsAssigned": 0,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -982,7 +1038,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1036,6 +1092,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -1050,7 +1113,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1104,6 +1167,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -1118,7 +1188,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1180,6 +1250,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -1194,7 +1271,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1248,6 +1325,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -1262,7 +1346,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1307,6 +1391,13 @@
             "taxonomyAssignments": []
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 0,
+          "tagsAssigned": 0,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -1321,7 +1412,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1383,6 +1474,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -1397,7 +1495,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1459,6 +1557,13 @@
             ]
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
@@ -1473,7 +1578,7 @@
     },
     {
       "requestedModel": "KeywordTaxonomyClassifier",
-      "resolvedModel": "praecis-keyword-classifier@sha256:cde4374580f145823eb1d487d7578037aea6a1f2c7b371185ec494e78a6f925b",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
       "endpoint": null,
       "evidenceKind": "keyword-baseline",
       "status": "ok",
@@ -1518,6 +1623,13 @@
             "taxonomyAssignments": []
           }
         },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 0,
+          "tagsAssigned": 0,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
         "omittedFields": [
           "resource.metadata.taxonomyAssignments[].taxonomyVersion"
         ]
