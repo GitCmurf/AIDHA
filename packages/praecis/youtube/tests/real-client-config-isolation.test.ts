@@ -10,13 +10,13 @@ describe('RealYouTubeClient config isolation', () => {
     const cookiesSeen: string[] = [];
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockImplementation(async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      .mockImplementation((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input.toString();
         const headers = new Headers(init?.headers);
         if (url.includes('youtube.com/watch?v=')) {
           cookiesSeen.push(headers.get('Cookie') ?? '');
         }
-        return new Response('', { status: 500 });
+        return Promise.resolve(new Response('', { status: 500 }));
       });
 
     // A mocked HTTP failure must not fall through to a real yt-dlp process.
