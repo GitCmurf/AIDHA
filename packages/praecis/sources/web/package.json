@@ -10,6 +10,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./registration": {
+      "import": "./dist/registration.js",
+      "types": "./dist/registration.d.ts"
     }
   },
   "author": "Colin Farmer (GitCmurf) (https://github.com/GitCmurf)",

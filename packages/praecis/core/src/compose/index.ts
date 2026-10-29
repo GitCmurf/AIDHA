@@ -19,3 +19,6 @@ export { applyDedupResolution } from './dedup-link.js';
 
 export type { SourceEnvelopeInput } from './source-envelope.js';
 export { createRawSource, emptySourceConfigRegistration } from './source-envelope.js';
+
+export type { SourceOwnedMetadataGroupOwner } from './resource-metadata-groups.js';
+export { getSourceOwnedMetadataGroup } from './resource-metadata-groups.js';

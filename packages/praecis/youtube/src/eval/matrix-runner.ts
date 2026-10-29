@@ -18,7 +18,7 @@ import {
 } from "./matrix-cache.js";
 import { scoreClaimSet } from "./scoring-executor.js";
 import { computeConsensus } from "./consensus-scorer.js";
-import { LlmClaimExtractor } from '@aidha/praecis-core';
+import { LlmClaimExtractor, TRANSCRIPT_EXCERPT_ENCODING_VERSION } from '@aidha/praecis-core';
 import type { LlmClient, LlmTokenUsage } from '@aidha/praecis-core';
 import {
   PROMPT_VERSION as EXTRACT_PROMPT_VERSION,
@@ -30,7 +30,7 @@ import { decidePromptPack, type ExtractionPromptPackId, type PromptRoutingDecisi
 import type { NarrowJudgeResult } from "./narrow-judge.js";
 import { consoleLogger, type Logger } from "../utils/logger.js";
 
-export const EXTRACTOR_VERSION = "v1";
+export const EXTRACTOR_VERSION = `v1:${TRANSCRIPT_EXCERPT_ENCODING_VERSION}`;
 
 // Log prefixes for consistent formatting
 const LOG_PREFIX_PARTIAL_SCORING = "[partial-scoring]";
@@ -107,6 +107,8 @@ export type ScoreDimension =
   | "overallScore";
 
 export interface MatrixCell {
+  extractorVersion?: string;
+  transcriptEncodingVersion?: string;
   videoId: string;
   modelId: string;
   extractorVariantId: ExtractorVariantId;
@@ -713,6 +715,8 @@ const getExtractionForCell = async (
     );
 
     const newCell: MatrixCell = {
+      extractorVersion,
+      transcriptEncodingVersion: TRANSCRIPT_EXCERPT_ENCODING_VERSION,
       videoId: video.videoId,
       modelId: model.id,
       extractorVariantId: variant,
@@ -1110,7 +1114,12 @@ export const runEvaluationMatrix = async (
       startedAt,
       completedAt: new Date().toISOString(),
       runId: options.runId,
-      config: serializableConfig as Record<string, unknown>,
+      config: {
+        ...serializableConfig,
+        extractionPromptVersion: options.extractionPromptVersion ?? EXTRACT_PROMPT_VERSION,
+        extractorVersion: EXTRACTOR_VERSION,
+        transcriptEncodingVersion: TRANSCRIPT_EXCERPT_ENCODING_VERSION,
+      },
       failedCellCount,
       partialFailureCount,
     },

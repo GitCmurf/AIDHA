@@ -29,6 +29,9 @@ jobs:
       - name: Generate catalog
         run: python docs/_scripts/gen_catalog.py
 
+      - name: Test explicit agent context refresh
+        run: python scripts/test_update_agent_context.py
+
       - name: Validate docs
         run: python docs/_scripts/validate_docs.py
 

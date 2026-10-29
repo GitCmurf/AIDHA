@@ -3,8 +3,8 @@ document_id: AIDHA-GOV-003
 owner: Security Team
 approvers: GitCmurf
 status: Draft
-version: '0.3'
-last_updated: 2025-12-27
+version: '0.4'
+last_updated: 2026-10-19
 title: Public Repository Security Practices
 type: GOV
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Security Team
 > **Approvers:** GitCmurf
 > **Status:** Draft
-> **Version:** 0.3
-> **Last Updated:** 2025-12-27
+> **Version:** 0.4
+> **Last Updated:** 2026-10-19
 > **Type:** GOV
 
 # Public Repository Security Practices
@@ -26,6 +26,7 @@ docops_version: '2.0'
 | ------- | ---------- | ------ | ---------------------------------------- | --------- | ------ | --------- |
 | 0.2     | 2025-12-27 | CMF    | Seed baseline security checklist         | —         | Draft  | —         |
 | 0.3     | 2025-12-27 | CMF    | Normalize metadata + add Version History | —         | Draft  | —         |
+| 0.4 | 2026-10-19 | Codex | Limit scanner exceptions to exact historical findings | — | Draft | Secret Scan |
 
 ## Overview
 
@@ -80,7 +81,35 @@ you accidentally commit a secret or a private rant, you must rewrite history (e.
 
 - **Atomic Commits:** Keep commits focused. Easier to revert if something goes wrong.
 - **No "WIP" Commits to Main:** Use feature branches. Squash "fix typo" commits before merging.
-- **Automated Scanning:** Eventually, add a GitHub Action to scan for secrets on every PR.
+- **Automated Scanning:** The Secret Scan workflow runs Gitleaks on pull requests, pushes to
+  main/master, manual dispatch and a daily schedule. Default detection rules remain enabled.
+
+### Historical false positives
+
+Record a confirmed false positive as its exact commit/rule/path/line fingerprint in
+`.gitleaksignore`. Do not exclude an entire file or commit: later credentials in the same file
+must remain detectable. The eight entries for `c2db410d9fb535df004130475e6d9b49d7180601`
+cover seven detect-secrets `hashed_secret` fields and one fixed dotenv test value. The existing
+mock-key fingerprint for `97ac48a94aed1c0597085b64f9c7c95442015742` remains separate.
+
+Gitleaks 8.24.3 uses `[allowlist]` for global allowances; the former `[[allowlists]]` tables
+were ineffective in that version and have been removed. Exact fingerprints avoid broad path
+exceptions when the scanner is upgraded. See the
+[versioned configuration guide](https://github.com/gitleaks/gitleaks/blob/v8.24.3/README.md#configuration)
+and [fingerprint guide](https://github.com/gitleaks/gitleaks/blob/v8.24.3/README.md#gitleaksignore).
+
+To check one reviewed public revision and its ancestors with Gitleaks 8.24.3, run from the
+repository root, setting `public_revision` to its full commit SHA:
+
+```sh
+gitleaks git --config .gitleaks.toml --gitleaks-ignore-path .gitleaksignore \
+  --log-opts="$public_revision" --redact=100 --exit-code=2 .
+```
+
+Exit 0 means no findings; exit 2 reports findings. Before accepting an exception, reproduce
+the historical findings, rerun the same history with the candidate fingerprints, and verify
+that a new synthetic commit at the same paths is still detected. Keep diagnostic reports
+redacted and omit secret and match values from retained evidence.
 
 ---
 

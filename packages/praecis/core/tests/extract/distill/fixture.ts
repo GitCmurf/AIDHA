@@ -32,7 +32,9 @@ export const config = (): MiningRequest['config'] => ({
   export: { outDir: './out', sourcePrefix: 'synthetic' },
 });
 export const request = (llm: LlmClient): MiningRequest => ({
-  raw: { canonicalId: 'synthetic:wiki', sourceType: 'web', sensitivity: 'public', payload: {} },
+  raw: { canonicalId: 'synthetic:wiki', sourceType: 'web', sensitivity: 'public', payload: {},
+    label: 'Fictional distillation fixture',
+    provenance: { sourceType: 'web', ingestedAt: '2026-10-17T00:00:00Z' } },
   chunks: [{ id: 'ex1', text: source, segments: [], locator: { kind: 'text', charStart: 0, charEnd: source.length } }],
   context: {}, config: config(), policyRoute: 'local', llm, costCeiling: {},
   clock: { now: () => new Date('2026-10-17T00:00:00Z') },

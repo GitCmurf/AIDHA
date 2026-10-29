@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-082
 owner: Engineering
 status: Draft
-version: '0.1'
-last_updated: 2026-10-18
+version: '0.2'
+last_updated: 2026-10-29
 title: Vitest 4.1.11 Compatibility Verification
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-082
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-10-18
+> **Version:** 0.2
+> **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
 # Vitest 4.1.11 Compatibility Verification
@@ -24,8 +24,9 @@ area: CORE
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Record current-main compatibility evidence for the Vitest 4.1.11 update. | — | Draft | PR #25 |
+| 0.2 | 2026-10-29 | Codex | Reassess complete current-main coverage after test prerequisites land. | — | Draft | PR 25; PR 47; PR 65 |
 
-## Scope
+## Historical scope, 2026-10-18
 
 This record covers Dependabot [PR #25](https://github.com/GitCmurf/AIDHA/pull/25), head
 `5190109bb0e5e580f191c727ca4b93d811e85127`, applied to current `main`
@@ -46,7 +47,7 @@ CLI, core, decode, source, and YouTube packages. Each has a `test:ci` script. Th
 test command invokes the recursive `test:ci` scripts after its script-integrity and public-safety
 checks.
 
-## Acceptance and verification
+## Historical verification, 2026-10-18
 
 The proposed update is compatible when the frozen dependency graph installs, all workspace builds
 and lint checks succeed, and the repository's script-integrity, public-safety and Vitest checks pass
@@ -82,3 +83,27 @@ The complete command, exit, and output records are retained under
 `/tmp/aidha-052-vitest-evidence/`. This compatibility result establishes test/build behavior for
 the recorded dependency update and runtime; it does not establish a security audit or any broader
 product behavior change.
+
+## Current integration, 2026-10-29
+
+The earlier evidence above remains historical. The refreshed branch integrates merged main
+including PR 65, which builds the executable test prerequisites before Vitest, and PR 47,
+which isolates the native fallback in the cookie configuration regression. An earlier local
+run also hit the nested compiler setup timeout addressed by PR 65. Neither that run nor
+the earlier coverage exclusions establish current compatibility.
+
+The final integration must pass the complete repository test command without an added
+exclusion, together with frozen installation, workspace build/lint, strict documentation
+build and scoped DocOps. Preserve the root serial test orchestration and all existing
+assertions, test budgets and skips. The update remains limited to the 19 development
+dependency declarations, their lockfile graph and this evidence/navigation record.
+
+The update also refreshes development-only Vite/Rolldown dependencies, including Lightning
+CSS, PostCSS, Nano ID, picomatch and optional native/WASM support packages. The complete
+85-package production dependency closure is unchanged, including resolutions and package
+records. All 19 manifests otherwise match the integration base.
+
+The optional Rolldown WASM fallback now uses `@napi-rs/wasm-runtime` 1.2.4, whose engine range
+excludes Node 22.12. Native Linux binding checks on that runtime do not validate this
+optional fallback. The historical Node-floor result above cannot establish its compatibility.
+The graph-backend package in that historical command is `packages/reconditum`.
