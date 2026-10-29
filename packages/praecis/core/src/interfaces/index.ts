@@ -95,6 +95,32 @@ export interface SupportingUnitSummary {
   readonly attribution?: { readonly kind: string; readonly name?: string; readonly role?: string };
 }
 
+/** Direct source-backed limitation, retained as an untrusted assertion in its own right. */
+export interface SourceLimitationSummary {
+  readonly id: string;
+  readonly text: string;
+  readonly stance: string;
+  readonly rationale?: string;
+  readonly conditions?: readonly { readonly type: string; readonly text: string }[];
+  readonly attribution?: { readonly kind: string; readonly name?: string; readonly role?: string };
+  readonly evidence: readonly { readonly excerptId: string; readonly quote: string; readonly quoteVerification: string }[];
+  readonly applicability: {
+    readonly trusted: false;
+    readonly targetScope: { readonly kind: 'population' | 'time' | 'trial' | 'version' | 'actor' | 'other'; readonly text: string };
+    readonly relationEvidence: { readonly excerptId: string; readonly quote: string; readonly quoteVerification: 'exact' };
+    readonly explanation: string;
+  };
+}
+
+/** Original overlong evidence and complete deterministic segmentation outcome. */
+export interface SegmentRepairRecord {
+  readonly unitId: string;
+  readonly originalUnit: Readonly<Record<string, unknown>>;
+  readonly replacementEvidence: readonly { readonly excerptId: string; readonly quote: string; readonly quoteVerification: string }[];
+  readonly finalEvidence: readonly { readonly excerptId: string; readonly quote: string; readonly quoteVerification: string }[];
+  readonly status: 'awaiting_grounding' | 'grounded' | 'rejected';
+}
+
 export interface SourceDistillationSummary {
   readonly failedClosed: boolean;
   readonly sourceType?: string;
@@ -104,12 +130,15 @@ export interface SourceDistillationSummary {
   readonly coverage?: import('../extract/distill/coverage.js').CoverageDiagnostics;
   readonly unitCountsByKind?: Readonly<Record<string, number>>;
   readonly diagnostics: readonly string[];
+  readonly segmentRepairs?: readonly SegmentRepairRecord[];
 }
 
 export interface MiningResult {
   readonly rejectedClaims?: readonly DraftClaim[];
   readonly supportingUnits?: readonly SupportingUnitSummary[];
   readonly distillation?: SourceDistillationSummary;
+  readonly extractionSnapshotCandidate?: import('../extract/distill/snapshot.js').ExtractionSnapshotCandidate;
+  readonly extractionSnapshotCandidateHash?: string;
   readonly claims: readonly DraftClaim[];
   readonly tokenUsage?: number;
   readonly spendUsd?: number;
@@ -124,6 +153,7 @@ export interface ExportResult {
   readonly created: number;
   readonly updated: number;
   readonly noop: number;
+  readonly extractionSnapshot?: import('../extract/distill/snapshot.js').ExtractionSnapshot;
 }
 
 export interface ReferenceExtractionReport {
@@ -157,6 +187,7 @@ export interface RunReport {
   readonly rejectedClaims?: readonly DraftClaim[];
   readonly supportingUnits?: readonly SupportingUnitSummary[];
   readonly sourceDistillation?: SourceDistillationSummary;
+  readonly extractionSnapshot?: import('../extract/distill/snapshot.js').ExtractionSnapshot;
   readonly sourceId: string;
   readonly canonicalId: string;
   readonly resourceId: string;
@@ -233,6 +264,8 @@ export interface MiningRequest {
 export interface ICandidateMiner {
   /** Changes when prompts, validation policy or miner options change. Missing/blank identity bypasses cache. */
   readonly cacheIdentity?: string;
+  /** Explicit opt-in to the durable source-distillation snapshot contract. */
+  readonly extractionSnapshotVersion?: 1;
   estimate?(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }>;
   mine(request: MiningRequest): Promise<Result<MiningResult>>;
 }

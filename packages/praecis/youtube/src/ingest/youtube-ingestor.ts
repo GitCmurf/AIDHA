@@ -6,9 +6,11 @@ import type { IIngestor, IngestInput, VectorRuntimeContext } from '@aidha/praeci
 import type { RawSource } from '@aidha/praecis-core';
 import type { Result } from '@aidha/taxonomy';
 import type { YouTubeClient } from '../client/types.js';
-import type { Video } from '../schema/index.js';
+import { Video } from '../schema/index.js';
 import type { Transcript } from '../schema/index.js';
 import { SOURCE_ID } from '../config/youtube-source-adapter.js';
+import { prepareCreatorNoteMetadata } from './creator-note-metadata.js';
+import { CREATOR_NOTE_METADATA_GROUP } from '../schema/creator-note.js';
 
 // ── Payload type ─────────────────────────────────────────────────────────────
 
@@ -18,7 +20,7 @@ export interface YouTubeVideoPayload {
   channelId: string;
   channelName: string;
   duration: number;
-  publishedAt: string;
+  publishedAt?: string;
   description?: string;
   thumbnailUrl?: string;
   transcript: Transcript | null;
@@ -42,6 +44,16 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       return { ok: false, error: videoResult.error };
     }
     const video: Video = videoResult.value;
+    const publicationDate = Video.shape.publishedAt.safeParse(video.publishedAt);
+    const publishedAt = publicationDate.success ? publicationDate.data : undefined;
+    const resourceId = `youtube-${videoId}`;
+    const sourceUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const creatorNote = prepareCreatorNoteMetadata({
+      description: video.description,
+      acquisition: video.creatorNoteAcquisition,
+      storedRetrieval: video.creatorNoteRetrieval === 'stored',
+      sourceCanonicalId: resourceId, sourceUrl, now: () => runtimeContext.clock.now().toISOString(),
+    });
 
     const transcriptResult = await this.client.fetchTranscript(videoId);
     if (!transcriptResult.ok) {
@@ -55,27 +67,29 @@ export class YouTubeIngestor implements IIngestor<YouTubeVideoPayload> {
       channelId: video.channelId,
       channelName: video.channelName,
       duration: video.duration,
-      publishedAt: video.publishedAt,
-      description: video.description,
+      publishedAt,
+      description: creatorNote.description,
       thumbnailUrl: video.thumbnailUrl,
       transcript,
     };
 
     const raw = createRawSource({
-      canonicalId: `youtube-${videoId}`,
+      canonicalId: resourceId,
       dedupKeys: [videoId],
       sourceType: 'youtube',
       sensitivity: 'public',
-      sourceUri: `https://www.youtube.com/watch?v=${videoId}`,
+      sourceUri: sourceUrl,
       clock: runtimeContext.clock,
+      resourceMetadataGroups: [{ id: CREATOR_NOTE_METADATA_GROUP.id, fields: [...CREATOR_NOTE_METADATA_GROUP.fields] }],
       resourceMetadata: {
         videoId: video.id,
         channelId: video.channelId,
         channelName: video.channelName,
         duration: video.duration,
-        publishedAt: video.publishedAt,
-        description: video.description,
-        url: `https://www.youtube.com/watch?v=${videoId}`,
+        // Null clears a stale date when current acquisition has no valid date.
+        publishedAt: publishedAt ?? null,
+        ...creatorNote.metadata,
+        url: sourceUrl,
         thumbnailUrl: video.thumbnailUrl,
         transcriptStatus: transcript ? 'available' : 'missing',
         ...(transcript?.language ? { transcriptLanguage: transcript.language } : {}),

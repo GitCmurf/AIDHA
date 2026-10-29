@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025-2026 Colin Farmer (GitCmurf)
+
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
@@ -39,7 +42,7 @@ describe('public YouTube ingestion failure', () => {
       ].join('\n'), 'utf8');
       const cliPath = fileURLToPath(new URL('../dist/cli.js', import.meta.url));
       const processResult = spawnSync(process.execPath,
-        [cliPath, 'ingest', 'youtube', '--url', 'no-transcript-video', '--mock', '--json', '--config', configPath],
+        ['--experimental-sqlite', cliPath, 'ingest', 'youtube', '--url', 'no-transcript-video', '--mock', '--json', '--config', configPath],
         { encoding: 'utf8', timeout: 20000, cwd: directory,
           env: { PATH: process.env['PATH'] ?? '', LANG: 'C.UTF-8' } });
       expect(processResult.error).toBeUndefined();

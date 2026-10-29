@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
 import { SourceDistillationMiner, composeVector, createIngestionRuntimeFromServices } from '../../src/index.js';
 import { createDefaultPipelineServices, MemoryCache } from '../../src/pipeline/services.js';
+import { SourceDistillationClosedError } from '../../src/pipeline/spine.js';
 import type { ICandidateMiner } from '../../src/interfaces/index.js';
 import { RecordingLlm, config, grounded, payload, source, unit } from '../extract/distill/fixture.js';
 
@@ -9,7 +10,7 @@ const vector = composeVector({
   sourceId: 'synthetic', sensitivity: 'public',
   registration: { sourceId: 'synthetic', validateActiveSourceConfig: value => value },
   ingestor: { sourceId: 'synthetic', acquire: async () => ({ ok: true,
-    value: { canonicalId: 'synthetic:wiki', sourceType: 'web', sensitivity: 'public', provenance: { ingestedAt: '2026-10-17T00:00:00Z', sourceType: 'web' }, payload: {} } }) },
+    value: { canonicalId: 'synthetic:wiki', label: 'Fictional distillation source', sourceType: 'web', sensitivity: 'public', provenance: { ingestedAt: '2026-10-17T00:00:00Z', sourceType: 'web' }, payload: {} } }) },
   decode: [{ name: 'synthetic', decode: async () => ({ ok: true, value: {
     segments: [{ id: 'seg1', text: source, locator: { kind: 'text', charStart: 0, charEnd: source.length } }], warnings: [] } }) }],
   context: { build: async () => ({}) },
@@ -79,9 +80,13 @@ describe('distillation through ConfiguredIngestionRuntime', () => {
 
   it('retries a failed-closed extraction after a fresh runtime', async () => {
     let services = { ...setup().services, llm: new RecordingLlm(['invalid', 'invalid again']) };
-    const first = await run(services);
-    expect(first.cacheWrites).toBe(0);
-    expect(first.sourceDistillation?.failedClosed).toBe(true);
+    const first = await createIngestionRuntimeFromServices(services).runVector(vector, { ref: 'synthetic:wiki' });
+    expect(first.ok).toBe(false);
+    if (first.ok) throw new Error('Expected a failed-close result');
+    expect(first.error).toBeInstanceOf(SourceDistillationClosedError);
+    expect((first.error as SourceDistillationClosedError).diagnostics).toEqual(expect.arrayContaining([
+      expect.stringContaining('Schema invalid after one repair'),
+    ]));
     services = { ...services, llm: new RecordingLlm([payload(), grounded]) };
     const second = await run(services);
     expect(second.claimsExtracted).toBe(1);

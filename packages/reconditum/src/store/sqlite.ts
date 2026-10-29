@@ -57,7 +57,7 @@ type DatabaseSyncLike = {
   close: () => void;
 };
 
-type DatabaseSyncCtor = new (path: string) => DatabaseSyncLike;
+type DatabaseSyncCtor = new (path: string, options?: { readOnly?: boolean }) => DatabaseSyncLike;
 
 let cachedCtor: DatabaseSyncCtor | null = null;
 
@@ -121,15 +121,54 @@ export class SQLiteStore implements GraphStore {
   private transactionOwner?: symbol;
   private readonly transactionContext = new AsyncLocalStorage<symbol>();
 
-  constructor(db: DatabaseSyncLike) {
+  constructor(db: DatabaseSyncLike, options: { initialize?: boolean } = {}) {
     this.db = db;
-    this.initialize();
+    if (options.initialize !== false) this.initialize();
   }
 
   static open(path: string): SQLiteStore {
     const DatabaseSync = getDatabaseSyncCtor();
     const db = new DatabaseSync(path);
     return new SQLiteStore(db);
+  }
+
+  /** Read one existing graph view without initialization, migration or index repair. */
+  static async readSnapshot(path: string, options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
+    const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
+    if (!(major >= 24 || (major === 23 && minor >= 2) || (major === 22 && minor >= 12))) {
+      return { ok: false, error: new Error('Read-only graph snapshots require Node.js >= 22.12.0 (23.x >= 23.2.0).') };
+    }
+
+    let database: DatabaseSyncLike | undefined;
+    let transactionOpen = false;
+    let result: Result<GraphSnapshot> | undefined;
+    try {
+      const DatabaseSync = getDatabaseSyncCtor();
+      database = new DatabaseSync(path, { readOnly: true });
+      const store = new SQLiteStore(database, { initialize: false });
+      database.exec('BEGIN');
+      transactionOpen = true;
+      result = await store.exportSnapshot(options);
+      if (result.ok) {
+        database.exec('COMMIT');
+        transactionOpen = false;
+      }
+    } catch (error) {
+      result = { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    } finally {
+      if (transactionOpen) {
+        try { database?.exec('ROLLBACK'); } catch { /* Preserve the snapshot failure. */ }
+      }
+      try {
+        database?.close();
+      } catch (error) {
+        // Cleanup must not replace an acquisition or snapshot diagnostic.
+        if (result?.ok !== false) {
+          result = { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+        }
+      }
+    }
+    return result;
   }
 
   static createInMemory(): SQLiteStore {

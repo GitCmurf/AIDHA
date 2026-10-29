@@ -1,0 +1,2087 @@
+{
+  "schemaVersion": 1,
+  "corpusSha256": "sha256:a090676bbc92cfff3bdfac3f1bfdd6348c0d102fb210794ff88802d9fe7e5ee3",
+  "labelStatus": "assistant-authored expectations; not human gold or adjudicated",
+  "reviewStatus": "independent assistant review; not human gold; no automated semantic score",
+  "model": "claude-sonnet-5-5",
+  "effort": "low",
+  "sampling": "one complete sample per variant; no stable improvement established",
+  "mergeStatus": "experimental prompt/kind/link changes are held on local 026-semantic-grounding, absent from this checkpoint PR",
+  "failedExploratoryVariants": [
+    {
+      "mode": "unconstrained native candidate",
+      "caseId": "archive-cutover",
+      "failedClosed": true,
+      "diagnostic": "repair emitted invalid condition type scope; zero exported claims"
+    },
+    {
+      "mode": "first constrained adapter attempt",
+      "failedClosed": true,
+      "diagnostic": "native CLI rejected draft-2020-12 schema URI; no successful generation"
+    }
+  ],
+  "groundingOnlyReplay": {
+    "generation": "exactly frozen from intermediate supplier output",
+    "newNativeInvocations": 1,
+    "finding": "restored trial scope and tester attribution; supplier proposal remained unchanged",
+    "limitation": "does not establish fresh generation quality"
+  },
+  "variants": [
+    {
+      "name": "controlled baseline",
+      "promptVersions": {
+        "distill": "v1",
+        "grounding": "v1"
+      },
+      "counts": {
+        "met": 6,
+        "partial": 3,
+        "missed": 0,
+        "forbiddenDistortions": 0,
+        "proceduralGraphClaims": 0,
+        "supportedCoreRejections": 0
+      },
+      "records": [
+        {
+          "caseId": "archive-cutover",
+          "recordSha256": "sha256:4ef26158dc194f440de9dc08025db3a439bed3d71eff5ba7966ae3c440a23fe0",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 3,
+          "failedClosed": false,
+          "review": {
+            "caseId": "archive-cutover",
+            "counts": {
+              "met": 3,
+              "partial": 0,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "archive-integrity",
+                "rating": "met",
+                "unitIds": [
+                  "u2"
+                ],
+                "reason": "Core recommendation retains the versioned object/checksum manifest, comparison with destination before moving readers, and the source-stated file-count rationale. It does not claim measured speed improvement."
+              },
+              {
+                "id": "archive-reversibility",
+                "rating": "met",
+                "unitIds": [
+                  "u3"
+                ],
+                "reason": "Core recommendation retains the previous endpoint until reconciliation and sample reads succeed, and leaves readers there if reconciliation fails."
+              },
+              {
+                "id": "archive-order-limit",
+                "rating": "met",
+                "unitIds": [
+                  "u4"
+                ],
+                "reason": "Core limitation separates checksum integrity from search-index order and includes the separate pre-traffic ordering check."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u6",
+                  "u3"
+                ],
+                "stage": "grounding and projection",
+                "finding": "Grounding changed UI-demo u6 from incidental to supporting; projection retained its link to cutover recommendation u3. The menu clicks do not substantively support that rule. The demo was not projected as a graph claim."
+              }
+            ]
+          },
+          "claims": [
+            {
+              "text": "Archive exports can arrive out of order when a network retry completes after a later batch, so a visible file count is a poor readiness test: it does not show whether the index points to the bytes actually copied.",
+              "excerptIds": [
+                "archive-1"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u1",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-1",
+                    "quote": "A visible file count is therefore a poor readiness test",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "Out-of-order arrival after network retries means file count says nothing about index-to-data correspondence.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "For the next migration, write a versioned manifest containing each object identifier and checksum, and compare it with the destination before any reader is moved.",
+              "excerptIds": [
+                "archive-1"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u2",
+                "unitKind": "recommendation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-1",
+                    "quote": "I recommend writing a versioned manifest containing each object identifier and checksum",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "File counts are a poor readiness test; the manifest comparison checks integrity.",
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "for the next migration"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "Keep the previous reader endpoint available during cutover until the new manifest reconciles and a sample of reads succeeds. If reconciliation fails, leave readers on the previous endpoint and inspect missing or mismatched objects.",
+              "excerptIds": [
+                "archive-2"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u3",
+                "unitKind": "recommendation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-2",
+                    "quote": "leave readers on the previous endpoint and inspect the missing or mismatched objects",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "A checksum comparison can detect missing or altered objects but does not establish that the search index has the intended document order; the rehearsal used a separate ordering check against the manifest before traffic moved.",
+              "excerptIds": [
+                "archive-3"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u4",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-3",
+                    "quote": "it does not establish that the search index has the intended document order",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "Checksums verify object content, not the document ordering in the search index, so a separate ordering check is needed.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "Whether this procedure reduces cutover time compared with the old procedure has not been measured; the speed effect is unknown, and the sought value is a reversible switch with inspectable data integrity. The manifest recommendation is not a claim that copies will be quick.",
+              "excerptIds": [
+                "archive-3"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u5",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-3",
+                    "quote": "We have not measured whether this procedure reduces cutover time compared with the old procedure.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "No measurement of cutover time against the old procedure has been made.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            }
+          ],
+          "supportingUnits": [
+            {
+              "id": "u6",
+              "kind": "example",
+              "text": "In a prior demonstration, the admin menu was opened, Export selected, a status link copied, and the dashboard filter changed from blue to green; these clicks only showed where status appears and are not the migration rule.",
+              "supportsUnitIds": [
+                "u3"
+              ],
+              "excerptIds": [
+                "archive-2"
+              ],
+              "evidence": [
+                {
+                  "excerptId": "archive-2",
+                  "quote": "Those clicks showed where the status appears; they are not the migration rule.",
+                  "quoteVerification": "exact"
+                }
+              ],
+              "stance": "demonstrated",
+              "importance": "supporting",
+              "attribution": {
+                "kind": "speaker"
+              }
+            }
+          ],
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:5cf9c3ceffce434eed12dc0ac1513489c98ac88e254cc320978b5418cbce3584"
+        },
+        {
+          "caseId": "queue-pilot-correction",
+          "recordSha256": "sha256:70aa6e8c083addd014dab281b9c6bbaa7b6c0621bdc289a8f8079fc5acc962ad",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 3,
+          "failedClosed": false,
+          "review": {
+            "caseId": "queue-pilot-correction",
+            "counts": {
+              "met": 2,
+              "partial": 1,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "queue-observed-wait",
+                "rating": "partial",
+                "unitIds": [
+                  "u1",
+                  "u3",
+                  "u4"
+                ],
+                "reason": "Corrected core result u3 retains 18-to-14 minutes for nine comparable sites and distinguishes all twelve participants. The recorded-timestamp, same-four-week-window qualifier is only in independent limitation u4. Preliminary result u1 is also persisted without the nine-site scope, duplicating the corrected result and risking a misleading standalone reading; it does not explicitly assert that all twelve entered the comparison.",
+                "lossStage": "generation split the corrected result, measurement window and preliminary result into independent units; grounding accepted them; projection persisted all three"
+              },
+              {
+                "id": "queue-causal-limit",
+                "rating": "met",
+                "unitIds": [
+                  "u4"
+                ],
+                "reason": "Core limitation retains the absent control group, possible seasonal demand, observed comparison and lack of causal proof."
+              },
+              {
+                "id": "queue-energy-unmeasured",
+                "rating": "met",
+                "unitIds": [
+                  "u6"
+                ],
+                "reason": "Core limitation says routing-equipment power was not recorded and the energy-saving phrase lacks measurement; it does not turn missing measurement into a measured negative result."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u1",
+                  "u3"
+                ],
+                "stage": "generation and projection",
+                "finding": "One duplicate 18-to-14-minute reusable result survives, with u1 lacking the corrected nine-site scope. No listed forbidden all-twelve claim is explicitly asserted."
+              },
+              {
+                "unitIds": [
+                  "u7",
+                  "u8"
+                ],
+                "stage": "projection",
+                "finding": "The no-outage observation remains limited to monitored sites and four weeks; planned matched-comparison results are correctly described as unavailable."
+              }
+            ]
+          },
+          "claims": [
+            {
+              "text": "In the service queue pilot, the median wait fell from eighteen minutes to fourteen minutes after a routing change, in an initial comparison rather than a randomized experiment.",
+              "excerptIds": [
+                "queue-1"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u1",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "the median wait fell from eighteen minutes to fourteen minutes",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "It describes an initial comparison, not a randomized experiment.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "The routing change sent overflow requests to a shared pool whenever the local queue crossed its capacity threshold.",
+              "excerptIds": [
+                "queue-1"
+              ],
+              "state": "draft",
+              "type": "mechanism",
+              "classification": "mechanism",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u2",
+                "unitKind": "mechanism",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "The routing change sent overflow requests to a shared pool whenever the local queue crossed its capacity threshold.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "Correction: the eighteen-to-fourteen-minute median comparison covers nine sites, not twelve, because three sites lacked a comparable pre-change baseline. All twelve sites participated in the pilot, but only nine enter the before-and-after result. The original slide was drafted before baseline records were reconciled.",
+              "excerptIds": [
+                "queue-2",
+                "queue-1"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u3",
+                "unitKind": "fact",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-2",
+                    "quote": "three sites lacked a comparable pre-change baseline",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "queue-2",
+                    "quote": "only nine enter that before-and-after result",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "That slide was drafted before baseline records were reconciled.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "Three sites lacked a comparable pre-change baseline.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "The observed wait-time difference should not be described as proof that routing caused it: no control group was assigned and seasonal demand could have affected the comparison. The figures come from recorded queue timestamps over the same four-week reporting windows.",
+              "excerptIds": [
+                "queue-2"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u4",
+                "unitKind": "limitation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-2",
+                    "quote": "No control group was assigned, and seasonal demand could have affected the comparison.",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "queue-2",
+                    "quote": "Do not describe the observed difference as proof that routing caused it.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "No control group was assigned, and seasonal demand could have affected the comparison.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "A wall display was replaced during the pilot, but the display change was not measured as an intervention.",
+              "excerptIds": [
+                "queue-1"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u5",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "Staff also replaced a wall display during the pilot, but the display change was not measured as an intervention.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "Applies to the pilot period; the display change was not measured as an intervention."
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "Power use of the routing equipment was not recorded during the pilot, so the earlier meeting note calling the change an energy saving has no energy measurement behind it.",
+              "excerptIds": [
+                "queue-3"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u6",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-3",
+                    "quote": "We did not record power use for the routing equipment during this pilot.",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "queue-3",
+                    "quote": "there is no energy measurement behind that phrase",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "No energy measurement exists.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "Operators reported no outage during the four-week reporting window; this observation is limited to the monitored sites and period.",
+              "excerptIds": [
+                "queue-3"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u7",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-3",
+                    "quote": "Operators reported no outage during the four-week reporting window",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "scale",
+                    "text": "Limited to the monitored sites and the four-week reporting window."
+                  }
+                ],
+                "attribution": {
+                  "kind": "third_party",
+                  "role": "operators"
+                }
+              }
+            },
+            {
+              "text": "Next quarter, the plan is to measure both queue time and power use with a matched comparison group; those results do not yet exist.",
+              "excerptIds": [
+                "queue-3"
+              ],
+              "state": "draft",
+              "type": "insight",
+              "classification": "insight",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u8",
+                "unitKind": "idea",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-3",
+                    "quote": "Next quarter we plan to measure both queue time and power use with a matched comparison group",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "Planned for next quarter; results not yet available."
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            }
+          ],
+          "supportingUnits": [],
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:5cf9c3ceffce434eed12dc0ac1513489c98ac88e254cc320978b5418cbce3584"
+        },
+        {
+          "caseId": "supplier-alert-proposal",
+          "recordSha256": "sha256:540106eb9593cac7de5a7991cabdea9df79dbab55533fc8b710ec2fd73f8624f",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 2,
+          "failedClosed": false,
+          "review": {
+            "caseId": "supplier-alert-proposal",
+            "counts": {
+              "met": 1,
+              "partial": 2,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "alert-supplier-origin",
+                "rating": "partial",
+                "unitIds": [
+                  "u1",
+                  "u2"
+                ],
+                "reason": "Core recommendation u1 retains the unnamed supplier safety lead as originator, chair as reporter, new-spindle scope and speculative inspection rationale. The explicit absence of measured fault reduction survives only in independent, unlinked u2.",
+                "lossStage": "generation split the qualification into an independent limitation; grounding accepted and projection preserved the split"
+              },
+              {
+                "id": "alert-trial-burden",
+                "rating": "partial",
+                "unitIds": [
+                  "u3",
+                  "u4"
+                ],
+                "reason": "Core fact u3 is graph-persisted with the maintenance team, five new-spindle machines, two weeks, forty extra alerts and thirty-six nuisance alerts. The explicit distinction that this trial measured alert burden rather than fault prevention, and did not cover older models, survives only in independent, unlinked u4.",
+                "lossStage": "generation split the measurement and its scope limitation; grounding accepted and projection preserved the split"
+              },
+              {
+                "id": "alert-conditional-trial",
+                "rating": "met",
+                "unitIds": [
+                  "u5"
+                ],
+                "reason": "Core recommendation retains the operations lead's conditional consideration of a wider trial after below-one-in-ten nuisance share for four consecutive weeks, plus the eight-unit hold outside the five trial machines. It does not approve general rollout."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u5"
+                ],
+                "stage": "generation and quote check",
+                "finding": "The sole selected quote supports the eight-unit hold but omits the conditional wider-trial clause. The full cited alert-3 excerpt contains the clause and was available to grounding, so this is a narrow quote-support gap, not missing source evidence or an invented claim."
+              },
+              {
+                "unitIds": [
+                  "u3",
+                  "u4",
+                  "u6"
+                ],
+                "stage": "projection",
+                "finding": "The measured alert burden remains a core fact; the supplier is not named as tester, fault prevention is not claimed, and the regulator's observer status does not become endorsement."
+              }
+            ]
+          },
+          "claims": [
+            {
+              "text": "The equipment supplier's safety lead (personal name not supplied) proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle. The committee chair relayed the proposal and is not its originator.",
+              "excerptIds": [
+                "alert-1"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u1",
+                "unitKind": "recommendation",
+                "stance": "reported",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-1",
+                    "quote": "The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "The supplier argued that earlier warnings might give operators more time to inspect a developing fault.",
+                "conditions": [
+                  {
+                    "type": "audience",
+                    "text": "machines running the new spindle"
+                  }
+                ],
+                "attribution": {
+                  "kind": "third_party",
+                  "role": "equipment supplier's safety lead"
+                }
+              }
+            },
+            {
+              "text": "When the six-unit proposal was made, no reduction in faults had been measured, so its benefit of earlier warning was an argument and not a measured result.",
+              "excerptIds": [
+                "alert-1"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u2",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-1",
+                    "quote": "no reduction in faults had been measured when the proposal was made",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "at the time the proposal was made"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker",
+                  "role": "committee chair"
+                }
+              }
+            },
+            {
+              "text": "The maintenance team tested the six-unit alert threshold on five new-spindle machines for two weeks. It produced forty extra alerts, of which thirty-six were judged nuisance alerts after inspection.",
+              "excerptIds": [
+                "alert-2"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u3",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-2",
+                    "quote": "They counted forty extra alerts, of which thirty-six were judged nuisance alerts after inspection.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "scale",
+                    "text": "five new-spindle machines, two weeks"
+                  }
+                ],
+                "attribution": {
+                  "kind": "third_party",
+                  "role": "maintenance team"
+                }
+              }
+            },
+            {
+              "text": "The local trial measured alert burden in a narrow setting only. It did not test fault prevention or older spindle models. The supplier did not conduct it, and the chair did not certify that the threshold should be rolled out.",
+              "excerptIds": [
+                "alert-2"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u4",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-2",
+                    "quote": "it did not test fault prevention or older spindle models",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "exclusion",
+                    "text": "fault prevention and older spindle models were not tested"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker",
+                  "role": "committee chair"
+                }
+              }
+            },
+            {
+              "text": "The operations lead recommends considering a wider trial only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning. Until then, the existing eight-unit threshold should be kept outside the five trial machines. This is distinct from the supplier's original six-unit proposal.",
+              "excerptIds": [
+                "alert-3"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u5",
+                "unitKind": "recommendation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-3",
+                    "quote": "keep the existing eight-unit threshold outside the five trial machines",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "four consecutive weeks after tuning, until the condition is met"
+                  }
+                ],
+                "attribution": {
+                  "kind": "third_party",
+                  "role": "operations lead"
+                }
+              }
+            },
+            {
+              "text": "The regulator attended the meeting as an observer and gave no endorsement or threshold instruction.",
+              "excerptIds": [
+                "alert-3"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v1",
+                "unitId": "u6",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-3",
+                    "quote": "The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker",
+                  "role": "committee chair"
+                }
+              }
+            }
+          ],
+          "supportingUnits": [],
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:5cf9c3ceffce434eed12dc0ac1513489c98ac88e254cc320978b5418cbce3584"
+        }
+      ]
+    },
+    {
+      "name": "intermediate experiment",
+      "promptVersions": {
+        "distill": "v2",
+        "grounding": "v3"
+      },
+      "counts": {
+        "met": 7,
+        "partial": 2,
+        "missed": 0,
+        "forbiddenDistortions": 0,
+        "proceduralGraphClaims": 0,
+        "supportedCoreRejections": 0
+      },
+      "records": [
+        {
+          "caseId": "archive-cutover",
+          "recordSha256": "sha256:2428dd84a279268db2a90b1687142a58418e739cb596820fc7f6f001c18dfbf6",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 3,
+          "failedClosed": false,
+          "review": {
+            "caseId": "archive-cutover",
+            "counts": {
+              "met": 3,
+              "partial": 0,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "archive-integrity",
+                "rating": "met",
+                "unitIds": [
+                  "u2"
+                ],
+                "reason": "The core recommendation retains the versioned object/checksum manifest, destination comparison before moving readers, file-count inadequacy as rationale, and the absence of a measured speed claim."
+              },
+              {
+                "id": "archive-reversibility",
+                "rating": "met",
+                "unitIds": [
+                  "u3"
+                ],
+                "reason": "The core recommendation keeps the old endpoint until manifest reconciliation and sample reads succeed, and leaves readers there if reconciliation fails."
+              },
+              {
+                "id": "archive-order-limit",
+                "rating": "met",
+                "unitIds": [
+                  "u4"
+                ],
+                "reason": "The core limitation separates checksum integrity from index order and includes the separate pre-traffic ordering check."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u6"
+                ],
+                "stage": "generation, grounding and projection",
+                "finding": "The UI demo has no false supportsUnitIds link in the candidate, fixing the baseline's link to u3. Grounding still changes its importance from incidental to supporting, so the low-value demo survives in supportingUnits; it is not a graph claim."
+              }
+            ]
+          },
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:5cdf7e09666ed18272285d4431badcac7f36b1c3a9498ea4e9bd3365065460af"
+        },
+        {
+          "caseId": "queue-pilot-correction",
+          "recordSha256": "sha256:982b78394875769d05945a11c862411ca96076bdec60a9c59f779801b5add2b7",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 3,
+          "failedClosed": false,
+          "review": {
+            "caseId": "queue-pilot-correction",
+            "counts": {
+              "met": 3,
+              "partial": 0,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "queue-observed-wait",
+                "rating": "met",
+                "unitIds": [
+                  "u1"
+                ],
+                "reason": "The one corrected core result preserves the 18-to-14-minute comparison, nine comparable sites out of twelve participants, and recorded timestamps over the same four-week windows in its text and conditions. Grounding adds the no-control and seasonal-demand qualifier. No preliminary unscoped duplicate survives."
+              },
+              {
+                "id": "queue-causal-limit",
+                "rating": "met",
+                "unitIds": [
+                  "u1",
+                  "u2"
+                ],
+                "reason": "The result has a noncausal condition, while core limitation u2 explicitly retains the absent control group and possible seasonal demand without erasing the observed comparison."
+              },
+              {
+                "id": "queue-energy-unmeasured",
+                "rating": "met",
+                "unitIds": [
+                  "u5"
+                ],
+                "reason": "The core limitation states that routing-equipment power was not recorded, so an earlier energy-saving phrase lacks measured support. It does not report a measured negative result."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u1"
+                ],
+                "stage": "generation, grounding and projection",
+                "finding": "The controlled-baseline unscoped duplicate is absent. Grounding rewrites u1 but retains the corrected observation and measurement window."
+              },
+              {
+                "unitIds": [
+                  "u6",
+                  "u7"
+                ],
+                "stage": "projection",
+                "finding": "The no-outage observation remains restricted to monitored sites and four weeks; the matched-comparison plan is not described as completed results."
+              }
+            ]
+          },
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:5cdf7e09666ed18272285d4431badcac7f36b1c3a9498ea4e9bd3365065460af"
+        },
+        {
+          "caseId": "supplier-alert-proposal",
+          "recordSha256": "sha256:134166e4a86e713de4fd256cae8fc26ec4ec3cce02893997286621d632c71f62",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 2,
+          "failedClosed": false,
+          "review": {
+            "caseId": "supplier-alert-proposal",
+            "counts": {
+              "met": 1,
+              "partial": 2,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "alert-supplier-origin",
+                "rating": "partial",
+                "unitIds": [
+                  "u1",
+                  "u2"
+                ],
+                "reason": "Core u1 retains the unnamed supplier safety lead as originator, the chair as reporter, new-spindle scope and speculative inspection rationale. However, it is typed as idea rather than recommendation, and the explicit absence of measured fault reduction remains in separate unlinked u2. No false chair endorsement is asserted.",
+                "lossStage": "generation classification and qualifier split; grounding accepted both; projection retained the split"
+              },
+              {
+                "id": "alert-trial-burden",
+                "rating": "partial",
+                "unitIds": [
+                  "u3",
+                  "u4"
+                ],
+                "reason": "Core fact u3 retains the maintenance-team test, five new-spindle machines, two weeks and forty/ thirty-six alert counts. Yet its attribution metadata names the reporting committee chair as speaker rather than the maintenance team as tester; u4 separately carries the explicit alert-burden-versus-fault-prevention and older-model limits without a link. The text correctly identifies the tester.",
+                "lossStage": "generation attribution and qualifier split; grounding accepted them; projection retained them"
+              },
+              {
+                "id": "alert-conditional-trial",
+                "rating": "met",
+                "unitIds": [
+                  "u5"
+                ],
+                "reason": "The operations lead's core recommendation retains consideration of a wider trial only after nuisance-alert share stays below one in ten for four consecutive weeks after tuning, and keeps the existing eight-unit threshold outside the five trial machines until then. It does not authorize general rollout."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u1"
+                ],
+                "stage": "generation and projection",
+                "finding": "Supplier proposal is classified as idea, while controlled baseline classified it as recommendation. Its text and third-party role remain accurate."
+              },
+              {
+                "unitIds": [
+                  "u3"
+                ],
+                "stage": "generation and projection",
+                "finding": "Attribution metadata regresses from controlled-baseline third_party/maintenance team to speaker/committee chair. The claim text still correctly says the maintenance team tested the threshold."
+              },
+              {
+                "unitIds": [
+                  "u5"
+                ],
+                "stage": "quote selection",
+                "finding": "Unlike controlled baseline, two selected quotes cover both the conditional wider-trial clause and the eight-unit hold. No literal quote failure is reported."
+              }
+            ]
+          },
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:5cdf7e09666ed18272285d4431badcac7f36b1c3a9498ea4e9bd3365065460af"
+        }
+      ]
+    },
+    {
+      "name": "fresh final experiment",
+      "promptVersions": {
+        "distill": "v2",
+        "grounding": "v5"
+      },
+      "counts": {
+        "met": 6,
+        "partial": 3,
+        "missed": 0,
+        "forbiddenDistortions": 0,
+        "proceduralGraphClaims": 0,
+        "supportedCoreRejections": 0
+      },
+      "records": [
+        {
+          "caseId": "archive-cutover",
+          "recordSha256": "sha256:0a97838c6fdc6c77cb80d7f9b2a566ec3773ba10347e6ce809162fc28994f3f1",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 3,
+          "failedClosed": false,
+          "review": {
+            "caseId": "archive-cutover",
+            "counts": {
+              "met": 2,
+              "partial": 1,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "archive-integrity",
+                "rating": "partial",
+                "unitIds": [
+                  "u2",
+                  "u3"
+                ],
+                "reason": "Core recommendation u3 preserves the versioned object/checksum manifest and destination comparison before readers move, but has rationale:null. The source-stated reason that file count cannot establish integrity is separate core limitation u2, with no link to u3. This weakens the recommendation when retrieved alone; it does not claim a measured speed benefit.",
+                "lossStage": "generation split rationale from recommendation; repair and grounding accepted the split; projection persisted both unlinked"
+              },
+              {
+                "id": "archive-reversibility",
+                "rating": "met",
+                "unitIds": [
+                  "u4"
+                ],
+                "reason": "Core recommendation retains the previous endpoint until manifest reconciliation and sample reads succeed, and leaves readers there if reconciliation fails."
+              },
+              {
+                "id": "archive-order-limit",
+                "rating": "met",
+                "unitIds": [
+                  "u5"
+                ],
+                "reason": "Core limitation distinguishes checksum integrity from search-index document order and states that a separate ordering check was needed and used before traffic moved."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u7"
+                ],
+                "stage": "repair and projection",
+                "finding": "The admin-menu demo is classified incidental and projected to a diagnostic. There is no false support link or graph claim, resolving the controlled baseline's archive-link error and the intermediate candidate's low-value supporting-unit retention."
+              },
+              {
+                "unitIds": [
+                  "u6"
+                ],
+                "stage": "repair and projection",
+                "finding": "The source's sought value of a reversible switch with inspectable integrity remains in u6 rationale after a separate draft unit about the goal was removed during repair; it is not wholly absent."
+              }
+            ]
+          },
+          "claims": [
+            {
+              "text": "Archive exports can arrive out of order when a network retry completes after a later batch.",
+              "excerptIds": [
+                "archive-1"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u1",
+                "unitKind": "fact",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-1",
+                    "quote": "Our archive exports can arrive out of order when a network retry completes after a later batch.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "A visible file count is a poor readiness test for a migration, because it does not show whether the index points to the bytes that were actually copied.",
+              "excerptIds": [
+                "archive-1"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u2",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-1",
+                    "quote": "A visible file count is therefore a poor readiness test",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "It says nothing about whether the index points to the bytes that were actually copied.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "For the next migration, write a versioned manifest containing each object identifier and checksum, and compare it with the destination before any reader is moved.",
+              "excerptIds": [
+                "archive-1"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u3",
+                "unitKind": "recommendation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-1",
+                    "quote": "I recommend writing a versioned manifest containing each object identifier and checksum",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "for the next migration"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "Keep the previous reader endpoint available during cutover until the new manifest reconciles and a sample of reads succeeds. If reconciliation fails, leave readers on the previous endpoint and inspect the missing or mismatched objects.",
+              "excerptIds": [
+                "archive-2"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u4",
+                "unitKind": "recommendation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-2",
+                    "quote": "The cutover should keep the previous reader endpoint available until the new manifest reconciles and a sample of reads succeeds.",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "archive-2",
+                    "quote": "If reconciliation fails, leave readers on the previous endpoint",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "A checksum comparison can detect missing or altered objects but does not establish that the search index has the intended document order; a separate ordering check against the manifest is needed. The rehearsal ran such a check before traffic moved.",
+              "excerptIds": [
+                "archive-3"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u5",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-3",
+                    "quote": "it does not establish that the search index has the intended document order",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "archive-3",
+                    "quote": "The rehearsal used a separate ordering check against the manifest before traffic moved.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "Checksums detect missing or altered objects but say nothing about the search index's document order.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "It has not been measured whether the manifest-based cutover procedure reduces cutover time compared with the old procedure; the speed effect is unknown, not shown to be negative. The recommendation is about integrity, not a claim that copies will be quick.",
+              "excerptIds": [
+                "archive-3",
+                "archive-1"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u6",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "archive-3",
+                    "quote": "We have not measured whether this procedure reduces cutover time compared with the old procedure.",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "archive-1",
+                    "quote": "This is an integrity recommendation, not a claim that every copy will be quick.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "No measurement of cutover time against the old procedure has been made; the sought value is a reversible switch with inspectable data integrity.",
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "as of this note; speed not yet measured"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            }
+          ],
+          "supportingUnits": [],
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:caffe13bd414c41863f075c580064fdc7f686fa7644c87753a01a2fe3287c414"
+        },
+        {
+          "caseId": "queue-pilot-correction",
+          "recordSha256": "sha256:c249dabf93265b8314af9e44f2410f2277a6bd5e84897449198e632166f79d0d",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 3,
+          "failedClosed": false,
+          "review": {
+            "caseId": "queue-pilot-correction",
+            "counts": {
+              "met": 3,
+              "partial": 0,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "queue-observed-wait",
+                "rating": "met",
+                "unitIds": [
+                  "u1"
+                ],
+                "reason": "One core result retains the observed 18-to-14-minute median wait, nine comparable sites out of twelve participants, and recorded timestamps over the same four-week windows. Grounding adds the absent-control and possible-seasonal-demand caveat to the standalone text. No preliminary unscoped duplicate survives."
+              },
+              {
+                "id": "queue-causal-limit",
+                "rating": "met",
+                "unitIds": [
+                  "u1",
+                  "u3"
+                ],
+                "reason": "The result explicitly rejects causal proof while core limitation u3 preserves the uncontrolled before-and-after design and possible seasonal demand without erasing the observation."
+              },
+              {
+                "id": "queue-energy-unmeasured",
+                "rating": "met",
+                "unitIds": [
+                  "u5"
+                ],
+                "reason": "The core limitation says equipment power was not recorded and the earlier energy-saving phrase has no measured basis; it does not turn missing data into a negative measurement."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u6",
+                  "u7"
+                ],
+                "stage": "projection",
+                "finding": "The no-outage report stays limited to monitored sites and four weeks, and the matched comparison remains a future plan with no results."
+              }
+            ]
+          },
+          "claims": [
+            {
+              "text": "In the service queue pilot, median wait fell from eighteen to fourteen minutes after a routing change, in an initial before-and-after comparison covering nine sites with comparable pre-change baselines. Twelve sites participated, but three lacked a comparable baseline and are excluded from this result; the original slide's 'twelve sites' was incorrect. No control group was assigned and seasonal demand could have affected the comparison, so the difference is not proof that routing caused it.",
+              "excerptIds": [
+                "queue-2",
+                "queue-1"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u1",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-2",
+                    "quote": "the eighteen-to-fourteen-minute median comparison covers nine sites, not twelve",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "That slide was drafted before baseline records were reconciled.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "Three sites lacked a comparable pre-change baseline; the slide was drafted before baseline records were reconciled.",
+                "conditions": [
+                  {
+                    "type": "scale",
+                    "text": "nine of twelve pilot sites; same four-week reporting windows, from recorded queue timestamps"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "The routing change sent overflow requests to a shared pool whenever the local queue crossed its capacity threshold.",
+              "excerptIds": [
+                "queue-1"
+              ],
+              "state": "draft",
+              "type": "mechanism",
+              "classification": "mechanism",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u2",
+                "unitKind": "mechanism",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "The routing change sent overflow requests to a shared pool whenever the local queue crossed its capacity threshold.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "The wait-time comparison is an initial before-and-after comparison, not a randomized experiment; no control group was assigned and seasonal demand could have affected it, so the observed difference must not be described as proof that routing caused it.",
+              "excerptIds": [
+                "queue-2"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u3",
+                "unitKind": "limitation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-2",
+                    "quote": "No control group was assigned, and seasonal demand could have affected the comparison.",
+                    "quoteVerification": "exact"
+                  },
+                  {
+                    "excerptId": "queue-2",
+                    "quote": "Do not describe the observed difference as proof that routing caused it.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "No control group was assigned and seasonal demand could have affected the comparison.",
+                "conditions": [
+                  {
+                    "type": "assumption",
+                    "text": "applies to the pilot's nine-site comparison"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                },
+                "supportsUnitIds": [
+                  "u1"
+                ]
+              }
+            },
+            {
+              "text": "Staff replaced a wall display during the pilot, but this display change was not measured as an intervention, so its effect on wait times is unestablished.",
+              "excerptIds": [
+                "queue-1"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u4",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-1",
+                    "quote": "Staff also replaced a wall display during the pilot, but the display change was not measured as an intervention.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "The display change was not measured as an intervention.",
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "during the pilot"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                },
+                "supportsUnitIds": [
+                  "u1"
+                ]
+              }
+            },
+            {
+              "text": "Power use of the routing equipment was not recorded in the pilot, so the earlier meeting note calling the change an energy saving has no energy measurement behind it.",
+              "excerptIds": [
+                "queue-3"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u5",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-3",
+                    "quote": "there is no energy measurement behind that phrase",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "No energy measurement exists.",
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            },
+            {
+              "text": "Operators reported no outage during the four-week reporting window; this observation is limited to the monitored sites and that period.",
+              "excerptIds": [
+                "queue-3"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u6",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-3",
+                    "quote": "Operators reported no outage during the four-week reporting window",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "four-week reporting window"
+                  },
+                  {
+                    "type": "scale",
+                    "text": "monitored sites only"
+                  }
+                ],
+                "attribution": {
+                  "kind": "third_party",
+                  "role": "operators"
+                }
+              }
+            },
+            {
+              "text": "Next quarter the team plans to measure both queue time and power use with a matched comparison group; those results do not yet exist.",
+              "excerptIds": [
+                "queue-3"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u7",
+                "unitKind": "recommendation",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "queue-3",
+                    "quote": "Next quarter we plan to measure both queue time and power use with a matched comparison group",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "planned for next quarter; no results yet"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker"
+                }
+              }
+            }
+          ],
+          "supportingUnits": [],
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:caffe13bd414c41863f075c580064fdc7f686fa7644c87753a01a2fe3287c414"
+        },
+        {
+          "caseId": "supplier-alert-proposal",
+          "recordSha256": "sha256:8287944d82011bc4f50f8dcd418f24e6a6ac2fead80501ce6486674d2f04ebaf",
+          "cliVersion": "2.1.302 (Claude Code)",
+          "resolvedModels": [
+            "claude-sonnet-5-5"
+          ],
+          "cliInvocations": 2,
+          "failedClosed": false,
+          "review": {
+            "caseId": "supplier-alert-proposal",
+            "counts": {
+              "met": 1,
+              "partial": 2,
+              "missed": 0,
+              "forbiddenDistortions": 0
+            },
+            "required": [
+              {
+                "id": "alert-supplier-origin",
+                "rating": "partial",
+                "unitIds": [
+                  "u1",
+                  "u2"
+                ],
+                "reason": "Core u1 accurately names the unnamed supplier safety lead as originator, the chair as reporter, the new-spindle scope and the supplier's speculative inspection rationale. Linked limitation u2 now preserves that fault reduction was unmeasured. However, the proposal is typed idea instead of the expected recommendation, losing a material classification for reusable recommendation retrieval.",
+                "lossStage": "generation kind choice; grounding accepted it; projection persisted it"
+              },
+              {
+                "id": "alert-trial-burden",
+                "rating": "partial",
+                "unitIds": [
+                  "u3",
+                  "u4"
+                ],
+                "reason": "Grounding makes core fact u3 self-contained: maintenance team, five new-spindle machines, two weeks, forty extra alerts, thirty-six nuisance alerts, alert burden rather than fault prevention, and no older-model test. Yet attribution metadata says speaker/committee chair reporting the trial instead of identifying the maintenance team as the proposition's testing origin. Linked u4 repeats the trial limits, but the metadata conflict remains.",
+                "lossStage": "generation attribution choice; grounding corrected text but not attribution; projection persisted the reporter attribution"
+              },
+              {
+                "id": "alert-conditional-trial",
+                "rating": "met",
+                "unitIds": [
+                  "u5"
+                ],
+                "reason": "The operations lead's core recommendation retains consideration of a wider trial only after nuisance-alert share stays below one in ten for four consecutive weeks after tuning, and the eight-unit hold outside the five trial machines until then. It does not approve general rollout."
+              }
+            ],
+            "observations": [
+              {
+                "unitIds": [
+                  "u2",
+                  "u1"
+                ],
+                "stage": "generation and projection",
+                "finding": "The unmeasured-fault qualification now has a valid supportsUnitIds link to the supplier proposal, improving the intermediate candidate's unlinked qualification."
+              },
+              {
+                "unitIds": [
+                  "u4",
+                  "u3"
+                ],
+                "stage": "generation and projection",
+                "finding": "The trial limitation links to the measured fact. Neither link falsely credits the supplier with conducting the local test."
+              },
+              {
+                "unitIds": [
+                  "u5"
+                ],
+                "stage": "quote selection",
+                "finding": "The selected quote supports the eight-unit hold but omits the conditional wider-trial clause. The full cited alert-3 passage contains that clause and was available to grounding; no literal quote failure or invented proposition follows from this alone."
+              }
+            ]
+          },
+          "claims": [
+            {
+              "text": "The equipment supplier's safety lead (personal name not supplied) proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle. The committee chair relayed the proposal at the review meeting and is not its originator.",
+              "excerptIds": [
+                "alert-1"
+              ],
+              "state": "draft",
+              "type": "insight",
+              "classification": "insight",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u1",
+                "unitKind": "idea",
+                "stance": "reported",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-1",
+                    "quote": "The safety lead proposed lowering the vibration alert threshold from eight units to six units for machines running the new spindle.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "rationale": "The supplier argued that earlier warnings might give operators more time to inspect a developing fault.",
+                "conditions": [
+                  {
+                    "type": "audience",
+                    "text": "Applies to machines running the new spindle"
+                  }
+                ],
+                "attribution": {
+                  "kind": "third_party",
+                  "role": "equipment supplier's safety lead"
+                }
+              }
+            },
+            {
+              "text": "No reduction in faults had been measured when the supplier's proposal to lower the threshold was made, so the claimed benefit of earlier warnings was unmeasured at that time.",
+              "excerptIds": [
+                "alert-1"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u2",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-1",
+                    "quote": "no reduction in faults had been measured when the proposal was made",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "temporal",
+                    "text": "At the time the proposal was made"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker",
+                  "role": "committee chair"
+                },
+                "supportsUnitIds": [
+                  "u1"
+                ]
+              }
+            },
+            {
+              "text": "The maintenance team (not the supplier) tested the six-unit alert threshold on five new-spindle machines for two weeks and counted forty extra alerts, of which thirty-six were judged nuisance alerts after inspection. The trial measured alert burden only in a narrow setting. It did not test fault prevention or older spindle models.",
+              "excerptIds": [
+                "alert-2"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u3",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-2",
+                    "quote": "They counted forty extra alerts, of which thirty-six were judged nuisance alerts after inspection.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "scale",
+                    "text": "Five new-spindle machines, two weeks"
+                  },
+                  {
+                    "type": "exclusion",
+                    "text": "Fault prevention and older spindle models were not tested"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker",
+                  "role": "committee chair reporting the maintenance team's trial"
+                }
+              }
+            },
+            {
+              "text": "The local trial measured alert burden only in a narrow setting; it did not test fault prevention or older spindle models. The supplier did not conduct it, and the chair did not certify that the threshold should be rolled out.",
+              "excerptIds": [
+                "alert-2"
+              ],
+              "state": "draft",
+              "type": "warning",
+              "classification": "warning",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u4",
+                "unitKind": "limitation",
+                "stance": "asserted",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-2",
+                    "quote": "it did not test fault prevention or older spindle models",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "exclusion",
+                    "text": "Fault prevention and older spindle models were not tested"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker",
+                  "role": "committee chair"
+                },
+                "supportsUnitIds": [
+                  "u3"
+                ]
+              }
+            },
+            {
+              "text": "The operations lead recommends considering a wider trial of the six-unit threshold only if the nuisance-alert share falls below one in ten for four consecutive weeks after tuning. Until then, the existing eight-unit threshold should be kept outside the five trial machines. This is distinct from the supplier's original proposal.",
+              "excerptIds": [
+                "alert-3"
+              ],
+              "state": "draft",
+              "type": "recommendation",
+              "classification": "recommendation",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u5",
+                "unitKind": "recommendation",
+                "stance": "recommended",
+                "importance": "core",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-3",
+                    "quote": "keep the existing eight-unit threshold outside the five trial machines",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "assumption",
+                    "text": "Nuisance-alert share below one in ten for four consecutive weeks after tuning"
+                  },
+                  {
+                    "type": "scale",
+                    "text": "Eight-unit threshold retained outside the five trial machines"
+                  }
+                ],
+                "attribution": {
+                  "kind": "third_party",
+                  "role": "operations lead"
+                }
+              }
+            },
+            {
+              "text": "The regulator attended the meeting as an observer and gave no endorsement or threshold instruction.",
+              "excerptIds": [
+                "alert-3"
+              ],
+              "state": "draft",
+              "type": "fact",
+              "classification": "fact",
+              "metadata": {
+                "method": "llm-distill",
+                "model": "claude-sonnet-5-5",
+                "promptVersion": "bounded-distill-v2",
+                "unitId": "u6",
+                "unitKind": "fact",
+                "stance": "reported",
+                "importance": "supporting",
+                "trusted": false,
+                "qualityStatus": "reviewable",
+                "evidence": [
+                  {
+                    "excerptId": "alert-3",
+                    "quote": "The regulator attended as an observer and gave no endorsement or threshold instruction at the meeting.",
+                    "quoteVerification": "exact"
+                  }
+                ],
+                "attribution": {
+                  "kind": "speaker",
+                  "role": "committee chair"
+                }
+              }
+            }
+          ],
+          "supportingUnits": [],
+          "recordedCheckoutRevision": "git:f994fa0727975f4beac886c1b8dd90fb86d6fd08",
+          "promptSourceSha256": "sha256:caffe13bd414c41863f075c580064fdc7f686fa7644c87753a01a2fe3287c414"
+        }
+      ]
+    }
+  ],
+  "decision": "Do not merge the experimental semantic changes or change defaults on this evidence. Use repeatable held-out evaluation and clear qualification/origin relationships before the real-source reader trial.",
+  "baselineProvenance": "5b81d23 prompt content replayed from f994fa0 checkout; actual prompt source hash verified against git blob"
+}

@@ -10,7 +10,7 @@ describe('RealYouTubeClient config isolation', () => {
     const cookiesSeen: string[] = [];
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      .mockImplementation(async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input.toString();
         const headers = new Headers(init?.headers);
         if (url.includes('youtube.com/watch?v=')) {

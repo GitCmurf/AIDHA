@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { InMemoryStore } from '@aidha/graph-backend';
-import { createDefaultPipelineServices, type ICandidateMiner, type MiningResult } from '@aidha/praecis-core';
+import { createDefaultPipelineServices, SourceDistillationClosedError, type ICandidateMiner, type MiningResult } from '@aidha/praecis-core';
 import { runWebIngest } from '../src/index.js';
 
 const stores: InMemoryStore[] = [];
@@ -22,17 +22,30 @@ const ingestWithMiner = (mine: ICandidateMiner['mine']) => {
 };
 
 describe('public ingestion distillation summary', () => {
-  it('preserves failed-closed status and diagnostics rather than only reporting zero claims', async () => {
+  it('throws typed failed-close diagnostics without returning a successful ingestion summary', async () => {
     const distillation = {
       failedClosed: true,
       diagnostics: ['Distillation response failed schema validation after repair.'],
     };
 
-    const summary = await ingestWithMiner(async () => ({ ok: true, value: { claims: [], distillation } }));
+    const error: unknown = await ingestWithMiner(async () => ({
+      ok: true, value: { claims: [], distillation, tokenUsage: 27 },
+    })).then(
+      () => { throw new Error('Failed-close must not return an ingestion summary'); },
+      (failure: unknown) => failure,
+    );
 
-    expect(summary.sourceId).toBe('web');
-    expect(summary.claimsExtracted).toBe(0);
-    expect(summary.sourceDistillation).toEqual(distillation);
+    expect(error).toBeInstanceOf(SourceDistillationClosedError);
+    if (!(error instanceof SourceDistillationClosedError)) throw new Error('Expected typed failure');
+    expect(error.sourceCanonicalId).toBe('web:https://example.test/distillation');
+    expect(error.diagnostics).toEqual(distillation.diagnostics);
+    expect(error.summary).toEqual(distillation);
+    expect(error.tokenUsage).toBe(27);
+    const store = stores.at(-1);
+    if (!store) throw new Error('Expected the caller-owned graph store');
+    const nodes = await store.queryNodes();
+    if (!nodes.ok) throw nodes.error;
+    expect(nodes.value.items).toEqual([]);
   });
 
   it('preserves qualified untrusted claims, supporting evidence and rejected units', async () => {
