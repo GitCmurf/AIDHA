@@ -30,6 +30,7 @@ nav:
       - Taxonomy Runbook: 50-runbooks/runbook-002-taxonomy.md
       - Ingestion Runbook: 50-runbooks/runbook-003-youtube-ingestion.md
   - Testing:
+      - Build Before Executable Tests: 55-testing/testing-095-executable-test-builds.md
       - Fast URI Security Maintenance: 55-testing/testing-064-fast-uri-security-maintenance.md
       - Complete Chunk Prompt Data: 55-testing/testing-083-transcript-prompt-fidelity.md
       - MVP Test Suite: 55-testing/testing-001-mvp-tests.md

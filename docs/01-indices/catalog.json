@@ -366,6 +366,21 @@
     }
   },
   {
+    "path": "55-testing/testing-095-executable-test-builds.md",
+    "title": "Build Before Executable Tests",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-095",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-29",
+      "title": "Build Before Executable Tests",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI"
+    }
+  },
+  {
     "path": "55-testing/testing-084-docs-theme-compatibility.md",
     "title": "Documentation Theme Compatibility",
     "front_matter": {
