@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-095
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-29
 title: Build Before Executable Tests
 type: TESTING
@@ -13,7 +13,7 @@ area: CLI
 > **Document ID:** AIDHA-TESTING-095
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ area: CLI
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-29 | Codex | Separate compilation from executable-test assertions. | — | Draft | AIDHA-PLAN-015 |
+| 0.2 | 2026-10-29 | Codex | Pin reviewed sources and record verification limits. | — | Draft | Source 02c70b7 |
 
 ## Problem and scope
 
@@ -60,7 +61,13 @@ order, and simulate only the deepest build success or failure. A copied-manifest
 replaces the helper with a successful no-op: the original harness passed that control, while
 the strengthened harness rejects it. The pinned pnpm 9.12.0 also returns nonzero for an unknown
 filter with --fail-if-no-match; without that flag, the same unknown filter returned success.
-The public CLI memory-database acceptance exercises the actual compiled executable.
+The [CLI memory-database acceptance](https://github.com/GitCmurf/AIDHA/blob/02c70b7fe950c9f230dae5346a6e12b055682fa0/packages/praecis/youtube/tests/cli-memory-database.test.ts)
+exercises the actual compiled executable. The
+[command-order harness](https://github.com/GitCmurf/AIDHA/blob/02c70b7fe950c9f230dae5346a6e12b055682fa0/packages/praecis/youtube/tests/test-command-build.test.ts)
+and [complete-script guards](https://github.com/GitCmurf/AIDHA/blob/02c70b7fe950c9f230dae5346a6e12b055682fa0/packages/praecis/youtube/tests/package-scripts.test.ts)
+protect the [package entrypoints](https://github.com/GitCmurf/AIDHA/blob/02c70b7fe950c9f230dae5346a6e12b055682fa0/packages/praecis/youtube/package.json).
+The [root dispatch](https://github.com/GitCmurf/AIDHA/blob/02c70b7fe950c9f230dae5346a6e12b055682fa0/package.json)
+is verified separately by the recorded lock controls.
 
 For a complete run, use:
 
@@ -89,3 +96,21 @@ preparatory build above; they do not independently certify that compiled output 
 
 Ad hoc recursive package-test invocations also require --workspace-concurrency=1 when they
 may rebuild shared runtime output. The supported root commands already supply that option.
+
+## Recorded verification, 2026-10-29
+
+- The original command-order regression fails all 12 cases, then passes after the build move.
+  A successful no-op helper passes the old harness but is rejected by the strengthened one.
+- A real dependency TypeScript error exits nonzero before either the target build or Vitest
+  starts. Both root-dispatch lock controls complete without overlapping workspace tests;
+  the default-concurrency control reports overlap.
+- The real package build plus selected executable acceptance passes. Its functional assertions
+  and process deadlines are byte-for-byte unchanged.
+- The full local suite with one Vitest worker passes 1,146 tests with seven existing skips.
+  The final complete-command guard correction separately passes all 14 command checks.
+- Changed-test strict typing, package lint, strict documentation build, scoped DocOps and
+  normal repository hooks pass. Current-head hosted checks remain a separate merge gate.
+
+Default yt-dlp was replaced with a failing verification shim; explicit fixture executables
+remained available. These are offline synthetic checks, with no live-provider validation.
+Serial workspace dispatch and repeated standalone runtime builds can increase test duration.
