@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-061
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-29
 title: Offline Decision Provider Adapters and Comparison Proposal
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-059, AIDHA-TESTING-060]
 > **Document ID:** AIDHA-TESTING-061
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-059, AIDHA-TESTING-060]
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.1 | 2026-10-17 | Codex | Translate frozen decision tasks, replay native replies offline and prepare a bounded live comparison proposal. | — | Draft | AIDHA-TESTING-060; owner autonomous preparation |
 | 0.2 | 2026-10-29 | Codex | Integrate the strengthened checkpoint and qualify the bounded offline provider contracts. | — | Draft | PR 39 |
+| 0.3 | 2026-10-29 | Codex | Pin reviewed capture controls and align with the merged checkpoint. | — | Draft | PR 39; PR 38 |
 
 ## Purpose and acceptance
 
@@ -48,15 +49,15 @@ adapter and scoring behavior; they supply no model-quality, price or latency mea
 
 The direct offline acceptance tests are:
 
-- [openai.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/openai.test.mjs)
-- [openrouter.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/openrouter.test.mjs)
-- [capture.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/capture.test.mjs)
-- [plan.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/plan.test.mjs)
-- [adapters.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/adapters.test.mjs)
+- [openai.test.mjs](https://github.com/GitCmurf/AIDHA/blob/6e35403d9825b246cd61c777ec4a60b5efe132cb/scripts/decision-quality/openai.test.mjs)
+- [openrouter.test.mjs](https://github.com/GitCmurf/AIDHA/blob/6e35403d9825b246cd61c777ec4a60b5efe132cb/scripts/decision-quality/openrouter.test.mjs)
+- [capture.test.mjs](https://github.com/GitCmurf/AIDHA/blob/6e35403d9825b246cd61c777ec4a60b5efe132cb/scripts/decision-quality/capture.test.mjs)
+- [plan.test.mjs](https://github.com/GitCmurf/AIDHA/blob/6e35403d9825b246cd61c777ec4a60b5efe132cb/scripts/decision-quality/plan.test.mjs)
+- [adapters.test.mjs](https://github.com/GitCmurf/AIDHA/blob/6e35403d9825b246cd61c777ec4a60b5efe132cb/scripts/decision-quality/adapters.test.mjs)
 
  Existing corpus and
 scorer tests remain in the same root test command. This slice depends on AIDHA-TESTING-060 and is
-stacked on its branch until its separate verification and technical merge gate completes.
+integrated with its merged checkpoint through the ordinary main-branch workflow.
 
 ## Native API contracts
 
@@ -183,3 +184,15 @@ not proof that a real provider was called. These fixtures make no live quality m
 The configured route and reported model are retained separately. A consistent reported identity
 does not prove the requested model or approved immutable weights ran; a future collector must
 stop and investigate route/model drift under its separate authority.
+
+## Merged checkpoint alignment
+
+PR 38 is merged as main 7fd5fe97. Its complete file tree equals the qualified parent used here.
+Ordinary main synchronisation preserves the entire reviewed adapter tree, including all 58
+offline controls; only this evidence record and catalogue are then refreshed for source pins.
+Application package source and dependency resolutions remain byte-identical to merged main.
+
+The complete 2,351-test package verification belongs to that parent checkpoint. This slice's own
+qualification covers its 58 offline cases on both runtimes, four root-script controls, strict
+docs/DocOps and exact-file hooks. A further complete local package rerun is not claimed.
+Final exact-head GitHub checks and actual reporting-bot reviews remain the landing gate.
