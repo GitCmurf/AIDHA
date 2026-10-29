@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-081
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-29
 title: YouTube Network Failure Diagnostics
 type: TESTING
@@ -13,7 +13,7 @@ area: INGEST
 > **Document ID:** AIDHA-TESTING-081
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -25,16 +25,17 @@ area: INGEST
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify bounded client failure context. | — | Draft | Original 2806fe4 |
 | 0.2 | 2026-10-29 | Codex | Integrate current acquisition and optional creator-note boundaries. | — | Draft | PR 51 |
+| 0.3 | 2026-10-29 | Codex | Pin complete current-base verification and reviewed test sources. | — | Draft | PR 51 |
 
 ## Problem and scope
 
-The public client can return an unlabelled fetch failure, while the final transcript error
-retains only the last fallback error. Preserve operation and video context, make immediate
-cause codes/messages readable through Error.message, and retain the original Error objects.
-This is a client-side extraction of original commit 2806fe4, integrated with merged PR 47.
-The metadata acquisition boundary propagates failed metadata Results unchanged. PR 47
-protects the transcript acquisition boundary separately; its executable regression does not
-constitute a live network/provider verification of the combined diagnostic path.
+Before this change, the public client could return an unlabelled fetch failure, while the final
+transcript error retained only the last fallback error. Preserve operation and video context, make
+immediate cause codes/messages readable through Error.message, and retain the original Error
+objects. This is a client-side extraction of original commit 2806fe4, integrated with merged PR 47.
+The metadata acquisition boundary propagates failed metadata Results unchanged. PR 47 protects the
+transcript acquisition boundary separately; its executable regression does not constitute a live
+network/provider verification of the combined diagnostic path.
 
 ## Contract
 
@@ -60,7 +61,7 @@ Do not introduce models, Task writes, default extraction changes or live provide
 ## Acceptance
 
 The dedicated public-client suite is
-`packages/praecis/youtube/tests/client-network-diagnostics.test.ts`.
+[client-network-diagnostics.test.ts](https://github.com/GitCmurf/AIDHA/blob/1a0d7baeae61f13d72ebc127162c40b797db87ef/packages/praecis/youtube/tests/client-network-diagnostics.test.ts).
 
 - Metadata failure contains operation/video context and immediate DNS/code details, with
   original Error/cause identity preserved. Plain-object and cyclic causes are covered.
@@ -108,8 +109,27 @@ responses. It also verifies cancellation settles the watch task before an oEmbed
 returned, and that an optional creator-note failure does not turn successful metadata into
 a failure. No production cancellation, fallback or success policy is changed.
 
-The first full-suite run exposed three older creator-note assertions expecting the original
+The first full-suite run exposed three older creator-note test cases expecting the original
 oEmbed Error at the top level. They now require the exact operation/video diagnostic and
 the same original Error as its cause. Their cancellation, deadline, lock and timer assertions
 remain intact. Dedicated segment controls also require one caption request and no extra
 HTTP fallback, with fresh HTTP responses throughout their fixtures.
+
+## Completed current-base verification, 2026-10-29
+
+The complete YouTube package suite passes 1,163 tests with seven existing skips across
+125 passing files and one skipped file. No file is excluded by the verification command.
+The 14 dedicated diagnostics and 26 creator-note client cases also pass on official
+Node 22.12.0 with its required SQLite flag, and on Node 22.21.1. Strict TypeScript for both
+changed test files, affected build/lint, strict documentation build and scoped DocOps pass.
+
+Removing the diagnostic changes reproduces ten failures among the dedicated cases;
+restoration passes all 14. A separate mutation removing only the creator-note wait fails
+the gated settlement regression; restoration passes. Existing cancellation, lock, deadline
+and timer assertions are retained in the
+[creator-note client controls](https://github.com/GitCmurf/AIDHA/blob/1a0d7baeae61f13d72ebc127162c40b797db87ef/packages/praecis/youtube/tests/watch-page-creator-client.test.ts).
+
+Native Claude review found no blocker and native CodeRabbit completed the seven-file
+patch with zero findings. Independent specification and standards review found no remaining
+material issue. These are offline diagnostic checks; no live provider or model-quality
+result is claimed.
