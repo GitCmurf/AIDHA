@@ -509,6 +509,26 @@
     }
   },
   {
+    "path": "55-testing/testing-061-decision-adapters.md",
+    "title": "Offline Decision Provider Adapters and Comparison Proposal",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-061",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-29",
+      "title": "Offline Decision Provider Adapters and Comparison Proposal",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-059",
+        "AIDHA-TESTING-060"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-057-distillation-pipeline.md",
     "title": "Bounded Model Distillation and Grounding",
     "front_matter": {
@@ -1041,7 +1061,7 @@
       "document_id": "AIDHA-PLAN-015",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.20",
+      "version": "0.21",
       "last_updated": "2026-10-29",
       "title": "Branch Landing and Next Sprints Workflow",
       "type": "PLAN",

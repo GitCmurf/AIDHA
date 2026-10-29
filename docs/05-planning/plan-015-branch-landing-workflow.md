@@ -2,7 +2,7 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.20'
+version: '0.21'
 last_updated: 2026-10-29
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.20
+> **Version:** 0.21
 > **Last Updated:** 2026-10-29
 > **Type:** PLAN
 
@@ -44,6 +44,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.18 | 2026-10-18 | Codex | Record the standing technical merge authority, PR 37 and PR 56 landings, and retain the separate product and private-data gates. | — | Draft | Owner instruction; PRs 37 and 56 |
 | 0.19 | 2026-10-18 | Codex | Clarify that older batch approval gates are dated history and align the active checklist with the standing technical authority. | — | Draft | PR 57 Greptile finding |
 | 0.20 | 2026-10-29 | Codex | Integrate the separate offline decision checkpoint while retaining current authority. | — | Draft | PR 38; AIDHA-TESTING-060 |
+| 0.21 | 2026-10-29 | Codex | Integrate offline provider adapters while preserving separate collection authority. | — | Draft | PR 39; AIDHA-TESTING-061 |
 
 ## Purpose and authority
 
@@ -1215,3 +1216,13 @@ workspace dispatch and existing semantic-quality preflight. The decision-quality
 is added explicitly and protected by the root-script contract. Historical candidate snapshots
 on the older branch do not replace the standing technical authority or extend the separate
 model, product, private-source, account and spending gates above.
+
+## Offline adapter preparation
+
+PR 39 follows the separate decision checkpoint with the pure request/reply adapters and
+saved-capture validation specified in
+[AIDHA-TESTING-061](../55-testing/testing-061-decision-adapters.md).
+Its comparison plan is inspectable preparation. It adds no HTTP transport, credential lookup,
+account activation or live switch. The proposed model routes, call counts and USD 1 review
+budget confer no spending or collection authority. Any live comparison retains its own
+concrete endpoint, input, account and spending gate.
