@@ -39,7 +39,7 @@ production miner/runtime path in AIDHA-TESTING-059. It does not change the defau
 case labels, or production client. No new service account, API key, package dependency or paid
 endpoint is introduced. Preparing this route makes no model call.
 
-[The offline client tests](https://github.com/GitCmurf/AIDHA/blob/3d76dc303249359b8b2759a6804cb792eb80affb/scripts/semantic-quality/agy-client.test.mjs)
+[The offline client tests](https://github.com/GitCmurf/AIDHA/blob/57788b45bf9787d162e818f7e1f764c3d28c729a/scripts/semantic-quality/agy-client.test.mjs)
 use an injected process boundary. They require one source-only JSON request, at most three calls
 per case, exact selector
 identity, raw NDJSON/stderr/exit capture before response parsing, consistent reported usage,
@@ -127,7 +127,7 @@ from this result.
 
 ## Current-main offline qualification
 
-The 29 October integration starts from merged main 7fd5fe97. Runtime floor, dependencies,
+The 29 October integration starts from merged main 6a459b09. Runtime floor, dependencies,
 decision-quality checks, semantic checks and exhaustive serial workspace dispatch are retained.
 Only the explicit semantic-test command gains the injected AGY client controls; the manual
 Gemini evaluation command is not part of CI and is not run by this qualification.
