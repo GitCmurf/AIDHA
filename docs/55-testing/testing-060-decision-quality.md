@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-060
 owner: Engineering
 status: Draft
-version: '0.3'
+version: '0.4'
 last_updated: 2026-10-29
 title: Categorisation and Evidence Decision Quality Checkpoint
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 > **Document ID:** AIDHA-TESTING-060
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.4
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -27,6 +27,7 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-058]
 | 0.1 | 2026-10-17 | Codex | Freeze separate public category and evidence tasks, measure persisted keyword assignments, and validate offline decision receipt scoring. | — | Draft | AIDHA-PLAN-015; owner model refresh |
 | 0.2 | 2026-10-29 | Codex | Integrate current main and retain both offline preflights and serial dispatch. | — | Draft | PR 38 |
 | 0.3 | 2026-10-29 | Codex | Require completed classification and verify stored provenance before baseline credit. | — | Draft | PR 38 |
+| 0.4 | 2026-10-29 | Codex | Pin reviewed acceptance sources and integrate the qualified Zod baseline. | — | Draft | PR 38; PR 64 |
 
 ## Purpose and boundary
 
@@ -70,11 +71,11 @@ No model, network, credential, private-source, account or billing operation is p
 
 ## Validation
 
-Acceptance tests cover [runtime collection](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/category.test.mjs),
-[literal grounding](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/grounding.test.mjs),
-[receipt validation/scoring](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/quality.test.mjs)
+Acceptance tests cover [runtime collection](https://github.com/GitCmurf/AIDHA/blob/21f9a41bd6d1b0b3f4ed5a00c4e4b7d2d579dfa9/scripts/decision-quality/category.test.mjs),
+[literal grounding](https://github.com/GitCmurf/AIDHA/blob/21f9a41bd6d1b0b3f4ed5a00c4e4b7d2d579dfa9/scripts/decision-quality/grounding.test.mjs),
+[receipt validation/scoring](https://github.com/GitCmurf/AIDHA/blob/21f9a41bd6d1b0b3f4ed5a00c4e4b7d2d579dfa9/scripts/decision-quality/quality.test.mjs)
 and
-[artifact/CLI behaviour](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/run.test.mjs).
+[artifact/CLI behaviour](https://github.com/GitCmurf/AIDHA/blob/21f9a41bd6d1b0b3f4ed5a00c4e4b7d2d579dfa9/scripts/decision-quality/run.test.mjs).
 Run the existing
 `pnpm build:deps` first. CI already builds workspace packages before the root offline tests.
 The benchmark records known baseline defects; passing tool tests certify measurement behavior,
@@ -120,7 +121,7 @@ turn the labels into human gold.
 
 ## Recorded keyword baseline
 
-The public [keyword baseline](https://github.com/GitCmurf/AIDHA/blob/b482239fd6461fdddde0d60b31bbb95c72d2f664/scripts/decision-quality/keyword-baseline.json)
+The public [keyword baseline](https://github.com/GitCmurf/AIDHA/blob/21f9a41bd6d1b0b3f4ed5a00c4e4b7d2d579dfa9/scripts/decision-quality/keyword-baseline.json)
 contains the projected stored
 assignments, classification reports, receipts, per-case errors and split-specific counts.
 This deliberately constructed challenge set
@@ -250,3 +251,15 @@ The refreshed classifier digest identifies the currently built main module, whos
 the separately qualified main baseline. PR 38 changes no production source path. The changed
 digest relative to the older public receipt therefore does not represent a new classifier
 implementation in this slice.
+
+## Qualified dependency baseline and final gate
+
+The final integration incorporates main 2b2879be, including the separately qualified Zod update
+from PR 64. Decision-tool source, test and corpus/receipt bytes remain unchanged from the
+reviewed source commit linked above. The exhaustive root-script contract retains every earlier
+preflight and package suite, adding the decision checkpoint explicitly.
+
+Before landing this head, run a frozen installation, workspace build, the complete canonical
+root command, strict documentation build, scoped DocOps and final peer/hosted review. Keep exact
+outcomes and any skipped services in the PR record; passing offline checks do not authorise
+live model collection, private input or a new production default.

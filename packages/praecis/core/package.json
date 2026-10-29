@@ -39,7 +39,7 @@
     "@aidha/taxonomy": "workspace:*",
     "@aidha/config": "workspace:*",
     "compromise": "^14.15.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",
