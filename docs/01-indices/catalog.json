@@ -290,6 +290,25 @@
     }
   },
   {
+    "path": "55-testing/testing-060-decision-quality.md",
+    "title": "Categorisation and Evidence Decision Quality Checkpoint",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-060",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.4",
+      "last_updated": "2026-10-29",
+      "title": "Categorisation and Evidence Decision Quality Checkpoint",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-058"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-086-ytdlp-leading-hyphen-operands.md",
     "title": "yt-dlp Leading-Hyphen Operands",
     "front_matter": {
@@ -1022,8 +1041,8 @@
       "document_id": "AIDHA-PLAN-015",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.19",
-      "last_updated": "2026-10-18",
+      "version": "0.20",
+      "last_updated": "2026-10-29",
       "title": "Branch Landing and Next Sprints Workflow",
       "type": "PLAN",
       "docops_version": "2.0",

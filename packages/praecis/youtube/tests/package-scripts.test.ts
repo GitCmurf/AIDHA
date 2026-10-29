@@ -29,6 +29,7 @@ describe('package scripts', () => {
         'pnpm security:public-paths',
         'pnpm security:public-paths:test',
         'pnpm test:semantic-quality',
+        'pnpm test:decision-quality',
         'pnpm -r --workspace-concurrency=1 test:ci',
       ].join(' && '),
     },

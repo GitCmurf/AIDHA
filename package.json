@@ -17,7 +17,7 @@
     "gen:types": "pnpm --filter @aidha/config gen:types",
     "security:public-paths": "node scripts/check-public-safety.mjs",
     "security:public-paths:test": "node scripts/test-public-safety.mjs",
-    "test": "node scripts/check-test-scripts.mjs && pnpm security:public-paths && pnpm security:public-paths:test && pnpm test:semantic-quality && pnpm -r --workspace-concurrency=1 test:ci",
+    "test": "node scripts/check-test-scripts.mjs && pnpm security:public-paths && pnpm security:public-paths:test && pnpm test:semantic-quality && pnpm test:decision-quality && pnpm -r --workspace-concurrency=1 test:ci",
     "test:semantic-quality": "node scripts/semantic-quality/run.test.mjs && node scripts/semantic-quality/native-client.test.mjs",
     "test:full": "pnpm -r --workspace-concurrency=1 --if-present test:full",
     "build": "pnpm -r build",
@@ -25,6 +25,9 @@
     "docs:serve": "./scripts/python -m mkdocs serve",
     "docs:catalog": "./scripts/python docs/_scripts/gen_catalog.py",
     "docs:linkcheck": "./scripts/python docs/_scripts/linkcheck.py",
-    "docs:build": "./scripts/python docs/_scripts/gen_catalog.py && ./scripts/python docs/_scripts/validate_docs.py && ./scripts/python -m mkdocs build --strict"
+    "docs:build": "./scripts/python docs/_scripts/gen_catalog.py && ./scripts/python docs/_scripts/validate_docs.py && ./scripts/python -m mkdocs build --strict",
+    "test:decision-quality": "node scripts/decision-quality/category.test.mjs && node scripts/decision-quality/grounding.test.mjs && node scripts/decision-quality/quality.test.mjs && node scripts/decision-quality/run.test.mjs",
+    "decision:baseline": "node scripts/decision-quality/run.mjs --baseline",
+    "decision:requests": "node scripts/decision-quality/run.mjs --requests"
   }
 }

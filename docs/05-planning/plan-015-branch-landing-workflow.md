@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.19'
-last_updated: 2026-10-18
+version: '0.20'
+last_updated: 2026-10-29
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.19
-> **Last Updated:** 2026-10-18
+> **Version:** 0.20
+> **Last Updated:** 2026-10-29
 > **Type:** PLAN
 
 # Branch Landing and Next Sprints Workflow
@@ -43,6 +43,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.17 | 2026-10-17 | Codex | Refresh the decision-model shortlist and task-specific evaluation plan; preserve failed native replies after a genuine bot finding. | — | Draft | PR 37; owner model refresh |
 | 0.18 | 2026-10-18 | Codex | Record the standing technical merge authority, PR 37 and PR 56 landings, and retain the separate product and private-data gates. | — | Draft | Owner instruction; PRs 37 and 56 |
 | 0.19 | 2026-10-18 | Codex | Clarify that older batch approval gates are dated history and align the active checklist with the standing technical authority. | — | Draft | PR 57 Greptile finding |
+| 0.20 | 2026-10-29 | Codex | Integrate the separate offline decision checkpoint while retaining current authority. | — | Draft | PR 38; AIDHA-TESTING-060 |
 
 ## Purpose and authority
 
@@ -1200,3 +1201,17 @@ Email slice completion record:
   Docs Check fails four URLs. The unchanged link checker includes a semicolon after a Markdown
   link in the URL. Correct the five affected link separators; all 77 URLs then pass unchanged
   link checking, and strict docs still builds. Retain the failed CI receipt and rerun final CI.
+
+## Offline decision checkpoint integration
+
+PR 38 adds the separate category and evidence-judgment checkpoint specified in
+[AIDHA-TESTING-060](../55-testing/testing-060-decision-quality.md).
+It measures the actual classifier's persisted assignments and prepares source-only requests
+and saved-receipt replay. Its public labels are assistant-authored provisional examples,
+not human gold. No model is called, ranked or selected by this offline slice.
+
+Current integration retains the merged runtime floor, dependency fixes, exhaustive serial
+workspace dispatch and existing semantic-quality preflight. The decision-quality preflight
+is added explicitly and protected by the root-script contract. Historical candidate snapshots
+on the older branch do not replace the standing technical authority or extend the separate
+model, product, private-source, account and spending gates above.
