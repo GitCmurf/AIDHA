@@ -1,3 +1,5 @@
+import { EmailSourceRegistration } from './registration.js';
+export { EmailSourceRegistration };
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
@@ -26,7 +28,7 @@ import type {
   Clock,
   VectorRuntimeContext,
 } from '@aidha/praecis-core';
-import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, createRawSource, emptySourceConfigRegistration, normalizeText, runBatch } from '@aidha/praecis-core';
+import { composeVector, createConfiguredPipelineServices, createIngestionRuntimeFromServices, createRawSource, normalizeText, runBatch } from '@aidha/praecis-core';
 import { extractTextFromHtml } from '@aidha/praecis-decode-text';
 import type { ResolvedConfig } from '@aidha/config';
 import type { GraphStore } from '@aidha/graph-backend';
@@ -493,7 +495,6 @@ class EmailDecodeStrategy implements IDecodeStrategy<EmailThreadPayload> {
   }
 }
 
-export const EmailSourceRegistration = emptySourceConfigRegistration('email');
 
 export interface EmailVectorOptions {
   readonly thread: EmailThread;

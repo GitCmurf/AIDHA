@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  resolveRawYoutubeActiveSourceConfigPaths,
   SOURCE_ID,
   YouTubeSourceRegistration,
 } from '../src/config/youtube-source-adapter.js';
@@ -7,6 +8,24 @@ import type { ResolvedYoutubeConfig } from '../src/config/youtube-source-adapter
 import { ConfigValidationError } from '@aidha/config';
 
 describe('YouTube source adapter', () => {
+  it.each([
+    ['yt-dlp', 'yt-dlp'],
+    ['bin/yt-dlp', '/project/bin/yt-dlp'],
+    ['./bin/yt-dlp', '/project/bin/yt-dlp'],
+    ['/usr/bin/yt-dlp', '/usr/bin/yt-dlp'],
+    ['', ''],
+  ])('keeps source-owned command semantics for %s in raw and resolved config', (bin, expected) => {
+    const raw = { ytdlp: { bin, cookies_file: 'cookies.txt' } };
+    const validated = YouTubeSourceRegistration.validateActiveSourceConfig(raw);
+    const resolved = YouTubeSourceRegistration.resolveSourcePaths?.(validated, '/project');
+    expect(resolved?.ytdlp.bin).toBe(expected);
+    expect(resolved?.ytdlp.cookiesFile).toBe('/project/cookies.txt');
+    expect(resolveRawYoutubeActiveSourceConfigPaths(raw, '/project')).toEqual({
+      ytdlp: { bin: expected, cookies_file: '/project/cookies.txt' },
+    });
+    expect(raw).toEqual({ ytdlp: { bin, cookies_file: 'cookies.txt' } });
+  });
+
   it('should export a stable SOURCE_ID', () => {
     expect(SOURCE_ID).toBe('youtube');
   });
@@ -18,11 +37,11 @@ describe('YouTube source adapter', () => {
   it('should provide built-in defaults', () => {
     expect(YouTubeSourceRegistration.defaults).toBeDefined();
     const defaults = YouTubeSourceRegistration.defaults as Record<string, unknown>;
-    const ytdlp = defaults.ytdlp as Record<string, unknown>;
-    expect(ytdlp.bin).toBe('yt-dlp');
-    expect(ytdlp.timeout_ms).toBe(120_000);
-    const youtube = defaults.youtube as Record<string, unknown>;
-    expect(youtube.cookie).toBe('');
+    const ytdlp = defaults['ytdlp'] as Record<string, unknown>;
+    expect(ytdlp['bin']).toBe('yt-dlp');
+    expect(ytdlp['timeout_ms']).toBe(120_000);
+    const youtube = defaults['youtube'] as Record<string, unknown>;
+    expect(youtube['cookie']).toBe('');
   });
 
   it('should validate and narrow a complete activeSourceConfig', () => {
@@ -112,10 +131,10 @@ describe('YouTube source adapter', () => {
       youtube: { cookie: 'super-secret', innertubeApiKey: 'api-key', debugTranscript: false }, // pragma: allowlist secret
     };
     const redacted = YouTubeSourceRegistration.redactActiveSourceConfig?.(config) as Record<string, unknown>;
-    const youtube = redacted.youtube as Record<string, unknown>;
-    expect(youtube.cookie).toBe('********');
-    expect(youtube.innertubeApiKey).toBe('********');
-    expect(redacted.ytdlp).toEqual(config.ytdlp);
+    const youtube = redacted['youtube'] as Record<string, unknown>;
+    expect(youtube['cookie']).toBe('********');
+    expect(youtube['innertubeApiKey']).toBe('********');
+    expect(redacted['ytdlp']).toEqual(config.ytdlp);
   });
 
   it('should not redact empty secrets', () => {
@@ -124,9 +143,9 @@ describe('YouTube source adapter', () => {
       youtube: { cookie: '', innertubeApiKey: '', debugTranscript: false },
     };
     const redacted = YouTubeSourceRegistration.redactActiveSourceConfig?.(config) as Record<string, unknown>;
-    const youtube = redacted.youtube as Record<string, unknown>;
-    expect(youtube.cookie).toBe('');
-    expect(youtube.innertubeApiKey).toBe('');
+    const youtube = redacted['youtube'] as Record<string, unknown>;
+    expect(youtube['cookie']).toBe('');
+    expect(youtube['innertubeApiKey']).toBe('');
   });
 
   it('should resolve paths in source config', () => {

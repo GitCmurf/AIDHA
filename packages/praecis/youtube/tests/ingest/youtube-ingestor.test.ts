@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MockYouTubeClient } from '../../src/client/mock.js';
 import { YouTubeIngestor } from '../../src/ingest/youtube-ingestor.js';
 import { SOURCE_ID } from '../../src/config/youtube-source-adapter.js';
@@ -69,12 +69,23 @@ describe('YouTubeIngestor', () => {
     expect(payload.transcript?.segments).toHaveLength(2);
   });
 
-  it('sets transcript to null when transcript is not available', async () => {
+  it('returns the acquisition failure when transcript is not available', async () => {
     // no-transcript-video exists in MOCK_VIDEOS but has no entry in MOCK_TRANSCRIPTS
     const result = await ingestor.acquire({ ref: 'no-transcript-video' }, runtimeContext);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.payload.transcript).toBeNull();
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('Transcript not found');
+  });
+
+  it('preserves the exact failed transcript Error and its diagnostic cause', async () => {
+    const cause = new Error('Fictional connection reset');
+    const error = new Error('Fictional caption request failed', { cause });
+    vi.spyOn(client, 'fetchTranscript').mockResolvedValue({ ok: false, error });
+    const result = await ingestor.acquire({ ref: 'test-video' }, runtimeContext);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(error);
+    expect(result.error.cause).toBe(cause);
   });
 
   it('returns error when video is not found', async () => {

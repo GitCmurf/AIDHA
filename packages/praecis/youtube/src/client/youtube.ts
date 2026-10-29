@@ -14,8 +14,11 @@ import {
   parseTranscriptVtt,
   parseTranscriptXml,
 } from './transcript.js';
-import { fetchTranscriptWithYtDlp, fetchPlaylistWithYtDlp } from './yt-dlp.js';
-import type { YtDlpRuntimeConfig } from './yt-dlp.js';
+import {
+  fetchTranscriptWithYtDlp, fetchPlaylistWithYtDlp,
+  CreatorNoteAcquisitionError,
+} from './yt-dlp.js';
+import type { CreatorNotePayload, YtDlpRuntimeConfig } from './yt-dlp.js';
 import { consoleLogger, resolveLogger, type Logger } from '../utils/logger.js';
 
 // ── Runtime Config ───────────────────────────────────────────────────────────
@@ -37,6 +40,31 @@ export function youtubeDefaultConfig(): YouTubeClientConfig {
     logger: consoleLogger,
   };
 }
+
+/** Format only the immediate cause; never recursively inspect a diagnostic chain. */
+const describeUnknownError = (error: unknown): string => {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause;
+  if (cause !== null && typeof cause === 'object') {
+    const detail = cause as { code?: unknown; message?: unknown };
+    const parts = [detail.code, detail.message].filter((value): value is string =>
+      typeof value === 'string' && value.length > 0,
+    );
+    if (parts.length > 0) return `${error.message} (cause: ${parts.join(': ')})`;
+  }
+  return error.message;
+};
+
+const networkFailure = (label: string, error: unknown): Error => {
+  return new Error(`${label}: ${describeUnknownError(error)}`, { cause: error });
+};
+
+/** Retain returned phase failures without promising a history of every attempted request. */
+const groupedFailure = (label: string, errors: Error[]): Error => {
+  const messages = Array.from(new Set(errors.map(error => error.message)));
+  const suffix = messages.length > 0 ? ` (${messages.join('; ')})` : '';
+  return new Error(`${label}${suffix}`, { cause: new AggregateError(errors, label) });
+};
 
 /** Build a YouTubeClientConfig from process.env (legacy/fallback). */
 export function youtubeConfigFromEnv(): YouTubeClientConfig {
@@ -182,7 +210,7 @@ async function fetchOEmbed(videoId: string): Promise<Result<{
 
     return { ok: true, value: data };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube oEmbed fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -247,6 +275,43 @@ function parseTimedTextTracks(xml: string, videoId: string): CaptionTrack[] {
   }
   return tracks;
 }
+
+const fetchTranscriptSegments = async (
+  url: string,
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
+): Promise<{
+  segments: TranscriptSegment[];
+  payload: string;
+  status: number;
+  contentType: string | null;
+  finalUrl: string;
+  contentLength: string | null;
+  fmt: string | null;
+}> => {
+  let response: Response;
+  let payload: string;
+  try {
+    response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
+    payload = await response.text();
+  } catch (error) {
+    throw networkFailure(`youtube transcript segment fetch failed for ${videoId}`, error);
+  }
+  const fmt = new URL(url).searchParams.get('fmt');
+  const segments =
+    response.ok && payload.length > 0
+      ? parseTranscriptPayload(payload, fmt)
+      : [];
+  return {
+    segments,
+    payload,
+    status: response.status,
+    contentType: response.headers.get('content-type'),
+    finalUrl: response.url,
+    contentLength: response.headers.get('content-length'),
+    fmt,
+  };
+};
 
 async function tryDirectTimedText(
   videoId: string,
@@ -319,7 +384,7 @@ async function fetchCaptionTracksFromTimedText(
     }
     return { ok: true, value: tracks };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube timedtext track-list fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -479,46 +544,91 @@ function parseTranscriptPayload(payload: string, fmt?: string | null): Transcrip
   return parseTranscriptVtt(payload);
 }
 
-async function fetchTranscriptSegments(
-  url: string,
-  videoId: string,
-  ytCfg: YouTubeClientConfig,
-): Promise<{
-  segments: TranscriptSegment[];
-  payload: string;
-  status: number;
-  contentType: string | null;
-  finalUrl: string;
-  contentLength: string | null;
-  fmt: string | null;
-}> {
-  const response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
-  const payload = await response.text();
-  const fmt = new URL(url).searchParams.get('fmt');
-  const segments =
-    response.ok && payload.length > 0
-      ? parseTranscriptPayload(payload, fmt)
-      : [];
-  return {
-    segments,
-    payload,
-    status: response.status,
-    contentType: response.headers.get('content-type'),
-    finalUrl: response.url,
-    contentLength: response.headers.get('content-length'),
-    fmt,
-  };
+function extractPlayerResponse(html: string): Record<string, unknown> | null {
+  const assignment = /\bytInitialPlayerResponse\s*=\s*/u.exec(html);
+  if (!assignment) return null;
+  const start = assignment.index + assignment[0].length;
+  let parsed: unknown;
+  if (html[start] === '{') {
+    parsed = extractJsonObjectFromIndex(html, start);
+  } else {
+    // Dispatch only at the assignment RHS; never borrow a later JSON.parse or brace.
+    const call = /^JSON\.parse\(\s*/u.exec(html.slice(start));
+    if (!call) return null;
+    const quoted = readQuotedString(html, start + call[0].length);
+    if (!quoted || !/^\s*\)/u.test(html.slice(quoted.endIndex))) return null;
+    try { parsed = JSON.parse(quoted.value); } catch { return null; }
+  }
+  return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? parsed as Record<string, unknown> : null;
 }
 
-function extractPlayerResponse(html: string): Record<string, unknown> | null {
-  const markers = ['ytInitialPlayerResponse =', 'ytInitialPlayerResponse='];
-  const startIndex = findMarkerIndex(html, markers);
-  if (startIndex === -1) return null;
-
-  const jsonParsed = extractJsonFromJsonParse(html, startIndex);
-  if (jsonParsed) return jsonParsed;
-
-  return extractJsonObjectFromIndex(html, startIndex);
+/** Optional anonymous description capture; the primary oEmbed request has its existing policy. */
+async function fetchCreatorNoteFromWatchPage(
+  videoId: string,
+  parentSignal: AbortSignal,
+): Promise<Result<CreatorNotePayload, CreatorNoteAcquisitionError>> {
+  const controller = new AbortController();
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let cancellation: Promise<void> | undefined;
+  let timedOut = false;
+  const cancel = () => {
+    controller.abort();
+    if (reader && !cancellation) cancellation = reader.cancel().catch(() => {});
+  };
+  parentSignal.addEventListener('abort', cancel, { once: true });
+  if (parentSignal.aborted) cancel();
+  const timer = setTimeout(() => { timedOut = true; cancel(); }, 15_000);
+  try {
+    const response = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`, {
+      method: 'GET', credentials: 'omit', redirect: 'manual',
+      headers: { ...DEFAULT_HEADERS, Accept: 'text/html' }, signal: controller.signal,
+    });
+    reader = response.body?.getReader();
+    if (controller.signal.aborted) throw new CreatorNoteAcquisitionError(timedOut ? 'timeout' : 'aborted');
+    if (!response.ok) throw new CreatorNoteAcquisitionError('execution');
+    if (!reader) throw new CreatorNoteAcquisitionError('invalid-data');
+    const limit = 2 * 1024 * 1024;
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (controller.signal.aborted) throw new CreatorNoteAcquisitionError(timedOut ? 'timeout' : 'aborted');
+      if (done) break;
+      // Fetch streams decoded response bytes. Count before retaining the next chunk.
+      if (value.byteLength > limit - size) throw new CreatorNoteAcquisitionError('output-limit');
+      chunks.push(value);
+      size += value.byteLength;
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    let player: Record<string, unknown> | null;
+    try { player = extractPlayerResponse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+    catch (cause) { throw new CreatorNoteAcquisitionError('invalid-data', cause); }
+    const details = player?.['videoDetails'];
+    if (!details || typeof details !== 'object' || Array.isArray(details)) {
+      throw new CreatorNoteAcquisitionError('invalid-data');
+    }
+    const fields = details as Record<string, unknown>;
+    if (fields['videoId'] !== videoId) throw new CreatorNoteAcquisitionError('identity-mismatch');
+    const description = fields['shortDescription'];
+    if (description === undefined || description === null) return { ok: true, value: { state: 'unavailable' } };
+    if (typeof description !== 'string') throw new CreatorNoteAcquisitionError('invalid-data');
+    return { ok: true, value: { state: description.length === 0 ? 'empty' : 'available', description } };
+  } catch (cause) {
+    const error = controller.signal.aborted
+      ? new CreatorNoteAcquisitionError(timedOut ? 'timeout' : 'aborted', cause)
+      : cause instanceof CreatorNoteAcquisitionError ? cause : new CreatorNoteAcquisitionError('execution', cause);
+    cancel();
+    return { ok: false, error };
+  } finally {
+    clearTimeout(timer);
+    parentSignal.removeEventListener('abort', cancel);
+    // cancel() already observes rejection. Its underlying hook can remain pending forever;
+    // request abort and lock release must not wait beyond our deadline or hide oEmbed errors.
+    reader?.releaseLock();
+  }
 }
 
 function extractInitialData(html: string): Record<string, unknown> | null {
@@ -770,7 +880,7 @@ async function fetchTranscriptFromGetTranscript(
 
     return { ok: true, value: segments };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube get_transcript fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -830,7 +940,7 @@ async function fetchCaptionTracksFromInnertube(
       })),
     };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube Innertube caption-track fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -881,29 +991,31 @@ async function fetchCaptionTracksFromHtml(
 
     return { ok: false, error: new Error(`No captions available for ${videoId}`) };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube video-page caption-track fetch failed for ${videoId}`, error) };
   }
 }
 
 /**
  * Extract caption tracks from video page using Innertube player response.
  */
-async function fetchCaptionTracks(
+const fetchCaptionTracks = async (
   videoId: string,
   ytCfg: YouTubeClientConfig,
-): Promise<Result<CaptionTrack[]>> {
-  if (!ytCfg.innertubeApiKey) {
-    const htmlFallback = await fetchCaptionTracksFromHtml(videoId, ytCfg);
-    if (htmlFallback.ok) return htmlFallback;
-    return fetchCaptionTracksFromTimedText(videoId, ytCfg);
+): Promise<Result<CaptionTrack[]>> => {
+  const errors: Error[] = [];
+  if (ytCfg.innertubeApiKey) {
+    const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, ytCfg.innertubeApiKey, ytCfg);
+    if (innertubeResult.ok) return innertubeResult;
+    errors.push(innertubeResult.error);
   }
-
-  const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, ytCfg.innertubeApiKey, ytCfg);
-  if (innertubeResult.ok) return innertubeResult;
   const htmlFallback = await fetchCaptionTracksFromHtml(videoId, ytCfg);
   if (htmlFallback.ok) return htmlFallback;
-  return fetchCaptionTracksFromTimedText(videoId, ytCfg);
-}
+  errors.push(htmlFallback.error);
+  const timedTextFallback = await fetchCaptionTracksFromTimedText(videoId, ytCfg);
+  if (timedTextFallback.ok) return timedTextFallback;
+  errors.push(timedTextFallback.error);
+  return { ok: false, error: groupedFailure(`youtube caption-track discovery failed for ${videoId}`, errors) };
+};
 
 /**
  * Real YouTube client using Innertube API (same approach as youtube-transcript-api).
@@ -940,16 +1052,24 @@ export class RealYouTubeClient implements YouTubeClient {
   }
 
   /**
-   * Fetch video metadata using oEmbed.
+   * Keep oEmbed basic fields authoritative; creator text is an optional bounded supplement.
    */
   async fetchVideo(videoIdOrUrl: string): Promise<Result<Video>> {
     const videoId = parseVideoId(videoIdOrUrl);
+    const creatorNoteController = new AbortController();
+    const creatorNotePromise = fetchCreatorNoteFromWatchPage(videoId, creatorNoteController.signal)
+      .catch(cause => ({
+        ok: false as const, error: new CreatorNoteAcquisitionError('execution', cause),
+      }));
 
     try {
       const oembedResult = await fetchOEmbed(videoId);
       if (!oembedResult.ok) {
+        creatorNoteController.abort();
+        await creatorNotePromise;
         return { ok: false, error: oembedResult.error };
       }
+      const creatorNote = await creatorNotePromise;
 
       const { title, author_name, author_url, thumbnail_url } = oembedResult.value;
       const channelId = parseChannelId(author_url) || author_name;
@@ -960,14 +1080,19 @@ export class RealYouTubeClient implements YouTubeClient {
         channelId,
         channelName: author_name,
         duration: 0,
-        publishedAt: new Date().toISOString(),
-        description: undefined,
+        ...(creatorNote.ok && creatorNote.value.state !== 'unavailable'
+          ? { description: creatorNote.value.description } : {}),
+        creatorNoteAcquisition: creatorNote.ok
+          ? { state: creatorNote.value.state, method: 'youtube-watch-page' }
+          : { state: 'failed', reason: creatorNote.error.reason, method: 'youtube-watch-page' },
         thumbnailUrl: thumbnail_url,
       };
 
       return { ok: true, value: video };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      creatorNoteController.abort();
+      await creatorNotePromise;
+      return { ok: false, error: networkFailure(`youtube video metadata fetch failed for ${videoId}`, error) };
     }
   }
 
@@ -978,7 +1103,7 @@ export class RealYouTubeClient implements YouTubeClient {
     const videoId = parseVideoId(videoIdOrUrl);
 
     try {
-      let lastError: Error | null = null;
+      const errors: Error[] = [];
       let tracks: CaptionTrack[] = [];
 
       // Try to get caption tracks
@@ -986,9 +1111,9 @@ export class RealYouTubeClient implements YouTubeClient {
       if (tracksResult.ok) {
         tracks = tracksResult.value;
       } else {
-        lastError = tracksResult.error;
+        errors.push(tracksResult.error);
         if (this.ytCfg.debugTranscript) {
-          resolveLogger(this.ytCfg).debug(`[transcript] fetchCaptionTracks failed: ${lastError.message}`);
+          resolveLogger(this.ytCfg).debug(`[transcript] fetchCaptionTracks failed: ${tracksResult.error.message}`);
         }
       }
 
@@ -1065,7 +1190,7 @@ export class RealYouTubeClient implements YouTubeClient {
         if (transcriptResult.ok) {
           segments = transcriptResult.value;
         } else {
-          lastError = transcriptResult.error;
+          errors.push(transcriptResult.error);
           if (this.ytCfg.debugTranscript) {
             resolveLogger(this.ytCfg).debug(
               `[transcript] get_transcript error: ${transcriptResult.error.message}`,
@@ -1080,7 +1205,7 @@ export class RealYouTubeClient implements YouTubeClient {
           segments = ytdlpResult.value.segments;
           detectedLanguage = ytdlpResult.value.language;
         } else {
-          lastError = ytdlpResult.error;
+          errors.push(ytdlpResult.error);
           if (this.ytCfg.debugTranscript) {
             resolveLogger(this.ytCfg).debug(`[transcript] yt-dlp error: ${ytdlpResult.error.message}`);
           }
@@ -1097,10 +1222,9 @@ export class RealYouTubeClient implements YouTubeClient {
       }
 
       if (segments.length === 0) {
-        const suffix = lastError ? ` (${lastError.message})` : '';
         return {
           ok: false,
-          error: new Error(`No transcript segments found for ${videoId}${suffix}`),
+          error: groupedFailure(`No transcript segments found for ${videoId}`, errors),
         };
       }
 
@@ -1115,7 +1239,7 @@ export class RealYouTubeClient implements YouTubeClient {
 
       return { ok: true, value: transcript };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return { ok: false, error: networkFailure(`youtube transcript fetch failed for ${videoId}`, error) };
     }
   }
 

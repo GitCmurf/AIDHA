@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
@@ -46,6 +47,15 @@ test('failed, malformed, missing identity, tool, refusal and unknown-usage repli
     { raw: { stdout: transcript(), stderr: 'exit failure', exitCode: 3 }, reason: /exited 3/ },
     { raw: { stdout: transcript({ status: 'REFUSED' }), stderr: '', exitCode: 0 }, reason: /status REFUSED/ },
     { raw: { stdout: transcript({ model: '' }), stderr: '', exitCode: 0 }, reason: /model identity/ },
+    { raw: { stdout: transcript({ model: 'wrong-selector' }), exitCode: 0 }, reason: /unexpected model/ },
+    { raw: { stdout: transcript({ steps: [{ event: 'step_update',
+      step_update: { step_type: 'agent_response', subagent_info: { id: 'other' } } }] }),
+      exitCode: 0 }, reason: /tool or delegated/ },
+    ...['not JSON', '[]', '{} outside fence'].map(response => ({
+      raw: { stdout: transcript({ response }), exitCode: 0 }, reason: /invalid JSON/ })),
+    { raw: { stdout: transcript() + JSON.stringify({ event: 'result', result: {} }) + '\n',
+      exitCode: 0 }, reason: /exactly one result/ },
+    { raw: { stdout: '', exitCode: null, spawnError: 'fixture missing executable' }, reason: /spawn failed/ },
     { raw: { stdout: transcript({ steps: [{ event: 'step_update', step_update: { step_type: 'tool', state: 'DONE' } }] }), stderr: '', exitCode: 0 }, reason: /tool or delegated/ },
     { raw: { stdout: transcript({ steps: [{ event: 'tool_result', text: 'searched outside source' }] }), stderr: '', exitCode: 0 }, reason: /tool or delegated/ },
     { raw: { stdout: transcript({ resultUsage: null }), stderr: '', exitCode: 0 }, reason: /usage/ },
@@ -176,4 +186,49 @@ test('advisory grounding failure still stops the next case after its record is s
   assert.equal(mustStopAgyEvaluation(advisoryReport, [{ outcome: 'ok' }, { outcome: 'error' }]), true);
   assert.equal(mustStopAgyEvaluation(advisoryReport, [{ outcome: 'ok' }, { outcome: 'ok' }]), false);
   assert.equal(mustStopAgyEvaluation({ sourceDistillation: { failedClosed: true } }, [{ outcome: 'ok' }]), true);
+});
+
+test('manual batch saves an advisory failed-call record before stopping the next case', async () => {
+  const { runAgyCases } = await import('./agy-live.mjs');
+  const trace = [];
+  const saved = [];
+  const raw = { stdout: transcript(), stderr: 'process failed', exitCode: 3 };
+  await assert.rejects(() => runAgyCases({
+    cases: [{ id: 'first' }, { id: 'second' }],
+    provenance: { fixture: true },
+    execute: async () => raw,
+    run: async ({ testCase, llm }) => {
+      trace.push('run:' + testCase.id);
+      const result = await llm.generate(request);
+      assert.equal(result.ok, false);
+      return { caseId: testCase.id,
+        report: { claimsExtracted: 0, sourceDistillation: { failedClosed: false } } };
+    },
+    save: async record => {
+      await new Promise(resolve => setImmediate(resolve));
+      trace.push('save:' + record.caseId);
+      saved.push(record);
+    },
+  }), /Failed native call/);
+  assert.deepEqual(trace, ['run:first', 'save:first']);
+  assert.equal(saved.length, 1);
+  assert.deepEqual(saved[0].calls[0].raw, raw);
+  assert.equal(saved[0].calls[0].outcome, 'error');
+  assert.equal(saved[0].fixture, true);
+});
+
+test('never-close fallback retains an observed exit rather than inventing a signal', async () => {
+  const spawnProcess = () => {
+    const child = new EventEmitter();
+    child.stdin = new PassThrough(); child.stdout = new PassThrough(); child.stderr = new PassThrough();
+    child.kill = () => true;
+    child.unref = () => {};
+    queueMicrotask(() => child.emit('exit', 0, null));
+    return child;
+  };
+  const raw = await runAgyProcess({ executable: 'fake-agy', args: [], input: '{}\n', cwd: '/tmp',
+    timeoutMs: 5, killGraceMs: 5, closeWaitMs: 5, spawnProcess });
+  assert.equal(raw.captureIncomplete, true);
+  assert.equal(raw.exitCode, 0);
+  assert.equal(raw.signal, null);
 });

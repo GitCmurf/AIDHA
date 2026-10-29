@@ -16,6 +16,7 @@ export function runAgyProcess({ executable, args, input, cwd, timeoutMs = 90000,
     }
     let stdout = ''; let stderr = ''; let timedOut = false; let spawnError = null; let settled = false;
     let killTimer; let closeTimer;
+    let observedExitCode = null; let observedSignal = null;
     const finish = (exitCode, signal, captureIncomplete = false) => {
       if (settled) return;
       settled = true; clearTimeout(timer); clearTimeout(killTimer); clearTimeout(closeTimer);
@@ -34,7 +35,7 @@ export function runAgyProcess({ executable, args, input, cwd, timeoutMs = 90000,
           // release those handles so the manual CLI can stop after saving the record.
           child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy();
           child.unref?.();
-          finish(null, 'SIGKILL', true);
+          finish(observedExitCode, observedSignal, true);
         }, closeWaitMs);
       }, killGraceMs);
     }, timeoutMs);
@@ -43,6 +44,7 @@ export function runAgyProcess({ executable, args, input, cwd, timeoutMs = 90000,
     child.stdout.on('data', text => { stdout += text; });
     child.stderr.on('data', text => { stderr += text; });
     child.on('error', error => { spawnError = error instanceof Error ? error.message : String(error); });
+    child.on('exit', (code, signal) => { observedExitCode = code; observedSignal = signal; });
     child.on('close', finish);
     child.stdin.on('error', () => {});
     child.stdin.end(input);

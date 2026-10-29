@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-063
 owner: Engineering
 status: Draft
-version: '0.4'
-last_updated: 2026-10-17
+version: '0.6'
+last_updated: 2026-10-29
 title: Native Gemini Writer Evaluation Route
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 > **Document ID:** AIDHA-TESTING-063
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.4
-> **Last Updated:** 2026-10-17
+> **Version:** 0.6
+> **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
 # Native Gemini Writer Evaluation Route
@@ -24,16 +24,18 @@ related_ids: [AIDHA-TESTING-059, AIDHA-PLAN-010]
 
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0.1 | 2026-10-17 | Codex | Add a bounded native AGY writer route over frozen public sources, with raw failed-call capture and host validation. | — | Draft | TESTING-059 |
+| 0.1 | 2026-10-17 | Codex | Add a bounded native AGY writer route over frozen public sources, with raw failed-call capture and host validation. | — | Draft | AIDHA-TESTING-059 |
 | 0.2 | 2026-10-17 | Codex | Record the seven-call public trial, provisional completeness review and pre-grounding quote-length rejection. | — | Draft | Frozen public writer trial |
 | 0.3 | 2026-10-17 | Codex | Reject non-object stream events as recorded call failures while retaining raw output. | — | Draft | Greptile PR43 finding |
 | 0.4 | 2026-10-17 | Codex | Pin the acceptance-test link to the reviewed malformed-event fix. | — | Draft | PR 43 |
+| 0.5 | 2026-10-29 | Codex | Integrate current main and separate offline qualification from the historical public trial. | — | Draft | PR 43 |
+| 0.6 | 2026-10-29 | Codex | Prove save-before-stop in the manual batch, retain observed exit metadata and cover malformed native responses. | — | Draft | PR 43 peer review |
 
 ## Purpose and acceptance
 
 Evaluate Gemini as a generative source-distillation writer, separately from typed Decisions
 models. This route reuses the three fictional, assistant-authored sources and `runSemanticCase`
-production miner/runtime path in TESTING-059. It does not change the default miner, prompts,
+production miner/runtime path in AIDHA-TESTING-059. It does not change the default miner, prompts,
 case labels, or production client. No new service account, API key, package dependency or paid
 endpoint is introduced. Preparing this route makes no model call.
 
@@ -46,15 +48,20 @@ refusal/error status, missing identity, tool/delegation steps, nonzero exit or t
 rows are saved as failed calls with their raw transcript and explicit error. After forced
 termination the client waits for process close and stream
 drain. If close never arrives, it releases stdio/child handles, marks the captured bytes incomplete
-and rejects the call. The existing miner enforces schema and quotations, while grounding is
+and rejects the call. An observed process exit is retained; an unobserved terminating signal is
+not invented for that incomplete record. The injected batch test waits for the first failed-call
+record to be saved and proves that the second case is never run.
+The existing miner enforces schema and quotations, while grounding is
 advisory; the manual runner stops on any native failure even if that grounding stage keeps units. A
 passing offline test proves adapter behavior, not Gemini semantic quality.
 
 ## Native protocol and limits
 
-The confirmed local AGY selector is `gemini-3.8-flash-low`, not a generic Gemini Flash alias.
+The selector observed in the 17 October public trial was `gemini-3.8-flash-low`, not a generic
+Gemini Flash alias.
 The recorded public-text smoke returned stream-json init/result events and a JSON code fence.
-Current `agy -h` advertises `--json-schema`, but that smoke did not exercise the flag and did not
+The 17 October `agy -h` observation advertised `--json-schema`, but that smoke did not exercise
+the flag and did not
 return `structured_output`. This route therefore uses prompt-constrained JSON and validates the
 complete JSON object locally. It does not claim parity with Claude's schema-enforced
 `--json-schema` route or a direct API response-format contract.
@@ -90,9 +97,12 @@ expectations, not human gold, and one run does not establish model superiority.
 
 ## Recorded public trial
 
-The reviewed harness ran all three frozen sources through the production miner and exporter.
+The historical harness identified as 12f0473 in the recorded measurements ran all three frozen
+sources through the production miner and exporter. Its recorded code digests identify that trial;
+the current offline controls include later malformed-event and process-boundary corrections.
 Seven native calls completed, with no failed native call or failed-closed case. The public
-`scripts/semantic-quality/gemini-measurements.json` records source-bound assessment, usage,
+[measurements](https://github.com/GitCmurf/AIDHA/blob/61ddd7139f015d020b2426bf215a05f2e9b97089/scripts/semantic-quality/gemini-measurements.json)
+record source-bound assessment, usage,
 code/corpus hashes and private-capture digests. Original native records remain local.
 
 Independent assistant review, checked by the parent agent, rated two of nine required criteria
@@ -111,5 +121,26 @@ concise exact source passages and reverify them, preserving both the gate and th
 
 Reported usage totals 105,617 input and 7,391 output tokens. Seven native durations sum to
 54.649 seconds; this excludes local dependency builds and is not a direct API latency measure.
-No provider cost was reported, so provider cost remains unknown. No production writer or default is selected
+No provider cost was reported, so provider cost remains unknown. No production writer or default
+is selected
 from this result.
+
+## Current-main offline qualification
+
+The 29 October integration starts from merged main 7fd5fe97. Runtime floor, dependencies,
+decision-quality checks, semantic checks and exhaustive serial workspace dispatch are retained.
+Only the explicit semantic-test command gains the injected AGY client controls; the manual
+Gemini evaluation command is not part of CI and is not run by this qualification.
+
+The public measurements describe the dated seven-invocation trial and its original code/corpus
+identities. They are not a new quality run against current main. Current selector availability,
+account cost, provider context limits and API parity have not been re-established here.
+The wrapper cap counts native CLI invocations, not independently observed internal provider calls
+or a hard token/spending budget. Public fictional input remains the disclosed route restriction.
+
+Frozen installation, dependency builds, offline client/harness tests on supported runtimes,
+root-script controls, strict docs, scoped DocOps and peer/hosted checks qualify the integration.
+No new Gemini inference, private-source processing or production model selection is performed.
+The manual preflight retains the native synchronous Git output limit. A tracked diff exceeding
+that bound stops preparation before an output directory or model call; the operator must qualify
+from a suitably bounded working tree.
