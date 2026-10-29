@@ -158,3 +158,6 @@ Native CodeRabbit completed the 23-path dependency slice with zero findings, the
 two-file fixture/documentation correction with zero findings. Independent specification
 and standards review found no remaining material defect. The review gates about the mock
 namespace, shared fixture imports and focused runtime evidence are addressed explicitly.
+
+The reviewed fixture loader is in
+[NLP utilities tests](https://github.com/GitCmurf/AIDHA/blob/2f1960e94316d435e13dee886f22c38f384d96a1/packages/praecis/youtube/tests/nlp-utils.test.ts).
