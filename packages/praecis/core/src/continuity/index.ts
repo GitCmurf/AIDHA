@@ -13,7 +13,7 @@ function unwrap<T>(result: Result<T>): T {
 
 const nodeId = (id: string) => `continuity:${ContinuityId.parse(id)}`;
 
-async function load(store: GraphStore, id: string): Promise<StoredCase | null> {
+async function load(store: Pick<GraphStore, 'getNode'>, id: string): Promise<StoredCase | null> {
   const node = unwrap(await store.getNode(nodeId(id)));
   if (!node) return null;
   if (node.type !== 'Resource') throw new Error(`Continuity case is not a Resource: ${id}`);
@@ -75,7 +75,7 @@ function project(state: StoredCase) {
   return { capture, facts };
 }
 
-export async function showCase(store: GraphStore, id: string, on: string) {
+export async function showCase(store: Pick<GraphStore, 'getNode'>, id: string, on: string) {
   ContinuityDate.parse(on);
   const state = await load(store, id);
   if (!state) throw new Error(`Unknown continuity case: ${id}`);
@@ -89,10 +89,12 @@ export async function showCase(store: GraphStore, id: string, on: string) {
     facts,
     decisions: {
       current: event.decisions.filter(item => item.appliesOn === on),
-      historical: event.decisions.filter(item => item.appliesOn !== on),
+      otherDates: event.decisions.filter(item => item.appliesOn !== on),
     },
     questions: event.questions,
   };
 }
 
 export { renderContinuityMarkdown } from './render.js';
+
+export { validateCapture } from './validate.js';

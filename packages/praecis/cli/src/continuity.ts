@@ -2,7 +2,7 @@
 import { open } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import type { GraphStore } from '@aidha/graph-backend';
-import { captureCase, continuityInputSchema, renderContinuityMarkdown, showCase, updateCase } from '@aidha/praecis-core';
+import { CaptureEvent, UpdateEvent, ContinuityId, ContinuityDate, validateCapture, captureCase, continuityInputSchema, renderContinuityMarkdown, showCase, updateCase } from '@aidha/praecis-core';
 
 type Options = Record<string, string | boolean | undefined>;
 const MAX_INPUT_BYTES = 1024 * 1024;
@@ -23,7 +23,8 @@ async function readJsonInput(path: string): Promise<unknown> {
       chunks.push(buffer.subarray(0, bytesRead));
     }
     const jsonText = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, totalBytes));
-    return JSON.parse(jsonText) as unknown;
+    try { return JSON.parse(jsonText) as unknown; }
+    catch { throw new Error('Continuity input is not valid JSON'); }
   } finally {
     await file.close();
   }
@@ -33,6 +34,7 @@ export async function runContinuity(
   command: string | undefined,
   options: Options,
   withStore: <T>(work: (store: GraphStore) => Promise<T>) => Promise<T>,
+  readCase: (id: string, on: string) => Promise<Awaited<ReturnType<typeof showCase>>>,
 ): Promise<number> {
   const usage = [
     'AIDHA continuity: capture source-backed context and record direct fact corrections.',
@@ -59,15 +61,22 @@ export async function runContinuity(
     return 0;
   }
   if (command === 'capture' || command === 'update') {
+    const id = ContinuityId.parse(required('case'));
     const input = await readJsonInput(required('input'));
-    const result = await withStore(store => (command === 'capture' ? captureCase : updateCase)(store, required('case'), input));
+    const event = (command === 'capture' ? CaptureEvent : UpdateEvent).parse(input);
+    if (event.kind === 'capture') validateCapture(event);
+    const result = await withStore(store => (command === 'capture' ? captureCase : updateCase)(store, id, event));
     console.log(JSON.stringify(result, null, 2));
     return 0;
   }
   if (command === 'show') {
-    const view = await withStore(store => showCase(store, required('case'), required('on')));
+    const id = ContinuityId.parse(required('case'));
+    const on = ContinuityDate.parse(required('on'));
+    const view = await readCase(id, on);
     console.log(options['json'] === true ? JSON.stringify(view, null, 2) : renderContinuityMarkdown(view));
     return 0;
   }
-  throw new Error(usage);
+  // Usage is trusted constant text; keep it readable without weakening source-error escaping.
+  console.error(usage);
+  return 1;
 }

@@ -2,8 +2,8 @@
 document_id: AIDHA-PRD-004
 owner: Product
 status: Draft
-version: '0.1'
-last_updated: 2026-10-18
+version: '0.2'
+last_updated: 2026-10-29
 title: Bounded Continuity Capture and Correction
 type: PRD
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-TESTING-088, AIDHA-PLAN-01
 > **Document ID:** AIDHA-PRD-004
 > **Owner:** Product
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-10-18
+> **Version:** 0.2
+> **Last Updated:** 2026-10-29
 > **Type:** PRD
 
 # Bounded Continuity Capture and Correction
@@ -25,6 +25,7 @@ related_ids: [AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-TESTING-088, AIDHA-PLAN-01
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify the bounded capture, readback and direct-correction contract. | — | Draft | AIDHA-PLAN-015 |
+| 0.2 | 2026-10-29 | Codex | Clarify explicit unknown-date provenance and preservation of submitted attribution. | — | Draft | PR 55 |
 
 ## Purpose and scope
 
@@ -46,7 +47,9 @@ notify people, or interpret prose with a model. No model is needed for validated
   activities, and questions remain intact.
 - Keep supplied and inferred fact bases distinguishable. A participant list is not evidence of
   responsibility: responsibility or ownership must be represented as an explicit supplied fact.
-- Represent an unknown activity date explicitly with `dateBasis: unknown`. A null date means
+- Reject a dated activity marked unknown and require every undated activity to declare an unknown
+  date basis. Represent an unknown activity date explicitly with `dateBasis: unknown`. A null
+date means
   unknown, not “applies on every date.” Fact applicability follows its referenced activity,
   including an unknown date.
 - Validate schemas and references before writes. Reject duplicate identifiers, dangling activity

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { capture } from '../../core/tests/continuity/fixture.js';
@@ -10,6 +10,90 @@ const directories: string[] = [];
 // Real CLI startup can exceed 15 seconds; retain finite child and sequence limits.
 const CHILD_PROCESS_TIMEOUT_MS = 60_000;
 const PROCESS_TEST_TIMEOUT_MS = 600_000;
+
+it('prints trusted usage on readable lines without opening a database', () => {
+  const { invoke, dir } = setup();
+  const result = invoke('unrecognised');
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('\n  schema --kind capture|update\n');
+  expect(result.stderr).not.toContain('\\u000a');
+  expect(existsSync(join(dir, 'graph.sqlite'))).toBe(false);
+}, PROCESS_TEST_TIMEOUT_MS);
+
+
+it('show refuses missing explicit config even when a populated project fallback exists', () => {
+  const { call, input, invokeWithConfig, invokeWithoutProfileWithEnv, dir } = setup();
+  call('capture', '--case', 'friday', '--input', input('capture', capture));
+  const database = join(dir, 'graph.sqlite');
+  const before = readFileSync(database);
+  mkdirSync(join(dir, '.aidha'));
+  writeFileSync(join(dir, '.aidha', 'config.yaml'), readFileSync(join(dir, 'config.yaml')));
+  const positive = invokeWithoutProfileWithEnv({},
+    'show', '--case', 'friday', '--on', '2026-10-02', '--json');
+  expect(positive.status, positive.stderr).toBe(0);
+  expect(JSON.parse(positive.stdout).title).toBe('Friday activities');
+  const missing = join(dir, 'missing-selected.yaml');
+  for (const result of [
+    invokeWithConfig(missing, 'show', '--case', 'friday', '--on', '2026-10-02', '--json'),
+    invokeWithoutProfileWithEnv({ AIDHA_CONFIG: missing },
+      'show', '--case', 'friday', '--on', '2026-10-02', '--json'),
+  ]) {
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/not found|does not exist|ENOENT|no such file/i);
+    expect(result.stderr).toContain('missing-selected.yaml');
+    expect(result.stdout).not.toContain('Friday activities');
+    expect(readFileSync(database)).toEqual(before);
+  }
+}, PROCESS_TEST_TIMEOUT_MS);
+
+
+it('show never creates a missing database and leaves existing database bytes unchanged', () => {
+  const { call, input, invoke, dir } = setup();
+  const database = join(dir, 'graph.sqlite');
+  const missing = invoke('show', '--case', 'friday', '--on', '2026-10-02', '--json');
+  expect(missing.status).toBe(1);
+  expect(existsSync(database)).toBe(false);
+  call('capture', '--case', 'friday', '--input', input('capture', capture));
+  const before = readFileSync(database);
+  const filesBefore = readdirSync(dir).sort();
+  call('show', '--case', 'friday', '--on', '2026-10-02', '--json');
+  const markdown = invoke('show', '--case', 'friday', '--on', '2026-10-02');
+  expect(markdown.status, markdown.stderr).toBe(0);
+  expect(readFileSync(database)).toEqual(before);
+  expect(readdirSync(dir).sort()).toEqual(filesBefore);
+}, PROCESS_TEST_TIMEOUT_MS);
+
+it('rejects invalid case, date and event input before opening a database', () => {
+  const { input, invoke, dir } = setup();
+  const goodInput = input('capture', capture);
+  for (const args of [
+    ['capture', '--input', goodInput],
+    ['capture', '--case', '?invalid', '--input', goodInput],
+    ['capture', '--case', 'friday', '--input', input('invalid-schema', { kind: 'capture' })],
+    ['show', '--case', 'friday', '--on', 'not-a-date'],
+  ]) {
+    const result = invoke(...args);
+    expect(result.status).toBe(1);
+    expect(existsSync(join(dir, 'graph.sqlite'))).toBe(false);
+  }
+}, PROCESS_TEST_TIMEOUT_MS);
+
+it('failed input prints no live display controls or malformed JSON source fragments', () => {
+  const { input, invoke, dir } = setup();
+  const bad = structuredClone(capture);
+  bad.facts[0] = { ...bad.facts[0]!, key: 'venue\u001b[2J\u0085' };
+  bad.facts.push({ ...bad.facts[0], id: 'conflict' });
+  const rejected = invoke('capture', '--case', 'bad-key', '--input', input('bad-key', bad));
+  expect(rejected.status).toBe(1);
+  expect(rejected.stderr).not.toMatch(/[\u001b\u0080-\u009f]/u);
+  const malformed = join(dir, 'malformed.json');
+  writeFileSync(malformed, 'PRIVATE-FIXTURE-TEXT not JSON', 'utf8');
+  const parsed = invoke('capture', '--case', 'bad-json', '--input', malformed);
+  expect(parsed.status).toBe(1);
+  expect(parsed.stderr).toContain('Continuity input is not valid JSON');
+  expect(parsed.stderr).not.toContain('PRIVATE-FIXTURE-TEXT');
+}, PROCESS_TEST_TIMEOUT_MS);
+
 
 afterEach(() => {
   for (const dir of directories.splice(0)) rmSync(dir, { recursive: true, force: true });
@@ -171,7 +255,7 @@ describe('continuity through the built public package executable', () => {
     expect(resumed.sources).toEqual([capture.source]);
     expect(resumed.activities).toEqual(capture.activities);
     expect(resumed.facts).toEqual(capture.facts.map(fact => ({ ...fact, sourceId: capture.source.id })));
-    expect(resumed.decisions).toEqual({ current: capture.decisions, historical: [] });
+    expect(resumed.decisions).toEqual({ current: capture.decisions, otherDates: [] });
     expect(resumed.questions).toEqual(capture.questions);
     expect(resumed.intent).toBe('illustrative');
 

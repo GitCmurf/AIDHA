@@ -1,0 +1,1646 @@
+{
+  "version": 1,
+  "task": "categorization",
+  "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+  "labelStatus": "assistant-authored; not human gold",
+  "requestedModel": "KeywordTaxonomyClassifier",
+  "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+  "endpoint": null,
+  "evidenceKind": "keyword-baseline",
+  "modelQualityMeasured": false,
+  "summary": {
+    "total": 16,
+    "exactSetCorrect": 12,
+    "exactSetAccuracy": 0.75,
+    "perTag": {
+      "incident": {
+        "truePositives": 3,
+        "falsePositives": 1,
+        "falseNegatives": 0,
+        "precision": 0.75,
+        "recall": 1
+      },
+      "capacity": {
+        "truePositives": 3,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1
+      },
+      "retention": {
+        "truePositives": 3,
+        "falsePositives": 0,
+        "falseNegatives": 1,
+        "precision": 1,
+        "recall": 0.75
+      },
+      "accessibility": {
+        "truePositives": 3,
+        "falsePositives": 1,
+        "falseNegatives": 0,
+        "precision": 0.75,
+        "recall": 1
+      },
+      "release": {
+        "truePositives": 3,
+        "falsePositives": 1,
+        "falseNegatives": 0,
+        "precision": 0.75,
+        "recall": 1
+      }
+    },
+    "micro": {
+      "truePositives": 15,
+      "falsePositives": 3,
+      "falseNegatives": 1,
+      "precision": 0.8333333333333334,
+      "recall": 0.9375
+    },
+    "abstainedCases": 0,
+    "failedCases": 0,
+    "unknownQuestions": 0,
+    "unassignedCases": 3,
+    "refusals": 0,
+    "errors": 0
+  },
+  "bySplit": {
+    "development": {
+      "total": 8,
+      "exactSetCorrect": 8,
+      "exactSetAccuracy": 1,
+      "perTag": {
+        "incident": {
+          "truePositives": 2,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "capacity": {
+          "truePositives": 2,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "retention": {
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "accessibility": {
+          "truePositives": 2,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "release": {
+          "truePositives": 2,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "micro": {
+        "truePositives": 9,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1
+      },
+      "abstainedCases": 0,
+      "failedCases": 0,
+      "unknownQuestions": 0,
+      "unassignedCases": 1,
+      "refusals": 0,
+      "errors": 0
+    },
+    "held-out": {
+      "total": 8,
+      "exactSetCorrect": 4,
+      "exactSetAccuracy": 0.5,
+      "perTag": {
+        "incident": {
+          "truePositives": 1,
+          "falsePositives": 1,
+          "falseNegatives": 0,
+          "precision": 0.5,
+          "recall": 1
+        },
+        "capacity": {
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "retention": {
+          "truePositives": 2,
+          "falsePositives": 0,
+          "falseNegatives": 1,
+          "precision": 1,
+          "recall": 0.6666666666666666
+        },
+        "accessibility": {
+          "truePositives": 1,
+          "falsePositives": 1,
+          "falseNegatives": 0,
+          "precision": 0.5,
+          "recall": 1
+        },
+        "release": {
+          "truePositives": 1,
+          "falsePositives": 1,
+          "falseNegatives": 0,
+          "precision": 0.5,
+          "recall": 1
+        }
+      },
+      "micro": {
+        "truePositives": 6,
+        "falsePositives": 3,
+        "falseNegatives": 1,
+        "precision": 0.6666666666666666,
+        "recall": 0.8571428571428571
+      },
+      "abstainedCases": 0,
+      "failedCases": 0,
+      "unknownQuestions": 0,
+      "unassignedCases": 2,
+      "refusals": 0,
+      "errors": 0
+    }
+  },
+  "measurements": {
+    "knownCostCount": 0,
+    "knownCostUsd": null,
+    "totalCostUsd": null,
+    "knownLatencyCount": 0,
+    "latencyP50Ms": null,
+    "latencyP95Ms": null
+  },
+  "cases": [
+    {
+      "caseId": "cat01",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [
+        "incident"
+      ],
+      "assignedTags": [
+        "incident"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat02",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [
+        "capacity"
+      ],
+      "assignedTags": [
+        "capacity"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat03",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [
+        "retention"
+      ],
+      "assignedTags": [
+        "retention"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat04",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [
+        "accessibility"
+      ],
+      "assignedTags": [
+        "accessibility"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat05",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [
+        "release"
+      ],
+      "assignedTags": [
+        "release"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat06",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [
+        "incident",
+        "capacity"
+      ],
+      "assignedTags": [
+        "incident",
+        "capacity"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat07",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [
+        "accessibility",
+        "release"
+      ],
+      "assignedTags": [
+        "accessibility",
+        "release"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat08",
+      "split": "development",
+      "status": "ok",
+      "expectedTags": [],
+      "assignedTags": [],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat09",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [],
+      "assignedTags": [
+        "incident"
+      ],
+      "unknownTags": [],
+      "correct": false,
+      "wrongAssignments": [
+        "incident"
+      ],
+      "omissions": []
+    },
+    {
+      "caseId": "cat10",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [],
+      "assignedTags": [
+        "accessibility"
+      ],
+      "unknownTags": [],
+      "correct": false,
+      "wrongAssignments": [
+        "accessibility"
+      ],
+      "omissions": []
+    },
+    {
+      "caseId": "cat11",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [
+        "incident",
+        "release"
+      ],
+      "assignedTags": [
+        "incident",
+        "release"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat12",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [
+        "retention"
+      ],
+      "assignedTags": [
+        "retention"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat13",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [
+        "retention"
+      ],
+      "assignedTags": [],
+      "unknownTags": [],
+      "correct": false,
+      "wrongAssignments": [],
+      "omissions": [
+        "retention"
+      ]
+    },
+    {
+      "caseId": "cat14",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [
+        "capacity"
+      ],
+      "assignedTags": [
+        "capacity",
+        "release"
+      ],
+      "unknownTags": [],
+      "correct": false,
+      "wrongAssignments": [
+        "release"
+      ],
+      "omissions": []
+    },
+    {
+      "caseId": "cat15",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [
+        "retention",
+        "accessibility"
+      ],
+      "assignedTags": [
+        "retention",
+        "accessibility"
+      ],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    },
+    {
+      "caseId": "cat16",
+      "split": "held-out",
+      "status": "ok",
+      "expectedTags": [],
+      "assignedTags": [],
+      "unknownTags": [],
+      "correct": true,
+      "wrongAssignments": [],
+      "omissions": []
+    }
+  ],
+  "receipts": [
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "applies"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:01",
+          "metadata": {
+            "canonicalId": "synthetic:category:01",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:01"
+            ],
+            "label": "After-service checklist",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:01",
+                "tagId": "incident",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat01",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:ffddc2ce164bd66d1fc89d912de9a53968be6abc796238e352d2095dff9777ad"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "applies"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:02",
+          "metadata": {
+            "canonicalId": "synthetic:category:02",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:02"
+            ],
+            "label": "Quarterly demand note",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:02",
+                "tagId": "capacity",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat02",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:0cfb46dcd9424b1437e7e90e0998d69e9d8813346fd9ca9d30bd74b183089cf3"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "applies"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:03",
+          "metadata": {
+            "canonicalId": "synthetic:category:03",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:03"
+            ],
+            "label": "Record lifecycle",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:03",
+                "tagId": "retention",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat03",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:d110172d494e0110c9869983db19d246961e25ce3dbc549243fc988a307e5481"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "applies"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:04",
+          "metadata": {
+            "canonicalId": "synthetic:category:04",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:04"
+            ],
+            "label": "Navigation evaluation",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:04",
+                "tagId": "accessibility",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat04",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:845e082fdde7a8b9a6eab85a2f3350fef2136cb2b8fdfe8318dad8db78527874"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "applies"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:05",
+          "metadata": {
+            "canonicalId": "synthetic:category:05",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:05"
+            ],
+            "label": "Change window",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:05",
+                "tagId": "release",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat05",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:01d544bd1a89d20ce5dcc8e22e2c4b963febb0b25e6c6b58b38ca512e34efa8c"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "applies"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "applies"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:06",
+          "metadata": {
+            "canonicalId": "synthetic:category:06",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:06"
+            ],
+            "label": "Peak-service preparation",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:06",
+                "tagId": "capacity",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              },
+              {
+                "nodeId": "synthetic:category:06",
+                "tagId": "incident",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat06",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:7bb30100a5ac5c51ac5f7b4f749ca0a5b73f7b345abfe71272828ada0fb7bdfc"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "applies"
+        },
+        {
+          "questionId": "release",
+          "choice": "applies"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:07",
+          "metadata": {
+            "canonicalId": "synthetic:category:07",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:07"
+            ],
+            "label": "Form launch",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:07",
+                "tagId": "accessibility",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              },
+              {
+                "nodeId": "synthetic:category:07",
+                "tagId": "release",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat07",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:15e1bfa71032e060fdc34744da7d5dc8358b2c65ebd0438a0b4b55bcabb4cee1"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:08",
+          "metadata": {
+            "canonicalId": "synthetic:category:08",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:08"
+            ],
+            "label": "Invoice explanation",
+            "taxonomyAssignments": []
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 0,
+          "tagsAssigned": 0,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat08",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:cd961f70eff10e66a6c3f9179b16e0e7aa7c767d73571313ca3dc62f743a1c21"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "applies"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:09",
+          "metadata": {
+            "canonicalId": "synthetic:category:09",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:09"
+            ],
+            "label": "Meeting boundary",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:09",
+                "tagId": "incident",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat09",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:282dc35a1802e7cdb18470db37f2f9ba24cfab8aa4659edc857f7c21485c6262"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "applies"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:10",
+          "metadata": {
+            "canonicalId": "synthetic:category:10",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:10"
+            ],
+            "label": "Expense demonstration",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:10",
+                "tagId": "accessibility",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat10",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:168ed539f6707ad244be5e93243d6f35b49af0573106579f12f370154cbd7999"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "applies"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "applies"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:11",
+          "metadata": {
+            "canonicalId": "synthetic:category:11",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:11"
+            ],
+            "label": "Interrupted change",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:11",
+                "tagId": "incident",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              },
+              {
+                "nodeId": "synthetic:category:11",
+                "tagId": "release",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat11",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:4d95b02086803de775f1653af6edf85c99f8d0c35071ce2a6c47ec83609d7a15"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "applies"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:12",
+          "metadata": {
+            "canonicalId": "synthetic:category:12",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:12"
+            ],
+            "label": "Archive policy review",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:12",
+                "tagId": "retention",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 1,
+          "tagsAssigned": 1,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat12",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:7b12d43bfd5b6c52245ab4634fc31f061c06423be1954b39a6f43350152b5baf"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:13",
+          "metadata": {
+            "canonicalId": "synthetic:category:13",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:13"
+            ],
+            "label": "Keeping customer records",
+            "taxonomyAssignments": []
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 0,
+          "tagsAssigned": 0,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat13",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:79f0a0e0c441cc3d30079ac3a6ebe75bb56319195897876b80456d5aa39f1b8d"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "applies"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "applies"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:14",
+          "metadata": {
+            "canonicalId": "synthetic:category:14",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:14"
+            ],
+            "label": "Hardware sizing",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:14",
+                "tagId": "capacity",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              },
+              {
+                "nodeId": "synthetic:category:14",
+                "tagId": "release",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat14",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:f6e48e548c054b25e82b592c829e46afeb4e4fad333b388d85fbb3a2a50747f2"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "applies"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "applies"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:15",
+          "metadata": {
+            "canonicalId": "synthetic:category:15",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:15"
+            ],
+            "label": "Records portal",
+            "taxonomyAssignments": [
+              {
+                "nodeId": "synthetic:category:15",
+                "tagId": "accessibility",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              },
+              {
+                "nodeId": "synthetic:category:15",
+                "tagId": "retention",
+                "confidence": 0.7,
+                "source": "automatic",
+                "assignedAt": "2026-10-17T00:00:00.000Z",
+                "assignedBy": "praecis-keyword-classifier"
+              }
+            ]
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 2,
+          "tagsAssigned": 2,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat15",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:214a8f1e83b42648c55304cc7506170c1cefcd5988754dc86dcee2c011dd448a"
+    },
+    {
+      "requestedModel": "KeywordTaxonomyClassifier",
+      "resolvedModel": "praecis-keyword-classifier@sha256:d8fa92d05aca812324ac81f08044fbba443436ba439c1243340f0110e975c2f1",
+      "endpoint": null,
+      "evidenceKind": "keyword-baseline",
+      "status": "ok",
+      "answers": [
+        {
+          "questionId": "incident",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "capacity",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "retention",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "accessibility",
+          "choice": "not_applicable"
+        },
+        {
+          "questionId": "release",
+          "choice": "not_applicable"
+        }
+      ],
+      "rawReply": {
+        "resource": {
+          "id": "synthetic:category:16",
+          "metadata": {
+            "canonicalId": "synthetic:category:16",
+            "sourceType": "web",
+            "provenances": [
+              {
+                "sourceType": "web",
+                "ingestedAt": "2026-10-17T00:00:00.000Z"
+              }
+            ],
+            "dedupKeys": [
+              "synthetic:category:16"
+            ],
+            "label": "Greenhouse note",
+            "taxonomyAssignments": []
+          }
+        },
+        "classification": {
+          "status": "completed",
+          "tagsMatched": 0,
+          "tagsAssigned": 0,
+          "warnings": []
+        },
+        "taxonomyVersionVerified": true,
+        "omittedFields": [
+          "resource.metadata.taxonomyAssignments[].taxonomyVersion"
+        ]
+      },
+      "usage": null,
+      "costUsd": null,
+      "durationMs": null,
+      "task": "categorization",
+      "caseId": "cat16",
+      "corpusHash": "sha256:d354acac29edc80ffcb92e6f85a4ce6431d0377c77c521008b44773c7f21f686",
+      "requestHash": "sha256:d5c5c29eb6596a3f3ab96565aa9db2ae737c9ab556b27e290d74ed8ab88ade55"
+    }
+  ]
+}

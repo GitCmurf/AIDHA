@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-014
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-18
+version: '0.3'
+last_updated: 2026-10-29
 title: Personal Continuity Capture and Recovery
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-RUNBOOK-014
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-18
+> **Version:** 0.3
+> **Last Updated:** 2026-10-29
 > **Type:** RUNBOOK
 
 # Personal Continuity Capture and Recovery
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-09-11 | Codex | Document the first capture, correction and recovery commands. | — | Draft | — |
 | 0.2 | 2026-10-18 | Codex | Align steps with the workspace CLI entry point and bound scope to capture, show and direct correction. | — | Draft | AIDHA-PRD-004 |
+| 0.3 | 2026-10-29 | Codex | Document unknown-date validation, exact attribution and isolated continuity command dispatch. | — | Draft | PR 55 |
 
 ## Purpose and safety
 
@@ -42,7 +43,7 @@ outputs, and local paths outside the repository and public acceptance artifacts.
 ## Prerequisites
 
 Use Node.js 22.12 or later with the repository's pnpm toolchain for this feature. The workspace
-currently declares Node.js `>=22.5.0`; that package-engine declaration is not evidence that every
+currently declares Node.js `>=22.12.0`; that package-engine declaration is not evidence that every
 runtime version was exercised for this feature and remains unchanged by this runbook. Record the
 exact runtime used in the feature verification evidence. Build the actual CLI and its dependency
 closure:
@@ -52,8 +53,9 @@ pnpm --filter @aidha/praecis-cli... build
 ```
 
 Invoke the built package entry point. Do not assume a root `scripts/aidha` launcher exists. The help
-and schema commands are store-free; use the generated JSON Schema as the input contract for each
-event:
+and schema commands are store-free; use the generated JSON Schema for field shapes and runtime
+validation for cross-field and
+reference constraints:
 
 ```bash
 node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity --help
@@ -83,11 +85,15 @@ expected revision zero. A correction input has `kind: "correct"`, a new event/so
 expected current revision, a target `factId`, corrected value, and supplied/inferred basis. The
 schemas command above prints the complete strict field definitions. The intended sequence is:
 
-```text
-node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity capture --case CASE_ID --input capture.json --config case-config.yaml
-node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity show --case CASE_ID --on YYYY-MM-DD --config case-config.yaml --json
-node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity update --case CASE_ID --input correction.json --config case-config.yaml
-node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity show --case CASE_ID --on YYYY-MM-DD --config case-config.yaml --json
+```bash
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  capture --case CASE_ID --input capture.json --config case-config.yaml
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  show --case CASE_ID --on 2026-10-02 --json --config case-config.yaml
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  update --case CASE_ID --input correction.json --config case-config.yaml
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  show --case CASE_ID --on 2026-10-02 --json --config case-config.yaml
 ```
 
 Each command is a separate process and must resolve the same configured store. `--on` selects the
@@ -116,3 +122,31 @@ forgetting, or background automation.
 The deterministic acceptance contract is in
 [AIDHA-TESTING-088](../55-testing/testing-088-continuity-capture.md). This runbook does not claim a
 live personal-data rehearsal or establish semantic accuracy of an interpretation.
+
+## Current-main validation boundaries
+
+An activity without a date must explicitly declare an unknown date basis. A dated activity cannot
+claim its date basis is unknown. Attribution must contain nonblank text, and author/interpreter
+strings retain submitted whitespace in structured readback. Human-readable output replaces C0
+and C1 display controls with spaces; inspect JSON when exact stored bytes matter.
+
+The CLI loads continuity handling only when that command is selected. Existing export/config
+and ingestion commands retain their current main dispatch paths. This preparation uses synthetic
+inputs and does not establish a successful personal pilot or authorise private-source processing.
+
+Show reads an existing database without initialization, migration or index repair. Missing storage
+is an error. Capture/update validate input before opening a write store. A full graph export
+explicitly includes captured continuity history alongside other resources; exporting that graph is
+a separate user action. No background provider scan is introduced.
+
+Before any personal pilot, protect the selected directory and database with the operating system
+permissions appropriate to the account. This workflow does not establish private file permissions
+or permission isolation for an existing shared database. Structured fact text is normalised for
+blank/length checks; source text and author/interpreter attribution retain submitted bytes.
+
+A case retains at most 200 events: one capture and up to 199 corrections. Each input is bounded
+to 1 MiB, while the complete event aggregate can grow beyond that per-input limit. An update
+against absent storage can initialize an empty database before reporting the missing case; use
+show first to verify the selected existing case. JSON distinguishes null values from the literal
+text unknown. The otherDates decision group means dates other than the selected date, including
+future dates; it does not classify them as historical.

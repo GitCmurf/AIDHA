@@ -1,11 +1,15 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025-2026 Colin Farmer (GitCmurf)
+
 /**
  * NLP Utilities Tests
  *
  * Tests linguistic analysis utilities using compromise.js.
  */
 import { describe, it, expect, vi } from 'vitest';
-vi.mock('compromise', () => ({
-  default: require('./__mocks__/compromise.ts').default,
+// Transform the fixture through Vitest while preserving the default-only mock namespace.
+vi.mock('compromise', async () => ({
+  default: (await import('./__mocks__/compromise.js')).default,
 }));
 import {
   extractSVOTriples,

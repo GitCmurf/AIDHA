@@ -7,18 +7,20 @@ import { MockYouTubeClient } from '../src/client/mock.js';
 import type { Result } from '../src/pipeline/types.js';
 import { ClaimExtractionPipeline } from '@aidha/praecis-core';
 import type { LlmClient, LlmCompletionRequest } from '@aidha/praecis-core';
-import { LlmClaimExtractor } from '@aidha/praecis-core';
+import { LlmClaimExtractor, getEffectivePromptVersion } from '@aidha/praecis-core';
 import { diagnoseTranscript, diagnoseExtraction } from '../src/diagnose/index.js';
 
 class StubLlmClient implements LlmClient {
   private responses: string[];
   private index = 0;
+  readonly requests: LlmCompletionRequest[] = [];
 
   constructor(responses: string[]) {
     this.responses = responses;
   }
 
-  async generate(_request: LlmCompletionRequest): Promise<Result<string>> {
+  async generate(request: LlmCompletionRequest): Promise<Result<string>> {
+    this.requests.push(request);
     const response = this.responses[this.index] ?? '{"claims": []}';
     this.index += 1;
     return { ok: true, value: response };
@@ -59,6 +61,7 @@ describe('diagnostics', () => {
           ytdlp: {
             executable: 'yt-dlp',
             available: true,
+            status: 'ok',
           },
         },
       }),
@@ -104,7 +107,7 @@ describe('diagnostics', () => {
       content: 'Deterministic IDs reduce duplicates.',
       metadata: { resourceId: 'youtube-diag-video', start: 10, duration: 4 },
     });
-    await store.upsertEdge('diag-claim-1', 'claimDerivedFrom', 'diag-excerpt-1', {}, { detectNoop: true });
+    await store.upsertEdge('diag-claim-1', 'claimDerivedFrom', 'diag-excerpt-1', { metadata: {} }, { detectNoop: true });
 
     const result = await diagnoseExtraction(store, 'diag-video');
     expect(result.ok).toBe(true);
@@ -195,6 +198,77 @@ describe('diagnostics', () => {
     expect(result.value.editorial?.consistencyOk).toBe(true);
 
     await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  async function seedQualifiedExtraction() {
+    const cacheDir = await mkdtemp(join(tmpdir(), 'aidha-diagnose-qualified-'));
+    const resourceId = 'youtube-qualified-video';
+    await store.upsertNode('Resource', resourceId, { label: 'Qualified source',
+      metadata: { videoId: 'qualified-video', transcriptStatus: 'available' } });
+    await store.upsertNode('Excerpt', 'qualified-excerpt', {
+      label: 'Evidence', content: 'Deterministic identifiers prevent duplicate graph records during repeated ingestion.',
+      metadata: { resourceId, start: 0, duration: 5, sequence: 0 },
+    });
+    const response = JSON.stringify({ claims: [{
+      text: 'Deterministic identifiers prevent duplicate graph records during repeated ingestion.',
+      excerptIds: ['qualified-excerpt'], confidence: 0.9, type: 'mechanism',
+    }] });
+    const client = new StubLlmClient([response, response]);
+    const extractor = new LlmClaimExtractor({ client, model: 'diag-model',
+      promptVersion: 'pass1-claim-mining-v2', promptPackId: 'enumeration-framework-v2', cacheDir });
+    const extraction = await new ClaimExtractionPipeline({ graphStore: store, extractor })
+      .extractClaimsForVideo(resourceId, { maxClaims: 10 });
+    if (!extraction.ok) throw extraction.error;
+    const found = await store.getNode(resourceId);
+    if (!found.ok) throw found.error;
+    if (!found.value) throw new Error('Expected real extraction Resource');
+    const version = found.value.metadata?.['lastClaimRunPromptVersion'];
+    if (typeof version !== 'string') throw new Error('Expected actual candidate prompt version in Resource metadata');
+    expect(version).toBe(getEffectivePromptVersion('pass1-claim-mining-v2', 'enumeration-framework-v2'));
+    expect(client.requests).toHaveLength(1);
+    return { cacheDir, resource: found.value, client, response, version };
+  }
+
+  it.each(['resource', 'claim'] as const)('infers a revisioned non-generic cache from actual %s metadata', async metadataSource => {
+    const seeded = await seedQualifiedExtraction();
+    try {
+      if (metadataSource === 'claim') {
+        const metadata = { ...seeded.resource.metadata };
+        delete metadata['lastClaimRunPromptVersion'];
+        await store.upsertNode('Resource', seeded.resource.id, { label: seeded.resource.label, metadata });
+      }
+      const result = await diagnoseExtraction(store, 'qualified-video', { includeEditor: true, cacheDir: seeded.cacheDir });
+      if (!result.ok) throw result.error;
+      expect(result.value.editorial?.available).toBe(true);
+      expect(result.value.editorial?.cacheHits).toBe(1);
+      expect(result.value.editorial?.promptVersion).toBe(seeded.version);
+      expect(seeded.client.requests).toHaveLength(1);
+    } finally { await rm(seeded.cacheDir, { recursive: true, force: true }); }
+  });
+
+  it('normalizes qualified option provenance and honors an explicit pack override for cache lookup', async () => {
+    const seeded = await seedQualifiedExtraction();
+    try {
+      const explicit = await diagnoseExtraction(store, 'qualified-video', { includeEditor: true, cacheDir: seeded.cacheDir,
+        promptVersion: 'pass1-claim-mining-v2:pack:enumeration-framework-v2' });
+      if (!explicit.ok) throw explicit.error;
+      expect(explicit.value.editorial?.available).toBe(true);
+      expect(explicit.value.editorial?.promptVersion).toBe(seeded.version);
+      const excerpts = await store.queryNodes({ type: 'Excerpt', filters: { resourceId: seeded.resource.id } });
+      if (!excerpts.ok) throw excerpts.error;
+      await new LlmClaimExtractor({ client: seeded.client, model: 'diag-model', promptVersion: 'pass1-claim-mining-v2',
+        promptPackId: 'generic-hierarchy', cacheDir: seeded.cacheDir })
+        .extractClaims({ resource: seeded.resource, excerpts: excerpts.value.items });
+      expect(seeded.client.requests).toHaveLength(2);
+      const override = await diagnoseExtraction(store, 'qualified-video', { includeEditor: true, cacheDir: seeded.cacheDir,
+        promptPackId: 'generic-hierarchy' });
+      if (!override.ok) throw override.error;
+      expect(override.value.editorial?.available).toBe(true);
+      expect(override.value.editorial?.cacheHits).toBe(1);
+      expect(override.value.editorial?.promptVersion).toBe(
+        getEffectivePromptVersion('pass1-claim-mining-v2', 'generic-hierarchy'));
+      expect(seeded.client.requests).toHaveLength(2);
+    } finally { await rm(seeded.cacheDir, { recursive: true, force: true }); }
   });
 
   it('reports missing editorial cache with actionable message', async () => {

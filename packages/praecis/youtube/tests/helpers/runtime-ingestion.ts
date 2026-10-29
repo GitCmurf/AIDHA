@@ -45,7 +45,7 @@ export function createFixtureLlm(): LlmClient {
   };
 }
 
-function fixtureConfig() {
+export function fixtureConfig() {
   return {
     baseDir: process.cwd(),
     db: ':memory:',

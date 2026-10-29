@@ -4,6 +4,117 @@ import { SQLiteStore } from '@aidha/graph-backend';
 import { CaptureEvent, captureCase, renderContinuityMarkdown, showCase, updateCase } from '../../src/continuity/index.js';
 import { capture } from './fixture.js';
 
+it('renders correction IDs, other-date decisions and invisible format controls without changing JSON', async () => {
+  const store = SQLiteStore.createInMemory();
+  try {
+    const input = cloneCapture();
+    input.activities[0] = { ...input.activities[0]!, label: 'Robotics\u202e\u2066\u200b\u2028end' };
+    input.decisions.push({ ...input.decisions[0]!, id: 'future-choice', appliesOn: '2026-10-03' });
+    await captureCase(store, 'readable', input);
+    const view = await showCase(store, 'readable', '2026-10-02');
+    expect(view.activities[0]?.label).toBe(input.activities[0].label);
+    expect(view.decisions.current.map(item => item.id)).toEqual(['travel']);
+    expect(view.decisions.otherDates.map(item => item.id)).toEqual(['future-choice']);
+    const markdown = renderContinuityMarkdown(view);
+    expect(markdown).toContain('orchestra / Orchestra');
+    expect(markdown).toContain('venue / orchestra / location');
+    expect(markdown).toContain('Decisions for other dates');
+    expect(markdown).not.toMatch(/[\p{Cf}\u2028\u2029]/u);
+  } finally {
+    await store.close();
+  }
+});
+
+
+it.each([
+  ['- nested', '\\- nested'],
+  ['+ nested', '\\+ nested'],
+  ['1. numbered', '1\\. numbered'],
+  ['~~deleted~~', '\\~\\~deleted\\~\\~'],
+])('escapes source Markdown syntax in %s', async (label, escaped) => {
+  const store = SQLiteStore.createInMemory();
+  try {
+    const input = cloneCapture();
+    input.activities[0] = { ...input.activities[0]!, label };
+    await captureCase(store, 'markdown-syntax', input);
+    const view = await showCase(store, 'markdown-syntax', '2026-10-02');
+    expect(view.activities[0]?.label).toBe(label);
+    expect(renderContinuityMarkdown(view)).toContain('/ ' + escaped + ' (');
+  } finally {
+    await store.close();
+  }
+});
+
+
+it.each([
+  ['dated activity with unknown basis', '2026-10-02', 'unknown'],
+  ['undated activity without explicit basis', null, undefined],
+] as const)('rejects %s before persisting a case', async (_label, date, dateBasis) => {
+  const store = SQLiteStore.createInMemory();
+  try {
+    const input = cloneCapture();
+    input.activities[1] = { ...input.activities[1]!, date };
+    if (dateBasis === undefined) delete input.activities[1].dateBasis;
+    else input.activities[1].dateBasis = dateBasis;
+    await expect(Promise.resolve().then(() => captureCase(store, 'invalid-date', input)))
+      .rejects.toThrow(/date basis/i);
+    const snapshot = await store.exportSnapshot({ scope: 'full' });
+    if (!snapshot.ok) throw snapshot.error;
+    expect(snapshot.value.nodes).toEqual([]);
+  } finally {
+    await store.close();
+  }
+});
+
+it('retains submitted author and interpreter bytes through capture and correction readback', async () => {
+  const store = SQLiteStore.createInMemory();
+  try {
+    const input = cloneCapture();
+    input.source.author = '  Author Ω \t';
+    input.interpreter = '\t fixture interpreter  ';
+    await captureCase(store, 'provenance', input);
+    const correction = {
+      kind: 'correct', eventId: 'correct-provenance', expectedRevision: 1,
+      source: { ...input.source, id: 'correction-source', author: '  Second author \t' },
+      interpreter: ' second interpreter  ', factId: 'venue', value: 'East Hall', basis: 'supplied',
+    };
+    await updateCase(store, 'provenance', correction);
+    const view = await showCase(store, 'provenance', '2026-10-02');
+    expect(view.history[0]?.event.source.author).toBe(input.source.author);
+    expect(view.history[0]?.event.interpreter).toBe(input.interpreter);
+    expect(view.history[1]?.event.source.author).toBe(correction.source.author);
+    expect(view.history[1]?.event.interpreter).toBe(correction.interpreter);
+    expect(view.sources.map(source => source.author))
+      .toEqual([input.source.author, correction.source.author]);
+    for (const key of ['author', 'interpreter'] as const) {
+      const blank = cloneCapture();
+      if (key === 'author') blank.source.author = ' \t ';
+      else blank.interpreter = ' \t ';
+      await expect(Promise.resolve().then(() => captureCase(store, 'blank-' + key, blank)))
+        .rejects.toThrow();
+    }
+  } finally {
+    await store.close();
+  }
+});
+
+it('removes every C1 display control while preserving exact structured source values', async () => {
+  const store = SQLiteStore.createInMemory();
+  try {
+    const input = cloneCapture();
+    const controls = Array.from({ length: 32 }, (_, index) => String.fromCharCode(0x80 + index)).join('');
+    input.facts[0] = { ...input.facts[0]!, value: 'start' + controls + 'end' };
+    await captureCase(store, 'display-controls', input);
+    const view = await showCase(store, 'display-controls', '2026-10-02');
+    expect(view.facts[0]?.value).toBe(input.facts[0].value);
+    expect(renderContinuityMarkdown(view)).not.toMatch(/[\u0080-\u009f]/u);
+    expect(renderContinuityMarkdown(view)).toContain('start' + ' '.repeat(32) + 'end');
+  } finally {
+    await store.close();
+  }
+});
+
+
 function cloneCapture(): z.input<typeof CaptureEvent> {
   return structuredClone(capture) as z.input<typeof CaptureEvent>;
 }
@@ -226,6 +337,9 @@ it('serializes competing corrections against one expected revision', async () =>
     const results = await Promise.allSettled(corrections.map(event => updateCase(store, 'friday', event)));
     expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+    const rejected = results.find(result => result.status === 'rejected');
+    expect(rejected?.status === 'rejected' ? rejected.reason.message : '')
+      .toMatch(/Revision conflict: expected 1, current 2/u);
     const view = await showCase(store, 'friday', '2026-10-02');
     expect(view.revision).toBe(2);
     expect(['East Hall', 'South Hall']).toContain(view.facts[0]?.value);

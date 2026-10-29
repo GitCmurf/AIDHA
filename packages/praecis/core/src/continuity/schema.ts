@@ -4,10 +4,13 @@ import { z } from 'zod';
 export const ContinuityId = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,95}$/);
 export const ContinuityDate = z.iso.date();
 const text = z.string().trim().min(1).max(4000);
+// Validate attribution without rewriting the submitted provenance bytes.
+const attribution = z.string().max(4000).regex(/\S/u,
+  'Attribution must contain nonblank text');
 export const ContinuitySource = z.object({
   id: ContinuityId,
   text: z.string().min(1).max(32000),
-  author: text,
+  author: attribution,
   capturedAt: z.iso.datetime({ offset: true }),
   intent: z.enum(['illustrative', 'operational']),
 }).strict();
@@ -15,12 +18,14 @@ const activity = z.object({
   id: ContinuityId, label: text,
   date: ContinuityDate.nullable().describe('Activity date, or null when unknown. A prerequisite before a dated event does not inherit that event date.'),
   dateBasis: z.enum(['supplied', 'inferred', 'unknown']).optional()
-    .describe('Basis of the activity date, distinct from fact-value provenance.'),
+    .describe('Required unknown when date is null; cannot be unknown for a supplied date. Runtime also validates references and cross-field constraints.'),
   participants: z.array(text).min(1).max(20),
   prerequisites: z.array(ContinuityId).max(100),
 }).strict().superRefine((item, ctx) => {
-  if (item.date === null && item.dateBasis !== undefined && item.dateBasis !== 'unknown') {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'An undated activity cannot have a supplied or inferred date basis' });
+  if ((item.date === null && item.dateBasis !== 'unknown') ||
+      (item.date !== null && item.dateBasis === 'unknown')) {
+    ctx.addIssue({ code: 'custom',
+      message: 'Activity date basis must be unknown exactly when its date is null' });
   }
 });
 export const ContinuityFact = z.object({
@@ -39,7 +44,7 @@ const question = z.object({
 export const CaptureEvent = z.object({
   kind: z.literal('capture'), eventId: ContinuityId,
   expectedRevision: z.literal(0), source: ContinuitySource,
-  title: text, interpreter: text,
+  title: text, interpreter: attribution,
   activities: z.array(activity).min(1).max(100),
   facts: z.array(ContinuityFact).max(200).describe(
     'Preserve source-stated responsibilities and ownership as explicit facts. Do not infer them from participation alone.',
@@ -50,7 +55,7 @@ export type CaptureEvent = z.infer<typeof CaptureEvent>;
 
 export const CorrectionEvent = z.object({
   kind: z.literal('correct'), eventId: ContinuityId,
-  expectedRevision: z.number().int().min(1), source: ContinuitySource, interpreter: text,
+  expectedRevision: z.number().int().min(1), source: ContinuitySource, interpreter: attribution,
   factId: ContinuityId, value: text.nullable(), basis: z.enum(['supplied', 'inferred']),
 }).strict();
 export const UpdateEvent = CorrectionEvent;
