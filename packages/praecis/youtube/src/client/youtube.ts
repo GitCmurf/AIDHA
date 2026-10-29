@@ -42,7 +42,7 @@ export function youtubeDefaultConfig(): YouTubeClientConfig {
 }
 
 /** Format only the immediate cause; never recursively inspect a diagnostic chain. */
-function describeUnknownError(error: unknown): string {
+const describeUnknownError = (error: unknown): string => {
   if (!(error instanceof Error)) return String(error);
   const cause = error.cause;
   if (cause !== null && typeof cause === 'object') {
@@ -53,18 +53,18 @@ function describeUnknownError(error: unknown): string {
     if (parts.length > 0) return `${error.message} (cause: ${parts.join(': ')})`;
   }
   return error.message;
-}
+};
 
-function networkFailure(label: string, error: unknown): Error {
+const networkFailure = (label: string, error: unknown): Error => {
   return new Error(`${label}: ${describeUnknownError(error)}`, { cause: error });
-}
+};
 
 /** Retain returned phase failures without promising a history of every attempted request. */
-function groupedFailure(label: string, errors: Error[]): Error {
+const groupedFailure = (label: string, errors: Error[]): Error => {
   const messages = Array.from(new Set(errors.map(error => error.message)));
   const suffix = messages.length > 0 ? ` (${messages.join('; ')})` : '';
   return new Error(`${label}${suffix}`, { cause: new AggregateError(errors, label) });
-}
+};
 
 /** Build a YouTubeClientConfig from process.env (legacy/fallback). */
 export function youtubeConfigFromEnv(): YouTubeClientConfig {
@@ -507,7 +507,7 @@ function parseTranscriptPayload(payload: string, fmt?: string | null): Transcrip
   return parseTranscriptVtt(payload);
 }
 
-async function fetchTranscriptSegments(
+const fetchTranscriptSegments = async (
   url: string,
   videoId: string,
   ytCfg: YouTubeClientConfig,
@@ -519,7 +519,7 @@ async function fetchTranscriptSegments(
   finalUrl: string;
   contentLength: string | null;
   fmt: string | null;
-}> {
+}> => {
   let response: Response;
   let payload: string;
   try {
@@ -542,7 +542,7 @@ async function fetchTranscriptSegments(
     contentLength: response.headers.get('content-length'),
     fmt,
   };
-}
+};
 
 function extractPlayerResponse(html: string): Record<string, unknown> | null {
   const assignment = /\bytInitialPlayerResponse\s*=\s*/u.exec(html);
@@ -998,10 +998,10 @@ async function fetchCaptionTracksFromHtml(
 /**
  * Extract caption tracks from video page using Innertube player response.
  */
-async function fetchCaptionTracks(
+const fetchCaptionTracks = async (
   videoId: string,
   ytCfg: YouTubeClientConfig,
-): Promise<Result<CaptionTrack[]>> {
+): Promise<Result<CaptionTrack[]>> => {
   const errors: Error[] = [];
   if (ytCfg.innertubeApiKey) {
     const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, ytCfg.innertubeApiKey, ytCfg);
@@ -1015,7 +1015,7 @@ async function fetchCaptionTracks(
   if (timedTextFallback.ok) return timedTextFallback;
   errors.push(timedTextFallback.error);
   return { ok: false, error: groupedFailure(`youtube caption-track discovery failed for ${videoId}`, errors) };
-}
+};
 
 /**
  * Real YouTube client using Innertube API (same approach as youtube-transcript-api).

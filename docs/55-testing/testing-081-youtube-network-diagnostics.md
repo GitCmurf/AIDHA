@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-081
 owner: Engineering
 status: Draft
-version: '0.3'
+version: '0.4'
 last_updated: 2026-10-29
 title: YouTube Network Failure Diagnostics
 type: TESTING
@@ -13,7 +13,7 @@ area: INGEST
 > **Document ID:** AIDHA-TESTING-081
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.4
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -26,6 +26,7 @@ area: INGEST
 | 0.1 | 2026-10-18 | Codex | Specify bounded client failure context. | — | Draft | Original 2806fe4 |
 | 0.2 | 2026-10-29 | Codex | Integrate current acquisition and optional creator-note boundaries. | — | Draft | PR 51 |
 | 0.3 | 2026-10-29 | Codex | Pin complete current-base verification and reviewed test sources. | — | Draft | PR 51 |
+| 0.4 | 2026-10-29 | Codex | Verify explicit helper bindings and dispose hosted findings. | — | Draft | PR 51 |
 
 ## Problem and scope
 
@@ -133,3 +134,24 @@ Native Claude review found no blocker and native CodeRabbit completed the seven-
 patch with zero findings. Independent specification and standards review found no remaining
 material issue. These are offline diagnostic checks; no live provider or model-quality
 result is claimed.
+
+## Hosted review disposition
+
+The completed DeepSource run on commit 3723e32 reported 16 Minor findings: nine module
+function-declaration warnings, one discarded-promise warning and six complexity advisories.
+The nine private helpers now use const arrow bindings, with their bodies verified unchanged.
+The settlement test observes and awaits its completion promise. All 1,163 package tests
+pass again with the same seven skips; both affected client files pass all 40 cases again
+on official Node 22.12.0. Strict tests and package lint also pass after this correction.
+
+The six complexity advisories concern existing request/discovery methods. An independent
+structural comparison with main e5e5bdb finds unchanged branch/loop counts and fewer
+conditional expressions in those functions. This is supporting evidence, not a reproduction
+of the provider metric or proof of full behavioural equivalence. The advisories remain
+unsuppressed and are deferred to a separate maintainability slice. A failing JavaScript
+analyser status is not represented as a passing check.
+
+Native Claude review of the follow-up found no blocker, and native CodeRabbit completed
+the two-file correction with zero findings. The complete seven-file patch was reviewed
+separately by both tools. Independent specification and standards reviews also accepted
+the bounded correction and advisory disposition. No broader refactoring is included.

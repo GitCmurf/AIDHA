@@ -20,18 +20,18 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
-function attemptedUrl(input: Parameters<typeof fetch>[0]): string {
+const attemptedUrl = (input: Parameters<typeof fetch>[0]): string => {
   return typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-}
+};
 
-function aggregateCause(error: Error): Error[] {
+const aggregateCause = (error: Error): Error[] => {
   expect(error.cause).toBeInstanceOf(AggregateError);
   if (!(error.cause instanceof AggregateError)) throw new Error('Expected grouped diagnostic causes');
   return error.cause.errors as Error[];
-}
+};
 
 /** Keep the independent creator-note request successful when exercising oEmbed errors. */
-function mockMetadataFailure(original: Error) {
+const mockMetadataFailure = (original: Error) => {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(input => {
     const url = new URL(attemptedUrl(input));
     if (url.pathname === '/watch') {
@@ -42,17 +42,17 @@ function mockMetadataFailure(original: Error) {
     if (url.pathname === '/oembed') return Promise.reject(original);
     return Promise.reject(new Error('Unexpected offline metadata request'));
   });
-}
+};
 
 const fictionalApiKey = 'fictional-offline-key'; // pragma: allowlist secret - fictional offline fixture
 const captionUrl = 'https://example.test/captions?token=fictional-query-value&fmt=vtt';
-function htmlWithTrack(): Response {
+const htmlWithTrack = (): Response => {
   return new Response(`ytInitialPlayerResponse = ${JSON.stringify({
     captions: { playerCaptionsTracklistRenderer: { captionTracks: [
       { baseUrl: captionUrl, languageCode: 'en', name: { simpleText: 'English' } },
     ] } },
   })};`);
-}
+};
 
 describe('YouTube client network diagnostics', () => {
   it('labels oEmbed failure and makes its immediate DNS cause readable while retaining the original Error', async () => {
@@ -115,7 +115,7 @@ describe('YouTube client network diagnostics', () => {
     });
     const pending = new RealYouTubeClient({ debugTranscript: false }).fetchVideo('video-one');
     let metadataReturned = false;
-    void pending.then(() => { metadataReturned = true; });
+    const completed = pending.then(result => { metadataReturned = true; return result; });
     try {
       await abortObserved;
       // Drain already queued work while the watch response remains explicitly gated.
@@ -125,7 +125,7 @@ describe('YouTube client network diagnostics', () => {
     } finally {
       watch.release?.();
     }
-    const result = await pending;
+    const result = await completed;
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('Expected metadata failure');
     expect(result.error.cause).toBe(original);
