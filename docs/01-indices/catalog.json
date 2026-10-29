@@ -77,7 +77,7 @@
       "owner": "Ingestion Team",
       "status": "Draft",
       "last_updated": "2026-10-29",
-      "version": "0.38",
+      "version": "0.39",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -424,6 +424,21 @@
       "version": "0.1",
       "last_updated": "2026-10-18",
       "title": "Truthful YouTube Publication Dates",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST"
+    }
+  },
+  {
+    "path": "55-testing/testing-081-youtube-network-diagnostics.md",
+    "title": "YouTube Network Failure Diagnostics",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-081",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.6",
+      "last_updated": "2026-10-29",
+      "title": "YouTube Network Failure Diagnostics",
       "type": "TESTING",
       "docops_version": "2.0",
       "area": "INGEST"

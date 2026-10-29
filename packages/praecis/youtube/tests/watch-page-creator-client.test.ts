@@ -145,7 +145,7 @@ it.each(['headers', 'body'] as const)('enforces one fifteen-second deadline thro
   }
 });
 
-it.each([false, true])('settles creator cancellation (reject=%s) before returning the original oEmbed failure', async rejectCancel => {
+it.each([false, true])('settles creator cancellation (reject=%s) before returning the oEmbed failure with its original cause', async rejectCancel => {
   let rejectOembed!: (error: Error) => void;
   const original = new Error('Controlled oEmbed failure');
   let signal: AbortSignal | undefined;
@@ -160,7 +160,10 @@ it.each([false, true])('settles creator cancellation (reject=%s) before returnin
   await new Promise(resolve => setImmediate(resolve));
   rejectOembed(original);
   const result = await pending;
-  expect(result).toEqual({ ok: false, error: original });
+  expect(result.ok).toBe(false);
+  if (result.ok) throw new Error('Expected oEmbed failure');
+  expect(result.error.message).toBe(`youtube oEmbed fetch failed for ${videoId}: ${original.message}`);
+  expect(result.error.cause).toBe(original);
   expect(signal?.aborted).toBe(true);
   expect(cancelled).toBe(true);
 });
@@ -186,7 +189,7 @@ it('returns at the body deadline and releases its lock when underlying cancellat
   });
 });
 
-it('returns the original oEmbed error when underlying cancellation never settles', async () => {
+it('retains the original oEmbed cause when underlying cancellation never settles', async () => {
   vi.useFakeTimers();
   const original = new Error('Controlled primary failure');
   let rejectOembed!: (error: Error) => void;
@@ -202,7 +205,11 @@ it('returns the original oEmbed error when underlying cancellation never settles
   expect(settled, 'A pending cancellation promise must not hide the original primary error').toBe(true);
   expect(body.locked).toBe(false);
   expect(cancel).toHaveBeenCalledOnce();
-  expect(await pending).toEqual({ ok: false, error: original });
+  const result = await pending;
+  expect(result.ok).toBe(false);
+  if (result.ok) throw new Error('Expected oEmbed failure');
+  expect(result.error.message).toBe(`youtube oEmbed fetch failed for ${videoId}: ${original.message}`);
+  expect(result.error.cause).toBe(original);
   expect(vi.getTimerCount()).toBe(0);
 });
 
