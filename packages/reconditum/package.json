@@ -32,7 +32,7 @@
     "classic-level": "1.4.1",
     "levelgraph": "3.0.0",
     "memory-level": "^3.1.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",
