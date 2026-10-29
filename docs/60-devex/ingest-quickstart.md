@@ -3,7 +3,7 @@ document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
 last_updated: 2026-10-29
-version: '0.38'
+version: '0.39'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,7 +14,7 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.38
+> **Version:** 0.39
 > **Last Updated:** 2026-10-29
 > **Type:** GUIDE
 
@@ -60,6 +60,7 @@ docops_version: '2.0'
 | 0.36 | 2026-10-18 | Codex | Correct qualified pack cache reuse. | — | Draft | AIDHA-TESTING-083 |
 | 0.37 | 2026-10-18 | Codex | Align diagnostic cache provenance. | — | Draft | AIDHA-TESTING-083 |
 | 0.38 | 2026-10-29 | Codex | Preserve transcript acquisition diagnostics. | — | Draft | AIDHA-TESTING-077 |
+| 0.39 | 2026-10-29 | Codex | Preserve network failure context and causes. | — | Draft | AIDHA-TESTING-081 |
 
 ## Purpose
 
@@ -337,6 +338,12 @@ to read from stdin, and optionally attach a provenance-only `--url`.
    ```
 
 ## Transcript Fallbacks
+
+Client network failures include the operation and video ID, with immediate cause details
+where available. If caption discovery and transcript fallbacks all fail, diagnostics retain
+the failed returned phases rather than only the final native fallback error. Original Error
+objects remain available through structured causes. This does not change fallback order or
+add retries; see [AIDHA-TESTING-081](../55-testing/testing-081-youtube-network-diagnostics.md).
 
 If transcript acquisition fails after the configured fallbacks, YouTube ingestion exits with
 the acquisition error. It does not ingest a description-only source. The shared

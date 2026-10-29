@@ -41,6 +41,31 @@ export function youtubeDefaultConfig(): YouTubeClientConfig {
   };
 }
 
+/** Format only the immediate cause; never recursively inspect a diagnostic chain. */
+const describeUnknownError = (error: unknown): string => {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause;
+  if (cause !== null && typeof cause === 'object') {
+    const detail = cause as { code?: unknown; message?: unknown };
+    const parts = [detail.code, detail.message].filter((value): value is string =>
+      typeof value === 'string' && value.length > 0,
+    );
+    if (parts.length > 0) return `${error.message} (cause: ${parts.join(': ')})`;
+  }
+  return error.message;
+};
+
+const networkFailure = (label: string, error: unknown): Error => {
+  return new Error(`${label}: ${describeUnknownError(error)}`, { cause: error });
+};
+
+/** Retain returned phase failures without promising a history of every attempted request. */
+const groupedFailure = (label: string, errors: Error[]): Error => {
+  const messages = Array.from(new Set(errors.map(error => error.message)));
+  const suffix = messages.length > 0 ? ` (${messages.join('; ')})` : '';
+  return new Error(`${label}${suffix}`, { cause: new AggregateError(errors, label) });
+};
+
 /** Build a YouTubeClientConfig from process.env (legacy/fallback). */
 export function youtubeConfigFromEnv(): YouTubeClientConfig {
   return {
@@ -185,7 +210,7 @@ async function fetchOEmbed(videoId: string): Promise<Result<{
 
     return { ok: true, value: data };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube oEmbed fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -250,6 +275,43 @@ function parseTimedTextTracks(xml: string, videoId: string): CaptionTrack[] {
   }
   return tracks;
 }
+
+const fetchTranscriptSegments = async (
+  url: string,
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
+): Promise<{
+  segments: TranscriptSegment[];
+  payload: string;
+  status: number;
+  contentType: string | null;
+  finalUrl: string;
+  contentLength: string | null;
+  fmt: string | null;
+}> => {
+  let response: Response;
+  let payload: string;
+  try {
+    response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
+    payload = await response.text();
+  } catch (error) {
+    throw networkFailure(`youtube transcript segment fetch failed for ${videoId}`, error);
+  }
+  const fmt = new URL(url).searchParams.get('fmt');
+  const segments =
+    response.ok && payload.length > 0
+      ? parseTranscriptPayload(payload, fmt)
+      : [];
+  return {
+    segments,
+    payload,
+    status: response.status,
+    contentType: response.headers.get('content-type'),
+    finalUrl: response.url,
+    contentLength: response.headers.get('content-length'),
+    fmt,
+  };
+};
 
 async function tryDirectTimedText(
   videoId: string,
@@ -322,7 +384,7 @@ async function fetchCaptionTracksFromTimedText(
     }
     return { ok: true, value: tracks };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube timedtext track-list fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -480,37 +542,6 @@ function parseTranscriptPayload(payload: string, fmt?: string | null): Transcrip
   const jsonSegments = parseTranscriptJson(payload);
   if (jsonSegments.length > 0) return jsonSegments;
   return parseTranscriptVtt(payload);
-}
-
-async function fetchTranscriptSegments(
-  url: string,
-  videoId: string,
-  ytCfg: YouTubeClientConfig,
-): Promise<{
-  segments: TranscriptSegment[];
-  payload: string;
-  status: number;
-  contentType: string | null;
-  finalUrl: string;
-  contentLength: string | null;
-  fmt: string | null;
-}> {
-  const response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
-  const payload = await response.text();
-  const fmt = new URL(url).searchParams.get('fmt');
-  const segments =
-    response.ok && payload.length > 0
-      ? parseTranscriptPayload(payload, fmt)
-      : [];
-  return {
-    segments,
-    payload,
-    status: response.status,
-    contentType: response.headers.get('content-type'),
-    finalUrl: response.url,
-    contentLength: response.headers.get('content-length'),
-    fmt,
-  };
 }
 
 function extractPlayerResponse(html: string): Record<string, unknown> | null {
@@ -849,7 +880,7 @@ async function fetchTranscriptFromGetTranscript(
 
     return { ok: true, value: segments };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube get_transcript fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -909,7 +940,7 @@ async function fetchCaptionTracksFromInnertube(
       })),
     };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube Innertube caption-track fetch failed for ${videoId}`, error) };
   }
 }
 
@@ -960,29 +991,31 @@ async function fetchCaptionTracksFromHtml(
 
     return { ok: false, error: new Error(`No captions available for ${videoId}`) };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+    return { ok: false, error: networkFailure(`youtube video-page caption-track fetch failed for ${videoId}`, error) };
   }
 }
 
 /**
  * Extract caption tracks from video page using Innertube player response.
  */
-async function fetchCaptionTracks(
+const fetchCaptionTracks = async (
   videoId: string,
   ytCfg: YouTubeClientConfig,
-): Promise<Result<CaptionTrack[]>> {
-  if (!ytCfg.innertubeApiKey) {
-    const htmlFallback = await fetchCaptionTracksFromHtml(videoId, ytCfg);
-    if (htmlFallback.ok) return htmlFallback;
-    return fetchCaptionTracksFromTimedText(videoId, ytCfg);
+): Promise<Result<CaptionTrack[]>> => {
+  const errors: Error[] = [];
+  if (ytCfg.innertubeApiKey) {
+    const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, ytCfg.innertubeApiKey, ytCfg);
+    if (innertubeResult.ok) return innertubeResult;
+    errors.push(innertubeResult.error);
   }
-
-  const innertubeResult = await fetchCaptionTracksFromInnertube(videoId, ytCfg.innertubeApiKey, ytCfg);
-  if (innertubeResult.ok) return innertubeResult;
   const htmlFallback = await fetchCaptionTracksFromHtml(videoId, ytCfg);
   if (htmlFallback.ok) return htmlFallback;
-  return fetchCaptionTracksFromTimedText(videoId, ytCfg);
-}
+  errors.push(htmlFallback.error);
+  const timedTextFallback = await fetchCaptionTracksFromTimedText(videoId, ytCfg);
+  if (timedTextFallback.ok) return timedTextFallback;
+  errors.push(timedTextFallback.error);
+  return { ok: false, error: groupedFailure(`youtube caption-track discovery failed for ${videoId}`, errors) };
+};
 
 /**
  * Real YouTube client using Innertube API (same approach as youtube-transcript-api).
@@ -1059,7 +1092,7 @@ export class RealYouTubeClient implements YouTubeClient {
     } catch (error) {
       creatorNoteController.abort();
       await creatorNotePromise;
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return { ok: false, error: networkFailure(`youtube video metadata fetch failed for ${videoId}`, error) };
     }
   }
 
@@ -1070,7 +1103,7 @@ export class RealYouTubeClient implements YouTubeClient {
     const videoId = parseVideoId(videoIdOrUrl);
 
     try {
-      let lastError: Error | null = null;
+      const errors: Error[] = [];
       let tracks: CaptionTrack[] = [];
 
       // Try to get caption tracks
@@ -1078,9 +1111,9 @@ export class RealYouTubeClient implements YouTubeClient {
       if (tracksResult.ok) {
         tracks = tracksResult.value;
       } else {
-        lastError = tracksResult.error;
+        errors.push(tracksResult.error);
         if (this.ytCfg.debugTranscript) {
-          resolveLogger(this.ytCfg).debug(`[transcript] fetchCaptionTracks failed: ${lastError.message}`);
+          resolveLogger(this.ytCfg).debug(`[transcript] fetchCaptionTracks failed: ${tracksResult.error.message}`);
         }
       }
 
@@ -1157,7 +1190,7 @@ export class RealYouTubeClient implements YouTubeClient {
         if (transcriptResult.ok) {
           segments = transcriptResult.value;
         } else {
-          lastError = transcriptResult.error;
+          errors.push(transcriptResult.error);
           if (this.ytCfg.debugTranscript) {
             resolveLogger(this.ytCfg).debug(
               `[transcript] get_transcript error: ${transcriptResult.error.message}`,
@@ -1172,7 +1205,7 @@ export class RealYouTubeClient implements YouTubeClient {
           segments = ytdlpResult.value.segments;
           detectedLanguage = ytdlpResult.value.language;
         } else {
-          lastError = ytdlpResult.error;
+          errors.push(ytdlpResult.error);
           if (this.ytCfg.debugTranscript) {
             resolveLogger(this.ytCfg).debug(`[transcript] yt-dlp error: ${ytdlpResult.error.message}`);
           }
@@ -1189,10 +1222,9 @@ export class RealYouTubeClient implements YouTubeClient {
       }
 
       if (segments.length === 0) {
-        const suffix = lastError ? ` (${lastError.message})` : '';
         return {
           ok: false,
-          error: new Error(`No transcript segments found for ${videoId}${suffix}`),
+          error: groupedFailure(`No transcript segments found for ${videoId}`, errors),
         };
       }
 
@@ -1207,7 +1239,7 @@ export class RealYouTubeClient implements YouTubeClient {
 
       return { ok: true, value: transcript };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      return { ok: false, error: networkFailure(`youtube transcript fetch failed for ${videoId}`, error) };
     }
   }
 

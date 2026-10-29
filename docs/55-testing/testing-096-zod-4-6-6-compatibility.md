@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-096
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-10-29
 title: Zod 4.6.6 Compatibility
 type: TESTING
@@ -13,7 +13,7 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-096
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ area: CORE
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-29 | Codex | Qualify the bounded runtime schema dependency update. | — | Draft | PR 64 |
+| 0.2 | 2026-10-29 | Codex | Verify the qualified dependency with merged diagnostic changes. | — | Draft | PR 64; PR 51 |
 
 ## Scope and acceptance
 
@@ -102,9 +103,25 @@ No tests, exclusions, timeouts, fixtures or snapshots were changed for this upda
 
 Complete workspace build, lint/type checks and the canonical root test command also pass on
 official Node 22.12.0 with its required SQLite flag: 2,337 tests and nine existing skips across
-19 suites. Final main integration, documentation/DocOps and hosted checks remain completion gates.
+19 suites. This complete root run qualifies main e3ddf73 with the narrowed dependency update;
+the subsequent final-main integration is verified separately below.
 
 Native Claude found no blocker in the dependency diff and requested the compatibility,
 declaration and supported-runtime checks above before merge. Native CodeRabbit completed the
 five-file dependency patch with zero findings. Independent specification and standards reviews
 accepted the narrowed scope; final evidence review remains pending.
+
+## Final main integration
+
+Merged main ff052ba8 adds the independently reviewed diagnostic slice from PR 51.
+The five dependency paths remain byte-identical to the qualified source revision; main's
+lockfile is also unchanged from e3ddf73 before applying the Zod update.
+
+After integration, the complete affected YouTube package suite passes on official Node 22.12.0:
+1,163 tests, seven existing skips, 125 passing files and one skipped file. Package lint/type
+checks also pass on that runtime. The 40 diagnostic/creator-note controls and four package-script
+contracts pass on Node 22.21.1. These post-integration checks supplement the preceding complete
+root runs; no complete final-main root rerun is claimed. No test body, snapshot, exclusion,
+timeout or fixture changes are needed.
+
+Strict documentation/DocOps and exact-head hosted checks remain final publication gates.
