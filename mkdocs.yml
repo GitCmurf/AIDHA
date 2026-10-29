@@ -56,6 +56,7 @@ nav:
       - YouTube Creator Note Capture: 55-testing/testing-093-youtube-creator-note-capture.md
       - Source-Owned Resource Metadata Groups: 55-testing/testing-094-source-owned-metadata-groups.md
       - CLI Startup Import Boundary: 55-testing/testing-091-cli-startup-import-boundary.md
+      - Vitest 4.1.11 Compatibility: 55-testing/testing-082-vitest-4-1-11-compatibility.md
   - Planning:
       - Branch Landing Workflow: 05-planning/plan-015-branch-landing-workflow.md
       - Engineering Tech Debt Backlog: 05-planning/tasks/task-007-tech-debt-backlog.md
