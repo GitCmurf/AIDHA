@@ -62,7 +62,7 @@ Do not introduce models, Task writes, default extraction changes or live provide
 ## Acceptance
 
 The dedicated public-client suite is
-[client-network-diagnostics.test.ts](https://github.com/GitCmurf/AIDHA/blob/1a0d7baeae61f13d72ebc127162c40b797db87ef/packages/praecis/youtube/tests/client-network-diagnostics.test.ts).
+[client-network-diagnostics.test.ts](https://github.com/GitCmurf/AIDHA/blob/b4d29a513d4d9a8198499cfa886a9307d2f6fcb0/packages/praecis/youtube/tests/client-network-diagnostics.test.ts).
 
 - Metadata failure contains operation/video context and immediate DNS/code details, with
   original Error/cause identity preserved. Plain-object and cyclic causes are covered.
@@ -128,7 +128,7 @@ Removing the diagnostic changes reproduces ten failures among the dedicated case
 restoration passes all 14. A separate mutation removing only the creator-note wait fails
 the gated settlement regression; restoration passes. Existing cancellation, lock, deadline
 and timer assertions are retained in the
-[creator-note client controls](https://github.com/GitCmurf/AIDHA/blob/1a0d7baeae61f13d72ebc127162c40b797db87ef/packages/praecis/youtube/tests/watch-page-creator-client.test.ts).
+[creator-note client controls](https://github.com/GitCmurf/AIDHA/blob/b4d29a513d4d9a8198499cfa886a9307d2f6fcb0/packages/praecis/youtube/tests/watch-page-creator-client.test.ts).
 
 Native Claude review found no blocker and native CodeRabbit completed the seven-file
 patch with zero findings. Independent specification and standards review found no remaining
