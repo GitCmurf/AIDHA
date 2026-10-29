@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-081
 owner: Engineering
 status: Draft
-version: '0.5'
+version: '0.6'
 last_updated: 2026-10-29
 title: YouTube Network Failure Diagnostics
 type: TESTING
@@ -13,7 +13,7 @@ area: INGEST
 > **Document ID:** AIDHA-TESTING-081
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.5
+> **Version:** 0.6
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -28,6 +28,7 @@ area: INGEST
 | 0.3 | 2026-10-29 | Codex | Pin complete current-base verification and reviewed test sources. | — | Draft | PR 51 |
 | 0.4 | 2026-10-29 | Codex | Verify explicit helper bindings and dispose hosted findings. | — | Draft | PR 51 |
 | 0.5 | 2026-10-29 | Codex | Reverify against the merged Vitest 4.1.11 baseline. | — | Draft | PR 51 |
+| 0.6 | 2026-10-29 | Codex | Declare the segment helper before its first lexical use. | — | Draft | PR 51 |
 
 ## Problem and scope
 
@@ -168,3 +169,17 @@ files and one skipped file. Strict changed-test TypeScript and package lint pass
 All 40 focused diagnostic and creator-note client cases pass again on official
 Node 22.12.0 with its required SQLite flag. No test exclusion, timeout increase or
 assertion relaxation was introduced for this integration.
+
+## Final helper declaration order
+
+The completed hosted JavaScript analysis on 7bf325a reports the six retained complexity
+advisories and one new JS-0357 finding: the segment helper's const declaration appears
+below its first lexical reference. Move its entire unchanged declaration above that caller.
+Its dependencies are existing function declarations or an already initialised helper;
+the move adds no top-level request or other work.
+
+After this move, all 93 selected client, transcript-parser and creator-note client cases
+pass across four files. Strict changed-test TypeScript and package lint pass, and all 40
+diagnostic/creator-note cases pass again on official Node 22.12.0. The preceding complete
+1,163-test package run applies to 7bf325a; the final move is covered by these focused checks.
+The six complexity advisories remain unsuppressed.

@@ -276,6 +276,43 @@ function parseTimedTextTracks(xml: string, videoId: string): CaptionTrack[] {
   return tracks;
 }
 
+const fetchTranscriptSegments = async (
+  url: string,
+  videoId: string,
+  ytCfg: YouTubeClientConfig,
+): Promise<{
+  segments: TranscriptSegment[];
+  payload: string;
+  status: number;
+  contentType: string | null;
+  finalUrl: string;
+  contentLength: string | null;
+  fmt: string | null;
+}> => {
+  let response: Response;
+  let payload: string;
+  try {
+    response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
+    payload = await response.text();
+  } catch (error) {
+    throw networkFailure(`youtube transcript segment fetch failed for ${videoId}`, error);
+  }
+  const fmt = new URL(url).searchParams.get('fmt');
+  const segments =
+    response.ok && payload.length > 0
+      ? parseTranscriptPayload(payload, fmt)
+      : [];
+  return {
+    segments,
+    payload,
+    status: response.status,
+    contentType: response.headers.get('content-type'),
+    finalUrl: response.url,
+    contentLength: response.headers.get('content-length'),
+    fmt,
+  };
+};
+
 async function tryDirectTimedText(
   videoId: string,
   languageCode: string,
@@ -506,43 +543,6 @@ function parseTranscriptPayload(payload: string, fmt?: string | null): Transcrip
   if (jsonSegments.length > 0) return jsonSegments;
   return parseTranscriptVtt(payload);
 }
-
-const fetchTranscriptSegments = async (
-  url: string,
-  videoId: string,
-  ytCfg: YouTubeClientConfig,
-): Promise<{
-  segments: TranscriptSegment[];
-  payload: string;
-  status: number;
-  contentType: string | null;
-  finalUrl: string;
-  contentLength: string | null;
-  fmt: string | null;
-}> => {
-  let response: Response;
-  let payload: string;
-  try {
-    response = await fetch(url, { headers: buildTranscriptHeaders(ytCfg, videoId) });
-    payload = await response.text();
-  } catch (error) {
-    throw networkFailure(`youtube transcript segment fetch failed for ${videoId}`, error);
-  }
-  const fmt = new URL(url).searchParams.get('fmt');
-  const segments =
-    response.ok && payload.length > 0
-      ? parseTranscriptPayload(payload, fmt)
-      : [];
-  return {
-    segments,
-    payload,
-    status: response.status,
-    contentType: response.headers.get('content-type'),
-    finalUrl: response.url,
-    contentLength: response.headers.get('content-length'),
-    fmt,
-  };
-};
 
 function extractPlayerResponse(html: string): Record<string, unknown> | null {
   const assignment = /\bytInitialPlayerResponse\s*=\s*/u.exec(html);
