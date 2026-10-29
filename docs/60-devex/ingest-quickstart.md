@@ -2,8 +2,8 @@
 document_id: AIDHA-GUIDE-003
 owner: Ingestion Team
 status: Draft
-last_updated: 2026-10-18
-version: '0.37'
+last_updated: 2026-10-29
+version: '0.38'
 title: Ingestion Quickstart
 type: GUIDE
 docops_version: '2.0'
@@ -14,8 +14,8 @@ docops_version: '2.0'
 > **Owner:** Ingestion Team
 > **Approvers:** —
 > **Status:** Draft
-> **Version:** 0.37
-> **Last Updated:** 2026-10-18
+> **Version:** 0.38
+> **Last Updated:** 2026-10-29
 > **Type:** GUIDE
 
 ## Version History
@@ -50,7 +50,6 @@ docops_version: '2.0'
 | 0.26    | 2026-05-21 | AI     | Add architecture note referencing multi-vector model (PLAN-007 Phase 0) | — | Draft | — |
 | 0.27    | 2026-05-22 | AI     | Add podcast ingest command and note the shared multi-vector CLI surface. | — | Draft | — |
 | 0.28    | 2026-05-22 | AI     | Add Readwise batch ingest command and note the shared export cursor surface. | — | Draft  | — |
-
 | 0.29    | 2026-05-22 | AI     | Email import. | —         | Draft  | —         |
 | 0.30    | 2026-05-22 | AI     | LinkedIn paste. | —         | Draft  | —         |
 | 0.31    | 2026-05-25 | AI     | Clarify Resource metadata. | — | Draft | AIDHA-PLAN-007 |
@@ -60,6 +59,7 @@ docops_version: '2.0'
 | 0.35 | 2026-10-18 | Codex | Preserve complete chunk prompt data. | — | Draft | AIDHA-TESTING-083 |
 | 0.36 | 2026-10-18 | Codex | Correct qualified pack cache reuse. | — | Draft | AIDHA-TESTING-083 |
 | 0.37 | 2026-10-18 | Codex | Align diagnostic cache provenance. | — | Draft | AIDHA-TESTING-083 |
+| 0.38 | 2026-10-29 | Codex | Preserve transcript acquisition diagnostics. | — | Draft | AIDHA-TESTING-077 |
 
 ## Purpose
 
@@ -337,6 +337,12 @@ to read from stdin, and optionally attach a provenance-only `--url`.
    ```
 
 ## Transcript Fallbacks
+
+If transcript acquisition fails after the configured fallbacks, YouTube ingestion exits with
+the acquisition error. It does not ingest a description-only source. The shared
+`aidha ingest youtube` command preserves the existing graph on this failure; see
+[AIDHA-TESTING-077](../55-testing/testing-077-transcript-acquisition-errors.md) for the
+executable regression and reopened-store checks.
 
 When direct YouTube transcript fetches fail, ingestion falls back to `yt-dlp`. You can control it
 per run:

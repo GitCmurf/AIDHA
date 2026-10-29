@@ -76,8 +76,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-10-18",
-      "version": "0.37",
+      "last_updated": "2026-10-29",
+      "version": "0.38",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -461,6 +461,21 @@
         "AIDHA-PLAN-015",
         "AIDHA-TESTING-056"
       ]
+    }
+  },
+  {
+    "path": "55-testing/testing-077-transcript-acquisition-errors.md",
+    "title": "YouTube Transcript Acquisition Errors",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-077",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-29",
+      "title": "YouTube Transcript Acquisition Errors",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST"
     }
   },
   {
