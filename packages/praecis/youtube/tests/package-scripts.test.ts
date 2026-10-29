@@ -20,4 +20,23 @@ describe('package scripts', () => {
 
     expect(packageJson.scripts?.['test:full']).toBe('pnpm run build:test-runtime && vitest run');
   });
+
+  it.each([
+    {
+      mode: 'test',
+      expected: [
+        'node scripts/check-test-scripts.mjs',
+        'pnpm security:public-paths',
+        'pnpm security:public-paths:test',
+        'pnpm test:semantic-quality',
+        'pnpm -r --workspace-concurrency=1 test:ci',
+      ].join(' && '),
+    },
+    { mode: 'test:full', expected: 'pnpm -r --workspace-concurrency=1 --if-present test:full' },
+  ])('keeps root $mode package dispatch serial and exhaustive', ({ mode, expected }) => {
+    const rootPackage = JSON.parse(readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+    expect(rootPackage.scripts?.[mode]).toBe(expected);
+  });
 });

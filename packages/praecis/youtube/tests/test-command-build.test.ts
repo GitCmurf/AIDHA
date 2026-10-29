@@ -14,7 +14,7 @@ const packageJson = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
   scripts: Record<string, string>;
 };
 
-function runCommand(mode: string, buildExitCode: number, selector = '') {
+const runCommand = (mode: string, buildExitCode: number, selector = '') => {
   const directory = mkdtempSync(join(tmpdir(), 'aidha-test-command-'));
   const log = join(directory, 'commands.jsonl');
   const stub = [
@@ -57,7 +57,7 @@ function runCommand(mode: string, buildExitCode: number, selector = '') {
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
-}
+};
 
 describe.each(['test', 'test:ci', 'test:full', 'test:watch'])('%s build prerequisite', mode => {
   it('builds before starting the test runner', () => {
