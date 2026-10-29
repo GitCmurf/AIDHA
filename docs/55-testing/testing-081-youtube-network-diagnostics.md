@@ -138,7 +138,8 @@ result is claimed.
 ## Hosted review disposition
 
 The completed DeepSource run on commit 3723e32 reported 16 Minor findings: nine module
-function-declaration warnings, one discarded-promise warning and six complexity advisories.
+function-declaration warnings, one void-operator warning in the promise observer and six
+complexity advisories.
 The nine private helpers now use const arrow bindings, with their bodies verified unchanged.
 The settlement test observes and awaits its completion promise. All 1,163 package tests
 pass again with the same seven skips; both affected client files pass all 40 cases again
