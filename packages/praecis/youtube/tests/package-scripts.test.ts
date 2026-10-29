@@ -9,7 +9,7 @@ describe('package scripts', () => {
       scripts?: Record<string, string>;
     };
 
-    expect(packageJson.scripts?.['test:ci']).toBe('vitest run --silent --reporter=dot');
+    expect(packageJson.scripts?.['test:ci']).toBe('pnpm run build:test-runtime && vitest run --silent --reporter=dot');
   });
 
   it('keeps test:full as the exhaustive Vitest command', () => {
@@ -18,6 +18,6 @@ describe('package scripts', () => {
       scripts?: Record<string, string>;
     };
 
-    expect(packageJson.scripts?.['test:full']).toBe('vitest run');
+    expect(packageJson.scripts?.['test:full']).toBe('pnpm run build:test-runtime && vitest run');
   });
 });
