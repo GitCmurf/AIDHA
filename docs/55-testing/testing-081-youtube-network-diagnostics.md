@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-081
 owner: Engineering
 status: Draft
-version: '0.4'
+version: '0.5'
 last_updated: 2026-10-29
 title: YouTube Network Failure Diagnostics
 type: TESTING
@@ -13,7 +13,7 @@ area: INGEST
 > **Document ID:** AIDHA-TESTING-081
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.4
+> **Version:** 0.5
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -27,6 +27,7 @@ area: INGEST
 | 0.2 | 2026-10-29 | Codex | Integrate current acquisition and optional creator-note boundaries. | — | Draft | PR 51 |
 | 0.3 | 2026-10-29 | Codex | Pin complete current-base verification and reviewed test sources. | — | Draft | PR 51 |
 | 0.4 | 2026-10-29 | Codex | Verify explicit helper bindings and dispose hosted findings. | — | Draft | PR 51 |
+| 0.5 | 2026-10-29 | Codex | Reverify against the merged Vitest 4.1.11 baseline. | — | Draft | PR 51 |
 
 ## Problem and scope
 
@@ -156,3 +157,14 @@ Native Claude review of the follow-up found no blocker, and native CodeRabbit co
 the two-file correction with zero findings. The complete seven-file patch was reviewed
 separately by both tools. Independent specification and standards reviews also accepted
 the bounded correction and advisory disposition. No broader refactoring is included.
+
+## Merged runner baseline, 2026-10-29
+
+Integration with main e3ddf73 includes the qualified Vitest 4.1.11 update from PR 25.
+The three diagnostic production/test files are byte-identical to reviewed commit 12d092a;
+the feature still changes the same seven paths relative to this new baseline.
+The complete YouTube suite passes again: 1,163 tests, seven existing skips, 125 passing
+files and one skipped file. Strict changed-test TypeScript and package lint pass.
+All 40 focused diagnostic and creator-note client cases pass again on official
+Node 22.12.0 with its required SQLite flag. No test exclusion, timeout increase or
+assertion relaxation was introduced for this integration.
