@@ -275,6 +275,24 @@
     }
   },
   {
+    "path": "55-testing/testing-086-ytdlp-leading-hyphen-operands.md",
+    "title": "yt-dlp Leading-Hyphen Operands",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-086",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-28",
+      "title": "yt-dlp Leading-Hyphen Operands",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST",
+      "related_ids": [
+        "AIDHA-TESTING-001"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-006-viable-prototype-pilot-evidence-template.md",
     "title": "Testing: Viable Prototype Pilot Evidence Template",
     "front_matter": {
