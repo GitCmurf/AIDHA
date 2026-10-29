@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-081
 owner: Engineering
 status: Draft
-version: '0.1'
-last_updated: 2026-10-18
+version: '0.2'
+last_updated: 2026-10-29
 title: YouTube Network Failure Diagnostics
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ area: INGEST
 > **Document ID:** AIDHA-TESTING-081
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-10-18
+> **Version:** 0.2
+> **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
 # YouTube Network Failure Diagnostics
@@ -24,17 +24,17 @@ area: INGEST
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify bounded client failure context. | — | Draft | Original 2806fe4 |
+| 0.2 | 2026-10-29 | Codex | Integrate current acquisition and optional creator-note boundaries. | — | Draft | PR 51 |
 
 ## Problem and scope
 
 The public client can return an unlabelled fetch failure, while the final transcript error
 retains only the last fallback error. Preserve operation and video context, make immediate
 cause codes/messages readable through Error.message, and retain the original Error objects.
-This is an independent client-side extraction of original commit 2806fe4. PR 47 preserves
-client errors at the ingestion boundary; it is not a dependency of this diagnostic change.
-The existing metadata acquisition boundary already propagates failed metadata Results unchanged.
-Transcript diagnostics reaching the generic ingestion CLI still require PR 47 integration;
-this standalone slice does not claim that end-to-end transcript behavior.
+This is a client-side extraction of original commit 2806fe4, integrated with merged PR 47.
+The metadata acquisition boundary propagates failed metadata Results unchanged. PR 47
+protects the transcript acquisition boundary separately; its executable regression does not
+constitute a live network/provider verification of the combined diagnostic path.
 
 ## Contract
 
@@ -77,8 +77,8 @@ The dedicated public-client suite is
 - Duplicate coarse messages remain readable without losing their distinct original errors.
 
 All HTTP is mocked and the yt-dlp module is mocked in this file. Fictional IDs, credentials
-and captions are used. Existing real-client config-isolation tests on this base can launch a
-native fallback, so exclude that single unrelated file when running the broader offline suite.
+and captions are used. PR 47 isolates the existing config-isolation regression from native
+fallback, so the complete YouTube package suite can now run without excluding that file.
 
 ## Original contract disposition
 
@@ -96,5 +96,20 @@ production hunk from original 2806fe4 within this bounded diagnostic contract.
 
 Record actual metadata RED/GREEN, then independent grouped-context RED/GREEN before completing
 the slice. Run the dedicated public-client suite, affected package build/lint, strict changed-test
-TypeScript, scoped DocOps and `pnpm docs:build`. Run broader YouTube coverage offline with the
-single documented unsafe config-isolation file excluded. Obtain independent review before commit.
+TypeScript, scoped DocOps and `pnpm docs:build`. Run the complete YouTube package suite offline.
+Obtain independent review before commit.
+
+## Current-base integration verification
+
+Metadata acquisition now starts a separate creator-note watch request alongside oEmbed.
+The initial integration reproduced six failures from stale full-module mocks and request
+fixtures. The revised suite preserves the real error class, routes by URL and returns fresh
+responses. It also verifies cancellation settles the watch task before an oEmbed failure is
+returned, and that an optional creator-note failure does not turn successful metadata into
+a failure. No production cancellation, fallback or success policy is changed.
+
+The first full-suite run exposed three older creator-note assertions expecting the original
+oEmbed Error at the top level. They now require the exact operation/video diagnostic and
+the same original Error as its cause. Their cancellation, deadline, lock and timer assertions
+remain intact. Dedicated segment controls also require one caption request and no extra
+HTTP fallback, with fresh HTTP responses throughout their fixtures.

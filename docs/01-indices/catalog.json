@@ -20,8 +20,8 @@
       "document_id": "AIDHA-GUIDE-001",
       "owner": "Graph Backend Team",
       "status": "Draft",
-      "last_updated": "2025-12-27",
-      "version": "0.2",
+      "last_updated": "2026-10-18",
+      "version": "0.4",
       "title": "Graph Backend Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -62,8 +62,8 @@
       "document_id": "AIDHA-GUIDE-005",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "last_updated": "2026-10-16",
-      "version": "1.12",
+      "last_updated": "2026-10-18",
+      "version": "1.15",
       "title": "AIDHA Configuration Guide",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -76,8 +76,8 @@
       "document_id": "AIDHA-GUIDE-003",
       "owner": "Ingestion Team",
       "status": "Draft",
-      "last_updated": "2026-10-18",
-      "version": "0.35",
+      "last_updated": "2026-10-29",
+      "version": "0.39",
       "title": "Ingestion Quickstart",
       "type": "GUIDE",
       "docops_version": "2.0"
@@ -239,6 +239,24 @@
     }
   },
   {
+    "path": "55-testing/testing-068-js-yaml-dependencies.md",
+    "title": "Patched JS-YAML Dependency Paths",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-068",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.4",
+      "last_updated": "2026-10-28",
+      "title": "Patched JS-YAML Dependency Paths",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI",
+      "related_ids": [
+        "AIDHA-PLAN-015"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-065-link-check-diagnostics.md",
     "title": "Link Check Failure Diagnostics",
     "front_matter": {
@@ -253,6 +271,24 @@
       "area": "DOCS",
       "related_ids": [
         "AIDHA-TASK-001"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-086-ytdlp-leading-hyphen-operands.md",
+    "title": "yt-dlp Leading-Hyphen Operands",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-086",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-28",
+      "title": "yt-dlp Leading-Hyphen Operands",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST",
+      "related_ids": [
+        "AIDHA-TESTING-001"
       ]
     }
   },
@@ -315,15 +351,109 @@
     }
   },
   {
+    "path": "55-testing/testing-078-jsonld-graph-export.md",
+    "title": "Read-Only JSON-LD Graph Export",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-078",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-18",
+      "title": "Read-Only JSON-LD Graph Export",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI"
+    }
+  },
+  {
+    "path": "55-testing/testing-095-executable-test-builds.md",
+    "title": "Build Before Executable Tests",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-095",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-29",
+      "title": "Build Before Executable Tests",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI"
+    }
+  },
+  {
+    "path": "55-testing/testing-084-docs-theme-compatibility.md",
+    "title": "Documentation Theme Compatibility",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-084",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-28",
+      "title": "Documentation Theme Compatibility",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS",
+      "related_ids": []
+    }
+  },
+  {
+    "path": "55-testing/testing-083-transcript-prompt-fidelity.md",
+    "title": "Complete Transcript Data in Chunk Mining Prompts",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-083",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-18",
+      "title": "Complete Transcript Data in Chunk Mining Prompts",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-092-youtube-publication-dates.md",
+    "title": "Truthful YouTube Publication Dates",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-092",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "Truthful YouTube Publication Dates",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST"
+    }
+  },
+  {
     "path": "55-testing/testing-081-youtube-network-diagnostics.md",
     "title": "YouTube Network Failure Diagnostics",
     "front_matter": {
       "document_id": "AIDHA-TESTING-081",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.1",
-      "last_updated": "2026-10-18",
+      "version": "0.2",
+      "last_updated": "2026-10-29",
       "title": "YouTube Network Failure Diagnostics",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST"
+    }
+  },
+  {
+    "path": "55-testing/testing-093-youtube-creator-note-capture.md",
+    "title": "YouTube Creator Note Capture",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-093",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-19",
+      "title": "YouTube Creator Note Capture",
       "type": "TESTING",
       "docops_version": "2.0",
       "area": "INGEST"
@@ -349,6 +479,216 @@
     }
   },
   {
+    "path": "55-testing/testing-077-transcript-acquisition-errors.md",
+    "title": "YouTube Transcript Acquisition Errors",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-077",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-29",
+      "title": "YouTube Transcript Acquisition Errors",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST"
+    }
+  },
+  {
+    "path": "55-testing/testing-062-limitation-applicability.md",
+    "title": "Source-Backed Limitation Applicability",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-062",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.5",
+      "last_updated": "2026-10-19",
+      "title": "Source-Backed Limitation Applicability",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-058"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-080-node-runtime-floor.md",
+    "title": "Node Runtime Floor",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-080",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "Node Runtime Floor",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS"
+    }
+  },
+  {
+    "path": "55-testing/testing-064-fast-uri-security-maintenance.md",
+    "title": "Fast URI Security Maintenance",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-064",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-20",
+      "title": "Fast URI Security Maintenance",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-GOV-001"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-091-cli-startup-import-boundary.md",
+    "title": "CLI Startup Import Boundary",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-091",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "CLI Startup Import Boundary",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI",
+      "related_ids": [
+        "AIDHA-TESTING-078",
+        "AIDHA-TESTING-089"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-059-semantic-quality.md",
+    "title": "Source Distillation Semantic Quality Checkpoint",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-059",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-17",
+      "title": "Source Distillation Semantic Quality Checkpoint",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-057",
+        "AIDHA-TESTING-058"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-069-extraction-checkpoint.md",
+    "title": "Durable Source Extraction Checkpoint",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-069",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.6",
+      "last_updated": "2026-10-19",
+      "title": "Durable Source Extraction Checkpoint",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-015",
+        "AIDHA-TESTING-057"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-073-governed-context-refresh.md",
+    "title": "Explicit Agent Context Refresh",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-073",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-28",
+      "title": "Explicit Agent Context Refresh",
+      "type": "TESTING",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "55-testing/testing-067-segmented-evidence.md",
+    "title": "Complete Segmented Evidence Recovery",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-067",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.5",
+      "last_updated": "2026-10-20",
+      "title": "Complete Segmented Evidence Recovery",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE",
+      "related_ids": [
+        "AIDHA-PLAN-010",
+        "AIDHA-TESTING-059",
+        "AIDHA-TESTING-062",
+        "AIDHA-TESTING-069"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-089-explicit-config-selection.md",
+    "title": "Explicit Config Selection",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-089",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-10-18",
+      "title": "Explicit Config Selection",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CLI",
+      "related_ids": [
+        "AIDHA-GUIDE-005"
+      ]
+    }
+  },
+  {
+    "path": "55-testing/testing-079-config-filesystem-paths.md",
+    "title": "Configuration Filesystem Paths",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-079",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-18",
+      "title": "Configuration Filesystem Paths",
+      "type": "TESTING",
+      "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "55-testing/testing-087-meminit-lock-ignore.md",
+    "title": "Ignore Generated Meminit Lock Files",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-087",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-10-18",
+      "title": "Ignore Generated Meminit Lock Files",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "DOCS",
+      "related_ids": [
+        "AIDHA-GOV-001"
+      ]
+    }
+  },
+  {
     "path": "55-testing/testing-056-distillation-validation.md",
     "title": "Validation and Evidence Checks for Model-Generated Distillations",
     "front_matter": {
@@ -364,6 +704,21 @@
       "related_ids": [
         "AIDHA-PLAN-015"
       ]
+    }
+  },
+  {
+    "path": "55-testing/testing-094-source-owned-metadata-groups.md",
+    "title": "Source-Owned Resource Metadata Groups",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-094",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.3",
+      "last_updated": "2026-10-19",
+      "title": "Source-Owned Resource Metadata Groups",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE"
     }
   },
   {
@@ -513,8 +868,8 @@
       "document_id": "AIDHA-RUNBOOK-005",
       "owner": "Ingestion Oncall",
       "status": "Draft",
-      "last_updated": "2026-10-16",
-      "version": "0.2",
+      "last_updated": "2026-10-18",
+      "version": "0.3",
       "title": "Email Ingestion Operations",
       "type": "RUNBOOK",
       "docops_version": "2.0"
@@ -637,8 +992,8 @@
       "document_id": "AIDHA-PLAN-015",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.15",
-      "last_updated": "2026-10-17",
+      "version": "0.19",
+      "last_updated": "2026-10-18",
       "title": "Branch Landing and Next Sprints Workflow",
       "type": "PLAN",
       "docops_version": "2.0",
@@ -866,13 +1221,13 @@
   },
   {
     "path": "00-governance/gov-001-document-standards.md",
-    "title": "Repository Document Standards (v1.3)",
+    "title": "Repository Document Standards (v1.5)",
     "front_matter": {
       "document_id": "AIDHA-GOV-001",
       "owner": "Repo Maintainers",
       "status": "Draft",
-      "version": "1.3",
-      "last_updated": "2026-02-24",
+      "version": "1.5",
+      "last_updated": "2026-10-28",
       "title": "Repository Document Standards",
       "type": "GOV",
       "docops_version": "2.0"
@@ -915,8 +1270,8 @@
       "owner": "Security Team",
       "approvers": "GitCmurf",
       "status": "Draft",
-      "version": "0.3",
-      "last_updated": "2025-12-27",
+      "version": "0.4",
+      "last_updated": "2026-10-19",
       "title": "Public Repository Security Practices",
       "type": "GOV",
       "docops_version": "2.0"

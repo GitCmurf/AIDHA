@@ -14,8 +14,11 @@ import {
   parseTranscriptVtt,
   parseTranscriptXml,
 } from './transcript.js';
-import { fetchTranscriptWithYtDlp, fetchPlaylistWithYtDlp } from './yt-dlp.js';
-import type { YtDlpRuntimeConfig } from './yt-dlp.js';
+import {
+  fetchTranscriptWithYtDlp, fetchPlaylistWithYtDlp,
+  CreatorNoteAcquisitionError,
+} from './yt-dlp.js';
+import type { CreatorNotePayload, YtDlpRuntimeConfig } from './yt-dlp.js';
 import { consoleLogger, resolveLogger, type Logger } from '../utils/logger.js';
 
 // ── Runtime Config ───────────────────────────────────────────────────────────
@@ -542,14 +545,90 @@ async function fetchTranscriptSegments(
 }
 
 function extractPlayerResponse(html: string): Record<string, unknown> | null {
-  const markers = ['ytInitialPlayerResponse =', 'ytInitialPlayerResponse='];
-  const startIndex = findMarkerIndex(html, markers);
-  if (startIndex === -1) return null;
+  const assignment = /\bytInitialPlayerResponse\s*=\s*/u.exec(html);
+  if (!assignment) return null;
+  const start = assignment.index + assignment[0].length;
+  let parsed: unknown;
+  if (html[start] === '{') {
+    parsed = extractJsonObjectFromIndex(html, start);
+  } else {
+    // Dispatch only at the assignment RHS; never borrow a later JSON.parse or brace.
+    const call = /^JSON\.parse\(\s*/u.exec(html.slice(start));
+    if (!call) return null;
+    const quoted = readQuotedString(html, start + call[0].length);
+    if (!quoted || !/^\s*\)/u.test(html.slice(quoted.endIndex))) return null;
+    try { parsed = JSON.parse(quoted.value); } catch { return null; }
+  }
+  return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? parsed as Record<string, unknown> : null;
+}
 
-  const jsonParsed = extractJsonFromJsonParse(html, startIndex);
-  if (jsonParsed) return jsonParsed;
-
-  return extractJsonObjectFromIndex(html, startIndex);
+/** Optional anonymous description capture; the primary oEmbed request has its existing policy. */
+async function fetchCreatorNoteFromWatchPage(
+  videoId: string,
+  parentSignal: AbortSignal,
+): Promise<Result<CreatorNotePayload, CreatorNoteAcquisitionError>> {
+  const controller = new AbortController();
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let cancellation: Promise<void> | undefined;
+  let timedOut = false;
+  const cancel = () => {
+    controller.abort();
+    if (reader && !cancellation) cancellation = reader.cancel().catch(() => {});
+  };
+  parentSignal.addEventListener('abort', cancel, { once: true });
+  if (parentSignal.aborted) cancel();
+  const timer = setTimeout(() => { timedOut = true; cancel(); }, 15_000);
+  try {
+    const response = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`, {
+      method: 'GET', credentials: 'omit', redirect: 'manual',
+      headers: { ...DEFAULT_HEADERS, Accept: 'text/html' }, signal: controller.signal,
+    });
+    reader = response.body?.getReader();
+    if (controller.signal.aborted) throw new CreatorNoteAcquisitionError(timedOut ? 'timeout' : 'aborted');
+    if (!response.ok) throw new CreatorNoteAcquisitionError('execution');
+    if (!reader) throw new CreatorNoteAcquisitionError('invalid-data');
+    const limit = 2 * 1024 * 1024;
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (controller.signal.aborted) throw new CreatorNoteAcquisitionError(timedOut ? 'timeout' : 'aborted');
+      if (done) break;
+      // Fetch streams decoded response bytes. Count before retaining the next chunk.
+      if (value.byteLength > limit - size) throw new CreatorNoteAcquisitionError('output-limit');
+      chunks.push(value);
+      size += value.byteLength;
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    let player: Record<string, unknown> | null;
+    try { player = extractPlayerResponse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+    catch (cause) { throw new CreatorNoteAcquisitionError('invalid-data', cause); }
+    const details = player?.['videoDetails'];
+    if (!details || typeof details !== 'object' || Array.isArray(details)) {
+      throw new CreatorNoteAcquisitionError('invalid-data');
+    }
+    const fields = details as Record<string, unknown>;
+    if (fields['videoId'] !== videoId) throw new CreatorNoteAcquisitionError('identity-mismatch');
+    const description = fields['shortDescription'];
+    if (description === undefined || description === null) return { ok: true, value: { state: 'unavailable' } };
+    if (typeof description !== 'string') throw new CreatorNoteAcquisitionError('invalid-data');
+    return { ok: true, value: { state: description.length === 0 ? 'empty' : 'available', description } };
+  } catch (cause) {
+    const error = controller.signal.aborted
+      ? new CreatorNoteAcquisitionError(timedOut ? 'timeout' : 'aborted', cause)
+      : cause instanceof CreatorNoteAcquisitionError ? cause : new CreatorNoteAcquisitionError('execution', cause);
+    cancel();
+    return { ok: false, error };
+  } finally {
+    clearTimeout(timer);
+    parentSignal.removeEventListener('abort', cancel);
+    // cancel() already observes rejection. Its underlying hook can remain pending forever;
+    // request abort and lock release must not wait beyond our deadline or hide oEmbed errors.
+    reader?.releaseLock();
+  }
 }
 
 function extractInitialData(html: string): Record<string, unknown> | null {
@@ -973,16 +1052,24 @@ export class RealYouTubeClient implements YouTubeClient {
   }
 
   /**
-   * Fetch video metadata using oEmbed.
+   * Keep oEmbed basic fields authoritative; creator text is an optional bounded supplement.
    */
   async fetchVideo(videoIdOrUrl: string): Promise<Result<Video>> {
     const videoId = parseVideoId(videoIdOrUrl);
+    const creatorNoteController = new AbortController();
+    const creatorNotePromise = fetchCreatorNoteFromWatchPage(videoId, creatorNoteController.signal)
+      .catch(cause => ({
+        ok: false as const, error: new CreatorNoteAcquisitionError('execution', cause),
+      }));
 
     try {
       const oembedResult = await fetchOEmbed(videoId);
       if (!oembedResult.ok) {
+        creatorNoteController.abort();
+        await creatorNotePromise;
         return { ok: false, error: oembedResult.error };
       }
+      const creatorNote = await creatorNotePromise;
 
       const { title, author_name, author_url, thumbnail_url } = oembedResult.value;
       const channelId = parseChannelId(author_url) || author_name;
@@ -993,13 +1080,18 @@ export class RealYouTubeClient implements YouTubeClient {
         channelId,
         channelName: author_name,
         duration: 0,
-        publishedAt: new Date().toISOString(),
-        description: undefined,
+        ...(creatorNote.ok && creatorNote.value.state !== 'unavailable'
+          ? { description: creatorNote.value.description } : {}),
+        creatorNoteAcquisition: creatorNote.ok
+          ? { state: creatorNote.value.state, method: 'youtube-watch-page' }
+          : { state: 'failed', reason: creatorNote.error.reason, method: 'youtube-watch-page' },
         thumbnailUrl: thumbnail_url,
       };
 
       return { ok: true, value: video };
     } catch (error) {
+      creatorNoteController.abort();
+      await creatorNotePromise;
       return { ok: false, error: networkFailure(`youtube video metadata fetch failed for ${videoId}`, error) };
     }
   }

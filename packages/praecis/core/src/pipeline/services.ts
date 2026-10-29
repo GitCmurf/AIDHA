@@ -2,6 +2,7 @@
 // Copyright 2025-2026 Colin Farmer (GitCmurf)
 
 import { createHash } from 'node:crypto';
+import { TRANSCRIPT_EXCERPT_ENCODING_VERSION } from '../extract/prompt-safety.js';
 import { CURRENT_GRAPH_SCHEMA_VERSION, InMemoryStore, type GraphNode, type GraphStore } from '@aidha/graph-backend';
 import { InMemoryRegistry, type Result, type TaxonomyRegistry } from '@aidha/taxonomy';
 import {
@@ -19,6 +20,8 @@ import {
 } from '@aidha/taxonomy';
 import type { ResolvedConfig } from '@aidha/config';
 import { applyDedupResolution } from '../compose/dedup-link.js';
+import { parseExtractionSnapshot, parseSnapshotCandidate, snapshotMatchesInput, snapshotMatchesMiningResult,
+  type ExtractionSnapshotCandidate } from '../extract/distill/snapshot.js';
 import { readTaxonomyAssignmentsResult, withTaxonomyAssignment, withoutTaxonomyAssignment } from './taxonomy-metadata.js';
 import {
   createLlmClientFromConfig,
@@ -26,6 +29,7 @@ import {
   estimateCost,
   estimateTokens,
   LlmClaimExtractor,
+  ClaimRequestBudgetError,
 } from '../extract/index.js';
 import { ReferenceExtractionPipeline } from '../extract/references.js';
 import type {
@@ -61,6 +65,24 @@ const identityRecords = (value: unknown, fields: readonly string[]): readonly st
   return [...new Set(value.map(entry => JSON.stringify(identityFields(entry, fields))))].sort();
 };
 
+const limitationMeaning = (value: unknown): string => {
+  const limitation = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const applicability = limitation['applicability'];
+  const scope = applicability !== null && typeof applicability === 'object'
+    ? (applicability as Record<string, unknown>)['targetScope'] : undefined;
+  const relationEvidence = applicability !== null && typeof applicability === 'object'
+    ? (applicability as Record<string, unknown>)['relationEvidence'] : undefined;
+  return JSON.stringify({
+    text: limitation['text'] ?? null, stance: limitation['stance'] ?? null,
+    rationale: limitation['rationale'] ?? null,
+    conditions: identityRecords(limitation['conditions'], ['type', 'text']),
+    attribution: identityFields(limitation['attribution'], ['kind', 'name', 'role']),
+    evidence: identityRecords(limitation['evidence'], ['excerptId', 'quote']),
+    targetScope: identityFields(scope, ['kind', 'text']),
+    relationEvidence: identityFields(relationEvidence, ['excerptId', 'quote']),
+  });
+};
+
 /** Distinct source qualifications/evidence must not overwrite a same-worded draft. */
 const exportedClaimId = (resourceId: string, claim: DraftClaim): string => {
   if (claim.id) return claim.id;
@@ -74,6 +96,8 @@ const exportedClaimId = (resourceId: string, claim: DraftClaim): string => {
     conditions: identityRecords(metadata['conditions'], ['type', 'text']),
     attribution: identityFields(metadata['attribution'], ['kind', 'name', 'role']),
     evidence: identityRecords(metadata['evidence'], ['excerptId', 'quote']),
+    ...(Array.isArray(metadata['limitations']) && metadata['limitations'].length > 0
+      ? { limitations: [...new Set(metadata['limitations'].map(limitationMeaning))].sort() } : {}),
   };
   return `claim:${stableId(`${seed}:${JSON.stringify(meaning)}`)}`;
 };
@@ -229,7 +253,7 @@ export class MissingLlmClaimMiner implements ICandidateMiner {
 }
 
 export class CanonicalLlmClaimMiner implements ICandidateMiner {
-  readonly cacheIdentity = 'canonical-chunk-miner-v1';
+  readonly cacheIdentity = `canonical-chunk-miner-v1:${TRANSCRIPT_EXCERPT_ENCODING_VERSION}`;
   estimate(request: MiningRequest): Result<{ readonly tokenUsage: number; readonly spendUsd: number }> {
     return { ok: true, value: estimateChunkBudget(request.chunks) };
   }
@@ -260,11 +284,17 @@ export class CanonicalLlmClaimMiner implements ICandidateMiner {
       reasoningEffort: request.config.llm.reasoningEffort,
       verbosity: request.config.llm.verbosity,
     });
-    const claims = await extractor.extractClaims({
-      resource: resourceFromRequest(request),
-      excerpts: excerptsFromRequest(request),
-      maxClaims: request.config.extraction.maxClaims > 0 ? request.config.extraction.maxClaims : undefined,
-    });
+    let claims: import('../extract/index.js').ClaimCandidate[];
+    try {
+      claims = await extractor.extractClaims({
+        resource: resourceFromRequest(request),
+        excerpts: excerptsFromRequest(request),
+        maxClaims: request.config.extraction.maxClaims > 0 ? request.config.extraction.maxClaims : undefined,
+      });
+    } catch (error) {
+      if (error instanceof ClaimRequestBudgetError) return { ok: false, error };
+      throw error;
+    }
     const usage = extractor.getLastRunStats().actualTokenUsage;
     const spendUsd = extractor.getLastRunStats().actualSpendUsd;
     return {
@@ -310,6 +340,29 @@ export class GraphPipelineExporter implements IExporter {
   constructor(private readonly store: GraphStore) {}
 
   async export(miningResult: MiningResult, raw: RawSource, chunks: readonly Chunk[]): Promise<Result<ExportResult>> {
+    if (miningResult.distillation?.failedClosed) {
+      return { ok: false, error: new Error('Failed-closed distillation cannot be exported') };
+    }
+    const candidate = miningResult.extractionSnapshotCandidate === undefined
+      ? null : parseSnapshotCandidate(miningResult.extractionSnapshotCandidate);
+    if ((miningResult.extractionSnapshotCandidate !== undefined && !candidate) ||
+      (miningResult.extractionSnapshotCandidateHash !== undefined && !candidate) ||
+      (candidate && (!snapshotMatchesInput(candidate,
+      raw.canonicalId, candidate.minerIdentity, new Map(chunks.map(chunk => [chunk.id, chunk.text]))) ||
+      !snapshotMatchesMiningResult(candidate, miningResult)))) {
+      return { ok: false, error: new Error('A complete matching extraction snapshot is required for distillation export') };
+    }
+    if (candidate) {
+      if (!this.store.runInTransaction) {
+        return { ok: false, error: new Error('Distillation export requires a transactional graph store') };
+      }
+      return this.store.runInTransaction(() => this.exportWrites(miningResult, raw, chunks, candidate));
+    }
+    return this.exportWrites(miningResult, raw, chunks);
+  }
+
+  private async exportWrites(miningResult: MiningResult, raw: RawSource, chunks: readonly Chunk[],
+    candidate?: ExtractionSnapshotCandidate): Promise<Result<ExportResult>> {
     const dedup = await applyDedupResolution(this.store, raw);
     if (!dedup.ok) return dedup;
 
@@ -385,6 +438,24 @@ export class GraphPipelineExporter implements IExporter {
       }
     }
 
+    let extractionSnapshot: ExportResult['extractionSnapshot'];
+    if (candidate) {
+      const resource = await this.store.getNode(dedup.value.resourceId);
+      if (!resource.ok) return resource;
+      if (!resource.value || resource.value.type !== 'Resource') {
+        return { ok: false, error: new Error('Distillation Resource disappeared during export') };
+      }
+      const snapshot = parseExtractionSnapshot({ ...candidate, resourceId: dedup.value.resourceId, claimIds, excerptIds,
+        candidateHash: miningResult.extractionSnapshotCandidateHash });
+      if (!snapshot) return { ok: false, error: new Error('Could not validate the stored extraction snapshot') };
+      const written = await this.store.upsertNode('Resource', dedup.value.resourceId, {
+        label: resource.value.label, content: resource.value.content,
+        metadata: { ...resource.value.metadata, extractionSnapshot: snapshot },
+      }, { detectNoop: true });
+      if (!written.ok) return written;
+      extractionSnapshot = snapshot;
+    }
+
     return {
       ok: true,
       value: {
@@ -396,6 +467,7 @@ export class GraphPipelineExporter implements IExporter {
         created,
         updated,
         noop,
+        ...(extractionSnapshot ? { extractionSnapshot } : {}),
       },
     };
   }
