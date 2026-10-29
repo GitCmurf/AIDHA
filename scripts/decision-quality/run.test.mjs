@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import { collectKeywordBaseline, loadCorpora, prepareRequests, runCli } from './run.mjs';
 import { stampReceipt } from './quality.mjs';
 import { scoreDecisions } from './quality.mjs';
 import { buildCategoryRequest } from './category.mjs';
 import { buildGroundingRequest } from './grounding.mjs';
+
+const originalFetch = globalThis.fetch;
+before(() => { globalThis.fetch = async () => { throw new Error('Offline receipt collection network call'); }; });
+after(() => { globalThis.fetch = originalFetch; });
 
 test('collects actual persisted keyword decisions and computes a truthful source-only baseline', async () => {
   const corpus = (await loadCorpora()).categorization;
@@ -17,7 +21,10 @@ test('collects actual persisted keyword decisions and computes a truthful source
   assert.equal(report.modelQualityMeasured, false);
   assert.match(report.resolvedModel, /^praecis-keyword-classifier@sha256:[a-f0-9]{64}$/);
   for (const record of report.receipts) {
-    const stored = record.rawReply.resource.metadata.taxonomyAssignments ?? [];
+    const stored = record.rawReply.resource.metadata.taxonomyAssignments;
+    assert.ok(Array.isArray(stored));
+    assert.equal(record.rawReply.classification.status, 'completed');
+    assert.equal(record.rawReply.taxonomyVersionVerified, true);
     assert.deepEqual(record.answers.filter(a => a.choice === 'applies').map(a => a.questionId).sort(), stored.map(a => a.tagId).sort());
     assert.equal(record.costUsd, null);
   }
@@ -36,6 +43,7 @@ test('published baseline receipts still bind to the current frozen corpus and re
   const fresh = await collectKeywordBaseline(corpus);
   // Historical evidence may remain when the classifier changes; do not pin known bad behavior.
   if (fresh.resolvedModel === saved.resolvedModel) assert.deepEqual(fresh, saved);
+  else console.log('Published keyword baseline is historical: compiled classifier identity differs.');
 });
 
 test('exports both task packets without sending expected answers or split metadata', async () => {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export const OPENAI_ENDPOINT = 'https://api.openai.com/v1/decisions';
 
 const CATEGORY_CHOICE_DESCRIPTIONS = {

@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-061
 owner: Engineering
 status: Draft
-version: '0.1'
-last_updated: 2026-10-17
+version: '0.2'
+last_updated: 2026-10-29
 title: Offline Decision Provider Adapters and Comparison Proposal
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-059, AIDHA-TESTING-060]
 > **Document ID:** AIDHA-TESTING-061
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-10-17
+> **Version:** 0.2
+> **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
 # Offline Decision Provider Adapters and Comparison Proposal
@@ -24,11 +24,12 @@ related_ids: [AIDHA-PLAN-015, AIDHA-TESTING-059, AIDHA-TESTING-060]
 
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0.1 | 2026-10-17 | Codex | Translate frozen decision tasks, replay native replies offline and prepare a bounded live comparison proposal. | — | Draft | TESTING-060; owner autonomous preparation |
+| 0.1 | 2026-10-17 | Codex | Translate frozen decision tasks, replay native replies offline and prepare a bounded live comparison proposal. | — | Draft | AIDHA-TESTING-060; owner autonomous preparation |
+| 0.2 | 2026-10-29 | Codex | Integrate the strengthened checkpoint and qualify the bounded offline provider contracts. | — | Draft | PR 39 |
 
 ## Purpose and acceptance
 
-Prepare the comparison in TESTING-060 without activating an account, reading credentials,
+Prepare the comparison in AIDHA-TESTING-060 without activating an account, reading credentials,
 sending requests or changing production defaults. The tools have no HTTP transport or live
 switch. Their inputs are the frozen public fictional corpora. Synthetic reply tests prove
 adapter and scoring behavior; they supply no model-quality, price or latency measurement.
@@ -45,10 +46,17 @@ adapter and scoring behavior; they supply no model-quality, price or latency mea
 - Prepare an inspectable request plan with separate HTTP-call and question counts, dated rates
   and explicit approval requirements. A generated plan confers no execution authority.
 
-The direct offline tests are `openai.test.mjs`, `openrouter.test.mjs`, `capture.test.mjs`,
-`plan.test.mjs` and `adapters.test.mjs` under `scripts/decision-quality/`. Existing corpus and
-scorer tests remain in the same root test command. This slice depends on TESTING-060 and is
-stacked on its branch until that PR is approved and merged.
+The direct offline acceptance tests are:
+
+- [openai.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/openai.test.mjs)
+- [openrouter.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/openrouter.test.mjs)
+- [capture.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/capture.test.mjs)
+- [plan.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/plan.test.mjs)
+- [adapters.test.mjs](https://github.com/GitCmurf/AIDHA/blob/9a30e410e61d402439a08e70231d7adeb2381146/scripts/decision-quality/adapters.test.mjs)
+
+ Existing corpus and
+scorer tests remain in the same root test command. This slice depends on AIDHA-TESTING-060 and is
+stacked on its branch until its separate verification and technical merge gate completes.
 
 ## Native API contracts
 
@@ -58,6 +66,12 @@ specify shared `input` plus a named question array. The adapter JSON-serializes 
 text and converts options to `{value, description}` entries. Replies contain named choice or
 refusal answers; choice probability entries use value/probability pairs. OpenAI usage is retained
 but cost stays unknown because this adapter does not calculate an invoice from token counts.
+
+The official create reference checked on 29 October now permits 400 questions and additional
+typed inputs. This offline adapter deliberately retains its tested 200-question/string-choice
+subset for the frozen one-question and five-question tasks. It does not claim complete coverage
+of every current API input type or capacity limit. No live provider acceptance is established
+by the synthetic fixtures.
 
 The [OpenRouter Decisions reference](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request)
 and [Jev examples](https://openrouter.ai/blog/insights/what-is-jev/) specify `state` and keyed
@@ -107,6 +121,8 @@ HTTP calls containing eighteen questions. If the smoke is valid, run both sixtee
 three times per model: 288 further calls containing 864 questions. Total maximum: 294 calls and
 882 questions, with one attempt per planned call, no automatic retries and a proposed thirty
 second timeout. The generated plan includes exact native payloads, byte counts and hashes.
+Repeating a stopped batch falls outside this one-attempt proposal and requires a new
+bounded approval.
 Each payload must be at most 64 KiB. Bytes are not a token estimate or a billing limit.
 
 Recommend a USD 1 review budget for this deliberately small experiment, subject to account and
@@ -117,7 +133,7 @@ been activated. Do not infer a free account from zero output-token pricing. Keep
 and held-out results separate, retain failures, and compare critical false acceptance before
 choosing any deployment candidate. The labels are provisional assistant judgments, not human gold.
 
-## Separate writer-model preparation
+## Historical writer-model preparation, 17 October 2026
 
 The owner identified Gemini 3.8 Flash as an extraction and summary candidate. It is a general
 generative model. Its [official model documentation](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
@@ -131,10 +147,39 @@ steps. The initial attempt failed during CLI argument parsing, before inference;
 are retained privately. The successful run reports 12,647 input and 31 output tokens for a tiny
 fictional prompt, and no cost field. This indicates substantial native-agent context overhead; it
 cannot substantiate direct API costs, a native one-million-token limit or extraction quality.
-The next writer comparison should reuse the frozen source-only cases from TESTING-059, record
+The next writer comparison should reuse the frozen source-only cases from AIDHA-TESTING-059, record
 native overhead and actual model metadata, and retain schema/grounding failures. No source
 extraction run or change to production model selection is included here.
 
-Nonempty Gemini key bindings were found in nearby local projects without printing or copying
-values. Key validity, account tier and paid entitlement remain unverified. Native AGY access
-means that direct API activation is unnecessary for preparing the writer comparison.
+Any writer collection remains a separate reviewed task. This offline adapter qualification
+uses no credentials and does not establish account access, entitlement or a production model choice.
+
+## Current checkpoint integration
+
+The adapter slice integrates the reviewed parent checkpoint at efaf65f0. All eleven inherited
+checkpoint, scorer and data files are byte-identical to that parent. The expanded root offline
+command retains every earlier decision test and the complete public-safety, semantic-quality and
+serial workspace test chain. No production source or dependency resolution is changed here.
+
+Current API documentation confirms the named-array OpenAI and keyed-question OpenRouter shapes
+used by this bounded choice-only contract. Candidate rates remain the dated proposal above;
+they have not been promoted to current price quotes, measured quality or approved expenditure.
+Frozen installation, offline tests on supported runtimes, strict docs, scoped DocOps and final
+peer/hosted checks remain qualification gates.
+
+## Completed offline qualification
+
+The checkpoint and adapter command passes 58 tests on Node 22.21.1 and official Node 22.12.0.
+Five-question category batches exercise both routes through capture normalisation and scoring:
+one OpenAI refusal or malformed OpenRouter answer denies the complete case empty-set credit,
+while the original reply remains intact. The inherited root-script contract also passes all
+four cases without dropping a prior stage or serial package dispatch.
+
+A mixed synthetic/recorded-provider batch is rejected by the parent's complete identity tuple,
+which includes evidenceKind. A synthetic fixture explicitly exercises the recorded-provider
+metadata path as well: the quality flag remains a collector assertion against provisional labels,
+not proof that a real provider was called. These fixtures make no live quality measurement.
+
+The configured route and reported model are retained separately. A consistent reported identity
+does not prove the requested model or approved immutable weights ran; a future collector must
+stop and investigate route/model drift under its separate authority.

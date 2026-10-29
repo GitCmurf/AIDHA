@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { KEYWORD_BASELINE_TIME, keywordAssignments } from './quality.mjs';
 import { InMemoryStore } from '../../packages/reconditum/dist/index.js';
 import { composeVector, createConfiguredPipelineServices, createDefaultPipelineServices,
   createIngestionRuntimeFromServices } from '../../packages/praecis/core/dist/index.js';
 
-const fixedClock = { now: () => new Date('2026-10-17T00:00:00.000Z') };
+const fixedClock = { now: () => new Date(KEYWORD_BASELINE_TIME) };
 
 /** A model-visible category question; labels and reviewer notes stay in the corpus. */
 export function buildCategoryRequest(testCase, taxonomy) {
@@ -23,7 +26,8 @@ export function buildCategoryRequest(testCase, taxonomy) {
 }
 
 /** Reuse the configured taxonomy classifier and shared ingestion runtime, reading durable graph state. */
-export async function runKeywordBaseline(corpus) {
+export async function runKeywordBaseline(corpus,
+  { configureServices = createConfiguredPipelineServices } = {}) {
   const results = [];
   for (const testCase of corpus.cases) {
     const store = new InMemoryStore();
@@ -32,10 +36,21 @@ export async function runKeywordBaseline(corpus) {
       const base = createDefaultPipelineServices({ store });
       const config = { ...base.config, extensions: { global: { taxonomy: corpus.taxonomy } } };
       const miner = { async mine() { return { ok: true, value: { claims: [], rejectedClaims: [], tokenUsage: 0 } }; } };
-      const configured = await createConfiguredPipelineServices({ store, config, clock: fixedClock, miner });
+      const configured = await configureServices({ store, config, clock: fixedClock, miner });
       if (!configured.ok) throw configured.error;
       registry = configured.value.taxonomyRegistry;
       if (!configured.value.classifier || !registry) throw new Error('Configured keyword classifier is missing');
+      const matchingVocabulary = tags => tags.map(tag => ({
+        id: tag.id, name: tag.name, aliases: [...(tag.aliases ?? [])].sort(),
+      })).sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+      const configuredTags = await registry.listTags();
+      if (!configuredTags.ok) throw configuredTags.error;
+      const vocabulary = matchingVocabulary(configuredTags.value);
+      assert.deepEqual(vocabulary, matchingVocabulary(corpus.taxonomy.tags),
+        'Configured keyword taxonomy differs from the supplied vocabulary');
+      // Mirror KeywordTaxonomyClassifier.classify in core pipeline/services.ts; drift fails closed.
+      const taxonomyVersion = createHash('sha256').update(JSON.stringify(vocabulary)).digest('hex').slice(0, 16);
+      const tagIds = new Set(corpus.taxonomy.tags.map(tag => tag.id));
       const { source } = testCase;
       const segment = { id: 'source-body', text: source.body,
         locator: { kind: 'text', charStart: 0, charEnd: source.body.length } };
@@ -56,12 +71,16 @@ export async function runKeywordBaseline(corpus) {
       if (!persisted.ok) throw persisted.error;
       if (!persisted.value) throw new Error(`Missing persisted Resource for ${testCase.id}`);
       const resource = { id: persisted.value.id, metadata: persisted.value.metadata };
-      const assignments = resource.metadata?.taxonomyAssignments ?? [];
+      const classification = structuredClone(report.value.classification);
+      const assignments = keywordAssignments(resource, classification, tagIds,
+        { allowAbsentForCompletedZero: true });
+      for (const assignment of assignments) assert.equal(assignment.taxonomyVersion, taxonomyVersion,
+        'Stored assignment taxonomy fingerprint differs from the configured vocabulary');
       results.push({ caseId: testCase.id, assignedTags: assignments.map(value => value.tagId).sort(),
-        resource, request: buildCategoryRequest(testCase, corpus.taxonomy) });
+        resource, assignments, classification, taxonomyVersionVerified: true,
+        request: buildCategoryRequest(testCase, corpus.taxonomy) });
     } finally {
-      await registry?.close();
-      await store.close();
+      try { await registry?.close(); } finally { await store.close(); }
     }
   }
   return results;

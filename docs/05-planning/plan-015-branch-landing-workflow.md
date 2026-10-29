@@ -3,7 +3,7 @@ document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
 version: '0.21'
-last_updated: 2026-10-17
+last_updated: 2026-10-29
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
 docops_version: '2.0'
@@ -15,7 +15,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Owner:** Engineering
 > **Status:** Draft
 > **Version:** 0.21
-> **Last Updated:** 2026-10-17
+> **Last Updated:** 2026-10-29
 > **Type:** PLAN
 
 # Branch Landing and Next Sprints Workflow
@@ -41,10 +41,10 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.15 | 2026-10-17 | Codex | Record PR 35 approval, merge-gate sequencing error, corrective slice and semantic-quality priority. | CMF | Draft | PR 35 |
 | 0.16 | 2026-10-17 | Codex | Record the reviewed context correction, semantic checkpoint and explicit hold on unstable experiments. | — | Draft | AIDHA-TESTING-059 |
 | 0.17 | 2026-10-17 | Codex | Refresh the decision-model shortlist and task-specific evaluation plan; preserve failed native replies after a genuine bot finding. | — | Draft | PR 37; owner model refresh |
-| 0.18 | 2026-10-17 | Codex | Record ready PRs 36 and 37, remaining branch separation, verified final checks and the concrete owner merge gate. | — | Draft | PRs 36–37 |
-| 0.19 | 2026-10-17 | Codex | Record PR 36 approval and verified merge, preserve PR 37 for owner review, and prepare an independent decision-quality baseline. | CMF | Draft | PR 36; TESTING-060 |
-| 0.20 | 2026-10-17 | Codex | Record final PR 38 checks and actual review assessment, retained baseline limits and the deferred owner review queue. | — | Draft | PRs 37–38 |
-| 0.21 | 2026-10-17 | Codex | Prepare offline native decision adapters and a bounded comparison proposal; verify AGY access for a separate Gemini writer evaluation. | — | Draft | TESTING-061; owner autonomous progress |
+| 0.18 | 2026-10-18 | Codex | Record the standing technical merge authority, PR 37 and PR 56 landings, and retain the separate product and private-data gates. | — | Draft | Owner instruction; PRs 37 and 56 |
+| 0.19 | 2026-10-18 | Codex | Clarify that older batch approval gates are dated history and align the active checklist with the standing technical authority. | — | Draft | PR 57 Greptile finding |
+| 0.20 | 2026-10-29 | Codex | Integrate the separate offline decision checkpoint while retaining current authority. | — | Draft | PR 38; AIDHA-TESTING-060 |
+| 0.21 | 2026-10-29 | Codex | Integrate offline provider adapters while preserving separate collection authority. | — | Draft | PR 39; AIDHA-TESTING-061 |
 
 ## Purpose and authority
 
@@ -55,8 +55,23 @@ authority. Check items only when evidence exists. Keep unfinished work and limit
 
 The owner authorises local preparation, fixes, delegation, code review, pushing relevant branches
 and opening PRs. Existing CodeRabbit permission applies to this repository. Exclude credentials
-and private runtime material from external review and publication. Do not merge without explicit
-owner approval. Additional spending and new private-source destinations require specific authority.
+and private runtime material from external review and publication.
+
+The owner has granted standing authority to merge reviewed, noncontroversial, pure technical PRs
+after PR 37 without requesting a separate approval for each eligible PR. This authority covers
+implementation and maintenance changes whose behaviour remains within an already authorised
+technical scope, after the latest head passes required checks and actual reporting-bot findings
+are assessed. Skipped bots supply no coverage. It does not approve new product behaviour or defaults,
+model selection or new model-call scopes, additional spend or services, private-source processing
+or disclosure, or new account, credential or access scopes. This standing rule does not extend
+existing authority for those decisions; existing named or task-specific authorisations remain
+valid, and only decisions beyond those scopes require specific owner authority.
+
+PR 37, the reviewed synthetic semantic-quality checkpoint, merged as `27ee9fa`; its expectations
+remain assistant-authored provisional examples, not human gold and not evidence of semantic
+improvement. PR 56, the explicit-config fail-closed correction, later merged as `29424fc` on top
+of PR 37. These records establish the technical merge sequence; they do not extend authority to
+the excluded product, model, spend or private-data decisions.
 
 The owner clarified that some repository review bots use older free-tier configurations and
 now skip under changed eligibility criteria. Ignore skipped reviews (including CodeRabbit and
@@ -65,6 +80,10 @@ or reactivate subscriptions. **Consider bots that actually produce reports or fi
 those reports and resolve confirmed issues before merging. Actual build/test/docs/secret-scan CI
 and completed local, peer or explicitly requested CLI reviews remain separate evidence. A completed
 CodeRabbit CLI review is distinct from a skipped CodeRabbit GitHub bot review.
+
+The batch summaries and dated work notes below preserve decisions and status as recorded at the
+time. Current and future work follows the authority above and the owner decision/merge checklist
+below; later entries supersede earlier status snapshots.
 
 ## Owner merge brief for the first batch
 
@@ -90,7 +109,9 @@ the red JavaScript status must remain disclosed unless its reporting service is 
 ## Second batch approval and landing
 
 The owner explicitly approved PRs 32 and 31 on 2026-10-16: “both approved”. This covers
-those two named PRs and routine base synchronization. Future PRs need separate merge approval.
+those two named PRs and routine base synchronization. At that time, future PRs needed separate
+merge approval. The standing authority recorded in v0.18 now applies to later eligible technical
+PRs; reserved decisions retain their specific owner gates.
 Both PRs are merged. No further owner action is needed for this batch. The full source branch
 remains open.
 
@@ -99,8 +120,9 @@ remains open.
 | [PR 32: private-artifact guard](https://github.com/GitCmurf/AIDHA/pull/32) | Real pilot records stay outside public Git. Synthetic examples remain permitted. The guard checks path patterns; content still needs review | Merged as `01ec0ed` after exact-head required CI and actual reporting-bot findings were assessed. Final isolation fix has peer review and regression coverage; extra CLI attempt had no coverage because of quota |
 | [PR 31: taxonomy provenance](https://github.com/GitCmurf/AIDHA/pull/31) | Stored automatic assignments identify their matching vocabulary; the fingerprint does not certify classification quality or version the full algorithm | Merged as `33f40cd` from synchronized head `4ad7e88` after fresh required CI and actual reports passed. Its stable patch and all eleven non-generated blobs match approved `4021473` |
 
-Engineering will merge only the approved PRs after their latest required checks pass. No force
-push, admin override, paid-review activation or repository-settings change is authorized here.
+Engineering merged these two approved PRs after their synchronized heads passed required checks.
+No force push, admin override, paid-review activation or repository-settings change was used for
+this batch.
 
 ## PR 33 approved and merged
 
@@ -117,8 +139,10 @@ The refreshed GitHub inventory has 22 open alerts (15 high, seven medium); none 
 updated email parser chain. The thirteen previously open email-chain alerts are no longer open.
 This is a dated dependency snapshot, not proof that every remaining alert is reachable.
 Configuration/build-tool and documentation-tool maintenance remain separate slices. No owner
-product, spending or account decision blocks the next synthetic engineering slice. Future PRs
-still need their own merge approval.
+product, spending or account decision blocks the next synthetic engineering slice. At the time of
+this 2026-10-17 status note, future PRs still had individual merge gates. The standing authority
+recorded in v0.18 supersedes that rule for eligible pure technical PRs; reserved decisions retain
+their specific owner gates.
 
 ## PR 34 approved and merged
 
@@ -179,7 +203,7 @@ findings inaccessible with HTTP 403 remain the review limits recorded on PR 35.
 - [x] Verify exact integrated-tree equality.
 - [x] Reproduce the late shared-excerpt finding and prepare a separate correction.
 - [x] Complete correction checks/reviews and publish PR 36.
-- [x] Obtain separate approval and merge PR 36 after a fresh review gate.
+- [x] Obtain separate owner approval and merge PR 36 as `be9876c` after its fresh review gate.
 - [x] Verify all four PR 35 post-merge main CI workflows pass.
 - [x] Attempt the context helper; missing `specs/024-grounding-context/plan.md` prevents it
   before edits. The governed workflow and testing specs remain the restart record.
@@ -202,61 +226,8 @@ public synthetic text only, tools disabled, and no new API credentials or servic
 Record the actual resolved model and usage; native CLI results do not establish API-provider
 parity or default-pipeline quality. Source-report persistence follows when needed for the real
 reader trial; it is not a substitute for measuring semantic usefulness. No owner input blocks
-this preparation. Future PRs retain their own merge gate.
-
-## Current branch separation and owner merge brief
-
-Ten focused PRs, 27 through 36, have landed. The current candidates are narrow and reviewed,
-but the original `fix/youtube-llm-remediation` checkout at `39bea2d` remains a preserved source
-of mixed work. Its 69 pre-existing edited/untracked paths remain unchanged. It is not a finished
-semantic-quality PR and should not be merged wholesale. Separate PRs are the delivery path;
-retain the source until every authored change has a verified disposition.
-
-| Candidate | What the owner would approve | Verified evidence and limits |
-| --- | --- | --- |
-| [PR 36](https://github.com/GitCmurf/AIDHA/pull/36), merged `be9876c` | Owner approved 36 only; reviewed `f994fa0` has landed unchanged | Six files, 276 core tests, complete CLI/independent review and required CI pass; exact integrated tree matches; all four main workflows pass |
-| [PR 37](https://github.com/GitCmurf/AIDHA/pull/37), synchronized `a50dd5d` | Land the stable public semantic checkpoint, truthful failed comparisons and model refresh plan | Thirteen files, six offline tests, strict docs, 77 URLs, hooks, final build/verify/gitleaks and four analyzers pass; actual failed-reply bot finding fixed and resolved |
-| [PR 38](https://github.com/GitCmurf/AIDHA/pull/38), `b987ec1` | Review the independent offline category/evidence task sets and actual persisted keyword baseline when convenient | Sixteen files, 23 offline tests, strict docs, 80 URLs, hooks, required CI, CodeQL and four analyzers pass; no new model call or semantic improvement claim |
-
-**Current owner gate:** PR 36 is approved and merged. PR 37 remains open and needs its own
-approval; the owner intends to review it after an absence of roughly five hours. Do not treat
-that absence or approval of 36 as permission to merge 37. Recommendation remains to review and
-land the stable checkpoint when convenient; holding it for rubric review is also sensible.
-Neither choice approves the held 026 experiment. No response is needed during the owner's absence.
-
-PR 37 now targets main at `be9876c`. Ordinary synchronization produced `a50dd5d`; its complete
-file tree is identical to reviewed `693d09d`, and fresh required CI and analyzers pass. Squashed
-ancestry caused documentation/navigation conflicts; retaining the reviewed files produced exact
-whole-tree equality. No force push, new production behavior or default change was introduced.
-
-PR 38 is also ready as an independent checkpoint. Prioritize the promised review of 37;
-38 can wait for a separate later review. Neither has merge approval, and approval of either
-must not be inferred from the owner's absence or from PR 36. No response is needed while away.
-
-The merge blocker for 37 is the workflow's explicit per-PR owner approval. Synthetic benchmark,
-fixture and implementation preparation can continue independently. A later charged/private
-model endpoint remains a separate concrete gate; none is requested by the offline work below.
-
-### Further separation and semantic destination
-
-- [x] Land independent graph, captions, configuration, taxonomy, dependency and contract slices.
-- [x] Prepare the context correction and stable checkpoint as separate PRs with actual reviews.
-- [x] Obtain approval and land 36, verifying the integrated tree and post-merge CI.
-- [x] Synchronize 37 with main without changing its reviewed tree; refresh CI and actual reports.
-- [ ] Obtain separate approval and land 37 after another current-head gate.
-- [ ] Start the next semantic-quality slice from current main, using the refreshed model
-  comparison below and source-backed limitation applicability rather than copying the old branch.
-- [ ] Demonstrate repeatable semantic improvement on repeated and held-out sources. Controlled
-  scores of six, seven and six out of nine provisional criteria do not establish that improvement.
-- [ ] Separate qualified-evidence persistence/retrieval from reader UI expansion, proving exact
-  limitation targets, attribution and propagated review dependencies after SQLite close/reopen.
-- [ ] Keep activation/task ownership, continuity/briefing, reader features and remaining build/
-  configuration/docs dependency maintenance in their own reviewed slices.
-- [ ] Reconcile every remaining source change as landed, superseded with evidence or explicitly
-  held before retiring the accumulated branch. Its preservation is not a claim of clean scope.
-
-The semantic destination is still open. Do not describe the checkpoint or deterministic guards
-as a completed quality improvement, and do not promote the unproven 026 prompt/kind/link changes.
+this preparation. Eligible pure technical PRs use the standing authority above after fresh checks
+and report review; reserved decisions retain their specific owner gates.
 
 ## Model refresh before further semantic tuning
 
@@ -364,8 +335,9 @@ that dependency. No activation, new model calls or model-default changes are par
 - [ ] Fix confirmed findings from actual bot reports and local/peer/CLI reviews; document rejected
   findings, rerun affected checks and push fixes. Do not activate paid reviews or subscriptions.
 - [ ] Verify actual CI and completed review coverage of the latest head; record limits explicitly.
-- [ ] Present a concise merge brief to the owner; obtain explicit approval before merging.
-- [ ] After an approved merge, refresh dependent bases, revalidate and update the ledger.
+- [ ] Confirm whether the change fits the standing pure-technical authority above; obtain specific
+  owner authority when it crosses any reserved product, model, spend, account or private-data gate.
+- [ ] After a merge, refresh dependent bases, revalidate and update the ledger.
 
 The repeated checklist is a template. Each slice needs its own stage/evidence entry in the ledger;
 checking the template once does not establish completion for every PR. Prefer independent PRs
@@ -379,7 +351,7 @@ branch to make an extraction appear complete.
   evidence, or retained with an explicit reason and next action.
 - [ ] No private runtime evidence has entered published paths or PRs.
 - [x] Approved first-batch merges are complete and integrated main passes required checks;
-  later slices still require separate approval.
+  later slices follow the current merge authority above.
 - [ ] Deferred product requirements remain in the subsequent sprint checklist.
 
 ## Slice ledger
@@ -395,9 +367,9 @@ Do not introduce links to pages absent from a PR base.
 | Email parser dependency maintenance | Verified `main` at `33f40cd`; independent | `021-email-parser-dependencies` / [PR 33](https://github.com/GitCmurf/AIDHA/pull/33) | Merged as `580b94c` from approved `a5d9651`; required CI passes; actual reports assessed | Synthetic malformed-address/mailto tests and ordinary MIME control; no real email |
 | Distillation validation and evidence checks | Verified `main` at `580b94c`; independent of model/pipeline wiring | `022-distillation-validation` / [PR 34](https://github.com/GitCmurf/AIDHA/pull/34) | Merged as `1c83ecb` from approved `dd55b43`; exact integrated tree matches; required CI passes | AIDHA-TESTING-056; mechanical acceptance explicitly does not prove semantic entailment |
 | Bounded model generation and grounding | Verified `main` at `1c83ecb`; uses PR 34 contracts | `023-distillation-pipeline` / [PR 35](https://github.com/GitCmurf/AIDHA/pull/35) | Merged as `5b81d23` from approved `b08f8ab`; exact tree matches; late Greptile finding has separate correction | TESTING-057; default selection unchanged; no live provider calls |
-| Shared grounding source context | Verified `main` at `5b81d23` | `024-grounding-context` / [PR 36](https://github.com/GitCmurf/AIDHA/pull/36) | Approved and merged as `be9876c`; approved and integrated trees identical, required CI and four main workflows pass | TESTING-058; original late finding resolved only after correction landed |
-| Semantic-quality evaluation and improvement | Main at merged PR 36 `be9876c` | `025-semantic-quality` / [PR 37](https://github.com/GitCmurf/AIDHA/pull/37) | Ready at synchronized `a50dd5d`; same tree as `693d09d`, thirteen files, six offline tests and fresh required CI pass; owner review pending | Reviewed assistant-authored expectations, not human gold; controlled scores 6/9, 7/9, 6/9 |
-| Category and evidence decision quality | Merged main `be9876c`; independent of 37 | `027-decision-quality` / [PR 38](https://github.com/GitCmurf/AIDHA/pull/38) | Ready at `b987ec1`; sixteen files, 23 offline tests, final required CI, CodeQL and four analyzers pass; separate later owner approval needed | TESTING-060; keyword matches 12/16 on a constructed challenge set, no current-model superiority claim |
+| Shared grounding source context | Verified `main` at `5b81d23` | `024-grounding-context` / [PR 36](https://github.com/GitCmurf/AIDHA/pull/36) | Merged as `be9876c`; source context remains shared and versioned | TESTING-058; source text once, per-unit citation IDs, cache version bumped |
+| Semantic-quality evaluation and improvement | Depends on PR 36 at `f994fa0` | `025-semantic-quality` / [PR 37](https://github.com/GitCmurf/AIDHA/pull/37) | Merged as `27ee9fa`; no production semantic experiment included | Assistant-authored fictional expectations remain provisional, not human gold; controlled scores 6/9, 7/9, 6/9 do not establish improvement |
+| Explicit config selection | Verified `main` at `27ee9fa`; independent fail-closed correction | `060-explicit-config-selection` / [PR 56](https://github.com/GitCmurf/AIDHA/pull/56) | Merged as `29424fc` after current-head checks and report assessment | Missing or invalid explicit config selection fails closed; this is a technical correction, not a new product or model default |
 | Semantic grounding experiment | Depends on reviewed 024; retain acceptance failures | `026-semantic-grounding` / local hold | No PR or merge request; prompt/kind/link changes remain unproven and separate from the checkpoint | Three fresh-run partials and run-to-run variability; no semantic win claimed |
 | Extraction and source distillation | Dependency map pending | Pending | Separate foundational fixes and distillation where contracts permit | AIDHA-PLAN-009, AIDHA-PLAN-010; older reviews require exact-scope checks |
 | Activation and continuity | Dependency map pending; mixed commit `b628643` needs deliberate separation | Pending | Pair public CLI, persistence tests and currently uncommitted supporting docs | PLAN-008, PLAN-011, PLAN-014 |
@@ -531,7 +503,7 @@ Synthetic contract work needs no owner product decision. Existing PEPYS authorit
 
 | Decision | Needed when | Recommendation and sensible alternatives | Current blocker? |
 | --- | --- | --- | --- |
-| Merge approval | After a concrete PR passes checks and reviews, including actual reporting bots; skipped reviews ignored | Review a concise behaviour/evidence/risk brief; approve individually or an explicitly named dependency sequence | PR 36 approved and merged; 37 awaits the promised review and 38 is available for a separate later review |
+| Merge authority | Before merging a concrete PR | Apply standing authority to reviewed, noncontroversial pure technical changes after final-head checks and actual report assessment; obtain specific authority for reserved product, model, spend, account or private-data decisions | No repeat approval is required for eligible technical PRs; reserved decisions remain owner gates |
 | Reader usefulness | After one working answer and evidence trail is ready | Use the existing question; another live question is equally valid | Blocks a claim of owner benefit, not implementation |
 | Continuity inputs | Before processing additional private material | One bounded project plus read-only PEPYS snapshot; keep using synthetic material until selected | Blocks the real-input pilot only |
 | New disclosure, spending or account integration | Only if necessary for a selected workflow | Prefer existing authorised routes; present concrete scope and cost before asking | No current new request |
@@ -1231,99 +1203,26 @@ Email slice completion record:
   link in the URL. Correct the five affected link separators; all 77 URLs then pass unchanged
   link checking, and strict docs still builds. Retain the failed CI receipt and rerun final CI.
 
-### 2026-10-17 — Final checkpoint readiness and remaining separation
+## Offline decision checkpoint integration
 
-- PR 37 final head `693d09d` against `f994fa0` contains exactly thirteen intended files and no
-  production-core changes. Build, verify, gitleaks and all four DeepSource analyzers pass.
-  Actual Greptile failed-reply finding is fixed with two regression paths and resolved;
-  final thread inspection finds no unresolved inline finding. Skipped bots supply no coverage.
-- Final package and docs checks:
-  [verify](https://github.com/GitCmurf/AIDHA/actions/runs/39037185014/job/117409281662),
-  [build](https://github.com/GitCmurf/AIDHA/actions/runs/39037185004/job/117409281661),
-  [gitleaks](https://github.com/GitCmurf/AIDHA/actions/runs/39037184990/job/117409281507).
-- Two complete CLI reviews found minor issues, now fixed; final bounded corrections have
-  independent review rather than a claimed zero-finding final CLI receipt. Native reply capture
-  changes no provider defaults and invokes no live model. The model inventory is dated research.
-- Original work remains preserved, including a private tracked patch and copies of untracked
-  experiment files under ignored `reports/branch-landing-20261016/verification/semantic025/`.
-  The owner asked whether separation is complete: it is not. Ready PRs are focused, but the old
-  branch remains a recovery backlog and semantic-quality improvement is still an open outcome.
-- This validated local v0.18 record accompanies the next appropriate slice; PR 37 carries v0.17.
-  No status-only PR or extra progress commit is needed. Neither PR 36 nor 37 is merged yet.
+PR 38 adds the separate category and evidence-judgment checkpoint specified in
+[AIDHA-TESTING-060](../55-testing/testing-060-decision-quality.md).
+It measures the actual classifier's persisted assignments and prepares source-only requests
+and saved-receipt replay. Its public labels are assistant-authored provisional examples,
+not human gold. No model is called, ranked or selected by this offline slice.
 
-### 2026-10-17 — Owner approves only 36; independent preparation continues
+Current integration retains the merged runtime floor, dependency fixes, exhaustive serial
+workspace dispatch and existing semantic-quality preflight. The decision-quality preflight
+is added explicitly and protected by the root-script contract. Historical candidate snapshots
+on the older branch do not replace the standing technical authority or extend the separate
+model, product, private-source, account and spending gates above.
 
-- Owner instruction: “36 approved”; 37 is reserved for later review after roughly five hours
-  away. Merge only 36. All final head/base/scope/CI/report checks pass in a separate gate call
-  before the merge command. Approved `f994fa0` squash-merges as `be9876c` at 13:47:28 UTC.
-- Integrated main is exactly the approved PR 36 tree. All four post-merge workflows pass.
-  Resolve PR 35's shared-context finding only now that its correction has actually landed.
-  The required context helper again exits before edits because the legacy spec plan is absent.
-- Keep 37 open. Retarget to main, resolve only squash-ancestry documentation conflicts and prove
-  whole-tree equality with `693d09d`; synchronization head is `a50dd5d`. Fresh build, verify,
-  gitleaks and four analyzers pass. Actual review threads are assessed and resolved; skips give
-  no review coverage. The owner merge gate remains pending.
-- Prepare 027 independently from merged main, without using 37's unmerged corpus or tools.
-  Two sixteen-case public decision tasks separate categorisation from evidence judgment.
-  Actual keyword assignment persistence gives 12/16 exact tag sets, three false-positive tags
-  and one missed tag on a deliberately constructed challenge set. No newer model is called,
-  ranked or activated. The generation/repair experiment stays held on 026.
-- Independent corpus review removes an answer cue and clarifies a dual-topic source. The
-  evidence rubric distinguishes local method/origin repair from replacing an unsupported core
-  claim. Scorer regressions protect missing questions, duplicate labels, abstentions, raw failed
-  replies and unknown costs. Review and documentation checks precede the next commit/PR.
+## Offline adapter preparation
 
-### 2026-10-17 — Independent decision checkpoint published and verified
-
-- PR 38 is ready at `b987ec1` against main `be9876c`, with exactly sixteen intended files.
-  All 23 offline tests, strict docs, scoped DocOps, configured hooks and 80 URLs pass. Final
-  required build/verify/gitleaks, CodeQL and all four DeepSource analyzers pass. Fresh actual
-  review inspection finds no inline thread; CodeRabbit GitHub and Qodo skips supply no coverage.
-- Required CI receipts:
-  [build](https://github.com/GitCmurf/AIDHA/actions/runs/39039959214/job/117417226219),
-  [verify](https://github.com/GitCmurf/AIDHA/actions/runs/39039959154/job/117417225785),
-  [gitleaks](https://github.com/GitCmurf/AIDHA/actions/runs/39039959197/job/117417226088).
-- The initial complete sixteen-file CLI review reports three findings; a real failure/refusal
-  counting defect and a source-description error are fixed. The conditional module-identity
-  concern is resolved by verifying the classifier and helpers are in the hashed module.
-  The complete verification review reports two findings: missing stored observations are fixed
-  with red/green tests and final bounded peer review; CI and documented local build order already
-  satisfy the conditional prerequisite concern. Do not claim a clean-zero final CLI review.
-- Only explicit unknown choices count as abstention. Refusal/error stay separate and reduce
-  all-case accuracy. Missing/null/foreign Resources or assignment arrays cannot earn empty-set
-  credit; stored tags must equal normalized positive decisions. Snapshot checks recompute rows
-  and fresh output at the same classifier-module identity without pinning historical mistakes.
-- The unchanged scanner flags a public vocabulary fingerprint. The public assignment projection
-  explicitly omits only that redundant field; full original local observations remain private,
-  and corpus/module hashes remain. No scanner rule, baseline, default or production path changes.
-- Keep all current model results unknown until a separately prepared and authorised bounded
-  collection measures them. The observed 12/16 keyword result is a designed synthetic challenge,
-  not production prevalence, a newer-model comparison or proof of semantic improvement.
-- PR 36 is merged; 37 and 38 remain open and unapproved. The owner planned to review 37 after
-  an absence, not to approve automatic merges. Keep 38 for a separate later review; no response
-  is needed during the absence. Source changes and the held 026 experiment remain preserved.
-- This validated local v0.20 execution record accompanies the next appropriate material slice.
-  Published PR 38 retains v0.19. Do not add a progress-only commit or PR to chase status wording.
-
-### 2026-10-17 — Autonomous adapter and writer-route preparation
-
-- Owner asks to progress work that needs no owner direction or human review. Prepare 028 stacked
-  on 027 without changing PR 37 or 38, and keep both merge gates pending. Translate and replay
-  native OpenAI/OpenRouter decision packets offline, binding both normalized and native hashes.
-  The comparison proposal is six smoke calls plus 288 comparison calls, not an approved live run.
-- [x] Verify official native API contracts and use incremental failing/passing adapter tests.
-- [x] Preserve failed native replies, missing identity and unknown billing as distinct outcomes.
-- [x] Prepare exact public payloads, request/question counts and a reviewable budget proposal.
-- [ ] Finish independent review, documentation checks, scoped hooks and final PR CI.
-- [ ] Obtain separate owner merge approval; live endpoints/spending also need their own scope.
-- Owner identifies Google AI Studio keys nearby and native AGY Gemini access. Nonempty key
-  bindings exist; no values are printed, copied or used. A corrected source-only AGY smoke with
-  `gemini-3.8-flash-low` succeeds without tool/subagent steps, returning prompt-constrained JSON.
-  It reports usage but no cost; preserve native context overhead and the initial CLI parse failure.
-- Gemini 3.8 Flash is a separate generative extraction/summary candidate, not a decision model.
-  Official Developer API limits are 1,048,576 input and 65,536 output tokens; native CLI limits
-  and API economics remain unmeasured. Prepare the frozen writer comparison independently.
-- A read-only limitation-applicability audit and independent challenge identify the next safe
-  semantic slice: actual source excerpts and relation-specific evidence for an exact target;
-  known unit IDs alone are inadequate. Implementation may proceed with fake model responses,
-  unchanged production defaults and SQLite close/reopen assertions. No owner direction blocks it.
+PR 39 follows the separate decision checkpoint with the pure request/reply adapters and
+saved-capture validation specified in
+[AIDHA-TESTING-061](../55-testing/testing-061-decision-adapters.md).
+Its comparison plan is inspectable preparation. It adds no HTTP transport, credential lookup,
+account activation or live switch. The proposed model routes, call counts and USD 1 review
+budget confer no spending or collection authority. Any live comparison retains its own
+concrete endpoint, input, account and spending gate.

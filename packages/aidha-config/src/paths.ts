@@ -68,11 +68,10 @@ export function isBareCommand(value: string): boolean {
 
 /**
  * Resolve a single path-like value relative to `baseDir`, unless it is
- * already absolute or is a bare command name.
+ * already absolute. Bare filenames are relative filesystem paths.
  */
 export function resolvePathValue(value: string, baseDir: string): string {
   if (value === '') return value;
-  if (isBareCommand(value)) return value;
   return resolve(baseDir, value);
 }
 
@@ -114,7 +113,11 @@ export function resolvePathValues<T extends Record<string, unknown>>(
         RUNTIME_PATH_PATTERNS.some((p) => matchesPathPattern(p, nextPath));
 
       if (typeof value === 'string' && isMatch) {
-        record[key] = resolvePathValue(value, baseDir);
+        // SQLite's connection-local database sentinel is not a filesystem name.
+        // Every schema-qualified db field (profiles, source defaults/overrides,
+        // and runtime forms) is a SQLite connection setting.
+        const isDatabaseField = key === 'db';
+        record[key] = isDatabaseField && value === ':memory:' ? value : resolvePathValue(value, baseDir);
       } else if (typeof value === 'object' && value !== null) {
         walk(value, nextPath);
       }

@@ -42,9 +42,10 @@ export async function collectKeywordBaseline(corpus) {
     rawReply: { resource: { ...row.resource, metadata: { ...row.resource.metadata,
       // Publish the observations needed for scoring; the unprojected runtime result
       // retains the redundant vocabulary fingerprint flagged by secret scanning.
-      taxonomyAssignments: (row.resource.metadata.taxonomyAssignments ?? []).map(assignment =>
+      taxonomyAssignments: row.assignments.map(assignment =>
         Object.fromEntries(Object.entries(assignment).filter(([key]) => key !== 'taxonomyVersion'))),
-    } }, omittedFields: ['resource.metadata.taxonomyAssignments[].taxonomyVersion'] },
+    } }, classification: row.classification, taxonomyVersionVerified: row.taxonomyVersionVerified,
+      omittedFields: ['resource.metadata.taxonomyAssignments[].taxonomyVersion'] },
     usage: null, costUsd: null, durationMs: null,
   }));
   return scoreDecisions(corpus, requestBuilder(corpus), receipts);

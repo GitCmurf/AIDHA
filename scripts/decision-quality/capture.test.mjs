@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadCorpora } from './run.mjs';
+import { buildCategoryRequest } from './category.mjs';
 import { buildGroundingRequest } from './grounding.mjs';
 import { fingerprint, scoreDecisions } from './quality.mjs';
 import { nativePayload } from './plan.mjs';
@@ -71,4 +72,70 @@ test('blocks changed provider payloads, partial batches, mixed identities and un
   unresolved[0].rawReply = { error: { message: 'No identity reported' } };
   assert.throws(() => normalizeNativeCaptures(corpus, 'openrouter', model, unresolved), /no reported model identity/);
   assert.equal(unresolved[0].rawReply.error.message, 'No identity reported');
+  const mixedKind = structuredClone(captures);
+  mixedKind[0].evidenceKind = 'recorded-provider';
+  assert.throws(() => normalizeNativeCaptures(corpus, 'openrouter', model, mixedKind), /mixed model/);
+
+});
+
+for (const provider of ['openai', 'openrouter']) {
+  test(provider + ' category capture preserves five questions and denies partial failure credit', async () => {
+    const corpus = (await loadCorpora()).categorization;
+    const model = provider === 'openai' ? 'gpt-6-luna' : 'typesafe/jev-1.14';
+    const build = value => buildCategoryRequest(value, corpus.taxonomy);
+    const captures = corpus.cases.map(value => {
+      const request = build(value);
+      const ids = Object.keys(request.questions);
+      assert.equal(ids.length, 5);
+      const choices = ids.map(name => ({ name, type: 'choice', choice: 'not_applicable' }));
+      return { caseId: value.id, corpusHash: fingerprint(corpus),
+        requestHash: fingerprint(request), nativePayloadHash: fingerprint(nativePayload(provider, request, model)),
+        evidenceKind: 'synthetic', durationMs: null,
+        rawReply: { model: model + '-fixture-version',
+          answers: provider === 'openai' ? choices : Object.fromEntries(
+            choices.map(({ name, ...answer }) => [name, answer])) } };
+    });
+    const before = structuredClone(captures);
+    const receipts = normalizeNativeCaptures(corpus, provider, model, captures);
+    assert.ok(receipts.every(value => value.status === 'ok' && value.answers.length === 5));
+    const baseline = scoreDecisions(corpus, build, receipts);
+    const index = corpus.cases.findIndex(value => value.expected.tags.length === 0);
+    assert.ok(index >= 0);
+    assert.equal(baseline.cases[index].correct, true);
+    if (provider === 'openai') {
+      const answer = captures[index].rawReply.answers[0];
+      captures[index].rawReply.answers[0] = { name: answer.name, type: 'refusal' };
+    } else {
+      const id = Object.keys(captures[index].rawReply.answers)[0];
+      captures[index].rawReply.answers[id].choice = 'invalid-fixture-choice';
+    }
+    const damaged = structuredClone(captures);
+    const failed = normalizeNativeCaptures(corpus, provider, model, captures);
+    const report = scoreDecisions(corpus, build, failed);
+    assert.equal(report.summary.total, 16);
+    assert.equal(report.summary.failedCases, 1);
+    assert.equal(report.summary.exactSetCorrect, baseline.summary.exactSetCorrect - 1);
+    assert.equal(report.cases[index].correct, false);
+    assert.equal(report.cases[index].status, provider === 'openai' ? 'refusal' : 'error');
+    assert.equal(report.summary.abstainedCases, 0);
+    assert.equal(report.modelQualityMeasured, false);
+    assert.equal(report.measurements.totalCostUsd, null);
+    assert.deepEqual(failed[index].rawReply, captures[index].rawReply);
+    assert.deepEqual(captures, damaged);
+    assert.equal(before[index].rawReply.model, captures[index].rawReply.model);
+  });
+}
+
+test('recorded-provider metadata remains collector-declared and retains provisional labels', async () => {
+  const { corpus, model, captures } = await fixture();
+  for (const capture of captures) capture.evidenceKind = 'recorded-provider';
+  const before = structuredClone(captures);
+  const receipts = normalizeNativeCaptures(corpus, 'openrouter', model, captures);
+  const report = scoreDecisions(corpus, buildGroundingRequest, receipts);
+  assert.equal(report.evidenceKind, 'recorded-provider');
+  assert.equal(report.modelQualityMeasured, true);
+  assert.equal(report.labelStatus, 'assistant-authored; not human gold');
+  assert.equal(report.summary.abstentions, 16);
+  assert.equal(report.measurements.totalCostUsd, null);
+  assert.deepEqual(captures, before);
 });

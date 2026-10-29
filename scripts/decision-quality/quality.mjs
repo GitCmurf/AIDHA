@@ -19,6 +19,34 @@ export function stampReceipt(corpus, testCase, request, result) {
   return { ...result, task: corpus.task, caseId: testCase.id, corpusHash: fingerprint(corpus), requestHash: fingerprint(request) };
 }
 
+export const KEYWORD_BASELINE_TIME = '2026-10-17T00:00:00.000Z';
+
+/** Completed classification and stored provenance are both required for baseline credit. */
+export const keywordAssignments = (resource, classification, tagIds,
+  { allowAbsentForCompletedZero = false } = {}) => {
+  assert.equal(classification?.status, 'completed', 'Keyword classification must be completed');
+  assert.ok(Array.isArray(classification.warnings) && classification.warnings.length === 0,
+    'Keyword classification warnings prevent baseline credit');
+  for (const field of ['tagsMatched', 'tagsAssigned']) {
+    assert.ok(Number.isInteger(classification[field]) && classification[field] >= 0
+      && classification[field] <= tagIds.size, 'Invalid keyword classification counts');
+  }
+  assert.equal(classification.tagsMatched, classification.tagsAssigned,
+    'Keyword classification counts disagree in a fresh store');
+  let stored = resource.metadata?.taxonomyAssignments;
+  if (stored === undefined && allowAbsentForCompletedZero && classification.tagsAssigned === 0) stored = [];
+  assert.ok(Array.isArray(stored), 'Invalid stored assignments');
+  assert.equal(stored.length, classification.tagsAssigned, 'Stored assignments disagree with classification counts');
+  assert.equal(new Set(stored.map(a => a.tagId)).size, stored.length, 'Duplicate stored assignments');
+  for (const assignment of stored) {
+    assert.ok(tagIds.has(assignment.tagId), 'Unknown tag in stored assignments');
+    assert.ok(assignment.nodeId === resource.id && assignment.source === 'automatic'
+      && assignment.assignedBy === 'praecis-keyword-classifier'
+      && assignment.assignedAt === KEYWORD_BASELINE_TIME, 'Invalid stored assignment provenance');
+  }
+  return stored;
+};
+
 function checkReceipts(corpus, requestForCase, receipts) {
   assert.ok(['categorization', 'grounding'].includes(corpus.task), 'Unknown task');
   const cases = new Map(corpus.cases.map(c => [c.id, c]));
@@ -69,8 +97,10 @@ function checkReceipts(corpus, requestForCase, receipts) {
         assert.equal(resource.id, testCase.source.canonicalId, 'Stored Resource belongs to another source');
         assert.equal(resource.metadata.canonicalId, testCase.source.canonicalId, 'Stored Resource canonical source mismatch');
       }
-      const stored = resource.metadata.taxonomyAssignments;
-      assert.ok(Array.isArray(stored), 'Invalid stored assignments');
+      assert.equal(receipt.rawReply.taxonomyVersionVerified, true,
+        'Missing collector-supplied taxonomy verification');
+      const stored = keywordAssignments(resource, receipt.rawReply.classification,
+        new Set(corpus.taxonomy.tags.map(tag => tag.id)));
       assert.deepEqual(stored.map(a => a.tagId).sort(),
         [...answers].filter(([, choice]) => choice === 'applies').map(([id]) => id).sort(),
         'Normalized answers disagree with stored assignments');

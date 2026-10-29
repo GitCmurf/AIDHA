@@ -7,12 +7,26 @@ import type {
   PipelineServices,
   ExtractionContext,
   MiningResult,
+  SourceDistillationSummary,
 } from '../interfaces/index.js';
 import type { ComposedVector } from '../compose/vector.js';
 import type { Result } from '@aidha/taxonomy';
 import type { DecodeWarning } from '../types/index.js';
 import type { ResolvedConfig } from '@aidha/config';
 import { createHash } from 'node:crypto';
+import { parseSnapshotCandidate, snapshotMatchesInput, snapshotMatchesMiningResult } from '../extract/distill/snapshot.js';
+
+export class SourceDistillationClosedError extends Error {
+  constructor(
+    readonly sourceCanonicalId: string,
+    readonly diagnostics: readonly string[],
+    readonly tokenUsage: number,
+    readonly summary: SourceDistillationSummary,
+  ) {
+    super(`Source distillation failed closed for ${sourceCanonicalId}: ${diagnostics.at(-1) ?? 'unknown reason'}`);
+    this.name = 'SourceDistillationClosedError';
+  }
+}
 
 function stableHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 24);
@@ -43,10 +57,17 @@ function assertWithinCost(services: PipelineServices, tokenUsage: number, spendU
   return { ok: true, value: undefined };
 }
 
-function parseMiningResult(value: string): MiningResult | null {
+function parseMiningResult(value: string, requireSnapshot: boolean, sourceCanonicalId: string,
+  minerIdentity: string, excerpts: ReadonlyMap<string, string>): MiningResult | null {
   try {
     const parsed = JSON.parse(value) as MiningResult;
-    return Array.isArray(parsed.claims) && !parsed.distillation?.failedClosed ? parsed : null;
+    if (!Array.isArray(parsed.claims) || parsed.distillation?.failedClosed) return null;
+    if (!requireSnapshot && parsed.extractionSnapshotCandidate === undefined &&
+      parsed.extractionSnapshotCandidateHash === undefined) return parsed;
+    const candidate = parseSnapshotCandidate(parsed.extractionSnapshotCandidate);
+    return candidate && snapshotMatchesInput(candidate, sourceCanonicalId, minerIdentity, excerpts) &&
+      snapshotMatchesMiningResult(candidate, parsed)
+      ? { ...parsed, extractionSnapshotCandidate: candidate } : null;
   } catch {
     return null;
   }
@@ -89,6 +110,7 @@ export async function runVector(
 
   const warningMessages = warnings.map((w: DecodeWarning) => `${w.unit}: ${w.reason}`);
   const minerIdentity = services.miner.cacheIdentity;
+  const requireSnapshot = services.miner.extractionSnapshotVersion === 1;
   const cacheEnabled = Boolean(minerIdentity?.trim());
   const cacheKey = `pipeline:${raw.canonicalId}:${stableHash({
     chunks: chunkResult.value.map(chunk => [chunk.id, chunk.text, chunk.locator]),
@@ -110,7 +132,8 @@ export async function runVector(
   const cached = cacheEnabled ? await services.cache.get(cacheKey) : { ok: true as const, value: null };
   if (!cached.ok) return cached;
   if (cached.value) {
-    miningResult = parseMiningResult(cached.value);
+    miningResult = parseMiningResult(cached.value, requireSnapshot, raw.canonicalId,
+      minerIdentity ?? '', new Map(chunkResult.value.map(chunk => [chunk.id, chunk.text])));
     if (miningResult) {
       cacheHits += 1;
     }
@@ -136,24 +159,36 @@ export async function runVector(
     const mined = await services.miner.mine(miningRequest);
     if (!mined.ok) return mined;
     miningResult = mined.value;
-    // Transient extraction failures must remain retryable after a fresh runtime.
-    if (cacheEnabled && !miningResult.distillation?.failedClosed) {
-      const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
-      if (cacheSet.ok) {
-        cacheWrites += 1;
-      } else {
-        console.warn(`pipeline cache write failed for ${cacheKey}: ${cacheSet.error.message}`);
-      }
-    }
   }
 
   const tokenUsage = miningResult.tokenUsage ?? 0;
   const spendUsd = miningResult.spendUsd ?? 0;
+  if (miningResult.distillation?.failedClosed) {
+    return { ok: false, error: new SourceDistillationClosedError(raw.canonicalId,
+      miningResult.distillation.diagnostics, tokenUsage, miningResult.distillation) };
+  }
   const costCheck = assertWithinCost(services, tokenUsage, spendUsd);
   if (!costCheck.ok) return costCheck;
+  if (requireSnapshot) {
+    const candidate = parseSnapshotCandidate(miningResult.extractionSnapshotCandidate);
+    // An absent cache identity disables reuse, not fresh snapshot admission.
+    const snapshotIdentity = cacheEnabled ? minerIdentity ?? '' : candidate?.minerIdentity ?? '';
+    if (!candidate || !snapshotMatchesInput(candidate, raw.canonicalId, snapshotIdentity,
+      new Map(chunkResult.value.map(chunk => [chunk.id, chunk.text]))) ||
+      !snapshotMatchesMiningResult(candidate, miningResult)) {
+      return { ok: false, error: new Error('Source distillation produced no complete matching extraction snapshot') };
+    }
+    miningResult = { ...miningResult, extractionSnapshotCandidate: candidate };
+  }
 
   const exported = await services.exporter.export(miningResult, raw, chunkResult.value);
   if (!exported.ok) return exported;
+  // A reusable candidate is recorded only after its graph checkpoint commits.
+  if (cacheEnabled && cacheHits === 0) {
+    const cacheSet = await services.cache.set(cacheKey, JSON.stringify(miningResult));
+    if (cacheSet.ok) cacheWrites += 1;
+    else console.warn(`pipeline cache write failed for ${cacheKey}: ${cacheSet.error.message}`);
+  }
 
   const references = services.referenceExtractor
     ? await services.referenceExtractor.extract(exported.value.resourceId)
@@ -192,6 +227,7 @@ export async function runVector(
       ...(miningResult.rejectedClaims ? { rejectedClaims: miningResult.rejectedClaims } : {}),
       ...(miningResult.supportingUnits ? { supportingUnits: miningResult.supportingUnits } : {}),
       ...(miningResult.distillation ? { sourceDistillation: miningResult.distillation } : {}),
+      ...(exported.value.extractionSnapshot ? { extractionSnapshot: exported.value.extractionSnapshot } : {}),
       dedupAction: exported.value.dedupAction,
       policyRoute: runtimePolicy.value,
       cacheHits,
