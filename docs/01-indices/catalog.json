@@ -451,7 +451,7 @@
       "document_id": "AIDHA-TESTING-082",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.2",
+      "version": "0.3",
       "last_updated": "2026-10-29",
       "title": "Vitest 4.1.11 Compatibility Verification",
       "type": "TESTING",

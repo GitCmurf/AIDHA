@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-082
 owner: Engineering
 status: Draft
-version: '0.2'
+version: '0.3'
 last_updated: 2026-10-29
 title: Vitest 4.1.11 Compatibility Verification
 type: TESTING
@@ -13,7 +13,7 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-082
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
+> **Version:** 0.3
 > **Last Updated:** 2026-10-29
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ area: CORE
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Record current-main compatibility evidence for the Vitest 4.1.11 update. | — | Draft | PR #25 |
 | 0.2 | 2026-10-29 | Codex | Reassess complete current-main coverage after test prerequisites land. | — | Draft | PR 25; PR 47; PR 65 |
+| 0.3 | 2026-10-29 | Codex | Qualify the complete supported-runtime suite and transformed mock. | — | Draft | PR 25 |
 
 ## Historical scope, 2026-10-18
 
@@ -95,8 +96,9 @@ the earlier coverage exclusions establish current compatibility.
 The final integration must pass the complete repository test command without an added
 exclusion, together with frozen installation, workspace build/lint, strict documentation
 build and scoped DocOps. Preserve the root serial test orchestration and all existing
-assertions, test budgets and skips. The update remains limited to the 19 development
-dependency declarations, their lockfile graph and this evidence/navigation record.
+assertions, test budgets and skips. Scope includes the 19 development dependency declarations
+and their lockfile graph, this evidence/navigation record, and the narrow legacy NLP
+test-loader correction below. No application code or fixture data changes.
 
 The update also refreshes development-only Vite/Rolldown dependencies, including Lightning
 CSS, PostCSS, Nano ID, picomatch and optional native/WASM support packages. The complete
@@ -107,3 +109,52 @@ The optional Rolldown WASM fallback now uses `@napi-rs/wasm-runtime` 1.2.4, whos
 excludes Node 22.12. Native Linux binding checks on that runtime do not validate this
 optional fallback. The historical Node-floor result above cannot establish its compatibility.
 The graph-backend package in that historical command is `packages/reconditum`.
+
+## Supported-runtime fixture boundary
+
+The complete Node 22.12.0 run exposed a legacy NLP mock that used CommonJS require to
+load raw TypeScript. The same collection failure occurs on unchanged Vitest 4.1.6 from
+main, so it is not introduced by the runner update. The fixture now loads through Vitest
+using a normal module import; its data, NLP assertions and application code are unchanged.
+The original failing run is retained, rather than counted as passing floor coverage.
+
+A separate pipeline test exceeded its unchanged 15-second budget during the broad run.
+The same case passes in a quiet focused control in less than one second of test execution.
+That focused control alone did not clear the failed full-run boundary. The completed
+supported-runtime qualification below closes it after the fixture correction. No timeout,
+assertion or skip is relaxed.
+
+Focused post-correction checks use the package-installed Vitest with
+`run tests/nlp-utils.test.ts --maxWorkers=1`. All 74 NLP cases pass on official
+Node 22.12.0 with `NODE_OPTIONS=--experimental-sqlite`, and on Node 22.21.1. The main
+Vitest 4.1.6 control fails collection on Node 22.12.0 before the correction. The factory
+retains the original default-only mock namespace, and a repository search finds no other
+importer of this fixture. Fixture data and all test bodies remain unchanged; only the
+loader, its explanatory comment and standard licence header change.
+
+Before the loader correction, the complete `pnpm test` command passed all 19 Vitest
+package suites on Node 22.21.1: 2,337 passed and nine existing skips, alongside the root
+script/public-safety/semantic checks. That full-run result predates the loader correction;
+it is supplemented by the focused current-runtime check above and does not replace the
+complete supported-runtime qualification recorded below. Workspace build and lint also passed.
+
+## Completed supported-runtime qualification, 2026-10-29
+
+On integration base e5e5bdb, the corrected complete `pnpm test` command passes on official
+Node 22.12.0 with its documented experimental SQLite flag. All 19 Vitest package suites
+run without an added exclusion: 2,337 tests pass and nine existing tests are skipped.
+The root script-integrity, public-safety and semantic checks also pass. Child commands use
+the same selected Node runtime. This complete retry clears the earlier NLP collection
+failure and pipeline timing boundary without changing test budgets, assertions or skips.
+
+The Node 22.21.1 full-run result above predates the loader correction; the unchanged 74
+NLP cases pass separately after it on that runtime. Hosted CI must check the final head.
+The complete floor run exercises native Linux bindings; it does not validate the optional
+WASM fallback or certify other platforms. Published package integrity, engine ranges and
+the unchanged production dependency closure remain separate evidence from test results.
+
+Native Claude review found no blocking patch defect, subject to the documented run gates.
+Native CodeRabbit completed the 23-path dependency slice with zero findings, then the
+two-file fixture/documentation correction with zero findings. Independent specification
+and standards review found no remaining material defect. The review gates about the mock
+namespace, shared fixture imports and focused runtime evidence are addressed explicitly.
