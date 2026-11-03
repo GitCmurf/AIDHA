@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-098
 owner: Engineering
 status: Draft
-version: '0.9'
+version: '0.10'
 last_updated: 2026-11-03
 title: Bounded Read-Only Continuity Case Retrieval
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-TESTING-098
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.9
+> **Version:** 0.10
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -33,6 +33,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | 0.7 | 2026-11-03 | Codex | Separate rollback and close attempts while retaining diagnostic precedence and connection cleanup. | — | Draft | PR 66 |
 | 0.8 | 2026-11-03 | Codex | Pin rollback cleanup coverage to its reviewed implementation. | — | Draft | 87b112c |
 | 0.9 | 2026-11-03 | Codex | Parse Node version parts explicitly and protect existing support boundaries through the public reader. | — | Draft | PR 66 |
+| 0.10 | 2026-11-03 | Codex | Pin the public runtime-boundary matrix to its reviewed source. | — | Draft | 405a03c |
 
 ## Purpose
 
@@ -100,5 +101,5 @@ These commands define the checks, not their results. No live personal store, bac
 provider call, new default or task-management integration is part of this change.
 
 [cli-tests]: https://github.com/GitCmurf/AIDHA/blob/4e5cc244ca1d3e63ebf16cee9d1d49fb76c23582/packages/praecis/cli/tests/continuity.test.ts
-[node-tests]: https://github.com/GitCmurf/AIDHA/blob/4e5cc244ca1d3e63ebf16cee9d1d49fb76c23582/packages/reconditum/tests/sqlite-read-node.test.ts
+[node-tests]: https://github.com/GitCmurf/AIDHA/blob/405a03cc6b222394161a645d1c5d307cc5fbc88b/packages/reconditum/tests/sqlite-read-node.test.ts
 [snapshot-tests]: https://github.com/GitCmurf/AIDHA/blob/87b112ca97af06cccddc44bdce794627ee43ccb2/packages/reconditum/tests/sqlite-read-snapshot.test.ts
