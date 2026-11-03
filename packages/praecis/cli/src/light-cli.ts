@@ -43,12 +43,10 @@ export async function runLightCli(argv: string[]): Promise<number> {
       const readCase = async (id: string, on: string) => {
         const configResult = await resolveAidhaConfig(configOpts);
         if (!configResult.ok) throw configResult.error;
-        const snapshot = await SQLiteStore.readSnapshot(configResult.config.db, { scope: 'full' });
-        if (!snapshot.ok) throw snapshot.error;
         const { showCase } = await import('@aidha/praecis-core');
         // This adapter exposes only getNode; no initializer, migration or write path is available.
         return await showCase({
-          getNode: async nodeId => ({ ok: true, value: snapshot.value.nodes.find(node => node.id === nodeId) ?? null }),
+          getNode: nodeId => SQLiteStore.readNode(configResult.config.db, nodeId),
         }, id, on);
       };
       return await runContinuity(positionals[1], options, withStore, readCase);

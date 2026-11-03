@@ -134,21 +134,33 @@ export class SQLiteStore implements GraphStore {
 
   /** Read one existing graph view without initialization, migration or index repair. */
   static async readSnapshot(path: string, options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
+    return this.readOnly(path, store => store.exportSnapshot(options));
+  }
+
+  /** Read one exact node without loading unrelated graph data or initializing the database. */
+  static async readNode(path: string, id: string): Promise<Result<GraphNode | null>> {
+    return this.readOnly(path, store => store.getNode(id));
+  }
+
+  private static async readOnly<T>(
+    path: string,
+    read: (store: SQLiteStore) => Promise<Result<T>>,
+  ): Promise<Result<T>> {
     const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
     if (!(major >= 24 || (major === 23 && minor >= 2) || (major === 22 && minor >= 12))) {
-      return { ok: false, error: new Error('Read-only graph snapshots require Node.js >= 22.12.0 (23.x >= 23.2.0).') };
+      return { ok: false, error: new Error('Read-only graph access requires Node.js >= 22.12.0 (23.x >= 23.2.0).') };
     }
 
     let database: DatabaseSyncLike | undefined;
     let transactionOpen = false;
-    let result: Result<GraphSnapshot> | undefined;
+    let result: Result<T> | undefined;
     try {
       const DatabaseSync = getDatabaseSyncCtor();
       database = new DatabaseSync(path, { readOnly: true });
       const store = new SQLiteStore(database, { initialize: false });
       database.exec('BEGIN');
       transactionOpen = true;
-      result = await store.exportSnapshot(options);
+      result = await read(store);
       if (result.ok) {
         database.exec('COMMIT');
         transactionOpen = false;
@@ -157,12 +169,12 @@ export class SQLiteStore implements GraphStore {
       result = { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
     } finally {
       if (transactionOpen) {
-        try { database?.exec('ROLLBACK'); } catch { /* Preserve the snapshot failure. */ }
+        try { database?.exec('ROLLBACK'); } catch { /* Preserve the read failure. */ }
       }
       try {
         database?.close();
       } catch (error) {
-        // Cleanup must not replace an acquisition or snapshot diagnostic.
+        // Cleanup must not replace an acquisition or read diagnostic.
         if (result?.ok !== false) {
           result = { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
         }

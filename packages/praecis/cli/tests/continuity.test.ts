@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -60,6 +61,32 @@ it('show never creates a missing database and leaves existing database bytes unc
   const markdown = invoke('show', '--case', 'friday', '--on', '2026-10-02');
   expect(markdown.status, markdown.stderr).toBe(0);
   expect(readFileSync(database)).toEqual(before);
+  expect(readdirSync(dir).sort()).toEqual(filesBefore);
+}, PROCESS_TEST_TIMEOUT_MS);
+
+it('show reads only its case when unrelated graph storage is unavailable', () => {
+  const { call, input, invoke, dir } = setup();
+  call('capture', '--case', 'friday', '--input', input('capture', capture));
+  const expected = call('show', '--case', 'friday', '--on', '2026-10-02', '--json');
+  const databasePath = join(dir, 'graph.sqlite');
+  const database = new DatabaseSync(databasePath);
+  try {
+    // An archive can contain many unrelated records; a case read has no edge dependency.
+    database.exec(`
+      WITH RECURSIVE archive(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM archive WHERE n < 2000)
+      INSERT INTO nodes (schema_version, id, type, label, content, metadata, created_at, updated_at)
+      SELECT 1, 'unrelated-' || n, 'Resource', 'Unrelated record', 'Archive content', '{}',
+        '2026-10-02T00:00:00.000Z', '2026-10-02T00:00:00.000Z' FROM archive;
+      DROP TABLE edges;
+    `);
+  } finally { database.close(); }
+  const before = readFileSync(databasePath);
+  const filesBefore = readdirSync(dir).sort();
+  expect(call('show', '--case', 'friday', '--on', '2026-10-02', '--json')).toEqual(expected);
+  const missing = invoke('show', '--case', 'missing-case', '--on', '2026-10-02', '--json');
+  expect(missing.status).toBe(1);
+  expect(missing.stderr).toContain('Unknown continuity case: missing-case');
+  expect(readFileSync(databasePath)).toEqual(before);
   expect(readdirSync(dir).sort()).toEqual(filesBefore);
 }, PROCESS_TEST_TIMEOUT_MS);
 

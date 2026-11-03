@@ -333,7 +333,7 @@ describe('unsupported runtime JSON-LD export', () => {
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(1);
     expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('Read-only graph snapshots require Node.js');
+    expect(result.stderr).toContain('Read-only graph access requires Node.js');
     expect(await readFile(dbPath)).toEqual(before.db);
     expect(await readFile(configPath)).toEqual(before.config);
     await expect(stat(out)).rejects.toMatchObject({ code: 'ENOENT' });

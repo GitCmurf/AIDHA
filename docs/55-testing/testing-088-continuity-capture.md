@@ -2,20 +2,20 @@
 document_id: AIDHA-TESTING-088
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-29
+version: '0.3'
+last_updated: 2026-11-03
 title: Continuity Capture and Direct-Correction Acceptance
 type: TESTING
 docops_version: '2.0'
 area: CORE
-related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-PLAN-015]
+related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-PLAN-015, AIDHA-TESTING-098]
 ---
 <!-- MEMINIT_METADATA_BLOCK -->
 > **Document ID:** AIDHA-TESTING-088
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-29
+> **Version:** 0.3
+> **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
 # Continuity Capture and Direct-Correction Acceptance
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-PLAN-015]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify core and public-process acceptance for bounded capture, readback and direct correction. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-29 | Codex | Qualify provenance, read-only show, prevalidation, display/error boundaries and current main dispatch with regression controls. | — | Draft | PR 55 |
+| 0.3 | 2026-11-03 | Codex | Bound read-only show to its exact case record and retain archive-independence controls. | — | Draft | AIDHA-TESTING-098 |
 
 ## Scope and limit
 
@@ -131,9 +132,12 @@ action is in scope. Passing these tests is not evidence for those capabilities.
 
 ## Review corrections on current main
 
-Read-only show uses the existing SQLite snapshot reader without initialization, migration or
-index repair. Public-process regressions reject a missing database without creating it and compare
-existing database bytes and directory contents before and after readback. Case IDs, read dates,
+Read-only show uses the SQLite single-node reader without initialization, migration or index repair.
+It retrieves only the exact case record, without exporting unrelated nodes and edges. The archive
+and graph API controls are specified in
+[AIDHA-TESTING-098](testing-098-continuity-case-reads.md). Public-process regressions reject a
+missing database without creating it and compare existing database bytes and directory contents
+before and after readback. Case IDs, read dates,
 input schemas and capture references are validated before opening a write store. Rejected input
 escapes terminal controls; malformed JSON errors omit source fragments.
 

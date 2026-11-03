@@ -161,7 +161,7 @@ describe('SQLiteStore.readSnapshot', () => {
     const before = await readFile(path);
     const result = await SQLiteStore.readSnapshot(path);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('Read-only graph snapshots require Node.js');
+    if (!result.ok) expect(result.error.message).toContain('Read-only graph access requires Node.js');
     expect(await readFile(path)).toEqual(before);
   });
 
