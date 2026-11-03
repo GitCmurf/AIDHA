@@ -30,6 +30,37 @@ const fixture = async () => {
 
 describe('SQLiteStore.readNode', () => {
   it.each([
+    ['21.99.0', false],
+    ['22.11.9', false],
+    ['22.12.0', true],
+    ['23.1.9', false],
+    ['23.2.0', true],
+    ['24.0.0', true],
+    ['22', false],
+    ['23', false],
+    ['24', true],
+  ] as const)('preserves SQLite read-only version boundaries for Node %s', async (version, admitted) => {
+    const directory = await mkdtemp(join(tmpdir(), 'aidha-read-version-'));
+    directories.push(directory);
+    const path = join(directory, 'missing-parent', 'graph.sqlite');
+    const descriptor = Object.getOwnPropertyDescriptor(process.versions, 'node');
+    if (!descriptor) throw new Error('Node version descriptor is unavailable');
+    try {
+      Object.defineProperty(process.versions, 'node', { ...descriptor, value: version });
+      const result = await SQLiteStore.readNode(path, 'missing-node');
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        if (admitted) expect(result.error.message).toMatch(/unable to open|cannot open|SQLITE_CANTOPEN/iu);
+        else expect(result.error.message).toContain('Read-only graph access requires Node.js');
+      }
+      await expect(stat(join(directory, 'missing-parent'))).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(await readdir(directory)).toEqual([]);
+    } finally {
+      Object.defineProperty(process.versions, 'node', descriptor);
+    }
+  });
+
+  it.each([
     ['snapshot', (path: string) => {
       const read = SQLiteStore.readSnapshot;
       return read(path);

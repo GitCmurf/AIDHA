@@ -76,7 +76,9 @@ function getDatabaseSyncCtor(): DatabaseSyncCtor {
 }
 
 const supportsReadOnlySQLite = (): boolean => {
-  const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
+  const [majorText, minorText] = process.versions.node.split('.');
+  const major = Number(majorText);
+  const minor = Number(minorText);
   return major >= 24 || (major === 23 && minor >= 2) || (major === 22 && minor >= 12);
 };
 

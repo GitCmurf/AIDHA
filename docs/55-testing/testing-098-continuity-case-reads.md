@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-098
 owner: Engineering
 status: Draft
-version: '0.8'
+version: '0.9'
 last_updated: 2026-11-03
 title: Bounded Read-Only Continuity Case Retrieval
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-TESTING-098
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.8
+> **Version:** 0.9
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -32,6 +32,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | 0.6 | 2026-11-03 | Codex | Pin CLI, node and snapshot acceptance links to the reviewed regression source. | — | Draft | 4e5cc24 |
 | 0.7 | 2026-11-03 | Codex | Separate rollback and close attempts while retaining diagnostic precedence and connection cleanup. | — | Draft | PR 66 |
 | 0.8 | 2026-11-03 | Codex | Pin rollback cleanup coverage to its reviewed implementation. | — | Draft | 87b112c |
+| 0.9 | 2026-11-03 | Codex | Parse Node version parts explicitly and protect existing support boundaries through the public reader. | — | Draft | PR 66 |
 
 ## Purpose
 
@@ -71,6 +72,9 @@ opening a database.
   unsupported runtimes and
   reads without graph edges, views or search structures. They compare persisted bytes and verify
   connection cleanup on error.
+  A matrix of simulated Node version reports checks support boundaries and missing minor versions,
+  distinguishing runtime rejection from read-only acquisition errors at an intentionally missing
+  database path. The selected parent and database remain absent.
 - Existing [snapshot lifecycle tests][snapshot-tests]
   continue to cover coherent concurrent reads, rejection of writes through the wrapped store,
   missing schema, acquisition failures and cleanup error precedence for the shared lifecycle.
