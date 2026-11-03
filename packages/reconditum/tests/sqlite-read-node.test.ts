@@ -12,7 +12,7 @@ afterEach(async () => {
   await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true })));
 });
 
-async function fixture() {
+const fixture = async () => {
   const directory = await mkdtemp(join(tmpdir(), 'aidha-read-node-'));
   directories.push(directory);
   const path = join(directory, 'graph.sqlite');
@@ -26,7 +26,7 @@ async function fixture() {
     expect((await store.upsertNode('Resource', 'unrelated', { label: 'Unrelated record', metadata: {} })).ok).toBe(true);
     return { directory, path, id, node: saved.value.node };
   } finally { await store.close(); }
-}
+};
 
 describe('SQLiteStore.readNode', () => {
   it('selects the exact key without depending on unrelated graph structures or repairing them', async () => {

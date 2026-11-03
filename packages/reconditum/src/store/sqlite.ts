@@ -75,6 +75,11 @@ function getDatabaseSyncCtor(): DatabaseSyncCtor {
   return cachedCtor;
 }
 
+const supportsReadOnlySQLite = (): boolean => {
+  const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
+  return major >= 24 || (major === 23 && minor >= 2) || (major === 22 && minor >= 12);
+};
+
 type NodeRow = {
   schema_version: number | null;
   id: string;
@@ -133,12 +138,12 @@ export class SQLiteStore implements GraphStore {
   }
 
   /** Read one existing graph view without initialization, migration or index repair. */
-  static async readSnapshot(path: string, options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
+  static readSnapshot(path: string, options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
     return this.readOnly(path, store => store.exportSnapshot(options));
   }
 
   /** Read one exact node without loading unrelated graph data or initializing the database. */
-  static async readNode(path: string, id: string): Promise<Result<GraphNode | null>> {
+  static readNode(path: string, id: string): Promise<Result<GraphNode | null>> {
     return this.readOnly(path, store => store.getNode(id));
   }
 
@@ -146,8 +151,7 @@ export class SQLiteStore implements GraphStore {
     path: string,
     read: (store: SQLiteStore) => Promise<Result<T>>,
   ): Promise<Result<T>> {
-    const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
-    if (!(major >= 24 || (major === 23 && minor >= 2) || (major === 22 && minor >= 12))) {
+    if (!supportsReadOnlySQLite()) {
       return { ok: false, error: new Error('Read-only graph access requires Node.js >= 22.12.0 (23.x >= 23.2.0).') };
     }
 
