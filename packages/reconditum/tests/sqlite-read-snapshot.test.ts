@@ -194,6 +194,37 @@ describe('SQLiteStore.readSnapshot', () => {
     expect(await readFile(path)).toEqual(before);
   });
 
+  snapshotTest('preserves the primary read failure and closes once after rollback fails', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'aidha-read-cleanup-'));
+    directories.push(directory);
+    const path = join(directory, 'graph.sqlite');
+    // The injected read fails before graph queries; only a valid SQLite connection is needed.
+    const database = new DatabaseSync(path);
+    database.exec('PRAGMA user_version = 1');
+    database.close();
+    const primary = new Error('Fictional primary read failure');
+    const cleanup: string[] = [];
+    vi.spyOn(SQLiteStore.prototype, 'exportSnapshot').mockRejectedValue(primary);
+    const execOriginal = DatabaseSync.prototype.exec;
+    vi.spyOn(DatabaseSync.prototype, 'exec').mockImplementation(function (this: DatabaseSync, sql) {
+      if (sql === 'ROLLBACK') {
+        cleanup.push('rollback');
+        throw new Error('Fictional rollback failure');
+      }
+      return execOriginal.call(this, sql);
+    });
+    const closeOriginal = DatabaseSync.prototype.close;
+    const close = vi.spyOn(DatabaseSync.prototype, 'close').mockImplementation(function (this: DatabaseSync) {
+      cleanup.push('close');
+      closeOriginal.call(this);
+    });
+    const result = await SQLiteStore.readSnapshot(path);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe(primary);
+    expect(cleanup).toEqual(['rollback', 'close']);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
   it.runIf(!supportsReadOnlySnapshots)('rejects the actual unsupported runtime without changing an existing file', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'aidha-unsupported-snapshot-'));
     directories.push(directory);

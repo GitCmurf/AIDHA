@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-098
 owner: Engineering
 status: Draft
-version: '0.6'
+version: '0.7'
 last_updated: 2026-11-03
 title: Bounded Read-Only Continuity Case Retrieval
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-TESTING-098
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.6
+> **Version:** 0.7
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -30,6 +30,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | 0.4 | 2026-11-03 | Codex | Share error normalisation and qualify non-Error diagnostics, Error identity and cleanup precedence. | — | Draft | PR 66 |
 | 0.5 | 2026-11-03 | Codex | Preserve detached static-reader calls with public API regressions. | — | Draft | PR 66 |
 | 0.6 | 2026-11-03 | Codex | Pin CLI, node and snapshot acceptance links to the reviewed regression source. | — | Draft | 4e5cc24 |
+| 0.7 | 2026-11-03 | Codex | Separate rollback and close attempts while retaining diagnostic precedence and connection cleanup. | — | Draft | PR 66 |
 
 ## Purpose
 
@@ -74,6 +75,7 @@ opening a database.
   missing schema, acquisition failures and cleanup error precedence for the shared lifecycle.
   Non-Error read and close failures become Error diagnostics, while existing Error objects retain
   their identity. A later cleanup failure cannot replace a primary read failure.
+  A failed rollback still precedes one close attempt and preserves the exact primary read Error.
 
 ## Validation commands
 

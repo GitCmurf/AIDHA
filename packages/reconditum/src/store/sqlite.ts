@@ -82,6 +82,19 @@ const supportsReadOnlySQLite = (): boolean => {
 
 const asError = (error: unknown): Error => error instanceof Error ? error : new Error(String(error));
 
+const rollbackReadTransaction = (database: DatabaseSyncLike | undefined, transactionOpen: boolean): void => {
+  if (!transactionOpen) return;
+  try { database?.exec('ROLLBACK'); } catch { /* Preserve the read failure. */ }
+};
+
+const closeReadDatabase = (
+  database: DatabaseSyncLike | undefined,
+  onFailure: (error: unknown) => void,
+): void => {
+  // Pass raw failures to the caller so an existing read error can take precedence.
+  try { database?.close(); } catch (error) { onFailure(error); }
+};
+
 type NodeRow = {
   schema_version: number | null;
   id: string;
@@ -174,17 +187,13 @@ export class SQLiteStore implements GraphStore {
     } catch (error) {
       result = { ok: false, error: asError(error) };
     } finally {
-      if (transactionOpen) {
-        try { database?.exec('ROLLBACK'); } catch { /* Preserve the read failure. */ }
-      }
-      try {
-        database?.close();
-      } catch (error) {
+      rollbackReadTransaction(database, transactionOpen);
+      closeReadDatabase(database, error => {
         // Cleanup must not replace an acquisition or read diagnostic.
         if (result?.ok !== false) {
           result = { ok: false, error: asError(error) };
         }
-      }
+      });
     }
     return result;
   }
