@@ -121,7 +121,9 @@ describe('SQLiteStore.readSnapshot', () => {
     const error = new Error('Fictional snapshot failure');
     vi.spyOn(SQLiteStore.prototype, 'exportSnapshot').mockRejectedValue(error);
     const close = vi.spyOn(DatabaseSync.prototype, 'close');
-    expect(await SQLiteStore.readSnapshot(path)).toEqual({ ok: false, error });
+    const result = await SQLiteStore.readSnapshot(path);
+    expect(result).toEqual({ ok: false, error });
+    if (!result.ok) expect(result.error).toBe(error);
     expect(close).toHaveBeenCalledTimes(1);
   });
 
@@ -135,7 +137,9 @@ describe('SQLiteStore.readSnapshot', () => {
       closeOriginal.call(this);
       throw secondary;
     });
-    expect(await SQLiteStore.readSnapshot(path)).toEqual({ ok: false, error: primary });
+    const result = await SQLiteStore.readSnapshot(path);
+    expect(result).toEqual({ ok: false, error: primary });
+    if (!result.ok) expect(result.error).toBe(primary);
     expect(close).toHaveBeenCalledTimes(1);
   });
 
@@ -147,8 +151,47 @@ describe('SQLiteStore.readSnapshot', () => {
       closeOriginal.call(this);
       throw secondary;
     });
-    expect(await SQLiteStore.readSnapshot(path)).toEqual({ ok: false, error: secondary });
+    const result = await SQLiteStore.readSnapshot(path);
+    expect(result).toEqual({ ok: false, error: secondary });
+    if (!result.ok) expect(result.error).toBe(secondary);
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  snapshotTest('normalizes a non-Error acquisition failure and retains it when closing also fails', async () => {
+    const { path } = await fixture();
+    const before = await readFile(path);
+    vi.spyOn(SQLiteStore.prototype, 'exportSnapshot').mockRejectedValue('Fictional non-Error read failure');
+    const closeOriginal = DatabaseSync.prototype.close;
+    const close = vi.spyOn(DatabaseSync.prototype, 'close').mockImplementation(function (this: DatabaseSync) {
+      closeOriginal.call(this);
+      throw new Error('Fictional later close failure');
+    });
+    const result = await SQLiteStore.readSnapshot(path);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error.message).toBe('Fictional non-Error read failure');
+    }
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(await readFile(path)).toEqual(before);
+  });
+
+  snapshotTest('normalizes a non-Error closing failure after a successful read', async () => {
+    const { path } = await fixture();
+    const before = await readFile(path);
+    const closeOriginal = DatabaseSync.prototype.close;
+    const close = vi.spyOn(DatabaseSync.prototype, 'close').mockImplementation(function (this: DatabaseSync) {
+      closeOriginal.call(this);
+      throw 503;
+    });
+    const result = await SQLiteStore.readSnapshot(path);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error.message).toBe('503');
+    }
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(await readFile(path)).toEqual(before);
   });
 
   it.runIf(!supportsReadOnlySnapshots)('rejects the actual unsupported runtime without changing an existing file', async () => {

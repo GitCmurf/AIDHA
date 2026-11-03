@@ -80,6 +80,8 @@ const supportsReadOnlySQLite = (): boolean => {
   return major >= 24 || (major === 23 && minor >= 2) || (major === 22 && minor >= 12);
 };
 
+const asError = (error: unknown): Error => error instanceof Error ? error : new Error(String(error));
+
 type NodeRow = {
   schema_version: number | null;
   id: string;
@@ -139,12 +141,12 @@ export class SQLiteStore implements GraphStore {
 
   /** Read one existing graph view without initialization, migration or index repair. */
   static readSnapshot(path: string, options?: ExportSnapshotOptions): Promise<Result<GraphSnapshot>> {
-    return this.readOnly(path, store => store.exportSnapshot(options));
+    return SQLiteStore.readOnly(path, store => store.exportSnapshot(options));
   }
 
   /** Read one exact node without loading unrelated graph data or initializing the database. */
   static readNode(path: string, id: string): Promise<Result<GraphNode | null>> {
-    return this.readOnly(path, store => store.getNode(id));
+    return SQLiteStore.readOnly(path, store => store.getNode(id));
   }
 
   private static async readOnly<T>(
@@ -170,7 +172,7 @@ export class SQLiteStore implements GraphStore {
         transactionOpen = false;
       }
     } catch (error) {
-      result = { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+      result = { ok: false, error: asError(error) };
     } finally {
       if (transactionOpen) {
         try { database?.exec('ROLLBACK'); } catch { /* Preserve the read failure. */ }
@@ -180,7 +182,7 @@ export class SQLiteStore implements GraphStore {
       } catch (error) {
         // Cleanup must not replace an acquisition or read diagnostic.
         if (result?.ok !== false) {
-          result = { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+          result = { ok: false, error: asError(error) };
         }
       }
     }

@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-098
 owner: Engineering
 status: Draft
-version: '0.3'
+version: '0.5'
 last_updated: 2026-11-03
 title: Bounded Read-Only Continuity Case Retrieval
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-TESTING-098
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.5
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -27,6 +27,8 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | 0.1 | 2026-11-03 | Codex | Specify single-case reads that avoid unrelated graph data and retain observational behaviour. | — | Draft | AIDHA-TESTING-088 |
 | 0.2 | 2026-11-03 | Codex | Pin new API acceptance coverage to its reviewed source commit. | — | Draft | 1e119d2 |
 | 0.3 | 2026-11-03 | Codex | Simplify reviewed promise wrappers and separate runtime compatibility from read lifecycle control. | — | Draft | PR 66 |
+| 0.4 | 2026-11-03 | Codex | Share error normalisation and qualify non-Error diagnostics, Error identity and cleanup precedence. | — | Draft | PR 66 |
+| 0.5 | 2026-11-03 | Codex | Preserve detached static-reader calls with public API regressions. | — | Draft | PR 66 |
 
 ## Purpose
 
@@ -44,6 +46,8 @@ database, incomplete node schema or invalid selected node returns an error. The 
 parameter. The method opens an existing database read-only, performs no initialization, migration
 or index repair, and closes the connection on success and failure. It shares the read-only
 connection lifecycle with `SQLiteStore.readSnapshot`.
+Both static readers remain callable through detached function references; database failures still
+return an error Result rather than throwing because a class receiver is absent.
 
 The existing Node requirements for read-only SQLite access apply: Node 22.12 or later on the 22.x
 line, Node 23.2 or later on the 23.x line, or Node 24 and later. Unsupported versions fail before
@@ -60,12 +64,15 @@ opening a database.
   bytes and directory contents on an ordinary graph, honours explicit configuration, and retains
   JSON and Markdown output.
 - The [single-node API tests][node-tests] cover exact
-  key selection, missing nodes and databases, selected-node validation, unsupported runtimes and
+  key selection, detached static-reader calls, missing nodes and databases, selected-node validation,
+  unsupported runtimes and
   reads without graph edges, views or search structures. They compare persisted bytes and verify
   connection cleanup on error.
 - Existing [snapshot lifecycle tests][snapshot-tests]
   continue to cover coherent concurrent reads, rejection of writes through the wrapped store,
   missing schema, acquisition failures and cleanup error precedence for the shared lifecycle.
+  Non-Error read and close failures become Error diagnostics, while existing Error objects retain
+  their identity. A later cleanup failure cannot replace a primary read failure.
 
 ## Validation commands
 

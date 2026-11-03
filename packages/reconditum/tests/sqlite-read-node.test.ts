@@ -29,6 +29,25 @@ const fixture = async () => {
 };
 
 describe('SQLiteStore.readNode', () => {
+  it.each([
+    ['snapshot', (path: string) => {
+      const read = SQLiteStore.readSnapshot;
+      return read(path);
+    }],
+    ['node', (path: string) => {
+      const read = SQLiteStore.readNode;
+      return read(path, 'missing-node');
+    }],
+  ] as const)('returns a Result from detached %s reads', async (_label, read) => {
+    const directory = await mkdtemp(join(tmpdir(), 'aidha-detached-read-'));
+    directories.push(directory);
+    const path = join(directory, 'missing.sqlite');
+    const result = await read(path);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBeInstanceOf(Error);
+    await expect(stat(path)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('selects the exact key without depending on unrelated graph structures or repairing them', async () => {
     const { directory, path, id, node } = await fixture();
     const database = new DatabaseSync(path);
