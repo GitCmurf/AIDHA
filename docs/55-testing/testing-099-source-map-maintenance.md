@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-099
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-11-03
 title: Source Map Dependency Maintenance
 type: TESTING
@@ -13,7 +13,7 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-099
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ area: CORE
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-11-03 | Codex | Qualify the compatible source-map-js patch through its existing PostCSS consumer | — | Draft | Owner autonomous progress request |
+| 0.2 | 2026-11-03 | Codex | Pin the consumer regression to its reviewed source and record the focused gate | — | Draft | b4db724 |
 
 ## Problem and scope
 
@@ -83,6 +84,7 @@ and seven smaller package suites passed. The subsequent YouTube run passed 1,161
 tests with seven skips and two failures: an existing public-process test timed out,
 and the root command guard needed the newly added `test:source-map` step. The guard
 expectation is corrected without changing serial or exhaustive dispatch.
+The corrected four-case command guard and the benign consumer check both pass.
 
 The later six source packages and CLI package were not reached. No test timeout
 or security control is relaxed. Hosted default full CI and actual reporting review
@@ -106,7 +108,7 @@ Inspect its diff and retain only the source-map-js entries; pnpm can also refres
 unrelated permitted transitive packages. Re-run frozen installation on the narrowed
 lockfile before accepting it.
 
-[consumer-regression]: https://github.com/GitCmurf/AIDHA/blob/107-source-map-maintenance/scripts/security/source-map-compatibility.test.mjs
+[consumer-regression]: https://github.com/GitCmurf/AIDHA/blob/b4db724e6efb1f2b92de55436225e1317dab7ead/scripts/security/source-map-compatibility.test.mjs
 [advisory]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
 [release]: https://github.com/7rulnik/source-map-js/releases/tag/v1.2.2
 [upstream-fix]: https://github.com/7rulnik/source-map-js/pull/79
