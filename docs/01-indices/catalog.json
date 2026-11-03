@@ -701,7 +701,7 @@
       "document_id": "AIDHA-TESTING-098",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.1",
+      "version": "0.2",
       "last_updated": "2026-11-03",
       "title": "Bounded Read-Only Continuity Case Retrieval",
       "type": "TESTING",

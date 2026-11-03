@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-098
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-11-03
 title: Bounded Read-Only Continuity Case Retrieval
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-TESTING-098
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -25,6 +25,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-11-03 | Codex | Specify single-case reads that avoid unrelated graph data and retain observational behaviour. | — | Draft | AIDHA-TESTING-088 |
+| 0.2 | 2026-11-03 | Codex | Pin new API acceptance coverage to its reviewed source commit. | — | Draft | 1e119d2 |
 
 ## Purpose
 
@@ -83,5 +84,5 @@ These commands define the checks, not their results. No live personal store, bac
 provider call, new default or task-management integration is part of this change.
 
 [cli-tests]: https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/continuity.test.ts
-[node-tests]: https://github.com/GitCmurf/AIDHA/blob/main/packages/reconditum/tests/sqlite-read-node.test.ts
+[node-tests]: https://github.com/GitCmurf/AIDHA/blob/1e119d279328e9988a86ebd2f2681fb573d8ac93/packages/reconditum/tests/sqlite-read-node.test.ts
 [snapshot-tests]: https://github.com/GitCmurf/AIDHA/blob/main/packages/reconditum/tests/sqlite-read-snapshot.test.ts
