@@ -66,6 +66,7 @@ nav:
       - Zod 4.6.6 Compatibility: 55-testing/testing-096-zod-4-6-6-compatibility.md
       - Saved Knowledge Text Search: 55-testing/testing-097-knowledge-text-search.md
       - Source Map Dependency Maintenance: 55-testing/testing-099-source-map-maintenance.md
+      - Vite 8.1.6 Toolchain Maintenance: 55-testing/testing-100-vite-toolchain-maintenance.md
       - YouTube Network Failure Diagnostics: 55-testing/testing-081-youtube-network-diagnostics.md
       - Continuity Capture and Direct-Correction Acceptance: 55-testing/testing-088-continuity-capture.md
   - Planning:
