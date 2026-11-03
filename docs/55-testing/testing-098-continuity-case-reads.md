@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-098
 owner: Engineering
 status: Draft
-version: '0.5'
+version: '0.6'
 last_updated: 2026-11-03
 title: Bounded Read-Only Continuity Case Retrieval
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-TESTING-098
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.5
+> **Version:** 0.6
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -29,6 +29,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | 0.3 | 2026-11-03 | Codex | Simplify reviewed promise wrappers and separate runtime compatibility from read lifecycle control. | — | Draft | PR 66 |
 | 0.4 | 2026-11-03 | Codex | Share error normalisation and qualify non-Error diagnostics, Error identity and cleanup precedence. | — | Draft | PR 66 |
 | 0.5 | 2026-11-03 | Codex | Preserve detached static-reader calls with public API regressions. | — | Draft | PR 66 |
+| 0.6 | 2026-11-03 | Codex | Pin CLI, node and snapshot acceptance links to the reviewed regression source. | — | Draft | 4e5cc24 |
 
 ## Purpose
 
@@ -91,6 +92,6 @@ pnpm docs:build
 These commands define the checks, not their results. No live personal store, background service,
 provider call, new default or task-management integration is part of this change.
 
-[cli-tests]: https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/continuity.test.ts
-[node-tests]: https://github.com/GitCmurf/AIDHA/blob/1e119d279328e9988a86ebd2f2681fb573d8ac93/packages/reconditum/tests/sqlite-read-node.test.ts
-[snapshot-tests]: https://github.com/GitCmurf/AIDHA/blob/main/packages/reconditum/tests/sqlite-read-snapshot.test.ts
+[cli-tests]: https://github.com/GitCmurf/AIDHA/blob/4e5cc244ca1d3e63ebf16cee9d1d49fb76c23582/packages/praecis/cli/tests/continuity.test.ts
+[node-tests]: https://github.com/GitCmurf/AIDHA/blob/4e5cc244ca1d3e63ebf16cee9d1d49fb76c23582/packages/reconditum/tests/sqlite-read-node.test.ts
+[snapshot-tests]: https://github.com/GitCmurf/AIDHA/blob/4e5cc244ca1d3e63ebf16cee9d1d49fb76c23582/packages/reconditum/tests/sqlite-read-snapshot.test.ts
