@@ -710,6 +710,21 @@
     }
   },
   {
+    "path": "55-testing/testing-100-vite-toolchain-maintenance.md",
+    "title": "Vite 8.1.6 Toolchain Maintenance",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-100",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-11-03",
+      "title": "Vite 8.1.6 Toolchain Maintenance",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE"
+    }
+  },
+  {
     "path": "55-testing/testing-098-continuity-case-reads.md",
     "title": "Bounded Read-Only Continuity Case Retrieval",
     "front_matter": {
