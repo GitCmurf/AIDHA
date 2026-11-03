@@ -13,11 +13,11 @@ afterEach(async () => {
   await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true })));
 });
 
-async function databasePath(): Promise<string> {
+const databasePath = async (): Promise<string> => {
   const directory = await mkdtemp(join(tmpdir(), 'aidha-knowledge-fts-'));
   directories.push(directory);
   return join(directory, 'graph.sqlite');
-}
+};
 
 sqliteDescribe('SQLiteStore Knowledge text search', () => {
   it('finds saved knowledge by its prose and keeps results current after edits and deletion', async () => {
