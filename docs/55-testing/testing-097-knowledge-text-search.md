@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-097
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-11-03
 title: Saved Knowledge Text Search
 type: TESTING
@@ -13,7 +13,7 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-097
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-11-03
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ area: CORE
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-11-03 | Codex | Specify saved Knowledge search, lifecycle and older-index recovery | — | Draft | Owner autonomous progress request |
+| 0.2 | 2026-11-03 | Codex | Pin new search acceptance tests to their reviewed source commit | — | Draft | 0e07212 |
 
 ## Problem and scope
 
@@ -39,7 +40,7 @@ integrate unpublished reading views or change the read-only snapshot contract.
 ## Acceptance criteria
 
 The public SQLite store boundary is protected by
-[sqlite-knowledge-fts.test.ts](https://github.com/GitCmurf/AIDHA/blob/main/packages/reconditum/tests/sqlite-knowledge-fts.test.ts)
+[sqlite-knowledge-fts.test.ts](https://github.com/GitCmurf/AIDHA/blob/0e072124f18fda772430e665cb3d985cd56e54ca/packages/reconditum/tests/sqlite-knowledge-fts.test.ts)
 and the existing
 [sqlite-fts.test.ts](https://github.com/GitCmurf/AIDHA/blob/main/packages/reconditum/tests/sqlite-fts.test.ts):
 
