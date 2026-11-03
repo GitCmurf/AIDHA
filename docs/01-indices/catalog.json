@@ -749,6 +749,21 @@
     }
   },
   {
+    "path": "55-testing/testing-099-source-map-maintenance.md",
+    "title": "Source Map Dependency Maintenance",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-099",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-11-03",
+      "title": "Source Map Dependency Maintenance",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE"
+    }
+  },
+  {
     "path": "55-testing/testing-073-governed-context-refresh.md",
     "title": "Explicit Agent Context Refresh",
     "front_matter": {
