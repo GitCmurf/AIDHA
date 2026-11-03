@@ -28,6 +28,7 @@ describe('package scripts', () => {
         'node scripts/check-test-scripts.mjs',
         'pnpm security:public-paths',
         'pnpm security:public-paths:test',
+        'pnpm test:source-map',
         'pnpm test:semantic-quality',
         'pnpm test:decision-quality',
         'pnpm -r --workspace-concurrency=1 test:ci',
