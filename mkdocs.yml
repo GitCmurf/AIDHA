@@ -64,6 +64,7 @@ nav:
       - CLI Startup Import Boundary: 55-testing/testing-091-cli-startup-import-boundary.md
       - Vitest 4.1.11 Compatibility: 55-testing/testing-082-vitest-4-1-11-compatibility.md
       - Zod 4.6.6 Compatibility: 55-testing/testing-096-zod-4-6-6-compatibility.md
+      - Saved Knowledge Text Search: 55-testing/testing-097-knowledge-text-search.md
       - YouTube Network Failure Diagnostics: 55-testing/testing-081-youtube-network-diagnostics.md
       - Continuity Capture and Direct-Correction Acceptance: 55-testing/testing-088-continuity-capture.md
   - Planning:

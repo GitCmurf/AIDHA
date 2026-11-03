@@ -115,7 +115,7 @@ function serializeMetadata(metadata: Record<string, unknown>): string {
 export class SQLiteStore implements GraphStore {
   private db: DatabaseSyncLike;
   private ftsEnabled = false;
-  private ftsTypes = new Set<NodeType>(['Claim', 'Excerpt', 'Resource']);
+  private ftsTypes = new Set<NodeType>(['Claim', 'Excerpt', 'Resource', 'Knowledge']);
   private transactionDepth = 0;
   private transactionQueue: Promise<void> = Promise.resolve();
   private transactionOwner?: symbol;
@@ -367,7 +367,7 @@ export class SQLiteStore implements GraphStore {
       // Only searchable node types belong in FTS. Counting other graph nodes
       // would rebuild a complete index on every open, including reader requests.
       const nodeCount = this.db.prepare(
-        "SELECT COUNT(*) as count FROM nodes WHERE type IN ('Claim', 'Excerpt', 'Resource')"
+        "SELECT COUNT(*) as count FROM nodes WHERE type IN ('Claim', 'Excerpt', 'Resource', 'Knowledge')"
       ).get() as { count: number };
       const ftsCount = this.db.prepare('SELECT COUNT(*) as count FROM nodes_fts').get() as { count: number };
       if (ftsCount.count >= nodeCount.count) return;
@@ -376,7 +376,7 @@ export class SQLiteStore implements GraphStore {
         `INSERT INTO nodes_fts (id, type, label, content)
          SELECT id, type, label, COALESCE(content, '')
          FROM nodes
-         WHERE type IN ('Claim', 'Excerpt', 'Resource')`
+         WHERE type IN ('Claim', 'Excerpt', 'Resource', 'Knowledge')`
       );
     } catch {
       this.ftsEnabled = false;
