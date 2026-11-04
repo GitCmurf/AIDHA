@@ -38,7 +38,7 @@ export async function runLightCli(argv: string[]): Promise<number> {
         const configResult = await resolveAidhaConfig(configOpts);
         if (!configResult.ok) throw configResult.error;
         if (explicitlySelectedConfig && configResult.loadResult.config === null) {
-          throw new Error('Explicit continuity config was not found: ' + explicitlySelectedConfig);
+          throw new Error(`Explicit continuity config was not found: ${explicitlySelectedConfig}`);
         }
         const databasePath = configResult.config.db;
         if (positionals[1] === 'update') {
@@ -109,7 +109,11 @@ export async function runLightCli(argv: string[]): Promise<number> {
     const err = error instanceof Error ? error : new Error(String(error));
     const message = command === 'continuity'
       ? err.message.replace(/[\u0000-\u001f\u007f-\u009f\p{Cf}\u2028\u2029]/gu,
-        value => '\\u' + value.codePointAt(0)!.toString(16).padStart(4, '0'))
+        value => {
+          const codePoint = value.codePointAt(0);
+          if (codePoint === undefined) return value;
+          return `\\u${codePoint.toString(16).padStart(4, '0')}`;
+        })
       : err.message;
     console.error(message);
     return 1;
