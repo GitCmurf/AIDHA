@@ -63,6 +63,37 @@ it('show never creates a missing database and leaves existing database bytes unc
   expect(readdirSync(dir).sort()).toEqual(filesBefore);
 }, PROCESS_TEST_TIMEOUT_MS);
 
+it.each([
+  { location: 'database file', parts: ['missing.sqlite'] },
+  { location: 'parent directory', parts: ['missing-parent', 'nested', 'graph.sqlite'] },
+])('update refuses a missing $location without creating storage', ({ parts }) => {
+  const { input, invokeWithConfig, dir } = setup();
+  const database = join(dir, ...parts);
+  const selectedConfig = join(dir, 'update-selected.yaml');
+  writeFileSync(selectedConfig, [
+    'config_version: 1', 'default_profile: test', 'profiles:', '  test:',
+    `    db: ${JSON.stringify(database)}`, '',
+  ].join('\n'), 'utf8');
+  const correction = {
+    kind: 'correct', eventId: 'venue-correction', expectedRevision: 1,
+    source: { ...capture.source, id: 'correction-source', text: 'The venue is East Hall.' },
+    interpreter: 'fixture-correction', factId: 'venue', value: 'East Hall', basis: 'supplied',
+  };
+  const correctionPath = input('correction', correction);
+  const filesBefore = readdirSync(dir).sort();
+
+  const result = invokeWithConfig(selectedConfig,
+    'update', '--case', 'friday', '--input', correctionPath);
+
+  expect(result.error).toBeUndefined();
+  expect(result.status).toBe(1);
+  expect(existsSync(database)).toBe(false);
+  expect(existsSync(join(dir, parts[0]!))).toBe(false);
+  expect(readdirSync(dir).sort()).toEqual(filesBefore);
+  expect(result.stdout).toBe('');
+  expect(result.stderr).toContain(database);
+}, PROCESS_TEST_TIMEOUT_MS);
+
 it('rejects invalid case, date and event input before opening a database', () => {
   const { input, invoke, dir } = setup();
   const goodInput = input('capture', capture);

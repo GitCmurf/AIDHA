@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { GraphStore } from '@aidha/graph-backend';
 import { parseGraphExport, exportGraphJsonLd } from './export-graph.js';
@@ -32,8 +32,15 @@ export async function runLightCli(argv: string[]): Promise<number> {
         if (explicitlySelectedConfig && configResult.loadResult.config === null) {
           throw new Error('Explicit continuity config was not found: ' + explicitlySelectedConfig);
         }
-        await mkdir(dirname(configResult.config.db), { recursive: true });
-        const store = SQLiteStore.open(configResult.config.db);
+        const databasePath = configResult.config.db;
+        if (positionals[1] === 'update') {
+          if (!(await stat(databasePath)).isFile()) {
+            throw new Error('Continuity update requires an existing database file: ' + databasePath);
+          }
+        } else {
+          await mkdir(dirname(databasePath), { recursive: true });
+        }
+        const store = SQLiteStore.open(databasePath);
         try {
           return await work(store);
         } finally {
