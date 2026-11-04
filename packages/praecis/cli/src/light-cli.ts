@@ -55,7 +55,7 @@ export async function runLightCli(argv: string[]): Promise<number> {
         const { showCase } = await import('@aidha/praecis-core');
         // This adapter exposes only getNode; no initializer, migration or write path is available.
         return await showCase({
-          getNode: async nodeId => ({ ok: true, value: snapshot.value.nodes.find(node => node.id === nodeId) ?? null }),
+          getNode: nodeId => Promise.resolve({ ok: true, value: snapshot.value.nodes.find(node => node.id === nodeId) ?? null }),
         }, id, on);
       };
       return await runContinuity(positionals[1], options, withStore, readCase);
