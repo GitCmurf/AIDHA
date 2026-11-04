@@ -35,7 +35,7 @@ export async function runLightCli(argv: string[]): Promise<number> {
         const databasePath = configResult.config.db;
         if (positionals[1] === 'update') {
           if (!(await stat(databasePath)).isFile()) {
-            throw new Error('Continuity update requires an existing database file: ' + databasePath);
+            throw new Error(`Continuity update requires an existing database file: ${databasePath}`);
           }
         } else {
           await mkdir(dirname(databasePath), { recursive: true });

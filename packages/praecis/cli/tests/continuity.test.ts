@@ -66,7 +66,7 @@ it('show never creates a missing database and leaves existing database bytes unc
 it.each([
   { location: 'database file', parts: ['missing.sqlite'] },
   { location: 'parent directory', parts: ['missing-parent', 'nested', 'graph.sqlite'] },
-])('update refuses a missing $location without creating storage', ({ parts }) => {
+] as const)('update refuses a missing $location without creating storage', ({ parts }) => {
   const { input, invokeWithConfig, dir } = setup();
   const database = join(dir, ...parts);
   const selectedConfig = join(dir, 'update-selected.yaml');
@@ -88,7 +88,7 @@ it.each([
   expect(result.error).toBeUndefined();
   expect(result.status).toBe(1);
   expect(existsSync(database)).toBe(false);
-  expect(existsSync(join(dir, parts[0]!))).toBe(false);
+  expect(existsSync(join(dir, parts[0]))).toBe(false);
   expect(readdirSync(dir).sort()).toEqual(filesBefore);
   expect(result.stdout).toBe('');
   expect(result.stderr).toContain(database);
