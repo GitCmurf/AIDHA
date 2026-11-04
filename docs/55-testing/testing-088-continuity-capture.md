@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-088
 owner: Engineering
 status: Draft
-version: '0.3'
+version: '0.4'
 last_updated: 2026-11-04
 title: Continuity Capture and Direct-Correction Acceptance
 type: TESTING
@@ -14,7 +14,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-PLAN-015]
 > **Document ID:** AIDHA-TESTING-088
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
+> **Version:** 0.4
 > **Last Updated:** 2026-11-04
 > **Type:** TESTING
 
@@ -27,6 +27,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-PLAN-015]
 | 0.1 | 2026-10-18 | Codex | Specify core and public-process acceptance for bounded capture, readback and direct correction. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-29 | Codex | Qualify provenance, read-only show, prevalidation, display/error boundaries and current main dispatch with regression controls. | — | Draft | PR 55 |
 | 0.3 | 2026-11-04 | Codex | Rejected corrections against missing selected storage before creating database files or parent directories. | — | Draft | AIDHA-RUNBOOK-014 |
+| 0.4 | 2026-11-04 | Codex | Protected example schema validity, store-free dispatch and fresh-process recovery. | — | Draft | AIDHA-PRD-004 |
 
 ## Scope and limit
 
@@ -110,6 +111,29 @@ activity state.
 Input reading must reject JSON larger than 1 MiB while reading the same opened file handle, before
 parse or write. A check that only stats a path before a later unbounded read does not meet this
 contract.
+
+## Fictional example acceptance
+
+The current
+[public-process tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/continuity.test.ts)
+cover `continuity example --kind capture|update` as follows:
+
+- Both outputs are standalone JSON, satisfy the actual capture/update schemas, and pass capture
+  cross-field/reference validation. They share one target fact, retain illustrative intent,
+  and use distinct event/source IDs with correction revision one.
+- Example commands succeed with invalid environment configuration and a missing explicitly
+  selected config. A child-process module loader rejects the continuity read/write handler,
+  core root module and NLP dependency; examples still succeed without changing directory
+  contents or creating a database. Existing lightweight CLI imports may load graph-backend;
+  this check establishes that no continuity store is opened.
+- Missing, valueless or unsupported kinds fail with a useful diagnostic and no database.
+  Both the root help and continuity help advertise the example command.
+- The emitted JSON is used unchanged as actual capture and correction input against an isolated
+  temporary database. Fresh-process reads recover the corrected value at revision two, exact
+  original/correction sources and events, and unchanged activities, decisions and questions.
+
+These are fictional structural/persistence checks, not a personal-data rehearsal or a claim
+that a human account was interpreted correctly.
 
 ## Commands
 

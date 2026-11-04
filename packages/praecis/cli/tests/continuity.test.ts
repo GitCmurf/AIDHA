@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { capture } from '../../core/tests/continuity/fixture.js';
+import { CaptureEvent, UpdateEvent, validateCapture } from '@aidha/praecis-core';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const directories: string[] = [];
@@ -328,3 +329,110 @@ describe('continuity through the built public package executable', () => {
     expect(call('show', '--case', 'friday', '--on', '2026-10-02', '--json')).toEqual(corrected);
   }, PROCESS_TEST_TIMEOUT_MS);
 });
+
+
+it('prints matching fictional examples without configuration, store access or continuity write imports', () => {
+  const { dir, home, invokeWithoutProfileWithEnv } = setup();
+  const loader = join(dir, 'reject-continuity-runtime.mjs');
+  writeFileSync(loader, [
+    'export async function resolve(specifier, context, nextResolve) {',
+    "  if (specifier === '@aidha/praecis-core' || specifier === 'compromise' || specifier.endsWith('/continuity.js')) {",
+    "    throw new Error('example imported continuity write runtime');",
+    '  }',
+    '  return nextResolve(specifier, context);',
+    '}',
+  ].join('\n'));
+  const poisonConfig = join(dir, 'invalid-config.yaml');
+  writeFileSync(poisonConfig, 'not: [valid configuration');
+  const filesBefore = readdirSync(dir).sort();
+  const examples = (['capture', 'update'] as const).map(kind => {
+    const result = invokeWithoutProfileWithEnv({
+      NODE_OPTIONS: `--experimental-loader=${loader}`, AIDHA_CONFIG: poisonConfig,
+    }, 'example', '--kind', kind, '--config', join(dir, 'missing-config.yaml'));
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    return JSON.parse(result.stdout);
+  });
+  const initial = CaptureEvent.parse(examples[0]);
+  validateCapture(initial);
+  const correction = UpdateEvent.parse(examples[1]);
+  expect(initial.source.intent).toBe('illustrative');
+  expect(correction.source.intent).toBe('illustrative');
+  expect(initial.title).toMatch(/fictional|illustrative/i);
+  expect(initial.facts).toHaveLength(1);
+  const [firstFact] = initial.facts;
+  if (firstFact === undefined) throw new Error('The capture example must include its fact');
+  expect(correction.factId).toBe(firstFact.id);
+  expect(correction.expectedRevision).toBe(1);
+  expect(correction.value).not.toBe(firstFact.value);
+  expect(correction.source.id).not.toBe(initial.source.id);
+  expect(correction.eventId).not.toBe(initial.eventId);
+  expect(readdirSync(dir).sort()).toEqual(filesBefore);
+  expect(readdirSync(home)).toEqual([]);
+  expect(existsSync(join(dir, 'graph.sqlite'))).toBe(false);
+}, PROCESS_TEST_TIMEOUT_MS);
+
+it('rejects missing or invalid example kinds without opening a database', () => {
+  const { invoke, dir } = setup();
+  for (const args of [[], ['--kind'], ['--kind', 'other']]) {
+    const result = invoke('example', ...args);
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toMatch(/--kind.*capture.*update/i);
+    expect(existsSync(join(dir, 'graph.sqlite'))).toBe(false);
+  }
+}, PROCESS_TEST_TIMEOUT_MS);
+
+it('advertises the example command in root and continuity help', () => {
+  const { invoke, dir, home } = setup();
+  const continuityHelp = invoke('--help');
+  expect(continuityHelp.status, continuityHelp.stderr).toBe(0);
+  expect(continuityHelp.stdout).toContain('example --kind capture|update');
+  const rootHelp = spawnSync(process.execPath, [
+    '--experimental-sqlite', join(root, 'packages/praecis/cli/dist/cli.js'), '--help',
+  ], {
+    cwd: dir, encoding: 'utf8', timeout: CHILD_PROCESS_TIMEOUT_MS,
+    env: { PATH: process.env['PATH'], HOME: home, XDG_CONFIG_HOME: home },
+  });
+  expect(rootHelp.status, rootHelp.stderr).toBe(0);
+  expect(rootHelp.stdout).toContain('example --kind capture|update');
+}, PROCESS_TEST_TIMEOUT_MS);
+
+it('runs generated capture and correction examples through fresh-process persistence', () => {
+  const { call, invoke, dir } = setup();
+  const examplePath = (kind: 'capture' | 'update'): string => {
+    const result = invoke('example', '--kind', kind);
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    const path = join(dir, `example-${kind}.json`);
+    writeFileSync(path, result.stdout, 'utf8');
+    return path;
+  };
+  const [capturePath, correctionPath] = [examplePath('capture'), examplePath('update')] as const;
+  const initial = CaptureEvent.parse(JSON.parse(readFileSync(capturePath, 'utf8')));
+  const correction = UpdateEvent.parse(JSON.parse(readFileSync(correctionPath, 'utf8')));
+  const [firstFact] = initial.facts;
+  if (firstFact === undefined) throw new Error('The capture example must include its fact');
+  const [activity] = initial.activities;
+  if (activity === undefined || activity.date === null) {
+    throw new Error('The capture example must include a dated activity');
+  }
+  const on = activity.date;
+  expect(call('capture', '--case', 'fictional-example', '--input', capturePath))
+    .toEqual({ caseId: 'fictional-example', revision: 1, replayed: false });
+  const before = call('show', '--case', 'fictional-example', '--on', on, '--json');
+  expect(before.facts).toEqual(initial.facts.map(fact => ({ ...fact, sourceId: initial.source.id })));
+  expect(call('update', '--case', 'fictional-example', '--input', correctionPath))
+    .toEqual({ caseId: 'fictional-example', revision: 2, replayed: false });
+  const reopened = call('show', '--case', 'fictional-example', '--on', on, '--json');
+  expect(reopened.revision).toBe(2);
+  expect(reopened.facts).toEqual([{
+    ...firstFact, value: correction.value, basis: correction.basis, sourceId: correction.source.id,
+  }]);
+  expect(reopened.sources).toEqual([initial.source, correction.source]);
+  expect(reopened.history.map((record: { event: unknown }) => record.event)).toEqual([initial, correction]);
+  expect(reopened.activities).toEqual(before.activities);
+  expect(reopened.decisions).toEqual(before.decisions);
+  expect(reopened.questions).toEqual(before.questions);
+}, PROCESS_TEST_TIMEOUT_MS);

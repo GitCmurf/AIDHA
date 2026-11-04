@@ -39,6 +39,7 @@ export async function runContinuity(
   const usage = [
     'AIDHA continuity: capture source-backed context and record direct fact corrections.',
     '  schema --kind capture|update',
+    '  example --kind capture|update',
     '  capture --case <id> --input <json>',
     '  update --case <id> --input <json>',
     '  show --case <id> --on <YYYY-MM-DD> [--json]',
