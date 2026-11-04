@@ -2,7 +2,7 @@
 document_id: AIDHA-GOV-007
 owner: GitCmurf
 status: Draft
-version: "1.1"
+version: "1.2"
 last_updated: 2026-11-04
 title: Contributing to AIDHA
 type: GOV
@@ -14,7 +14,7 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-GOV-007
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.1
+> **Version:** 1.2
 > **Last Updated:** 2026-11-04
 > **Type:** GOV
 
@@ -26,6 +26,7 @@ docops_version: "2.0"
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 1.0     | 2026-05-12 | AI     | Add DocOps metadata and record lightweight public contribution policy. | — | Draft | AIDHA-TASK-001 |
 | 1.1 | 2026-11-04 | Codex | Linked contributor prerequisites to the existing workspace Node requirement. | — | Draft | AIDHA-TESTING-080 |
+| 1.2 | 2026-11-04 | Codex | Corrected the setup example to the existing global config discovery path. | — | Draft | AIDHA-GUIDE-005 |
 
 First off, thank you for considering contributing to AIDHA! This guide outlines the process for contributing to the project.
 
@@ -82,8 +83,8 @@ pip install pre-commit
 pre-commit install
 
 # Create a local YAML config file with required variables
-mkdir -p ~/.aidha
-cp examples/config.example.yaml ~/.aidha/config.yaml
+mkdir -p ~/.config/aidha
+cp examples/config.example.yaml ~/.config/aidha/config.yaml
 # Edit the config file with your values
 ```
 
