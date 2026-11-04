@@ -33,6 +33,7 @@ nav:
       - Ingestion Runbook: 50-runbooks/runbook-003-youtube-ingestion.md
       - Personal Continuity Capture and Recovery: 50-runbooks/runbook-014-personal-continuity.md
   - Testing:
+      - DeepSource Configuration Contract: 55-testing/testing-105-deepsource-config-contract.md
       - Transcript Acquisition Errors: 55-testing/testing-077-transcript-acquisition-errors.md
       - Build Before Executable Tests: 55-testing/testing-095-executable-test-builds.md
       - Fast URI Security Maintenance: 55-testing/testing-064-fast-uri-security-maintenance.md

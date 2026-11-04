@@ -32,6 +32,9 @@ jobs:
       - name: Test explicit agent context refresh
         run: python scripts/test_update_agent_context.py
 
+      - name: Test DeepSource configuration contract
+        run: python scripts/test_deepsource_config.py
+
       - name: Validate docs
         run: python docs/_scripts/validate_docs.py
 
