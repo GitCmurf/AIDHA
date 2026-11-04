@@ -108,8 +108,8 @@ describe.runIf(supportsReadOnlySnapshots)('CLI startup import boundary', () => {
   }, 90000);
 
   it('prints continuity help without importing the core root or NLP dependency', async () => {
-    const f = await fixture({ rejectCoreRoot: true });
-    const result = execute(f, ['continuity', '--help']);
+    const fixtureState = await fixture({ rejectCoreRoot: true });
+    const result = execute(fixtureState, ['continuity', '--help']);
     expect(result.error).toBeUndefined();
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('AIDHA continuity');
@@ -117,8 +117,8 @@ describe.runIf(supportsReadOnlySnapshots)('CLI startup import boundary', () => {
   }, 90000);
 
   it.each(['capture', 'update'])('prints the %s schema without importing the core root or NLP dependency', async kind => {
-    const f = await fixture({ rejectCoreRoot: true });
-    const result = execute(f, ['continuity', 'schema', '--kind', kind]);
+    const fixtureState = await fixture({ rejectCoreRoot: true });
+    const result = execute(fixtureState, ['continuity', 'schema', '--kind', kind]);
     expect(result.error).toBeUndefined();
     expect(result.status, result.stderr).toBe(0);
     const schema = JSON.parse(result.stdout) as { additionalProperties?: boolean; required?: string[] };
@@ -127,9 +127,9 @@ describe.runIf(supportsReadOnlySnapshots)('CLI startup import boundary', () => {
   }, 90000);
 
   it('captures, corrects and shows a fictional case without importing the core root or NLP dependency', async () => {
-    const f = await fixture({ rejectCoreRoot: true });
-    const capturePath = join(f.directory, 'capture.json');
-    const correctionPath = join(f.directory, 'correction.json');
+    const fixtureState = await fixture({ rejectCoreRoot: true });
+    const capturePath = join(fixtureState.directory, 'capture.json');
+    const correctionPath = join(fixtureState.directory, 'correction.json');
     const correction = {
       kind: 'correct', eventId: 'venue-correction', expectedRevision: 1,
       source: { ...capture.source, id: 'correction-source', text: 'The fictional venue is East Hall.' },
@@ -138,7 +138,7 @@ describe.runIf(supportsReadOnlySnapshots)('CLI startup import boundary', () => {
     await writeFile(capturePath, JSON.stringify(capture), { encoding: 'utf8', mode: 0o600 });
     await writeFile(correctionPath, JSON.stringify(correction), { encoding: 'utf8', mode: 0o600 });
     const call = (args: string[]): unknown => {
-      const result = execute(f, ['continuity', ...args, '--config', f.configPath, '--profile', 'selected']);
+      const result = execute(fixtureState, ['continuity', ...args, '--config', fixtureState.configPath, '--profile', 'selected']);
       expect(result.error).toBeUndefined();
       expect(result.status, result.stderr).toBe(0);
       return JSON.parse(result.stdout) as unknown;
