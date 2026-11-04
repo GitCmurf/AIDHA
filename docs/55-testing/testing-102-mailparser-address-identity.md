@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-102
 owner: Engineering
 status: Draft
-version: '0.1'
-last_updated: 2026-11-03
+version: '0.2'
+last_updated: 2026-11-04
 title: Email Address Identity Maintenance
 type: TESTING
 docops_version: '2.0'
@@ -13,8 +13,8 @@ area: INGEST
 > **Document ID:** AIDHA-TESTING-102
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-11-03
+> **Version:** 0.2
+> **Last Updated:** 2026-11-04
 > **Type:** TESTING
 
 # Email Address Identity Maintenance
@@ -24,6 +24,7 @@ area: INGEST
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-11-03 | Codex | Qualify the parent parser patch with canonical mailbox identity regressions and offline compatibility checks | — | Draft | Owner autonomous progress request |
+| 0.2 | 2026-11-04 | Codex | Pin the identity regressions to their reviewed source commit | — | Draft | 87b5d17 |
 
 ## Problem and scope
 
@@ -125,7 +126,7 @@ behaviour.
 [release]: https://github.com/nodemailer/mailparser/releases/tag/v3.9.43
 [old-parent]: https://github.com/nodemailer/mailparser/blob/v3.9.40/package.json
 [new-parent]: https://github.com/nodemailer/mailparser/blob/v3.9.43/package.json
-[identity]: https://github.com/GitCmurf/AIDHA/blob/110-mailparser-maintenance/packages/praecis/sources/email/tests/address-identity.test.ts
+[identity]: https://github.com/GitCmurf/AIDHA/blob/87b5d17d14e2507c11ab94b8afaac54626f07b99/packages/praecis/sources/email/tests/address-identity.test.ts
 [eml]: https://github.com/GitCmurf/AIDHA/blob/93cf475d29ede62c0fed7f9148ba56bfbc765312/packages/praecis/sources/email/tests/parse-eml.test.ts
 [mime]: https://github.com/GitCmurf/AIDHA/blob/93cf475d29ede62c0fed7f9148ba56bfbc765312/packages/praecis/sources/email/tests/mime-compatibility.test.ts
 [budget]: https://github.com/GitCmurf/AIDHA/blob/93cf475d29ede62c0fed7f9148ba56bfbc765312/packages/praecis/sources/email/tests/parser-budget.test.ts
