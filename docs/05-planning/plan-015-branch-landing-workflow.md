@@ -2,8 +2,8 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.21'
-last_updated: 2026-10-29
+version: '0.22'
+last_updated: 2026-11-04
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.21
-> **Last Updated:** 2026-10-29
+> **Version:** 0.22
+> **Last Updated:** 2026-11-04
 > **Type:** PLAN
 
 # Branch Landing and Next Sprints Workflow
@@ -45,6 +45,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.19 | 2026-10-18 | Codex | Clarify that older batch approval gates are dated history and align the active checklist with the standing technical authority. | — | Draft | PR 57 Greptile finding |
 | 0.20 | 2026-10-29 | Codex | Integrate the separate offline decision checkpoint while retaining current authority. | — | Draft | PR 38; AIDHA-TESTING-060 |
 | 0.21 | 2026-10-29 | Codex | Integrate offline provider adapters while preserving separate collection authority. | — | Draft | PR 39; AIDHA-TESTING-061 |
+| 0.22 | 2026-11-04 | Codex | Record six verified technical merges, dependency-alert closure and the bounded post-train handoff. | — | Draft | PRs 67–72; AIDHA-TESTING-073 |
 
 ## Purpose and authority
 
@@ -1226,3 +1227,84 @@ Its comparison plan is inspectable preparation. It adds no HTTP transport, crede
 account activation or live switch. The proposed model routes, call counts and USD 1 review
 budget confer no spending or collection authority. Any live comparison retains its own
 concrete endpoint, input, account and spending gate.
+
+## 2026-11-04 — Technical maintenance handoff
+
+Six independently reviewed technical PRs are merged. Each merged tree equals its
+reviewed tree; required final-head CI and actual reporting reviews passed before
+merge. Skipped bot reviews provide no coverage.
+
+| PR | Merge | Result and acceptance evidence |
+| --- | --- | --- |
+| [67 — saved Knowledge search](https://github.com/GitCmurf/AIDHA/pull/67) | `2d650e49` | Keep saved Knowledge searchable through update, deletion and older-index recovery; [AIDHA-TESTING-097](../55-testing/testing-097-knowledge-text-search.md) |
+| [68 — source-map maintenance](https://github.com/GitCmurf/AIDHA/pull/68) | `aa80e6cd` | Qualify source-map-js 1.2.2 through the PostCSS consumer; [AIDHA-TESTING-099](../55-testing/testing-099-source-map-maintenance.md) |
+| [69 — Vite maintenance](https://github.com/GitCmurf/AIDHA/pull/69) | `93cf475d` | Update Vite to 8.1.6 with its required toolchain closure; [AIDHA-TESTING-100](../55-testing/testing-100-vite-toolchain-maintenance.md) |
+| [70 — URI parser maintenance](https://github.com/GitCmurf/AIDHA/pull/70) | `da0bb2cc` | Qualify fast-uri 3.1.9 through existing config schema validation; [AIDHA-TESTING-101](../55-testing/testing-101-fast-uri-maintenance.md) |
+| [71 — email parser maintenance](https://github.com/GitCmurf/AIDHA/pull/71) | `0ec0c46c` | Update mailparser to 3.9.43 and Nodemailer to 10.1.4, protecting canonical inbound mailbox parsing; [AIDHA-TESTING-102](../55-testing/testing-102-mailparser-address-identity.md) |
+| [72 — test runner maintenance](https://github.com/GitCmurf/AIDHA/pull/72) | `a6b043b5` | Update the coordinated Vitest family to 4.1.12 while retaining the email and earlier dependency fixes; [AIDHA-TESTING-103](../55-testing/testing-103-vitest-maintenance.md) |
+
+Verified main after PR 72 is `a6b043b51db6fc74873c976765bd49ea0194ea20`, tree
+`770020da9904f3428af0f9942dc9663fb030c690`. PR 72's unchanged full hosted
+[package gate][train-packages] passes build, lint and tests for all 19 packages,
+including YouTube. The four post-merge main workflows pass:
+[TypeScript Packages][train-typescript], [Docs Check][train-docs],
+[Secret Scan][train-secrets] and the [push workflow][train-push]. All four reporting
+DeepSource analysers also pass on that main revision. The linked testing records
+retain the limits of the narrower local checks.
+
+### Dependency-alert closure
+
+The authenticated all-state inventory at **2026-11-04 00:39:13 UTC** contains 54
+unique records on one page and **zero open alerts**, across every severity.
+All 17 alerts open at the start of this train are now fixed: source-map alert 43;
+Vite alerts 7, 8 and 44–48; fast-uri alerts 51–54; email parser alerts 55–57; and
+Vitest mocker alerts 49 and 58. No alerts were dismissed by this work.
+
+### Post-train context and remaining work
+
+The explicit context preview documented by
+[AIDHA-TESTING-073](../55-testing/testing-073-governed-context-refresh.md) was run
+against that revision with `--plan docs/05-planning/plan-015-branch-landing-workflow.md
+--preview`. It exited **1**, produced no stdout, and reported
+`ERROR: Missing AIDHA_AGENT_CONTEXT_SOURCE block`. No source block was invented
+and no agent instructions were written. AGENTS.md's SHA-256 before and after is
+identical:
+
+```text
+9e18a31adec990e281b482cc0cfda3b9342499994680fefd7b4f6b730691fdb7
+```
+
+There are no tracked `specs/` files at that revision. The five tracked
+`.specify/templates/` files have no changes against initial main
+`bb4e6fb66c569f3169ee1e860983893403a481f0`; no pruning or template rewrite was
+needed. Preview output, hashes and the read-only inspection receipt remain in
+ignored local reports. The primary checkout, branch 111 and its verification
+receipts are preserved.
+
+[PR 66 — bounded continuity reads](https://github.com/GitCmurf/AIDHA/pull/66)
+remains held at head `48f6b46b4e5f6420bb6a036747be197c6db05110`, tree
+`628d017101b6505a542ebefdcb5370b16d4efd32`. Its upstream refresh preserves the
+reviewed feature code and tests. The current head passes
+[TypeScript Packages][held-typescript], [strict docs][held-docs],
+[Secret Scan][held-secrets] and [CodeQL][held-codeql]; Greptile reports 5/5.
+The [current DeepSource JavaScript/TypeScript report][held-deepsource] still fails,
+while the other three analysers pass. The actual finding remains unread through
+the available tools, with no new inline finding visible. Its review gate stays
+unresolved pending the actual finding; no defect or fix is inferred from the
+status alone.
+
+Private writer work remains parked for owner acceptance. The unchecked reader
+usefulness and continuity-input decisions above remain open, alongside the
+existing product, model, provider, spending, access and private-data boundaries.
+The original work inventory still needs reconciliation.
+
+[train-packages]: https://github.com/GitCmurf/AIDHA/actions/runs/41747326827
+[train-typescript]: https://github.com/GitCmurf/AIDHA/actions/runs/41748019987
+[train-docs]: https://github.com/GitCmurf/AIDHA/actions/runs/41748020068
+[train-secrets]: https://github.com/GitCmurf/AIDHA/actions/runs/41748019950
+[train-push]: https://github.com/GitCmurf/AIDHA/actions/runs/41748020539
+[held-typescript]: https://github.com/GitCmurf/AIDHA/actions/runs/41750669500
+[held-docs]: https://github.com/GitCmurf/AIDHA/actions/runs/41750669431
+[held-secrets]: https://github.com/GitCmurf/AIDHA/actions/runs/41750669507
+[held-codeql]: https://github.com/GitCmurf/AIDHA/actions/runs/41750665347
+[held-deepsource]: https://app.deepsource.com/gh/GitCmurf/AIDHA/run/9ac182de-d250-4412-be49-9174f78be99d/javascript/
