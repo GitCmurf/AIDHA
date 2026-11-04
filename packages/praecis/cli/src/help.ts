@@ -4,6 +4,7 @@ export function createCliUsageText(ingestUsageLines: readonly string[]): string 
 Usage:
   aidha config explain <key> [--config <path>] [--profile <name>] [--source <id>]
   aidha continuity schema --kind capture|update [--config <path>] [--profile <name>]
+  aidha continuity example --kind capture|update
   aidha continuity capture --case <id> --input <json> [--config <path>] [--profile <name>]
   aidha continuity update --case <id> --input <json> [--config <path>] [--profile <name>]
   aidha continuity show --case <id> --on <YYYY-MM-DD> [--json] [--config <path>] [--profile <name>]

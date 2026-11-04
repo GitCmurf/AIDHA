@@ -2,8 +2,8 @@
 document_id: AIDHA-PRD-004
 owner: Product
 status: Draft
-version: '0.2'
-last_updated: 2026-10-29
+version: '0.3'
+last_updated: 2026-11-04
 title: Bounded Continuity Capture and Correction
 type: PRD
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-TESTING-088, AIDHA-PLAN-01
 > **Document ID:** AIDHA-PRD-004
 > **Owner:** Product
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-29
+> **Version:** 0.3
+> **Last Updated:** 2026-11-04
 > **Type:** PRD
 
 # Bounded Continuity Capture and Correction
@@ -26,6 +26,7 @@ related_ids: [AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-TESTING-088, AIDHA-PLAN-01
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify the bounded capture, readback and direct-correction contract. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-29 | Codex | Clarify explicit unknown-date provenance and preservation of submitted attribution. | — | Draft | PR 55 |
+| 0.3 | 2026-11-04 | Codex | Specified store-free fictional capture and correction examples. | — | Draft | AIDHA-PRD-004 |
 
 ## Purpose and scope
 
@@ -72,6 +73,18 @@ characters, and Markdown syntax. JSON output preserves source/event text.
 the expected current revision. It is not a proposal/review workflow. A stale revision or
 changed-content event collision is an error; callers must inspect current state and reassess rather
 than silently retry with a new ID.
+
+`example --kind capture|update` prints one fictional JSON input to stdout. The two examples
+form a matching capture/correction pair with one fact, distinct source/event identities,
+`intent: "illustrative"`, and correction revision one. They must satisfy the same runtime input
+schemas and capture reference validation as user input. Example inspection must not resolve
+configuration, open a store, or import the continuity read/write handler or ingestion runtime.
+It does not capture the example; a separate explicit capture command does that.
+
+The public-process example checks in
+[continuity acceptance tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/continuity.test.ts)
+protect this contract by redirecting the output into capture/update inputs and reopening the
+isolated case in fresh processes.
 
 ## Explicit exclusions
 

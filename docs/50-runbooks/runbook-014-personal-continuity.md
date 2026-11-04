@@ -2,8 +2,8 @@
 document_id: AIDHA-RUNBOOK-014
 owner: Engineering
 status: Draft
-version: '0.3'
-last_updated: 2026-10-29
+version: '0.5'
+last_updated: 2026-11-04
 title: Personal Continuity Capture and Recovery
 type: RUNBOOK
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 > **Document ID:** AIDHA-RUNBOOK-014
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.3
-> **Last Updated:** 2026-10-29
+> **Version:** 0.5
+> **Last Updated:** 2026-11-04
 > **Type:** RUNBOOK
 
 # Personal Continuity Capture and Recovery
@@ -27,6 +27,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | 0.1 | 2026-09-11 | Codex | Document the first capture, correction and recovery commands. | — | Draft | — |
 | 0.2 | 2026-10-18 | Codex | Align steps with the workspace CLI entry point and bound scope to capture, show and direct correction. | — | Draft | AIDHA-PRD-004 |
 | 0.3 | 2026-10-29 | Codex | Document unknown-date validation, exact attribution and isolated continuity command dispatch. | — | Draft | PR 55 |
+| 0.5 | 2026-11-04 | Codex | Added copyable fictional examples and an isolated capture/correction rehearsal. | — | Draft | AIDHA-PRD-004 |
 
 ## Purpose and safety
 
@@ -52,8 +53,8 @@ closure:
 pnpm --filter @aidha/praecis-cli... build
 ```
 
-Invoke the built package entry point. Do not assume a root `scripts/aidha` launcher exists. The help
-and schema commands are store-free; use the generated JSON Schema for field shapes and runtime
+Invoke the built package entry point. Do not assume a root `scripts/aidha` launcher exists. The help,
+schema and example commands are store-free; use the generated JSON Schema for field shapes and runtime
 validation for cross-field and
 reference constraints:
 
@@ -68,8 +69,48 @@ source inputs, and database as private data. The database is authoritative for t
 history; a generated report or copied summary is not. For storage commands, `--config <path>` takes
 precedence over `AIDHA_CONFIG`; a valid config uses its `default_profile` when `--profile` is
 omitted. A missing explicitly selected CLI or environment config fails closed instead of falling
-back to a default database. A bare `--config` or `--profile` is an error. Schema and help inspection
-do not open a database.
+back to a default database. A bare `--config` or `--profile` is an error. Help, schema and example
+inspection do not resolve configuration or open a database.
+
+## Rehearse with fictional examples
+
+Print a matching capture/correction pair for inspection. The output is JSON only, suitable for direct
+redirection, and both source records explicitly declare `intent: "illustrative"`. The initial
+record supplies a fictional meeting venue of West Hall; the correction changes that one fact
+to East Hall with `expectedRevision: 1`. The fixed source/event IDs are intended for a new case;
+these examples are not templates for repeated updates to an existing case.
+
+```bash
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity example --kind capture
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity example --kind update
+```
+
+To exercise the pair without using a personal database, create a fresh temporary directory and
+select its database explicitly. Run these commands from the repository root after building:
+
+```bash
+demo_dir="$(mktemp -d)"
+printf 'config_version: 1\ndefault_profile: demo\nprofiles:\n  demo:\n    db: %s/graph.sqlite\n' \
+  "$demo_dir" > "$demo_dir/config.yaml"
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  example --kind capture > "$demo_dir/capture.json"
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  example --kind update > "$demo_dir/correction.json"
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  capture --case fictional-example --input "$demo_dir/capture.json" --config "$demo_dir/config.yaml"
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  show --case fictional-example --on 2026-10-02 --json --config "$demo_dir/config.yaml"
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  update --case fictional-example --input "$demo_dir/correction.json" --config "$demo_dir/config.yaml"
+node --experimental-sqlite packages/praecis/cli/dist/cli.js continuity \
+  show --case fictional-example --on 2026-10-02 --json --config "$demo_dir/config.yaml"
+```
+
+The final read should report revision two and East Hall while retaining both source records
+and both events. Each command starts a fresh process. Inspect the files under `$demo_dir` and
+remove that temporary directory when finished. Printing an example uses no configuration or
+store and bypasses the continuity read/write handler; only the explicit capture/update commands
+write the selected database. No model or provider is needed for this rehearsal.
 
 ## Capture, inspect, correct, inspect
 
