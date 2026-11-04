@@ -8,6 +8,10 @@
 - this project is greenfield with no production deployment or users
   - breaking changes are acceptable; backward compatibility is not needed
 - `pnpm docs:serve` / `pnpm docs:build` — preview and validate the MkDocs site before opening a PR.
+- For workspace checks, use the root `package.json` Node floor even when
+  `CONTRIBUTING.md` or the CLI package declares an older minimum. See
+  [AIDHA-TESTING-080](docs/55-testing/testing-080-node-runtime-floor.md) for the
+  SQLite compatibility evidence.
 
 ## Engineering Principles
 - specification-led
