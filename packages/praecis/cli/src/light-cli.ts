@@ -52,7 +52,7 @@ export async function runLightCli(argv: string[]): Promise<number> {
         if (!configResult.ok) throw configResult.error;
         const snapshot = await SQLiteStore.readSnapshot(configResult.config.db, { scope: 'full' });
         if (!snapshot.ok) throw snapshot.error;
-        const { showCase } = await import('@aidha/praecis-core');
+        const { showCase } = await import('@aidha/praecis-core/continuity');
         // This adapter exposes only getNode; no initializer, migration or write path is available.
         return await showCase({
           getNode: async nodeId => ({ ok: true, value: snapshot.value.nodes.find(node => node.id === nodeId) ?? null }),

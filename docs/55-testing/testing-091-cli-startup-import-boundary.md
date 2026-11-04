@@ -2,20 +2,20 @@
 document_id: AIDHA-TESTING-091
 owner: Engineering
 status: Draft
-version: '0.1'
-last_updated: 2026-10-18
+version: '0.2'
+last_updated: 2026-11-04
 title: CLI Startup Import Boundary
 type: TESTING
 docops_version: '2.0'
 area: CLI
-related_ids: [AIDHA-TESTING-078, AIDHA-TESTING-089]
+related_ids: [AIDHA-TESTING-078, AIDHA-TESTING-089, AIDHA-TESTING-104]
 ---
 <!-- MEMINIT_METADATA_BLOCK -->
 > **Document ID:** AIDHA-TESTING-091
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
-> **Last Updated:** 2026-10-18
+> **Version:** 0.2
+> **Last Updated:** 2026-11-04
 > **Type:** TESTING
 
 # CLI Startup Import Boundary
@@ -25,6 +25,7 @@ related_ids: [AIDHA-TESTING-078, AIDHA-TESTING-089]
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Define the lightweight CLI command import boundary and regression checks. | — | Draft | — |
+| 0.2 | 2026-11-04 | Codex | Linked separate continuity startup acceptance in AIDHA-TESTING-104. | — | Draft | AIDHA-TESTING-104 |
 
 ## Scope
 
@@ -62,3 +63,8 @@ pnpm docs:build
 
 The commands describe the intended checks; review evidence records actual results and any
 environment limitations.
+
+## Related coverage
+
+Manual continuity startup acceptance is recorded separately in
+[AIDHA-TESTING-104](testing-104-continuity-startup-import-boundary.md).

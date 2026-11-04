@@ -2,7 +2,8 @@
 import { open } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import type { GraphStore } from '@aidha/graph-backend';
-import { CaptureEvent, UpdateEvent, ContinuityId, ContinuityDate, validateCapture, captureCase, continuityInputSchema, renderContinuityMarkdown, showCase, updateCase } from '@aidha/praecis-core';
+// Keep manual continuity commands independent of the ingestion and NLP runtime.
+import { CaptureEvent, UpdateEvent, ContinuityId, ContinuityDate, validateCapture, captureCase, continuityInputSchema, renderContinuityMarkdown, showCase, updateCase } from '@aidha/praecis-core/continuity';
 
 type Options = Record<string, string | boolean | undefined>;
 const MAX_INPUT_BYTES = 1024 * 1024;

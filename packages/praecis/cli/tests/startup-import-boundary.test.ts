@@ -5,6 +5,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { capture } from '../../core/tests/continuity/fixture.js';
 
 const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split('.').map(Number);
 const supportsReadOnlySnapshots = nodeMajor >= 24 || (nodeMajor === 23 && nodeMinor >= 2) ||
@@ -20,7 +21,7 @@ afterEach(async () => {
   }
 });
 
-async function fixture() {
+async function fixture({ rejectCoreRoot = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'aidha-cli-startup-boundary-'));
   directories.push(directory);
   const databasePath = join(directory, 'graph.sqlite');
@@ -50,6 +51,11 @@ async function fixture() {
     "  if (specifier === 'compromise') {",
     "    throw new Error('startup-import test rejected the NLP dependency');",
     '  }',
+    ...(rejectCoreRoot ? [
+      "  if (specifier === '@aidha/praecis-core') {",
+      "    throw new Error('startup-import test rejected the core root');",
+      '  }',
+    ] : []),
     '  return nextResolve(specifier, context);',
     '}',
   ].join('\n'), { encoding: 'utf8', mode: 0o600 });
@@ -100,6 +106,63 @@ describe.runIf(supportsReadOnlySnapshots)('CLI startup import boundary', () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('db');
   }, 90000);
+
+  it('prints continuity help without importing the core root or NLP dependency', async () => {
+    const f = await fixture({ rejectCoreRoot: true });
+    const result = execute(f, ['continuity', '--help']);
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('AIDHA continuity');
+    expect(result.stdout).toContain('capture --case');
+  }, 90000);
+
+  it.each(['capture', 'update'])('prints the %s schema without importing the core root or NLP dependency', async kind => {
+    const f = await fixture({ rejectCoreRoot: true });
+    const result = execute(f, ['continuity', 'schema', '--kind', kind]);
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    const schema = JSON.parse(result.stdout) as { additionalProperties?: boolean; required?: string[] };
+    expect(schema.additionalProperties).toBe(false);
+    expect(schema.required).toContain('source');
+  }, 90000);
+
+  it('captures, corrects and shows a fictional case without importing the core root or NLP dependency', async () => {
+    const f = await fixture({ rejectCoreRoot: true });
+    const capturePath = join(f.directory, 'capture.json');
+    const correctionPath = join(f.directory, 'correction.json');
+    const correction = {
+      kind: 'correct', eventId: 'venue-correction', expectedRevision: 1,
+      source: { ...capture.source, id: 'correction-source', text: 'The fictional venue is East Hall.' },
+      interpreter: 'synthetic-test-fixture', factId: 'venue', value: 'East Hall', basis: 'supplied',
+    };
+    await writeFile(capturePath, JSON.stringify(capture), { encoding: 'utf8', mode: 0o600 });
+    await writeFile(correctionPath, JSON.stringify(correction), { encoding: 'utf8', mode: 0o600 });
+    const call = (args: string[]): unknown => {
+      const result = execute(f, ['continuity', ...args, '--config', f.configPath, '--profile', 'selected']);
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      return JSON.parse(result.stdout) as unknown;
+    };
+
+    expect(call(['capture', '--case', 'friday', '--input', capturePath]))
+      .toEqual({ caseId: 'friday', revision: 1, replayed: false });
+    expect(call(['show', '--case', 'friday', '--on', '2026-10-02', '--json'])).toMatchObject({
+      revision: 1,
+      sources: [capture.source],
+      facts: capture.facts.map(fact => ({ ...fact, sourceId: capture.source.id })),
+    });
+    expect(call(['update', '--case', 'friday', '--input', correctionPath]))
+      .toEqual({ caseId: 'friday', revision: 2, replayed: false });
+    expect(call(['show', '--case', 'friday', '--on', '2026-10-02', '--json'])).toMatchObject({
+      revision: 2,
+      sources: [capture.source, correction.source],
+      facts: [
+        { ...capture.facts[0], value: 'East Hall', basis: 'supplied', sourceId: correction.source.id },
+        { ...capture.facts[1], sourceId: capture.source.id },
+      ],
+      history: [{ event: capture }, { event: correction }],
+    });
+  }, 300000);
 
   it('uses the shared registrations to reject invalid source configuration', async () => {
     const f = await fixture();

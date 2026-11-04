@@ -11,6 +11,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./continuity": {
+      "import": "./dist/continuity/index.js",
+      "types": "./dist/continuity/index.d.ts"
+    },
     "./source-registration": {
       "import": "./dist/source-registration.js",
       "types": "./dist/source-registration.d.ts"
