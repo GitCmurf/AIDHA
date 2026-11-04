@@ -755,6 +755,21 @@
     }
   },
   {
+    "path": "55-testing/testing-105-deepsource-config-contract.md",
+    "title": "DeepSource JavaScript Configuration Contract",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-105",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-11-04",
+      "title": "DeepSource JavaScript Configuration Contract",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE"
+    }
+  },
+  {
     "path": "55-testing/testing-098-continuity-case-reads.md",
     "title": "Bounded Read-Only Continuity Case Retrieval",
     "front_matter": {
