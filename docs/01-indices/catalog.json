@@ -446,6 +446,21 @@
     }
   },
   {
+    "path": "55-testing/testing-103-vitest-maintenance.md",
+    "title": "Vitest 4.1.12 Dependency Maintenance",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-103",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-11-04",
+      "title": "Vitest 4.1.12 Dependency Maintenance",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE"
+    }
+  },
+  {
     "path": "55-testing/testing-083-transcript-prompt-fidelity.md",
     "title": "Complete Transcript Data in Chunk Mining Prompts",
     "front_matter": {
@@ -597,6 +612,21 @@
     }
   },
   {
+    "path": "55-testing/testing-102-mailparser-address-identity.md",
+    "title": "Email Address Identity Maintenance",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-102",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-11-04",
+      "title": "Email Address Identity Maintenance",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST"
+    }
+  },
+  {
     "path": "55-testing/testing-080-node-runtime-floor.md",
     "title": "Node Runtime Floor",
     "front_matter": {
@@ -731,8 +761,8 @@
       "document_id": "AIDHA-TESTING-098",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.10",
-      "last_updated": "2026-11-03",
+      "version": "0.11",
+      "last_updated": "2026-11-04",
       "title": "Bounded Read-Only Continuity Case Retrieval",
       "type": "TESTING",
       "docops_version": "2.0",
@@ -790,6 +820,21 @@
       "title": "Explicit Agent Context Refresh",
       "type": "TESTING",
       "docops_version": "2.0"
+    }
+  },
+  {
+    "path": "55-testing/testing-101-fast-uri-maintenance.md",
+    "title": "fast-uri 3.1.9 Dependency Maintenance",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-101",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.1",
+      "last_updated": "2026-11-03",
+      "title": "fast-uri 3.1.9 Dependency Maintenance",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "CORE"
     }
   },
   {
