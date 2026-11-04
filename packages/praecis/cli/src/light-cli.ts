@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { GraphStore } from '@aidha/graph-backend';
 import { parseGraphExport, exportGraphJsonLd } from './export-graph.js';
@@ -30,10 +30,17 @@ export async function runLightCli(argv: string[]): Promise<number> {
         const configResult = await resolveAidhaConfig(configOpts);
         if (!configResult.ok) throw configResult.error;
         if (explicitlySelectedConfig && configResult.loadResult.config === null) {
-          throw new Error('Explicit continuity config was not found: ' + explicitlySelectedConfig);
+          throw new Error(`Explicit continuity config was not found: ${explicitlySelectedConfig}`);
         }
-        await mkdir(dirname(configResult.config.db), { recursive: true });
-        const store = SQLiteStore.open(configResult.config.db);
+        const databasePath = configResult.config.db;
+        if (positionals[1] === 'update') {
+          if (!(await stat(databasePath)).isFile()) {
+            throw new Error(`Continuity update requires an existing database file: ${databasePath}`);
+          }
+        } else {
+          await mkdir(dirname(databasePath), { recursive: true });
+        }
+        const store = SQLiteStore.open(databasePath);
         try {
           return await work(store);
         } finally {
@@ -48,7 +55,7 @@ export async function runLightCli(argv: string[]): Promise<number> {
         const { showCase } = await import('@aidha/praecis-core');
         // This adapter exposes only getNode; no initializer, migration or write path is available.
         return await showCase({
-          getNode: async nodeId => ({ ok: true, value: snapshot.value.nodes.find(node => node.id === nodeId) ?? null }),
+          getNode: nodeId => Promise.resolve({ ok: true, value: snapshot.value.nodes.find(node => node.id === nodeId) ?? null }),
         }, id, on);
       };
       return await runContinuity(positionals[1], options, withStore, readCase);
@@ -94,7 +101,11 @@ export async function runLightCli(argv: string[]): Promise<number> {
     const err = error instanceof Error ? error : new Error(String(error));
     const message = command === 'continuity'
       ? err.message.replace(/[\u0000-\u001f\u007f-\u009f\p{Cf}\u2028\u2029]/gu,
-        value => '\\u' + value.codePointAt(0)!.toString(16).padStart(4, '0'))
+        value => {
+          const codePoint = value.codePointAt(0);
+          if (codePoint === undefined) return value;
+          return `\\u${codePoint.toString(16).padStart(4, '0')}`;
+        })
       : err.message;
     console.error(message);
     return 1;

@@ -2,8 +2,8 @@
 document_id: AIDHA-TESTING-088
 owner: Engineering
 status: Draft
-version: '0.2'
-last_updated: 2026-10-29
+version: '0.3'
+last_updated: 2026-11-04
 title: Continuity Capture and Direct-Correction Acceptance
 type: TESTING
 docops_version: '2.0'
@@ -14,8 +14,8 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-PLAN-015]
 > **Document ID:** AIDHA-TESTING-088
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.2
-> **Last Updated:** 2026-10-29
+> **Version:** 0.3
+> **Last Updated:** 2026-11-04
 > **Type:** TESTING
 
 # Continuity Capture and Direct-Correction Acceptance
@@ -26,6 +26,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-RUNBOOK-014, AIDHA-PLAN-015]
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-10-18 | Codex | Specify core and public-process acceptance for bounded capture, readback and direct correction. | — | Draft | AIDHA-PLAN-015 |
 | 0.2 | 2026-10-29 | Codex | Qualify provenance, read-only show, prevalidation, display/error boundaries and current main dispatch with regression controls. | — | Draft | PR 55 |
+| 0.3 | 2026-11-04 | Codex | Rejected corrections against missing selected storage before creating database files or parent directories. | — | Draft | AIDHA-RUNBOOK-014 |
 
 ## Scope and limit
 
@@ -77,7 +78,7 @@ Its acceptance cases verify:
 
 The suite launches prebuilt output through the following controls:
 
-- [public-process tests](https://github.com/GitCmurf/AIDHA/blob/0516bd1226ca3a04392e47ebd935212679705284/packages/praecis/cli/tests/continuity.test.ts)
+- [public-process tests](https://github.com/GitCmurf/AIDHA/blob/main/packages/praecis/cli/tests/continuity.test.ts)
 
 It invokes
 the actual CLI package entry point, `packages/praecis/cli/dist/cli.js`, with an explicit config and
@@ -90,6 +91,15 @@ correction, and final show in separate processes, asserting exact source/history
 unrelated decisions/questions/facts, idempotent replay, stale-revision rejection, and unchanged
 state after a failed update. Do not substitute a saved-tree-only wrapper or in-process helper for
 this process boundary.
+
+For a schema-valid correction, the selected database must already exist as a regular file at the
+filesystem preflight. Public-process cases cover a missing database in an existing directory and
+a missing nested parent: both fail, identify the selected path, and leave the database, parent and
+directory contents unchanged. Capture still creates storage, and correction/reopen, exact source
+history, replay and stale-revision acceptance continue through the same public executable.
+
+The preflight does not reserve a pathname against concurrent deletion or replacement between
+checking and opening it. It does not replace the transactional case and revision checks.
 
 The public-process acceptance covers exact event replay and stale revision rejection. Concurrent
 same-revision corrections are exercised by the core suite through one in-memory SQLiteStore;
