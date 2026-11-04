@@ -68,6 +68,7 @@ nav:
       - Source Map Dependency Maintenance: 55-testing/testing-099-source-map-maintenance.md
       - Vite 8.1.6 Toolchain Maintenance: 55-testing/testing-100-vite-toolchain-maintenance.md
       - fast-uri 3.1.9 Dependency Maintenance: 55-testing/testing-101-fast-uri-maintenance.md
+      - Email Address Identity Maintenance: 55-testing/testing-102-mailparser-address-identity.md
       - YouTube Network Failure Diagnostics: 55-testing/testing-081-youtube-network-diagnostics.md
       - Continuity Capture and Direct-Correction Acceptance: 55-testing/testing-088-continuity-capture.md
   - Planning:

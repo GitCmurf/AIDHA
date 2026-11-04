@@ -35,7 +35,7 @@
     "@aidha/graph-backend": "workspace:*",
     "@aidha/praecis-core": "workspace:*",
     "@aidha/praecis-decode-text": "workspace:*",
-    "mailparser": "^3.9.40"
+    "mailparser": "^3.9.43"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",
