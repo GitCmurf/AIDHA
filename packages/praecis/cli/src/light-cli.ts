@@ -22,7 +22,7 @@ export async function runLightCli(argv: string[]): Promise<number> {
         if (kind !== 'capture' && kind !== 'update') throw new Error('--kind must be capture or update');
         // Inspection must not load continuity persistence or resolve a configured store.
         const { continuityExample } = await import('./continuity-example.js');
-        console.log(JSON.stringify(continuityExample(kind), null, 2));
+        process.stdout.write(`${JSON.stringify(continuityExample(kind), null, 2)}\n`);
         return 0;
       }
       // Preserve lightweight export/config startup: load this command only when selected.

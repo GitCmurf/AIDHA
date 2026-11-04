@@ -29,6 +29,5 @@ const correction = {
   interpreter: 'Fictional example author', factId: 'venue', value: 'East Hall', basis: 'supplied',
 } satisfies ContinuityEvent;
 
-export function continuityExample(kind: 'capture' | 'update') {
-  return kind === 'capture' ? capture : correction;
-}
+export const continuityExample = (kind: 'capture' | 'update') =>
+  kind === 'capture' ? capture : correction;

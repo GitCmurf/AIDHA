@@ -345,7 +345,7 @@ it('prints matching fictional examples without configuration, store access or co
   const poisonConfig = join(dir, 'invalid-config.yaml');
   writeFileSync(poisonConfig, 'not: [valid configuration');
   const filesBefore = readdirSync(dir).sort();
-  const examples = ['capture', 'update'].map(kind => {
+  const examples = (['capture', 'update'] as const).map(kind => {
     const result = invokeWithoutProfileWithEnv({
       NODE_OPTIONS: `--experimental-loader=${loader}`, AIDHA_CONFIG: poisonConfig,
     }, 'example', '--kind', kind, '--config', join(dir, 'missing-config.yaml'));
@@ -360,9 +360,11 @@ it('prints matching fictional examples without configuration, store access or co
   expect(correction.source.intent).toBe('illustrative');
   expect(initial.title).toMatch(/fictional|illustrative/i);
   expect(initial.facts).toHaveLength(1);
-  expect(correction.factId).toBe(initial.facts[0]!.id);
+  const [firstFact] = initial.facts;
+  if (firstFact === undefined) throw new Error('The capture example must include its fact');
+  expect(correction.factId).toBe(firstFact.id);
   expect(correction.expectedRevision).toBe(1);
-  expect(correction.value).not.toBe(initial.facts[0]!.value);
+  expect(correction.value).not.toBe(firstFact.value);
   expect(correction.source.id).not.toBe(initial.source.id);
   expect(correction.eventId).not.toBe(initial.eventId);
   expect(readdirSync(dir).sort()).toEqual(filesBefore);
@@ -399,27 +401,34 @@ it('advertises the example command in root and continuity help', () => {
 
 it('runs generated capture and correction examples through fresh-process persistence', () => {
   const { call, invoke, dir } = setup();
-  const paths = ['capture', 'update'].map(kind => {
+  const examplePath = (kind: 'capture' | 'update'): string => {
     const result = invoke('example', '--kind', kind);
     expect(result.error).toBeUndefined();
     expect(result.status, result.stderr).toBe(0);
     const path = join(dir, `example-${kind}.json`);
     writeFileSync(path, result.stdout, 'utf8');
     return path;
-  });
-  const initial = CaptureEvent.parse(JSON.parse(readFileSync(paths[0]!, 'utf8')));
-  const correction = UpdateEvent.parse(JSON.parse(readFileSync(paths[1]!, 'utf8')));
-  const on = initial.activities[0]!.date!;
-  expect(call('capture', '--case', 'fictional-example', '--input', paths[0]!))
+  };
+  const [capturePath, correctionPath] = [examplePath('capture'), examplePath('update')] as const;
+  const initial = CaptureEvent.parse(JSON.parse(readFileSync(capturePath, 'utf8')));
+  const correction = UpdateEvent.parse(JSON.parse(readFileSync(correctionPath, 'utf8')));
+  const [firstFact] = initial.facts;
+  if (firstFact === undefined) throw new Error('The capture example must include its fact');
+  const [activity] = initial.activities;
+  if (activity === undefined || activity.date === null) {
+    throw new Error('The capture example must include a dated activity');
+  }
+  const on = activity.date;
+  expect(call('capture', '--case', 'fictional-example', '--input', capturePath))
     .toEqual({ caseId: 'fictional-example', revision: 1, replayed: false });
   const before = call('show', '--case', 'fictional-example', '--on', on, '--json');
   expect(before.facts).toEqual(initial.facts.map(fact => ({ ...fact, sourceId: initial.source.id })));
-  expect(call('update', '--case', 'fictional-example', '--input', paths[1]!))
+  expect(call('update', '--case', 'fictional-example', '--input', correctionPath))
     .toEqual({ caseId: 'fictional-example', revision: 2, replayed: false });
   const reopened = call('show', '--case', 'fictional-example', '--on', on, '--json');
   expect(reopened.revision).toBe(2);
   expect(reopened.facts).toEqual([{
-    ...initial.facts[0], value: correction.value, basis: correction.basis, sourceId: correction.source.id,
+    ...firstFact, value: correction.value, basis: correction.basis, sourceId: correction.source.id,
   }]);
   expect(reopened.sources).toEqual([initial.source, correction.source]);
   expect(reopened.history.map((record: { event: unknown }) => record.event)).toEqual([initial, correction]);
