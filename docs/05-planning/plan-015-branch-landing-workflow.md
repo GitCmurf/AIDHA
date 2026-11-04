@@ -2,19 +2,19 @@
 document_id: AIDHA-PLAN-015
 owner: Engineering
 status: Draft
-version: '0.22'
+version: '0.23'
 last_updated: 2026-11-04
 title: Branch Landing and Next Sprints Workflow
 type: PLAN
 docops_version: '2.0'
 area: CORE
-related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AIDHA-PLAN-012, AIDHA-PLAN-013, AIDHA-PLAN-014]
+related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AIDHA-PLAN-012, AIDHA-PLAN-013, AIDHA-PLAN-014, AIDHA-TESTING-073, AIDHA-TESTING-080]
 ---
 <!-- MEMINIT_METADATA_BLOCK -->
 > **Document ID:** AIDHA-PLAN-015
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.22
+> **Version:** 0.23
 > **Last Updated:** 2026-11-04
 > **Type:** PLAN
 
@@ -46,6 +46,7 @@ related_ids: [AIDHA-PLAN-009, AIDHA-PLAN-008, AIDHA-PLAN-010, AIDHA-PLAN-011, AI
 | 0.20 | 2026-10-29 | Codex | Integrate the separate offline decision checkpoint while retaining current authority. | — | Draft | PR 38; AIDHA-TESTING-060 |
 | 0.21 | 2026-10-29 | Codex | Integrate offline provider adapters while preserving separate collection authority. | — | Draft | PR 39; AIDHA-TESTING-061 |
 | 0.22 | 2026-11-04 | Codex | Record six verified technical merges, dependency-alert closure and the bounded post-train handoff. | — | Draft | PRs 67–72; AIDHA-TESTING-073 |
+| 0.23 | 2026-11-04 | Codex | Recorded the analyser configuration merge and bounded DocOps handoff; added the workspace runtime pointer. | — | Draft | PR 77; AIDHA-TESTING-073; AIDHA-TESTING-080 |
 
 ## Purpose and authority
 
@@ -1297,6 +1298,49 @@ Private writer work remains parked for owner acceptance. The unchecked reader
 usefulness and continuity-input decisions above remain open, alongside the
 existing product, model, provider, spending, access and private-data boundaries.
 The original work inventory still needs reconciliation.
+
+## 2026-11-04: analyser configuration and DocOps handoff
+
+[PR 77](https://github.com/GitCmurf/AIDHA/pull/77) merged normally at **07:39:12 UTC**,
+preserving reviewed head `c3ea20a16d25c13e2a23a43a283f77704d3d390e` in main
+`7ccd7a2fddbbdf5a1ede4a37fcd4e62a1eea8486`. Required CI and the four reporting
+DeepSource analysers passed; Greptile reported 5/5 after the navigation finding was fixed.
+Skipped bots supplied no review coverage. The four post-merge main workflows passed:
+[TypeScript Packages][analyser-typescript], [Docs Check][analyser-docs],
+[Secret Scan][analyser-secrets] and [Push on main][analyser-push].
+
+The post-train preview on that main revision used the explicit route in
+[AIDHA-TESTING-073](../55-testing/testing-073-governed-context-refresh.md):
+
+```bash
+bash .specify/scripts/bash/update-agent-context.sh \
+    --plan docs/05-planning/plan-015-branch-landing-workflow.md --preview
+```
+
+It exited **1**, produced no stdout and reported
+`ERROR: Missing AIDHA_AGENT_CONTEXT_SOURCE block`. `AGENTS.md` retained its prior
+SHA-256, `9e18a31adec990e281b482cc0cfda3b9342499994680fefd7b4f6b730691fdb7`,
+until the separate manual pointer added by this handoff.
+
+The helper requires all five source fields and renders dependency, storage and project-type
+rows alongside the language row. We chose a short manual pointer to
+[AIDHA-TESTING-080](../55-testing/testing-080-node-runtime-floor.md) for the actual runtime
+gotcha: workspace checks follow the root Node floor even where older CLI metadata or
+contributor guidance gives a lower minimum. This avoids duplicating a manifest inventory
+in always-loaded context. No generated source block or generated refresh was added.
+This is an authorised engineering maintenance choice; no owner approval is pending for it.
+All prior manual instructions and authority text remain unchanged.
+
+There is no `specs/` directory or tracked spec file to prune. The five
+`.specify/templates/` files, three `docs/_templates/` files and constitution are unchanged
+against initial main `bb4e6fb66c569f3169ee1e860983893403a481f0`.
+No pruning or template rewrite was needed.
+The primary checkout's existing tracked changes remain untouched.
+
+[analyser-typescript]: https://github.com/GitCmurf/AIDHA/actions/runs/41793767541
+[analyser-docs]: https://github.com/GitCmurf/AIDHA/actions/runs/41793767488
+[analyser-secrets]: https://github.com/GitCmurf/AIDHA/actions/runs/41793767628
+[analyser-push]: https://github.com/GitCmurf/AIDHA/actions/runs/41793767409
 
 [train-packages]: https://github.com/GitCmurf/AIDHA/actions/runs/41747326827
 [train-typescript]: https://github.com/GitCmurf/AIDHA/actions/runs/41748019987
