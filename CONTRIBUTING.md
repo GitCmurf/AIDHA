@@ -2,8 +2,8 @@
 document_id: AIDHA-GOV-007
 owner: GitCmurf
 status: Draft
-version: "1.0"
-last_updated: 2026-05-12
+version: "1.1"
+last_updated: 2026-11-04
 title: Contributing to AIDHA
 type: GOV
 docops_version: "2.0"
@@ -14,8 +14,8 @@ docops_version: "2.0"
 > **Document ID:** AIDHA-GOV-007
 > **Owner:** GitCmurf
 > **Status:** Draft
-> **Version:** 1.0
-> **Last Updated:** 2026-05-12
+> **Version:** 1.1
+> **Last Updated:** 2026-11-04
 > **Type:** GOV
 
 # Contributing to AIDHA
@@ -25,6 +25,7 @@ docops_version: "2.0"
 | Version | Date       | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---------- | ------ | -------------- | --------- | ------ | --------- |
 | 1.0     | 2026-05-12 | AI     | Add DocOps metadata and record lightweight public contribution policy. | — | Draft | AIDHA-TASK-001 |
+| 1.1 | 2026-11-04 | Codex | Linked contributor prerequisites to the existing workspace Node requirement. | — | Draft | AIDHA-TESTING-080 |
 
 First off, thank you for considering contributing to AIDHA! This guide outlines the process for contributing to the project.
 
@@ -59,7 +60,10 @@ Report unacceptable behavior through a private maintainer contact path on GitHub
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js meeting the root [`package.json` workspace requirement][workspace-package].
+  Individual package engine declarations can have a lower minimum. Use the root requirement
+  when installing, building or testing the workspace. See
+  [AIDHA-TESTING-080](docs/55-testing/testing-080-node-runtime-floor.md) for SQLite compatibility evidence.
 - pnpm (install with `npm install -g pnpm`)
 - Python 3.12+ (for documentation)
 
@@ -156,3 +160,5 @@ a larger contributor community, the maintainer may revisit whether DCO sign-off 
 ## Security
 
 Please see [SECURITY.md](./SECURITY.md) for security guidelines.
+
+[workspace-package]: https://github.com/GitCmurf/AIDHA/blob/main/package.json
