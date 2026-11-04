@@ -452,7 +452,7 @@
       "document_id": "AIDHA-TESTING-103",
       "owner": "Engineering",
       "status": "Draft",
-      "version": "0.1",
+      "version": "0.2",
       "last_updated": "2026-11-04",
       "title": "Vitest 4.1.12 Dependency Maintenance",
       "type": "TESTING",
@@ -609,6 +609,21 @@
         "AIDHA-PLAN-015",
         "AIDHA-TESTING-058"
       ]
+    }
+  },
+  {
+    "path": "55-testing/testing-102-mailparser-address-identity.md",
+    "title": "Email Address Identity Maintenance",
+    "front_matter": {
+      "document_id": "AIDHA-TESTING-102",
+      "owner": "Engineering",
+      "status": "Draft",
+      "version": "0.2",
+      "last_updated": "2026-11-04",
+      "title": "Email Address Identity Maintenance",
+      "type": "TESTING",
+      "docops_version": "2.0",
+      "area": "INGEST"
     }
   },
   {

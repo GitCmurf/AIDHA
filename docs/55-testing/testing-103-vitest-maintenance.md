@@ -2,7 +2,7 @@
 document_id: AIDHA-TESTING-103
 owner: Engineering
 status: Draft
-version: '0.1'
+version: '0.2'
 last_updated: 2026-11-04
 title: Vitest 4.1.12 Dependency Maintenance
 type: TESTING
@@ -13,7 +13,7 @@ area: CORE
 > **Document ID:** AIDHA-TESTING-103
 > **Owner:** Engineering
 > **Status:** Draft
-> **Version:** 0.1
+> **Version:** 0.2
 > **Last Updated:** 2026-11-04
 > **Type:** TESTING
 
@@ -24,6 +24,7 @@ area: CORE
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
 | 0.1 | 2026-11-04 | Codex | Qualify the coordinated Vitest security patch through existing module mocks, spies and source-map consumers | — | Draft | Owner autonomous progress request |
+| 0.2 | 2026-11-04 | Codex | Integrate the reviewed mailparser patch and qualify its unchanged address-identity regression on Vitest 4.1.12 | — | Draft | AIDHA-TESTING-102; PR 71 |
 
 ## Problem and scope
 
@@ -43,10 +44,11 @@ plugin's development-server registration path. All 19 AIDHA Vitest configuration
 use the Node environment; this check does not establish a remotely reachable
 browser mock server in AIDHA.
 
-Fresh repository alert metadata after main `da0bb2c` identifies alerts 49 and 58
-as these two open mocker findings. Selecting 4.1.12 removes both affected package
-ranges. Actual alert closure requires a fresh repository check after merge; the
-three separate Nodemailer findings are outside this change.
+Repository alert metadata after main `da0bb2c` identified alerts 49 and 58 as
+these two open mocker findings. Selecting 4.1.12 removes both affected package
+ranges. Actual alert closure requires a fresh repository check after merge.
+The separate Nodemailer maintenance is recorded in [AIDHA-TESTING-102][email-testing]
+and is included through the subsequent main-branch integration below.
 
 ## Published contracts and exact resolution
 
@@ -72,7 +74,7 @@ then restore the final caret requirements and regenerate importer specifiers
 before frozen installation. Do not use a broad dependency update.
 
 Compare the final lockfile canonically with immutable main
-`da0bb2ccb7ead7c758245fa192819bcd759bf659`. Exclude only the eight changed family
+`0ec0c46caf7f01a641474fd8f248eb6d90c41815`. Exclude only the eight changed family
 records and normalise their explicit version contexts before comparing the other
 packages, snapshots and importers. Every unrelated resolution and contract must
 remain equal. In particular, retain Vite 8.1.6, PostCSS 8.5.28,
@@ -95,7 +97,8 @@ Use these existing behaviour checks:
 | [Package-script guards][script-tests] | Existing exhaustive default test dispatch and required runtime-build prerequisites |
 | [Source-map compatibility][map-tests] | PostCSS transforms CSS while preserving original mapped positions and source text through the installed toolchain |
 
-Commands from the repository root:
+Initial qualification commands from the repository root, before the PR 71
+integration:
 
 ```bash
 pnpm install --frozen-lockfile --strict-peer-dependencies
@@ -116,21 +119,52 @@ version, preserving their peer contexts; each package manifest differs only at
 the Vitest floor. Root manifest bytes and other top-level lock metadata match the
 immutable base.
 
-The five-package build command matched five projects. Config, graph backend,
+The initial five-package build command matched five projects. Config, graph backend,
 taxonomy and core builds completed; the final YouTube compiler received SIGTERM
 when the command reached its 300-second process budget, without a TypeScript
 diagnostic. The cause is not established. The local YouTube build remains
 unverified and its lint is not run. Do not count partially emitted files as a
 completed build or retry it with altered test or compiler settings.
 
-The four prerequisite package lints pass. All 89 selected cases pass: nine graph
-export cases, 74 NLP cases, one client-isolation case, four package-script guards
-and one source-map case. The Vitest runs use 4.1.12, one worker and serial files;
-the source-map case uses Node's test runner through the installed dependency chain.
+Before integrating PR 71, the four prerequisite package lints passed. All 89
+selected cases passed: nine graph export cases, 74 NLP cases, one client-isolation
+case, four package-script guards and one source-map case. The Vitest runs used
+4.1.12, one worker and serial files;
+the source-map case used Node's test runner through the installed dependency chain.
 All existing assertions, skips and timeouts are unchanged. The full local workspace
 suite is not repeated. Unchanged default full hosted CI must build, lint and test
 all 19 packages, including YouTube, and reporting review bots must be green before
 merge.
+
+## Integration with reviewed email maintenance
+
+Integrate immutable main `0ec0c46caf7f01a641474fd8f248eb6d90c41815`, whose tree is
+`f367501da5bb10c2c5f9ae1bbff5f76a089bef93`. Preserve its mailparser 3.9.43 parent,
+exact Nodemailer 10.1.4 and `@zone-eu/mailsplit` 5.4.25 children, and the unchanged
+email [address-identity regression][identity-tests]. Its test blob remains
+`8317e825e4f671230200ca3eac5a73c17d02559a`. The email manifest combines the main
+branch's `mailparser: ^3.9.43` production floor with `vitest: ^4.1.12` for development.
+
+Frozen strict-peer installation accepts the combined graph without dependency
+resolution. Canonical comparison against that main commit confirms all 169
+unrelated package records and 169 unrelated snapshots are equal. The 19 manifest
+diffs still contain only the Vitest floor changes. Installed artifact reads confirm
+the eight Vitest packages at 4.1.12 and the three mail versions above, including
+mailparser's exact child contracts. Navigation and the generated catalogue retain
+both acceptance pages.
+
+```bash
+pnpm install --frozen-lockfile --strict-peer-dependencies
+pnpm --filter @aidha/praecis-source-email --fail-if-no-match exec vitest run tests/address-identity.test.ts --maxWorkers=1 --no-file-parallelism
+node scripts/meminit-check.mjs docs/55-testing/testing-103-vitest-maintenance.md
+pnpm docs:build
+```
+
+All four additional email identity cases pass on Vitest 4.1.12, with the test blob
+unchanged. These cases qualify the combined graph separately from the original 89,
+which are not repeated after integration. The incomplete YouTube build and unrun
+lint remain disclosed above. The unchanged full hosted build, lint and test gate
+remains required for the combined graph.
 
 Local checks use Node 24.22.2 and native Linux x64 bindings. The hosted workflow
 uses Ubuntu and Node 22. Neither package engine declarations nor these checks
@@ -149,3 +183,5 @@ that baseline limitation remains as recorded in [AIDHA-TESTING-100][vite-testing
 [script-tests]: https://github.com/GitCmurf/AIDHA/blob/da0bb2ccb7ead7c758245fa192819bcd759bf659/packages/praecis/youtube/tests/package-scripts.test.ts
 [map-tests]: https://github.com/GitCmurf/AIDHA/blob/da0bb2ccb7ead7c758245fa192819bcd759bf659/scripts/security/source-map-compatibility.test.mjs
 [vite-testing]: testing-100-vite-toolchain-maintenance.md
+[email-testing]: testing-102-mailparser-address-identity.md
+[identity-tests]: https://github.com/GitCmurf/AIDHA/blob/0ec0c46caf7f01a641474fd8f248eb6d90c41815/packages/praecis/sources/email/tests/address-identity.test.ts
