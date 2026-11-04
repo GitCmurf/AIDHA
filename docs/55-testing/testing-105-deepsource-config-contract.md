@@ -23,7 +23,7 @@ area: CORE
 
 | Version | Date | Author | Change Summary | Reviewers | Status | Reference |
 | ------- | ---- | ------ | -------------- | --------- | ------ | --------- |
-| 0.1 | 2026-11-04 | Codex | Specify supported Node, ESM and TypeScript analyzer metadata without reducing analysis coverage | — | Draft | AIDHA-PLAN-015 |
+| 0.1 | 2026-11-04 | Codex | Specified supported Node, ESM and TypeScript analyzer metadata without reducing analysis coverage | — | Draft | AIDHA-PLAN-015 |
 
 ## Problem and scope
 
@@ -78,4 +78,4 @@ predict that a red JavaScript report will turn green. Inspect the actual report
 on the final revision separately; an unread failure remains unresolved.
 
 [deepsource-reference]: https://docs.deepsource.com/docs/platform/reference/core-analyzers#javascript
-[contract-test]: https://github.com/GitCmurf/AIDHA/blob/main/scripts/test_deepsource_config.py
+[contract-test]: https://github.com/GitCmurf/AIDHA/blob/49a852e11608753fb79518e91a664741e74c2405/scripts/test_deepsource_config.py
