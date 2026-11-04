@@ -27,6 +27,7 @@ related_ids: [AIDHA-PRD-004, AIDHA-ADR-010, AIDHA-TESTING-088]
 | 0.1 | 2026-09-11 | Codex | Document the first capture, correction and recovery commands. | — | Draft | — |
 | 0.2 | 2026-10-18 | Codex | Align steps with the workspace CLI entry point and bound scope to capture, show and direct correction. | — | Draft | AIDHA-PRD-004 |
 | 0.3 | 2026-10-29 | Codex | Document unknown-date validation, exact attribution and isolated continuity command dispatch. | — | Draft | PR 55 |
+| 0.4 | 2026-11-04 | Codex | Required existing selected storage for corrections and documented the filesystem preflight boundary. | — | Draft | AIDHA-TESTING-088 |
 | 0.5 | 2026-11-04 | Codex | Added copyable fictional examples and an isolated capture/correction rehearsal. | — | Draft | AIDHA-PRD-004 |
 
 ## Purpose and safety
@@ -186,8 +187,14 @@ or permission isolation for an existing shared database. Structured fact text is
 blank/length checks; source text and author/interpreter attribution retain submitted bytes.
 
 A case retains at most 200 events: one capture and up to 199 corrections. Each input is bounded
-to 1 MiB, while the complete event aggregate can grow beyond that per-input limit. An update
-against absent storage can initialize an empty database before reporting the missing case; use
-show first to verify the selected existing case. JSON distinguishes null values from the literal
-text unknown. The otherDates decision group means dates other than the selected date, including
-future dates; it does not classify them as historical.
+to 1 MiB, while the complete event aggregate can grow beyond that per-input limit. Use show first
+to inspect the case and revision before preparing a correction. Update requires its selected
+database to exist as a regular file: a missing database or parent directory is rejected without
+creating storage. Capture can still create a new database and its parent directories.
+
+This update preflight checks the selected filesystem path before opening the write store. It does
+not reserve that path against another process deleting or replacing it between the check and open.
+Case validation, event replay and revision checks remain inside the existing transaction.
+
+JSON distinguishes null values from the literal text unknown. The otherDates decision group means
+dates other than the selected date, including future dates; it does not classify them as historical.
